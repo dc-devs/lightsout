@@ -1,0 +1,21 @@
+{
+	"name": "lightsout",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Deterministic engine for coding agents — the accountability shell that lets the factory run with the lights off.",
+	"license": "MIT",
+	"author": "David Christian",
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"bundle": "esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --outfile=dist/cli.mjs"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.0",
+		"esbuild": "^0.24.0",
+		"typescript": "^5.7.0"
+	}
+}

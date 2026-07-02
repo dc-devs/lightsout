@@ -1,0 +1,5 @@
+{
+	"name": "lightsout",
+	"version": "0.0.1",
+	"description": "Doorbell for the lightsout engine — invokes the bundled deterministic pipeline. All logic lives in the engine, none in this plugin."
+}

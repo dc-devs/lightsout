@@ -1,0 +1,13 @@
+{
+	"name": "lightsout",
+	"owner": {
+		"name": "dc-devs"
+	},
+	"plugins": [
+		{
+			"name": "lightsout",
+			"source": "./plugin",
+			"description": "Deterministic engine for coding agents — run verified implementation pipelines on your existing subscription."
+		}
+	]
+}
