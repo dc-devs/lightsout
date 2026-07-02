@@ -2,7 +2,14 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { RunStatus } from '@lightsout/contracts';
 import { getDriver } from '@lightsout/drivers';
-import { loadConfig, readRunManifest, runImplementPipeline, type PipelineResult } from '@lightsout/engine';
+import {
+	loadConfig,
+	readFriction,
+	readRunManifest,
+	runImplementPipeline,
+	runPromptImprovement,
+	type PipelineResult,
+} from '@lightsout/engine';
 
 const usage = `lightsout — deterministic engine for coding agents
 
@@ -10,6 +17,8 @@ usage:
   lightsout run --plan <path> [--cwd <path>] [--skip-refactor]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
+  lightsout friction [--cwd <path>]
+  lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
 
 const statusIcons: Record<string, string> = {
@@ -145,6 +154,56 @@ const main = async () => {
 		}
 
 		process.exit(0);
+	}
+
+	if (command === 'friction') {
+		const entries = await readFriction({ cwd });
+
+		if (entries.length === 0) {
+			console.log('no friction recorded');
+			process.exit(0);
+		}
+
+		for (const entry of entries) {
+			console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
+		}
+
+		process.exit(0);
+	}
+
+	if (command === 'improve') {
+		const engineCwd = getStringFlag({ flags, name: 'engine' });
+
+		if (!engineCwd) {
+			console.error(usage);
+			process.exit(1);
+		}
+
+		const driver = getDriver({ name: 'claude-code' });
+		const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver });
+
+		if (result.friction.length === 0) {
+			console.log('no friction recorded — nothing to improve from');
+			process.exit(0);
+		}
+
+		if (result.rateLimited || !result.report) {
+			console.error(result.failure ?? 'improver produced no valid report');
+			process.exit(1);
+		}
+
+		console.log(`\nimprove: ${result.report.status} (${result.friction.length} friction entries considered)`);
+		console.log(`  ${result.report.summary}`);
+
+		for (const file of result.report.changedFiles) {
+			console.log(`  ~ ${file.path} — ${file.summary}`);
+		}
+
+		if (result.report.changedFiles.length > 0) {
+			console.log(`\nreview the diff in ${engineCwd} — the loop proposes, a human ships.`);
+		}
+
+		process.exit(result.report.status === 'complete' ? 0 : 1);
 	}
 
 	console.error(usage);

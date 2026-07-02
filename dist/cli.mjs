@@ -5,8 +5,8 @@ var __export = (target, all) => {
 };
 
 // packages/cli/src/index.ts
-import { readdir } from "node:fs/promises";
-import { join as join6 } from "node:path";
+import { readdir as readdir2 } from "node:fs/promises";
+import { join as join9 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -14560,6 +14560,25 @@ var RunManifest = external_exports.object({
   changedFiles: external_exports.array(external_exports.string())
 });
 
+// packages/contracts/src/FrictionArea.ts
+var FrictionArea = {
+  /** The plan was ambiguous, stale, or underspecified. */
+  Plan: "plan",
+  /** The agent's own role instructions were unclear or contradictory. */
+  Prompt: "prompt",
+  /** Provided standards conflicted with each other or the codebase. */
+  Standards: "standards",
+  /** Tooling, repo state, or configuration surprised the agent. */
+  Environment: "environment",
+  Other: "other"
+};
+
+// packages/contracts/src/FrictionEntry.ts
+var FrictionEntry = external_exports.object({
+  area: external_exports.enum(FrictionArea),
+  detail: external_exports.string()
+});
+
 // packages/contracts/src/WorkReportStatus.ts
 var WorkReportStatus = {
   Complete: "complete",
@@ -14585,7 +14604,9 @@ var WorkReport = external_exports.object({
   /** One-line description of what was done (or why it wasn't). */
   summary: external_exports.string(),
   /** Discrepancies, ambiguities, or errors — required non-empty for any non-complete status. */
-  failures: external_exports.array(external_exports.string())
+  failures: external_exports.array(external_exports.string()),
+  /** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
+  friction: external_exports.array(FrictionEntry).optional()
 });
 
 // packages/contracts/src/SupervisorDecision.ts
@@ -14603,6 +14624,13 @@ var SupervisorVerdict = external_exports.object({
   diagnosis: external_exports.string(),
   /** Concrete instructions injected into the retry invocation. Required when decision is retry. */
   guidance: external_exports.string().optional()
+});
+
+// packages/contracts/src/FrictionRecord.ts
+var FrictionRecord = FrictionEntry.extend({
+  at: external_exports.string(),
+  runId: external_exports.string(),
+  step: external_exports.string()
 });
 
 // packages/contracts/src/LightsoutConfig.ts
@@ -14814,10 +14842,10 @@ var extractJsonReport = ({ text }) => {
 
 // packages/engine/src/runImplementPipeline.ts
 import { readFile as readFile3 } from "node:fs/promises";
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
-var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
+var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nthe environment surprised you, or you had to guess \u2014 record it in the\noptional `friction` array of your report (`area`: `"plan"` | `"prompt"` |\n`"standards"` | `"environment"` | `"other"`). Report friction even when your\nstatus is complete; omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
 // packages/agents/src/buildFeatureExecutorInvocation.ts
 var buildFeatureExecutorInvocation = ({ planContent, standards, errorContext }) => {
@@ -14848,7 +14876,7 @@ ${errorContext}`
 };
 
 // packages/agents/prompts/unitTestWriter.md
-var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously from the task message, and your final\nmessage is machine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read the changed files listed in your task, and the plan for context on\n   intended behavior.\n2. Read the repository\'s existing tests first and mirror them exactly:\n   framework, assertion style, file placement, naming. The repo\'s conventions\n   are authoritative \u2014 never introduce a new test framework or pattern.\n\n## Write\n\n- Test observable behavior through each module\'s public surface, covering the\n  changed code\'s branches and edge cases.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"]\n}\n```\n';
+var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously from the task message, and your final\nmessage is machine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read the changed files listed in your task, and the plan for context on\n   intended behavior.\n2. Read the repository\'s existing tests first and mirror them exactly:\n   framework, assertion style, file placement, naming. The repo\'s conventions\n   are authoritative \u2014 never introduce a new test framework or pattern.\n\n## Write\n\n- Test observable behavior through each module\'s public surface, covering the\n  changed code\'s branches and edge cases.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nthe environment surprised you, or you had to guess \u2014 record it in the\noptional `friction` array of your report (`area`: `"plan"` | `"prompt"` |\n`"standards"` | `"environment"` | `"other"`). Report friction even when your\nstatus is complete; omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // packages/agents/src/buildUnitTestWriterInvocation.ts
 var buildUnitTestWriterInvocation = ({ planContent, changedFiles, errorContext }) => {
@@ -14877,7 +14905,7 @@ ${errorContext}`
 };
 
 // packages/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean).\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean).\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nthe environment surprised you, or you had to guess \u2014 record it in the\noptional `friction` array of your report (`area`: `"plan"` | `"prompt"` |\n`"standards"` | `"environment"` | `"other"`). Report friction even when your\nstatus is complete; omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // packages/agents/src/buildRefactorExecutorInvocation.ts
 var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, errorContext }) => {
@@ -14913,7 +14941,7 @@ ${errorContext}`
 };
 
 // packages/agents/prompts/supervisor.md
-var supervisor_default = '# Role: Pipeline Supervisor\n\nYou are the exception-path judgment of a deterministic coding pipeline. A step\nhas failed repeatedly despite mechanical retries, and the engine cannot decide\nwhat the failure means \u2014 that is your job. You have read-only access:\ninvestigate the repository freely, change nothing.\n\n## Inputs\n\nYour task message contains: the plan, the failing step, the verification-gate\noutput, and how many attempts have been made.\n\n## Decide\n\n- **`retry`** \u2014 the failure has a clear, mechanically fixable root cause that\n  previous attempts missed. Your `guidance` must be concrete enough that the\n  implementing agent cannot repeat the same mistake: name the file, the cause,\n  and the fix approach.\n- **`escalate`** \u2014 a human is needed. Escalate when: the same error has\n  survived multiple fix attempts unchanged; the failure traces to the plan\n  itself (wrong assumption, stale reference, underspecified behavior); the\n  environment is broken (missing tooling, misconfigured scripts); or the fix\n  would require changing behavior the plan didn\'t authorize.\n\nWhen uncertain, escalate \u2014 a wasted retry costs more than a human glance.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"decision": "retry" | "escalate",\n	"diagnosis": "root cause in one or two sentences",\n	"guidance": "required for retry: concrete fix instructions for the implementing agent"\n}\n```\n';
+var supervisor_default = '# Role: Pipeline Supervisor\n\nYou are the exception-path judgment of a deterministic coding pipeline. A step\nhas failed repeatedly despite mechanical retries, and the engine cannot decide\nwhat the failure means \u2014 that is your job. You have read-only access:\ninvestigate the repository freely, change nothing.\n\n## Inputs\n\nYour task message contains: the plan, the failing step, the verification-gate\noutput, and how many attempts have been made.\n\n## Decide\n\n- **`retry`** \u2014 the failure has a clear, mechanically fixable root cause that\n  previous attempts missed. Your `guidance` must be concrete enough that the\n  implementing agent cannot repeat the same mistake: name the file, the cause,\n  and the fix approach.\n- **`escalate`** \u2014 a human is needed. Escalate when: the same error has\n  survived multiple fix attempts unchanged; the failure traces to the plan\n  itself (wrong assumption, stale reference, underspecified behavior); the\n  environment is broken (missing tooling, misconfigured scripts); or the fix\n  would require changing behavior the plan didn\'t authorize.\n\nWhen uncertain, escalate \u2014 a wasted retry costs more than a human glance.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"decision": "retry" | "escalate",\n	"diagnosis": "root cause in one or two sentences",\n	"guidance": "required for retry: concrete fix instructions for the implementing agent"\n}\n```\n';
 
 // packages/agents/src/buildSupervisorInvocation.ts
 var buildSupervisorInvocation = ({ planContent, stepId, errorOutput, attempts }) => {
@@ -14933,6 +14961,41 @@ ${planContent}`,
     systemPrompt: supervisor_default,
     prompt: sections.join("\n\n")
   };
+};
+
+// packages/agents/prompts/promptImprover.md
+var promptImprover_default = '# Role: Prompt Improver\n\nYou maintain the agent role prompts of a deterministic coding pipeline.\nFriction reports from past runs \u2014 moments where an agent was confused,\nguessed, or fought its instructions \u2014 are your only input signal. Your job is\nto turn *systemic* friction into the smallest possible prompt improvements.\n\n## Judge before editing\n\n- Look for **systemic patterns**: the same confusion appearing across multiple\n  entries or runs. A single one-off entry is signal to note in `summary`, not\n  a reason to edit.\n- Only friction with area `prompt` \u2014 or friction clearly traceable to prompt\n  wording \u2014 justifies editing a prompt file. Friction about plans, standards,\n  or environment is outside your control: summarize it as recommendations in\n  `summary`, change nothing for it.\n- Read the affected prompt file in full before judging: the confusion may\n  already be addressed and the agent missed it \u2014 in that case, consider\n  whether the existing wording buries the rule, and sharpen placement rather\n  than adding repetition.\n\n## Edit rules\n\n- Edit ONLY the prompt files listed in your task. Nothing else, ever \u2014 no\n  source code, no contracts, no docs.\n- Make the **smallest change that removes the confusion**: sharpen a sentence,\n  resolve a contradiction, add one clarifying clause. Do not restructure,\n  re-voice, or grow a prompt beyond what the fix requires.\n- Preserve every prompt\'s report-contract section: the JSON shape is\n  load-bearing. Never alter field names, statuses, or the output-format rules.\n- Zero edits is a valid, common outcome (`complete` with empty `changedFiles`)\n  when friction is one-off, already addressed, or out of scope.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "packages/agents/prompts/example.md", "summary": "one clause on what was clarified and which friction drove it" }],\n	"summary": "patterns found, edits made, and recommendations for out-of-scope friction (plan/standards/environment)",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "area": "prompt", "detail": "optional \u2014 friction with your own instructions; omit when clean" }]\n}\n```\n';
+
+// packages/agents/src/buildPromptImproverInvocation.ts
+var buildPromptImproverInvocation = ({ friction, promptFiles }) => {
+  const entries = friction.map((record2) => `- [${record2.area}] (run ${record2.runId.slice(0, 8)}, step ${record2.step}, ${record2.at}) ${record2.detail}`).join("\n");
+  const sections = [
+    `# Friction reports
+
+${entries}`,
+    `# Prompt files you may edit
+
+${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
+    "Remember: your entire final message must be exactly one JSON report object \u2014 nothing else."
+  ];
+  return {
+    systemPrompt: promptImprover_default,
+    prompt: sections.join("\n\n")
+  };
+};
+
+// packages/engine/src/appendFriction.ts
+import { appendFile, mkdir as mkdir2 } from "node:fs/promises";
+import { join as join5 } from "node:path";
+var appendFriction = async ({ cwd, runId, step, friction }) => {
+  if (friction.length === 0) {
+    return;
+  }
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
+  await mkdir2(join5(cwd, ".lightsout"), { recursive: true });
+  await appendFile(join5(cwd, ".lightsout", "friction.jsonl"), `${lines}
+`, "utf8");
 };
 
 // packages/engine/src/invokeAgentWithContract.ts
@@ -15021,12 +15084,12 @@ var runImplementPipeline = async ({
     return stopped;
   };
   const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile3(join5(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const planContent = await readFile3(join6(cwd, manifest.plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `plan file not found: ${join5(cwd, manifest.plan)}`
+      error: `plan file not found: ${join6(cwd, manifest.plan)}`
     });
   }
   const nextRecord = ({ id }) => {
@@ -15057,6 +15120,7 @@ var runImplementPipeline = async ({
       if (!report) {
         return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
       }
+      await appendFriction({ cwd, runId: manifest.runId, step: id, friction: report.friction ?? [] });
       if (report.status !== WorkReportStatus.Complete) {
         const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
         return stop({
@@ -15080,6 +15144,9 @@ var runImplementPipeline = async ({
         const fix = await invokeRole(buildFix(error51));
         if (fix.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+        }
+        if (fix.report) {
+          await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
         }
         if (fix.report?.status === WorkReportStatus.Complete) {
           await setStep({ record: { ...record2, report: fix.report }, patch: { changedFiles: mergeChanged(fix.report) } });
@@ -15113,6 +15180,9 @@ ${verdict.report.guidance}`)
           );
           if (fix.rateLimited) {
             return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+          }
+          if (fix.report) {
+            await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
           }
           if (fix.report?.status === WorkReportStatus.Complete) {
             await setStep({ record: { ...record2, report: fix.report }, patch: { changedFiles: mergeChanged(fix.report) } });
@@ -15216,6 +15286,45 @@ ${error51}`
   return passed;
 };
 
+// packages/engine/src/readFriction.ts
+import { readFile as readFile4 } from "node:fs/promises";
+import { join as join7 } from "node:path";
+var readFriction = async ({ cwd }) => {
+  const raw = await readFile4(join7(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+  return raw.split("\n").filter(Boolean).flatMap((line) => {
+    try {
+      const parsed = FrictionRecord.safeParse(JSON.parse(line));
+      return parsed.success ? [parsed.data] : [];
+    } catch {
+      return [];
+    }
+  });
+};
+
+// packages/engine/src/runPromptImprovement.ts
+import { readdir } from "node:fs/promises";
+import { join as join8 } from "node:path";
+var improverTimeoutMs = 20 * 6e4;
+var promptsDir = "packages/agents/prompts";
+var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
+  const friction = await readFriction({ cwd: consumerCwd });
+  if (friction.length === 0) {
+    return { friction, report: void 0, failure: void 0, rateLimited: false };
+  }
+  const files = await readdir(join8(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join8(promptsDir, file2));
+  const { report, failure, rateLimited } = await invokeAgentWithContract({
+    driver,
+    cwd: engineCwd,
+    invocation: buildPromptImproverInvocation({ friction, promptFiles }),
+    contract: WorkReport,
+    model,
+    permissionMode: "acceptEdits",
+    timeoutMs: improverTimeoutMs
+  });
+  return { friction, report, failure, rateLimited };
+};
+
 // packages/cli/src/index.ts
 var usage = `lightsout \u2014 deterministic engine for coding agents
 
@@ -15223,6 +15332,8 @@ usage:
   lightsout run --plan <path> [--cwd <path>] [--skip-refactor]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
+  lightsout friction [--cwd <path>]
+  lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
 var statusIcons = {
   [RunStatus.Passed]: "\u2713",
@@ -15311,8 +15422,8 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join6(cwd, ".lightsout", "runs");
-    const runIds = await readdir(runsDir).catch(() => []);
+    const runsDir = join9(cwd, ".lightsout", "runs");
+    const runIds = await readdir2(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
       process.exit(0);
@@ -15324,6 +15435,45 @@ var main = async () => {
       }
     }
     process.exit(0);
+  }
+  if (command === "friction") {
+    const entries = await readFriction({ cwd });
+    if (entries.length === 0) {
+      console.log("no friction recorded");
+      process.exit(0);
+    }
+    for (const entry of entries) {
+      console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
+    }
+    process.exit(0);
+  }
+  if (command === "improve") {
+    const engineCwd = getStringFlag({ flags, name: "engine" });
+    if (!engineCwd) {
+      console.error(usage);
+      process.exit(1);
+    }
+    const driver = getDriver({ name: "claude-code" });
+    const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver });
+    if (result.friction.length === 0) {
+      console.log("no friction recorded \u2014 nothing to improve from");
+      process.exit(0);
+    }
+    if (result.rateLimited || !result.report) {
+      console.error(result.failure ?? "improver produced no valid report");
+      process.exit(1);
+    }
+    console.log(`
+improve: ${result.report.status} (${result.friction.length} friction entries considered)`);
+    console.log(`  ${result.report.summary}`);
+    for (const file2 of result.report.changedFiles) {
+      console.log(`  ~ ${file2.path} \u2014 ${file2.summary}`);
+    }
+    if (result.report.changedFiles.length > 0) {
+      console.log(`
+review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
+    }
+    process.exit(result.report.status === "complete" ? 0 : 1);
   }
   console.error(usage);
   process.exit(command === void 0 || command === "help" ? 0 : 1);

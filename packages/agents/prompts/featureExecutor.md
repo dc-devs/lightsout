@@ -48,16 +48,28 @@ Before reporting, re-read the plan once more and diff it mentally against what
 you changed: every requirement covered, nothing extra added, every changed
 file tracked.
 
+## Friction — help the pipeline improve itself
+
+If anything fought you during this task — the plan was ambiguous somewhere,
+your role instructions were contradictory or unclear, standards conflicted,
+the environment surprised you, or you had to guess — record it in the
+optional `friction` array of your report (`area`: `"plan"` | `"prompt"` |
+`"standards"` | `"environment"` | `"other"`). Report friction even when your
+status is complete; omit the field entirely when the run was clean.
+
 ## Report — your entire final message is one JSON object
 
-Output ONLY the JSON — no fences, no surrounding text, no explanation.
+Output ONLY the JSON — no fences, no surrounding text, no explanation. The
+fences around the example below are display formatting only, not part of the
+output: your actual message starts with `{` and ends with `}`.
 
 ```
 {
 	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",
 	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],
 	"summary": "one line: what was implemented, or why it wasn't",
-	"failures": ["required non-empty for any status other than complete"]
+	"failures": ["required non-empty for any status other than complete"],
+	"friction": [{ "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
 }
 ```
 

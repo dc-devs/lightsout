@@ -17,6 +17,7 @@ import {
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
+import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { runGates } from './runGates';
@@ -144,6 +145,10 @@ export const runImplementPipeline = async ({
 				return stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' });
 			}
 
+			// Friction is captured regardless of outcome — a terminated run's
+			// confusion is exactly the signal the improvement loop needs.
+			await appendFriction({ cwd, runId: manifest.runId, step: id, friction: report.friction ?? [] });
+
 			if (report.status !== WorkReportStatus.Complete) {
 				// Termination statuses need a human (plan defect, scope); a plain
 				// failed report is a failure. Both stop the run; only the state differs.
@@ -182,6 +187,10 @@ export const runImplementPipeline = async ({
 					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
 				}
 
+				if (fix.report) {
+					await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
+				}
+
 				if (fix.report?.status === WorkReportStatus.Complete) {
 					await setStep({ record: { ...record, report: fix.report }, patch: { changedFiles: mergeChanged(fix.report) } });
 				}
@@ -216,6 +225,10 @@ export const runImplementPipeline = async ({
 
 					if (fix.rateLimited) {
 						return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
+					}
+
+					if (fix.report) {
+						await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
 					}
 
 					if (fix.report?.status === WorkReportStatus.Complete) {

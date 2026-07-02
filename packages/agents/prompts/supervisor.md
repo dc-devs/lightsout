@@ -26,7 +26,9 @@ When uncertain, escalate — a wasted retry costs more than a human glance.
 
 ## Report — your entire final message is one JSON object
 
-Output ONLY the JSON — no fences, no surrounding text, no explanation.
+Output ONLY the JSON — no fences, no surrounding text, no explanation. The
+fences around the example below are display formatting only, not part of the
+output: your actual message starts with `{` and ends with `}`.
 
 ```
 {

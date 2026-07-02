@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FrictionEntry } from './FrictionEntry';
 import { WorkReportStatus } from './WorkReportStatus';
 
 /**
@@ -20,6 +21,8 @@ export const WorkReport = z.object({
 	summary: z.string(),
 	/** Discrepancies, ambiguities, or errors — required non-empty for any non-complete status. */
 	failures: z.array(z.string()),
+	/** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
+	friction: z.array(FrictionEntry).optional(),
 });
 
 export type WorkReport = z.infer<typeof WorkReport>;

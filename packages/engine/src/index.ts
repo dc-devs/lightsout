@@ -6,5 +6,7 @@ export { runCommand } from './runCommand';
 export { loadConfig } from './loadConfig';
 export { extractJsonReport } from './extractJsonReport';
 export { runImplementPipeline } from './runImplementPipeline';
+export { readFriction } from './readFriction';
+export { runPromptImprovement } from './runPromptImprovement';
 export type { CommandResult } from './CommandResult';
 export type { PipelineResult } from './PipelineResult';

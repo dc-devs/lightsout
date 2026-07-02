@@ -111,8 +111,8 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 |---|---|
 | v0.1 | contracts + engine + implement pipeline, claude-code driver |
 | v0.2 | supervisor + resume + rate-limit parking |
-| v0.3 | friction capture → self-improvement loop |
-| v0.4 | codex driver; consumer #1 (FeedbackDrop) running on it |
+| v0.3 | friction capture → self-improvement loop — SHIPPED: agents report friction in WorkReport; engine appends to `.lightsout/friction.jsonl` with run/step provenance; `improve` feeds aggregated friction + prompt files to the prompt-improver role (edits the engine worktree; a human reviews the diff and ships) |
+| v0.4 | standards/style-card injection; codex driver; consumer #1 (FeedbackDrop) running on it |
 
 ## Decision log
 
