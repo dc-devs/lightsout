@@ -53,6 +53,9 @@ importers:
 
   packages/engine:
     dependencies:
+      '@lightsout/agents':
+        specifier: workspace:*
+        version: link:../agents
       '@lightsout/contracts':
         specifier: workspace:*
         version: link:../contracts

@@ -5,6 +5,7 @@
 	"type": "module",
 	"main": "./src/index.ts",
 	"dependencies": {
+		"@lightsout/agents": "workspace:*",
 		"@lightsout/contracts": "workspace:*",
 		"@lightsout/drivers": "workspace:*"
 	}

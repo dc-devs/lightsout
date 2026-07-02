@@ -11,7 +11,7 @@
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
-		"bundle": "esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --outfile=dist/cli.mjs"
+		"bundle": "esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --loader:.md=text --outfile=dist/cli.mjs"
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.0",

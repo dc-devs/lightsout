@@ -3,4 +3,8 @@ export { readRunManifest } from './readRunManifest';
 export { writeRunManifest } from './writeRunManifest';
 export { getRunDir } from './getRunDir';
 export { runCommand } from './runCommand';
+export { loadConfig } from './loadConfig';
+export { extractJsonReport } from './extractJsonReport';
+export { runImplementPipeline } from './runImplementPipeline';
 export type { CommandResult } from './CommandResult';
+export type { PipelineResult } from './PipelineResult';
