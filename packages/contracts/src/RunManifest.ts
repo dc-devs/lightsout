@@ -1,24 +1,27 @@
 import { z } from 'zod';
+import { RunStatus } from './RunStatus';
+import { StepRecord } from './StepRecord';
 
 /**
  * The on-disk state of a run (`.lightsout/runs/<id>/manifest.json`).
  *
  * State lives here, not in any model's context window — this is what makes
  * runs crash-safe, rate-limit-safe, and resumable at the failed step.
- *
- * Pre-alpha shape: step/budget details harden as the engine lands.
  */
 export const RunManifest = z.object({
 	runId: z.string(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+	/** Path to the plan file the run implements, relative to the target repo. */
 	plan: z.string(),
-	status: z.string(),
-	steps: z.array(
-		z.object({
-			id: z.string(),
-			status: z.string(),
-			attempts: z.number(),
-		}),
-	),
+	/** Driver name the run was started with (a resumed run must reuse it). */
+	driver: z.string(),
+	status: z.enum(RunStatus),
+	/** Step id currently executing, or null when no step is in flight. */
+	currentStep: z.string().nullable(),
+	steps: z.array(StepRecord),
+	/** Source files changed so far, accumulated across steps. */
+	changedFiles: z.array(z.string()),
 });
 
 export type RunManifest = z.infer<typeof RunManifest>;
