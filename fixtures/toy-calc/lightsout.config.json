@@ -1,0 +1,8 @@
+{
+	"scripts": {
+		"check": "node --check src/index.js",
+		"testUnit": "node --test"
+	},
+	"standards": [".lightsout/style-card.md"],
+	"testStandards": [".lightsout/style-card.md"]
+}

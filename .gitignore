@@ -10,3 +10,7 @@ node_modules/
 # os / editor
 .DS_Store
 *.log
+
+# fixture run state
+fixtures/*/.lightsout/runs/
+fixtures/*/.lightsout/friction.jsonl
