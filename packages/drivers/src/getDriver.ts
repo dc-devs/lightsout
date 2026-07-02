@@ -1,4 +1,5 @@
 import { createClaudeCodeDriver } from './createClaudeCodeDriver';
+import { createCodexDriver } from './createCodexDriver';
 
 interface Params {
 	name: string;
@@ -13,5 +14,9 @@ export const getDriver = ({ name }: Params) => {
 		return createClaudeCodeDriver();
 	}
 
-	throw new Error(`unknown driver: ${name} (available: claude-code)`);
+	if (name === 'codex') {
+		return createCodexDriver();
+	}
+
+	throw new Error(`unknown driver: ${name} (available: claude-code, codex)`);
 };

@@ -20,6 +20,7 @@ import type { Driver } from '@lightsout/drivers';
 import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { readStandards } from './readStandards';
 import { runGates } from './runGates';
 import { writeRunManifest } from './writeRunManifest';
 import type { PipelineResult } from './PipelineResult';
@@ -103,6 +104,20 @@ export const runImplementPipeline = async ({
 			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
 			status: RunStatus.Failed,
 			error: `plan file not found: ${join(cwd, manifest.plan)}`,
+		});
+	}
+
+	let standards: string | undefined;
+	let testStandards: string | undefined;
+
+	try {
+		standards = await readStandards({ cwd, paths: config.standards ?? [] });
+		testStandards = await readStandards({ cwd, paths: config.testStandards ?? [] });
+	} catch (error) {
+		return stop({
+			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
+			status: RunStatus.Failed,
+			error: error instanceof Error ? error.message : String(error),
 		});
 	}
 
@@ -279,7 +294,7 @@ export const runImplementPipeline = async ({
 					skip: () => (manifest.changedFiles.length === 0 ? 'no changed files to review' : undefined),
 					run: workStep({
 						id: 'refactor',
-						build: () => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles }),
+						build: () => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, standards }),
 					}),
 				},
 				{
@@ -287,7 +302,7 @@ export const runImplementPipeline = async ({
 					run: verifyStep({
 						id: 'verify-refactor',
 						buildFix: (errorContext) =>
-							buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, errorContext }),
+							buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, standards, errorContext }),
 					}),
 				},
 			];
@@ -296,13 +311,13 @@ export const runImplementPipeline = async ({
 		{ id: 'clean-slate', run: cleanSlateStep },
 		{
 			id: 'implement',
-			run: workStep({ id: 'implement', build: () => buildFeatureExecutorInvocation({ planContent }) }),
+			run: workStep({ id: 'implement', build: () => buildFeatureExecutorInvocation({ planContent, standards }) }),
 		},
 		{
 			id: 'verify-implement',
 			run: verifyStep({
 				id: 'verify-implement',
-				buildFix: (errorContext) => buildFeatureExecutorInvocation({ planContent, errorContext }),
+				buildFix: (errorContext) => buildFeatureExecutorInvocation({ planContent, standards, errorContext }),
 			}),
 		},
 		{
@@ -310,7 +325,7 @@ export const runImplementPipeline = async ({
 			skip: () => (sourceFiles().length === 0 ? 'no eligible source files' : undefined),
 			run: workStep({
 				id: 'write-tests',
-				build: () => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles() }),
+				build: () => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards }),
 			}),
 		},
 		{
@@ -318,7 +333,7 @@ export const runImplementPipeline = async ({
 			run: verifyStep({
 				id: 'verify-tests',
 				buildFix: (errorContext) =>
-					buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), errorContext }),
+					buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards, errorContext }),
 			}),
 		},
 		...refactorSteps,

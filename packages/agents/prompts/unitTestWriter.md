@@ -16,6 +16,8 @@ message is machine-parsed — it is a data payload, not prose for a human.
 
 - Test observable behavior through each module's public surface, covering the
   changed code's branches and edge cases.
+- If a Standards section is provided in your task message, every rule in it is
+  binding for the tests you write.
 - Skip files that are not testable source (config, type-only files, barrels,
   and test files themselves) — note each skip and why in `summary`.
 - Do not modify source files. If a changed file's behavior appears defective

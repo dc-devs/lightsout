@@ -4,16 +4,22 @@ interface Params {
 	planContent: string;
 	/** Source files changed earlier in the run — the test-writer's target set. */
 	changedFiles: string[];
+	/** Optional consumer test standards content, inlined verbatim. */
+	standards?: string;
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
 	errorContext?: string;
 }
 
 /** Assemble the unit-test-writer invocation deterministically. */
-export const buildUnitTestWriterInvocation = ({ planContent, changedFiles, errorContext }: Params) => {
+export const buildUnitTestWriterInvocation = ({ planContent, changedFiles, standards, errorContext }: Params) => {
 	const sections = [
 		`# Changed files to cover\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`,
 		`# Plan (context for intended behavior)\n\n${planContent}`,
 	];
+
+	if (standards) {
+		sections.push(`# Standards\n\nThese rules are binding for the tests you write:\n\n${standards}`);
+	}
 
 	if (errorContext) {
 		sections.push(

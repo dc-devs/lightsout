@@ -1,5 +1,5 @@
-import { spawn } from 'node:child_process';
 import { z } from 'zod';
+import { spawnCollect } from './spawnCollect';
 import type { Driver } from './Driver';
 
 /**
@@ -60,65 +60,32 @@ const buildArgs = ({
  *
  * Spawns the user's own installed, logged-in `claude` binary — auth and
  * billing ride the user's existing session (e.g. a Max subscription), and the
- * engine never sees a credential. The prompt travels via stdin to sidestep
- * argv length limits. Flag surface verified against claude CLI 2.1.198.
- *
- * Rejects on spawn failure or timeout; otherwise resolves with the final text
- * and exit code — the engine owns all judgment about what they mean.
+ * engine never sees a credential. Flag surface verified against claude CLI
+ * 2.1.198.
  */
 export const createClaudeCodeDriver = () => {
 	const driver: Driver = {
 		name: 'claude-code',
-		invoke: (invocation) => {
-			return new Promise((resolve, reject) => {
-				const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
+		invoke: async (invocation) => {
+			const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
 
-				const child = spawn('claude', buildArgs({ systemPrompt, model, permissionMode }), {
-					cwd,
-					stdio: ['pipe', 'pipe', 'pipe'],
-				});
-
-				let stdout = '';
-				let stderr = '';
-
-				const timeout = timeoutMs
-					? setTimeout(() => {
-							child.kill('SIGKILL');
-							reject(new Error(`claude-code driver timed out after ${timeoutMs}ms`));
-						}, timeoutMs)
-					: undefined;
-
-				child.stdout.on('data', (chunk: Buffer) => {
-					stdout += chunk.toString();
-				});
-
-				child.stderr.on('data', (chunk: Buffer) => {
-					stderr += chunk.toString();
-				});
-
-				child.on('error', (error) => {
-					clearTimeout(timeout);
-					reject(error);
-				});
-
-				child.on('close', (code) => {
-					clearTimeout(timeout);
-
-					const envelope = parseEnvelope({ stdout });
-					const exitCode = code ?? -1;
-					const text = envelope?.result ?? stdout ?? '';
-					const errored = envelope?.is_error === true || exitCode !== 0;
-
-					resolve({
-						text: text || stderr,
-						exitCode,
-						rateLimited: errored && rateLimitPattern.test(`${text}\n${stderr}`),
-					});
-				});
-
-				child.stdin.write(prompt);
-				child.stdin.end();
+			const { exitCode, stdout, stderr } = await spawnCollect({
+				command: 'claude',
+				args: buildArgs({ systemPrompt, model, permissionMode }),
+				cwd,
+				stdinText: prompt,
+				timeoutMs,
 			});
+
+			const envelope = parseEnvelope({ stdout });
+			const text = envelope?.result ?? stdout ?? '';
+			const errored = envelope?.is_error === true || exitCode !== 0;
+
+			return {
+				text: text || stderr,
+				exitCode,
+				rateLimited: errored && rateLimitPattern.test(`${text}\n${stderr}`),
+			};
 		},
 	};
 

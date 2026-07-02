@@ -6,7 +6,7 @@ var __export = (target, all) => {
 
 // packages/cli/src/index.ts
 import { readdir as readdir2 } from "node:fs/promises";
-import { join as join9 } from "node:path";
+import { join as join11 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -14645,11 +14645,46 @@ var LightsoutConfig = external_exports.object({
   scripts: external_exports.object({
     check: external_exports.string(),
     testUnit: external_exports.string()
-  })
+  }),
+  /** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
+  standards: external_exports.array(external_exports.string()).optional(),
+  /** Same, for the test-writer role. */
+  testStandards: external_exports.array(external_exports.string()).optional()
 });
 
-// packages/drivers/src/createClaudeCodeDriver.ts
+// packages/drivers/src/spawnCollect.ts
 import { spawn } from "node:child_process";
+var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs }) => {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    const timeout = timeoutMs ? setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`${command} timed out after ${timeoutMs}ms`));
+    }, timeoutMs) : void 0;
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error51) => {
+      clearTimeout(timeout);
+      reject(error51);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      resolve({ exitCode: code ?? -1, stdout, stderr });
+    });
+    if (stdinText !== void 0) {
+      child.stdin.write(stdinText);
+    }
+    child.stdin.end();
+  });
+};
+
+// packages/drivers/src/createClaudeCodeDriver.ts
 var ResultEnvelope = external_exports.object({
   result: external_exports.string().optional(),
   is_error: external_exports.boolean().optional()
@@ -14682,45 +14717,88 @@ var buildArgs = ({
 var createClaudeCodeDriver = () => {
   const driver = {
     name: "claude-code",
-    invoke: (invocation) => {
-      return new Promise((resolve, reject) => {
-        const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
-        const child = spawn("claude", buildArgs({ systemPrompt, model, permissionMode }), {
-          cwd,
-          stdio: ["pipe", "pipe", "pipe"]
-        });
-        let stdout = "";
-        let stderr = "";
-        const timeout = timeoutMs ? setTimeout(() => {
-          child.kill("SIGKILL");
-          reject(new Error(`claude-code driver timed out after ${timeoutMs}ms`));
-        }, timeoutMs) : void 0;
-        child.stdout.on("data", (chunk) => {
-          stdout += chunk.toString();
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += chunk.toString();
-        });
-        child.on("error", (error51) => {
-          clearTimeout(timeout);
-          reject(error51);
-        });
-        child.on("close", (code) => {
-          clearTimeout(timeout);
-          const envelope = parseEnvelope({ stdout });
-          const exitCode = code ?? -1;
-          const text = envelope?.result ?? stdout ?? "";
-          const errored = envelope?.is_error === true || exitCode !== 0;
-          resolve({
-            text: text || stderr,
-            exitCode,
-            rateLimited: errored && rateLimitPattern.test(`${text}
-${stderr}`)
-          });
-        });
-        child.stdin.write(prompt);
-        child.stdin.end();
+    invoke: async (invocation) => {
+      const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
+      const { exitCode, stdout, stderr } = await spawnCollect({
+        command: "claude",
+        args: buildArgs({ systemPrompt, model, permissionMode }),
+        cwd,
+        stdinText: prompt,
+        timeoutMs
       });
+      const envelope = parseEnvelope({ stdout });
+      const text = envelope?.result ?? stdout ?? "";
+      const errored = envelope?.is_error === true || exitCode !== 0;
+      return {
+        text: text || stderr,
+        exitCode,
+        rateLimited: errored && rateLimitPattern.test(`${text}
+${stderr}`)
+      };
+    }
+  };
+  return driver;
+};
+
+// packages/drivers/src/createCodexDriver.ts
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+var rateLimitPattern2 = /usage limit|rate limit|limit reached|quota/i;
+var sandboxArgs = ({ permissionMode }) => {
+  if (permissionMode === "plan") {
+    return ["--sandbox", "read-only"];
+  }
+  if (permissionMode === "bypassPermissions") {
+    return ["--dangerously-bypass-approvals-and-sandbox"];
+  }
+  return ["--sandbox", "workspace-write"];
+};
+var createCodexDriver = () => {
+  const driver = {
+    name: "codex",
+    invoke: async (invocation) => {
+      const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
+      const outDir = await mkdtemp(join(tmpdir(), "lightsout-codex-"));
+      const outFile = join(outDir, "last-message.txt");
+      const args = [
+        "exec",
+        "--skip-git-repo-check",
+        "--color",
+        "never",
+        "--output-last-message",
+        outFile,
+        ...sandboxArgs({ permissionMode })
+      ];
+      if (model) {
+        args.push("--model", model);
+      }
+      const fullPrompt = systemPrompt ? `# Role instructions
+
+${systemPrompt}
+
+# Task
+
+${prompt}` : prompt;
+      try {
+        const { exitCode, stdout, stderr } = await spawnCollect({
+          command: "codex",
+          args,
+          cwd,
+          stdinText: fullPrompt,
+          timeoutMs
+        });
+        const text = await readFile(outFile, "utf8").catch(() => "");
+        const errored = exitCode !== 0 || text === "";
+        return {
+          text: text || stdout || stderr,
+          exitCode,
+          rateLimited: errored && rateLimitPattern2.test(`${stdout}
+${stderr}`)
+        };
+      } finally {
+        await rm(outDir, { recursive: true, force: true });
+      }
     }
   };
   return driver;
@@ -14731,7 +14809,10 @@ var getDriver = ({ name }) => {
   if (name === "claude-code") {
     return createClaudeCodeDriver();
   }
-  throw new Error(`unknown driver: ${name} (available: claude-code)`);
+  if (name === "codex") {
+    return createCodexDriver();
+  }
+  throw new Error(`unknown driver: ${name} (available: claude-code, codex)`);
 };
 
 // packages/engine/src/createRun.ts
@@ -14739,17 +14820,17 @@ import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
 // packages/engine/src/getRunDir.ts
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 var getRunDir = ({ cwd, runId }) => {
-  return join(cwd, ".lightsout", "runs", runId);
+  return join2(cwd, ".lightsout", "runs", runId);
 };
 
 // packages/engine/src/writeRunManifest.ts
 import { rename, writeFile } from "node:fs/promises";
-import { join as join2 } from "node:path";
+import { join as join3 } from "node:path";
 var writeRunManifest = async ({ cwd, manifest }) => {
   const stamped = { ...manifest, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const manifestPath = join2(getRunDir({ cwd, runId: manifest.runId }), "manifest.json");
+  const manifestPath = join3(getRunDir({ cwd, runId: manifest.runId }), "manifest.json");
   const tmpPath = `${manifestPath}.tmp`;
   await writeFile(tmpPath, `${JSON.stringify(stamped, null, "	")}
 `, "utf8");
@@ -14776,10 +14857,10 @@ var createRun = async ({ cwd, plan, driver }) => {
 };
 
 // packages/engine/src/readRunManifest.ts
-import { readFile } from "node:fs/promises";
-import { join as join3 } from "node:path";
+import { readFile as readFile2 } from "node:fs/promises";
+import { join as join4 } from "node:path";
 var readRunManifest = async ({ cwd, runId }) => {
-  const raw = await readFile(join3(getRunDir({ cwd, runId }), "manifest.json"), "utf8");
+  const raw = await readFile2(join4(getRunDir({ cwd, runId }), "manifest.json"), "utf8");
   return RunManifest.parse(JSON.parse(raw));
 };
 
@@ -14812,11 +14893,11 @@ var runCommand = ({ command, cwd, timeoutMs }) => {
 };
 
 // packages/engine/src/loadConfig.ts
-import { readFile as readFile2 } from "node:fs/promises";
-import { join as join4 } from "node:path";
+import { readFile as readFile3 } from "node:fs/promises";
+import { join as join5 } from "node:path";
 var loadConfig = async ({ cwd }) => {
-  const configPath = join4(cwd, "lightsout.config.json");
-  const raw = await readFile2(configPath, "utf8").catch(() => {
+  const configPath = join5(cwd, "lightsout.config.json");
+  const raw = await readFile3(configPath, "utf8").catch(() => {
     throw new Error(`lightsout.config.json not found at ${configPath}`);
   });
   return LightsoutConfig.parse(JSON.parse(raw));
@@ -14841,8 +14922,8 @@ var extractJsonReport = ({ text }) => {
 };
 
 // packages/engine/src/runImplementPipeline.ts
-import { readFile as readFile3 } from "node:fs/promises";
-import { join as join6 } from "node:path";
+import { readFile as readFile5 } from "node:fs/promises";
+import { join as join8 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nthe environment surprised you, or you had to guess \u2014 record it in the\noptional `friction` array of your report (`area`: `"plan"` | `"prompt"` |\n`"standards"` | `"environment"` | `"other"`). Report friction even when your\nstatus is complete; omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
@@ -14876,10 +14957,10 @@ ${errorContext}`
 };
 
 // packages/agents/prompts/unitTestWriter.md
-var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously from the task message, and your final\nmessage is machine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read the changed files listed in your task, and the plan for context on\n   intended behavior.\n2. Read the repository\'s existing tests first and mirror them exactly:\n   framework, assertion style, file placement, naming. The repo\'s conventions\n   are authoritative \u2014 never introduce a new test framework or pattern.\n\n## Write\n\n- Test observable behavior through each module\'s public surface, covering the\n  changed code\'s branches and edge cases.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nthe environment surprised you, or you had to guess \u2014 record it in the\noptional `friction` array of your report (`area`: `"plan"` | `"prompt"` |\n`"standards"` | `"environment"` | `"other"`). Report friction even when your\nstatus is complete; omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously from the task message, and your final\nmessage is machine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read the changed files listed in your task, and the plan for context on\n   intended behavior.\n2. Read the repository\'s existing tests first and mirror them exactly:\n   framework, assertion style, file placement, naming. The repo\'s conventions\n   are authoritative \u2014 never introduce a new test framework or pattern.\n\n## Write\n\n- Test observable behavior through each module\'s public surface, covering the\n  changed code\'s branches and edge cases.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for the tests you write.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nthe environment surprised you, or you had to guess \u2014 record it in the\noptional `friction` array of your report (`area`: `"plan"` | `"prompt"` |\n`"standards"` | `"environment"` | `"other"`). Report friction even when your\nstatus is complete; omit the field entirely when the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // packages/agents/src/buildUnitTestWriterInvocation.ts
-var buildUnitTestWriterInvocation = ({ planContent, changedFiles, errorContext }) => {
+var buildUnitTestWriterInvocation = ({ planContent, changedFiles, standards, errorContext }) => {
   const sections = [
     `# Changed files to cover
 
@@ -14888,6 +14969,13 @@ ${changedFiles.map((file2) => `- ${file2}`).join("\n")}`,
 
 ${planContent}`
   ];
+  if (standards) {
+    sections.push(`# Standards
+
+These rules are binding for the tests you write:
+
+${standards}`);
+  }
   if (errorContext) {
     sections.push(
       `# Verification failure
@@ -14986,15 +15074,15 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 
 // packages/engine/src/appendFriction.ts
 import { appendFile, mkdir as mkdir2 } from "node:fs/promises";
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 var appendFriction = async ({ cwd, runId, step, friction }) => {
   if (friction.length === 0) {
     return;
   }
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir2(join5(cwd, ".lightsout"), { recursive: true });
-  await appendFile(join5(cwd, ".lightsout", "friction.jsonl"), `${lines}
+  await mkdir2(join6(cwd, ".lightsout"), { recursive: true });
+  await appendFile(join6(cwd, ".lightsout", "friction.jsonl"), `${lines}
 `, "utf8");
 };
 
@@ -15029,6 +15117,25 @@ var invokeAgentWithContract = async ({
     lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
   }
   return { report: void 0, failure: lastFailure, rateLimited: false };
+};
+
+// packages/engine/src/readStandards.ts
+import { readFile as readFile4 } from "node:fs/promises";
+import { join as join7 } from "node:path";
+var readStandards = async ({ cwd, paths }) => {
+  if (paths.length === 0) {
+    return void 0;
+  }
+  const contents = await Promise.all(
+    paths.map(async (path) => {
+      const raw = await readFile4(join7(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join7(cwd, path)}`);
+      });
+      return `<!-- ${path} -->
+${raw}`;
+    })
+  );
+  return contents.join("\n\n");
 };
 
 // packages/engine/src/runGates.ts
@@ -15084,12 +15191,24 @@ var runImplementPipeline = async ({
     return stopped;
   };
   const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile3(join6(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const planContent = await readFile5(join8(cwd, manifest.plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `plan file not found: ${join6(cwd, manifest.plan)}`
+      error: `plan file not found: ${join8(cwd, manifest.plan)}`
+    });
+  }
+  let standards;
+  let testStandards;
+  try {
+    standards = await readStandards({ cwd, paths: config2.standards ?? [] });
+    testStandards = await readStandards({ cwd, paths: config2.testStandards ?? [] });
+  } catch (error51) {
+    return stop({
+      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
+      status: RunStatus.Failed,
+      error: error51 instanceof Error ? error51.message : String(error51)
     });
   }
   const nextRecord = ({ id }) => {
@@ -15222,14 +15341,14 @@ ${error51}`
       skip: () => manifest.changedFiles.length === 0 ? "no changed files to review" : void 0,
       run: workStep({
         id: "refactor",
-        build: () => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles })
+        build: () => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, standards })
       })
     },
     {
       id: "verify-refactor",
       run: verifyStep({
         id: "verify-refactor",
-        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, errorContext })
+        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, standards, errorContext })
       })
     }
   ];
@@ -15237,13 +15356,13 @@ ${error51}`
     { id: "clean-slate", run: cleanSlateStep },
     {
       id: "implement",
-      run: workStep({ id: "implement", build: () => buildFeatureExecutorInvocation({ planContent }) })
+      run: workStep({ id: "implement", build: () => buildFeatureExecutorInvocation({ planContent, standards }) })
     },
     {
       id: "verify-implement",
       run: verifyStep({
         id: "verify-implement",
-        buildFix: (errorContext) => buildFeatureExecutorInvocation({ planContent, errorContext })
+        buildFix: (errorContext) => buildFeatureExecutorInvocation({ planContent, standards, errorContext })
       })
     },
     {
@@ -15251,14 +15370,14 @@ ${error51}`
       skip: () => sourceFiles().length === 0 ? "no eligible source files" : void 0,
       run: workStep({
         id: "write-tests",
-        build: () => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles() })
+        build: () => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards })
       })
     },
     {
       id: "verify-tests",
       run: verifyStep({
         id: "verify-tests",
-        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), errorContext })
+        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards, errorContext })
       })
     },
     ...refactorSteps
@@ -15287,10 +15406,10 @@ ${error51}`
 };
 
 // packages/engine/src/readFriction.ts
-import { readFile as readFile4 } from "node:fs/promises";
-import { join as join7 } from "node:path";
+import { readFile as readFile6 } from "node:fs/promises";
+import { join as join9 } from "node:path";
 var readFriction = async ({ cwd }) => {
-  const raw = await readFile4(join7(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+  const raw = await readFile6(join9(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
   return raw.split("\n").filter(Boolean).flatMap((line) => {
     try {
       const parsed = FrictionRecord.safeParse(JSON.parse(line));
@@ -15303,7 +15422,7 @@ var readFriction = async ({ cwd }) => {
 
 // packages/engine/src/runPromptImprovement.ts
 import { readdir } from "node:fs/promises";
-import { join as join8 } from "node:path";
+import { join as join10 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -15311,8 +15430,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir(join8(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join8(promptsDir, file2));
+  const files = await readdir(join10(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join10(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -15422,7 +15541,7 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join9(cwd, ".lightsout", "runs");
+    const runsDir = join11(cwd, ".lightsout", "runs");
     const runIds = await readdir2(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");

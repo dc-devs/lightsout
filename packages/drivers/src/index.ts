@@ -1,4 +1,5 @@
 export { createClaudeCodeDriver } from './createClaudeCodeDriver';
+export { createCodexDriver } from './createCodexDriver';
 export { getDriver } from './getDriver';
 export type { Driver } from './Driver';
 export type { DriverInvocation } from './DriverInvocation';
