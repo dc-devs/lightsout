@@ -5,6 +5,7 @@
 	"type": "module",
 	"main": "./src/index.ts",
 	"dependencies": {
-		"@lightsout/contracts": "workspace:*"
+		"@lightsout/contracts": "workspace:*",
+		"zod": "^4.0.0"
 	}
 }
