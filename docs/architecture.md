@@ -91,10 +91,15 @@ Consumer coding standards enter as config, in two forms:
 
 ## v0 scope
 
-The **implement pipeline** only:
+The **implement pipeline** (v0.2 shape, live):
 
 clean-slate gate → feature-executor → verify → unit-test-writer → verify →
-refactor loop → verify → report. Supervisor on every gate failure.
+refactor → verify. Verify steps run cheap mechanical fix retries, then consult
+the supervisor (read-only, `plan` permission mode) exactly once: retry with
+guidance, or escalate. Executor terminations (`terminated:*`) escalate
+directly — the report already carries the reasoning. Rate-limit hits park the
+run (`paused-rate-limit`); `resume` re-enters the step walker, skipping every
+step already marked passed.
 
 Explicitly out of scope for v0: interactive planning (stays a conversational
 skill — elicitation/grilling needs a human in the loop and is correctly built

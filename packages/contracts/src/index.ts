@@ -1,6 +1,8 @@
 export { RunStatus } from './RunStatus';
 export { RunManifest } from './RunManifest';
 export { StepRecord } from './StepRecord';
-export { ImplementReport } from './ImplementReport';
-export { ImplementReportStatus } from './ImplementReportStatus';
+export { WorkReport } from './WorkReport';
+export { WorkReportStatus } from './WorkReportStatus';
+export { SupervisorDecision } from './SupervisorDecision';
+export { SupervisorVerdict } from './SupervisorVerdict';
 export { LightsoutConfig } from './LightsoutConfig';

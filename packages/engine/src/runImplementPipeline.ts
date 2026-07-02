@@ -1,26 +1,35 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildFeatureExecutorInvocation } from '@lightsout/agents';
 import {
-	ImplementReport,
-	ImplementReportStatus,
+	buildFeatureExecutorInvocation,
+	buildRefactorExecutorInvocation,
+	buildSupervisorInvocation,
+	buildUnitTestWriterInvocation,
+} from '@lightsout/agents';
+import {
 	RunStatus,
+	SupervisorDecision,
+	SupervisorVerdict,
+	WorkReport,
+	WorkReportStatus,
 	type LightsoutConfig,
 	type RunManifest,
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { createRun } from './createRun';
-import { extractJsonReport } from './extractJsonReport';
-import { runCommand } from './runCommand';
+import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { runGates } from './runGates';
 import { writeRunManifest } from './writeRunManifest';
 import type { PipelineResult } from './PipelineResult';
 
-const maxReportAttempts = 2;
-const maxVerifyRetries = 2;
 const executorTimeoutMs = 20 * 60_000;
-const gateTimeoutMs = 10 * 60_000;
+const supervisorTimeoutMs = 10 * 60_000;
+const maxCheapFixRetries = 2;
 const defaultPermissionMode = 'acceptEdits';
+const supervisorPermissionMode = 'plan';
+
+const isTestFilePath = (path: string) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
 
 const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord }) => {
 	const existing = steps.findIndex((step) => step.id === record.id);
@@ -32,21 +41,40 @@ const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord
 	return steps.map((step, index) => (index === existing ? record : step));
 };
 
+interface PipelineStep {
+	id: string;
+	/** Returns a skip reason when the step has nothing to do (recorded, counted as passed). */
+	skip?: () => string | undefined;
+	run: () => Promise<PipelineResult | undefined>;
+}
+
 interface Params {
 	cwd: string;
-	planPath: string;
 	driver: Driver;
 	config: LightsoutConfig;
+	/** Plan path for a fresh run. Ignored when resuming (the manifest owns it). */
+	planPath?: string;
+	/** Resume: an existing manifest — steps already passed are skipped. */
+	existing?: RunManifest;
+	skipRefactor?: boolean;
 }
 
 /**
- * v0 implement pipeline: clean-slate gate → feature-executor → verify gate
- * (with executor fix re-invocations). Every state transition is persisted to
- * the run manifest before the next action — a crash at any point leaves a
- * resumable, truthful record on disk.
+ * The implement pipeline: clean-slate gate → implement → verify → write-tests
+ * → verify → refactor → verify. Every state transition is persisted before
+ * the next action, so a crash, rate-limit park, or escalation at any point
+ * leaves a resumable, truthful record on disk — resume re-enters here and
+ * walks past every step already marked passed.
  */
-export const runImplementPipeline = async ({ cwd, planPath, driver, config }: Params): Promise<PipelineResult> => {
-	let manifest = await createRun({ cwd, plan: planPath, driver: driver.name });
+export const runImplementPipeline = async ({
+	cwd,
+	driver,
+	config,
+	planPath,
+	existing,
+	skipRefactor,
+}: Params): Promise<PipelineResult> => {
+	let manifest = existing ?? (await createRun({ cwd, plan: planPath ?? '', driver: driver.name }));
 
 	const update = async (patch: Partial<RunManifest>) => {
 		manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch } });
@@ -56,135 +84,259 @@ export const runImplementPipeline = async ({ cwd, planPath, driver, config }: Pa
 		await update({ ...patch, currentStep: record.id, steps: upsertStep({ steps: manifest.steps, record }) });
 	};
 
-	const failRun = async ({ record, error }: { record: StepRecord; error: string }) => {
-		await setStep({ record: { ...record, status: RunStatus.Failed, error }, patch: { status: RunStatus.Failed } });
+	const stop = async ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => {
+		await setStep({ record: { ...record, status, error }, patch: { status } });
 
-		const failed: PipelineResult = { ok: false, manifest, error };
+		const stopped: PipelineResult = { ok: false, manifest, error };
 
-		return failed;
+		return stopped;
 	};
 
-	const runGates = async () => {
-		const check = await runCommand({ command: config.scripts.check, cwd, timeoutMs: gateTimeoutMs });
+	const parkMessage = () =>
+		`run parked: harness rate limit reached — resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
 
-		if (check.exitCode !== 0) {
-			return `check failed (exit ${check.exitCode}):\n${check.stdout}\n${check.stderr}`;
+	const planContent = await readFile(join(cwd, manifest.plan), 'utf8').catch(() => undefined);
+
+	if (planContent === undefined) {
+		return stop({
+			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
+			status: RunStatus.Failed,
+			error: `plan file not found: ${join(cwd, manifest.plan)}`,
+		});
+	}
+
+	const nextRecord = ({ id }: { id: string }): StepRecord => {
+		const prev = manifest.steps.find((step) => step.id === id);
+
+		return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
+	};
+
+	const invokeRole = (invocation: { systemPrompt: string; prompt: string }) =>
+		invokeAgentWithContract({
+			driver,
+			cwd,
+			invocation,
+			contract: WorkReport,
+			model: config.model,
+			permissionMode: config.permissionMode ?? defaultPermissionMode,
+			timeoutMs: executorTimeoutMs,
+		});
+
+	const mergeChanged = (report: WorkReport) => [
+		...new Set([...manifest.changedFiles, ...report.changedFiles.map((file) => file.path)]),
+	];
+
+	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFilePath(file));
+
+	const workStep = ({ id, build }: { id: string; build: () => { systemPrompt: string; prompt: string } }): PipelineStep['run'] => {
+		return async () => {
+			const record = nextRecord({ id });
+
+			await setStep({ record });
+
+			const { report, failure, rateLimited } = await invokeRole(build());
+
+			if (rateLimited) {
+				return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
+			}
+
+			if (!report) {
+				return stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' });
+			}
+
+			if (report.status !== WorkReportStatus.Complete) {
+				// Termination statuses need a human (plan defect, scope); a plain
+				// failed report is a failure. Both stop the run; only the state differs.
+				const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+
+				return stop({
+					record: { ...record, report },
+					status,
+					error: `${id}: ${report.status} — ${report.failures.join('; ')}`,
+				});
+			}
+
+			await setStep({ record: { ...record, status: RunStatus.Passed, report }, patch: { changedFiles: mergeChanged(report) } });
+
+			return undefined;
+		};
+	};
+
+	const verifyStep = ({ id, buildFix }: { id: string; buildFix: (errorContext: string) => { systemPrompt: string; prompt: string } }): PipelineStep['run'] => {
+		return async () => {
+			let record = nextRecord({ id });
+
+			await setStep({ record });
+
+			let error = await runGates({ cwd, config });
+
+			// Cheap mechanical retries: hand the role the gate output and re-verify.
+			for (let retry = 1; error && retry <= maxCheapFixRetries; retry += 1) {
+				record = { ...record, attempts: record.attempts + 1 };
+
+				await setStep({ record });
+
+				const fix = await invokeRole(buildFix(error));
+
+				if (fix.rateLimited) {
+					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
+				}
+
+				if (fix.report?.status === WorkReportStatus.Complete) {
+					await setStep({ record: { ...record, report: fix.report }, patch: { changedFiles: mergeChanged(fix.report) } });
+				}
+
+				error = await runGates({ cwd, config });
+			}
+
+			// Exception path: mechanical retries exhausted — bring in judgment.
+			if (error) {
+				const verdict = await invokeAgentWithContract({
+					driver,
+					cwd,
+					invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error, attempts: record.attempts }),
+					contract: SupervisorVerdict,
+					model: config.model,
+					permissionMode: supervisorPermissionMode,
+					timeoutMs: supervisorTimeoutMs,
+				});
+
+				if (verdict.rateLimited) {
+					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
+				}
+
+				if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
+					record = { ...record, attempts: record.attempts + 1 };
+
+					await setStep({ record });
+
+					const fix = await invokeRole(
+						buildFix(`${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`),
+					);
+
+					if (fix.rateLimited) {
+						return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
+					}
+
+					if (fix.report?.status === WorkReportStatus.Complete) {
+						await setStep({ record: { ...record, report: fix.report }, patch: { changedFiles: mergeChanged(fix.report) } });
+					}
+
+					error = await runGates({ cwd, config });
+				}
+
+				if (error) {
+					const diagnosis = verdict.report ? `\nsupervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : '';
+
+					return stop({ record, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}\n\n${error}` });
+				}
+			}
+
+			await setStep({ record: { ...record, status: RunStatus.Passed } });
+
+			return undefined;
+		};
+	};
+
+	const cleanSlateStep: PipelineStep['run'] = async () => {
+		const record = nextRecord({ id: 'clean-slate' });
+
+		await setStep({ record });
+
+		const error = await runGates({ cwd, config });
+
+		if (error) {
+			return stop({
+				record,
+				status: RunStatus.Failed,
+				error: `Codebase is not green before implementation — fix this first.\n${error}`,
+			});
 		}
 
-		const tests = await runCommand({ command: config.scripts.testUnit, cwd, timeoutMs: gateTimeoutMs });
-
-		if (tests.exitCode !== 0) {
-			return `test-unit failed (exit ${tests.exitCode}):\n${tests.stdout}\n${tests.stderr}`;
-		}
+		await setStep({ record: { ...record, status: RunStatus.Passed } });
 
 		return undefined;
 	};
 
-	// --- Step: clean-slate (hard gate, no retries) ---
-	const cleanSlate: StepRecord = { id: 'clean-slate', status: RunStatus.Running, attempts: 1 };
+	const refactorSteps: PipelineStep[] = skipRefactor
+		? []
+		: [
+				{
+					id: 'refactor',
+					skip: () => (manifest.changedFiles.length === 0 ? 'no changed files to review' : undefined),
+					run: workStep({
+						id: 'refactor',
+						build: () => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles }),
+					}),
+				},
+				{
+					id: 'verify-refactor',
+					run: verifyStep({
+						id: 'verify-refactor',
+						buildFix: (errorContext) =>
+							buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, errorContext }),
+					}),
+				},
+			];
 
-	await setStep({ record: cleanSlate, patch: { status: RunStatus.Running } });
+	const steps: PipelineStep[] = [
+		{ id: 'clean-slate', run: cleanSlateStep },
+		{
+			id: 'implement',
+			run: workStep({ id: 'implement', build: () => buildFeatureExecutorInvocation({ planContent }) }),
+		},
+		{
+			id: 'verify-implement',
+			run: verifyStep({
+				id: 'verify-implement',
+				buildFix: (errorContext) => buildFeatureExecutorInvocation({ planContent, errorContext }),
+			}),
+		},
+		{
+			id: 'write-tests',
+			skip: () => (sourceFiles().length === 0 ? 'no eligible source files' : undefined),
+			run: workStep({
+				id: 'write-tests',
+				build: () => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles() }),
+			}),
+		},
+		{
+			id: 'verify-tests',
+			run: verifyStep({
+				id: 'verify-tests',
+				buildFix: (errorContext) =>
+					buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), errorContext }),
+			}),
+		},
+		...refactorSteps,
+	];
 
-	const cleanSlateError = await runGates();
+	await update({ status: RunStatus.Running });
 
-	if (cleanSlateError) {
-		return failRun({
-			record: cleanSlate,
-			error: `Codebase is not green before implementation — fix this first.\n${cleanSlateError}`,
-		});
-	}
+	for (const step of steps) {
+		const prior = manifest.steps.find((record) => record.id === step.id);
 
-	await setStep({ record: { ...cleanSlate, status: RunStatus.Passed } });
+		if (prior?.status === RunStatus.Passed) {
+			continue;
+		}
 
-	// --- Step: implement ---
-	const planContent = await readFile(join(cwd, planPath), 'utf8').catch(() => undefined);
+		const skipReason = step.skip?.();
 
-	if (planContent === undefined) {
-		return failRun({
-			record: { id: 'implement', status: RunStatus.Running, attempts: 0 },
-			error: `plan file not found: ${join(cwd, planPath)}`,
-		});
-	}
-
-	const invokeExecutor = async ({ errorContext }: { errorContext?: string }) => {
-		const invocation = buildFeatureExecutorInvocation({ planContent, errorContext });
-
-		// Report-shape retries: a malformed payload is rejected by the contract
-		// and the invocation retried — never hand-parsed around.
-		let lastFailure = 'no attempts made';
-
-		for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
-			const result = await driver.invoke({
-				prompt: invocation.prompt,
-				systemPrompt: invocation.systemPrompt,
-				model: config.model,
-				permissionMode: config.permissionMode ?? defaultPermissionMode,
-				cwd,
-				timeoutMs: executorTimeoutMs,
+		if (skipReason) {
+			await setStep({
+				record: { id: step.id, status: RunStatus.Passed, attempts: prior?.attempts ?? 0, report: { skipped: skipReason } },
 			});
 
-			const parsed = ImplementReport.safeParse(extractJsonReport({ text: result.text }));
-
-			if (parsed.success) {
-				return { report: parsed.data, failure: undefined };
-			}
-
-			lastFailure = `agent output did not match ImplementReport (exit ${result.exitCode}): ${parsed.error.message}`;
+			continue;
 		}
 
-		return { report: undefined, failure: lastFailure };
-	};
+		const stopped = await step.run();
 
-	const implement: StepRecord = { id: 'implement', status: RunStatus.Running, attempts: 1 };
-
-	await setStep({ record: implement });
-
-	const { report, failure } = await invokeExecutor({});
-
-	if (!report) {
-		return failRun({ record: { ...implement, attempts: maxReportAttempts }, error: failure ?? 'unknown failure' });
-	}
-
-	if (report.status !== ImplementReportStatus.Complete) {
-		return failRun({
-			record: { ...implement, report },
-			error: `executor terminated: ${report.status} — ${report.failures.join('; ')}`,
-		});
-	}
-
-	await setStep({
-		record: { ...implement, status: RunStatus.Passed, report },
-		patch: { changedFiles: report.changedFiles.map((file) => file.path) },
-	});
-
-	// --- Step: verify (retry gate — executor re-invoked with error context) ---
-	let verify: StepRecord = { id: 'verify', status: RunStatus.Running, attempts: 1 };
-
-	await setStep({ record: verify });
-
-	let verifyError = await runGates();
-
-	for (let retry = 1; verifyError && retry <= maxVerifyRetries; retry += 1) {
-		verify = { ...verify, attempts: verify.attempts + 1 };
-
-		await setStep({ record: verify });
-
-		const fix = await invokeExecutor({ errorContext: verifyError });
-
-		if (fix.report) {
-			const merged = new Set([...manifest.changedFiles, ...fix.report.changedFiles.map((file) => file.path)]);
-
-			await setStep({ record: { ...verify, report: fix.report }, patch: { changedFiles: [...merged] } });
+		if (stopped) {
+			return stopped;
 		}
-
-		verifyError = await runGates();
 	}
 
-	if (verifyError) {
-		return failRun({ record: verify, error: `verification still failing after retries:\n${verifyError}` });
-	}
-
-	await setStep({ record: { ...verify, status: RunStatus.Passed } });
 	await update({ status: RunStatus.Passed, currentStep: null });
 
 	const passed: PipelineResult = { ok: true, manifest };

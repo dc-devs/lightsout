@@ -4,21 +4,28 @@ import type { Driver } from './Driver';
 
 /**
  * Headless result envelope from `claude -p --output-format json`. Only
- * `result` is consumed; unknown fields are ignored (parse, don't cast).
+ * `result` and `is_error` are consumed; unknown fields are ignored (parse,
+ * don't cast).
  */
 const ResultEnvelope = z.object({
 	result: z.string().optional(),
+	is_error: z.boolean().optional(),
 });
 
-const parseResultText = ({ stdout }: { stdout: string }) => {
+const parseEnvelope = ({ stdout }: { stdout: string }) => {
 	try {
-		const envelope = ResultEnvelope.parse(JSON.parse(stdout));
-
-		return envelope.result ?? stdout;
+		return ResultEnvelope.parse(JSON.parse(stdout));
 	} catch {
-		return stdout;
+		return undefined;
 	}
 };
+
+/**
+ * Best-effort rate-limit detection: only consulted on error paths (is_error
+ * or non-zero exit), so legitimate agent text about "rate limits" can never
+ * trip it. A false negative degrades to a normal step failure.
+ */
+const rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset/i;
 
 const buildArgs = ({
 	systemPrompt,
@@ -96,9 +103,16 @@ export const createClaudeCodeDriver = () => {
 
 				child.on('close', (code) => {
 					clearTimeout(timeout);
+
+					const envelope = parseEnvelope({ stdout });
+					const exitCode = code ?? -1;
+					const text = envelope?.result ?? stdout ?? '';
+					const errored = envelope?.is_error === true || exitCode !== 0;
+
 					resolve({
-						text: parseResultText({ stdout }) || stderr,
-						exitCode: code ?? -1,
+						text: text || stderr,
+						exitCode,
+						rateLimited: errored && rateLimitPattern.test(`${text}\n${stderr}`),
 					});
 				});
 

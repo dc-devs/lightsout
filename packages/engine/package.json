@@ -7,6 +7,7 @@
 	"dependencies": {
 		"@lightsout/agents": "workspace:*",
 		"@lightsout/contracts": "workspace:*",
-		"@lightsout/drivers": "workspace:*"
+		"@lightsout/drivers": "workspace:*",
+		"zod": "^4.0.0"
 	}
 }

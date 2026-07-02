@@ -8,10 +8,6 @@ var __export = (target, all) => {
 import { readdir } from "node:fs/promises";
 import { join as join6 } from "node:path";
 
-// packages/engine/src/createRun.ts
-import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
-
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
   Pending: "pending",
@@ -14564,21 +14560,21 @@ var RunManifest = external_exports.object({
   changedFiles: external_exports.array(external_exports.string())
 });
 
-// packages/contracts/src/ImplementReportStatus.ts
-var ImplementReportStatus = {
+// packages/contracts/src/WorkReportStatus.ts
+var WorkReportStatus = {
   Complete: "complete",
   Failed: "failed",
-  /** Plan is ambiguous or underspecified — the agent must not guess; the engine escalates. */
+  /** Task is ambiguous or underspecified — the agent must not guess; the engine escalates. */
   TerminatedAmbiguity: "terminated:ambiguity",
-  /** Plan references files/modules that do not exist on disk. */
+  /** Task references files/modules that do not exist on disk. */
   TerminatedStaleReferences: "terminated:stale-references",
-  /** Plan exceeds the single-run scope guardrail and must be split. */
+  /** Task exceeds the single-run scope guardrail and must be split. */
   TerminatedScope: "terminated:scope"
 };
 
-// packages/contracts/src/ImplementReport.ts
-var ImplementReport = external_exports.object({
-  status: external_exports.enum(ImplementReportStatus),
+// packages/contracts/src/WorkReport.ts
+var WorkReport = external_exports.object({
+  status: external_exports.enum(WorkReportStatus),
   /** Every source file created or modified, with a one-clause description. */
   changedFiles: external_exports.array(
     external_exports.object({
@@ -14586,10 +14582,27 @@ var ImplementReport = external_exports.object({
       summary: external_exports.string()
     })
   ),
-  /** One-line description of what was implemented (or why it wasn't). */
+  /** One-line description of what was done (or why it wasn't). */
   summary: external_exports.string(),
   /** Discrepancies, ambiguities, or errors — required non-empty for any non-complete status. */
   failures: external_exports.array(external_exports.string())
+});
+
+// packages/contracts/src/SupervisorDecision.ts
+var SupervisorDecision = {
+  /** The failure is mechanically fixable — re-invoke the working role with the supervisor's guidance. */
+  Retry: "retry",
+  /** A human decision is required — park the run as escalated with the diagnosis. */
+  Escalate: "escalate"
+};
+
+// packages/contracts/src/SupervisorVerdict.ts
+var SupervisorVerdict = external_exports.object({
+  decision: external_exports.enum(SupervisorDecision),
+  /** Root-cause analysis of why the step keeps failing. */
+  diagnosis: external_exports.string(),
+  /** Concrete instructions injected into the retry invocation. Required when decision is retry. */
+  guidance: external_exports.string().optional()
 });
 
 // packages/contracts/src/LightsoutConfig.ts
@@ -14606,6 +14619,96 @@ var LightsoutConfig = external_exports.object({
     testUnit: external_exports.string()
   })
 });
+
+// packages/drivers/src/createClaudeCodeDriver.ts
+import { spawn } from "node:child_process";
+var ResultEnvelope = external_exports.object({
+  result: external_exports.string().optional(),
+  is_error: external_exports.boolean().optional()
+});
+var parseEnvelope = ({ stdout }) => {
+  try {
+    return ResultEnvelope.parse(JSON.parse(stdout));
+  } catch {
+    return void 0;
+  }
+};
+var rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset/i;
+var buildArgs = ({
+  systemPrompt,
+  model,
+  permissionMode
+}) => {
+  const args = ["-p", "--output-format", "json"];
+  if (systemPrompt) {
+    args.push("--append-system-prompt", systemPrompt);
+  }
+  if (model) {
+    args.push("--model", model);
+  }
+  if (permissionMode) {
+    args.push("--permission-mode", permissionMode);
+  }
+  return args;
+};
+var createClaudeCodeDriver = () => {
+  const driver = {
+    name: "claude-code",
+    invoke: (invocation) => {
+      return new Promise((resolve, reject) => {
+        const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
+        const child = spawn("claude", buildArgs({ systemPrompt, model, permissionMode }), {
+          cwd,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        let stdout = "";
+        let stderr = "";
+        const timeout = timeoutMs ? setTimeout(() => {
+          child.kill("SIGKILL");
+          reject(new Error(`claude-code driver timed out after ${timeoutMs}ms`));
+        }, timeoutMs) : void 0;
+        child.stdout.on("data", (chunk) => {
+          stdout += chunk.toString();
+        });
+        child.stderr.on("data", (chunk) => {
+          stderr += chunk.toString();
+        });
+        child.on("error", (error51) => {
+          clearTimeout(timeout);
+          reject(error51);
+        });
+        child.on("close", (code) => {
+          clearTimeout(timeout);
+          const envelope = parseEnvelope({ stdout });
+          const exitCode = code ?? -1;
+          const text = envelope?.result ?? stdout ?? "";
+          const errored = envelope?.is_error === true || exitCode !== 0;
+          resolve({
+            text: text || stderr,
+            exitCode,
+            rateLimited: errored && rateLimitPattern.test(`${text}
+${stderr}`)
+          });
+        });
+        child.stdin.write(prompt);
+        child.stdin.end();
+      });
+    }
+  };
+  return driver;
+};
+
+// packages/drivers/src/getDriver.ts
+var getDriver = ({ name }) => {
+  if (name === "claude-code") {
+    return createClaudeCodeDriver();
+  }
+  throw new Error(`unknown driver: ${name} (available: claude-code)`);
+};
+
+// packages/engine/src/createRun.ts
+import { randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
 
 // packages/engine/src/getRunDir.ts
 import { join } from "node:path";
@@ -14653,10 +14756,10 @@ var readRunManifest = async ({ cwd, runId }) => {
 };
 
 // packages/engine/src/runCommand.ts
-import { spawn } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 var runCommand = ({ command, cwd, timeoutMs }) => {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn2(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
     const timeout = timeoutMs ? setTimeout(() => {
@@ -14714,7 +14817,7 @@ import { readFile as readFile3 } from "node:fs/promises";
 import { join as join5 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
-var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
+var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
 // packages/agents/src/buildFeatureExecutorInvocation.ts
 var buildFeatureExecutorInvocation = ({ planContent, standards, errorContext }) => {
@@ -14744,12 +14847,152 @@ ${errorContext}`
   };
 };
 
-// packages/engine/src/runImplementPipeline.ts
+// packages/agents/prompts/unitTestWriter.md
+var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously from the task message, and your final\nmessage is machine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read the changed files listed in your task, and the plan for context on\n   intended behavior.\n2. Read the repository\'s existing tests first and mirror them exactly:\n   framework, assertion style, file placement, naming. The repo\'s conventions\n   are authoritative \u2014 never introduce a new test framework or pattern.\n\n## Write\n\n- Test observable behavior through each module\'s public surface, covering the\n  changed code\'s branches and edge cases.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"]\n}\n```\n';
+
+// packages/agents/src/buildUnitTestWriterInvocation.ts
+var buildUnitTestWriterInvocation = ({ planContent, changedFiles, errorContext }) => {
+  const sections = [
+    `# Changed files to cover
+
+${changedFiles.map((file2) => `- ${file2}`).join("\n")}`,
+    `# Plan (context for intended behavior)
+
+${planContent}`
+  ];
+  if (errorContext) {
+    sections.push(
+      `# Verification failure
+
+A previous attempt wrote tests for these files, but the engine's verification gate failed. Fix your tests per your role rules \u2014 and if the failure traces to a source defect, report failed instead of adjusting a test.
+
+${errorContext}`
+    );
+  }
+  sections.push("Remember: your entire final message must be exactly one JSON report object \u2014 nothing else.");
+  return {
+    systemPrompt: unitTestWriter_default,
+    prompt: sections.join("\n\n")
+  };
+};
+
+// packages/agents/prompts/refactorExecutor.md
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean).\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"]\n}\n```\n';
+
+// packages/agents/src/buildRefactorExecutorInvocation.ts
+var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, errorContext }) => {
+  const sections = [
+    `# Changed files to review
+
+${changedFiles.map((file2) => `- ${file2}`).join("\n")}`,
+    `# Plan (context for what these changes were for)
+
+${planContent}`
+  ];
+  if (standards) {
+    sections.push(`# Standards
+
+These rules are binding:
+
+${standards}`);
+  }
+  if (errorContext) {
+    sections.push(
+      `# Verification failure
+
+A previous refactor pass broke the engine's verification gate. Diagnose from the output below and fix the root cause within your role limits.
+
+${errorContext}`
+    );
+  }
+  sections.push("Remember: your entire final message must be exactly one JSON report object \u2014 nothing else.");
+  return {
+    systemPrompt: refactorExecutor_default,
+    prompt: sections.join("\n\n")
+  };
+};
+
+// packages/agents/prompts/supervisor.md
+var supervisor_default = '# Role: Pipeline Supervisor\n\nYou are the exception-path judgment of a deterministic coding pipeline. A step\nhas failed repeatedly despite mechanical retries, and the engine cannot decide\nwhat the failure means \u2014 that is your job. You have read-only access:\ninvestigate the repository freely, change nothing.\n\n## Inputs\n\nYour task message contains: the plan, the failing step, the verification-gate\noutput, and how many attempts have been made.\n\n## Decide\n\n- **`retry`** \u2014 the failure has a clear, mechanically fixable root cause that\n  previous attempts missed. Your `guidance` must be concrete enough that the\n  implementing agent cannot repeat the same mistake: name the file, the cause,\n  and the fix approach.\n- **`escalate`** \u2014 a human is needed. Escalate when: the same error has\n  survived multiple fix attempts unchanged; the failure traces to the plan\n  itself (wrong assumption, stale reference, underspecified behavior); the\n  environment is broken (missing tooling, misconfigured scripts); or the fix\n  would require changing behavior the plan didn\'t authorize.\n\nWhen uncertain, escalate \u2014 a wasted retry costs more than a human glance.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"decision": "retry" | "escalate",\n	"diagnosis": "root cause in one or two sentences",\n	"guidance": "required for retry: concrete fix instructions for the implementing agent"\n}\n```\n';
+
+// packages/agents/src/buildSupervisorInvocation.ts
+var buildSupervisorInvocation = ({ planContent, stepId, errorOutput, attempts }) => {
+  const sections = [
+    `# Failing step
+
+\`${stepId}\` \u2014 ${attempts} attempt(s) so far, mechanical retries exhausted.`,
+    `# Verification output
+
+${errorOutput}`,
+    `# Plan
+
+${planContent}`,
+    "Remember: your entire final message must be exactly one JSON verdict object \u2014 nothing else."
+  ];
+  return {
+    systemPrompt: supervisor_default,
+    prompt: sections.join("\n\n")
+  };
+};
+
+// packages/engine/src/invokeAgentWithContract.ts
 var maxReportAttempts = 2;
-var maxVerifyRetries = 2;
-var executorTimeoutMs = 20 * 6e4;
+var invokeAgentWithContract = async ({
+  driver,
+  cwd,
+  invocation,
+  contract,
+  model,
+  permissionMode,
+  timeoutMs
+}) => {
+  let lastFailure = "no attempts made";
+  for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
+    const result = await driver.invoke({
+      prompt: invocation.prompt,
+      systemPrompt: invocation.systemPrompt,
+      model,
+      permissionMode,
+      cwd,
+      timeoutMs
+    });
+    if (result.rateLimited) {
+      return { report: void 0, failure: "harness rate limit reached", rateLimited: true };
+    }
+    const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
+    if (parsed.success) {
+      return { report: parsed.data, failure: void 0, rateLimited: false };
+    }
+    lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
+  }
+  return { report: void 0, failure: lastFailure, rateLimited: false };
+};
+
+// packages/engine/src/runGates.ts
 var gateTimeoutMs = 10 * 6e4;
+var runGates = async ({ cwd, config: config2 }) => {
+  const check2 = await runCommand({ command: config2.scripts.check, cwd, timeoutMs: gateTimeoutMs });
+  if (check2.exitCode !== 0) {
+    return `check failed (exit ${check2.exitCode}):
+${check2.stdout}
+${check2.stderr}`;
+  }
+  const tests = await runCommand({ command: config2.scripts.testUnit, cwd, timeoutMs: gateTimeoutMs });
+  if (tests.exitCode !== 0) {
+    return `test-unit failed (exit ${tests.exitCode}):
+${tests.stdout}
+${tests.stderr}`;
+  }
+  return void 0;
+};
+
+// packages/engine/src/runImplementPipeline.ts
+var executorTimeoutMs = 20 * 6e4;
+var supervisorTimeoutMs = 10 * 6e4;
+var maxCheapFixRetries = 2;
 var defaultPermissionMode = "acceptEdits";
+var supervisorPermissionMode = "plan";
+var isTestFilePath = (path) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
 var upsertStep = ({ steps, record: record2 }) => {
   const existing = steps.findIndex((step) => step.id === record2.id);
   if (existing === -1) {
@@ -14757,206 +15000,268 @@ var upsertStep = ({ steps, record: record2 }) => {
   }
   return steps.map((step, index) => index === existing ? record2 : step);
 };
-var runImplementPipeline = async ({ cwd, planPath, driver, config: config2 }) => {
-  let manifest = await createRun({ cwd, plan: planPath, driver: driver.name });
+var runImplementPipeline = async ({
+  cwd,
+  driver,
+  config: config2,
+  planPath,
+  existing,
+  skipRefactor
+}) => {
+  let manifest = existing ?? await createRun({ cwd, plan: planPath ?? "", driver: driver.name });
   const update = async (patch) => {
     manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch } });
   };
   const setStep = async ({ record: record2, patch }) => {
     await update({ ...patch, currentStep: record2.id, steps: upsertStep({ steps: manifest.steps, record: record2 }) });
   };
-  const failRun = async ({ record: record2, error: error51 }) => {
-    await setStep({ record: { ...record2, status: RunStatus.Failed, error: error51 }, patch: { status: RunStatus.Failed } });
-    const failed = { ok: false, manifest, error: error51 };
-    return failed;
+  const stop = async ({ record: record2, status, error: error51 }) => {
+    await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
+    const stopped = { ok: false, manifest, error: error51 };
+    return stopped;
   };
-  const runGates = async () => {
-    const check2 = await runCommand({ command: config2.scripts.check, cwd, timeoutMs: gateTimeoutMs });
-    if (check2.exitCode !== 0) {
-      return `check failed (exit ${check2.exitCode}):
-${check2.stdout}
-${check2.stderr}`;
+  const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
+  const planContent = await readFile3(join5(cwd, manifest.plan), "utf8").catch(() => void 0);
+  if (planContent === void 0) {
+    return stop({
+      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
+      status: RunStatus.Failed,
+      error: `plan file not found: ${join5(cwd, manifest.plan)}`
+    });
+  }
+  const nextRecord = ({ id }) => {
+    const prev = manifest.steps.find((step) => step.id === id);
+    return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
+  };
+  const invokeRole = (invocation) => invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation,
+    contract: WorkReport,
+    model: config2.model,
+    permissionMode: config2.permissionMode ?? defaultPermissionMode,
+    timeoutMs: executorTimeoutMs
+  });
+  const mergeChanged = (report) => [
+    .../* @__PURE__ */ new Set([...manifest.changedFiles, ...report.changedFiles.map((file2) => file2.path)])
+  ];
+  const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFilePath(file2));
+  const workStep = ({ id, build }) => {
+    return async () => {
+      const record2 = nextRecord({ id });
+      await setStep({ record: record2 });
+      const { report, failure, rateLimited } = await invokeRole(build());
+      if (rateLimited) {
+        return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+      }
+      if (!report) {
+        return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
+      }
+      if (report.status !== WorkReportStatus.Complete) {
+        const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+        return stop({
+          record: { ...record2, report },
+          status,
+          error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
+        });
+      }
+      await setStep({ record: { ...record2, status: RunStatus.Passed, report }, patch: { changedFiles: mergeChanged(report) } });
+      return void 0;
+    };
+  };
+  const verifyStep = ({ id, buildFix }) => {
+    return async () => {
+      let record2 = nextRecord({ id });
+      await setStep({ record: record2 });
+      let error51 = await runGates({ cwd, config: config2 });
+      for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
+        record2 = { ...record2, attempts: record2.attempts + 1 };
+        await setStep({ record: record2 });
+        const fix = await invokeRole(buildFix(error51));
+        if (fix.rateLimited) {
+          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+        }
+        if (fix.report?.status === WorkReportStatus.Complete) {
+          await setStep({ record: { ...record2, report: fix.report }, patch: { changedFiles: mergeChanged(fix.report) } });
+        }
+        error51 = await runGates({ cwd, config: config2 });
+      }
+      if (error51) {
+        const verdict = await invokeAgentWithContract({
+          driver,
+          cwd,
+          invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error51, attempts: record2.attempts }),
+          contract: SupervisorVerdict,
+          model: config2.model,
+          permissionMode: supervisorPermissionMode,
+          timeoutMs: supervisorTimeoutMs
+        });
+        if (verdict.rateLimited) {
+          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+        }
+        if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
+          record2 = { ...record2, attempts: record2.attempts + 1 };
+          await setStep({ record: record2 });
+          const fix = await invokeRole(
+            buildFix(`${error51}
+
+# Supervisor diagnosis
+${verdict.report.diagnosis}
+
+# Supervisor guidance
+${verdict.report.guidance}`)
+          );
+          if (fix.rateLimited) {
+            return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+          }
+          if (fix.report?.status === WorkReportStatus.Complete) {
+            await setStep({ record: { ...record2, report: fix.report }, patch: { changedFiles: mergeChanged(fix.report) } });
+          }
+          error51 = await runGates({ cwd, config: config2 });
+        }
+        if (error51) {
+          const diagnosis = verdict.report ? `
+supervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : "";
+          return stop({ record: record2, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}
+
+${error51}` });
+        }
+      }
+      await setStep({ record: { ...record2, status: RunStatus.Passed } });
+      return void 0;
+    };
+  };
+  const cleanSlateStep = async () => {
+    const record2 = nextRecord({ id: "clean-slate" });
+    await setStep({ record: record2 });
+    const error51 = await runGates({ cwd, config: config2 });
+    if (error51) {
+      return stop({
+        record: record2,
+        status: RunStatus.Failed,
+        error: `Codebase is not green before implementation \u2014 fix this first.
+${error51}`
+      });
     }
-    const tests = await runCommand({ command: config2.scripts.testUnit, cwd, timeoutMs: gateTimeoutMs });
-    if (tests.exitCode !== 0) {
-      return `test-unit failed (exit ${tests.exitCode}):
-${tests.stdout}
-${tests.stderr}`;
-    }
+    await setStep({ record: { ...record2, status: RunStatus.Passed } });
     return void 0;
   };
-  const cleanSlate = { id: "clean-slate", status: RunStatus.Running, attempts: 1 };
-  await setStep({ record: cleanSlate, patch: { status: RunStatus.Running } });
-  const cleanSlateError = await runGates();
-  if (cleanSlateError) {
-    return failRun({
-      record: cleanSlate,
-      error: `Codebase is not green before implementation \u2014 fix this first.
-${cleanSlateError}`
-    });
-  }
-  await setStep({ record: { ...cleanSlate, status: RunStatus.Passed } });
-  const planContent = await readFile3(join5(cwd, planPath), "utf8").catch(() => void 0);
-  if (planContent === void 0) {
-    return failRun({
-      record: { id: "implement", status: RunStatus.Running, attempts: 0 },
-      error: `plan file not found: ${join5(cwd, planPath)}`
-    });
-  }
-  const invokeExecutor = async ({ errorContext }) => {
-    const invocation = buildFeatureExecutorInvocation({ planContent, errorContext });
-    let lastFailure = "no attempts made";
-    for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
-      const result = await driver.invoke({
-        prompt: invocation.prompt,
-        systemPrompt: invocation.systemPrompt,
-        model: config2.model,
-        permissionMode: config2.permissionMode ?? defaultPermissionMode,
-        cwd,
-        timeoutMs: executorTimeoutMs
+  const refactorSteps = skipRefactor ? [] : [
+    {
+      id: "refactor",
+      skip: () => manifest.changedFiles.length === 0 ? "no changed files to review" : void 0,
+      run: workStep({
+        id: "refactor",
+        build: () => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles })
+      })
+    },
+    {
+      id: "verify-refactor",
+      run: verifyStep({
+        id: "verify-refactor",
+        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: manifest.changedFiles, errorContext })
+      })
+    }
+  ];
+  const steps = [
+    { id: "clean-slate", run: cleanSlateStep },
+    {
+      id: "implement",
+      run: workStep({ id: "implement", build: () => buildFeatureExecutorInvocation({ planContent }) })
+    },
+    {
+      id: "verify-implement",
+      run: verifyStep({
+        id: "verify-implement",
+        buildFix: (errorContext) => buildFeatureExecutorInvocation({ planContent, errorContext })
+      })
+    },
+    {
+      id: "write-tests",
+      skip: () => sourceFiles().length === 0 ? "no eligible source files" : void 0,
+      run: workStep({
+        id: "write-tests",
+        build: () => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles() })
+      })
+    },
+    {
+      id: "verify-tests",
+      run: verifyStep({
+        id: "verify-tests",
+        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), errorContext })
+      })
+    },
+    ...refactorSteps
+  ];
+  await update({ status: RunStatus.Running });
+  for (const step of steps) {
+    const prior = manifest.steps.find((record2) => record2.id === step.id);
+    if (prior?.status === RunStatus.Passed) {
+      continue;
+    }
+    const skipReason = step.skip?.();
+    if (skipReason) {
+      await setStep({
+        record: { id: step.id, status: RunStatus.Passed, attempts: prior?.attempts ?? 0, report: { skipped: skipReason } }
       });
-      const parsed = ImplementReport.safeParse(extractJsonReport({ text: result.text }));
-      if (parsed.success) {
-        return { report: parsed.data, failure: void 0 };
-      }
-      lastFailure = `agent output did not match ImplementReport (exit ${result.exitCode}): ${parsed.error.message}`;
+      continue;
     }
-    return { report: void 0, failure: lastFailure };
-  };
-  const implement = { id: "implement", status: RunStatus.Running, attempts: 1 };
-  await setStep({ record: implement });
-  const { report, failure } = await invokeExecutor({});
-  if (!report) {
-    return failRun({ record: { ...implement, attempts: maxReportAttempts }, error: failure ?? "unknown failure" });
-  }
-  if (report.status !== ImplementReportStatus.Complete) {
-    return failRun({
-      record: { ...implement, report },
-      error: `executor terminated: ${report.status} \u2014 ${report.failures.join("; ")}`
-    });
-  }
-  await setStep({
-    record: { ...implement, status: RunStatus.Passed, report },
-    patch: { changedFiles: report.changedFiles.map((file2) => file2.path) }
-  });
-  let verify = { id: "verify", status: RunStatus.Running, attempts: 1 };
-  await setStep({ record: verify });
-  let verifyError = await runGates();
-  for (let retry = 1; verifyError && retry <= maxVerifyRetries; retry += 1) {
-    verify = { ...verify, attempts: verify.attempts + 1 };
-    await setStep({ record: verify });
-    const fix = await invokeExecutor({ errorContext: verifyError });
-    if (fix.report) {
-      const merged = /* @__PURE__ */ new Set([...manifest.changedFiles, ...fix.report.changedFiles.map((file2) => file2.path)]);
-      await setStep({ record: { ...verify, report: fix.report }, patch: { changedFiles: [...merged] } });
+    const stopped = await step.run();
+    if (stopped) {
+      return stopped;
     }
-    verifyError = await runGates();
   }
-  if (verifyError) {
-    return failRun({ record: verify, error: `verification still failing after retries:
-${verifyError}` });
-  }
-  await setStep({ record: { ...verify, status: RunStatus.Passed } });
   await update({ status: RunStatus.Passed, currentStep: null });
   const passed = { ok: true, manifest };
   return passed;
-};
-
-// packages/drivers/src/createClaudeCodeDriver.ts
-import { spawn as spawn2 } from "node:child_process";
-var ResultEnvelope = external_exports.object({
-  result: external_exports.string().optional()
-});
-var parseResultText = ({ stdout }) => {
-  try {
-    const envelope = ResultEnvelope.parse(JSON.parse(stdout));
-    return envelope.result ?? stdout;
-  } catch {
-    return stdout;
-  }
-};
-var buildArgs = ({
-  systemPrompt,
-  model,
-  permissionMode
-}) => {
-  const args = ["-p", "--output-format", "json"];
-  if (systemPrompt) {
-    args.push("--append-system-prompt", systemPrompt);
-  }
-  if (model) {
-    args.push("--model", model);
-  }
-  if (permissionMode) {
-    args.push("--permission-mode", permissionMode);
-  }
-  return args;
-};
-var createClaudeCodeDriver = () => {
-  const driver = {
-    name: "claude-code",
-    invoke: (invocation) => {
-      return new Promise((resolve, reject) => {
-        const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
-        const child = spawn2("claude", buildArgs({ systemPrompt, model, permissionMode }), {
-          cwd,
-          stdio: ["pipe", "pipe", "pipe"]
-        });
-        let stdout = "";
-        let stderr = "";
-        const timeout = timeoutMs ? setTimeout(() => {
-          child.kill("SIGKILL");
-          reject(new Error(`claude-code driver timed out after ${timeoutMs}ms`));
-        }, timeoutMs) : void 0;
-        child.stdout.on("data", (chunk) => {
-          stdout += chunk.toString();
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += chunk.toString();
-        });
-        child.on("error", (error51) => {
-          clearTimeout(timeout);
-          reject(error51);
-        });
-        child.on("close", (code) => {
-          clearTimeout(timeout);
-          resolve({
-            text: parseResultText({ stdout }) || stderr,
-            exitCode: code ?? -1
-          });
-        });
-        child.stdin.write(prompt);
-        child.stdin.end();
-      });
-    }
-  };
-  return driver;
 };
 
 // packages/cli/src/index.ts
 var usage = `lightsout \u2014 deterministic engine for coding agents
 
 usage:
-  lightsout run --plan <path> [--cwd <path>]
+  lightsout run --plan <path> [--cwd <path>] [--skip-refactor]
+  lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
-  lightsout resume --run <id>   (v0.2)
 `;
+var statusIcons = {
+  [RunStatus.Passed]: "\u2713",
+  [RunStatus.Failed]: "\u2717",
+  [RunStatus.Running]: "\u2026",
+  [RunStatus.Pending]: "\u25CB",
+  [RunStatus.PausedRateLimit]: "\u23F8",
+  [RunStatus.Escalated]: "\u2691"
+};
 var parseFlags = ({ args }) => {
   const flags = /* @__PURE__ */ new Map();
-  for (let index = 0; index < args.length; index += 2) {
+  let index = 0;
+  while (index < args.length) {
     const key = args[index];
+    if (!key?.startsWith("--")) {
+      index += 1;
+      continue;
+    }
     const value = args[index + 1];
-    if (key?.startsWith("--") && value !== void 0) {
+    if (value === void 0 || value.startsWith("--")) {
+      flags.set(key.slice(2), true);
+      index += 1;
+    } else {
       flags.set(key.slice(2), value);
+      index += 2;
     }
   }
   return flags;
 };
-var printResult = ({ ok, manifest, error: error51 }) => {
+var getStringFlag = ({ flags, name }) => {
+  const value = flags.get(name);
+  return typeof value === "string" ? value : void 0;
+};
+var printResult = ({ result }) => {
+  const { manifest, ok, error: error51 } = result;
   console.log(`
 run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
   for (const step of manifest.steps) {
-    console.log(`  ${step.status === "passed" ? "\u2713" : "\u2717"} ${step.id} (attempts: ${step.attempts})`);
+    console.log(`  ${statusIcons[step.status] ?? "?"} ${step.id} (attempts: ${step.attempts})`);
   }
   if (manifest.changedFiles.length > 0) {
     console.log("  changed files:");
@@ -14972,18 +15277,37 @@ ${error51}`);
 var main = async () => {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags({ args: rest });
-  const cwd = flags.get("cwd") ?? process.cwd();
+  const cwd = getStringFlag({ flags, name: "cwd" }) ?? process.cwd();
+  const skipRefactor = flags.get("skip-refactor") === true;
   if (command === "run") {
-    const planPath = flags.get("plan");
+    const planPath = getStringFlag({ flags, name: "plan" });
     if (!planPath) {
       console.error(usage);
       process.exit(1);
     }
     const config2 = await loadConfig({ cwd });
-    const driver = createClaudeCodeDriver();
+    const driver = getDriver({ name: config2.driver ?? "claude-code" });
     console.log(`lightsout: starting run (plan: ${planPath}, driver: ${driver.name})`);
-    const result = await runImplementPipeline({ cwd, planPath, driver, config: config2 });
-    printResult(result);
+    const result = await runImplementPipeline({ cwd, planPath, driver, config: config2, skipRefactor });
+    printResult({ result });
+    process.exit(result.ok ? 0 : 1);
+  }
+  if (command === "resume") {
+    const runId = getStringFlag({ flags, name: "run" });
+    if (!runId) {
+      console.error(usage);
+      process.exit(1);
+    }
+    const manifest = await readRunManifest({ cwd, runId });
+    if (manifest.status === RunStatus.Passed) {
+      console.error(`run ${runId} already passed \u2014 nothing to resume`);
+      process.exit(1);
+    }
+    const config2 = await loadConfig({ cwd });
+    const driver = getDriver({ name: manifest.driver });
+    console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
+    const result = await runImplementPipeline({ cwd, driver, config: config2, existing: manifest, skipRefactor });
+    printResult({ result });
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
@@ -15000,10 +15324,6 @@ var main = async () => {
       }
     }
     process.exit(0);
-  }
-  if (command === "resume") {
-    console.error("resume: not implemented yet (v0.2) \u2014 run state is preserved in .lightsout/runs/");
-    process.exit(1);
   }
   console.error(usage);
   process.exit(command === void 0 || command === "help" ? 0 : 1);

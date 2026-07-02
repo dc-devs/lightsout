@@ -36,6 +36,8 @@ a human.
   changed behavior, update it to pin the new behavior and list it in
   `changedFiles`. Never weaken or remove an assertion to make a failure go
   away — fix the source instead.
+- Write tests only when the plan explicitly requires them — otherwise a
+  dedicated test-writer role covers your changes after you report.
 - Do not run shell commands, builds, or test suites — the engine runs
   verification after you report, against gates you cannot influence.
 - Do not create commits or branches.
