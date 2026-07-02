@@ -123,3 +123,4 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | Orchestrator | Deterministic code, not prose/LLM | LLM conductors miscount, skip, and mis-parse; determinism belongs in the cheapest reliable substrate |
 | Where non-determinism is allowed | Inside agent steps + supervisor on failures | Judgment earns unreliability only where judgment is needed |
 | Name | lightsout | Markets the outcome (runs unattended), not the mechanism (stopping); jidoka/andon rejected for foregrounding the brake |
+| Test runner | `node:test` + stub drivers; no Jest | The Driver interface is an explicit injection seam, so Jest's module-interception value goes unused and its dependency tree contradicts the thin-machinery thesis; live agent runs are a separate verification tier, never per-commit tests. Revisit only if a concrete need (rich matchers, snapshots at scale) actually appears |
