@@ -60,6 +60,12 @@ as a permanent suite:
     gate wiring (clean-slate + post-test verifies only, `false` opt-out);
     opt-in build/format gate wiring; `--overview` content inlined into
     executor invocations
+  - v0.6 scoped gates: scope chain (`--packages` → front-matter → hard
+    error); `readPlanPackages` front-matter forms (inline + block list);
+    `{package}` substitution uses package.json name (missing = per-group
+    error); scope widening from changed files; root-group activation only
+    when root files change; non-monorepo behavior unchanged when
+    `packageScripts` absent
 - Acceptance: `pnpm test` green; suite runs in seconds; document the script in
   README's Development section.
 

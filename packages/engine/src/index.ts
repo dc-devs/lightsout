@@ -6,6 +6,8 @@ export { runCommand } from './runCommand';
 export { loadConfig } from './loadConfig';
 export { extractJsonReport } from './extractJsonReport';
 export { readGitChangedFiles } from './readGitChangedFiles';
+export { readPlanPackages } from './readPlanPackages';
+export { resolvePackageName } from './resolvePackageName';
 export { runImplementPipeline } from './runImplementPipeline';
 export { readFriction } from './readFriction';
 export { runPromptImprovement } from './runPromptImprovement';

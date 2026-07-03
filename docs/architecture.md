@@ -91,7 +91,7 @@ Consumer coding standards enter as config, in two forms:
 
 ## v0 scope
 
-The **implement pipeline** (v0.5 shape, live):
+The **implement pipeline** (v0.6 shape, live):
 
 clean-slate gate → feature-executor → verify → unit-test-writers (one per
 changed source file, up to 5 in parallel) → verify → refactor (looped, ≤3
@@ -107,10 +107,17 @@ Changed-file truth is double-entry: after every work step the agent's typed
 report is merged with a git snapshot diffed against the run's baseline dirt
 (refreshed after clean-slate, so gate artifacts like coverage output are
 never attributed to agents), and the merged list is what the next role's
-invocation receives (fix re-invocations included). An implement step that changes nothing fails
-instead of passing vacuously. The coverage gate (`scripts.testCoverage`,
-opt-out only) runs at clean-slate and every verify after tests exist;
-`build` and `format` are opt-in gates.
+invocation receives (fix re-invocations included). An implement step that
+changes nothing fails instead of passing vacuously. The coverage gate
+(`scripts.testCoverage`, opt-out only) runs at clean-slate and every verify
+after tests exist; `build` and `format` are opt-in gates.
+
+In monorepo mode (`packageScripts` templates; `{package}` → the package's
+package.json name) every gate runs scoped to the run's package scope —
+`--packages` flag, else the plan front-matter `packages:` list, else a hard
+error before any agent spawns — widened automatically as changed files
+reveal the true blast radius, never shrunk. Whole-repo `scripts.*` demote to
+a root group that runs only when files outside `packagesDir` change.
 
 Explicitly out of scope for v0: interactive planning (stays a conversational
 skill — elicitation/grilling needs a human in the loop and is correctly built
@@ -125,6 +132,7 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | v0.3 | friction capture → self-improvement loop — SHIPPED: agents report friction in WorkReport; engine appends to `.lightsout/friction.jsonl` with run/step provenance; `improve` feeds aggregated friction + prompt files to the prompt-improver role (edits the engine worktree; a human reviews the diff and ships) |
 | v0.4 | SHIPPED: standards/style-card injection (`standards`/`testStandards` config → inlined into executor/test-writer/refactorer invocations; declared-but-missing file is a hard error); codex driver (`codex exec`, sandbox-mode mapping, `--output-last-message`, verified against codex-cli 0.128.0); consumer #1 wired via `lightsout.config.json` + committed style card |
 | v0.5 | SHIPPED: parity batch from the v1 orchestrator review — git-truth changed files (agent report ∪ `git status` vs run baseline), zero-change implement gate, per-file parallel test writers (5 concurrent), refactor loop (≤3 passes, typed completion signal), coverage gate (opt-out only), opt-in build/format gates, `--overview` phased-plan context, decision-kind friction |
+| v0.6 | SHIPPED: monorepo scoped gates — `packageScripts` command templates per affected package (parallel, `{package}` = package.json name), scope from `--packages`/plan front-matter (hard error when absent), auto-widening from changed files, root group for files outside `packagesDir` |
 
 ## Decision log
 
@@ -139,4 +147,5 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | Changed-file truth | Agent report ∪ git-status diff vs run baseline | Agents forget files; git cannot be sweet-talked; downstream roles (test writers, refactorer) need the full set or work silently escapes them |
 | Coverage gate | On by default — `testCoverage` must be a command or an explicit `false` | Skipping the strongest gate must be a decision, not an accident; the consumer's command owns the threshold, the engine only reads the exit code |
 | Refactor completion signal | Typed: `complete` + empty `changedFiles`, max 3 passes | Replaces v1's `REFACTORING_COMPLETE` prose marker — no string matching at any boundary |
-| Monorepo-aware gates / per-package scripts | Deferred | Whole-repo gates are slower but more truthful (catch cross-package breaks); consumers can bake filters into their config commands. Revisit only if gate time actually hurts |
+| Monorepo gates | Opt-in `packageScripts` templates; `{package}` = package.json name; groups run in parallel | Whole-repo gates let one unrelated red package block every run and made the coverage bar repo-wide. Cross-package blast radius belongs to the consumer's filter template (`--filter ...pkg` includes dependents) — the engine stays dependency-graph-free |
+| Package scope source | `--packages` flag, else plan front-matter `packages:`, else hard error; widened from changed files, never shrunk | The plan is where scope knowledge lives, so `/implement plan.md` needs nothing extra; explicit beats inference headless; changed files are ground truth |

@@ -21,6 +21,7 @@ import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { readGitChangedFiles } from './readGitChangedFiles';
+import { readPlanPackages } from './readPlanPackages';
 import { readStandards } from './readStandards';
 import { runCommand } from './runCommand';
 import { runGates } from './runGates';
@@ -67,6 +68,8 @@ interface Params {
 	planPath?: string;
 	/** Optional overview plan path (high-level context for a phased plan). Ignored when resuming. */
 	overviewPath?: string;
+	/** Package scope override (monorepo mode). Falls back to the plan front-matter `packages:` list. */
+	packages?: string[];
 	/** Resume: an existing manifest — steps already passed are skipped. */
 	existing?: RunManifest;
 	skipRefactor?: boolean;
@@ -90,6 +93,7 @@ export const runImplementPipeline = async ({
 	config,
 	planPath,
 	overviewPath,
+	packages,
 	existing,
 	skipRefactor,
 }: Params): Promise<PipelineResult> => {
@@ -158,6 +162,22 @@ export const runImplementPipeline = async ({
 		});
 	}
 
+	// Monorepo mode needs a scope before any gate runs: explicit --packages
+	// beats the plan's front-matter; silence is a hard error, never a guess.
+	if (config.packageScripts && manifest.packages.length === 0) {
+		const declared = packages ?? readPlanPackages({ planContent }) ?? [];
+
+		if (declared.length === 0) {
+			return stop({
+				record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
+				status: RunStatus.Failed,
+				error: 'packageScripts is configured but the run has no package scope — add a `packages:` list to the plan front-matter or pass --packages <a,b>.',
+			});
+		}
+
+		await update({ packages: declared });
+	}
+
 	const nextRecord = ({ id }: { id: string }): StepRecord => {
 		const prev = manifest.steps.find((step) => step.id === id);
 
@@ -175,17 +195,46 @@ export const runImplementPipeline = async ({
 			timeoutMs: executorTimeoutMs,
 		});
 
+	const packagesDir = config.packagesDir ?? 'packages';
+
+	/** Map a changed file to its package directory, or undefined for root-group files. */
+	const packageOf = (file: string) => {
+		const prefix = `${packagesDir}/`;
+
+		if (!file.startsWith(prefix)) {
+			return undefined;
+		}
+
+		const rest = file.slice(prefix.length);
+		const separator = rest.indexOf('/');
+
+		return separator > 0 ? rest.slice(0, separator) : undefined;
+	};
+
 	/**
 	 * Merge the two sources of changed-file truth: what agents reported and
 	 * what git actually observed (minus the run's baseline dirt). Agents can
-	 * forget files; git cannot be sweet-talked.
+	 * forget files; git cannot be sweet-talked. Also widens the package scope
+	 * to whatever the changed files reveal — declared scope is a starting
+	 * point, changed files are the truth; scope never shrinks.
 	 */
 	const collectChanged = async (reports: WorkReport[]) => {
 		const fromGit = ((await readGitChangedFiles({ cwd })) ?? []).filter((file) => !manifest.baselineDirtyFiles.includes(file));
 		const fromReports = reports.flatMap((report) => report.changedFiles.map((file) => file.path));
+		const changedFiles = [...new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
+		const fromFiles = changedFiles.flatMap((file) => {
+			const packageDir = packageOf(file);
 
-		return [...new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
+			return packageDir ? [packageDir] : [];
+		});
+
+		return { changedFiles, packages: [...new Set([...manifest.packages, ...fromFiles])] };
 	};
+
+	const hasRootChanges = () => manifest.changedFiles.some((file) => packageOf(file) === undefined);
+
+	const gates = ({ coverage }: { coverage?: boolean }) =>
+		runGates({ cwd, config, coverage, packages: manifest.packages, includeRoot: hasRootChanges() });
 
 	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFilePath(file) && !isNonCodeFilePath(file));
 
@@ -232,7 +281,7 @@ export const runImplementPipeline = async ({
 
 			const changed = await collectChanged([report]);
 
-			if (requireChanges && changed.length === 0) {
+			if (requireChanges && changed.changedFiles.length === 0) {
 				return stop({
 					record: { ...record, report },
 					status: RunStatus.Failed,
@@ -240,7 +289,7 @@ export const runImplementPipeline = async ({
 				});
 			}
 
-			await setStep({ record: { ...record, status: RunStatus.Passed, report }, patch: { changedFiles: changed } });
+			await setStep({ record: { ...record, status: RunStatus.Passed, report }, patch: changed });
 
 			return undefined;
 		};
@@ -261,7 +310,7 @@ export const runImplementPipeline = async ({
 
 			await setStep({ record });
 
-			let error = await runGates({ cwd, config, coverage });
+			let error = await gates({ coverage });
 
 			// Cheap mechanical retries: hand the role the gate output and re-verify.
 			for (let retry = 1; error && retry <= maxCheapFixRetries; retry += 1) {
@@ -280,10 +329,10 @@ export const runImplementPipeline = async ({
 				}
 
 				if (fix.report?.status === WorkReportStatus.Complete) {
-					await setStep({ record: { ...record, report: fix.report }, patch: { changedFiles: await collectChanged([fix.report]) } });
+					await setStep({ record: { ...record, report: fix.report }, patch: await collectChanged([fix.report]) });
 				}
 
-				error = await runGates({ cwd, config, coverage });
+				error = await gates({ coverage });
 			}
 
 			// Exception path: mechanical retries exhausted — bring in judgment.
@@ -320,10 +369,10 @@ export const runImplementPipeline = async ({
 					}
 
 					if (fix.report?.status === WorkReportStatus.Complete) {
-						await setStep({ record: { ...record, report: fix.report }, patch: { changedFiles: await collectChanged([fix.report]) } });
+						await setStep({ record: { ...record, report: fix.report }, patch: await collectChanged([fix.report]) });
 					}
 
-					error = await runGates({ cwd, config, coverage });
+					error = await gates({ coverage });
 				}
 
 				if (error) {
@@ -347,7 +396,7 @@ export const runImplementPipeline = async ({
 		// Coverage runs here too: verify-tests holds the same bar later, so a
 		// baseline that already misses it must be the consumer's problem, not
 		// the run's.
-		const error = await runGates({ cwd, config, coverage: true });
+		const error = await gates({ coverage: true });
 
 		if (error) {
 			return stop({
@@ -417,7 +466,7 @@ export const runImplementPipeline = async ({
 
 		// Persist whatever progress the batches made before deciding the
 		// outcome — a parked or stopped run must still know what was touched.
-		await setStep({ record: { ...record, report: { reports } }, patch: { changedFiles: await collectChanged(reports) } });
+		await setStep({ record: { ...record, report: { reports } }, patch: await collectChanged(reports) });
 
 		if (parked) {
 			return stop({ record: { ...record, report: { reports } }, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -465,7 +514,7 @@ export const runImplementPipeline = async ({
 				return stop({ record: { ...record, report }, status, error: `refactor: ${report.status} — ${report.failures.join('; ')}` });
 			}
 
-			await setStep({ record: { ...record, report }, patch: { changedFiles: await collectChanged([report]) } });
+			await setStep({ record: { ...record, report }, patch: await collectChanged([report]) });
 			lastReport = report;
 
 			if (report.changedFiles.length === 0) {
@@ -507,7 +556,7 @@ export const runImplementPipeline = async ({
 			// A formatter should be behavior-preserving — verify anyway; a red
 			// gate here means the formatter and the checks disagree, which is a
 			// human's configuration problem, not an agent's.
-			const error = await runGates({ cwd, config, coverage: true });
+			const error = await gates({ coverage: true });
 
 			if (error) {
 				return stop({ record, status: RunStatus.Failed, error: `format: formatting broke verification — review the formatter/gate configuration.\n${error}` });

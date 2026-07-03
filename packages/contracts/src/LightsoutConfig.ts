@@ -28,6 +28,26 @@ export const LightsoutConfig = z.object({
 		/** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
 		format: z.string().optional(),
 	}),
+	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
+	packagesDir: z.string().optional(),
+	/**
+	 * Monorepo mode: gate command templates run per affected package, with
+	 * `{package}` replaced by that package's package.json `name`. When set,
+	 * verifies run scoped to the run's package scope (plan front-matter
+	 * `packages:` list or `--packages`, expanded as changed files reveal the
+	 * true blast radius) and `scripts.*` becomes the root-group commands, run
+	 * only when files outside the packages directory change.
+	 */
+	packageScripts: z
+		.object({
+			check: z.string(),
+			testUnit: z.string(),
+			/** Scoped coverage gate. Omitted = no coverage gate for package groups. */
+			testCoverage: z.string().optional(),
+			/** Opt-in scoped build gate. */
+			build: z.string().optional(),
+		})
+		.optional(),
 	/** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
 	standards: z.array(z.string()).optional(),
 	/** Same, for the test-writer role. */

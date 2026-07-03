@@ -9,11 +9,12 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 - `docs/architecture.md` — full design, non-negotiable rules, decision log,
   roadmap. Read it before proposing architectural changes; the decision log
   records what was already settled and why.
-- State: v0.1–v0.5 shipped (pipeline, resume/parking, supervisor,
+- State: v0.1–v0.6 shipped (pipeline, resume/parking, supervisor,
   friction→self-improvement loop, standards injection, claude-code + codex
   drivers; v0.5: git-truth changed files, zero-change implement gate,
   parallel per-file test writers, refactor loop, coverage/build/format gates,
-  `--overview` phased plans). FeedbackDrop is consumer #1 via its own
+  `--overview` phased plans; v0.6: monorepo scoped gates via `packageScripts`
+  + plan front-matter scope). FeedbackDrop is consumer #1 via its own
   `lightsout.config.json`.
 
 ## Commands

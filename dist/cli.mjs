@@ -6,7 +6,7 @@ var __export = (target, all) => {
 
 // packages/cli/src/index.ts
 import { readdir as readdir2 } from "node:fs/promises";
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -14561,6 +14561,13 @@ var RunManifest = external_exports.object({
   /** Source files changed so far, accumulated across steps. */
   changedFiles: external_exports.array(external_exports.string()),
   /**
+   * Package scope (directory names under the packages dir) for scoped
+   * gates. Seeded from the plan front-matter or `--packages`, then expanded
+   * as changed files reveal the true blast radius — never shrunk. Empty in
+   * non-monorepo mode.
+   */
+  packages: external_exports.array(external_exports.string()).default([]),
+  /**
    * Paths already dirty/untracked in git when the run started. Subtracted
    * from every git snapshot so only files the RUN changed are attributed to
    * it — agents report what they changed, git reports what actually changed.
@@ -14675,6 +14682,24 @@ var LightsoutConfig = external_exports.object({
     /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
     format: external_exports.string().optional()
   }),
+  /** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
+  packagesDir: external_exports.string().optional(),
+  /**
+   * Monorepo mode: gate command templates run per affected package, with
+   * `{package}` replaced by that package's package.json `name`. When set,
+   * verifies run scoped to the run's package scope (plan front-matter
+   * `packages:` list or `--packages`, expanded as changed files reveal the
+   * true blast radius) and `scripts.*` becomes the root-group commands, run
+   * only when files outside the packages directory change.
+   */
+  packageScripts: external_exports.object({
+    check: external_exports.string(),
+    testUnit: external_exports.string(),
+    /** Scoped coverage gate. Omitted = no coverage gate for package groups. */
+    testCoverage: external_exports.string().optional(),
+    /** Opt-in scoped build gate. */
+    build: external_exports.string().optional()
+  }).optional(),
   /** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
   standards: external_exports.array(external_exports.string()).optional(),
   /** Same, for the test-writer role. */
@@ -14881,6 +14906,7 @@ var createRun = async ({ cwd, plan, overview, driver, baselineDirtyFiles }) => {
     currentStep: null,
     steps: [],
     changedFiles: [],
+    packages: [],
     baselineDirtyFiles: baselineDirtyFiles ?? []
   };
   await mkdir(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });
@@ -14971,9 +14997,54 @@ var readGitChangedFiles = async ({ cwd }) => {
   }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
 };
 
+// packages/engine/src/readPlanPackages.ts
+var readPlanPackages = ({ planContent }) => {
+  const frontMatter = planContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
+  if (!frontMatter) {
+    return void 0;
+  }
+  const lines = frontMatter.split(/\r?\n/);
+  const keyIndex = lines.findIndex((line) => /^packages:/.test(line.trim()));
+  const keyLine = lines[keyIndex]?.trim();
+  if (keyIndex === -1 || keyLine === void 0) {
+    return void 0;
+  }
+  const unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
+  const inline = keyLine.match(/^packages:\s*\[(.*)\]\s*$/);
+  if (inline?.[1] !== void 0) {
+    const items2 = inline[1].split(",").map(unquote).filter(Boolean);
+    return items2.length > 0 ? items2 : void 0;
+  }
+  const items = [];
+  for (let index = keyIndex + 1; index < lines.length; index += 1) {
+    const entry = lines[index]?.trim().match(/^-\s+(.+)$/);
+    if (!entry?.[1]) {
+      break;
+    }
+    items.push(unquote(entry[1]));
+  }
+  return items.length > 0 ? items : void 0;
+};
+
+// packages/engine/src/resolvePackageName.ts
+import { readFile as readFile4 } from "node:fs/promises";
+import { join as join6 } from "node:path";
+var PackageManifest = external_exports.object({ name: external_exports.string().min(1) });
+var resolvePackageName = async ({ cwd, packagesDir, packageDir }) => {
+  const manifestPath = join6(cwd, packagesDir, packageDir, "package.json");
+  const raw = await readFile4(manifestPath, "utf8").catch(() => {
+    throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
+  });
+  const parsed = PackageManifest.safeParse(JSON.parse(raw));
+  if (!parsed.success) {
+    throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
+  }
+  return parsed.data.name;
+};
+
 // packages/engine/src/runImplementPipeline.ts
-import { readFile as readFile5 } from "node:fs/promises";
-import { join as join8 } from "node:path";
+import { readFile as readFile6 } from "node:fs/promises";
+import { join as join9 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
@@ -15143,15 +15214,15 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 
 // packages/engine/src/appendFriction.ts
 import { appendFile, mkdir as mkdir2 } from "node:fs/promises";
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 var appendFriction = async ({ cwd, runId, step, friction }) => {
   if (friction.length === 0) {
     return;
   }
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir2(join6(cwd, ".lightsout"), { recursive: true });
-  await appendFile(join6(cwd, ".lightsout", "friction.jsonl"), `${lines}
+  await mkdir2(join7(cwd, ".lightsout"), { recursive: true });
+  await appendFile(join7(cwd, ".lightsout", "friction.jsonl"), `${lines}
 `, "utf8");
 };
 
@@ -15189,16 +15260,16 @@ var invokeAgentWithContract = async ({
 };
 
 // packages/engine/src/readStandards.ts
-import { readFile as readFile4 } from "node:fs/promises";
-import { join as join7 } from "node:path";
+import { readFile as readFile5 } from "node:fs/promises";
+import { join as join8 } from "node:path";
 var readStandards = async ({ cwd, paths }) => {
   if (paths.length === 0) {
     return void 0;
   }
   const contents = await Promise.all(
     paths.map(async (path) => {
-      const raw = await readFile4(join7(cwd, path), "utf8").catch(() => {
-        throw new Error(`standards file not found: ${join7(cwd, path)}`);
+      const raw = await readFile5(join8(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join8(cwd, path)}`);
       });
       return `<!-- ${path} -->
 ${raw}`;
@@ -15209,36 +15280,76 @@ ${raw}`;
 
 // packages/engine/src/runGates.ts
 var gateTimeoutMs = 10 * 6e4;
-var runGates = async ({ cwd, config: config2, coverage }) => {
-  const check2 = await runCommand({ command: config2.scripts.check, cwd, timeoutMs: gateTimeoutMs });
+var defaultPackagesDir = "packages";
+var runGateSet = async ({ cwd, commands, label }) => {
+  const prefix = label ? `[${label}] ` : "";
+  const check2 = await runCommand({ command: commands.check, cwd, timeoutMs: gateTimeoutMs });
   if (check2.exitCode !== 0) {
-    return `check failed (exit ${check2.exitCode}):
+    return `${prefix}check failed (exit ${check2.exitCode}):
 ${check2.stdout}
 ${check2.stderr}`;
   }
-  const tests = await runCommand({ command: config2.scripts.testUnit, cwd, timeoutMs: gateTimeoutMs });
+  const tests = await runCommand({ command: commands.testUnit, cwd, timeoutMs: gateTimeoutMs });
   if (tests.exitCode !== 0) {
-    return `test-unit failed (exit ${tests.exitCode}):
+    return `${prefix}test-unit failed (exit ${tests.exitCode}):
 ${tests.stdout}
 ${tests.stderr}`;
   }
-  if (coverage && typeof config2.scripts.testCoverage === "string") {
-    const coverageResult = await runCommand({ command: config2.scripts.testCoverage, cwd, timeoutMs: gateTimeoutMs });
+  if (commands.testCoverage) {
+    const coverageResult = await runCommand({ command: commands.testCoverage, cwd, timeoutMs: gateTimeoutMs });
     if (coverageResult.exitCode !== 0) {
-      return `test-coverage failed (exit ${coverageResult.exitCode}):
+      return `${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
 ${coverageResult.stdout}
 ${coverageResult.stderr}`;
     }
   }
-  if (config2.scripts.build) {
-    const build = await runCommand({ command: config2.scripts.build, cwd, timeoutMs: gateTimeoutMs });
+  if (commands.build) {
+    const build = await runCommand({ command: commands.build, cwd, timeoutMs: gateTimeoutMs });
     if (build.exitCode !== 0) {
-      return `build failed (exit ${build.exitCode}):
+      return `${prefix}build failed (exit ${build.exitCode}):
 ${build.stdout}
 ${build.stderr}`;
     }
   }
   return void 0;
+};
+var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot }) => {
+  const rootCommands = {
+    check: config2.scripts.check,
+    testUnit: config2.scripts.testUnit,
+    testCoverage: coverage && typeof config2.scripts.testCoverage === "string" ? config2.scripts.testCoverage : void 0,
+    build: config2.scripts.build
+  };
+  const scoped = config2.packageScripts;
+  if (!scoped || !packages || packages.length === 0) {
+    return runGateSet({ cwd, commands: rootCommands });
+  }
+  const packagesDir = config2.packagesDir ?? defaultPackagesDir;
+  const packageGate = async (packageDir) => {
+    let name;
+    try {
+      name = await resolvePackageName({ cwd, packagesDir, packageDir });
+    } catch (error51) {
+      return error51 instanceof Error ? error51.message : String(error51);
+    }
+    const substitute = (command) => command.split("{package}").join(name);
+    return runGateSet({
+      cwd,
+      label: packageDir,
+      commands: {
+        check: substitute(scoped.check),
+        testUnit: substitute(scoped.testUnit),
+        testCoverage: coverage && scoped.testCoverage ? substitute(scoped.testCoverage) : void 0,
+        build: scoped.build ? substitute(scoped.build) : void 0
+      }
+    });
+  };
+  const results = await Promise.all([
+    ...packages.map(packageGate),
+    ...includeRoot ? [runGateSet({ cwd, commands: rootCommands, label: "root" })] : []
+  ]);
+  const errors = results.filter((result) => Boolean(result));
+  return errors.length > 0 ? errors.join("\n\n") : void 0;
 };
 
 // packages/engine/src/runImplementPipeline.ts
@@ -15265,6 +15376,7 @@ var runImplementPipeline = async ({
   config: config2,
   planPath,
   overviewPath,
+  packages,
   existing,
   skipRefactor
 }) => {
@@ -15287,20 +15399,20 @@ var runImplementPipeline = async ({
     return stopped;
   };
   const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile5(join8(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const planContent = await readFile6(join9(cwd, manifest.plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `plan file not found: ${join8(cwd, manifest.plan)}`
+      error: `plan file not found: ${join9(cwd, manifest.plan)}`
     });
   }
-  const overviewContent = manifest.overview ? await readFile5(join8(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
+  const overviewContent = manifest.overview ? await readFile6(join9(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
   if (manifest.overview && overviewContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `overview file not found: ${join8(cwd, manifest.overview)}`
+      error: `overview file not found: ${join9(cwd, manifest.overview)}`
     });
   }
   let standards;
@@ -15315,6 +15427,17 @@ var runImplementPipeline = async ({
       error: error51 instanceof Error ? error51.message : String(error51)
     });
   }
+  if (config2.packageScripts && manifest.packages.length === 0) {
+    const declared = packages ?? readPlanPackages({ planContent }) ?? [];
+    if (declared.length === 0) {
+      return stop({
+        record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
+        status: RunStatus.Failed,
+        error: "packageScripts is configured but the run has no package scope \u2014 add a `packages:` list to the plan front-matter or pass --packages <a,b>."
+      });
+    }
+    await update({ packages: declared });
+  }
   const nextRecord = ({ id }) => {
     const prev = manifest.steps.find((step) => step.id === id);
     return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
@@ -15328,11 +15451,28 @@ var runImplementPipeline = async ({
     permissionMode: config2.permissionMode ?? defaultPermissionMode,
     timeoutMs: executorTimeoutMs
   });
+  const packagesDir = config2.packagesDir ?? "packages";
+  const packageOf = (file2) => {
+    const prefix = `${packagesDir}/`;
+    if (!file2.startsWith(prefix)) {
+      return void 0;
+    }
+    const rest = file2.slice(prefix.length);
+    const separator = rest.indexOf("/");
+    return separator > 0 ? rest.slice(0, separator) : void 0;
+  };
   const collectChanged = async (reports) => {
     const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !manifest.baselineDirtyFiles.includes(file2));
     const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => file2.path));
-    return [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
+    const changedFiles = [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
+    const fromFiles = changedFiles.flatMap((file2) => {
+      const packageDir = packageOf(file2);
+      return packageDir ? [packageDir] : [];
+    });
+    return { changedFiles, packages: [.../* @__PURE__ */ new Set([...manifest.packages, ...fromFiles])] };
   };
+  const hasRootChanges = () => manifest.changedFiles.some((file2) => packageOf(file2) === void 0);
+  const gates = ({ coverage }) => runGates({ cwd, config: config2, coverage, packages: manifest.packages, includeRoot: hasRootChanges() });
   const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFilePath(file2) && !isNonCodeFilePath(file2));
   const workStep = ({
     id,
@@ -15359,14 +15499,14 @@ var runImplementPipeline = async ({
         });
       }
       const changed = await collectChanged([report]);
-      if (requireChanges && changed.length === 0) {
+      if (requireChanges && changed.changedFiles.length === 0) {
         return stop({
           record: { ...record2, report },
           status: RunStatus.Failed,
           error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
         });
       }
-      await setStep({ record: { ...record2, status: RunStatus.Passed, report }, patch: { changedFiles: changed } });
+      await setStep({ record: { ...record2, status: RunStatus.Passed, report }, patch: changed });
       return void 0;
     };
   };
@@ -15378,7 +15518,7 @@ var runImplementPipeline = async ({
     return async () => {
       let record2 = nextRecord({ id });
       await setStep({ record: record2 });
-      let error51 = await runGates({ cwd, config: config2, coverage });
+      let error51 = await gates({ coverage });
       for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
         record2 = { ...record2, attempts: record2.attempts + 1 };
         await setStep({ record: record2 });
@@ -15390,9 +15530,9 @@ var runImplementPipeline = async ({
           await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
         }
         if (fix.report?.status === WorkReportStatus.Complete) {
-          await setStep({ record: { ...record2, report: fix.report }, patch: { changedFiles: await collectChanged([fix.report]) } });
+          await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
         }
-        error51 = await runGates({ cwd, config: config2, coverage });
+        error51 = await gates({ coverage });
       }
       if (error51) {
         const verdict = await invokeAgentWithContract({
@@ -15426,9 +15566,9 @@ ${verdict.report.guidance}`)
             await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
           }
           if (fix.report?.status === WorkReportStatus.Complete) {
-            await setStep({ record: { ...record2, report: fix.report }, patch: { changedFiles: await collectChanged([fix.report]) } });
+            await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
           }
-          error51 = await runGates({ cwd, config: config2, coverage });
+          error51 = await gates({ coverage });
         }
         if (error51) {
           const diagnosis = verdict.report ? `
@@ -15445,7 +15585,7 @@ ${error51}` });
   const cleanSlateStep = async () => {
     const record2 = nextRecord({ id: "clean-slate" });
     await setStep({ record: record2 });
-    const error51 = await runGates({ cwd, config: config2, coverage: true });
+    const error51 = await gates({ coverage: true });
     if (error51) {
       return stop({
         record: record2,
@@ -15494,7 +15634,7 @@ ${error51}`
         }
       }
     }
-    await setStep({ record: { ...record2, report: { reports } }, patch: { changedFiles: await collectChanged(reports) } });
+    await setStep({ record: { ...record2, report: { reports } }, patch: await collectChanged(reports) });
     if (parked) {
       return stop({ record: { ...record2, report: { reports } }, status: RunStatus.PausedRateLimit, error: parkMessage() });
     }
@@ -15528,7 +15668,7 @@ ${failures.join("\n")}`
         const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
         return stop({ record: { ...record2, report }, status, error: `refactor: ${report.status} \u2014 ${report.failures.join("; ")}` });
       }
-      await setStep({ record: { ...record2, report }, patch: { changedFiles: await collectChanged([report]) } });
+      await setStep({ record: { ...record2, report }, patch: await collectChanged([report]) });
       lastReport = report;
       if (report.changedFiles.length === 0) {
         break;
@@ -15558,7 +15698,7 @@ ${result.stdout}
 ${result.stderr}`
         });
       }
-      const error51 = await runGates({ cwd, config: config2, coverage: true });
+      const error51 = await gates({ coverage: true });
       if (error51) {
         return stop({ record: record2, status: RunStatus.Failed, error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
 ${error51}` });
@@ -15639,10 +15779,10 @@ ${error51}` });
 };
 
 // packages/engine/src/readFriction.ts
-import { readFile as readFile6 } from "node:fs/promises";
-import { join as join9 } from "node:path";
+import { readFile as readFile7 } from "node:fs/promises";
+import { join as join10 } from "node:path";
 var readFriction = async ({ cwd }) => {
-  const raw = await readFile6(join9(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+  const raw = await readFile7(join10(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
   return raw.split("\n").filter(Boolean).flatMap((line) => {
     try {
       const parsed = FrictionRecord.safeParse(JSON.parse(line));
@@ -15655,7 +15795,7 @@ var readFriction = async ({ cwd }) => {
 
 // packages/engine/src/runPromptImprovement.ts
 import { readdir } from "node:fs/promises";
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -15663,8 +15803,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir(join10(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join10(promptsDir, file2));
+  const files = await readdir(join11(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join11(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -15681,7 +15821,7 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
 var usage = `lightsout \u2014 deterministic engine for coding agents
 
 usage:
-  lightsout run --plan <path> [--overview <path>] [--cwd <path>] [--skip-refactor]
+  lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout friction [--cwd <path>]
@@ -15745,6 +15885,8 @@ var main = async () => {
   if (command === "run") {
     const planPath = getStringFlag({ flags, name: "plan" });
     const overviewPath = getStringFlag({ flags, name: "overview" });
+    const packagesFlag = getStringFlag({ flags, name: "packages" });
+    const packages = packagesFlag ? packagesFlag.split(",").map((name) => name.trim()).filter(Boolean) : void 0;
     if (!planPath) {
       console.error(usage);
       process.exit(1);
@@ -15752,7 +15894,7 @@ var main = async () => {
     const config2 = await loadConfig({ cwd });
     const driver = getDriver({ name: config2.driver ?? "claude-code" });
     console.log(`lightsout: starting run (plan: ${planPath}, driver: ${driver.name})`);
-    const result = await runImplementPipeline({ cwd, planPath, overviewPath, driver, config: config2, skipRefactor });
+    const result = await runImplementPipeline({ cwd, planPath, overviewPath, packages, driver, config: config2, skipRefactor });
     printResult({ result });
     process.exit(result.ok ? 0 : 1);
   }
@@ -15775,7 +15917,7 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join11(cwd, ".lightsout", "runs");
+    const runsDir = join12(cwd, ".lightsout", "runs");
     const runIds = await readdir2(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");

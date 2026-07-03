@@ -93,6 +93,45 @@ Add `lightsout.config.json` at the repo root:
 | `scripts.testCoverage` | yes | Coverage gate — a full shell command (your command owns the threshold), or the literal `false` to opt out. On by default: silence is not accepted, skipping the strongest gate must be a decision. Runs at clean-slate and every verify after tests exist. |
 | `scripts.build` | no | Opt-in build gate, run last in every verify step |
 | `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |
+| `packageScripts` | no | Monorepo mode — see below |
+| `packagesDir` | no | Workspace packages directory for monorepo mode (default `packages`) |
+
+### Monorepos
+
+Whole-repo gates on a monorepo mean an unrelated red package blocks every
+run, and the coverage bar applies to the entire repo. `packageScripts` fixes
+both: command templates that run once per affected package, in parallel, with
+`{package}` replaced by that package's `package.json` name:
+
+```json
+{
+	"packageScripts": {
+		"check": "pnpm --filter {package} typecheck",
+		"testUnit": "pnpm --filter {package} test:unit",
+		"testCoverage": "pnpm --filter {package} test:coverage"
+	}
+}
+```
+
+The run's **package scope** comes from the plan itself, so `/implement
+plan.md` needs nothing extra:
+
+```markdown
+---
+packages:
+  - backend-api
+---
+# Plan: ...
+```
+
+`--packages backend-api,shared` on the CLI overrides the front-matter; no
+scope at all is a hard error before any agent runs — the engine never
+guesses. After the implement step, changed files are the truth: the scope
+widens automatically when the agent touches a package you didn't declare
+(never shrinks). Files outside `packagesDir` re-activate the whole-repo
+`scripts.*` as a "root group". Tip: use a dependents filter in the templates
+(`pnpm --filter ...{package}`) to also verify packages that depend on the
+changed ones — the blast radius lives in your template, not in the engine.
 | `standards` | no | Markdown files inlined as binding rules for code-writing agents. A declared-but-missing file is a hard error. |
 | `testStandards` | no | Same, for the test-writer agent |
 | `driver` | no | `claude-code` (default) or `codex` |
@@ -117,7 +156,7 @@ authoritative for scope.
 
 | Command | Purpose |
 |---|---|
-| `lightsout run --plan <path> [--overview <path>] [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan (optionally with an overview plan as context) |
+| `lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan (optionally with an overview plan as context and a package-scope override) |
 | `lightsout resume --run <id> [--cwd <path>]` | Continue a parked/failed/crashed run from its last incomplete step |
 | `lightsout status [--cwd <path>]` | List runs and their states |
 | `lightsout friction [--cwd <path>]` | Show accumulated friction reports from agents |

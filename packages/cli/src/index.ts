@@ -14,7 +14,7 @@ import {
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
-  lightsout run --plan <path> [--overview <path>] [--cwd <path>] [--skip-refactor]
+  lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout friction [--cwd <path>]
@@ -94,6 +94,13 @@ const main = async () => {
 	if (command === 'run') {
 		const planPath = getStringFlag({ flags, name: 'plan' });
 		const overviewPath = getStringFlag({ flags, name: 'overview' });
+		const packagesFlag = getStringFlag({ flags, name: 'packages' });
+		const packages = packagesFlag
+			? packagesFlag
+					.split(',')
+					.map((name) => name.trim())
+					.filter(Boolean)
+			: undefined;
 
 		if (!planPath) {
 			console.error(usage);
@@ -105,7 +112,7 @@ const main = async () => {
 
 		console.log(`lightsout: starting run (plan: ${planPath}, driver: ${driver.name})`);
 
-		const result = await runImplementPipeline({ cwd, planPath, overviewPath, driver, config, skipRefactor });
+		const result = await runImplementPipeline({ cwd, planPath, overviewPath, packages, driver, config, skipRefactor });
 
 		printResult({ result });
 		process.exit(result.ok ? 0 : 1);

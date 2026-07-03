@@ -25,6 +25,13 @@ export const RunManifest = z.object({
 	/** Source files changed so far, accumulated across steps. */
 	changedFiles: z.array(z.string()),
 	/**
+	 * Package scope (directory names under the packages dir) for scoped
+	 * gates. Seeded from the plan front-matter or `--packages`, then expanded
+	 * as changed files reveal the true blast radius — never shrunk. Empty in
+	 * non-monorepo mode.
+	 */
+	packages: z.array(z.string()).default([]),
+	/**
 	 * Paths already dirty/untracked in git when the run started. Subtracted
 	 * from every git snapshot so only files the RUN changed are attributed to
 	 * it — agents report what they changed, git reports what actually changed.

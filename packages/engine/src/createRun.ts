@@ -28,6 +28,7 @@ export const createRun = async ({ cwd, plan, overview, driver, baselineDirtyFile
 		currentStep: null,
 		steps: [],
 		changedFiles: [],
+		packages: [],
 		baselineDirtyFiles: baselineDirtyFiles ?? [],
 	};
 
