@@ -101,8 +101,10 @@ Add `lightsout.config.json` at the repo root:
 | `scripts.check` | yes | Type/lint gate — full shell command, run per verify step |
 | `scripts.testUnit` | yes | Test gate — full shell command |
 | `scripts.testCoverage` | yes | Coverage gate — a full shell command (your command owns the threshold), or the literal `false` to opt out. On by default: silence is not accepted, skipping the strongest gate must be a decision. Runs at clean-slate and every verify after tests exist. |
+| `scripts.generate` | no | Opt-in codegen (e.g. `prisma generate`), run once **before** every gate set — gates verify, generate mutates, and parallel package gates must never race a generator. Red exit fails the gate set. |
 | `scripts.build` | no | Opt-in build gate, run last in every verify step |
 | `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |
+| `generated` | no | Path prefixes of generated output (e.g. a Prisma client dir). Real files in your diff, but excluded from changed-file attribution — they never earn agent turns; the source that generates them is the change. |
 | `packageScripts` | no | Monorepo mode — see below |
 | `packagesDir` | no | Workspace packages directory for monorepo mode (default `packages`) |
 | `timeouts.agentMinutes` | no | Ceiling for working agents (executor, test writers, refactorer). Default 60. A hit ceiling is a recorded step failure the run resumes from — never a crash. |

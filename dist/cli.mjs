@@ -14553,6 +14553,11 @@ var LightsoutConfig = external_exports.object({
      * the strongest gate must be a decision, not an accident.
      */
     testCoverage: external_exports.union([external_exports.string(), external_exports.literal(false)]),
+    /**
+     * Opt-in codegen, run once BEFORE every gate set (not inside check:
+     * gates verify, generate mutates). Red exit fails the gate set.
+     */
+    generate: external_exports.string().optional(),
     /** Opt-in build gate, run last in every verify. Omit when nothing compiles. */
     build: external_exports.string().optional(),
     /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
@@ -14568,6 +14573,13 @@ var LightsoutConfig = external_exports.object({
     /** The read-only supervisor. Default 15. */
     supervisorMinutes: external_exports.number().positive().optional()
   }).optional(),
+  /**
+   * Path prefixes of generated/derived files (e.g. a Prisma client output
+   * dir). Treated like gate artifacts: real files in the diff, but excluded
+   * from changed-file attribution — they never earn agent turns and never
+   * pollute the manifest. The source that generates them is the change.
+   */
+  generated: external_exports.array(external_exports.string()).optional(),
   /** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
   packagesDir: external_exports.string().optional(),
   /**
@@ -15399,6 +15411,14 @@ ${result.stderr}`.slice(-outputTailChars) }
     }
     return result;
   };
+  if (config2.scripts.generate) {
+    const generated = await gate({ kind: "generate", command: config2.scripts.generate, group: "root" });
+    if (generated.exitCode !== 0) {
+      return `generate failed (exit ${generated.exitCode}):
+${generated.stdout}
+${generated.stderr}`;
+    }
+  }
   const rootCommands = {
     check: config2.scripts.check,
     testUnit: config2.scripts.testUnit,
@@ -15561,9 +15581,12 @@ var runImplementPipeline = async ({
     const separator = rest.indexOf("/");
     return separator > 0 ? rest.slice(0, separator) : void 0;
   };
+  const isGeneratedFile = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
   const collectChanged = async (reports) => {
-    const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !manifest.baselineDirtyFiles.includes(file2));
-    const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => file2.path));
+    const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter(
+      (file2) => !manifest.baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
+    );
+    const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => file2.path)).filter((file2) => !isGeneratedFile(file2));
     const changedFiles = [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
     const fromFiles = changedFiles.flatMap((file2) => {
       const packageDir = packageOf(file2);
@@ -16019,6 +16042,12 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
   );
   console.log(`  timeouts: agent ${config2.timeouts?.agentMinutes ?? 60}m \xB7 supervisor ${config2.timeouts?.supervisorMinutes ?? 15}m`);
   console.log(`  gates (root): check=[${config2.scripts.check}] testUnit=[${config2.scripts.testUnit}] coverage=[${coverage}]`);
+  if (config2.scripts.generate) {
+    console.log(`  generate (before every gate set): [${config2.scripts.generate}]`);
+  }
+  if (config2.generated) {
+    console.log(`  generated (never attributed): ${config2.generated.join(", ")}`);
+  }
   if (config2.scripts.build) {
     console.log(`  gates (root, opt-in): build=[${config2.scripts.build}]`);
   }

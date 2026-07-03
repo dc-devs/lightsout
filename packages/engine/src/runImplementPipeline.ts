@@ -246,9 +246,15 @@ export const runImplementPipeline = async ({
 	 * to whatever the changed files reveal — declared scope is a starting
 	 * point, changed files are the truth; scope never shrinks.
 	 */
+	// Generated/derived files (configured prefixes) are like gate artifacts:
+	// real in the diff, but never attributed — their source is the change.
+	const isGeneratedFile = (file: string) => (config.generated ?? []).some((prefix) => file.startsWith(prefix));
+
 	const collectChanged = async (reports: WorkReport[]) => {
-		const fromGit = ((await readGitChangedFiles({ cwd })) ?? []).filter((file) => !manifest.baselineDirtyFiles.includes(file));
-		const fromReports = reports.flatMap((report) => report.changedFiles.map((file) => file.path));
+		const fromGit = ((await readGitChangedFiles({ cwd })) ?? []).filter(
+			(file) => !manifest.baselineDirtyFiles.includes(file) && !isGeneratedFile(file),
+		);
+		const fromReports = reports.flatMap((report) => report.changedFiles.map((file) => file.path)).filter((file) => !isGeneratedFile(file));
 		const changedFiles = [...new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
 		const fromFiles = changedFiles.flatMap((file) => {
 			const packageDir = packageOf(file);

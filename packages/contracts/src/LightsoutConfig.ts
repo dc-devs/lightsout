@@ -23,6 +23,11 @@ export const LightsoutConfig = z.object({
 		 * the strongest gate must be a decision, not an accident.
 		 */
 		testCoverage: z.union([z.string(), z.literal(false)]),
+		/**
+		 * Opt-in codegen, run once BEFORE every gate set (not inside check:
+		 * gates verify, generate mutates). Red exit fails the gate set.
+		 */
+		generate: z.string().optional(),
 		/** Opt-in build gate, run last in every verify. Omit when nothing compiles. */
 		build: z.string().optional(),
 		/** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
@@ -40,6 +45,13 @@ export const LightsoutConfig = z.object({
 			supervisorMinutes: z.number().positive().optional(),
 		})
 		.optional(),
+	/**
+	 * Path prefixes of generated/derived files (e.g. a Prisma client output
+	 * dir). Treated like gate artifacts: real files in the diff, but excluded
+	 * from changed-file attribution — they never earn agent turns and never
+	 * pollute the manifest. The source that generates them is the change.
+	 */
+	generated: z.array(z.string()).optional(),
 	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
 	packagesDir: z.string().optional(),
 	/**

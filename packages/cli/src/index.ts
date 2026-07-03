@@ -73,6 +73,14 @@ const printRunHeader = ({ config, driver, cwd }: { config: LightsoutConfig; driv
 	console.log(`  timeouts: agent ${config.timeouts?.agentMinutes ?? 60}m · supervisor ${config.timeouts?.supervisorMinutes ?? 15}m`);
 	console.log(`  gates (root): check=[${config.scripts.check}] testUnit=[${config.scripts.testUnit}] coverage=[${coverage}]`);
 
+	if (config.scripts.generate) {
+		console.log(`  generate (before every gate set): [${config.scripts.generate}]`);
+	}
+
+	if (config.generated) {
+		console.log(`  generated (never attributed): ${config.generated.join(', ')}`);
+	}
+
 	if (config.scripts.build) {
 		console.log(`  gates (root, opt-in): build=[${config.scripts.build}]`);
 	}

@@ -459,6 +459,55 @@ test('config timeouts reach the driver; defaults are 60m agent / 15m supervisor'
 	assert.equal(await run({ config: { timeouts: { agentMinutes: 33 } } }), 33 * 60_000, 'configured ceiling reaches the driver');
 });
 
+test('generate runs first in every gate set; generated prefixes earn no attribution or agent turns', async () => {
+	const dir = setupConsumerRepo({
+		scripts: {
+			// Simulate codegen: every run rewrites a derived .ts file and logs.
+			generate: `node -e "const fs=require('fs');fs.mkdirSync('src/gen',{recursive:true});fs.writeFileSync('src/gen/model.ts','export const gen = '+Date.now()+';');fs.appendFileSync('gen.log','x')"`,
+		},
+		config: { generated: ['src/gen/'] },
+	});
+	const writers: string[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'write-tests') {
+				writers.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+			}
+
+			if (role !== 'implement') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/feature.js', summary: 'feature' },
+						{ path: 'src/gen/model.ts', summary: 'agent even reported a generated file' },
+					],
+				}),
+				exitCode: 0,
+			};
+		},
+	};
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const commands = readCommandLog(dir, result.manifest.runId);
+
+	assert.equal(result.ok, true, result.error);
+	assert.ok(!result.manifest.changedFiles.includes('src/gen/model.ts'), 'generated file never attributed — even agent-reported');
+	assert.deepEqual(writers, ['src/feature.js'], 'no writer spawned for the generated .ts');
+	assert.equal(commands[0]?.['kind'], 'generate', 'generate is the first command of the first gate set');
+	assert.equal(countLog(dir, 'gen.log'), 4, 'generate ran once per gate set (clean-slate + 3 verifies; no format configured)');
+	assert.ok(
+		commands.every((entry, index) => entry['kind'] !== 'check' || commands.slice(0, index).some((prior) => prior['kind'] === 'generate')),
+		'every check is preceded by a generate',
+	);
+});
+
 test('missing overview file fails the run before any agent spawns', async () => {
 	const dir = setupConsumerRepo();
 	const driver: Driver = {

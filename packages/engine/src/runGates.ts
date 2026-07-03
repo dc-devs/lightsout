@@ -118,6 +118,16 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 		return result;
 	};
 
+	// Codegen runs once, before any group fans out — gates verify, generate
+	// mutates, and parallel per-package gates must never race a generator.
+	if (config.scripts.generate) {
+		const generated = await gate({ kind: 'generate', command: config.scripts.generate, group: 'root' });
+
+		if (generated.exitCode !== 0) {
+			return `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`;
+		}
+	}
+
 	const rootCommands: GateCommands = {
 		check: config.scripts.check,
 		testUnit: config.scripts.testUnit,
