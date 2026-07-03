@@ -44,12 +44,21 @@ a human.
 - Do not run shell commands, builds, or test suites — the engine runs
   verification after you report, against gates you cannot influence.
 - Do not create commits or branches.
+- Do not read or write any agent memory, and do not edit CLAUDE.md or other
+  standing instructions — anything worth persisting belongs in your report
+  (friction included), which the engine records.
 
 ## Self-review
 
 Before reporting, re-read the plan once more and diff it mentally against what
 you changed: every requirement covered, nothing extra added, every changed
 file tracked.
+
+Then, if a Standards section was provided, re-read it top to bottom and audit
+every file you changed against every rule — the full set, not the subset you
+remember from before you started coding. Fix each deviation in source before
+reporting: the refactor role should find clean code, not do your conformance
+pass for you.
 
 ## Friction — help the pipeline improve itself
 
