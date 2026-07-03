@@ -194,6 +194,15 @@ Every `packageScripts` command must contain `{package}` — one without it
 would run identically for every package and belongs in `scripts.*` instead
 (config validation rejects it).
 
+Not every package in scope has to define every script. When a template's
+`run <script>` names a script a package's `package.json` doesn't have, that
+gate is **skipped** for that package — announced live
+(`gate [infra-local] check: skipped (no "check" script)`) and recorded in
+`commands.jsonl` with `skipped: true`, so an infra or docs package pulled
+into scope never needs placeholder scripts. A package missing only the
+coverage script falls back to its plain test script. Templates the engine
+can't read a script name from (no `run` token) always execute.
+
 The run's **package scope** resolves through a four-tier chain, so
 `/implement plan.md` needs nothing extra:
 

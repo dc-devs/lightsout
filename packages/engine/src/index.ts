@@ -13,7 +13,7 @@ export { loadConfig } from './loadConfig';
 export { extractJsonReport } from './extractJsonReport';
 export { readGitChangedFiles } from './readGitChangedFiles';
 export { readPlanPackages } from './readPlanPackages';
-export { resolvePackageName } from './resolvePackageName';
+export { resolvePackageManifest } from './resolvePackageManifest';
 export { scanPlanPackagePaths } from './scanPlanPackagePaths';
 export { runImplementPipeline } from './runImplementPipeline';
 export { readFriction } from './readFriction';

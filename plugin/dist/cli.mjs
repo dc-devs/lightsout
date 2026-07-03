@@ -15286,11 +15286,14 @@ var readPlanPackages = ({ planContent }) => {
   return items.length > 0 ? items : void 0;
 };
 
-// packages/engine/src/resolvePackageName.ts
+// packages/engine/src/resolvePackageManifest.ts
 import { readFile as readFile5 } from "node:fs/promises";
 import { join as join7 } from "node:path";
-var PackageManifest = external_exports.object({ name: external_exports.string().min(1) });
-var resolvePackageName = async ({ cwd, packagesDir, packageDir }) => {
+var PackageManifest = external_exports.object({
+  name: external_exports.string().min(1),
+  scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
   const manifestPath = join7(cwd, packagesDir, packageDir, "package.json");
   const raw = await readFile5(manifestPath, "utf8").catch(() => {
     throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
@@ -15299,7 +15302,7 @@ var resolvePackageName = async ({ cwd, packagesDir, packageDir }) => {
   if (!parsed.success) {
     throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
   }
-  return parsed.data.name;
+  return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
 };
 
 // packages/engine/src/scanPlanPackagePaths.ts
@@ -15800,6 +15803,16 @@ ${raw}`;
   return contents.join("\n\n");
 };
 
+// packages/engine/src/extractRunScriptName.ts
+var extractRunScriptName = ({ command }) => {
+  const tokens2 = command.split(/\s+/);
+  const runIndex = tokens2.indexOf("run");
+  if (runIndex === -1) {
+    return void 0;
+  }
+  return tokens2.slice(runIndex + 1).find((token) => token !== "" && !token.startsWith("-"));
+};
+
 // packages/engine/src/runGates.ts
 var gateTimeoutMs = 10 * 6e4;
 var defaultPackagesDir = "packages";
@@ -15807,11 +15820,13 @@ var outputTailChars = 2e3;
 var runGateSet = async ({ commands, label, gate }) => {
   const group = label ?? "root";
   const prefix = label ? `[${label}] ` : "";
-  const check2 = await gate({ kind: "check", command: commands.check, group });
-  if (check2.exitCode !== 0) {
-    return `${prefix}check failed (exit ${check2.exitCode}):
+  if (commands.check) {
+    const check2 = await gate({ kind: "check", command: commands.check, group });
+    if (check2.exitCode !== 0) {
+      return `${prefix}check failed (exit ${check2.exitCode}):
 ${check2.stdout}
 ${check2.stderr}`;
+    }
   }
   if (commands.testCoverage) {
     const coverageResult = await gate({ kind: "testCoverage", command: commands.testCoverage, group });
@@ -15820,7 +15835,7 @@ ${check2.stderr}`;
 ${coverageResult.stdout}
 ${coverageResult.stderr}`;
     }
-  } else {
+  } else if (commands.testUnit) {
     const tests = await gate({ kind: "testUnit", command: commands.testUnit, group });
     if (tests.exitCode !== 0) {
       return `${prefix}test-unit failed (exit ${tests.exitCode}):
@@ -15896,21 +15911,47 @@ ${generated.stderr}`;
   }
   const packagesDir = config2.packagesDir ?? defaultPackagesDir;
   const packageGate = async (packageDir) => {
-    let name;
+    let manifest;
     try {
-      name = await resolvePackageName({ cwd, packagesDir, packageDir });
+      manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir });
     } catch (error51) {
       return error51 instanceof Error ? error51.message : String(error51);
     }
-    const substitute = (command) => command.split("{package}").join(name);
+    const substitute = (command) => command.split("{package}").join(manifest.name);
+    const scopedCommand = async ({ kind, template }) => {
+      const scriptName = extractRunScriptName({ command: template });
+      if (!scriptName || Object.hasOwn(manifest.scripts, scriptName)) {
+        return substitute(template);
+      }
+      onProgress?.(`gate [${packageDir}] ${kind}: skipped (no "${scriptName}" script)`);
+      if (runId) {
+        await appendCommandLog({
+          cwd,
+          runId,
+          record: {
+            at: (/* @__PURE__ */ new Date()).toISOString(),
+            step,
+            group: packageDir,
+            kind,
+            command: substitute(template),
+            skipped: true,
+            reason: `no "${scriptName}" script`
+          }
+        });
+      }
+      return void 0;
+    };
+    const testCoverage = coverage && scoped.testCoverage ? await scopedCommand({ kind: "testCoverage", template: scoped.testCoverage }) : void 0;
     return runGateSet({
       label: packageDir,
       gate,
       commands: {
-        check: substitute(scoped.check),
-        testUnit: substitute(scoped.testUnit),
-        testCoverage: coverage && scoped.testCoverage ? substitute(scoped.testCoverage) : void 0,
-        build: scoped.build ? substitute(scoped.build) : void 0
+        check: await scopedCommand({ kind: "check", template: scoped.check }),
+        // Coverage replaces the plain test run; only when coverage is
+        // absent or skipped does testUnit get its own script lookup.
+        testUnit: testCoverage ? void 0 : await scopedCommand({ kind: "testUnit", template: scoped.testUnit }),
+        testCoverage,
+        build: scoped.build ? await scopedCommand({ kind: "build", template: scoped.build }) : void 0
       }
     });
   };

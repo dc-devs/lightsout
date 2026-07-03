@@ -1,15 +1,17 @@
 import type { LightsoutConfig } from '@lightsout/contracts';
 import { appendCommandLog } from './appendCommandLog';
-import { resolvePackageName } from './resolvePackageName';
+import { extractRunScriptName } from './extractRunScriptName';
+import { resolvePackageManifest } from './resolvePackageManifest';
 import { runCommand } from './runCommand';
 
 const gateTimeoutMs = 10 * 60_000;
 const defaultPackagesDir = 'packages';
 const outputTailChars = 2000;
 
+/** A kind left undefined is not run — scoped groups skip kinds the package has no script for. */
 interface GateCommands {
-	check: string;
-	testUnit: string;
+	check?: string;
+	testUnit?: string;
 	testCoverage?: string;
 	build?: string;
 }
@@ -20,10 +22,13 @@ type RunGate = (params: { kind: string; command: string; group: string }) => Pro
 const runGateSet = async ({ commands, label, gate }: { commands: GateCommands; label?: string; gate: RunGate }) => {
 	const group = label ?? 'root';
 	const prefix = label ? `[${label}] ` : '';
-	const check = await gate({ kind: 'check', command: commands.check, group });
 
-	if (check.exitCode !== 0) {
-		return `${prefix}check failed (exit ${check.exitCode}):\n${check.stdout}\n${check.stderr}`;
+	if (commands.check) {
+		const check = await gate({ kind: 'check', command: commands.check, group });
+
+		if (check.exitCode !== 0) {
+			return `${prefix}check failed (exit ${check.exitCode}):\n${check.stdout}\n${check.stderr}`;
+		}
 	}
 
 	// Coverage REPLACES the plain test run when the set includes it: a
@@ -37,7 +42,7 @@ const runGateSet = async ({ commands, label, gate }: { commands: GateCommands; l
 		if (coverageResult.exitCode !== 0) {
 			return `${prefix}test-coverage failed (exit ${coverageResult.exitCode}):\n${coverageResult.stdout}\n${coverageResult.stderr}`;
 		}
-	} else {
+	} else if (commands.testUnit) {
 		const tests = await gate({ kind: 'testUnit', command: commands.testUnit, group });
 
 		if (tests.exitCode !== 0) {
@@ -85,9 +90,11 @@ interface Params {
  * the whole-repo `scripts.*` run as one group — exit codes are the only
  * evidence accepted. Monorepo: `packageScripts` templates run once per
  * package in scope, in parallel, with `{package}` replaced by each package's
- * package.json name; the root group runs only when requested (files outside
- * the packages dir changed). Errors aggregate across groups, labelled per
- * package. Every command execution is logged to the run's commands.jsonl.
+ * package.json name; gates whose `run <script>` target a package doesn't
+ * define are skipped (narrated + logged); the root group runs only when
+ * requested (files outside the packages dir changed). Errors aggregate
+ * across groups, labelled per package. Every command execution is logged to
+ * the run's commands.jsonl.
  */
 export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step, onProgress }: Params) => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
@@ -166,24 +173,62 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 
 	const packagesDir = config.packagesDir ?? defaultPackagesDir;
 	const packageGate = async (packageDir: string) => {
-		let name: string;
+		let manifest: Awaited<ReturnType<typeof resolvePackageManifest>>;
 
 		try {
-			name = await resolvePackageName({ cwd, packagesDir, packageDir });
+			manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir });
 		} catch (error) {
 			return error instanceof Error ? error.message : String(error);
 		}
 
-		const substitute = (command: string) => command.split('{package}').join(name);
+		const substitute = (command: string) => command.split('{package}').join(manifest.name);
+
+		// A scoped template fans out to every package in scope, including ones
+		// the consumer never hand-tuned (infra, docs). A package with no
+		// matching script is skipped with evidence, never failed and never
+		// silently passed. Detection is convention-based — the script name
+		// after the template's `run` token; a template with no `run` token
+		// always executes.
+		const scopedCommand = async ({ kind, template }: { kind: string; template: string }) => {
+			const scriptName = extractRunScriptName({ command: template });
+
+			if (!scriptName || Object.hasOwn(manifest.scripts, scriptName)) {
+				return substitute(template);
+			}
+
+			onProgress?.(`gate [${packageDir}] ${kind}: skipped (no "${scriptName}" script)`);
+
+			if (runId) {
+				await appendCommandLog({
+					cwd,
+					runId,
+					record: {
+						at: new Date().toISOString(),
+						step,
+						group: packageDir,
+						kind,
+						command: substitute(template),
+						skipped: true,
+						reason: `no "${scriptName}" script`,
+					},
+				});
+			}
+
+			return undefined;
+		};
+
+		const testCoverage = coverage && scoped.testCoverage ? await scopedCommand({ kind: 'testCoverage', template: scoped.testCoverage }) : undefined;
 
 		return runGateSet({
 			label: packageDir,
 			gate,
 			commands: {
-				check: substitute(scoped.check),
-				testUnit: substitute(scoped.testUnit),
-				testCoverage: coverage && scoped.testCoverage ? substitute(scoped.testCoverage) : undefined,
-				build: scoped.build ? substitute(scoped.build) : undefined,
+				check: await scopedCommand({ kind: 'check', template: scoped.check }),
+				// Coverage replaces the plain test run; only when coverage is
+				// absent or skipped does testUnit get its own script lookup.
+				testUnit: testCoverage ? undefined : await scopedCommand({ kind: 'testUnit', template: scoped.testUnit }),
+				testCoverage,
+				build: scoped.build ? await scopedCommand({ kind: 'build', template: scoped.build }) : undefined,
 			},
 		});
 	};

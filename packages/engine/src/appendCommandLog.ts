@@ -14,17 +14,21 @@ interface Params {
 		/** Which gate: check | testUnit | testCoverage | build | format. */
 		kind: string;
 		command: string;
-		exitCode: number;
-		durationMs: number;
+		/** Absent on skipped records — nothing was executed. */
+		exitCode?: number;
+		durationMs?: number;
 		/** Present only on failure — the tail of combined stdout/stderr. */
 		outputTail?: string;
+		/** The gate never ran — `reason` says why (e.g. no matching script). */
+		skipped?: true;
+		reason?: string;
 	};
 }
 
 /**
  * Append one gate-command execution to the run's `commands.jsonl`. Every
- * command is recorded, passing or failing — a green gate that leaves no
- * evidence is indistinguishable from a gate that never ran.
+ * command is recorded, passing, failing or skipped — a green gate that
+ * leaves no evidence is indistinguishable from a gate that never ran.
  */
 export const appendCommandLog = async ({ cwd, runId, record }: Params) => {
 	const dir = getRunDir({ cwd, runId });
