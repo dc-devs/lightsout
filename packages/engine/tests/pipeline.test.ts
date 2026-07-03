@@ -89,12 +89,14 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 		},
 	};
 
+	const progress: string[] = [];
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
 		config: await loadConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		overviewPath: 'overview.md',
+		onProgress: (message) => progress.push(message),
 	});
 
 	assert.equal(result.ok, true, result.error);
@@ -128,6 +130,13 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	assert.equal(typeof cleanSlateCheck?.['durationMs'], 'number');
 	assert.equal(cleanSlateCheck?.['outputTail'], undefined, 'no output tail on success');
 	assert.ok(commands.some((entry) => entry['kind'] === 'format'), 'format command logged');
+
+	assert.equal(result.manifest.config?.scripts.check, 'true', 'config snapshot recorded in the manifest');
+	assert.ok(progress.some((line) => line.startsWith('step clean-slate — attempt 1')), 'step-start progress emitted');
+	assert.ok(progress.some((line) => /^gate \[root\] check: exit 0/.test(line)), 'gate results streamed');
+	assert.ok(progress.some((line) => line.includes('step implement: agent report complete')), 'agent reports streamed');
+	assert.ok(progress.some((line) => line.includes('2 file(s), up to 5 writers in parallel')), 'writer fan-out announced');
+	assert.ok(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete')), 'refactor loop end announced');
 });
 
 test('implement that changes nothing fails instead of passing vacuously', async () => {

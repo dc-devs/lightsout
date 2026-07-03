@@ -79,6 +79,8 @@ interface Params {
 	/** Resume: an existing manifest — steps already passed are skipped. */
 	existing?: RunManifest;
 	skipRefactor?: boolean;
+	/** Live progress sink (steps, gate results, agent reports). Silent when omitted. */
+	onProgress?: (message: string) => void;
 }
 
 /**
@@ -102,7 +104,10 @@ export const runImplementPipeline = async ({
 	packages,
 	existing,
 	skipRefactor,
+	onProgress,
 }: Params): Promise<PipelineResult> => {
+	const progress = onProgress ?? (() => undefined);
+
 	let manifest =
 		existing ??
 		(await createRun({
@@ -110,6 +115,7 @@ export const runImplementPipeline = async ({
 			plan: planPath ?? '',
 			overview: overviewPath,
 			driver: driver.name,
+			config,
 			baselineDirtyFiles: await readGitChangedFiles({ cwd }),
 		}));
 
@@ -123,6 +129,7 @@ export const runImplementPipeline = async ({
 
 	const stop = async ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => {
 		await setStep({ record: { ...record, status, error }, patch: { status } });
+		progress(`run stopped at ${record.id} — ${status}`);
 
 		const stopped: PipelineResult = { ok: false, manifest, error };
 
@@ -194,6 +201,10 @@ export const runImplementPipeline = async ({
 		});
 	}
 
+	if (manifest.packages.length > 0) {
+		progress(`package scope: ${manifest.packages.join(', ')} (from ${manifest.packagesSource ?? 'manifest'})`);
+	}
+
 	const nextRecord = ({ id }: { id: string }): StepRecord => {
 		const prev = manifest.steps.find((step) => step.id === id);
 
@@ -259,6 +270,7 @@ export const runImplementPipeline = async ({
 			includeRoot: hasRootChanges(),
 			runId: manifest.runId,
 			step: manifest.currentStep ?? undefined,
+			onProgress,
 		});
 
 	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFilePath(file) && isTestableSourceFile(file));
@@ -277,6 +289,7 @@ export const runImplementPipeline = async ({
 			const record = nextRecord({ id });
 
 			await setStep({ record });
+			progress(`step ${id} — attempt ${record.attempts} · invoking agent (ceiling ${agentTimeoutMs / 60_000}m)`);
 
 			const { report, failure, rateLimited } = await invokeRole(build());
 
@@ -287,6 +300,8 @@ export const runImplementPipeline = async ({
 			if (!report) {
 				return stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' });
 			}
+
+			progress(`step ${id}: agent report ${report.status} — ${report.changedFiles.length} changed file(s)`);
 
 			// Friction is captured regardless of outcome — a terminated run's
 			// confusion is exactly the signal the improvement loop needs.
@@ -315,6 +330,7 @@ export const runImplementPipeline = async ({
 			}
 
 			await setStep({ record: { ...record, status: RunStatus.Passed, report }, patch: changed });
+			progress(`step ${id} passed`);
 
 			return undefined;
 		};
@@ -334,6 +350,7 @@ export const runImplementPipeline = async ({
 			let record = nextRecord({ id });
 
 			await setStep({ record });
+			progress(`step ${id} — attempt ${record.attempts}`);
 
 			let error = await gates({ coverage });
 
@@ -342,6 +359,7 @@ export const runImplementPipeline = async ({
 				record = { ...record, attempts: record.attempts + 1 };
 
 				await setStep({ record });
+				progress(`step ${id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
 				const fix = await invokeRole(buildFix(error));
 
@@ -362,6 +380,8 @@ export const runImplementPipeline = async ({
 
 			// Exception path: mechanical retries exhausted — bring in judgment.
 			if (error) {
+				progress(`step ${id}: mechanical retries exhausted — consulting supervisor (ceiling ${supervisorTimeoutMs / 60_000}m)`);
+
 				const verdict = await invokeAgentWithContract({
 					driver,
 					cwd,
@@ -374,6 +394,10 @@ export const runImplementPipeline = async ({
 
 				if (verdict.rateLimited) {
 					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
+				}
+
+				if (verdict.report) {
+					progress(`step ${id}: supervisor verdict — ${verdict.report.decision}`);
 				}
 
 				if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
@@ -408,6 +432,7 @@ export const runImplementPipeline = async ({
 			}
 
 			await setStep({ record: { ...record, status: RunStatus.Passed } });
+			progress(`step ${id} passed`);
 
 			return undefined;
 		};
@@ -417,6 +442,7 @@ export const runImplementPipeline = async ({
 		const record = nextRecord({ id: 'clean-slate' });
 
 		await setStep({ record });
+		progress(`step clean-slate — attempt ${record.attempts}`);
 
 		// Coverage runs here too: verify-tests holds the same bar later, so a
 		// baseline that already misses it must be the consumer's problem, not
@@ -442,6 +468,7 @@ export const runImplementPipeline = async ({
 				? { baselineDirtyFiles: [...new Set([...manifest.baselineDirtyFiles, ...gateArtifacts])] }
 				: undefined,
 		});
+		progress('step clean-slate passed');
 
 		return undefined;
 	};
@@ -454,6 +481,8 @@ export const runImplementPipeline = async ({
 		// One writer per source file, batches run in parallel — writers touch
 		// disjoint test files, so they cannot collide on disk.
 		const targets = sourceFiles();
+
+		progress(`step write-tests — attempt ${record.attempts} · ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
 		const reports: WorkReport[] = [];
 		const failures: string[] = [];
 		let terminated = false;
@@ -481,6 +510,7 @@ export const runImplementPipeline = async ({
 
 				await appendFriction({ cwd, runId: manifest.runId, step: 'write-tests', friction: result.report.friction ?? [] });
 				reports.push(result.report);
+				progress(`write-tests: ${result.file} — ${result.report.status}`);
 
 				if (result.report.status !== WorkReportStatus.Complete) {
 					terminated = terminated || result.report.status !== WorkReportStatus.Failed;
@@ -506,6 +536,7 @@ export const runImplementPipeline = async ({
 		}
 
 		await setStep({ record: { ...record, status: RunStatus.Passed, report: { reports } } });
+		progress('step write-tests passed');
 
 		return undefined;
 	};
@@ -518,6 +549,7 @@ export const runImplementPipeline = async ({
 		// typed "nothing left to improve" signal — capped at maxRefactorPasses.
 		for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
 			await setStep({ record });
+			progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 
 			const { report, failure, rateLimited } = await invokeRole(
 				buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards }),
@@ -543,13 +575,16 @@ export const runImplementPipeline = async ({
 			lastReport = report;
 
 			if (report.changedFiles.length === 0) {
+				progress(`refactor pass ${pass}: no changes — loop complete`);
 				break;
 			}
 
+			progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
 			record = { ...record, attempts: record.attempts + 1 };
 		}
 
 		await setStep({ record: { ...record, status: RunStatus.Passed, report: lastReport } });
+		progress('step refactor passed');
 
 		return undefined;
 	};
@@ -567,6 +602,7 @@ export const runImplementPipeline = async ({
 			const record = nextRecord({ id: 'format' });
 
 			await setStep({ record });
+			progress('step format — running formatter');
 
 			const startedAt = Date.now();
 			let result;
@@ -613,6 +649,7 @@ export const runImplementPipeline = async ({
 			// No changed-file merge here: the formatter only rewrites files the
 			// run already tracks, and anything new it emits is artifact noise.
 			await setStep({ record: { ...record, status: RunStatus.Passed } });
+			progress('step format passed');
 
 			return undefined;
 		},
@@ -688,6 +725,7 @@ export const runImplementPipeline = async ({
 			await setStep({
 				record: { id: step.id, status: RunStatus.Passed, attempts: prior?.attempts ?? 0, report: { skipped: skipReason } },
 			});
+			progress(`step ${step.id} skipped (${skipReason})`);
 
 			continue;
 		}

@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { RunStatus } from '@lightsout/contracts';
-import { getDriver } from '@lightsout/drivers';
+import { RunStatus, type LightsoutConfig } from '@lightsout/contracts';
+import { getDriver, type Driver } from '@lightsout/drivers';
 import {
 	loadConfig,
 	readFriction,
@@ -63,6 +63,41 @@ const getStringFlag = ({ flags, name }: { flags: Map<string, string | true>; nam
 	return typeof value === 'string' ? value : undefined;
 };
 
+const printRunHeader = ({ config, driver, cwd }: { config: LightsoutConfig; driver: Driver; cwd: string }) => {
+	const coverage = config.scripts.testCoverage === false ? 'off (explicit)' : config.scripts.testCoverage;
+
+	console.log(`  cwd: ${cwd}`);
+	console.log(
+		`  driver: ${driver.name} · model: ${config.model ?? 'harness default'} · permissions: ${config.permissionMode ?? 'acceptEdits'}`,
+	);
+	console.log(`  timeouts: agent ${config.timeouts?.agentMinutes ?? 60}m · supervisor ${config.timeouts?.supervisorMinutes ?? 15}m`);
+	console.log(`  gates (root): check=[${config.scripts.check}] testUnit=[${config.scripts.testUnit}] coverage=[${coverage}]`);
+
+	if (config.scripts.build) {
+		console.log(`  gates (root, opt-in): build=[${config.scripts.build}]`);
+	}
+
+	if (config.scripts.format) {
+		console.log(`  format: [${config.scripts.format}]`);
+	}
+
+	if (config.packageScripts) {
+		const scopedCoverage = config.packageScripts.testCoverage ? ` coverage=[${config.packageScripts.testCoverage}]` : '';
+
+		console.log(`  gates (per package): check=[${config.packageScripts.check}] testUnit=[${config.packageScripts.testUnit}]${scopedCoverage}`);
+	}
+};
+
+const createProgressPrinter = () => {
+	const startedAt = Date.now();
+
+	return (message: string) => {
+		const seconds = Math.round((Date.now() - startedAt) / 1000);
+
+		console.log(`[+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}] ${message}`);
+	};
+};
+
 const printResult = ({ result }: { result: PipelineResult }) => {
 	const { manifest, ok, error } = result;
 
@@ -116,9 +151,20 @@ const main = async () => {
 		const config = await loadConfig({ cwd });
 		const driver = getDriver({ name: config.driver ?? 'claude-code' });
 
-		console.log(`lightsout: starting run (plan: ${planPath}, driver: ${driver.name})`);
+		console.log(`lightsout: starting run`);
+		console.log(`  plan: ${planPath}${overviewPath ? `\n  overview: ${overviewPath}` : ''}${packages ? `\n  packages flag: ${packages.join(', ')}` : ''}`);
+		printRunHeader({ config, driver, cwd });
 
-		const result = await runImplementPipeline({ cwd, planPath, overviewPath, packages, driver, config, skipRefactor });
+		const result = await runImplementPipeline({
+			cwd,
+			planPath,
+			overviewPath,
+			packages,
+			driver,
+			config,
+			skipRefactor,
+			onProgress: createProgressPrinter(),
+		});
 
 		printResult({ result });
 		process.exit(result.ok ? 0 : 1);
@@ -143,8 +189,16 @@ const main = async () => {
 		const driver = getDriver({ name: manifest.driver });
 
 		console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
+		printRunHeader({ config, driver, cwd });
 
-		const result = await runImplementPipeline({ cwd, driver, config, existing: manifest, skipRefactor });
+		const result = await runImplementPipeline({
+			cwd,
+			driver,
+			config,
+			existing: manifest,
+			skipRefactor,
+			onProgress: createProgressPrinter(),
+		});
 
 		printResult({ result });
 		process.exit(result.ok ? 0 : 1);

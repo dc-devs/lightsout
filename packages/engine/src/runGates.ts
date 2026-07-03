@@ -71,6 +71,8 @@ interface Params {
 	runId?: string;
 	/** Pipeline step in flight, recorded in the command log. */
 	step?: string;
+	/** Live progress sink — one line per command result. Silent when omitted. */
+	onProgress?: (message: string) => void;
 }
 
 /**
@@ -82,7 +84,7 @@ interface Params {
  * the packages dir changed). Errors aggregate across groups, labelled per
  * package. Every command execution is logged to the run's commands.jsonl.
  */
-export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step }: Params) => {
+export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step, onProgress }: Params) => {
 	const gate: RunGate = async ({ kind, command, group }) => {
 		const startedAt = Date.now();
 		let result;
@@ -93,6 +95,8 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 			// A gate that times out or fails to spawn is a red gate, not a crash.
 			result = { exitCode: -1, stdout: '', stderr: error instanceof Error ? error.message : String(error) };
 		}
+
+		onProgress?.(`gate [${group}] ${kind}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`);
 
 		if (runId) {
 			await appendCommandLog({

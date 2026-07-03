@@ -14534,6 +14534,66 @@ function date4(params) {
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 config(en_default());
 
+// packages/contracts/src/LightsoutConfig.ts
+var LightsoutConfig = external_exports.object({
+  /** Driver name. Defaults to 'claude-code'. */
+  driver: external_exports.string().optional(),
+  /** Model override passed through to the harness. */
+  model: external_exports.string().optional(),
+  /** Harness permission mode for agent invocations. Defaults to 'acceptEdits'. */
+  permissionMode: external_exports.string().optional(),
+  /** Verification commands — the mechanical gates. Full shell commands. */
+  scripts: external_exports.object({
+    check: external_exports.string(),
+    testUnit: external_exports.string(),
+    /**
+     * Coverage gate — on by default. Required: either a full shell command
+     * (run at clean-slate and every post-test verify) or the literal
+     * `false` to explicitly opt out. Silence is not an option: skipping
+     * the strongest gate must be a decision, not an accident.
+     */
+    testCoverage: external_exports.union([external_exports.string(), external_exports.literal(false)]),
+    /** Opt-in build gate, run last in every verify. Omit when nothing compiles. */
+    build: external_exports.string().optional(),
+    /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
+    format: external_exports.string().optional()
+  }),
+  /**
+   * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
+   * failure the run can resume from — never a crash.
+   */
+  timeouts: external_exports.object({
+    /** Working roles (executor, test writers, refactorer, fixes). Default 60. */
+    agentMinutes: external_exports.number().positive().optional(),
+    /** The read-only supervisor. Default 15. */
+    supervisorMinutes: external_exports.number().positive().optional()
+  }).optional(),
+  /** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
+  packagesDir: external_exports.string().optional(),
+  /**
+   * Monorepo mode: gate command templates run per affected package, with
+   * `{package}` replaced by that package's package.json `name`. When set,
+   * verifies run scoped to the run's package scope (plan front-matter
+   * `packages:` list or `--packages`, expanded as changed files reveal the
+   * true blast radius) and `scripts.*` becomes the root-group commands, run
+   * only when files outside the packages directory change.
+   */
+  packageScripts: external_exports.object({
+    check: external_exports.string(),
+    testUnit: external_exports.string(),
+    /** Scoped coverage gate. Omitted = no coverage gate for package groups. */
+    testCoverage: external_exports.string().optional(),
+    /** Opt-in scoped build gate. */
+    build: external_exports.string().optional()
+  }).refine((scripts) => Object.values(scripts).every((command) => command === void 0 || command.includes("{package}")), {
+    message: "every packageScripts command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in scripts.* instead"
+  }).optional(),
+  /** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
+  standards: external_exports.array(external_exports.string()).optional(),
+  /** Same, for the test-writer role. */
+  testStandards: external_exports.array(external_exports.string()).optional()
+});
+
 // packages/contracts/src/PackagesSource.ts
 var PackagesSource = {
   /** Explicit `--packages` flag. */
@@ -14564,6 +14624,12 @@ var RunManifest = external_exports.object({
   overview: external_exports.string().optional(),
   /** Driver name the run was started with (a resumed run must reuse it). */
   driver: external_exports.string(),
+  /**
+   * Snapshot of the resolved config at run creation — the permanent record
+   * of which settings produced this run. Resume EXECUTES with the current
+   * config file; this records what the run started with.
+   */
+  config: LightsoutConfig.optional(),
   status: external_exports.enum(RunStatus),
   /** Step id currently executing, or null when no step is in flight. */
   currentStep: external_exports.string().nullable(),
@@ -14668,66 +14734,6 @@ var FrictionRecord = FrictionEntry.extend({
   at: external_exports.string(),
   runId: external_exports.string(),
   step: external_exports.string()
-});
-
-// packages/contracts/src/LightsoutConfig.ts
-var LightsoutConfig = external_exports.object({
-  /** Driver name. Defaults to 'claude-code'. */
-  driver: external_exports.string().optional(),
-  /** Model override passed through to the harness. */
-  model: external_exports.string().optional(),
-  /** Harness permission mode for agent invocations. Defaults to 'acceptEdits'. */
-  permissionMode: external_exports.string().optional(),
-  /** Verification commands — the mechanical gates. Full shell commands. */
-  scripts: external_exports.object({
-    check: external_exports.string(),
-    testUnit: external_exports.string(),
-    /**
-     * Coverage gate — on by default. Required: either a full shell command
-     * (run at clean-slate and every post-test verify) or the literal
-     * `false` to explicitly opt out. Silence is not an option: skipping
-     * the strongest gate must be a decision, not an accident.
-     */
-    testCoverage: external_exports.union([external_exports.string(), external_exports.literal(false)]),
-    /** Opt-in build gate, run last in every verify. Omit when nothing compiles. */
-    build: external_exports.string().optional(),
-    /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
-    format: external_exports.string().optional()
-  }),
-  /**
-   * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
-   * failure the run can resume from — never a crash.
-   */
-  timeouts: external_exports.object({
-    /** Working roles (executor, test writers, refactorer, fixes). Default 60. */
-    agentMinutes: external_exports.number().positive().optional(),
-    /** The read-only supervisor. Default 15. */
-    supervisorMinutes: external_exports.number().positive().optional()
-  }).optional(),
-  /** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
-  packagesDir: external_exports.string().optional(),
-  /**
-   * Monorepo mode: gate command templates run per affected package, with
-   * `{package}` replaced by that package's package.json `name`. When set,
-   * verifies run scoped to the run's package scope (plan front-matter
-   * `packages:` list or `--packages`, expanded as changed files reveal the
-   * true blast radius) and `scripts.*` becomes the root-group commands, run
-   * only when files outside the packages directory change.
-   */
-  packageScripts: external_exports.object({
-    check: external_exports.string(),
-    testUnit: external_exports.string(),
-    /** Scoped coverage gate. Omitted = no coverage gate for package groups. */
-    testCoverage: external_exports.string().optional(),
-    /** Opt-in scoped build gate. */
-    build: external_exports.string().optional()
-  }).refine((scripts) => Object.values(scripts).every((command) => command === void 0 || command.includes("{package}")), {
-    message: "every packageScripts command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in scripts.* instead"
-  }).optional(),
-  /** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
-  standards: external_exports.array(external_exports.string()).optional(),
-  /** Same, for the test-writer role. */
-  testStandards: external_exports.array(external_exports.string()).optional()
 });
 
 // packages/drivers/src/spawnCollect.ts
@@ -14917,7 +14923,7 @@ var writeRunManifest = async ({ cwd, manifest }) => {
 };
 
 // packages/engine/src/createRun.ts
-var createRun = async ({ cwd, plan, overview, driver, baselineDirtyFiles }) => {
+var createRun = async ({ cwd, plan, overview, driver, config: config2, baselineDirtyFiles }) => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const manifest = {
     runId: randomUUID(),
@@ -14926,6 +14932,7 @@ var createRun = async ({ cwd, plan, overview, driver, baselineDirtyFiles }) => {
     plan,
     overview,
     driver,
+    config: config2,
     status: RunStatus.Pending,
     currentStep: null,
     steps: [],
@@ -15363,7 +15370,7 @@ ${build.stderr}`;
   }
   return void 0;
 };
-var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot, runId, step }) => {
+var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot, runId, step, onProgress }) => {
   const gate = async ({ kind, command, group }) => {
     const startedAt = Date.now();
     let result;
@@ -15372,6 +15379,7 @@ var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot, r
     } catch (error51) {
       result = { exitCode: -1, stdout: "", stderr: error51 instanceof Error ? error51.message : String(error51) };
     }
+    onProgress?.(`gate [${group}] ${kind}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`);
     if (runId) {
       await appendCommandLog({
         cwd,
@@ -15455,13 +15463,16 @@ var runImplementPipeline = async ({
   overviewPath,
   packages,
   existing,
-  skipRefactor
+  skipRefactor,
+  onProgress
 }) => {
+  const progress = onProgress ?? (() => void 0);
   let manifest = existing ?? await createRun({
     cwd,
     plan: planPath ?? "",
     overview: overviewPath,
     driver: driver.name,
+    config: config2,
     baselineDirtyFiles: await readGitChangedFiles({ cwd })
   });
   const update = async (patch) => {
@@ -15472,6 +15483,7 @@ var runImplementPipeline = async ({
   };
   const stop = async ({ record: record2, status, error: error51 }) => {
     await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
+    progress(`run stopped at ${record2.id} \u2014 ${status}`);
     const stopped = { ok: false, manifest, error: error51 };
     return stopped;
   };
@@ -15522,6 +15534,9 @@ var runImplementPipeline = async ({
       packagesSource: fromFlag ? PackagesSource.Flag : fromFrontMatter ? PackagesSource.FrontMatter : PackagesSource.PlanPaths
     });
   }
+  if (manifest.packages.length > 0) {
+    progress(`package scope: ${manifest.packages.join(", ")} (from ${manifest.packagesSource ?? "manifest"})`);
+  }
   const nextRecord = ({ id }) => {
     const prev = manifest.steps.find((step) => step.id === id);
     return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
@@ -15564,7 +15579,8 @@ var runImplementPipeline = async ({
     packages: manifest.packages,
     includeRoot: hasRootChanges(),
     runId: manifest.runId,
-    step: manifest.currentStep ?? void 0
+    step: manifest.currentStep ?? void 0,
+    onProgress
   });
   const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFilePath(file2) && isTestableSourceFile(file2));
   const workStep = ({
@@ -15575,6 +15591,7 @@ var runImplementPipeline = async ({
     return async () => {
       const record2 = nextRecord({ id });
       await setStep({ record: record2 });
+      progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${agentTimeoutMs / 6e4}m)`);
       const { report, failure, rateLimited } = await invokeRole(build());
       if (rateLimited) {
         return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -15582,6 +15599,7 @@ var runImplementPipeline = async ({
       if (!report) {
         return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
       }
+      progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
       await appendFriction({ cwd, runId: manifest.runId, step: id, friction: report.friction ?? [] });
       if (report.status !== WorkReportStatus.Complete) {
         const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
@@ -15600,6 +15618,7 @@ var runImplementPipeline = async ({
         });
       }
       await setStep({ record: { ...record2, status: RunStatus.Passed, report }, patch: changed });
+      progress(`step ${id} passed`);
       return void 0;
     };
   };
@@ -15611,10 +15630,12 @@ var runImplementPipeline = async ({
     return async () => {
       let record2 = nextRecord({ id });
       await setStep({ record: record2 });
+      progress(`step ${id} \u2014 attempt ${record2.attempts}`);
       let error51 = await gates({ coverage });
       for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
         record2 = { ...record2, attempts: record2.attempts + 1 };
         await setStep({ record: record2 });
+        progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
         const fix = await invokeRole(buildFix(error51));
         if (fix.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -15628,6 +15649,7 @@ var runImplementPipeline = async ({
         error51 = await gates({ coverage });
       }
       if (error51) {
+        progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor (ceiling ${supervisorTimeoutMs / 6e4}m)`);
         const verdict = await invokeAgentWithContract({
           driver,
           cwd,
@@ -15639,6 +15661,9 @@ var runImplementPipeline = async ({
         });
         if (verdict.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+        }
+        if (verdict.report) {
+          progress(`step ${id}: supervisor verdict \u2014 ${verdict.report.decision}`);
         }
         if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
           record2 = { ...record2, attempts: record2.attempts + 1 };
@@ -15672,12 +15697,14 @@ ${error51}` });
         }
       }
       await setStep({ record: { ...record2, status: RunStatus.Passed } });
+      progress(`step ${id} passed`);
       return void 0;
     };
   };
   const cleanSlateStep = async () => {
     const record2 = nextRecord({ id: "clean-slate" });
     await setStep({ record: record2 });
+    progress(`step clean-slate \u2014 attempt ${record2.attempts}`);
     const error51 = await gates({ coverage: true });
     if (error51) {
       return stop({
@@ -15692,12 +15719,14 @@ ${error51}`
       record: { ...record2, status: RunStatus.Passed },
       patch: gateArtifacts ? { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...manifest.baselineDirtyFiles, ...gateArtifacts])] } : void 0
     });
+    progress("step clean-slate passed");
     return void 0;
   };
   const writeTestsStep = async () => {
     const record2 = nextRecord({ id: "write-tests" });
     await setStep({ record: record2 });
     const targets = sourceFiles();
+    progress(`step write-tests \u2014 attempt ${record2.attempts} \xB7 ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
     const reports = [];
     const failures = [];
     let terminated = false;
@@ -15721,6 +15750,7 @@ ${error51}`
         }
         await appendFriction({ cwd, runId: manifest.runId, step: "write-tests", friction: result.report.friction ?? [] });
         reports.push(result.report);
+        progress(`write-tests: ${result.file} \u2014 ${result.report.status}`);
         if (result.report.status !== WorkReportStatus.Complete) {
           terminated = terminated || result.report.status !== WorkReportStatus.Failed;
           failures.push(`${result.file}: ${result.report.status} \u2014 ${result.report.failures.join("; ")}`);
@@ -15740,6 +15770,7 @@ ${failures.join("\n")}`
       });
     }
     await setStep({ record: { ...record2, status: RunStatus.Passed, report: { reports } } });
+    progress("step write-tests passed");
     return void 0;
   };
   const refactorStep = async () => {
@@ -15747,6 +15778,7 @@ ${failures.join("\n")}`
     let lastReport;
     for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
       await setStep({ record: record2 });
+      progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
       const { report, failure, rateLimited } = await invokeRole(
         buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards })
       );
@@ -15764,11 +15796,14 @@ ${failures.join("\n")}`
       await setStep({ record: { ...record2, report }, patch: await collectChanged([report]) });
       lastReport = report;
       if (report.changedFiles.length === 0) {
+        progress(`refactor pass ${pass}: no changes \u2014 loop complete`);
         break;
       }
+      progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
       record2 = { ...record2, attempts: record2.attempts + 1 };
     }
     await setStep({ record: { ...record2, status: RunStatus.Passed, report: lastReport } });
+    progress("step refactor passed");
     return void 0;
   };
   const formatStep = {
@@ -15781,6 +15816,7 @@ ${failures.join("\n")}`
       }
       const record2 = nextRecord({ id: "format" });
       await setStep({ record: record2 });
+      progress("step format \u2014 running formatter");
       const startedAt = Date.now();
       let result;
       try {
@@ -15818,6 +15854,7 @@ ${result.stderr}`
 ${error51}` });
       }
       await setStep({ record: { ...record2, status: RunStatus.Passed } });
+      progress("step format passed");
       return void 0;
     }
   };
@@ -15880,6 +15917,7 @@ ${error51}` });
       await setStep({
         record: { id: step.id, status: RunStatus.Passed, attempts: prior?.attempts ?? 0, report: { skipped: skipReason } }
       });
+      progress(`step ${step.id} skipped (${skipReason})`);
       continue;
     }
     const stopped = await step.run();
@@ -15973,6 +16011,32 @@ var getStringFlag = ({ flags, name }) => {
   const value = flags.get(name);
   return typeof value === "string" ? value : void 0;
 };
+var printRunHeader = ({ config: config2, driver, cwd }) => {
+  const coverage = config2.scripts.testCoverage === false ? "off (explicit)" : config2.scripts.testCoverage;
+  console.log(`  cwd: ${cwd}`);
+  console.log(
+    `  driver: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 permissions: ${config2.permissionMode ?? "acceptEdits"}`
+  );
+  console.log(`  timeouts: agent ${config2.timeouts?.agentMinutes ?? 60}m \xB7 supervisor ${config2.timeouts?.supervisorMinutes ?? 15}m`);
+  console.log(`  gates (root): check=[${config2.scripts.check}] testUnit=[${config2.scripts.testUnit}] coverage=[${coverage}]`);
+  if (config2.scripts.build) {
+    console.log(`  gates (root, opt-in): build=[${config2.scripts.build}]`);
+  }
+  if (config2.scripts.format) {
+    console.log(`  format: [${config2.scripts.format}]`);
+  }
+  if (config2.packageScripts) {
+    const scopedCoverage = config2.packageScripts.testCoverage ? ` coverage=[${config2.packageScripts.testCoverage}]` : "";
+    console.log(`  gates (per package): check=[${config2.packageScripts.check}] testUnit=[${config2.packageScripts.testUnit}]${scopedCoverage}`);
+  }
+};
+var createProgressPrinter = () => {
+  const startedAt = Date.now();
+  return (message) => {
+    const seconds = Math.round((Date.now() - startedAt) / 1e3);
+    console.log(`[+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}] ${message}`);
+  };
+};
 var printResult = ({ result }) => {
   const { manifest, ok, error: error51 } = result;
   console.log(`
@@ -16011,8 +16075,21 @@ var main = async () => {
     }
     const config2 = await loadConfig({ cwd });
     const driver = getDriver({ name: config2.driver ?? "claude-code" });
-    console.log(`lightsout: starting run (plan: ${planPath}, driver: ${driver.name})`);
-    const result = await runImplementPipeline({ cwd, planPath, overviewPath, packages, driver, config: config2, skipRefactor });
+    console.log(`lightsout: starting run`);
+    console.log(`  plan: ${planPath}${overviewPath ? `
+  overview: ${overviewPath}` : ""}${packages ? `
+  packages flag: ${packages.join(", ")}` : ""}`);
+    printRunHeader({ config: config2, driver, cwd });
+    const result = await runImplementPipeline({
+      cwd,
+      planPath,
+      overviewPath,
+      packages,
+      driver,
+      config: config2,
+      skipRefactor,
+      onProgress: createProgressPrinter()
+    });
     printResult({ result });
     process.exit(result.ok ? 0 : 1);
   }
@@ -16030,7 +16107,15 @@ var main = async () => {
     const config2 = await loadConfig({ cwd });
     const driver = getDriver({ name: manifest.driver });
     console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
-    const result = await runImplementPipeline({ cwd, driver, config: config2, existing: manifest, skipRefactor });
+    printRunHeader({ config: config2, driver, cwd });
+    const result = await runImplementPipeline({
+      cwd,
+      driver,
+      config: config2,
+      existing: manifest,
+      skipRefactor,
+      onProgress: createProgressPrinter()
+    });
     printResult({ result });
     process.exit(result.ok ? 0 : 1);
   }

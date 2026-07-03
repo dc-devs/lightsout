@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LightsoutConfig } from './LightsoutConfig';
 import { PackagesSource } from './PackagesSource';
 import { RunStatus } from './RunStatus';
 import { StepRecord } from './StepRecord';
@@ -19,6 +20,12 @@ export const RunManifest = z.object({
 	overview: z.string().optional(),
 	/** Driver name the run was started with (a resumed run must reuse it). */
 	driver: z.string(),
+	/**
+	 * Snapshot of the resolved config at run creation — the permanent record
+	 * of which settings produced this run. Resume EXECUTES with the current
+	 * config file; this records what the run started with.
+	 */
+	config: LightsoutConfig.optional(),
 	status: z.enum(RunStatus),
 	/** Step id currently executing, or null when no step is in flight. */
 	currentStep: z.string().nullable(),

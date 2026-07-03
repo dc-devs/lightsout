@@ -39,7 +39,10 @@ tracked and gated, but never costs a model call.
 Every gate command the engine runs is logged to
 `.lightsout/runs/<id>/commands.jsonl` — step, group, command, exit code,
 duration, plus an output tail on failure — so passing gates leave evidence
-too.
+too. The CLI prints the fully resolved config at launch and streams progress
+live (steps, gate results, agent reports, elapsed time), and the manifest
+snapshots the config permanently so every run records which settings
+produced it.
 
 Failures retry mechanically, then a read-only supervisor agent decides:
 retry with guidance, or escalate to you. Hitting your subscription's rate
