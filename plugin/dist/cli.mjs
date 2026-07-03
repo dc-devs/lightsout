@@ -14731,8 +14731,8 @@ var WorkReport = external_exports.object({
   ),
   /** One-line description of what was done (or why it wasn't). */
   summary: external_exports.string(),
-  /** Discrepancies, ambiguities, or errors — required non-empty for any non-complete status. */
-  failures: external_exports.array(external_exports.string()),
+  /** Discrepancies, ambiguities, or errors — expected non-empty for any non-complete status. Defaulted: a complete report that omits it means "none" (observed in the wild), and the re-emit retry is too expensive for that ambiguity-free case. */
+  failures: external_exports.array(external_exports.string()).default([]),
   /** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
   friction: external_exports.array(FrictionEntry).optional()
 });
@@ -15093,21 +15093,67 @@ var loadConfig = async ({ cwd }) => {
 };
 
 // packages/engine/src/extractJsonReport.ts
+var findBalancedEnd = ({ text, start }) => {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+};
+var lastEmbeddedJsonObject = ({ text }) => {
+  let found;
+  let start = text.indexOf("{");
+  while (start !== -1) {
+    const end = findBalancedEnd({ text, start });
+    if (end === -1) {
+      start = text.indexOf("{", start + 1);
+      continue;
+    }
+    try {
+      found = JSON.parse(text.slice(start, end + 1));
+      start = text.indexOf("{", end + 1);
+    } catch {
+      start = text.indexOf("{", start + 1);
+    }
+  }
+  return found;
+};
 var extractJsonReport = ({ text }) => {
   const trimmed = text.trim();
   try {
     return JSON.parse(trimmed);
   } catch {
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (!fenced?.[1]) {
-      return void 0;
-    }
+  }
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced?.[1]) {
     try {
       return JSON.parse(fenced[1].trim());
     } catch {
-      return void 0;
     }
   }
+  return lastEmbeddedJsonObject({ text: trimmed });
 };
 
 // packages/engine/src/readGitChangedFiles.ts
@@ -15184,7 +15230,7 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
 
 // packages/engine/src/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { readFile as readFile7 } from "node:fs/promises";
+import { mkdir as mkdir5, readFile as readFile7, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join11 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
@@ -15332,6 +15378,25 @@ ${planContent}`,
   };
 };
 
+// packages/agents/prompts/reportReemitter.md
+var reportReemitter_default = '# Re-emit your report\n\nYour previous session ended with a final message that failed contract\nvalidation \u2014 the engine could not extract a valid JSON report from it.\n\nThat entire final message is included below. Reconstruct the report **from\nthat text only**: do not redo, re-audit, or extend any work, and do not use\nany tools. This is a formatting recovery, not a new work session.\n\nRespond with exactly one JSON object and nothing else \u2014 no prose before or\nafter it, no code fences. If the previous message does not contain enough to\nreconstruct a truthful report, emit a report with `"status": "failed"` and\nexplain why in `failures`; never invent file paths or outcomes that the\nprevious message does not state.\n';
+
+// packages/agents/src/buildReportReemitterInvocation.ts
+var buildReportReemitterInvocation = ({ rejectedText, validationError }) => {
+  const sections = [
+    reportReemitter_default,
+    `# Validation error
+
+${validationError}`,
+    `# Your previous final message
+
+${rejectedText}`
+  ];
+  return {
+    prompt: sections.join("\n\n")
+  };
+};
+
 // packages/agents/prompts/promptImprover.md
 var promptImprover_default = '# Role: Prompt Improver\n\nYou maintain the agent role prompts of a deterministic coding pipeline.\nFriction reports from past runs \u2014 moments where an agent was confused,\nguessed, or fought its instructions \u2014 are your only input signal. Your job is\nto turn *systemic* friction into the smallest possible prompt improvements.\n\n## Judge before editing\n\n- Look for **systemic patterns**: the same confusion appearing across multiple\n  entries or runs. A single one-off entry is signal to note in `summary`, not\n  a reason to edit.\n- Entries are tagged `friction` (something fought the agent) or `decision`\n  (the input was silent and the agent had to choose). A recurring decision is\n  prime signal: something upstream \u2014 the plan template, a prompt, a standard \u2014\n  should have settled it.\n- Only friction with area `prompt` \u2014 or friction clearly traceable to prompt\n  wording \u2014 justifies editing a prompt file. Friction about plans, standards,\n  or environment is outside your control: summarize it as recommendations in\n  `summary`, change nothing for it.\n- Read the affected prompt file in full before judging: the confusion may\n  already be addressed and the agent missed it \u2014 in that case, consider\n  whether the existing wording buries the rule, and sharpen placement rather\n  than adding repetition.\n\n## Edit rules\n\n- Edit ONLY the prompt files listed in your task. Nothing else, ever \u2014 no\n  source code, no contracts, no docs.\n- Make the **smallest change that removes the confusion**: sharpen a sentence,\n  resolve a contradiction, add one clarifying clause. Do not restructure,\n  re-voice, or grow a prompt beyond what the fix requires.\n- Preserve every prompt\'s report-contract section: the JSON shape is\n  load-bearing. Never alter field names, statuses, or the output-format rules.\n- Zero edits is a valid, common outcome (`complete` with empty `changedFiles`)\n  when friction is one-off, already addressed, or out of scope.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "packages/agents/prompts/example.md", "summary": "one clause on what was clarified and which friction drove it" }],\n	"summary": "patterns found, edits made, and recommendations for out-of-scope friction (plan/standards/environment)",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "prompt", "detail": "optional \u2014 friction with your own instructions; omit when clean" }]\n}\n```\n';
 
@@ -15386,15 +15451,18 @@ var invokeAgentWithContract = async ({
   contract,
   model,
   permissionMode,
-  timeoutMs
+  timeoutMs,
+  onRejectedOutput
 }) => {
   let lastFailure = "no attempts made";
+  let rejected;
   for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
+    const active = rejected ? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt } : invocation;
     let result;
     try {
       result = await driver.invoke({
-        prompt: invocation.prompt,
-        systemPrompt: invocation.systemPrompt,
+        prompt: active.prompt,
+        systemPrompt: active.systemPrompt,
         model,
         permissionMode,
         cwd,
@@ -15412,6 +15480,8 @@ var invokeAgentWithContract = async ({
       return { report: parsed.data, failure: void 0, rateLimited: false };
     }
     lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
+    await onRejectedOutput?.({ text: result.text, attempt, validationError: parsed.error.message });
+    rejected = { rejectedText: result.text, validationError: parsed.error.message };
   }
   return { report: void 0, failure: lastFailure, rateLimited: false };
 };
@@ -15805,14 +15875,27 @@ var executePipeline = async ({
   };
   const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
   const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
-  const invokeRole = (invocation) => invokeAgentWithContract({
+  let rejectedCount = 0;
+  const persistRejected = (step) => async ({ text, attempt, validationError }) => {
+    rejectedCount += 1;
+    const dir = join11(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const name = `rejected-${String(rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
+    await mkdir5(dir, { recursive: true });
+    await writeFile3(join11(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+# validation: ${validationError}
+
+${text}`, "utf8");
+    progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
+  };
+  const invokeRole = (invocation, step) => invokeAgentWithContract({
     driver,
     cwd,
     invocation,
     contract: WorkReport,
     model: config2.model,
     permissionMode: config2.permissionMode ?? defaultPermissionMode,
-    timeoutMs: agentTimeoutMs
+    timeoutMs: agentTimeoutMs,
+    onRejectedOutput: persistRejected(step)
   });
   const packageOf = (file2) => {
     const prefix = `${packagesDir}/`;
@@ -15857,7 +15940,7 @@ var executePipeline = async ({
       const record2 = nextRecord({ id });
       await setStep({ record: record2 });
       progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${agentTimeoutMs / 6e4}m)`);
-      const { report, failure, rateLimited } = await invokeRole(build());
+      const { report, failure, rateLimited } = await invokeRole(build(), id);
       if (rateLimited) {
         return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
       }
@@ -15901,7 +15984,7 @@ var executePipeline = async ({
         record2 = { ...record2, attempts: record2.attempts + 1 };
         await setStep({ record: record2 });
         progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
-        const fix = await invokeRole(buildFix(error51));
+        const fix = await invokeRole(buildFix(error51), id);
         if (fix.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
         }
@@ -15922,7 +16005,8 @@ var executePipeline = async ({
           contract: SupervisorVerdict,
           model: config2.model,
           permissionMode: supervisorPermissionMode,
-          timeoutMs: supervisorTimeoutMs
+          timeoutMs: supervisorTimeoutMs,
+          onRejectedOutput: persistRejected(`${id}-supervisor`)
         });
         if (verdict.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -15940,7 +16024,8 @@ var executePipeline = async ({
 ${verdict.report.diagnosis}
 
 # Supervisor guidance
-${verdict.report.guidance}`)
+${verdict.report.guidance}`),
+            id
           );
           if (fix.rateLimited) {
             return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -16001,7 +16086,7 @@ ${error51}`
       const results = await Promise.all(
         batch.map(async (file2) => ({
           file: file2,
-          ...await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: [file2], standards: testStandards }))
+          ...await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: [file2], standards: testStandards }), "write-tests")
         }))
       );
       for (const result of results) {
@@ -16045,7 +16130,8 @@ ${failures.join("\n")}`
       await setStep({ record: record2 });
       progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
       const { report, failure, rateLimited } = await invokeRole(
-        buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards })
+        buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards }),
+        "refactor"
       );
       if (rateLimited) {
         return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });

@@ -19,8 +19,8 @@ export const WorkReport = z.object({
 	),
 	/** One-line description of what was done (or why it wasn't). */
 	summary: z.string(),
-	/** Discrepancies, ambiguities, or errors — required non-empty for any non-complete status. */
-	failures: z.array(z.string()),
+	/** Discrepancies, ambiguities, or errors — expected non-empty for any non-complete status. Defaulted: a complete report that omits it means "none" (observed in the wild), and the re-emit retry is too expensive for that ambiguity-free case. */
+	failures: z.array(z.string()).default([]),
 	/** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
 	friction: z.array(FrictionEntry).optional(),
 });

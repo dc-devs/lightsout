@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
 	buildFeatureExecutorInvocation,
@@ -23,6 +23,7 @@ import { acquireRunLock } from './acquireRunLock';
 import { appendCommandLog } from './appendCommandLog';
 import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
+import { getRunDir } from './getRunDir';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { readGitChangedFiles } from './readGitChangedFiles';
 import { readPlanPackages } from './readPlanPackages';
@@ -227,7 +228,25 @@ const executePipeline = async ({
 	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
 	const supervisorTimeoutMs = (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000;
 
-	const invokeRole = (invocation: { systemPrompt: string; prompt: string }) =>
+	// A final message that fails its contract is still evidence — persist it
+	// to the run dir before any retry, so a rejected report never has to be
+	// recovered from harness-internal session files again.
+	let rejectedCount = 0;
+
+	const persistRejected =
+		(step: string) =>
+		async ({ text, attempt, validationError }: { text: string; attempt: number; validationError: string }) => {
+			rejectedCount += 1;
+
+			const dir = join(getRunDir({ cwd, runId: manifest.runId }), 'agents');
+			const name = `rejected-${String(rejectedCount).padStart(2, '0')}-${step}-attempt${attempt}.txt`;
+
+			await mkdir(dir, { recursive: true });
+			await writeFile(join(dir, name), `# step: ${step} · invocation attempt ${attempt}\n# validation: ${validationError}\n\n${text}`, 'utf8');
+			progress(`step ${step}: agent final message failed the report contract — raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
+		};
+
+	const invokeRole = (invocation: { systemPrompt: string; prompt: string }, step: string) =>
 		invokeAgentWithContract({
 			driver,
 			cwd,
@@ -236,6 +255,7 @@ const executePipeline = async ({
 			model: config.model,
 			permissionMode: config.permissionMode ?? defaultPermissionMode,
 			timeoutMs: agentTimeoutMs,
+			onRejectedOutput: persistRejected(step),
 		});
 
 	/** Map a changed file to its package directory, or undefined for root-group files. */
@@ -310,7 +330,7 @@ const executePipeline = async ({
 			await setStep({ record });
 			progress(`step ${id} — attempt ${record.attempts} · invoking agent (ceiling ${agentTimeoutMs / 60_000}m)`);
 
-			const { report, failure, rateLimited } = await invokeRole(build());
+			const { report, failure, rateLimited } = await invokeRole(build(), id);
 
 			if (rateLimited) {
 				return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -380,7 +400,7 @@ const executePipeline = async ({
 				await setStep({ record });
 				progress(`step ${id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
-				const fix = await invokeRole(buildFix(error));
+				const fix = await invokeRole(buildFix(error), id);
 
 				if (fix.rateLimited) {
 					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -409,6 +429,7 @@ const executePipeline = async ({
 					model: config.model,
 					permissionMode: supervisorPermissionMode,
 					timeoutMs: supervisorTimeoutMs,
+					onRejectedOutput: persistRejected(`${id}-supervisor`),
 				});
 
 				if (verdict.rateLimited) {
@@ -426,6 +447,7 @@ const executePipeline = async ({
 
 					const fix = await invokeRole(
 						buildFix(`${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`),
+						id,
 					);
 
 					if (fix.rateLimited) {
@@ -512,7 +534,7 @@ const executePipeline = async ({
 			const results = await Promise.all(
 				batch.map(async (file) => ({
 					file,
-					...(await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: [file], standards: testStandards }))),
+					...(await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: [file], standards: testStandards }), 'write-tests')),
 				})),
 			);
 
@@ -572,6 +594,7 @@ const executePipeline = async ({
 
 			const { report, failure, rateLimited } = await invokeRole(
 				buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards }),
+				'refactor',
 			);
 
 			if (rateLimited) {

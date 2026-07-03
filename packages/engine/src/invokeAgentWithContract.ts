@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { buildReportReemitterInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { extractJsonReport } from './extractJsonReport';
 
@@ -12,13 +13,19 @@ interface Params<Contract extends z.ZodType> {
 	model?: string;
 	permissionMode?: string;
 	timeoutMs?: number;
+	/** Called with the raw final message whenever it fails the contract — the caller persists it as run evidence. */
+	onRejectedOutput?: (params: { text: string; attempt: number; validationError: string }) => Promise<void> | void;
 }
 
 /**
  * Invoke an agent role and validate its final message against the role's
- * contract. A malformed payload is rejected by the contract and the
- * invocation retried — never hand-parsed around. A rate-limited harness is
- * reported as such so the engine can park the run instead of failing it.
+ * contract. A malformed payload is rejected by the contract — never
+ * hand-parsed around — and retried CHEAPLY: the retry is a re-emit
+ * invocation carrying the rejected text ("reconstruct the report from this,
+ * touch nothing"), not a re-run of the whole role prompt, so a formatting
+ * slip costs seconds instead of minutes. Every rejected message is handed to
+ * `onRejectedOutput` before the retry. A rate-limited harness is reported as
+ * such so the engine can park the run instead of failing it.
  */
 export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	driver,
@@ -28,16 +35,22 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	model,
 	permissionMode,
 	timeoutMs,
+	onRejectedOutput,
 }: Params<Contract>) => {
 	let lastFailure = 'no attempts made';
+	let rejected: { rejectedText: string; validationError: string } | undefined;
 
 	for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
+		const active = rejected
+			? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt }
+			: invocation;
+
 		let result;
 
 		try {
 			result = await driver.invoke({
-				prompt: invocation.prompt,
-				systemPrompt: invocation.systemPrompt,
+				prompt: active.prompt,
+				systemPrompt: active.systemPrompt,
 				model,
 				permissionMode,
 				cwd,
@@ -64,6 +77,8 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 		}
 
 		lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
+		await onRejectedOutput?.({ text: result.text, attempt, validationError: parsed.error.message });
+		rejected = { rejectedText: result.text, validationError: parsed.error.message };
 	}
 
 	return { report: undefined, failure: lastFailure, rateLimited: false };

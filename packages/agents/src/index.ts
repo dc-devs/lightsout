@@ -2,4 +2,5 @@ export { buildFeatureExecutorInvocation } from './buildFeatureExecutorInvocation
 export { buildUnitTestWriterInvocation } from './buildUnitTestWriterInvocation';
 export { buildRefactorExecutorInvocation } from './buildRefactorExecutorInvocation';
 export { buildSupervisorInvocation } from './buildSupervisorInvocation';
+export { buildReportReemitterInvocation } from './buildReportReemitterInvocation';
 export { buildPromptImproverInvocation } from './buildPromptImproverInvocation';
