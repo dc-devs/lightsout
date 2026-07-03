@@ -32,7 +32,14 @@ Changed files flow step to step through the run manifest: after every work
 step the agent's typed report is merged with a git snapshot of the worktree
 (agents report what they changed; git reports what *actually* changed), and
 the merged list is what the next role receives. An implement step that
-changes nothing fails instead of passing vacuously.
+changes nothing fails instead of passing vacuously. Only JS/TS-family files
+earn agent turns (test writers, refactor review) — everything else is still
+tracked and gated, but never costs a model call.
+
+Every gate command the engine runs is logged to
+`.lightsout/runs/<id>/commands.jsonl` — step, group, command, exit code,
+duration, plus an output tail on failure — so passing gates leave evidence
+too.
 
 Failures retry mechanically, then a read-only supervisor agent decides:
 retry with guidance, or escalate to you. Hitting your subscription's rate

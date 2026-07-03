@@ -17,6 +17,17 @@ const countLog = (dir: string, file: string) => {
 	}
 };
 
+const readCommandLog = (dir: string, runId: string): Record<string, unknown>[] => {
+	try {
+		return readFileSync(join(dir, '.lightsout', 'runs', runId, 'commands.jsonl'), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line));
+	} catch {
+		return [];
+	}
+};
+
 test('happy path: git truth, per-file writers, refactor loop, coverage/format wiring, overview', async () => {
 	const dir = setupConsumerRepo({
 		scripts: {
@@ -60,11 +71,21 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 				return { text: report(), exitCode: 0 };
 			}
 
-			// Implement: write TWO files but report only ONE — git must catch the second.
+			// Implement: write two JS files but report only one — git must catch
+			// the second — plus a .tf that must earn no agent turns.
 			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
 			writeFileSync(join(dir, 'src/helper.js'), 'export const helper = () => 1;\n');
+			writeFileSync(join(dir, 'src/infra.tf'), 'resource "x" "y" {}\n');
 
-			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/feature.js', summary: 'feature' },
+						{ path: 'src/infra.tf', summary: 'infra' },
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -85,16 +106,28 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 		!result.manifest.changedFiles.some((file) => file === 'cov.log' || file === 'fmt.log' || file.startsWith('.lightsout/')),
 		'gate artifacts and run state never attributed',
 	);
-	assert.equal(prompts['write-tests']?.length, 2, 'one writer per source file');
+	assert.equal(prompts['write-tests']?.length, 2, 'one writer per JS/TS file — the .tf earned no writer');
 	assert.ok(
 		prompts['write-tests']?.every((prompt) => (prompt.match(/^- /gm) ?? []).length === 1),
 		'each writer got exactly one file',
 	);
+	assert.ok(result.manifest.changedFiles.includes('src/infra.tf'), 'the .tf is still tracked as changed');
+	assert.ok(!prompts['refactor']?.[0]?.includes('src/infra.tf'), 'refactor review list is JS/TS only');
 	assert.equal(refactorPass, 2, 'refactor looped until an empty pass');
 	assert.equal(result.manifest.steps.find((step) => step.id === 'refactor')?.attempts, 2);
 	assert.equal(countLog(dir, 'cov.log'), 4, 'coverage gate ran at clean-slate, tests, refactor, format');
 	assert.equal(countLog(dir, 'fmt.log'), 1, 'format command ran exactly once');
 	assert.equal(result.manifest.steps.find((step) => step.id === 'format')?.status, 'passed');
+
+	const commands = readCommandLog(dir, result.manifest.runId);
+	const cleanSlateCheck = commands.find((entry) => entry['kind'] === 'check' && entry['step'] === 'clean-slate');
+
+	assert.ok(commands.length > 0, 'commands.jsonl written');
+	assert.ok(cleanSlateCheck, 'passing commands leave evidence too');
+	assert.equal(cleanSlateCheck?.['exitCode'], 0);
+	assert.equal(typeof cleanSlateCheck?.['durationMs'], 'number');
+	assert.equal(cleanSlateCheck?.['outputTail'], undefined, 'no output tail on success');
+	assert.ok(commands.some((entry) => entry['kind'] === 'format'), 'format command logged');
 });
 
 test('implement that changes nothing fails instead of passing vacuously', async () => {
@@ -187,6 +220,13 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 	assert.equal(counts['fix'], 2, 'exactly two cheap fix retries');
 	assert.equal(counts['supervisor'], 1, 'supervisor consulted exactly once');
 	assert.equal(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts, 3);
+
+	const failed = readCommandLog(dir, result.manifest.runId).find(
+		(entry) => entry['kind'] === 'testUnit' && entry['exitCode'] !== 0,
+	);
+
+	assert.ok(failed, 'failing command logged');
+	assert.equal(typeof failed?.['outputTail'], 'string', 'failure carries an output tail');
 });
 
 test('supervisor retry-with-guidance heals the run', async () => {

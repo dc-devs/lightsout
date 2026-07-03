@@ -76,6 +76,8 @@ const printResult = ({ result }: { result: PipelineResult }) => {
 		console.log(`  package scope: ${manifest.packages.join(', ')}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ''}`);
 	}
 
+	console.log(`  command log: .lightsout/runs/${manifest.runId}/commands.jsonl`);
+
 	if (manifest.changedFiles.length > 0) {
 		console.log('  changed files:');
 

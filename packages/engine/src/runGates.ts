@@ -1,9 +1,11 @@
 import type { LightsoutConfig } from '@lightsout/contracts';
+import { appendCommandLog } from './appendCommandLog';
 import { resolvePackageName } from './resolvePackageName';
 import { runCommand } from './runCommand';
 
 const gateTimeoutMs = 10 * 60_000;
 const defaultPackagesDir = 'packages';
+const outputTailChars = 2000;
 
 interface GateCommands {
 	check: string;
@@ -12,23 +14,26 @@ interface GateCommands {
 	build?: string;
 }
 
+type RunGate = (params: { kind: string; command: string; group: string }) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+
 /** Run one group's gates in order: check → tests → coverage → build. First failure wins. */
-const runGateSet = async ({ cwd, commands, label }: { cwd: string; commands: GateCommands; label?: string }) => {
+const runGateSet = async ({ commands, label, gate }: { commands: GateCommands; label?: string; gate: RunGate }) => {
+	const group = label ?? 'root';
 	const prefix = label ? `[${label}] ` : '';
-	const check = await runCommand({ command: commands.check, cwd, timeoutMs: gateTimeoutMs });
+	const check = await gate({ kind: 'check', command: commands.check, group });
 
 	if (check.exitCode !== 0) {
 		return `${prefix}check failed (exit ${check.exitCode}):\n${check.stdout}\n${check.stderr}`;
 	}
 
-	const tests = await runCommand({ command: commands.testUnit, cwd, timeoutMs: gateTimeoutMs });
+	const tests = await gate({ kind: 'testUnit', command: commands.testUnit, group });
 
 	if (tests.exitCode !== 0) {
 		return `${prefix}test-unit failed (exit ${tests.exitCode}):\n${tests.stdout}\n${tests.stderr}`;
 	}
 
 	if (commands.testCoverage) {
-		const coverageResult = await runCommand({ command: commands.testCoverage, cwd, timeoutMs: gateTimeoutMs });
+		const coverageResult = await gate({ kind: 'testCoverage', command: commands.testCoverage, group });
 
 		if (coverageResult.exitCode !== 0) {
 			return `${prefix}test-coverage failed (exit ${coverageResult.exitCode}):\n${coverageResult.stdout}\n${coverageResult.stderr}`;
@@ -36,7 +41,7 @@ const runGateSet = async ({ cwd, commands, label }: { cwd: string; commands: Gat
 	}
 
 	if (commands.build) {
-		const build = await runCommand({ command: commands.build, cwd, timeoutMs: gateTimeoutMs });
+		const build = await gate({ kind: 'build', command: commands.build, group });
 
 		if (build.exitCode !== 0) {
 			return `${prefix}build failed (exit ${build.exitCode}):\n${build.stdout}\n${build.stderr}`;
@@ -62,6 +67,10 @@ interface Params {
 	packages?: string[];
 	/** In scoped mode, also run the root group (whole-repo `scripts.*`). */
 	includeRoot?: boolean;
+	/** When set, every command execution is appended to the run's commands.jsonl. */
+	runId?: string;
+	/** Pipeline step in flight, recorded in the command log. */
+	step?: string;
 }
 
 /**
@@ -71,9 +80,33 @@ interface Params {
  * package in scope, in parallel, with `{package}` replaced by each package's
  * package.json name; the root group runs only when requested (files outside
  * the packages dir changed). Errors aggregate across groups, labelled per
- * package.
+ * package. Every command execution is logged to the run's commands.jsonl.
  */
-export const runGates = async ({ cwd, config, coverage, packages, includeRoot }: Params) => {
+export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step }: Params) => {
+	const gate: RunGate = async ({ kind, command, group }) => {
+		const startedAt = Date.now();
+		const result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+
+		if (runId) {
+			await appendCommandLog({
+				cwd,
+				runId,
+				record: {
+					at: new Date().toISOString(),
+					step,
+					group,
+					kind,
+					command,
+					exitCode: result.exitCode,
+					durationMs: Date.now() - startedAt,
+					...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
+				},
+			});
+		}
+
+		return result;
+	};
+
 	const rootCommands: GateCommands = {
 		check: config.scripts.check,
 		testUnit: config.scripts.testUnit,
@@ -83,7 +116,7 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot }:
 	const scoped = config.packageScripts;
 
 	if (!scoped || !packages || packages.length === 0) {
-		return runGateSet({ cwd, commands: rootCommands });
+		return runGateSet({ commands: rootCommands, gate });
 	}
 
 	const packagesDir = config.packagesDir ?? defaultPackagesDir;
@@ -99,8 +132,8 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot }:
 		const substitute = (command: string) => command.split('{package}').join(name);
 
 		return runGateSet({
-			cwd,
 			label: packageDir,
+			gate,
 			commands: {
 				check: substitute(scoped.check),
 				testUnit: substitute(scoped.testUnit),
@@ -112,7 +145,7 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot }:
 
 	const results = await Promise.all([
 		...packages.map(packageGate),
-		...(includeRoot ? [runGateSet({ cwd, commands: rootCommands, label: 'root' })] : []),
+		...(includeRoot ? [runGateSet({ commands: rootCommands, gate, label: 'root' })] : []),
 	]);
 	const errors = results.filter((result): result is string => Boolean(result));
 

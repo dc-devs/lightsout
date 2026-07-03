@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
@@ -66,6 +66,14 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 	assert.ok(allGates.some((line) => line === '@acme/api coverage'), 'coverage ran scoped');
 	assert.deepEqual([...result.manifest.packages].sort(), ['api', 'web']);
 	assert.equal(result.manifest.packagesSource, 'front-matter');
+
+	const commandLog = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'commands.jsonl'), 'utf8')
+		.trim()
+		.split('\n')
+		.map((line) => JSON.parse(line) as Record<string, unknown>);
+
+	assert.ok(commandLog.some((entry) => entry['group'] === 'api'), 'command log labels package groups');
+	assert.ok(commandLog.some((entry) => entry['group'] === 'root'), 'command log labels the root group');
 });
 
 test('no scope anywhere: hard error before any gate or agent', async () => {

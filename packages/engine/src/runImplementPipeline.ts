@@ -18,6 +18,7 @@ import {
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
+import { appendCommandLog } from './appendCommandLog';
 import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
@@ -41,9 +42,12 @@ const supervisorPermissionMode = 'plan';
 
 const isTestFilePath = (path: string) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
 
-/** Data/asset/doc files no test-writing or refactoring role should be handed. */
-const isNonCodeFilePath = (path: string) =>
-	/\.(json|jsonc|md|markdown|yml|yaml|toml|lock|lockb|svg|png|jpe?g|gif|ico|snap|txt|csv|sql|log)$/i.test(path);
+/**
+ * Only the JS/TS family earns agent turns (test writers, refactor review) —
+ * every spawn costs a model call, so unknown file types default to zero
+ * wasted turns. Allowlist: .js/.jsx/.ts/.tsx plus the m/c module variants.
+ */
+const isTestableSourceFile = (path: string) => /\.(m|c)?[jt]sx?$/i.test(path);
 
 const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord }) => {
 	const existing = steps.findIndex((step) => step.id === record.id);
@@ -244,9 +248,17 @@ export const runImplementPipeline = async ({
 	const hasRootChanges = () => manifest.changedFiles.some((file) => packageOf(file) === undefined);
 
 	const gates = ({ coverage }: { coverage?: boolean }) =>
-		runGates({ cwd, config, coverage, packages: manifest.packages, includeRoot: hasRootChanges() });
+		runGates({
+			cwd,
+			config,
+			coverage,
+			packages: manifest.packages,
+			includeRoot: hasRootChanges(),
+			runId: manifest.runId,
+			step: manifest.currentStep ?? undefined,
+		});
 
-	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFilePath(file) && !isNonCodeFilePath(file));
+	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFilePath(file) && isTestableSourceFile(file));
 
 	const workStep = ({
 		id,
@@ -553,7 +565,23 @@ export const runImplementPipeline = async ({
 
 			await setStep({ record });
 
+			const startedAt = Date.now();
 			const result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
+
+			await appendCommandLog({
+				cwd,
+				runId: manifest.runId,
+				record: {
+					at: new Date().toISOString(),
+					step: 'format',
+					group: 'root',
+					kind: 'format',
+					command: formatCommand,
+					exitCode: result.exitCode,
+					durationMs: Date.now() - startedAt,
+					...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-2000) }),
+				},
+			});
 
 			if (result.exitCode !== 0) {
 				return stop({
