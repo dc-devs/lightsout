@@ -132,6 +132,23 @@ Also: stale skill-tree cross-links (`../../fdrop:code:...`) throughout; the
 `functions.md` reference to the refactor-plan skill should point at
 `patterns/react-components.md` (added 2026-07-03).
 
+### Task 6: Token/cost accounting per run
+
+Runs spend the user's subscription invisibly. Capture per-invocation usage
+and make cost a first-class part of the audit trail:
+
+- The claude-code driver's JSON envelope carries usage fields (and cost in
+  newer CLI versions) — VERIFY the exact field names against the installed
+  binary before coding (hard rule); check what codex exec exposes, degrade
+  gracefully where a driver reports nothing.
+- Record per agent invocation with step/role provenance (an
+  `agents.jsonl` beside `commands.jsonl`, or fields on the step records).
+- Aggregate per run in the manifest; print in the final CLI report and the
+  live progress stream (e.g. "step implement: agent report complete — 9
+  changed file(s), 41k tokens").
+- Standards weight is measurable from this: the same run with/without the
+  default standards quantifies Task 5's prune payoff.
+
 ## Rules for all work
 
 - Follow `CLAUDE.md` conventions exactly (one export per file, object params,
