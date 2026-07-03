@@ -112,6 +112,7 @@ Add `lightsout.config.json` at the repo root:
 | `scripts.build` | no | Opt-in build gate, run last in every verify step |
 | `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |
 | `generated` | no | Path prefixes of generated output (e.g. a Prisma client dir). Real files in your diff, but excluded from changed-file attribution — they never earn agent turns; the source that generates them is the change. |
+| `agentCommands` | no | Command prefixes the implementing agent may run (prefix match, arguments allowed) — for deliverables only a command can produce, e.g. `"pnpm --filter api run prisma:migrate:dev:name"`. Injected into the executor's task as an explicit grant list and relayed to the harness's allowed-tools mechanism. Agents may never verify with these — the engine runs all gates itself. |
 | `packageScripts` | no | Monorepo mode — see below |
 | `packagesDir` | no | Workspace packages directory for monorepo mode (default `packages`) |
 | `timeouts.agentMinutes` | no | Ceiling for working agents (executor, test writers, refactorer). Default 60. A hit ceiling is a recorded step failure the run resumes from — never a crash. |

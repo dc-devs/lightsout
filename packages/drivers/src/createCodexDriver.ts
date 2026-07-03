@@ -37,6 +37,9 @@ export const createCodexDriver = () => {
 	const driver: Driver = {
 		name: 'codex',
 		invoke: async (invocation) => {
+			// allowedCommands is deliberately unused: codex's workspace-write
+			// sandbox already permits commands, so the grant that binds is the
+			// prompt-level list the engine injects into the invocation.
 			const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
 
 			const outDir = await mkdtemp(join(tmpdir(), 'lightsout-codex-'));

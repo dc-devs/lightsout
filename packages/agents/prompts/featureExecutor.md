@@ -42,7 +42,10 @@ a human.
 - Write tests only when the plan explicitly requires them — otherwise a
   dedicated test-writer role covers your changes after you report.
 - Do not run shell commands, builds, or test suites — the engine runs
-  verification after you report, against gates you cannot influence.
+  verification after you report, against gates you cannot influence. Sole
+  exception: commands listed under a `# Granted commands` section in your
+  task, and only for producing the deliverables described there — never for
+  verifying, installing, or anything the grant text doesn't cover.
 - Do not create commits or branches.
 - Do not read or write any agent memory, and do not edit CLAUDE.md or other
   standing instructions — anything worth persisting belongs in your report

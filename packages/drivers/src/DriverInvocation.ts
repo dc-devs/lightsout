@@ -9,6 +9,14 @@ export interface DriverInvocation {
 	cwd: string;
 	/** Harness permission mode (e.g. 'acceptEdits'). Headless runs cannot prompt a human — the engine must pre-declare policy per role. */
 	permissionMode?: string;
+	/**
+	 * Consumer-granted shell command prefixes (config `agentCommands`), mapped
+	 * to the harness's allowed-tools mechanism. Additive only: it can open
+	 * these commands where the user's harness settings are strict, never close
+	 * anything their settings already allow — the binding grant the agent is
+	 * told to honor lives in the invocation prompt.
+	 */
+	allowedCommands?: string[];
 	/** Kill the harness process after this many ms. The driver rejects; the engine decides what a hang means. */
 	timeoutMs?: number;
 }

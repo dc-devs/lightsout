@@ -46,6 +46,15 @@ export const LightsoutConfig = z.object({
 		})
 		.optional(),
 	/**
+	 * Command prefixes working agents are granted (prefix match, arguments
+	 * allowed) — for plan deliverables only a command can produce, e.g. a
+	 * migration generator that needs the live dev database. Injected into the
+	 * executor's task as an explicit grant list and passed to the harness as
+	 * allowed tools. Verification commands never belong here: the engine runs
+	 * all gates itself, and agents are told grants are not for verifying.
+	 */
+	agentCommands: z.array(z.string()).optional(),
+	/**
 	 * Path prefixes of generated/derived files (e.g. a Prisma client output
 	 * dir). Treated like gate artifacts: real files in the diff, but excluded
 	 * from changed-file attribution — they never earn agent turns and never

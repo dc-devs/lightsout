@@ -14574,6 +14574,15 @@ var LightsoutConfig = external_exports.object({
     supervisorMinutes: external_exports.number().positive().optional()
   }).optional(),
   /**
+   * Command prefixes working agents are granted (prefix match, arguments
+   * allowed) — for plan deliverables only a command can produce, e.g. a
+   * migration generator that needs the live dev database. Injected into the
+   * executor's task as an explicit grant list and passed to the harness as
+   * allowed tools. Verification commands never belong here: the engine runs
+   * all gates itself, and agents are told grants are not for verifying.
+   */
+  agentCommands: external_exports.array(external_exports.string()).optional(),
+  /**
    * Path prefixes of generated/derived files (e.g. a Prisma client output
    * dir). Treated like gate artifacts: real files in the diff, but excluded
    * from changed-file attribution — they never earn agent turns and never
@@ -14809,7 +14818,8 @@ var rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset/i;
 var buildArgs = ({
   systemPrompt,
   model,
-  permissionMode
+  permissionMode,
+  allowedCommands
 }) => {
   const args = ["-p", "--output-format", "json"];
   if (systemPrompt) {
@@ -14821,16 +14831,19 @@ var buildArgs = ({
   if (permissionMode) {
     args.push("--permission-mode", permissionMode);
   }
+  if (allowedCommands && allowedCommands.length > 0) {
+    args.push("--allowedTools", ...allowedCommands.map((prefix) => `Bash(${prefix}:*)`));
+  }
   return args;
 };
 var createClaudeCodeDriver = () => {
   const driver = {
     name: "claude-code",
     invoke: async (invocation) => {
-      const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
+      const { prompt, systemPrompt, model, permissionMode, allowedCommands, cwd, timeoutMs } = invocation;
       const { exitCode, stdout, stderr } = await spawnCollect({
         command: "claude",
-        args: buildArgs({ systemPrompt, model, permissionMode }),
+        args: buildArgs({ systemPrompt, model, permissionMode, allowedCommands }),
         cwd,
         stdinText: prompt,
         timeoutMs
@@ -15234,10 +15247,10 @@ import { mkdir as mkdir5, readFile as readFile7, writeFile as writeFile3 } from 
 import { join as join11 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
-var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
+var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
 // packages/agents/src/buildFeatureExecutorInvocation.ts
-var buildFeatureExecutorInvocation = ({ planContent, overviewContent, standards, errorContext, changedFiles }) => {
+var buildFeatureExecutorInvocation = ({ planContent, overviewContent, standards, errorContext, changedFiles, allowedCommands }) => {
   const sections = [];
   if (overviewContent) {
     sections.push(
@@ -15257,6 +15270,15 @@ ${planContent}`);
 These rules are binding for every line you write:
 
 ${standards}`);
+  }
+  if (allowedCommands && allowedCommands.length > 0) {
+    sections.push(
+      `# Granted commands
+
+You may run these shell commands \u2014 and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce plan deliverables that only a command can produce (e.g. a generated migration). Never use them to verify, install, or explore \u2014 the engine runs all gates itself. List every file a granted command creates in \`changedFiles\`.
+
+${allowedCommands.map((command) => `- \`${command}\``).join("\n")}`
+    );
   }
   if (changedFiles && changedFiles.length > 0) {
     sections.push(
@@ -15452,6 +15474,7 @@ var invokeAgentWithContract = async ({
   model,
   permissionMode,
   timeoutMs,
+  allowedCommands,
   onRejectedOutput
 }) => {
   let lastFailure = "no attempts made";
@@ -15465,6 +15488,7 @@ var invokeAgentWithContract = async ({
         systemPrompt: active.systemPrompt,
         model,
         permissionMode,
+        allowedCommands,
         cwd,
         timeoutMs
       });
@@ -15895,6 +15919,9 @@ ${text}`, "utf8");
     model: config2.model,
     permissionMode: config2.permissionMode ?? defaultPermissionMode,
     timeoutMs: agentTimeoutMs,
+    // Harness-level allowance for all working roles; the binding grant
+    // is the prompt section, which only the executor's builder emits.
+    allowedCommands: config2.agentCommands,
     onRejectedOutput: persistRejected(step)
   });
   const packageOf = (file2) => {
@@ -16231,14 +16258,21 @@ ${error51}` });
       run: workStep({
         id: "implement",
         requireChanges: true,
-        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards })
+        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config2.agentCommands })
       })
     },
     {
       id: "verify-implement",
       run: verifyStep({
         id: "verify-implement",
-        buildFix: (errorContext) => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, errorContext, changedFiles: manifest.changedFiles })
+        buildFix: (errorContext) => buildFeatureExecutorInvocation({
+          planContent,
+          overviewContent,
+          standards,
+          errorContext,
+          changedFiles: manifest.changedFiles,
+          allowedCommands: config2.agentCommands
+        })
       })
     },
     {
@@ -16396,6 +16430,9 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
   console.log(`  gates (root): check=[${config2.scripts.check}] testUnit=[${config2.scripts.testUnit}] coverage=[${coverage}]`);
   if (config2.scripts.generate) {
     console.log(`  generate (before every gate set): [${config2.scripts.generate}]`);
+  }
+  if (config2.agentCommands && config2.agentCommands.length > 0) {
+    console.log(`  agent commands (granted, prefix match): ${config2.agentCommands.map((command) => `[${command}]`).join(" ")}`);
   }
   if (config2.generated) {
     console.log(`  generated (never attributed): ${config2.generated.join(", ")}`);

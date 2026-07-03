@@ -11,6 +11,8 @@ interface Params {
 	errorContext?: string;
 	/** Files already changed earlier in the run — orients fix re-invocations. */
 	changedFiles?: string[];
+	/** Consumer-granted command prefixes (config `agentCommands`) — the executor may run these, and only these. */
+	allowedCommands?: string[];
 }
 
 /**
@@ -19,7 +21,7 @@ interface Params {
  * always produce byte-identical prompt structure, on the first spawn or the
  * fortieth.
  */
-export const buildFeatureExecutorInvocation = ({ planContent, overviewContent, standards, errorContext, changedFiles }: Params) => {
+export const buildFeatureExecutorInvocation = ({ planContent, overviewContent, standards, errorContext, changedFiles, allowedCommands }: Params) => {
 	const sections = [];
 
 	if (overviewContent) {
@@ -32,6 +34,12 @@ export const buildFeatureExecutorInvocation = ({ planContent, overviewContent, s
 
 	if (standards) {
 		sections.push(`# Standards\n\nThese rules are binding for every line you write:\n\n${standards}`);
+	}
+
+	if (allowedCommands && allowedCommands.length > 0) {
+		sections.push(
+			`# Granted commands\n\nYou may run these shell commands — and only these (prefix match; arguments after the prefix are allowed). Use them solely to produce plan deliverables that only a command can produce (e.g. a generated migration). Never use them to verify, install, or explore — the engine runs all gates itself. List every file a granted command creates in \`changedFiles\`.\n\n${allowedCommands.map((command) => `- \`${command}\``).join('\n')}`,
+		);
 	}
 
 	if (changedFiles && changedFiles.length > 0) {

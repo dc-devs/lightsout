@@ -13,6 +13,8 @@ interface Params<Contract extends z.ZodType> {
 	model?: string;
 	permissionMode?: string;
 	timeoutMs?: number;
+	/** Consumer-granted command prefixes, relayed to the driver's allowed-tools mechanism. */
+	allowedCommands?: string[];
 	/** Called with the raw final message whenever it fails the contract — the caller persists it as run evidence. */
 	onRejectedOutput?: (params: { text: string; attempt: number; validationError: string }) => Promise<void> | void;
 }
@@ -35,6 +37,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	model,
 	permissionMode,
 	timeoutMs,
+	allowedCommands,
 	onRejectedOutput,
 }: Params<Contract>) => {
 	let lastFailure = 'no attempts made';
@@ -53,6 +56,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 				systemPrompt: active.systemPrompt,
 				model,
 				permissionMode,
+				allowedCommands,
 				cwd,
 				timeoutMs,
 			});

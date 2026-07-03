@@ -255,6 +255,9 @@ const executePipeline = async ({
 			model: config.model,
 			permissionMode: config.permissionMode ?? defaultPermissionMode,
 			timeoutMs: agentTimeoutMs,
+			// Harness-level allowance for all working roles; the binding grant
+			// is the prompt section, which only the executor's builder emits.
+			allowedCommands: config.agentCommands,
 			onRejectedOutput: persistRejected(step),
 		});
 
@@ -723,7 +726,7 @@ const executePipeline = async ({
 			run: workStep({
 				id: 'implement',
 				requireChanges: true,
-				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards }),
+				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config.agentCommands }),
 			}),
 		},
 		{
@@ -731,7 +734,14 @@ const executePipeline = async ({
 			run: verifyStep({
 				id: 'verify-implement',
 				buildFix: (errorContext) =>
-					buildFeatureExecutorInvocation({ planContent, overviewContent, standards, errorContext, changedFiles: manifest.changedFiles }),
+					buildFeatureExecutorInvocation({
+						planContent,
+						overviewContent,
+						standards,
+						errorContext,
+						changedFiles: manifest.changedFiles,
+						allowedCommands: config.agentCommands,
+					}),
 			}),
 		},
 		{

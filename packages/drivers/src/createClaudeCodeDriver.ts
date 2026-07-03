@@ -31,10 +31,12 @@ const buildArgs = ({
 	systemPrompt,
 	model,
 	permissionMode,
+	allowedCommands,
 }: {
 	systemPrompt?: string;
 	model?: string;
 	permissionMode?: string;
+	allowedCommands?: string[];
 }) => {
 	const args = ['-p', '--output-format', 'json'];
 
@@ -52,6 +54,13 @@ const buildArgs = ({
 		args.push('--permission-mode', permissionMode);
 	}
 
+	if (allowedCommands && allowedCommands.length > 0) {
+		// `Bash(<prefix>:*)` is the CLI's prefix-match permission rule;
+		// --allowedTools is variadic, one rule per granted prefix. Additive
+		// only — user settings that already allow more stay in charge.
+		args.push('--allowedTools', ...allowedCommands.map((prefix) => `Bash(${prefix}:*)`));
+	}
+
 	return args;
 };
 
@@ -67,11 +76,11 @@ export const createClaudeCodeDriver = () => {
 	const driver: Driver = {
 		name: 'claude-code',
 		invoke: async (invocation) => {
-			const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
+			const { prompt, systemPrompt, model, permissionMode, allowedCommands, cwd, timeoutMs } = invocation;
 
 			const { exitCode, stdout, stderr } = await spawnCollect({
 				command: 'claude',
-				args: buildArgs({ systemPrompt, model, permissionMode }),
+				args: buildArgs({ systemPrompt, model, permissionMode, allowedCommands }),
 				cwd,
 				stdinText: prompt,
 				timeoutMs,

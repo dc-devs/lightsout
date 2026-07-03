@@ -94,6 +94,10 @@ const printRunHeader = ({ config, driver, cwd }: { config: LightsoutConfig; driv
 		console.log(`  generate (before every gate set): [${config.scripts.generate}]`);
 	}
 
+	if (config.agentCommands && config.agentCommands.length > 0) {
+		console.log(`  agent commands (granted, prefix match): ${config.agentCommands.map((command) => `[${command}]`).join(' ')}`);
+	}
+
 	if (config.generated) {
 		console.log(`  generated (never attributed): ${config.generated.join(', ')}`);
 	}
