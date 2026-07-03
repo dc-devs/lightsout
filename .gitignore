@@ -16,4 +16,4 @@ fixtures/*/.lightsout/runs/
 fixtures/*/.lightsout/friction.jsonl
 
 # local-only personal notes — never committed
-.notes/
+.notes
