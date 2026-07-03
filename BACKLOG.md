@@ -76,20 +76,6 @@ as a permanent suite:
 - Acceptance: `pnpm test` green; suite runs in seconds; document the script in
   README's Development section.
 
-### Task 2: First full pipeline run on the codex driver (live)
-
-The codex driver has only done a round-trip smoke test, never a full
-pipeline run.
-
-- In `fixtures/toy-calc`, temporarily set `"driver": "codex"` in
-  `lightsout.config.json` and run `plans/power.md`.
-- Acceptance: run reaches PASSED (or you report exactly where and why it
-  didn't — an honest failure report is a valid outcome). Afterwards, reset the
-  fixture (`git checkout -- fixtures/toy-calc` + remove untracked files it
-  created) so `power.md` stays unimplemented for the quick start.
-- Note any codex-specific quirks (output shape, sandbox behavior) in code
-  comments on the codex driver.
-
 ### Task 3: Run lock — DONE
 
 Result: `.lightsout/lock.json`, exclusive-create (`wx`) acquired by the
@@ -296,6 +282,25 @@ code SHAPE guidance stays light, and placement decisions belong to the
 Also cheap and independent: give the in-run refactor step's prompt the v1
 refactor-plan audit method (per-file full read, cite the violated rule per
 change, severity ordering) — better changes and better friction data.
+
+### Task 2: First full pipeline run on the codex driver (live) — LAST, deprioritized 2026-07-03
+
+The codex driver has only done a round-trip smoke test, never a full
+pipeline run. (Moved to the end of the backlog: the claude-code path is the
+proven consumer path; codex additionally lacks the event stream, so it gets
+no live transcript or usage ledger until this task revisits it.)
+
+- In `fixtures/toy-calc`, temporarily set `"driver": "codex"` in
+  `lightsout.config.json` and run `plans/power.md`.
+- Acceptance: run reaches PASSED (or you report exactly where and why it
+  didn't — an honest failure report is a valid outcome). Afterwards, reset the
+  fixture (`git checkout -- fixtures/toy-calc` + remove untracked files it
+  created) so `power.md` stays unimplemented for the quick start.
+- Note any codex-specific quirks (output shape, sandbox behavior) in code
+  comments on the codex driver.
+- Since deferred: verify against the installed codex CLI whether it has
+  grown a JSON event stream / usage reporting (0.128.0 had neither) —
+  transcript + accounting parity is part of finishing this task.
 
 ## Rules for all work
 
