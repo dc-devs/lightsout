@@ -159,6 +159,20 @@ Also: stale skill-tree cross-links (`../../fdrop:code:...`) throughout; the
 `functions.md` reference to the refactor-plan skill should point at
 `patterns/react-components.md` (added 2026-07-03).
 
+Target shape (added 2026-07-03, from comparing the docs to lightsout's own
+8-line CLAUDE.md Conventions block, which agents follow reliably): a terse
+style card keeps only three kinds of content —
+1. the project's CHOICE among idioms the model already knows, one line each
+   ("one export per file", "no enums: as-const object + derived union");
+2. numeric thresholds the model can't guess (component >200 lines →
+   extract; hook >160);
+3. rules that CONTRADICT model defaults (it would otherwise do the
+   idiomatic-but-unwanted thing).
+Everything else — persuasion, rationale, examples, tables restating
+defaults — was written for a world where prose had to convince an
+unenforced agent. The gate enforces now; cut it. Task 6 measures the
+before/after token weight.
+
 ### Task 6: Token/cost accounting per run
 
 Runs spend the user's subscription invisibly. Capture per-invocation usage
@@ -175,6 +189,33 @@ and make cost a first-class part of the audit trail:
   changed file(s), 41k tokens").
 - Standards weight is measurable from this: the same run with/without the
   default standards quantifies Task 5's prune payoff.
+- Consider landing on top of Task 7's event stream — the usage fields arrive
+  in the same result event the transcript tee already parses.
+
+### Task 7: Live agent transcript (added 2026-07-03)
+
+Today the claude-code driver runs `claude -p --output-format json`: ONE JSON
+envelope when the agent finishes. During a 30-minute implement step the user
+watches a silent `[+m:ss]` clock with zero insight into what the agent is
+doing — the observed pain of run #2.
+
+- Switch the driver to the streaming output format (`--output-format
+  stream-json`, likely requires `--verbose`; VERIFY the exact flags and
+  event shapes against the installed claude binary FIRST — hard rule). Check
+  what `codex exec --json` streams; degrade gracefully to today's behavior
+  for drivers with no stream.
+- Tee the raw event stream to `.lightsout/runs/<id>/agents/<step>.<attempt>.jsonl`
+  — the full chat becomes on-disk evidence (audit-trail thesis), and
+  `tail -f` on that file IS live access to the current chat.
+- Surface a compact line per meaningful event through the existing
+  onProgress stream: tool calls (name + file/command), agent text snippets —
+  so the running CLI tab narrates the agent's actual activity.
+- Optional follow-up: `lightsout logs --run <id> [--follow]` to pretty-print
+  a transcript without hand-tailing JSONL.
+- Read-only by design: watching the chat, never steering it mid-step. A
+  human injecting guidance mid-agent-turn would reintroduce the prose
+  orchestrator the engine exists to replace; course-correction stays where
+  it belongs — gates, supervisor, escalation.
 
 ## Rules for all work
 
