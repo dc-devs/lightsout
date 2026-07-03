@@ -19,13 +19,20 @@ lightsout run --plan plans/feature.md
   clean-slate gate      repo must be green before any agent runs
   implement             feature-executor agent works from your plan
   verify                your check + test commands; exit codes, not claims
-  write-tests           test-writer agent covers the changed files
-  verify                …
-  refactor              refactor agent reviews the diff (zero changes = success)
-  verify                …
+  write-tests           one test-writer agent per changed source file, 5 in parallel
+  verify                … + coverage gate
+  refactor              refactor agent loops (≤3 passes) until a pass changes nothing
+  verify                … + coverage gate
+  format                your formatter runs once; gates re-verify after
 
   → verified diff in your worktree + manifest in .lightsout/runs/<id>/
 ```
+
+Changed files flow step to step through the run manifest: after every work
+step the agent's typed report is merged with a git snapshot of the worktree
+(agents report what they changed; git reports what *actually* changed), and
+the merged list is what the next role receives. An implement step that
+changes nothing fails instead of passing vacuously.
 
 Failures retry mechanically, then a read-only supervisor agent decides:
 retry with guidance, or escalate to you. Hitting your subscription's rate
@@ -71,7 +78,8 @@ Add `lightsout.config.json` at the repo root:
 {
 	"scripts": {
 		"check": "pnpm typecheck",
-		"testUnit": "pnpm test"
+		"testUnit": "pnpm test",
+		"testCoverage": "pnpm test:coverage"
 	},
 	"standards": [".lightsout/style-card.md"],
 	"testStandards": [".lightsout/style-card.md"]
@@ -82,6 +90,9 @@ Add `lightsout.config.json` at the repo root:
 |---|---|---|
 | `scripts.check` | yes | Type/lint gate — full shell command, run per verify step |
 | `scripts.testUnit` | yes | Test gate — full shell command |
+| `scripts.testCoverage` | yes | Coverage gate — a full shell command (your command owns the threshold), or the literal `false` to opt out. On by default: silence is not accepted, skipping the strongest gate must be a decision. Runs at clean-slate and every verify after tests exist. |
+| `scripts.build` | no | Opt-in build gate, run last in every verify step |
+| `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |
 | `standards` | no | Markdown files inlined as binding rules for code-writing agents. A declared-but-missing file is a hard error. |
 | `testStandards` | no | Same, for the test-writer agent |
 | `driver` | no | `claude-code` (default) or `codex` |
@@ -98,13 +109,15 @@ state —
 
 Then: write a plan (a markdown file stating goal, files, and what's out of
 scope) and run it. The repo must be green first — the clean-slate gate refuses
-a broken baseline.
+a broken baseline. For phased work, pass the high-level plan with
+`--overview` — it rides along as context while the phase plan stays
+authoritative for scope.
 
 ## CLI
 
 | Command | Purpose |
 |---|---|
-| `lightsout run --plan <path> [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan |
+| `lightsout run --plan <path> [--overview <path>] [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan (optionally with an overview plan as context) |
 | `lightsout resume --run <id> [--cwd <path>]` | Continue a parked/failed/crashed run from its last incomplete step |
 | `lightsout status [--cwd <path>]` | List runs and their states |
 | `lightsout friction [--cwd <path>]` | Show accumulated friction reports from agents |
@@ -117,15 +130,17 @@ you — not broken.
 ## The self-improvement loop
 
 Every agent reports *friction* — moments the plan, its instructions, the
-standards, or the environment fought it — even on successful runs. Friction
-accumulates in `.lightsout/friction.jsonl`. `lightsout improve` feeds the
+standards, or the environment fought it — and *decisions* — choices it had to
+make where the input was silent — even on successful runs. Both accumulate in
+`.lightsout/friction.jsonl` (a recurring decision means something upstream
+should have settled it). `lightsout improve` feeds the
 aggregate plus the agent prompt files to a maintainer agent that turns
 *systemic* patterns into minimal prompt edits in the engine's worktree.
 The loop proposes; a human reviews the diff and ships.
 
 ## Claude Code plugin (experimental)
 
-The repo doubles as a plugin whose `/implement` skill is a doorbell for the
+The repo doubles as a plugin whose `/implement` skill is the ignition for the
 bundled engine (no logic in the skill — all of it lives in the engine):
 
 ```

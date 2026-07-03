@@ -5,6 +5,7 @@ export { getRunDir } from './getRunDir';
 export { runCommand } from './runCommand';
 export { loadConfig } from './loadConfig';
 export { extractJsonReport } from './extractJsonReport';
+export { readGitChangedFiles } from './readGitChangedFiles';
 export { runImplementPipeline } from './runImplementPipeline';
 export { readFriction } from './readFriction';
 export { runPromptImprovement } from './runPromptImprovement';

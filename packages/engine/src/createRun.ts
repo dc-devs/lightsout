@@ -7,22 +7,28 @@ import { writeRunManifest } from './writeRunManifest';
 interface Params {
 	cwd: string;
 	plan: string;
+	/** Optional overview plan path (high-level context for a phased plan). */
+	overview?: string;
 	driver: string;
+	/** Git-dirty paths at run start — the subtraction baseline for changed-file attribution. */
+	baselineDirtyFiles?: string[];
 }
 
 /** Create a new run: fresh id, run directory, and initial manifest on disk. */
-export const createRun = async ({ cwd, plan, driver }: Params) => {
+export const createRun = async ({ cwd, plan, overview, driver, baselineDirtyFiles }: Params) => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
 		runId: randomUUID(),
 		createdAt: now,
 		updatedAt: now,
 		plan,
+		overview,
 		driver,
 		status: RunStatus.Pending,
 		currentStep: null,
 		steps: [],
 		changedFiles: [],
+		baselineDirtyFiles: baselineDirtyFiles ?? [],
 	};
 
 	await mkdir(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });

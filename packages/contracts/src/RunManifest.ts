@@ -14,6 +14,8 @@ export const RunManifest = z.object({
 	updatedAt: z.string(),
 	/** Path to the plan file the run implements, relative to the target repo. */
 	plan: z.string(),
+	/** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
+	overview: z.string().optional(),
 	/** Driver name the run was started with (a resumed run must reuse it). */
 	driver: z.string(),
 	status: z.enum(RunStatus),
@@ -22,6 +24,12 @@ export const RunManifest = z.object({
 	steps: z.array(StepRecord),
 	/** Source files changed so far, accumulated across steps. */
 	changedFiles: z.array(z.string()),
+	/**
+	 * Paths already dirty/untracked in git when the run started. Subtracted
+	 * from every git snapshot so only files the RUN changed are attributed to
+	 * it — agents report what they changed, git reports what actually changed.
+	 */
+	baselineDirtyFiles: z.array(z.string()).default([]),
 });
 
 export type RunManifest = z.infer<typeof RunManifest>;

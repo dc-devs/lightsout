@@ -1,7 +1,7 @@
 # lightsout: get caught up, then work the backlog
 
 You are working in the `lightsout` repo (`~/Developer/code/lightsout`) — a
-deterministic engine for coding agents, built to v0.4 in a prior session. Your
+deterministic engine for coding agents, built to v0.5 in a prior session. Your
 job: orient fully, verify the baseline, then execute the backlog below in
 order.
 
@@ -31,8 +31,8 @@ do not fix forward.
 
 ### Task 1: Committed test suite for the engine (highest priority)
 
-The engine currently has NO tests of its own — the stub-driver smokes that
-verified v0.2/v0.3 lived in a session scratchpad and are gone. Recreate them
+The engine currently has NO tests of its own — the stub-driver smoke tests
+that verified v0.2/v0.3 lived in a session scratchpad and are gone. Recreate them
 as a permanent suite:
 
 - Use Node's built-in test runner; add a `pnpm test` script. Keep it
@@ -53,12 +53,20 @@ as a permanent suite:
   - manifest write→read round trip, `updatedAt` stamping, and
     corrupted-manifest rejection at the read boundary
   - `readStandards` throws on a declared-but-missing file
+  - v0.5 additions: zero-change implement gate; git changed-file merge
+    (baseline subtraction, `.lightsout/` exclusion, non-git degradation);
+    refactor loop ends on `complete` + empty `changedFiles` (max 3 passes);
+    per-file test-writer fan-out with batch failure aggregation; coverage
+    gate wiring (clean-slate + post-test verifies only, `false` opt-out);
+    opt-in build/format gate wiring; `--overview` content inlined into
+    executor invocations
 - Acceptance: `pnpm test` green; suite runs in seconds; document the script in
   README's Development section.
 
 ### Task 2: First full pipeline run on the codex driver (live)
 
-The codex driver has only done a round-trip smoke, never a full pipeline.
+The codex driver has only done a round-trip smoke test, never a full
+pipeline run.
 
 - In `fixtures/toy-calc`, temporarily set `"driver": "codex"` in
   `lightsout.config.json` and run `plans/power.md`.
@@ -79,7 +87,7 @@ Two simultaneous runs in one consumer repo would fight over the worktree.
   dead). A second concurrent invocation fails fast with a clear message.
 - Cover the lock behavior in the Task 1 test suite.
 
-### Task 4: Plugin doorbell — prepare, don't test
+### Task 4: Plugin ignition — prepare, don't test
 
 The `/plugin marketplace add` → `/implement` flow needs an interactive session
 (human-only). Do NOT attempt it. Instead: statically verify the skill's path

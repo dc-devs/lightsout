@@ -62,7 +62,7 @@ verification between steps, pluggable standards) and replaces the substrate.
    `claude -p` rides the user's Max plan; the Agent SDK is API-key-only and
    explicitly blocked from subscription auth — verified against official docs,
    2026-07), and what keeps the project clear of the third-party-auth policy.
-2. **The plugin skill is a doorbell.** No gates, retries, or state in markdown,
+2. **The plugin skill is the ignition, not the engine.** No gates, retries, or state in markdown,
    ever. The moment logic leaks into the wrapper, there are two orchestrators
    again.
 3. **State lives on disk** (`.lightsout/runs/<id>/manifest.json` in the target
@@ -91,15 +91,26 @@ Consumer coding standards enter as config, in two forms:
 
 ## v0 scope
 
-The **implement pipeline** (v0.2 shape, live):
+The **implement pipeline** (v0.5 shape, live):
 
-clean-slate gate → feature-executor → verify → unit-test-writer → verify →
-refactor → verify. Verify steps run cheap mechanical fix retries, then consult
-the supervisor (read-only, `plan` permission mode) exactly once: retry with
+clean-slate gate → feature-executor → verify → unit-test-writers (one per
+changed source file, up to 5 in parallel) → verify → refactor (looped, ≤3
+passes, until a pass reports `complete` with zero changed files) → verify →
+format. Verify steps run cheap mechanical fix retries, then consult the
+supervisor (read-only, `plan` permission mode) exactly once: retry with
 guidance, or escalate. Executor terminations (`terminated:*`) escalate
 directly — the report already carries the reasoning. Rate-limit hits park the
 run (`paused-rate-limit`); `resume` re-enters the step walker, skipping every
 step already marked passed.
+
+Changed-file truth is double-entry: after every work step the agent's typed
+report is merged with a git snapshot diffed against the run's baseline dirt
+(refreshed after clean-slate, so gate artifacts like coverage output are
+never attributed to agents), and the merged list is what the next role's
+invocation receives (fix re-invocations included). An implement step that changes nothing fails
+instead of passing vacuously. The coverage gate (`scripts.testCoverage`,
+opt-out only) runs at clean-slate and every verify after tests exist;
+`build` and `format` are opt-in gates.
 
 Explicitly out of scope for v0: interactive planning (stays a conversational
 skill — elicitation/grilling needs a human in the loop and is correctly built
@@ -113,6 +124,7 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | v0.2 | supervisor + resume + rate-limit parking |
 | v0.3 | friction capture → self-improvement loop — SHIPPED: agents report friction in WorkReport; engine appends to `.lightsout/friction.jsonl` with run/step provenance; `improve` feeds aggregated friction + prompt files to the prompt-improver role (edits the engine worktree; a human reviews the diff and ships) |
 | v0.4 | SHIPPED: standards/style-card injection (`standards`/`testStandards` config → inlined into executor/test-writer/refactorer invocations; declared-but-missing file is a hard error); codex driver (`codex exec`, sandbox-mode mapping, `--output-last-message`, verified against codex-cli 0.128.0); consumer #1 wired via `lightsout.config.json` + committed style card |
+| v0.5 | SHIPPED: parity batch from the v1 orchestrator review — git-truth changed files (agent report ∪ `git status` vs run baseline), zero-change implement gate, per-file parallel test writers (5 concurrent), refactor loop (≤3 passes, typed completion signal), coverage gate (opt-out only), opt-in build/format gates, `--overview` phased-plan context, decision-kind friction |
 
 ## Decision log
 
@@ -124,3 +136,7 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | Where non-determinism is allowed | Inside agent steps + supervisor on failures | Judgment earns unreliability only where judgment is needed |
 | Name | lightsout | Markets the outcome (runs unattended), not the mechanism (stopping); jidoka/andon rejected for foregrounding the brake |
 | Test runner | `node:test` + stub drivers; no Jest | The Driver interface is an explicit injection seam, so Jest's module-interception value goes unused and its dependency tree contradicts the thin-machinery thesis; live agent runs are a separate verification tier, never per-commit tests. Revisit only if a concrete need (rich matchers, snapshots at scale) actually appears |
+| Changed-file truth | Agent report ∪ git-status diff vs run baseline | Agents forget files; git cannot be sweet-talked; downstream roles (test writers, refactorer) need the full set or work silently escapes them |
+| Coverage gate | On by default — `testCoverage` must be a command or an explicit `false` | Skipping the strongest gate must be a decision, not an accident; the consumer's command owns the threshold, the engine only reads the exit code |
+| Refactor completion signal | Typed: `complete` + empty `changedFiles`, max 3 passes | Replaces v1's `REFACTORING_COMPLETE` prose marker — no string matching at any boundary |
+| Monorepo-aware gates / per-package scripts | Deferred | Whole-repo gates are slower but more truthful (catch cross-package breaks); consumers can bake filters into their config commands. Revisit only if gate time actually hurts |

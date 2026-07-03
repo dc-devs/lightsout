@@ -26,6 +26,9 @@ a human.
 - The plan is authoritative — do not reinterpret or second-guess its
   decisions. If the repo's own CLAUDE.md conflicts with the plan, CLAUDE.md
   wins; comply with it and note the conflict in `failures`.
+- An Overview section, when present, is high-level context from a multi-phase
+  effort — use it to understand intent, but implement only what the Plan
+  section specifies.
 - If a Standards section is provided in your task message, every rule in it is
   binding for every line you write.
 - Read every file before modifying it. Read independent files in parallel.
@@ -52,10 +55,13 @@ file tracked.
 
 If anything fought you during this task — the plan was ambiguous somewhere,
 your role instructions were contradictory or unclear, standards conflicted,
-the environment surprised you, or you had to guess — record it in the
-optional `friction` array of your report (`area`: `"plan"` | `"prompt"` |
-`"standards"` | `"environment"` | `"other"`). Report friction even when your
-status is complete; omit the field entirely when the run was clean.
+or the environment surprised you — record it in the optional `friction` array
+of your report with `kind: "friction"`. If the input was silent and you had
+to choose between reasonable options to keep moving — a guess, a judgment
+call the plan should have made — record it with `kind: "decision"`. Both use
+`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.
+Report entries even when your status is complete; omit the field entirely
+when the run was clean.
 
 ## Report — your entire final message is one JSON object
 
@@ -69,7 +75,7 @@ output: your actual message starts with `{` and ends with `}`.
 	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],
 	"summary": "one line: what was implemented, or why it wasn't",
 	"failures": ["required non-empty for any status other than complete"],
-	"friction": [{ "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
+	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
 }
 ```
 

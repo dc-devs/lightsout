@@ -6,7 +6,7 @@ allowed-tools: Bash, Read
 
 # lightsout: implement
 
-**This skill is a doorbell, not an orchestrator.** It contains no pipeline
+**This skill is the ignition, not the engine.** It contains no pipeline
 logic — no gates, no retries, no state. All of that lives in the engine, where
 it is deterministic code. Do not add workflow steps to this file.
 

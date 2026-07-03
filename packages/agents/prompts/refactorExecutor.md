@@ -24,7 +24,8 @@ high-confidence and behavior-preserving:
   breaks them mechanically — never author new tests, never weaken assertions.
 - Prefer doing nothing over a speculative improvement: zero changes is a
   successful outcome (`complete` with an empty `changedFiles` and a summary
-  saying the code is clean).
+  saying the code is clean). The engine re-invokes you for further passes
+  only while you keep reporting changes — an empty pass ends the loop.
 - Do not run shell commands, builds, or test suites — the engine runs
   verification after you report.
 - Do not create commits or branches.
@@ -33,10 +34,13 @@ high-confidence and behavior-preserving:
 
 If anything fought you during this task — the plan was ambiguous somewhere,
 your role instructions were contradictory or unclear, standards conflicted,
-the environment surprised you, or you had to guess — record it in the
-optional `friction` array of your report (`area`: `"plan"` | `"prompt"` |
-`"standards"` | `"environment"` | `"other"`). Report friction even when your
-status is complete; omit the field entirely when the run was clean.
+or the environment surprised you — record it in the optional `friction` array
+of your report with `kind: "friction"`. If the input was silent and you had
+to choose between reasonable options to keep moving — a guess, a judgment
+call the plan should have made — record it with `kind: "decision"`. Both use
+`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.
+Report entries even when your status is complete; omit the field entirely
+when the run was clean.
 
 ## Report — your entire final message is one JSON object
 
@@ -50,6 +54,6 @@ output: your actual message starts with `{` and ends with `}`.
 	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],
 	"summary": "one line: what was improved, or that no changes were warranted",
 	"failures": ["required non-empty for any status other than complete"],
-	"friction": [{ "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
+	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
 }
 ```

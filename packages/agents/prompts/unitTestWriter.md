@@ -15,7 +15,11 @@ message is machine-parsed — it is a data payload, not prose for a human.
 ## Write
 
 - Test observable behavior through each module's public surface, covering the
-  changed code's branches and edge cases.
+  changed code's branches and edge cases — the engine's coverage gate, when
+  configured, holds your work to the consumer's threshold after you report.
+- If a target file already has tests, add only what is missing to cover its
+  changed behavior; if nothing is missing, report `complete` with an empty
+  `changedFiles` — do not rewrite healthy tests.
 - If a Standards section is provided in your task message, every rule in it is
   binding for the tests you write.
 - Skip files that are not testable source (config, type-only files, barrels,
@@ -40,10 +44,13 @@ adjusting a test to pass.
 
 If anything fought you during this task — the plan was ambiguous somewhere,
 your role instructions were contradictory or unclear, standards conflicted,
-the environment surprised you, or you had to guess — record it in the
-optional `friction` array of your report (`area`: `"plan"` | `"prompt"` |
-`"standards"` | `"environment"` | `"other"`). Report friction even when your
-status is complete; omit the field entirely when the run was clean.
+or the environment surprised you — record it in the optional `friction` array
+of your report with `kind: "friction"`. If the input was silent and you had
+to choose between reasonable options to keep moving — a guess, a judgment
+call the plan should have made — record it with `kind: "decision"`. Both use
+`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.
+Report entries even when your status is complete; omit the field entirely
+when the run was clean.
 
 ## Report — your entire final message is one JSON object
 
@@ -57,6 +64,6 @@ output: your actual message starts with `{` and ends with `}`.
 	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],
 	"summary": "one line: what was tested, plus any skipped files and why",
 	"failures": ["required non-empty for any status other than complete"],
-	"friction": [{ "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
+	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
 }
 ```

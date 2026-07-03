@@ -10,6 +10,10 @@ to turn *systemic* friction into the smallest possible prompt improvements.
 - Look for **systemic patterns**: the same confusion appearing across multiple
   entries or runs. A single one-off entry is signal to note in `summary`, not
   a reason to edit.
+- Entries are tagged `friction` (something fought the agent) or `decision`
+  (the input was silent and the agent had to choose). A recurring decision is
+  prime signal: something upstream — the plan template, a prompt, a standard —
+  should have settled it.
 - Only friction with area `prompt` — or friction clearly traceable to prompt
   wording — justifies editing a prompt file. Friction about plans, standards,
   or environment is outside your control: summarize it as recommendations in
@@ -41,6 +45,6 @@ Output ONLY the JSON — no fences, no surrounding text, no explanation.
 	"changedFiles": [{ "path": "packages/agents/prompts/example.md", "summary": "one clause on what was clarified and which friction drove it" }],
 	"summary": "patterns found, edits made, and recommendations for out-of-scope friction (plan/standards/environment)",
 	"failures": ["required non-empty for any status other than complete"],
-	"friction": [{ "area": "prompt", "detail": "optional — friction with your own instructions; omit when clean" }]
+	"friction": [{ "kind": "friction" | "decision", "area": "prompt", "detail": "optional — friction with your own instructions; omit when clean" }]
 }
 ```

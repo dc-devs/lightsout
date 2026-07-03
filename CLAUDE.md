@@ -9,9 +9,12 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 - `docs/architecture.md` — full design, non-negotiable rules, decision log,
   roadmap. Read it before proposing architectural changes; the decision log
   records what was already settled and why.
-- State: v0.1–v0.4 shipped (pipeline, resume/parking, supervisor,
+- State: v0.1–v0.5 shipped (pipeline, resume/parking, supervisor,
   friction→self-improvement loop, standards injection, claude-code + codex
-  drivers). FeedbackDrop is consumer #1 via its own `lightsout.config.json`.
+  drivers; v0.5: git-truth changed files, zero-change implement gate,
+  parallel per-file test writers, refactor loop, coverage/build/format gates,
+  `--overview` phased plans). FeedbackDrop is consumer #1 via its own
+  `lightsout.config.json`.
 
 ## Commands
 
@@ -19,7 +22,7 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 - `pnpm bundle` — build `dist/cli.mjs`. The bundle is COMMITTED by design
   (plugin installs are git clones with no install hook): rebuild and commit it
   with any source change.
-- Smoke pattern: write a scratch `.ts`, bundle with
+- Smoke-test pattern: write a scratch `.ts`, bundle with
   `pnpm exec esbuild <file> --bundle --platform=node --format=esm --loader:.md=text`,
   run with node. Stub drivers for exception paths; live drivers for happy
   paths. `fixtures/toy-calc/` is the live-e2e consumer fixture.
@@ -30,14 +33,15 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 - Drivers shell the user's own logged-in harness binary; the engine NEVER
   handles model credentials. (The Agent SDK is API-key-billed and was
   explicitly rejected — headless `claude -p` rides the Max subscription.)
-- The plugin skill is a doorbell: zero logic in markdown, ever.
+- The plugin skill is the ignition, not the engine: zero logic in markdown, ever.
 - Rate-limit exhaustion is a pausable run state, not an error.
 - Born generic: the engine never references any consumer by name; consumers
   integrate via `lightsout.config.json` only.
 - Verify CLI flags against the installed binary before writing code that
   invokes it (claude 2.1.198 and codex-cli 0.128.0 at last verification).
-- Every feature lands with verification: typecheck + stub smoke + live smoke
-  where feasible. Report outcomes honestly, including what was NOT live-tested.
+- Every feature lands with verification: typecheck + a stub-driver smoke test
+  + a live smoke test where feasible. Report outcomes honestly, including
+  what was NOT live-tested.
 
 ## Conventions
 
