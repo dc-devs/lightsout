@@ -113,23 +113,38 @@ both: command templates that run once per affected package, in parallel, with
 }
 ```
 
-The run's **package scope** comes from the plan itself, so `/implement
-plan.md` needs nothing extra:
+Every `packageScripts` command must contain `{package}` — one without it
+would run identically for every package and belongs in `scripts.*` instead
+(config validation rejects it).
 
-```markdown
----
-packages:
-  - backend-api
----
-# Plan: ...
-```
+The run's **package scope** resolves through a four-tier chain, so
+`/implement plan.md` needs nothing extra:
 
-`--packages backend-api,shared` on the CLI overrides the front-matter; no
-scope at all is a hard error before any agent runs — the engine never
-guesses. After the implement step, changed files are the truth: the scope
-widens automatically when the agent touches a package you didn't declare
-(never shrinks). Files outside `packagesDir` re-activate the whole-repo
-`scripts.*` as a "root group". Tip: use a dependents filter in the templates
+1. `--packages backend-api,shared` on the CLI — explicit override
+2. Plan front-matter — precise and authoritative when present:
+
+   ```markdown
+   ---
+   packages:
+     - backend-api
+   ---
+   # Plan: ...
+   ```
+
+3. **Derived from the plan body** — concrete `packages/<name>/` paths the
+   plan references become the scope (recorded in the manifest and the run
+   report as `plan-paths`, so a derived scope is never mistaken for a
+   declared one). This is why plans from tools that know nothing about
+   lightsout — plan mode output, hand-written plans — just work. Safe in
+   both directions: a package mentioned only as context merely runs extra
+   gates, and a missed one is caught by scope expansion below.
+4. Hard error — the plan names no packages at all, which usually means it's
+   too vague to implement anyway.
+
+After the implement step, changed files are the truth: the scope widens
+automatically when the agent touches a package the scope missed (never
+shrinks). Files outside `packagesDir` re-activate the whole-repo `scripts.*`
+as a "root group". Tip: use a dependents filter in the templates
 (`pnpm --filter ...{package}`) to also verify packages that depend on the
 changed ones — the blast radius lives in your template, not in the engine.
 | `standards` | no | Markdown files inlined as binding rules for code-writing agents. A declared-but-missing file is a hard error. |

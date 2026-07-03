@@ -7,6 +7,7 @@ import {
 	buildUnitTestWriterInvocation,
 } from '@lightsout/agents';
 import {
+	PackagesSource,
 	RunStatus,
 	SupervisorDecision,
 	SupervisorVerdict,
@@ -23,6 +24,7 @@ import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { readGitChangedFiles } from './readGitChangedFiles';
 import { readPlanPackages } from './readPlanPackages';
 import { readStandards } from './readStandards';
+import { scanPlanPackagePaths } from './scanPlanPackagePaths';
 import { runCommand } from './runCommand';
 import { runGates } from './runGates';
 import { writeRunManifest } from './writeRunManifest';
@@ -162,20 +164,30 @@ export const runImplementPipeline = async ({
 		});
 	}
 
-	// Monorepo mode needs a scope before any gate runs: explicit --packages
-	// beats the plan's front-matter; silence is a hard error, never a guess.
-	if (config.packageScripts && manifest.packages.length === 0) {
-		const declared = packages ?? readPlanPackages({ planContent }) ?? [];
+	const packagesDir = config.packagesDir ?? 'packages';
 
-		if (declared.length === 0) {
+	// Monorepo mode needs a scope before any gate runs. The chain: --packages
+	// flag → plan front-matter → concrete package paths in the plan body (safe
+	// fallback: over-inclusion only runs extra gates, under-inclusion is
+	// caught by scope expansion) → hard error. Never inference beyond that.
+	if (config.packageScripts && manifest.packages.length === 0) {
+		const fromFlag = packages;
+		const fromFrontMatter = fromFlag ? undefined : readPlanPackages({ planContent });
+		const fromPlanPaths = (fromFlag ?? fromFrontMatter) ? undefined : scanPlanPackagePaths({ planContent, packagesDir });
+		const declared = fromFlag ?? fromFrontMatter ?? fromPlanPaths;
+
+		if (!declared || declared.length === 0) {
 			return stop({
 				record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
 				status: RunStatus.Failed,
-				error: 'packageScripts is configured but the run has no package scope — add a `packages:` list to the plan front-matter or pass --packages <a,b>.',
+				error: `packageScripts is configured but no package scope could be resolved — add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`,
 			});
 		}
 
-		await update({ packages: declared });
+		await update({
+			packages: declared,
+			packagesSource: fromFlag ? PackagesSource.Flag : fromFrontMatter ? PackagesSource.FrontMatter : PackagesSource.PlanPaths,
+		});
 	}
 
 	const nextRecord = ({ id }: { id: string }): StepRecord => {
@@ -194,8 +206,6 @@ export const runImplementPipeline = async ({
 			permissionMode: config.permissionMode ?? defaultPermissionMode,
 			timeoutMs: executorTimeoutMs,
 		});
-
-	const packagesDir = config.packagesDir ?? 'packages';
 
 	/** Map a changed file to its package directory, or undefined for root-group files. */
 	const packageOf = (file: string) => {

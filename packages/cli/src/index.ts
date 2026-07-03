@@ -72,6 +72,10 @@ const printResult = ({ result }: { result: PipelineResult }) => {
 		console.log(`  ${statusIcons[step.status] ?? '?'} ${step.id} (attempts: ${step.attempts})`);
 	}
 
+	if (manifest.packages.length > 0) {
+		console.log(`  package scope: ${manifest.packages.join(', ')}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ''}`);
+	}
+
 	if (manifest.changedFiles.length > 0) {
 		console.log('  changed files:');
 

@@ -47,6 +47,9 @@ export const LightsoutConfig = z.object({
 			/** Opt-in scoped build gate. */
 			build: z.string().optional(),
 		})
+		.refine((scripts) => Object.values(scripts).every((command) => command === undefined || command.includes('{package}')), {
+			message: 'every packageScripts command must contain the {package} placeholder — a command without it would run identically for every package and belongs in scripts.* instead',
+		})
 		.optional(),
 	/** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
 	standards: z.array(z.string()).optional(),

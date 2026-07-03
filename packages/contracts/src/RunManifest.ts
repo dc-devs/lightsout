@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PackagesSource } from './PackagesSource';
 import { RunStatus } from './RunStatus';
 import { StepRecord } from './StepRecord';
 
@@ -31,6 +32,8 @@ export const RunManifest = z.object({
 	 * non-monorepo mode.
 	 */
 	packages: z.array(z.string()).default([]),
+	/** Where the initial package scope came from — recorded so a derived scope is never mistaken for a declared one. */
+	packagesSource: z.enum(PackagesSource).optional(),
 	/**
 	 * Paths already dirty/untracked in git when the run started. Subtracted
 	 * from every git snapshot so only files the RUN changed are attributed to

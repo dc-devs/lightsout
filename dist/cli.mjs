@@ -14534,6 +14534,16 @@ function date4(params) {
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 config(en_default());
 
+// packages/contracts/src/PackagesSource.ts
+var PackagesSource = {
+  /** Explicit `--packages` flag. */
+  Flag: "flag",
+  /** The plan's front-matter `packages:` list. */
+  FrontMatter: "front-matter",
+  /** Derived from concrete `<packagesDir>/<name>/` paths in the plan body. */
+  PlanPaths: "plan-paths"
+};
+
 // packages/contracts/src/StepRecord.ts
 var StepRecord = external_exports.object({
   id: external_exports.string(),
@@ -14567,6 +14577,8 @@ var RunManifest = external_exports.object({
    * non-monorepo mode.
    */
   packages: external_exports.array(external_exports.string()).default([]),
+  /** Where the initial package scope came from — recorded so a derived scope is never mistaken for a declared one. */
+  packagesSource: external_exports.enum(PackagesSource).optional(),
   /**
    * Paths already dirty/untracked in git when the run started. Subtracted
    * from every git snapshot so only files the RUN changed are attributed to
@@ -14699,6 +14711,8 @@ var LightsoutConfig = external_exports.object({
     testCoverage: external_exports.string().optional(),
     /** Opt-in scoped build gate. */
     build: external_exports.string().optional()
+  }).refine((scripts) => Object.values(scripts).every((command) => command === void 0 || command.includes("{package}")), {
+    message: "every packageScripts command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in scripts.* instead"
   }).optional(),
   /** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
   standards: external_exports.array(external_exports.string()).optional(),
@@ -15040,6 +15054,14 @@ var resolvePackageName = async ({ cwd, packagesDir, packageDir }) => {
     throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
   }
   return parsed.data.name;
+};
+
+// packages/engine/src/scanPlanPackagePaths.ts
+var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
+  const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
+  const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name) => Boolean(name));
+  return found.length > 0 ? [...new Set(found)] : void 0;
 };
 
 // packages/engine/src/runImplementPipeline.ts
@@ -15427,16 +15449,23 @@ var runImplementPipeline = async ({
       error: error51 instanceof Error ? error51.message : String(error51)
     });
   }
+  const packagesDir = config2.packagesDir ?? "packages";
   if (config2.packageScripts && manifest.packages.length === 0) {
-    const declared = packages ?? readPlanPackages({ planContent }) ?? [];
-    if (declared.length === 0) {
+    const fromFlag = packages;
+    const fromFrontMatter = fromFlag ? void 0 : readPlanPackages({ planContent });
+    const fromPlanPaths = fromFlag ?? fromFrontMatter ? void 0 : scanPlanPackagePaths({ planContent, packagesDir });
+    const declared = fromFlag ?? fromFrontMatter ?? fromPlanPaths;
+    if (!declared || declared.length === 0) {
       return stop({
         record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
         status: RunStatus.Failed,
-        error: "packageScripts is configured but the run has no package scope \u2014 add a `packages:` list to the plan front-matter or pass --packages <a,b>."
+        error: `packageScripts is configured but no package scope could be resolved \u2014 add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`
       });
     }
-    await update({ packages: declared });
+    await update({
+      packages: declared,
+      packagesSource: fromFlag ? PackagesSource.Flag : fromFrontMatter ? PackagesSource.FrontMatter : PackagesSource.PlanPaths
+    });
   }
   const nextRecord = ({ id }) => {
     const prev = manifest.steps.find((step) => step.id === id);
@@ -15451,7 +15480,6 @@ var runImplementPipeline = async ({
     permissionMode: config2.permissionMode ?? defaultPermissionMode,
     timeoutMs: executorTimeoutMs
   });
-  const packagesDir = config2.packagesDir ?? "packages";
   const packageOf = (file2) => {
     const prefix = `${packagesDir}/`;
     if (!file2.startsWith(prefix)) {
@@ -15865,6 +15893,9 @@ var printResult = ({ result }) => {
 run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
   for (const step of manifest.steps) {
     console.log(`  ${statusIcons[step.status] ?? "?"} ${step.id} (attempts: ${step.attempts})`);
+  }
+  if (manifest.packages.length > 0) {
+    console.log(`  package scope: ${manifest.packages.join(", ")}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ""}`);
   }
   if (manifest.changedFiles.length > 0) {
     console.log("  changed files:");

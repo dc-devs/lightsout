@@ -113,11 +113,15 @@ changes nothing fails instead of passing vacuously. The coverage gate
 after tests exist; `build` and `format` are opt-in gates.
 
 In monorepo mode (`packageScripts` templates; `{package}` → the package's
-package.json name) every gate runs scoped to the run's package scope —
-`--packages` flag, else the plan front-matter `packages:` list, else a hard
-error before any agent spawns — widened automatically as changed files
-reveal the true blast radius, never shrunk. Whole-repo `scripts.*` demote to
-a root group that runs only when files outside `packagesDir` change.
+package.json name; a template without the placeholder is a config error)
+every gate runs scoped to the run's package scope — `--packages` flag, else
+the plan front-matter `packages:` list, else derived from concrete
+`packagesDir/<name>/` paths in the plan body (source recorded in the
+manifest; safe because over-inclusion only runs extra gates and
+under-inclusion is caught by expansion), else a hard error before any agent
+spawns — widened automatically as changed files reveal the true blast
+radius, never shrunk. Whole-repo `scripts.*` demote to a root group that
+runs only when files outside `packagesDir` change.
 
 Explicitly out of scope for v0: interactive planning (stays a conversational
 skill — elicitation/grilling needs a human in the loop and is correctly built
@@ -132,7 +136,7 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | v0.3 | friction capture → self-improvement loop — SHIPPED: agents report friction in WorkReport; engine appends to `.lightsout/friction.jsonl` with run/step provenance; `improve` feeds aggregated friction + prompt files to the prompt-improver role (edits the engine worktree; a human reviews the diff and ships) |
 | v0.4 | SHIPPED: standards/style-card injection (`standards`/`testStandards` config → inlined into executor/test-writer/refactorer invocations; declared-but-missing file is a hard error); codex driver (`codex exec`, sandbox-mode mapping, `--output-last-message`, verified against codex-cli 0.128.0); consumer #1 wired via `lightsout.config.json` + committed style card |
 | v0.5 | SHIPPED: parity batch from the v1 orchestrator review — git-truth changed files (agent report ∪ `git status` vs run baseline), zero-change implement gate, per-file parallel test writers (5 concurrent), refactor loop (≤3 passes, typed completion signal), coverage gate (opt-out only), opt-in build/format gates, `--overview` phased-plan context, decision-kind friction |
-| v0.6 | SHIPPED: monorepo scoped gates — `packageScripts` command templates per affected package (parallel, `{package}` = package.json name), scope from `--packages`/plan front-matter (hard error when absent), auto-widening from changed files, root group for files outside `packagesDir` |
+| v0.6 | SHIPPED: monorepo scoped gates — `packageScripts` command templates per affected package (parallel, `{package}` = package.json name, placeholder required by config validation), scope chain `--packages` → plan front-matter → derived from plan-body paths → hard error (source recorded in the manifest), auto-widening from changed files, root group for files outside `packagesDir` |
 
 ## Decision log
 
@@ -148,4 +152,4 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | Coverage gate | On by default — `testCoverage` must be a command or an explicit `false` | Skipping the strongest gate must be a decision, not an accident; the consumer's command owns the threshold, the engine only reads the exit code |
 | Refactor completion signal | Typed: `complete` + empty `changedFiles`, max 3 passes | Replaces v1's `REFACTORING_COMPLETE` prose marker — no string matching at any boundary |
 | Monorepo gates | Opt-in `packageScripts` templates; `{package}` = package.json name; groups run in parallel | Whole-repo gates let one unrelated red package block every run and made the coverage bar repo-wide. Cross-package blast radius belongs to the consumer's filter template (`--filter ...pkg` includes dependents) — the engine stays dependency-graph-free |
-| Package scope source | `--packages` flag, else plan front-matter `packages:`, else hard error; widened from changed files, never shrunk | The plan is where scope knowledge lives, so `/implement plan.md` needs nothing extra; explicit beats inference headless; changed files are ground truth |
+| Package scope source | `--packages` flag → plan front-matter → derived from plan-body paths → hard error; widened from changed files, never shrunk | The plan is where scope knowledge lives; no plan tool emits scope metadata, so the path-derivation tier makes zero-metadata plans work — it is admissible because both failure directions are safe (over-inclusion runs extra gates; under-inclusion is caught by expansion), and the manifest records the source so derived scope is never mistaken for declared |
