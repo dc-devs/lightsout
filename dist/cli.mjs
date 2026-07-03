@@ -6,7 +6,7 @@ var __export = (target, all) => {
 
 // packages/cli/src/index.ts
 import { readdir as readdir2 } from "node:fs/promises";
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -14671,6 +14671,13 @@ var RunManifest = external_exports.object({
   baselineDirtyFiles: external_exports.array(external_exports.string()).default([])
 });
 
+// packages/contracts/src/RunLock.ts
+var RunLock = external_exports.object({
+  pid: external_exports.number().int(),
+  runId: external_exports.string(),
+  startedAt: external_exports.string()
+});
+
 // packages/contracts/src/FrictionArea.ts
 var FrictionArea = {
   /** The plan was ambiguous, stale, or underspecified. */
@@ -14917,34 +14924,110 @@ var getDriver = ({ name }) => {
   throw new Error(`unknown driver: ${name} (available: claude-code, codex)`);
 };
 
+// packages/engine/src/acquireRunLock.ts
+import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+
+// packages/engine/src/getRunLockPath.ts
+import { join as join2 } from "node:path";
+var getRunLockPath = ({ cwd }) => {
+  return join2(cwd, ".lightsout", "lock.json");
+};
+
+// packages/engine/src/isPidAlive.ts
+var isPidAlive = ({ pid }) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error51) {
+    return error51.code === "EPERM";
+  }
+};
+
+// packages/engine/src/readRunLock.ts
+import { readFile as readFile2 } from "node:fs/promises";
+var readRunLock = async ({ cwd }) => {
+  const raw = await readFile2(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
+  if (raw === void 0) {
+    return void 0;
+  }
+  try {
+    return RunLock.parse(JSON.parse(raw));
+  } catch {
+    return void 0;
+  }
+};
+
+// packages/engine/src/RunLockError.ts
+var RunLockError = class extends Error {
+};
+
+// packages/engine/src/acquireRunLock.ts
+var acquireRunLock = async ({ cwd, runId }) => {
+  const lockPath = getRunLockPath({ cwd });
+  const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, "	")}
+`;
+  await mkdir(dirname(lockPath), { recursive: true });
+  let stalePid;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await writeFile(lockPath, payload, { flag: "wx" });
+      return { stalePid };
+    } catch (error51) {
+      if (error51.code !== "EEXIST") {
+        throw error51;
+      }
+    }
+    const holder = await readRunLock({ cwd });
+    if (holder && isPidAlive({ pid: holder.pid })) {
+      throw new RunLockError(
+        `another lightsout run is active in this repo: run ${holder.runId} (pid ${holder.pid}, started ${holder.startedAt}). Wait for it to finish \u2014 or delete .lightsout/lock.json if you are certain nothing is running.`
+      );
+    }
+    stalePid = holder?.pid;
+    await unlink(lockPath).catch(() => void 0);
+  }
+  throw new RunLockError("could not acquire .lightsout/lock.json \u2014 another process keeps taking the lock");
+};
+
+// packages/engine/src/releaseRunLock.ts
+import { unlink as unlink2 } from "node:fs/promises";
+var releaseRunLock = async ({ cwd, runId }) => {
+  const holder = await readRunLock({ cwd });
+  if (!holder || holder.pid !== process.pid || holder.runId !== runId) {
+    return;
+  }
+  await unlink2(getRunLockPath({ cwd })).catch(() => void 0);
+};
+
 // packages/engine/src/createRun.ts
 import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { mkdir as mkdir2 } from "node:fs/promises";
 
 // packages/engine/src/getRunDir.ts
-import { join as join2 } from "node:path";
+import { join as join3 } from "node:path";
 var getRunDir = ({ cwd, runId }) => {
-  return join2(cwd, ".lightsout", "runs", runId);
+  return join3(cwd, ".lightsout", "runs", runId);
 };
 
 // packages/engine/src/writeRunManifest.ts
-import { rename, writeFile } from "node:fs/promises";
-import { join as join3 } from "node:path";
+import { rename, writeFile as writeFile2 } from "node:fs/promises";
+import { join as join4 } from "node:path";
 var writeRunManifest = async ({ cwd, manifest }) => {
   const stamped = { ...manifest, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const manifestPath = join3(getRunDir({ cwd, runId: manifest.runId }), "manifest.json");
+  const manifestPath = join4(getRunDir({ cwd, runId: manifest.runId }), "manifest.json");
   const tmpPath = `${manifestPath}.tmp`;
-  await writeFile(tmpPath, `${JSON.stringify(stamped, null, "	")}
+  await writeFile2(tmpPath, `${JSON.stringify(stamped, null, "	")}
 `, "utf8");
   await rename(tmpPath, manifestPath);
   return stamped;
 };
 
 // packages/engine/src/createRun.ts
-var createRun = async ({ cwd, plan, overview, driver, config: config2, baselineDirtyFiles }) => {
+var createRun = async ({ cwd, runId, plan, overview, driver, config: config2, baselineDirtyFiles }) => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const manifest = {
-    runId: randomUUID(),
+    runId: runId ?? randomUUID(),
     createdAt: now,
     updatedAt: now,
     plan,
@@ -14958,15 +15041,15 @@ var createRun = async ({ cwd, plan, overview, driver, config: config2, baselineD
     packages: [],
     baselineDirtyFiles: baselineDirtyFiles ?? []
   };
-  await mkdir(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });
+  await mkdir2(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });
   return writeRunManifest({ cwd, manifest });
 };
 
 // packages/engine/src/readRunManifest.ts
-import { readFile as readFile2 } from "node:fs/promises";
-import { join as join4 } from "node:path";
+import { readFile as readFile3 } from "node:fs/promises";
+import { join as join5 } from "node:path";
 var readRunManifest = async ({ cwd, runId }) => {
-  const raw = await readFile2(join4(getRunDir({ cwd, runId }), "manifest.json"), "utf8");
+  const raw = await readFile3(join5(getRunDir({ cwd, runId }), "manifest.json"), "utf8");
   return RunManifest.parse(JSON.parse(raw));
 };
 
@@ -14999,11 +15082,11 @@ var runCommand = ({ command, cwd, timeoutMs }) => {
 };
 
 // packages/engine/src/loadConfig.ts
-import { readFile as readFile3 } from "node:fs/promises";
-import { join as join5 } from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
+import { join as join6 } from "node:path";
 var loadConfig = async ({ cwd }) => {
-  const configPath = join5(cwd, "lightsout.config.json");
-  const raw = await readFile3(configPath, "utf8").catch(() => {
+  const configPath = join6(cwd, "lightsout.config.json");
+  const raw = await readFile4(configPath, "utf8").catch(() => {
     throw new Error(`lightsout.config.json not found at ${configPath}`);
   });
   return LightsoutConfig.parse(JSON.parse(raw));
@@ -15076,12 +15159,12 @@ var readPlanPackages = ({ planContent }) => {
 };
 
 // packages/engine/src/resolvePackageName.ts
-import { readFile as readFile4 } from "node:fs/promises";
-import { join as join6 } from "node:path";
+import { readFile as readFile5 } from "node:fs/promises";
+import { join as join7 } from "node:path";
 var PackageManifest = external_exports.object({ name: external_exports.string().min(1) });
 var resolvePackageName = async ({ cwd, packagesDir, packageDir }) => {
-  const manifestPath = join6(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile4(manifestPath, "utf8").catch(() => {
+  const manifestPath = join7(cwd, packagesDir, packageDir, "package.json");
+  const raw = await readFile5(manifestPath, "utf8").catch(() => {
     throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
   });
   const parsed = PackageManifest.safeParse(JSON.parse(raw));
@@ -15100,8 +15183,9 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
 };
 
 // packages/engine/src/runImplementPipeline.ts
-import { readFile as readFile6 } from "node:fs/promises";
-import { join as join10 } from "node:path";
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { readFile as readFile7 } from "node:fs/promises";
+import { join as join11 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
@@ -15270,26 +15354,26 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 };
 
 // packages/engine/src/appendCommandLog.ts
-import { appendFile, mkdir as mkdir2 } from "node:fs/promises";
-import { join as join7 } from "node:path";
+import { appendFile, mkdir as mkdir3 } from "node:fs/promises";
+import { join as join8 } from "node:path";
 var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
   const dir = getRunDir({ cwd, runId });
-  await mkdir2(dir, { recursive: true });
-  await appendFile(join7(dir, "commands.jsonl"), `${JSON.stringify(record2)}
+  await mkdir3(dir, { recursive: true });
+  await appendFile(join8(dir, "commands.jsonl"), `${JSON.stringify(record2)}
 `, "utf8");
 };
 
 // packages/engine/src/appendFriction.ts
-import { appendFile as appendFile2, mkdir as mkdir3 } from "node:fs/promises";
-import { join as join8 } from "node:path";
+import { appendFile as appendFile2, mkdir as mkdir4 } from "node:fs/promises";
+import { join as join9 } from "node:path";
 var appendFriction = async ({ cwd, runId, step, friction }) => {
   if (friction.length === 0) {
     return;
   }
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir3(join8(cwd, ".lightsout"), { recursive: true });
-  await appendFile2(join8(cwd, ".lightsout", "friction.jsonl"), `${lines}
+  await mkdir4(join9(cwd, ".lightsout"), { recursive: true });
+  await appendFile2(join9(cwd, ".lightsout", "friction.jsonl"), `${lines}
 `, "utf8");
 };
 
@@ -15333,8 +15417,8 @@ var invokeAgentWithContract = async ({
 };
 
 // packages/engine/src/readStandards.ts
-import { readFile as readFile5 } from "node:fs/promises";
-import { join as join9 } from "node:path";
+import { readFile as readFile6 } from "node:fs/promises";
+import { join as join10 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nThis document outlines universal architectural decisions and patterns that apply across this codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible to everyone); folder-level boundaries are a convention the consuming repo may additionally enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (the default):** a single file holding one exported item plus any non-exported private helpers. The compiler enforces the boundary for free. Examples: a utility function, a small class, a hook.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file concepts and start as folder-modules.\n\n**The graduation trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a concept that fits in one file.\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals (lint-enforced)\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` next to a file marks it as a public boundary; internals under a module's `common/` have no test files of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module, each with its own boundary.\n\n## Functional vs Class-Based Approaches\n\n**Default Preference: Functional Approach**\n\nPrefer functions by default \u2014 they are simpler, more testable, and easier to reason about. Create a class **if and only if at least one** of these is true:\n\n- **Mutable state persists across method calls** (a cache, a connection, accumulated data)\n- **3+ operations share injected config/dependencies** (the constructor injects once; every method uses them)\n- **Multiple implementations of a shared interface** (polymorphism is the design)\n- **The framework requires it** (e.g., NestJS DI)\n\nStatic-only classes are banned \u2014 they are modules wearing costumes. See [classes.md](../../fdrop:code:style-guide/references/patterns/classes.md#when-to-use-a-class--the-bright-line) for the full rule and examples.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder. Each package's architecture doc defines the concrete hierarchy for that package \u2014 defer to those for specific scope rules.\n\nWhen creating or extracting shared code, follow these principles:\n\n1. **First:** Search if it already exists in `common/` at any level\n    - If found \u2192 **use the existing implementation**\n\n2. **Second:** If not found, start local and promote later\n    - It's easier to move code up when reuse is proven\n    - Premature generalization creates unused abstractions\n\n**Additional rules:**\n\n- Import granularity follows the module boundary rule (see [module-api.md](../../fdrop:code:style-guide/references/structure/module-api.md#module-boundaries)): **within your own module, deep-import the specific file** (`from '@/common/utils/formatDate'`); **across a module boundary, import the module's `index.ts` only**. Never import from a package-root barrel like `@common`.\n- If your project doesn't use path aliases, use relative paths consistently\n\n## File Naming Conventions\n\n**Files** follow the rule in the style guide's [file-naming doc](../../fdrop:code:style-guide/references/conventions/file-naming.md): the filename matches the export name including its casing (camelCase exports \u2192 camelCase files, PascalCase exports \u2192 PascalCase files), with framework mandates overriding.\n\n**Folders** follow the rule in [folder-structure.md](./folder-structure.md#folder-naming): container and category folders are `camelCase`; a folder that graduated from a single class or component takes that item's PascalCase name; framework mandates (e.g., NestJS, URL-mapped routes) override.\n\nPackages with their own architecture docs may define their own conventions \u2014 defer to those docs where they diverge.\n\n## Test File Placement\n\nTest files live adjacent to the file they test \u2014 not in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\n**Don't create functions that only rename parameters or add no meaningful abstraction.**\n\n```typescript\n// \u274C BAD: Thin wrapper that adds no value\nexport const buildBrowserLabel = ({ browser, browserVersion }) => {\n	return buildVersionedLabel({ name: browser, version: browserVersion });\n};\n\n// \u2705 GOOD: Just use the underlying function directly\nconst browserLabel = buildVersionedLabel({\n	name: visitorSession.browser,\n	version: visitorSession.browserVersion,\n});\n```\n\n**Why this is bad:**\n\n- Adds unnecessary indirection (more files to navigate)\n- Makes refactoring harder (more files to update)\n- Creates cognitive overhead (readers must trace through layers)\n- Violates DRY by duplicating the function signature\n\n**When a wrapper IS justified:**\n\n- It adds meaningful validation or transformation\n- It provides a significantly simpler API for a complex underlying function\n- It handles error cases or provides defaults\n\n### Unused Code\n\n**Delete unused exports, interfaces, types, and functions immediately.**\n\n- Don't leave dead code \"just in case\" \u2014 version control has history\n- Unused code creates confusion about what's actually used\n- It adds maintenance burden and clutters search results\n- If you're unsure if something is used, search the codebase before deciding\n\n### Premature Abstraction\n\n**Don't create abstractions for hypothetical future use cases.**\n\n- Wait until you have 2\u20133 concrete uses before abstracting\n- The \"right\" abstraction becomes clear with real usage patterns\n- Wrong abstractions are worse than duplication\n\n### Type Alias Indirection\n\n**Don't create separate files just to alias another type.**\n\n**FilterOptions.ts**\n\n```typescript\n// \u274C BAD: Unnecessary alias file\nexport type FilterOptions = TableFilterState;\n\n// \u2705 GOOD: Use the original type directly\nimport type { TableFilterState } from './TableFilterState';\n```\n\nIf semantic distinction is important, add a comment at the usage site instead of creating indirection.\n\n### Circular Dependencies\n\nModule A imports Module B which imports Module A. This creates fragile load-order dependencies and breaks tree-shaking.\n\n```typescript\n// \u274C BAD: order.ts imports customer.ts which imports order.ts\n// order.ts\nimport { Customer } from './customer';\nexport const getOrderSummary = (order: Order) => ({ ...order, customer: getCustomerName(order.customerId) });\nexport type Order = { id: string; customerId: string };\n\n// customer.ts\nimport { Order } from './order'; // circular!\nexport const getCustomerName = (id: string) => { /* ... */ };\nexport const getCustomerOrders = (customer: Customer): Order[] => { /* ... */ };\n\n// \u2705 GOOD: Extract shared type to a third module\n// types.ts\nexport type Order = { id: string; customerId: string };\n\n// order.ts\nimport type { Order } from './types';\nimport { getCustomerName } from './customer';\n\n// customer.ts\nimport type { Order } from './types';\n```\n\n**How to fix:**\n\n- Extract the shared code into a third module that both can import\n- Use dependency injection to break the cycle\n- Restructure to follow the code placement hierarchy (promote shared code to `common/`)\n\n### Duplicated Patterns & Logic\n\nIf the same pattern or logic exists in 2+ files, extract it to a shared location following the Code Placement Philosophy.\n\nCommon signs of duplication:\n\n- Loading/error/data state handling repeated across components\n- Validation logic copied between forms or files\n- Repeated data transformations or API call patterns\n- Generic named constants (e.g., a `SortDirection` union with `Asc`/`Desc`) duplicated across features \u2014 these belong in `src/common/constants/`\n\n**Where to place:** Start at the lowest common ancestor `common/` folder. Create a shared utility, hook, or component as appropriate.\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single path other modules import through, and how the boundary created by the [graduation rule](#modules--the-graduation-rule) becomes real. The barrel rules (named re-exports, one export per line, deliberate public surface) are defined once in [module-api.md](../../fdrop:code:style-guide/references/structure/module-api.md#barrel-files).\n\nPackage-specific additions (e.g., import alias conventions in re-export paths) are documented in each package's architecture doc.\n";
@@ -15489,8 +15573,8 @@ var readStandards = async ({ cwd, paths }) => {
       if (bundled) {
         return bundled;
       }
-      const raw = await readFile5(join9(cwd, path), "utf8").catch(() => {
-        throw new Error(`standards file not found: ${join9(cwd, path)}`);
+      const raw = await readFile6(join10(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join10(cwd, path)}`);
       });
       return `<!-- ${path} -->
 ${raw}`;
@@ -15629,8 +15713,9 @@ var upsertStep = ({ steps, record: record2 }) => {
   }
   return steps.map((step, index) => index === existing ? record2 : step);
 };
-var runImplementPipeline = async ({
+var executePipeline = async ({
   cwd,
+  runId,
   driver,
   config: config2,
   planPath,
@@ -15643,6 +15728,7 @@ var runImplementPipeline = async ({
   const progress = onProgress ?? (() => void 0);
   let manifest = existing ?? await createRun({
     cwd,
+    runId,
     plan: planPath ?? "",
     overview: overviewPath,
     driver: driver.name,
@@ -15662,20 +15748,20 @@ var runImplementPipeline = async ({
     return stopped;
   };
   const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile6(join10(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const planContent = await readFile7(join11(cwd, manifest.plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `plan file not found: ${join10(cwd, manifest.plan)}`
+      error: `plan file not found: ${join11(cwd, manifest.plan)}`
     });
   }
-  const overviewContent = manifest.overview ? await readFile6(join10(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
+  const overviewContent = manifest.overview ? await readFile7(join11(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
   if (manifest.overview && overviewContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `overview file not found: ${join10(cwd, manifest.overview)}`
+      error: `overview file not found: ${join11(cwd, manifest.overview)}`
     });
   }
   const standardsPaths = config2.standards === false ? [] : config2.standards ?? ["lightsout:code-defaults"];
@@ -16108,12 +16194,25 @@ ${error51}` });
   const passed = { ok: true, manifest };
   return passed;
 };
+var runImplementPipeline = async (params) => {
+  const { cwd, existing, onProgress } = params;
+  const runId = existing?.runId ?? randomUUID2();
+  const lock = await acquireRunLock({ cwd, runId });
+  if (lock.stalePid !== void 0) {
+    onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
+  }
+  try {
+    return await executePipeline({ ...params, runId });
+  } finally {
+    await releaseRunLock({ cwd, runId });
+  }
+};
 
 // packages/engine/src/readFriction.ts
-import { readFile as readFile7 } from "node:fs/promises";
-import { join as join11 } from "node:path";
+import { readFile as readFile8 } from "node:fs/promises";
+import { join as join12 } from "node:path";
 var readFriction = async ({ cwd }) => {
-  const raw = await readFile7(join11(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+  const raw = await readFile8(join12(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
   return raw.split("\n").filter(Boolean).flatMap((line) => {
     try {
       const parsed = FrictionRecord.safeParse(JSON.parse(line));
@@ -16126,7 +16225,7 @@ var readFriction = async ({ cwd }) => {
 
 // packages/engine/src/runPromptImprovement.ts
 import { readdir } from "node:fs/promises";
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -16134,8 +16233,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir(join12(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join12(promptsDir, file2));
+  const files = await readdir(join13(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join13(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -16233,6 +16332,18 @@ var createProgressPrinter = () => {
     console.log(`[+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}] ${message}`);
   };
 };
+var runPipelineOrFailFast = async (params) => {
+  try {
+    return await runImplementPipeline(params);
+  } catch (error51) {
+    if (error51 instanceof RunLockError) {
+      console.error(`
+${error51.message}`);
+      process.exit(1);
+    }
+    throw error51;
+  }
+};
 var printResult = ({ result }) => {
   const { manifest, ok, error: error51 } = result;
   console.log(`
@@ -16276,7 +16387,7 @@ var main = async () => {
   overview: ${overviewPath}` : ""}${packages ? `
   packages flag: ${packages.join(", ")}` : ""}`);
     printRunHeader({ config: config2, driver, cwd });
-    const result = await runImplementPipeline({
+    const result = await runPipelineOrFailFast({
       cwd,
       planPath,
       overviewPath,
@@ -16304,7 +16415,7 @@ var main = async () => {
     const driver = getDriver({ name: manifest.driver });
     console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
     printRunHeader({ config: config2, driver, cwd });
-    const result = await runImplementPipeline({
+    const result = await runPipelineOrFailFast({
       cwd,
       driver,
       config: config2,
@@ -16316,16 +16427,19 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join13(cwd, ".lightsout", "runs");
+    const runsDir = join14(cwd, ".lightsout", "runs");
     const runIds = await readdir2(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
       process.exit(0);
     }
+    const lock = await readRunLock({ cwd });
     for (const runId of runIds) {
       const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
       if (manifest) {
-        console.log(`${manifest.runId}  ${manifest.status}  plan: ${manifest.plan}  updated: ${manifest.updatedAt}`);
+        const zombie = manifest.status === RunStatus.Running && !(lock && lock.runId === manifest.runId && isPidAlive({ pid: lock.pid }));
+        const status = zombie ? `${manifest.status} (no live process \u2014 crashed? resume with --run ${manifest.runId})` : manifest.status;
+        console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}  updated: ${manifest.updatedAt}`);
       }
     }
     process.exit(0);

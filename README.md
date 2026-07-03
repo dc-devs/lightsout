@@ -44,6 +44,13 @@ live (steps, gate results, agent reports, elapsed time), and the manifest
 snapshots the config permanently so every run records which settings
 produced it.
 
+One run at a time per repo: `run` and `resume` take a lock
+(`.lightsout/lock.json`) before touching anything, so a second concurrent
+invocation fails fast instead of fighting the first over the worktree. A lock
+left by a crashed process is detected by pid and stolen automatically, and
+`lightsout status` flags a `running` run with no live process behind it as
+crashed-but-resumable.
+
 Failures retry mechanically, then a read-only supervisor agent decides:
 retry with guidance, or escalate to you. Hitting your subscription's rate
 limit *parks* the run (`paused-rate-limit`) — `lightsout resume` continues it
@@ -173,6 +180,7 @@ state —
 ```
 .lightsout/runs/
 .lightsout/friction.jsonl
+.lightsout/lock.json
 ```
 
 Then: write a plan (a markdown file stating goal, files, and what's out of

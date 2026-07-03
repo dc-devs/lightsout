@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
@@ -18,6 +19,7 @@ import {
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
+import { acquireRunLock } from './acquireRunLock';
 import { appendCommandLog } from './appendCommandLog';
 import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
@@ -25,6 +27,7 @@ import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { readGitChangedFiles } from './readGitChangedFiles';
 import { readPlanPackages } from './readPlanPackages';
 import { readStandards } from './readStandards';
+import { releaseRunLock } from './releaseRunLock';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
 import { runCommand } from './runCommand';
 import { runGates } from './runGates';
@@ -84,19 +87,23 @@ interface Params {
 }
 
 /**
- * The implement pipeline: clean-slate gate → implement → verify → write-tests
- * (one writer per source file, in parallel) → verify → refactor (looped until
- * a pass changes nothing) → verify → format. Every state transition is
- * persisted before the next action, so a crash, rate-limit park, or
- * escalation at any point leaves a resumable, truthful record on disk —
- * resume re-enters here and walks past every step already marked passed.
+ * The pipeline body — always entered holding the run lock (the exported
+ * wrapper below acquires and releases it around this).
+ *
+ * Clean-slate gate → implement → verify → write-tests (one writer per source
+ * file, in parallel) → verify → refactor (looped until a pass changes
+ * nothing) → verify → format. Every state transition is persisted before the
+ * next action, so a crash, rate-limit park, or escalation at any point
+ * leaves a resumable, truthful record on disk — resume re-enters here and
+ * walks past every step already marked passed.
  *
  * Changed files flow step to step through the manifest: each agent's typed
  * report is merged with a git snapshot (minus the run's baseline dirt), and
  * the merged list feeds the next role's invocation.
  */
-export const runImplementPipeline = async ({
+const executePipeline = async ({
 	cwd,
+	runId,
 	driver,
 	config,
 	planPath,
@@ -105,13 +112,14 @@ export const runImplementPipeline = async ({
 	existing,
 	skipRefactor,
 	onProgress,
-}: Params): Promise<PipelineResult> => {
+}: Params & { runId: string }): Promise<PipelineResult> => {
 	const progress = onProgress ?? (() => undefined);
 
 	let manifest =
 		existing ??
 		(await createRun({
 			cwd,
+			runId,
 			plan: planPath ?? '',
 			overview: overviewPath,
 			driver: driver.name,
@@ -753,4 +761,28 @@ export const runImplementPipeline = async ({
 	const passed: PipelineResult = { ok: true, manifest };
 
 	return passed;
+};
+
+/**
+ * Public entry: take the repo's run lock, execute the pipeline, always
+ * release. Acquisition happens before ANY disk write (the run id is minted
+ * here so the lock can name it), so a conflicting start leaves no orphan run
+ * directory — it throws RunLockError and nothing else happened. Every exit
+ * path releases, including parks and escalations: the lock guards the
+ * process, not the run, and `resume` re-acquires.
+ */
+export const runImplementPipeline = async (params: Params): Promise<PipelineResult> => {
+	const { cwd, existing, onProgress } = params;
+	const runId = existing?.runId ?? randomUUID();
+	const lock = await acquireRunLock({ cwd, runId });
+
+	if (lock.stalePid !== undefined) {
+		onProgress?.(`stale run lock from dead pid ${lock.stalePid} — taking over`);
+	}
+
+	try {
+		return await executePipeline({ ...params, runId });
+	} finally {
+		await releaseRunLock({ cwd, runId });
+	}
 };

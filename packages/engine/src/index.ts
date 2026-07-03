@@ -1,3 +1,9 @@
+export { acquireRunLock } from './acquireRunLock';
+export { releaseRunLock } from './releaseRunLock';
+export { readRunLock } from './readRunLock';
+export { getRunLockPath } from './getRunLockPath';
+export { isPidAlive } from './isPidAlive';
+export { RunLockError } from './RunLockError';
 export { createRun } from './createRun';
 export { readRunManifest } from './readRunManifest';
 export { writeRunManifest } from './writeRunManifest';

@@ -90,7 +90,15 @@ pipeline run.
 - Note any codex-specific quirks (output shape, sandbox behavior) in code
   comments on the codex driver.
 
-### Task 3: Run lock
+### Task 3: Run lock — DONE
+
+Result: `.lightsout/lock.json`, exclusive-create (`wx`) acquired by the
+pipeline before any disk write (run id minted first so the lock names it);
+live-pid holder → `RunLockError` fail-fast with a clean CLI message and no
+orphan run directory; dead-pid or corrupt lock → stolen with a progress
+announcement; released in a `finally` on every exit path (parks included).
+`status` flags a `running` manifest with no live locked process as
+crashed-but-resumable. 8 tests in `packages/engine/tests/runLock.test.ts`.
 
 Two simultaneous runs in one consumer repo would fight over the worktree.
 

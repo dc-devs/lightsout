@@ -1,5 +1,6 @@
 export { RunStatus } from './RunStatus';
 export { RunManifest } from './RunManifest';
+export { RunLock } from './RunLock';
 export { StepRecord } from './StepRecord';
 export { WorkReport } from './WorkReport';
 export { WorkReportStatus } from './WorkReportStatus';

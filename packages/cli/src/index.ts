@@ -3,10 +3,13 @@ import { join } from 'node:path';
 import { RunStatus, type LightsoutConfig } from '@lightsout/contracts';
 import { getDriver, type Driver } from '@lightsout/drivers';
 import {
+	isPidAlive,
 	loadConfig,
 	readFriction,
+	readRunLock,
 	readRunManifest,
 	runImplementPipeline,
+	RunLockError,
 	runPromptImprovement,
 	type PipelineResult,
 } from '@lightsout/engine';
@@ -120,6 +123,20 @@ const createProgressPrinter = () => {
 	};
 };
 
+/** Run the pipeline; a RunLockError is a clean fail-fast message (no stack, no run state was created). */
+const runPipelineOrFailFast = async (params: Parameters<typeof runImplementPipeline>[0]) => {
+	try {
+		return await runImplementPipeline(params);
+	} catch (error) {
+		if (error instanceof RunLockError) {
+			console.error(`\n${error.message}`);
+			process.exit(1);
+		}
+
+		throw error;
+	}
+};
+
 const printResult = ({ result }: { result: PipelineResult }) => {
 	const { manifest, ok, error } = result;
 
@@ -177,7 +194,7 @@ const main = async () => {
 		console.log(`  plan: ${planPath}${overviewPath ? `\n  overview: ${overviewPath}` : ''}${packages ? `\n  packages flag: ${packages.join(', ')}` : ''}`);
 		printRunHeader({ config, driver, cwd });
 
-		const result = await runImplementPipeline({
+		const result = await runPipelineOrFailFast({
 			cwd,
 			planPath,
 			overviewPath,
@@ -213,7 +230,7 @@ const main = async () => {
 		console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
 		printRunHeader({ config, driver, cwd });
 
-		const result = await runImplementPipeline({
+		const result = await runPipelineOrFailFast({
 			cwd,
 			driver,
 			config,
@@ -235,11 +252,20 @@ const main = async () => {
 			process.exit(0);
 		}
 
+		const lock = await readRunLock({ cwd });
+
 		for (const runId of runIds) {
 			const manifest = await readRunManifest({ cwd, runId }).catch(() => undefined);
 
 			if (manifest) {
-				console.log(`${manifest.runId}  ${manifest.status}  plan: ${manifest.plan}  updated: ${manifest.updatedAt}`);
+				// A `running` manifest with no live process behind it is a crash
+				// leftover (killed terminal, uncaught error) — resumable, not lost.
+				const zombie =
+					manifest.status === RunStatus.Running &&
+					!(lock && lock.runId === manifest.runId && isPidAlive({ pid: lock.pid }));
+				const status = zombie ? `${manifest.status} (no live process — crashed? resume with --run ${manifest.runId})` : manifest.status;
+
+				console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}  updated: ${manifest.updatedAt}`);
 			}
 		}
 
