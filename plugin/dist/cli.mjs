@@ -15715,7 +15715,7 @@ ${build.stderr}`;
   return void 0;
 };
 var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot, runId, step, onProgress }) => {
-  const gate = async ({ kind, command, group }) => {
+  const executeOnce = async ({ kind, command, group, rerun }) => {
     const startedAt = Date.now();
     let result;
     try {
@@ -15723,7 +15723,7 @@ var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot, r
     } catch (error51) {
       result = { exitCode: -1, stdout: "", stderr: error51 instanceof Error ? error51.message : String(error51) };
     }
-    onProgress?.(`gate [${group}] ${kind}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`);
+    onProgress?.(`gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`);
     if (runId) {
       await appendCommandLog({
         cwd,
@@ -15736,12 +15736,21 @@ var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot, r
           command,
           exitCode: result.exitCode,
           durationMs: Date.now() - startedAt,
+          ...rerun ? { rerun: true } : {},
           ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
 ${result.stderr}`.slice(-outputTailChars) }
         }
       });
     }
     return result;
+  };
+  const gate = async ({ kind, command, group }) => {
+    const first = await executeOnce({ kind, command, group });
+    if (first.exitCode === 0 || first.exitCode === -1) {
+      return first;
+    }
+    onProgress?.(`gate [${group}] ${kind}: red (exit ${first.exitCode}) \u2014 re-running once to rule out flake`);
+    return executeOnce({ kind, command, group, rerun: true });
   };
   if (config2.scripts.generate) {
     const generated = await gate({ kind: "generate", command: config2.scripts.generate, group: "root" });
@@ -15781,10 +15790,10 @@ ${generated.stderr}`;
       }
     });
   };
-  const results = await Promise.all([
-    ...packages.map(packageGate),
-    ...includeRoot ? [runGateSet({ commands: rootCommands, gate, label: "root" })] : []
-  ]);
+  const results = await Promise.all(packages.map(packageGate));
+  if (includeRoot) {
+    results.push(await runGateSet({ commands: rootCommands, gate, label: "root" }));
+  }
   const errors = results.filter((result) => Boolean(result));
   return errors.length > 0 ? errors.join("\n\n") : void 0;
 };

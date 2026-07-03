@@ -159,6 +159,17 @@ Also: stale skill-tree cross-links (`../../fdrop:code:...`) throughout; the
 `functions.md` reference to the refactor-plan skill should point at
 `patterns/react-components.md` (added 2026-07-03).
 
+Test standards additions (2026-07-03, from live run review): assert
+contracts with literals — never import a constant from the module under
+test into its own assertions (a test comparing x to x is a tautology; the
+test literal is the independent second statement of the contract). Pin
+machine-facing values (error codes) strictly; pin human-facing copy loosely
+(`stringContaining`) or not at all. Construct the subject under test
+directly; stub only unowned boundaries. Prefer behavior assertions over
+property echoes. The future refactor pipeline (Task 8) must EXCLUDE
+source→test literal repetition from duplication detection, or it will DRY
+assertions into tautologies.
+
 Target shape (added 2026-07-03, from comparing the docs to lightsout's own
 8-line CLAUDE.md Conventions block, which agents follow reliably): a terse
 style card keeps only three kinds of content —

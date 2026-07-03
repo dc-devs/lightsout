@@ -85,7 +85,7 @@ interface Params {
  * package. Every command execution is logged to the run's commands.jsonl.
  */
 export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step, onProgress }: Params) => {
-	const gate: RunGate = async ({ kind, command, group }) => {
+	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
 		const startedAt = Date.now();
 		let result;
 
@@ -96,7 +96,7 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 			result = { exitCode: -1, stdout: '', stderr: error instanceof Error ? error.message : String(error) };
 		}
 
-		onProgress?.(`gate [${group}] ${kind}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`);
+		onProgress?.(`gate [${group}] ${kind}${rerun ? ' (re-run)' : ''}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`);
 
 		if (runId) {
 			await appendCommandLog({
@@ -110,12 +110,31 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 					command,
 					exitCode: result.exitCode,
 					durationMs: Date.now() - startedAt,
+					...(rerun ? { rerun: true } : {}),
 					...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
 				},
 			});
 		}
 
 		return result;
+	};
+
+	const gate: RunGate = async ({ kind, command, group }) => {
+		const first = await executeOnce({ kind, command, group });
+
+		// One mechanical re-run before a red verdict — a single flaky worker
+		// crash in a big suite (observed: jest SIGSEGV zeroing coverage) must
+		// not fail a long run at the finish line. Two consecutive reds are a
+		// genuine red. Synthetic -1 results (spawn failure, timeout) don't
+		// re-run: repeating a 10-minute timeout only doubles the cost of
+		// learning the ceiling is too low, and both executions are in the log.
+		if (first.exitCode === 0 || first.exitCode === -1) {
+			return first;
+		}
+
+		onProgress?.(`gate [${group}] ${kind}: red (exit ${first.exitCode}) — re-running once to rule out flake`);
+
+		return executeOnce({ kind, command, group, rerun: true });
 	};
 
 	// Codegen runs once, before any group fans out — gates verify, generate
@@ -164,10 +183,17 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 		});
 	};
 
-	const results = await Promise.all([
-		...packages.map(packageGate),
-		...(includeRoot ? [runGateSet({ commands: rootCommands, gate, label: 'root' })] : []),
-	]);
+	// Scoped groups run in parallel — they are disjoint per package. The root
+	// group waits for them: whole-repo commands are heavy by nature and
+	// overlap the scoped suites by construction, and running them
+	// concurrently put multiple full test fleets on one machine (observed:
+	// jest worker SIGSEGV under the contention).
+	const results = await Promise.all(packages.map(packageGate));
+
+	if (includeRoot) {
+		results.push(await runGateSet({ commands: rootCommands, gate, label: 'root' }));
+	}
+
 	const errors = results.filter((result): result is string => Boolean(result));
 
 	return errors.length > 0 ? errors.join('\n\n') : undefined;
