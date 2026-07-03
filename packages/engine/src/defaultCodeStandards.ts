@@ -12,15 +12,16 @@ import doc9 from '../../../standards/code/style-guide/conventions/variable-decla
 import doc10 from '../../../standards/code/style-guide/patterns/classes.md';
 import doc11 from '../../../standards/code/style-guide/patterns/functions.md';
 import doc12 from '../../../standards/code/style-guide/patterns/named-constants.md';
-import doc13 from '../../../standards/code/style-guide/structure/constant-placement.md';
-import doc14 from '../../../standards/code/style-guide/structure/import-paths.md';
-import doc15 from '../../../standards/code/style-guide/structure/module-api.md';
-import doc16 from '../../../standards/code/style-guide/structure/one-export-per-file.md';
-import doc17 from '../../../standards/code/style-guide/structure/type-placement.md';
-import doc18 from '../../../standards/code/style-guide/typescript/avoid-any.md';
-import doc19 from '../../../standards/code/style-guide/typescript/import-type.md';
-import doc20 from '../../../standards/code/style-guide/typescript/return-types.md';
-import doc21 from '../../../standards/code/style-guide/typescript/type-assertions.md';
+import doc13 from '../../../standards/code/style-guide/patterns/react-components.md';
+import doc14 from '../../../standards/code/style-guide/structure/constant-placement.md';
+import doc15 from '../../../standards/code/style-guide/structure/import-paths.md';
+import doc16 from '../../../standards/code/style-guide/structure/module-api.md';
+import doc17 from '../../../standards/code/style-guide/structure/one-export-per-file.md';
+import doc18 from '../../../standards/code/style-guide/structure/type-placement.md';
+import doc19 from '../../../standards/code/style-guide/typescript/avoid-any.md';
+import doc20 from '../../../standards/code/style-guide/typescript/import-type.md';
+import doc21 from '../../../standards/code/style-guide/typescript/return-types.md';
+import doc22 from '../../../standards/code/style-guide/typescript/type-assertions.md';
 
 /** Every default code standards doc, concatenated in path order with per-file provenance headers. */
 export const defaultCodeStandards = [
@@ -37,13 +38,14 @@ export const defaultCodeStandards = [
 	`<!-- lightsout defaults: standards/code/style-guide/patterns/classes.md -->\n${doc10}`,
 	`<!-- lightsout defaults: standards/code/style-guide/patterns/functions.md -->\n${doc11}`,
 	`<!-- lightsout defaults: standards/code/style-guide/patterns/named-constants.md -->\n${doc12}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/constant-placement.md -->\n${doc13}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/import-paths.md -->\n${doc14}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/module-api.md -->\n${doc15}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/one-export-per-file.md -->\n${doc16}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/type-placement.md -->\n${doc17}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/avoid-any.md -->\n${doc18}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/import-type.md -->\n${doc19}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/return-types.md -->\n${doc20}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/type-assertions.md -->\n${doc21}`,
+	`<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->\n${doc13}`,
+	`<!-- lightsout defaults: standards/code/style-guide/structure/constant-placement.md -->\n${doc14}`,
+	`<!-- lightsout defaults: standards/code/style-guide/structure/import-paths.md -->\n${doc15}`,
+	`<!-- lightsout defaults: standards/code/style-guide/structure/module-api.md -->\n${doc16}`,
+	`<!-- lightsout defaults: standards/code/style-guide/structure/one-export-per-file.md -->\n${doc17}`,
+	`<!-- lightsout defaults: standards/code/style-guide/structure/type-placement.md -->\n${doc18}`,
+	`<!-- lightsout defaults: standards/code/style-guide/typescript/avoid-any.md -->\n${doc19}`,
+	`<!-- lightsout defaults: standards/code/style-guide/typescript/import-type.md -->\n${doc20}`,
+	`<!-- lightsout defaults: standards/code/style-guide/typescript/return-types.md -->\n${doc21}`,
+	`<!-- lightsout defaults: standards/code/style-guide/typescript/type-assertions.md -->\n${doc22}`,
 ].join('\n\n');

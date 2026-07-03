@@ -107,7 +107,30 @@ The `/plugin marketplace add` → `/implement` flow needs an interactive session
 assumption (`${CLAUDE_PLUGIN_ROOT}/../dist/cli.mjs` — check how plugin root
 resolves for a marketplace whose plugin source is `./plugin`), fix the skill
 if the path is wrong, and leave the human a short test checklist in the final
-report.
+report. Known bug found in review: the skill invokes `run "<plan-path>"`
+positionally but the CLI requires `run --plan <path>`; it also predates
+`--overview`/`--packages`.
+
+### Task 5: Clean up the default standards (`standards/`)
+
+The docs were pasted wholesale from the fdrop skill tree (v0.7); they work
+but carry weight. Goals:
+
+1. Consolidate rules where possible.
+2. Programmatic insertion — e.g. the TanStack Start architecture doc should
+   only ride along when the target package actually uses TanStack Start
+   (framework-conditional channels, not one blob for every consumer).
+3. Separate lint rules from code standards — mechanical rules belong in the
+   lint preset per the standards-layer thesis. BUT: the standards must still
+   state that the lint preset is binding, so the rules get applied in repos
+   whose lint config doesn't yet enforce them.
+4. Remove anything the model already reliably knows — prose that restates
+   model defaults is pure token tax (check friction/run evidence before
+   cutting; keep rules agents actually violated).
+
+Also: stale skill-tree cross-links (`../../fdrop:code:...`) throughout; the
+`functions.md` reference to the refactor-plan skill should point at
+`patterns/react-components.md` (added 2026-07-03).
 
 ## Rules for all work
 
