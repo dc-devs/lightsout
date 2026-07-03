@@ -5,6 +5,7 @@ var __export = (target, all) => {
 };
 
 // packages/cli/src/index.ts
+import { existsSync } from "node:fs";
 import { readdir as readdir2 } from "node:fs/promises";
 import { join as join14 } from "node:path";
 
@@ -14772,17 +14773,33 @@ var FrictionRecord = FrictionEntry.extend({
 
 // packages/drivers/src/spawnCollect.ts
 import { spawn } from "node:child_process";
-var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs }) => {
+var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) => {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
+    let lineBuffer = "";
+    const emitLines = (text, flush = false) => {
+      if (!onStdoutLine) {
+        return;
+      }
+      lineBuffer += text;
+      const lines = lineBuffer.split("\n");
+      lineBuffer = flush ? "" : lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.trim()) {
+          onStdoutLine(line);
+        }
+      }
+    };
     const timeout = timeoutMs ? setTimeout(() => {
       child.kill("SIGKILL");
       reject(new Error(`${command} timed out after ${timeoutMs}ms`));
     }, timeoutMs) : void 0;
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      const text = chunk.toString();
+      stdout += text;
+      emitLines(text);
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
@@ -14793,6 +14810,7 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs }) => {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
+      emitLines("", true);
       resolve({ exitCode: code ?? -1, stdout, stderr });
     });
     if (stdinText !== void 0) {
@@ -14807,6 +14825,7 @@ var ResultEnvelope = external_exports.object({
   result: external_exports.string().optional(),
   is_error: external_exports.boolean().optional()
 });
+var ResultEvent = ResultEnvelope.extend({ type: external_exports.literal("result") });
 var parseEnvelope = ({ stdout }) => {
   try {
     return ResultEnvelope.parse(JSON.parse(stdout));
@@ -14821,7 +14840,7 @@ var buildArgs = ({
   permissionMode,
   allowedCommands
 }) => {
-  const args = ["-p", "--output-format", "json"];
+  const args = ["-p", "--output-format", "stream-json", "--verbose"];
   if (systemPrompt) {
     args.push("--append-system-prompt", systemPrompt);
   }
@@ -14840,15 +14859,29 @@ var createClaudeCodeDriver = () => {
   const driver = {
     name: "claude-code",
     invoke: async (invocation) => {
-      const { prompt, systemPrompt, model, permissionMode, allowedCommands, cwd, timeoutMs } = invocation;
+      const { prompt, systemPrompt, model, permissionMode, allowedCommands, cwd, timeoutMs, onEvent } = invocation;
+      let resultEvent;
       const { exitCode, stdout, stderr } = await spawnCollect({
         command: "claude",
         args: buildArgs({ systemPrompt, model, permissionMode, allowedCommands }),
         cwd,
         stdinText: prompt,
-        timeoutMs
+        timeoutMs,
+        onStdoutLine: (line) => {
+          let event;
+          try {
+            event = JSON.parse(line);
+          } catch {
+            return;
+          }
+          const parsed = ResultEvent.safeParse(event);
+          if (parsed.success) {
+            resultEvent = parsed.data;
+          }
+          onEvent?.(event);
+        }
       });
-      const envelope = parseEnvelope({ stdout });
+      const envelope = resultEvent ?? parseEnvelope({ stdout });
       const text = envelope?.result ?? stdout ?? "";
       const errored = envelope?.is_error === true || exitCode !== 0;
       return {
@@ -15243,7 +15276,7 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
 
 // packages/engine/src/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { mkdir as mkdir5, readFile as readFile7, writeFile as writeFile3 } from "node:fs/promises";
+import { appendFile as appendFile3, mkdir as mkdir5, readFile as readFile7, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join11 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
@@ -15464,6 +15497,35 @@ var appendFriction = async ({ cwd, runId, step, friction }) => {
 `, "utf8");
 };
 
+// packages/engine/src/describeAgentEvent.ts
+var ToolUseBlock = external_exports.object({
+  type: external_exports.literal("tool_use"),
+  name: external_exports.string(),
+  input: external_exports.record(external_exports.string(), external_exports.unknown()).optional()
+});
+var AssistantEvent = external_exports.object({
+  type: external_exports.literal("assistant"),
+  message: external_exports.object({ content: external_exports.array(external_exports.unknown()) })
+});
+var describeAgentEvent = ({ event }) => {
+  const assistant = AssistantEvent.safeParse(event);
+  if (!assistant.success) {
+    return void 0;
+  }
+  for (const block of assistant.data.message.content) {
+    const tool = ToolUseBlock.safeParse(block);
+    if (!tool.success) {
+      continue;
+    }
+    const input = tool.data.input ?? {};
+    const target = [input.file_path, input.path, input.command, input.pattern, input.prompt].find(
+      (value) => typeof value === "string"
+    );
+    return `${tool.data.name}${target ? `: ${String(target).replace(/\s+/g, " ").slice(0, 90)}` : ""}`;
+  }
+  return void 0;
+};
+
 // packages/engine/src/invokeAgentWithContract.ts
 var maxReportAttempts = 2;
 var invokeAgentWithContract = async ({
@@ -15475,6 +15537,7 @@ var invokeAgentWithContract = async ({
   permissionMode,
   timeoutMs,
   allowedCommands,
+  onEvent,
   onRejectedOutput
 }) => {
   let lastFailure = "no attempts made";
@@ -15490,7 +15553,8 @@ var invokeAgentWithContract = async ({
         permissionMode,
         allowedCommands,
         cwd,
-        timeoutMs
+        timeoutMs,
+        onEvent
       });
     } catch (error51) {
       const message = error51 instanceof Error ? error51.message : String(error51);
@@ -15909,6 +15973,21 @@ var executePipeline = async ({
   };
   const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
   const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
+  let transcriptCount = 0;
+  const agentEventSink = (step) => {
+    transcriptCount += 1;
+    const dir = join11(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const path = join11(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    let tail = mkdir5(dir, { recursive: true });
+    return (event) => {
+      tail = tail.then(() => appendFile3(path, `${JSON.stringify(event)}
+`, "utf8")).catch(() => void 0);
+      const described = describeAgentEvent({ event });
+      if (described) {
+        progress(`  ${step} \xB7 ${described}`);
+      }
+    };
+  };
   let rejectedCount = 0;
   const persistRejected = (step) => async ({ text, attempt, validationError }) => {
     rejectedCount += 1;
@@ -15932,6 +16011,7 @@ ${text}`, "utf8");
     // Harness-level allowance for all working roles; the binding grant
     // is the prompt section, which only the executor's builder emits.
     allowedCommands: config2.agentCommands,
+    onEvent: agentEventSink(step),
     onRejectedOutput: persistRejected(step)
   });
   const packageOf = (file2) => {
@@ -16043,6 +16123,7 @@ ${text}`, "utf8");
           model: config2.model,
           permissionMode: supervisorPermissionMode,
           timeoutMs: supervisorTimeoutMs,
+          onEvent: agentEventSink(`${id}-supervisor`),
           onRejectedOutput: persistRejected(`${id}-supervisor`)
         });
         if (verdict.rateLimited) {
@@ -16477,7 +16558,7 @@ ${error51.message}`);
     throw error51;
   }
 };
-var printResult = ({ result }) => {
+var printResult = ({ result, cwd }) => {
   const { manifest, ok, error: error51 } = result;
   console.log(`
 run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
@@ -16488,6 +16569,9 @@ run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
     console.log(`  package scope: ${manifest.packages.join(", ")}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ""}`);
   }
   console.log(`  command log: .lightsout/runs/${manifest.runId}/commands.jsonl`);
+  if (existsSync(join14(cwd, ".lightsout", "runs", manifest.runId, "agents"))) {
+    console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
+  }
   if (manifest.changedFiles.length > 0) {
     console.log("  changed files:");
     for (const file2 of manifest.changedFiles) {
@@ -16530,7 +16614,7 @@ var main = async () => {
       skipRefactor,
       onProgress: createProgressPrinter()
     });
-    printResult({ result });
+    printResult({ result, cwd });
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "resume") {
@@ -16556,7 +16640,7 @@ var main = async () => {
       skipRefactor,
       onProgress: createProgressPrinter()
     });
-    printResult({ result });
+    printResult({ result, cwd });
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {

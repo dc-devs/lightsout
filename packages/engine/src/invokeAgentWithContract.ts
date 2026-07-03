@@ -15,6 +15,8 @@ interface Params<Contract extends z.ZodType> {
 	timeoutMs?: number;
 	/** Consumer-granted command prefixes, relayed to the driver's allowed-tools mechanism. */
 	allowedCommands?: string[];
+	/** Relayed to the driver: one call per harness stream event (transcript tee, progress narration). */
+	onEvent?: (event: unknown) => void;
 	/** Called with the raw final message whenever it fails the contract — the caller persists it as run evidence. */
 	onRejectedOutput?: (params: { text: string; attempt: number; validationError: string }) => Promise<void> | void;
 }
@@ -38,6 +40,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	permissionMode,
 	timeoutMs,
 	allowedCommands,
+	onEvent,
 	onRejectedOutput,
 }: Params<Contract>) => {
 	let lastFailure = 'no attempts made';
@@ -59,6 +62,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 				allowedCommands,
 				cwd,
 				timeoutMs,
+				onEvent,
 			});
 		} catch (error) {
 			// Timeouts and spawn failures are step failures the engine records

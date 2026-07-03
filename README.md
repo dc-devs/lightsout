@@ -83,6 +83,15 @@ live (steps, gate results, agent reports, elapsed time), and the manifest
 snapshots the config permanently so every run records which settings
 produced it.
 
+Agents are watchable while they work: each invocation's harness event
+stream is teed to `.lightsout/runs/<id>/agents/stream-*.jsonl` (the full
+chat as on-disk evidence — `tail -f` it for raw live access) and every tool
+call is narrated in the progress stream as it happens
+(`implement · Edit: src/app/services/linear-sync.ts`), so a 30-minute agent
+step is a running commentary, not a silent clock. Watching is read-only by
+design: course-correction belongs to gates, the supervisor, and escalation —
+never to a human whispering mid-step.
+
 One run at a time per repo: `run` and `resume` take a lock
 (`.lightsout/lock.json`) before touching anything, so a second concurrent
 invocation fails fast instead of fighting the first over the worktree. A lock

@@ -7,6 +7,8 @@ interface Params {
 	/** Written to the child's stdin, then closed. Sidesteps argv length limits for large prompts. */
 	stdinText?: string;
 	timeoutMs?: number;
+	/** Called once per complete stdout line as it arrives (empty lines skipped). Full stdout is still collected and returned. */
+	onStdoutLine?: (line: string) => void;
 }
 
 /**
@@ -14,12 +16,31 @@ interface Params {
  * failure or timeout; an exit code is a result, not an exception — the
  * caller owns what it means.
  */
-export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs }: Params) => {
+export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }: Params) => {
 	return new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve, reject) => {
 		const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
 
 		let stdout = '';
 		let stderr = '';
+		let lineBuffer = '';
+
+		const emitLines = (text: string, flush = false) => {
+			if (!onStdoutLine) {
+				return;
+			}
+
+			lineBuffer += text;
+
+			const lines = lineBuffer.split('\n');
+
+			lineBuffer = flush ? '' : (lines.pop() ?? '');
+
+			for (const line of lines) {
+				if (line.trim()) {
+					onStdoutLine(line);
+				}
+			}
+		};
 
 		const timeout = timeoutMs
 			? setTimeout(() => {
@@ -29,7 +50,10 @@ export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs }: Param
 			: undefined;
 
 		child.stdout.on('data', (chunk: Buffer) => {
-			stdout += chunk.toString();
+			const text = chunk.toString();
+
+			stdout += text;
+			emitLines(text);
 		});
 
 		child.stderr.on('data', (chunk: Buffer) => {
@@ -43,6 +67,7 @@ export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs }: Param
 
 		child.on('close', (code) => {
 			clearTimeout(timeout);
+			emitLines('', true);
 			resolve({ exitCode: code ?? -1, stdout, stderr });
 		});
 

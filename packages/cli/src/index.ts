@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { RunStatus, type LightsoutConfig } from '@lightsout/contracts';
@@ -141,7 +142,7 @@ const runPipelineOrFailFast = async (params: Parameters<typeof runImplementPipel
 	}
 };
 
-const printResult = ({ result }: { result: PipelineResult }) => {
+const printResult = ({ result, cwd }: { result: PipelineResult; cwd: string }) => {
 	const { manifest, ok, error } = result;
 
 	console.log(`\nrun ${manifest.runId}: ${manifest.status.toUpperCase()}`);
@@ -155,6 +156,10 @@ const printResult = ({ result }: { result: PipelineResult }) => {
 	}
 
 	console.log(`  command log: .lightsout/runs/${manifest.runId}/commands.jsonl`);
+
+	if (existsSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'agents'))) {
+		console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
+	}
 
 	if (manifest.changedFiles.length > 0) {
 		console.log('  changed files:');
@@ -209,7 +214,7 @@ const main = async () => {
 			onProgress: createProgressPrinter(),
 		});
 
-		printResult({ result });
+		printResult({ result, cwd });
 		process.exit(result.ok ? 0 : 1);
 	}
 
@@ -243,7 +248,7 @@ const main = async () => {
 			onProgress: createProgressPrinter(),
 		});
 
-		printResult({ result });
+		printResult({ result, cwd });
 		process.exit(result.ok ? 0 : 1);
 	}
 

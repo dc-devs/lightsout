@@ -19,4 +19,10 @@ export interface DriverInvocation {
 	allowedCommands?: string[];
 	/** Kill the harness process after this many ms. The driver rejects; the engine decides what a hang means. */
 	timeoutMs?: number;
+	/**
+	 * Called once per harness event as it streams (tool calls, token ticks,
+	 * the final result), each the raw parsed JSON. Drivers with no event
+	 * stream never call it — the engine must not depend on it for outcomes.
+	 */
+	onEvent?: (event: unknown) => void;
 }

@@ -3,15 +3,19 @@ import { spawnCollect } from './spawnCollect';
 import type { Driver } from './Driver';
 
 /**
- * Headless result envelope from `claude -p --output-format json`. Only
- * `result` and `is_error` are consumed; unknown fields are ignored (parse,
- * don't cast).
+ * The final `result` event of `claude -p --output-format stream-json`
+ * (verified against claude 2.1.200). Only `result` and `is_error` drive the
+ * driver's verdict; the full raw event — usage, cost, everything — flows to
+ * `onEvent` untouched. Parse, don't cast.
  */
 const ResultEnvelope = z.object({
 	result: z.string().optional(),
 	is_error: z.boolean().optional(),
 });
 
+const ResultEvent = ResultEnvelope.extend({ type: z.literal('result') });
+
+/** Fallback for non-stream output (`--output-format json`): the whole stdout is one envelope. */
 const parseEnvelope = ({ stdout }: { stdout: string }) => {
 	try {
 		return ResultEnvelope.parse(JSON.parse(stdout));
@@ -38,7 +42,10 @@ const buildArgs = ({
 	permissionMode?: string;
 	allowedCommands?: string[];
 }) => {
-	const args = ['-p', '--output-format', 'json'];
+	// stream-json (which requires --verbose in print mode) instead of json:
+	// same final result payload, but every intermediate event — tool calls,
+	// token ticks — arrives live for transcripts and progress narration.
+	const args = ['-p', '--output-format', 'stream-json', '--verbose'];
 
 	if (systemPrompt) {
 		// Append, never replace: keeps the harness's default agent behavior,
@@ -69,14 +76,16 @@ const buildArgs = ({
  *
  * Spawns the user's own installed, logged-in `claude` binary — auth and
  * billing ride the user's existing session (e.g. a Max subscription), and the
- * engine never sees a credential. Flag surface verified against claude CLI
- * 2.1.198.
+ * engine never sees a credential. Flag surface and stream-json event shapes
+ * verified against claude CLI 2.1.200.
  */
 export const createClaudeCodeDriver = () => {
 	const driver: Driver = {
 		name: 'claude-code',
 		invoke: async (invocation) => {
-			const { prompt, systemPrompt, model, permissionMode, allowedCommands, cwd, timeoutMs } = invocation;
+			const { prompt, systemPrompt, model, permissionMode, allowedCommands, cwd, timeoutMs, onEvent } = invocation;
+
+			let resultEvent: z.infer<typeof ResultEvent> | undefined;
 
 			const { exitCode, stdout, stderr } = await spawnCollect({
 				command: 'claude',
@@ -84,9 +93,26 @@ export const createClaudeCodeDriver = () => {
 				cwd,
 				stdinText: prompt,
 				timeoutMs,
+				onStdoutLine: (line) => {
+					let event: unknown;
+
+					try {
+						event = JSON.parse(line);
+					} catch {
+						return;
+					}
+
+					const parsed = ResultEvent.safeParse(event);
+
+					if (parsed.success) {
+						resultEvent = parsed.data;
+					}
+
+					onEvent?.(event);
+				},
 			});
 
-			const envelope = parseEnvelope({ stdout });
+			const envelope = resultEvent ?? parseEnvelope({ stdout });
 			const text = envelope?.result ?? stdout ?? '';
 			const errored = envelope?.is_error === true || exitCode !== 0;
 

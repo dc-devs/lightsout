@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
 	buildFeatureExecutorInvocation,
@@ -23,6 +23,7 @@ import { acquireRunLock } from './acquireRunLock';
 import { appendCommandLog } from './appendCommandLog';
 import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
+import { describeAgentEvent } from './describeAgentEvent';
 import { getRunDir } from './getRunDir';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { readGitChangedFiles } from './readGitChangedFiles';
@@ -228,6 +229,33 @@ const executePipeline = async ({
 	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
 	const supervisorTimeoutMs = (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000;
 
+	// Every agent invocation's full event stream (tool calls, token ticks,
+	// the final result) is teed to agents/stream-NN-<step>.jsonl — the chat
+	// as on-disk run evidence, tail-able live — and tool calls are narrated
+	// through the progress stream so a 30-minute step is watchable, not a
+	// silent clock. Display and evidence only: outcomes never depend on it.
+	let transcriptCount = 0;
+
+	const agentEventSink = (step: string) => {
+		transcriptCount += 1;
+
+		const dir = join(getRunDir({ cwd, runId: manifest.runId }), 'agents');
+		const path = join(dir, `stream-${String(transcriptCount).padStart(2, '0')}-${step}.jsonl`);
+		// Serialize appends so events land in arrival order even though the
+		// sink itself must return synchronously to the driver's read loop.
+		let tail: Promise<unknown> = mkdir(dir, { recursive: true });
+
+		return (event: unknown) => {
+			tail = tail.then(() => appendFile(path, `${JSON.stringify(event)}\n`, 'utf8')).catch(() => undefined);
+
+			const described = describeAgentEvent({ event });
+
+			if (described) {
+				progress(`  ${step} · ${described}`);
+			}
+		};
+	};
+
 	// A final message that fails its contract is still evidence — persist it
 	// to the run dir before any retry, so a rejected report never has to be
 	// recovered from harness-internal session files again.
@@ -258,6 +286,7 @@ const executePipeline = async ({
 			// Harness-level allowance for all working roles; the binding grant
 			// is the prompt section, which only the executor's builder emits.
 			allowedCommands: config.agentCommands,
+			onEvent: agentEventSink(step),
 			onRejectedOutput: persistRejected(step),
 		});
 
@@ -432,6 +461,7 @@ const executePipeline = async ({
 					model: config.model,
 					permissionMode: supervisorPermissionMode,
 					timeoutMs: supervisorTimeoutMs,
+					onEvent: agentEventSink(`${id}-supervisor`),
 					onRejectedOutput: persistRejected(`${id}-supervisor`),
 				});
 

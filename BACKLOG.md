@@ -203,7 +203,21 @@ and make cost a first-class part of the audit trail:
 - Consider landing on top of Task 7's event stream — the usage fields arrive
   in the same result event the transcript tee already parses.
 
-### Task 7: Live agent transcript (added 2026-07-03)
+### Task 7: Live agent transcript (added 2026-07-03) — DONE
+
+Result: claude driver now runs `--output-format stream-json --verbose`
+(event shapes verified against claude 2.1.200; final result envelope read
+from the stream's `result` event, old whole-stdout parse kept as fallback);
+`spawnCollect` gained per-line streaming; every invocation's events are
+teed in arrival order to `agents/stream-NN-<step>.jsonl`; tool calls are
+narrated live through onProgress (`implement · Edit: src/...`); the CLI
+report prints the transcripts dir. Codex: no event stream in 0.128.0,
+degrades to prior behavior. 65/65 tests (describeAgentEvent unit tests +
+pipeline tee/narration); live smoke via real driver — 15 events, PASS.
+FOR TASK 6: the probe verified the result event carries `usage`
+(input/output/cache tokens), `total_cost_usd`, `num_turns`, `duration_ms`,
+and `modelUsage` — the accounting data source is confirmed and already
+being persisted into every stream transcript.
 
 Today the claude-code driver runs `claude -p --output-format json`: ONE JSON
 envelope when the agent finishes. During a 30-minute implement step the user
