@@ -14694,6 +14694,16 @@ var LightsoutConfig = external_exports.object({
     /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
     format: external_exports.string().optional()
   }),
+  /**
+   * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
+   * failure the run can resume from — never a crash.
+   */
+  timeouts: external_exports.object({
+    /** Working roles (executor, test writers, refactorer, fixes). Default 60. */
+    agentMinutes: external_exports.number().positive().optional(),
+    /** The read-only supervisor. Default 15. */
+    supervisorMinutes: external_exports.number().positive().optional()
+  }).optional(),
   /** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
   packagesDir: external_exports.string().optional(),
   /**
@@ -15271,14 +15281,20 @@ var invokeAgentWithContract = async ({
 }) => {
   let lastFailure = "no attempts made";
   for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
-    const result = await driver.invoke({
-      prompt: invocation.prompt,
-      systemPrompt: invocation.systemPrompt,
-      model,
-      permissionMode,
-      cwd,
-      timeoutMs
-    });
+    let result;
+    try {
+      result = await driver.invoke({
+        prompt: invocation.prompt,
+        systemPrompt: invocation.systemPrompt,
+        model,
+        permissionMode,
+        cwd,
+        timeoutMs
+      });
+    } catch (error51) {
+      const message = error51 instanceof Error ? error51.message : String(error51);
+      return { report: void 0, failure: `agent invocation failed: ${message}`, rateLimited: false };
+    }
     if (result.rateLimited) {
       return { report: void 0, failure: "harness rate limit reached", rateLimited: true };
     }
@@ -15350,7 +15366,12 @@ ${build.stderr}`;
 var runGates = async ({ cwd, config: config2, coverage, packages, includeRoot, runId, step }) => {
   const gate = async ({ kind, command, group }) => {
     const startedAt = Date.now();
-    const result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+    let result;
+    try {
+      result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+    } catch (error51) {
+      result = { exitCode: -1, stdout: "", stderr: error51 instanceof Error ? error51.message : String(error51) };
+    }
     if (runId) {
       await appendCommandLog({
         cwd,
@@ -15409,8 +15430,8 @@ ${result.stderr}`.slice(-outputTailChars) }
 };
 
 // packages/engine/src/runImplementPipeline.ts
-var executorTimeoutMs = 20 * 6e4;
-var supervisorTimeoutMs = 10 * 6e4;
+var defaultAgentTimeoutMinutes = 60;
+var defaultSupervisorTimeoutMinutes = 15;
 var formatTimeoutMs = 10 * 6e4;
 var maxCheapFixRetries = 2;
 var maxRefactorPasses = 3;
@@ -15505,6 +15526,8 @@ var runImplementPipeline = async ({
     const prev = manifest.steps.find((step) => step.id === id);
     return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
   };
+  const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
+  const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
   const invokeRole = (invocation) => invokeAgentWithContract({
     driver,
     cwd,
@@ -15512,7 +15535,7 @@ var runImplementPipeline = async ({
     contract: WorkReport,
     model: config2.model,
     permissionMode: config2.permissionMode ?? defaultPermissionMode,
-    timeoutMs: executorTimeoutMs
+    timeoutMs: agentTimeoutMs
   });
   const packageOf = (file2) => {
     const prefix = `${packagesDir}/`;
@@ -15759,7 +15782,12 @@ ${failures.join("\n")}`
       const record2 = nextRecord({ id: "format" });
       await setStep({ record: record2 });
       const startedAt = Date.now();
-      const result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
+      let result;
+      try {
+        result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
+      } catch (error52) {
+        result = { exitCode: -1, stdout: "", stderr: error52 instanceof Error ? error52.message : String(error52) };
+      }
       await appendCommandLog({
         cwd,
         runId: manifest.runId,

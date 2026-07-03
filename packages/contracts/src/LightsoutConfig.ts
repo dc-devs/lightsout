@@ -28,6 +28,18 @@ export const LightsoutConfig = z.object({
 		/** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
 		format: z.string().optional(),
 	}),
+	/**
+	 * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
+	 * failure the run can resume from — never a crash.
+	 */
+	timeouts: z
+		.object({
+			/** Working roles (executor, test writers, refactorer, fixes). Default 60. */
+			agentMinutes: z.number().positive().optional(),
+			/** The read-only supervisor. Default 15. */
+			supervisorMinutes: z.number().positive().optional(),
+		})
+		.optional(),
 	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
 	packagesDir: z.string().optional(),
 	/**

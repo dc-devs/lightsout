@@ -85,7 +85,14 @@ interface Params {
 export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step }: Params) => {
 	const gate: RunGate = async ({ kind, command, group }) => {
 		const startedAt = Date.now();
-		const result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+		let result;
+
+		try {
+			result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+		} catch (error) {
+			// A gate that times out or fails to spawn is a red gate, not a crash.
+			result = { exitCode: -1, stdout: '', stderr: error instanceof Error ? error.message : String(error) };
+		}
 
 		if (runId) {
 			await appendCommandLog({

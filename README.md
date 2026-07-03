@@ -102,6 +102,8 @@ Add `lightsout.config.json` at the repo root:
 | `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |
 | `packageScripts` | no | Monorepo mode — see below |
 | `packagesDir` | no | Workspace packages directory for monorepo mode (default `packages`) |
+| `timeouts.agentMinutes` | no | Ceiling for working agents (executor, test writers, refactorer). Default 60. A hit ceiling is a recorded step failure the run resumes from — never a crash. |
+| `timeouts.supervisorMinutes` | no | Ceiling for the read-only supervisor. Default 15. |
 
 ### Monorepos
 

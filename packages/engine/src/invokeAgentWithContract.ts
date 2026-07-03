@@ -32,14 +32,26 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	let lastFailure = 'no attempts made';
 
 	for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
-		const result = await driver.invoke({
-			prompt: invocation.prompt,
-			systemPrompt: invocation.systemPrompt,
-			model,
-			permissionMode,
-			cwd,
-			timeoutMs,
-		});
+		let result;
+
+		try {
+			result = await driver.invoke({
+				prompt: invocation.prompt,
+				systemPrompt: invocation.systemPrompt,
+				model,
+				permissionMode,
+				cwd,
+				timeoutMs,
+			});
+		} catch (error) {
+			// Timeouts and spawn failures are step failures the engine records
+			// and the run resumes from — never uncaught crashes that zombie the
+			// manifest. No blind retry: a second identical timeout just doubles
+			// the cost of learning the ceiling is too low.
+			const message = error instanceof Error ? error.message : String(error);
+
+			return { report: undefined, failure: `agent invocation failed: ${message}`, rateLimited: false };
+		}
 
 		if (result.rateLimited) {
 			return { report: undefined, failure: 'harness rate limit reached', rateLimited: true };

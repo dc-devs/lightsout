@@ -31,8 +31,8 @@ import { runGates } from './runGates';
 import { writeRunManifest } from './writeRunManifest';
 import type { PipelineResult } from './PipelineResult';
 
-const executorTimeoutMs = 20 * 60_000;
-const supervisorTimeoutMs = 10 * 60_000;
+const defaultAgentTimeoutMinutes = 60;
+const defaultSupervisorTimeoutMinutes = 15;
 const formatTimeoutMs = 10 * 60_000;
 const maxCheapFixRetries = 2;
 const maxRefactorPasses = 3;
@@ -200,6 +200,9 @@ export const runImplementPipeline = async ({
 		return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
 	};
 
+	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
+	const supervisorTimeoutMs = (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000;
+
 	const invokeRole = (invocation: { systemPrompt: string; prompt: string }) =>
 		invokeAgentWithContract({
 			driver,
@@ -208,7 +211,7 @@ export const runImplementPipeline = async ({
 			contract: WorkReport,
 			model: config.model,
 			permissionMode: config.permissionMode ?? defaultPermissionMode,
-			timeoutMs: executorTimeoutMs,
+			timeoutMs: agentTimeoutMs,
 		});
 
 	/** Map a changed file to its package directory, or undefined for root-group files. */
@@ -566,7 +569,14 @@ export const runImplementPipeline = async ({
 			await setStep({ record });
 
 			const startedAt = Date.now();
-			const result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
+			let result;
+
+			try {
+				result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
+			} catch (error) {
+				// A formatter that times out or fails to spawn is a red step, not a crash.
+				result = { exitCode: -1, stdout: '', stderr: error instanceof Error ? error.message : String(error) };
+			}
 
 			await appendCommandLog({
 				cwd,

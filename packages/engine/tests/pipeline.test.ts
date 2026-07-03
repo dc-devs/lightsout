@@ -409,6 +409,47 @@ test('write-tests aggregates per-file failures; terminated writers escalate', as
 	assert.equal(terminated.manifest.status, 'escalated');
 });
 
+test('a driver exception (timeout, spawn failure) is a recorded failure, never a zombie', async () => {
+	const dir = setupConsumerRepo();
+	let calls = 0;
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			calls += 1;
+			throw new Error('claude timed out after 3600000ms');
+		},
+	};
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const persisted = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
+
+	assert.equal(result.ok, false);
+	assert.equal(persisted.status, 'failed', 'manifest records the failure — no running zombie');
+	assert.match(result.error ?? '', /agent invocation failed.*timed out/);
+	assert.equal(calls, 1, 'no blind retry after a timeout');
+});
+
+test('config timeouts reach the driver; defaults are 60m agent / 15m supervisor', async () => {
+	const run = async ({ config }: { config: Record<string, unknown> }) => {
+		const dir = setupConsumerRepo({ config });
+		let received: number | undefined;
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async ({ timeoutMs }) => {
+				received ??= timeoutMs;
+
+				return { text: report({ status: 'failed', failures: ['stop early'] }), exitCode: 0 };
+			},
+		};
+
+		await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+
+		return received;
+	};
+
+	assert.equal(await run({ config: {} }), 60 * 60_000, 'default agent ceiling is 60 minutes');
+	assert.equal(await run({ config: { timeouts: { agentMinutes: 33 } } }), 33 * 60_000, 'configured ceiling reaches the driver');
+});
+
 test('missing overview file fails the run before any agent spawns', async () => {
 	const dir = setupConsumerRepo();
 	const driver: Driver = {
