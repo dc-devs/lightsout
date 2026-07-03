@@ -15690,18 +15690,19 @@ var runGateSet = async ({ commands, label, gate }) => {
 ${check2.stdout}
 ${check2.stderr}`;
   }
-  const tests = await gate({ kind: "testUnit", command: commands.testUnit, group });
-  if (tests.exitCode !== 0) {
-    return `${prefix}test-unit failed (exit ${tests.exitCode}):
-${tests.stdout}
-${tests.stderr}`;
-  }
   if (commands.testCoverage) {
     const coverageResult = await gate({ kind: "testCoverage", command: commands.testCoverage, group });
     if (coverageResult.exitCode !== 0) {
       return `${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
 ${coverageResult.stdout}
 ${coverageResult.stderr}`;
+    }
+  } else {
+    const tests = await gate({ kind: "testUnit", command: commands.testUnit, group });
+    if (tests.exitCode !== 0) {
+      return `${prefix}test-unit failed (exit ${tests.exitCode}):
+${tests.stdout}
+${tests.stderr}`;
     }
   }
   if (commands.build) {

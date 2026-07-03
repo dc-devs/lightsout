@@ -39,6 +39,29 @@ test('two consecutive reds are a genuine red, both executions in the command log
 	assert.equal(log[1].rerun, true);
 });
 
+test('coverage replaces the plain test run in gate sets that include it', async () => {
+	const dir = setupMonorepo();
+	const config = await loadConfig({ cwd: dir });
+
+	const withCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true, coverage: true });
+
+	assert.equal(withCoverage, undefined);
+
+	const coveredLines = readGateLog({ dir });
+
+	assert.ok(coveredLines.some((line) => line.endsWith(' coverage')), 'coverage ran');
+	assert.ok(!coveredLines.some((line) => line.endsWith(' testUnit')), 'plain test run replaced — same suites, one fleet');
+
+	const withoutCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true });
+
+	assert.equal(withoutCoverage, undefined);
+
+	const allLines = readGateLog({ dir }).slice(coveredLines.length);
+
+	assert.ok(allLines.some((line) => line.endsWith(' testUnit')), 'plain test run returns when the set has no coverage');
+	assert.ok(!allLines.some((line) => line.endsWith(' coverage')), 'no coverage outside coverage sets');
+});
+
 test('root group runs after the scoped groups, never concurrently with them', async () => {
 	const dir = setupMonorepo();
 	const config = await loadConfig({ cwd: dir });

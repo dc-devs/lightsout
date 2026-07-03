@@ -106,8 +106,8 @@ Add `lightsout.config.json` at the repo root:
 | Field | Required | Purpose |
 |---|---|---|
 | `scripts.check` | yes | Type/lint gate — full shell command, run per verify step |
-| `scripts.testUnit` | yes | Test gate — full shell command |
-| `scripts.testCoverage` | yes | Coverage gate — a full shell command (your command owns the threshold), or the literal `false` to opt out. On by default: silence is not accepted, skipping the strongest gate must be a decision. Runs at clean-slate and every verify after tests exist. |
+| `scripts.testUnit` | yes | Test gate — full shell command. Runs in gate sets without a coverage run (e.g. the post-implement verify, where new code has no tests yet). |
+| `scripts.testCoverage` | yes | Coverage gate — a full shell command (your command owns the threshold), or the literal `false` to opt out. On by default: silence is not accepted, skipping the strongest gate must be a decision. Runs at clean-slate and every verify after tests exist, and **replaces** `testUnit` in those gate sets — the command must run the unit tests (every mainstream runner's coverage mode does), so the same suites never run twice back-to-back. |
 | `scripts.generate` | no | Opt-in codegen (e.g. `prisma generate`), run once **before** every gate set — gates verify, generate mutates, and parallel package gates must never race a generator. Red exit fails the gate set. |
 | `scripts.build` | no | Opt-in build gate, run last in every verify step |
 | `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |

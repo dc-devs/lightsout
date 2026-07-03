@@ -16,7 +16,7 @@ interface GateCommands {
 
 type RunGate = (params: { kind: string; command: string; group: string }) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 
-/** Run one group's gates in order: check → tests → coverage → build. First failure wins. */
+/** Run one group's gates in order: check → tests (coverage-instrumented when the set includes coverage) → build. First failure wins. */
 const runGateSet = async ({ commands, label, gate }: { commands: GateCommands; label?: string; gate: RunGate }) => {
 	const group = label ?? 'root';
 	const prefix = label ? `[${label}] ` : '';
@@ -26,17 +26,22 @@ const runGateSet = async ({ commands, label, gate }: { commands: GateCommands; l
 		return `${prefix}check failed (exit ${check.exitCode}):\n${check.stdout}\n${check.stderr}`;
 	}
 
-	const tests = await gate({ kind: 'testUnit', command: commands.testUnit, group });
-
-	if (tests.exitCode !== 0) {
-		return `${prefix}test-unit failed (exit ${tests.exitCode}):\n${tests.stdout}\n${tests.stderr}`;
-	}
-
+	// Coverage REPLACES the plain test run when the set includes it: a
+	// coverage command runs the same suites with instrumentation on (the
+	// config contract requires it to run the unit tests), so running both is
+	// the same fleet twice back-to-back. A red here is a test failure or an
+	// unmet threshold — the output tells the fix agent which.
 	if (commands.testCoverage) {
 		const coverageResult = await gate({ kind: 'testCoverage', command: commands.testCoverage, group });
 
 		if (coverageResult.exitCode !== 0) {
 			return `${prefix}test-coverage failed (exit ${coverageResult.exitCode}):\n${coverageResult.stdout}\n${coverageResult.stderr}`;
+		}
+	} else {
+		const tests = await gate({ kind: 'testUnit', command: commands.testUnit, group });
+
+		if (tests.exitCode !== 0) {
+			return `${prefix}test-unit failed (exit ${tests.exitCode}):\n${tests.stdout}\n${tests.stderr}`;
 		}
 	}
 
