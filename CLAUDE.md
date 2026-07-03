@@ -20,6 +20,9 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 ## Commands
 
 - `pnpm check` — typecheck (root tsc, all packages)
+- `pnpm test` — engine suite (`packages/engine/tests/`, node:test via esbuild
+  bundle, stub drivers only). Run it before any commit that touches engine
+  behavior.
 - `pnpm bundle` — build `dist/cli.mjs`. The bundle is COMMITTED by design
   (plugin installs are git clones with no install hook): rebuild and commit it
   with any source change.

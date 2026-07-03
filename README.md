@@ -209,8 +209,13 @@ path today.
 ```sh
 pnpm install
 pnpm check    # typecheck all packages
+pnpm test     # engine test suite (node:test, stub drivers only — no agent calls, no network)
 pnpm bundle   # rebuild dist/cli.mjs — the bundle is COMMITTED; rebuild + commit with any source change
 ```
+
+Tests live in `packages/engine/tests/`, are bundled by esbuild (the engine
+imports agent prompts as markdown text, which plain `node --test` cannot
+load), and run against real temp git repos with stubbed drivers.
 
 Conventions and settled decisions: [CLAUDE.md](CLAUDE.md) and the decision log
 in [docs/architecture.md](docs/architecture.md).

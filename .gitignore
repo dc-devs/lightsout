@@ -6,6 +6,7 @@ node_modules/
 # distribution model is a git clone with no install hook, so the runnable
 # artifact must ship in the repo.
 *.tsbuildinfo
+.test-dist/
 
 # os / editor
 .DS_Store

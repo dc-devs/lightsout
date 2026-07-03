@@ -29,7 +29,11 @@ do not fix forward.
 
 ## Phase 3 — Backlog (in this order)
 
-### Task 1: Committed test suite for the engine (highest priority)
+### Task 1: Committed test suite for the engine (highest priority) — DONE
+
+Result: `pnpm test` — 38 tests green in ~2s (`packages/engine/tests/`,
+node:test via esbuild bundle, stub drivers + real temp git repos). Covers
+every scenario below, including the v0.5/v0.6 additions.
 
 The engine currently has NO tests of its own — the stub-driver smoke tests
 that verified v0.2/v0.3 lived in a session scratchpad and are gone. Recreate them
