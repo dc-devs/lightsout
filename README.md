@@ -11,6 +11,45 @@ every step, and leaves a truthful audit trail on disk.
 
 **Status: pre-alpha.** Design and decision log: [docs/architecture.md](docs/architecture.md).
 
+## Why
+
+Frontier models already write good code on the median run. What breaks
+unattended work is the *bad* run — and everything here exists for that run:
+
+- **Verification can't be sweet-talked.** Agents report; subprocesses decide.
+  Every gate is your own repo's commands and an exit code the model can't
+  influence. An agent claiming "tests pass" counts for nothing until the
+  engine has run them.
+- **Failures are honest and specific.** Agent output is validated against
+  typed contracts at every boundary. A failed run tells you exactly what's
+  missing and why — in one live run, the executor reported the precise
+  deliverable it couldn't produce and the exact command that would produce
+  it, which became config (`agentCommands`) instead of a mystery.
+- **Everything leaves evidence.** Every gate command lands in
+  `commands.jsonl` with exit code and duration; agent output that fails its
+  contract is persisted verbatim; the manifest snapshots the config that
+  produced the run. A green gate that left no trace is indistinguishable
+  from one that never ran — so no gate runs without a trace.
+- **Crashes, rate limits, and flakes are states, not disasters.** Run state
+  lives on disk, never in a context window: kill the process, hit your
+  subscription window, catch a flaky test-worker crash — `resume` re-enters
+  at the exact step. Red gates get one mechanical re-run before the verdict,
+  because one flaky failure is evidence of nothing.
+- **Changed-file truth is double-entry.** What agents report is merged with
+  what git actually observed; work an agent forgot to mention still gets
+  tests, review, and gates.
+- **Your harness, your subscription, zero credentials.** The engine drives
+  the coding-agent CLI you're already logged into. No API keys, no
+  third-party auth, nothing to leak.
+- **It improves from its own runs.** Agents report friction — where the
+  plan, prompts, standards, or environment fought them — and the aggregate
+  drives prompt and standards fixes. The first consumer's phase-one plan
+  surfaced five engine improvements before it shipped.
+
+What lightsout deliberately is *not*: a smarter agent, a prompt library, or
+an orchestrator persona. Scaffolding that constrains the model depreciates
+with every model release; scaffolding that verifies it appreciates.
+
 ## How a run works
 
 ```
