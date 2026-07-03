@@ -12,7 +12,7 @@
 	"scripts": {
 		"check": "tsc --noEmit",
 		"test": "esbuild packages/engine/tests/*.test.ts --bundle --platform=node --format=esm --loader:.md=text --outdir=.test-dist --log-level=warning && node --test \".test-dist/*.test.js\"",
-		"bundle": "esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --loader:.md=text --outfile=dist/cli.mjs"
+		"bundle": "esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --loader:.md=text --outfile=plugin/dist/cli.mjs"
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.0",

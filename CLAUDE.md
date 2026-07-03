@@ -23,9 +23,11 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 - `pnpm test` — engine suite (`packages/engine/tests/`, node:test via esbuild
   bundle, stub drivers only). Run it before any commit that touches engine
   behavior.
-- `pnpm bundle` — build `dist/cli.mjs`. The bundle is COMMITTED by design
-  (plugin installs are git clones with no install hook): rebuild and commit it
-  with any source change.
+- `pnpm bundle` — build `plugin/dist/cli.mjs`. The bundle is COMMITTED by
+  design and MUST live inside `plugin/`: marketplace installs copy only the
+  plugin source directory (verified against the ~/.claude/plugins/cache
+  layout, 2026-07), so nothing outside `plugin/` exists at runtime. Rebuild
+  and commit it with any source change.
 - Smoke-test pattern: write a scratch `.ts`, bundle with
   `pnpm exec esbuild <file> --bundle --platform=node --format=esm --loader:.md=text`,
   run with node. Stub drivers for exception paths; live drivers for happy

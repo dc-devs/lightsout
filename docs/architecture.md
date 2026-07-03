@@ -52,7 +52,7 @@ verification between steps, pluggable standards) and replaces the substrate.
 | `agents` | Roles = markdown prompt + typed output contract. v0 roles: feature-executor, unit-test-writer, refactor-executor. Prompts are written fresh for the typed interface (not ports of v1). |
 | `supervisor` (lives in engine for v0) | The one place non-determinism is *added*: invoked only on gate failure with (manifest, error output, attempt history); returns a structured verdict — retry-with-context / replan / split-scope / escalate-to-human. |
 | `drivers` | Spawns the user's own installed harness. See billing rule below. |
-| `cli` | `run`, `resume`, `status`. Bundled to `dist/cli.mjs`. |
+| `cli` | `run`, `resume`, `status`. Bundled to `plugin/dist/cli.mjs`. |
 
 ## Non-negotiable rules
 
@@ -90,7 +90,7 @@ Consumer coding standards enter as config, in two forms:
   delivered at the violation, about only the rule violated.
 
 The repo ships default JS/TS standards in `standards/code/` and
-`standards/tests/`, bundled into `dist/cli.mjs` at build time (like the agent
+`standards/tests/`, bundled into `plugin/dist/cli.mjs` at build time (like the agent
 prompts, so plugin clones carry them). They load when a consumer's config
 says nothing about standards — announced in the run header, never silent —
 and `false` opts out explicitly (the coverage-gate pattern). The reserved
@@ -153,7 +153,7 @@ elsewhere), the api driver, multi-run queueing, the self-improving loop.
 | Decision | Choice | Why |
 |---|---|---|
 | Substrate | Drive harness CLIs headlessly; no Agent SDK core | SDK is API-key-only (~20x cost vs Max plan); CLI-driving is the officially supported subscription path; also yields harness-agnosticism for free |
-| Distribution | Git repo is both plugin and engine; bundled `dist/cli.mjs` committed; no npm | Plugins are clones with no install hook; `/plugin marketplace add dc-devs/lightsout` is the entire install |
+| Distribution | Git repo is both plugin and engine; bundled `plugin/dist/cli.mjs` committed; no npm | No install hook exists, so the runnable artifact must ship in the repo; `/plugin marketplace add dc-devs/lightsout` is the entire install. The bundle lives INSIDE `plugin/` because marketplace installs copy only the plugin source directory to `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` — the surrounding repo (and a root `dist/`) does not exist at runtime (verified against the installed claude 2.1.x cache layout, 2026-07) |
 | Orchestrator | Deterministic code, not prose/LLM | LLM conductors miscount, skip, and mis-parse; determinism belongs in the cheapest reliable substrate |
 | Where non-determinism is allowed | Inside agent steps + supervisor on failures | Judgment earns unreliability only where judgment is needed |
 | Name | lightsout | Markets the outcome (runs unattended), not the mechanism (stopping); jidoka/andon rejected for foregrounding the brake |

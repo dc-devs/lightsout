@@ -1,10 +1,11 @@
 # deps
 node_modules/
 
-# build artifacts — NOTE: dist/ is deliberately NOT ignored.
-# The bundled engine (dist/cli.mjs) is committed by design: the plugin
-# distribution model is a git clone with no install hook, so the runnable
-# artifact must ship in the repo.
+# build artifacts — NOTE: plugin/dist/ is deliberately NOT ignored.
+# The bundled engine (plugin/dist/cli.mjs) is committed by design: there is
+# no install hook, so the runnable artifact must ship in the repo — and it
+# must live INSIDE plugin/ because marketplace installs copy only the plugin
+# source directory.
 *.tsbuildinfo
 .test-dist/
 

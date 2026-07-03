@@ -23,7 +23,7 @@ order.
 
 ## Phase 2 — Verify the baseline
 
-Run `pnpm install`, `pnpm check`, `pnpm bundle`, and `node dist/cli.mjs help`.
+Run `pnpm install`, `pnpm check`, `pnpm bundle`, and `node plugin/dist/cli.mjs help`.
 All must succeed before any work starts. If anything is red, stop and report —
 do not fix forward.
 
@@ -108,7 +108,26 @@ Two simultaneous runs in one consumer repo would fight over the worktree.
   dead). A second concurrent invocation fails fast with a clear message.
 - Cover the lock behavior in the Task 1 test suite.
 
-### Task 4: Plugin ignition — prepare, don't test
+### Task 4: Plugin ignition — prepare, don't test — DONE
+
+Result: the path assumption was broken at the root — marketplace installs
+copy ONLY the plugin source dir to
+`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` (verified against
+the installed agent-capabilities plugin's cache layout), so
+`${CLAUDE_PLUGIN_ROOT}/../dist/cli.mjs` pointed at nothing. Fix: the bundle
+moved INSIDE the plugin (`plugin/dist/cli.mjs`, sole build output; root
+`dist/` removed; every doc/alias/fixture reference updated); the skill now
+runs `run --plan "<path>"` with `--overview`/`--packages`/`resume`
+passthrough; plugin version bumped to 0.0.2.
+
+Human test checklist (interactive session required):
+1. `/plugin marketplace add dc-devs/lightsout` (or the local repo path)
+2. Install the `lightsout` plugin; confirm
+   `~/.claude/plugins/cache/lightsout/lightsout/0.0.2/dist/cli.mjs` exists
+3. In a consumer repo with `lightsout.config.json`: `/implement <plan-path>`
+4. Confirm the skill invokes `node "$CLAUDE_PLUGIN_ROOT/dist/cli.mjs" run
+   --plan ...` and relays the final report
+5. Kill it mid-run, `/implement resume <run-id>` → resumes
 
 The `/plugin marketplace add` → `/implement` flow needs an interactive session
 (human-only). Do NOT attempt it. Instead: statically verify the skill's path
@@ -161,8 +180,8 @@ and make cost a first-class part of the audit trail:
 
 - Follow `CLAUDE.md` conventions exactly (one export per file, object params,
   no return-type annotations, no enums, parse-don't-cast, tabs).
-- `dist/cli.mjs` is COMMITTED: rebuild (`pnpm bundle`) and include it in any
-  commit that touches package source.
+- `plugin/dist/cli.mjs` is COMMITTED: rebuild (`pnpm bundle`) and include it
+  in any commit that touches package source.
 - Verify CLI flags against installed binaries before writing code that invokes
   them — never from memory.
 - One focused commit per task, pushed to `origin main`. Honest commit

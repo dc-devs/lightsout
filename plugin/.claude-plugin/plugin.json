@@ -1,5 +1,5 @@
 {
 	"name": "lightsout",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Ignition for the lightsout engine — starts the bundled deterministic pipeline. All logic lives in the engine, none in this plugin."
 }

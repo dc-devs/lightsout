@@ -70,7 +70,7 @@ No npm. The committed bundle in the repo is the tool:
 
 ```sh
 git clone git@github.com:dc-devs/lightsout.git
-alias lightsout="node $(pwd)/lightsout/dist/cli.mjs"
+alias lightsout="node $(pwd)/lightsout/plugin/dist/cli.mjs"
 ```
 
 ## Quick start (bundled fixture)
@@ -79,7 +79,7 @@ alias lightsout="node $(pwd)/lightsout/dist/cli.mjs"
 
 ```sh
 cd lightsout/fixtures/toy-calc
-node ../../dist/cli.mjs run --plan plans/power.md --cwd .
+node ../../plugin/dist/cli.mjs run --plan plans/power.md --cwd .
 ```
 
 Watch the pipeline run (an agent implements `power`, another writes its tests,
@@ -232,7 +232,7 @@ path today.
 pnpm install
 pnpm check    # typecheck all packages
 pnpm test     # engine test suite (node:test, stub drivers only — no agent calls, no network)
-pnpm bundle   # rebuild dist/cli.mjs — the bundle is COMMITTED; rebuild + commit with any source change
+pnpm bundle   # rebuild plugin/dist/cli.mjs — the bundle is COMMITTED; rebuild + commit with any source change
 ```
 
 Tests live in `packages/engine/tests/`, are bundled by esbuild (the engine
