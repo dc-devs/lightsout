@@ -92,6 +92,13 @@ step is a running commentary, not a silent clock. Watching is read-only by
 design: course-correction belongs to gates, the supervisor, and escalation —
 never to a human whispering mid-step.
 
+Runs also account for what they spend: every agent invocation's token usage
+and cost land in the run's `agents.jsonl` with step provenance, each
+invocation is narrated as it completes (`implement · usage: in 12 · out
+41.2k · cache-read 890k · $0.85`), and the manifest carries the run-wide
+aggregate, printed in the final report. Drivers that report no usage simply
+leave no ledger — the engine records what it can prove, never estimates.
+
 One run at a time per repo: `run` and `resume` take a lock
 (`.lightsout/lock.json`) before touching anything, so a second concurrent
 invocation fails fast instead of fighting the first over the worktree. A lock

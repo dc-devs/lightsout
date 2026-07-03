@@ -14,12 +14,14 @@ import {
 	SupervisorVerdict,
 	WorkReport,
 	WorkReportStatus,
+	type AgentUsage,
 	type LightsoutConfig,
 	type RunManifest,
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { acquireRunLock } from './acquireRunLock';
+import { appendAgentLog } from './appendAgentLog';
 import { appendCommandLog } from './appendCommandLog';
 import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
@@ -46,6 +48,11 @@ const defaultPermissionMode = 'acceptEdits';
 const supervisorPermissionMode = 'plan';
 
 const isTestFilePath = (path: string) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
+
+const formatTokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
+
+const formatUsage = (usage: AgentUsage) =>
+	`in ${formatTokens(usage.inputTokens)} · out ${formatTokens(usage.outputTokens)} · cache-read ${formatTokens(usage.cacheReadTokens)} · $${usage.costUsd.toFixed(2)}`;
 
 /**
  * Only the JS/TS family earns agent turns (test writers, refactor review) —
@@ -129,8 +136,44 @@ const executePipeline = async ({
 			baselineDirtyFiles: await readGitChangedFiles({ cwd }),
 		}));
 
+	// Run-wide usage aggregate, seeded from the manifest on resume so totals
+	// survive process boundaries. Mutated by recordAgentUsage (below) and
+	// stamped into every manifest write. agents.jsonl holds the per-invocation
+	// ledger; this is just the sum.
+	const usageTotals = {
+		invocations: 0,
+		inputTokens: 0,
+		outputTokens: 0,
+		cacheReadTokens: 0,
+		cacheCreationTokens: 0,
+		costUsd: 0,
+		...manifest.usage,
+	};
+
 	const update = async (patch: Partial<RunManifest>) => {
-		manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch } });
+		const usage = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
+
+		manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage } });
+	};
+
+	const recordAgentUsage = async ({ step, usage }: { step: string; usage?: AgentUsage }) => {
+		if (!usage) {
+			return;
+		}
+
+		usageTotals.invocations += 1;
+		usageTotals.inputTokens += usage.inputTokens;
+		usageTotals.outputTokens += usage.outputTokens;
+		usageTotals.cacheReadTokens += usage.cacheReadTokens;
+		usageTotals.cacheCreationTokens += usage.cacheCreationTokens;
+		usageTotals.costUsd += usage.costUsd;
+
+		await appendAgentLog({
+			cwd,
+			runId: manifest.runId,
+			record: { at: new Date().toISOString(), step, model: config.model, ...usage },
+		});
+		progress(`  ${step} · usage: ${formatUsage(usage)}`);
 	};
 
 	const setStep = async ({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }) => {
@@ -274,8 +317,8 @@ const executePipeline = async ({
 			progress(`step ${step}: agent final message failed the report contract — raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
 		};
 
-	const invokeRole = (invocation: { systemPrompt: string; prompt: string }, step: string) =>
-		invokeAgentWithContract({
+	const invokeRole = async (invocation: { systemPrompt: string; prompt: string }, step: string) => {
+		const outcome = await invokeAgentWithContract({
 			driver,
 			cwd,
 			invocation,
@@ -289,6 +332,11 @@ const executePipeline = async ({
 			onEvent: agentEventSink(step),
 			onRejectedOutput: persistRejected(step),
 		});
+
+		await recordAgentUsage({ step, usage: outcome.usage });
+
+		return outcome;
+	};
 
 	/** Map a changed file to its package directory, or undefined for root-group files. */
 	const packageOf = (file: string) => {
@@ -464,6 +512,8 @@ const executePipeline = async ({
 					onEvent: agentEventSink(`${id}-supervisor`),
 					onRejectedOutput: persistRejected(`${id}-supervisor`),
 				});
+
+				await recordAgentUsage({ step: `${id}-supervisor`, usage: verdict.usage });
 
 				if (verdict.rateLimited) {
 					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });

@@ -13,7 +13,18 @@ const ResultEnvelope = z.object({
 	is_error: z.boolean().optional(),
 });
 
-const ResultEvent = ResultEnvelope.extend({ type: z.literal('result') });
+const ResultEvent = ResultEnvelope.extend({
+	type: z.literal('result'),
+	usage: z
+		.object({
+			input_tokens: z.number().optional(),
+			output_tokens: z.number().optional(),
+			cache_read_input_tokens: z.number().optional(),
+			cache_creation_input_tokens: z.number().optional(),
+		})
+		.optional(),
+	total_cost_usd: z.number().optional(),
+});
 
 /** Fallback for non-stream output (`--output-format json`): the whole stdout is one envelope. */
 const parseEnvelope = ({ stdout }: { stdout: string }) => {
@@ -115,11 +126,22 @@ export const createClaudeCodeDriver = () => {
 			const envelope = resultEvent ?? parseEnvelope({ stdout });
 			const text = envelope?.result ?? stdout ?? '';
 			const errored = envelope?.is_error === true || exitCode !== 0;
+			const usage =
+				resultEvent && (resultEvent.usage || resultEvent.total_cost_usd !== undefined)
+					? {
+							inputTokens: resultEvent.usage?.input_tokens ?? 0,
+							outputTokens: resultEvent.usage?.output_tokens ?? 0,
+							cacheReadTokens: resultEvent.usage?.cache_read_input_tokens ?? 0,
+							cacheCreationTokens: resultEvent.usage?.cache_creation_input_tokens ?? 0,
+							costUsd: resultEvent.total_cost_usd ?? 0,
+						}
+					: undefined;
 
 			return {
 				text: text || stderr,
 				exitCode,
 				rateLimited: errored && rateLimitPattern.test(`${text}\n${stderr}`),
+				usage,
 			};
 		},
 	};

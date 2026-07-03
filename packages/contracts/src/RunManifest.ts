@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { LightsoutConfig } from './LightsoutConfig';
 import { PackagesSource } from './PackagesSource';
 import { RunStatus } from './RunStatus';
+import { RunUsage } from './RunUsage';
 import { StepRecord } from './StepRecord';
 
 /**
@@ -41,6 +42,11 @@ export const RunManifest = z.object({
 	packages: z.array(z.string()).default([]),
 	/** Where the initial package scope came from — recorded so a derived scope is never mistaken for a declared one. */
 	packagesSource: z.enum(PackagesSource).optional(),
+	/**
+	 * Aggregate agent usage across the whole run (per-invocation detail lives
+	 * in the run dir's `agents.jsonl`). Absent for drivers reporting nothing.
+	 */
+	usage: RunUsage.optional(),
 	/**
 	 * Paths already dirty/untracked in git when the run started. Subtracted
 	 * from every git snapshot so only files the RUN changed are attributed to

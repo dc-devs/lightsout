@@ -7,7 +7,7 @@ var __export = (target, all) => {
 // packages/cli/src/index.ts
 import { existsSync } from "node:fs";
 import { readdir as readdir2 } from "node:fs/promises";
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -14632,6 +14632,20 @@ var PackagesSource = {
   PlanPaths: "plan-paths"
 };
 
+// packages/contracts/src/AgentUsage.ts
+var AgentUsage = external_exports.object({
+  inputTokens: external_exports.number(),
+  outputTokens: external_exports.number(),
+  cacheReadTokens: external_exports.number(),
+  cacheCreationTokens: external_exports.number(),
+  costUsd: external_exports.number()
+});
+
+// packages/contracts/src/RunUsage.ts
+var RunUsage = AgentUsage.extend({
+  invocations: external_exports.number()
+});
+
 // packages/contracts/src/StepRecord.ts
 var StepRecord = external_exports.object({
   id: external_exports.string(),
@@ -14673,6 +14687,11 @@ var RunManifest = external_exports.object({
   packages: external_exports.array(external_exports.string()).default([]),
   /** Where the initial package scope came from — recorded so a derived scope is never mistaken for a declared one. */
   packagesSource: external_exports.enum(PackagesSource).optional(),
+  /**
+   * Aggregate agent usage across the whole run (per-invocation detail lives
+   * in the run dir's `agents.jsonl`). Absent for drivers reporting nothing.
+   */
+  usage: RunUsage.optional(),
   /**
    * Paths already dirty/untracked in git when the run started. Subtracted
    * from every git snapshot so only files the RUN changed are attributed to
@@ -14825,7 +14844,16 @@ var ResultEnvelope = external_exports.object({
   result: external_exports.string().optional(),
   is_error: external_exports.boolean().optional()
 });
-var ResultEvent = ResultEnvelope.extend({ type: external_exports.literal("result") });
+var ResultEvent = ResultEnvelope.extend({
+  type: external_exports.literal("result"),
+  usage: external_exports.object({
+    input_tokens: external_exports.number().optional(),
+    output_tokens: external_exports.number().optional(),
+    cache_read_input_tokens: external_exports.number().optional(),
+    cache_creation_input_tokens: external_exports.number().optional()
+  }).optional(),
+  total_cost_usd: external_exports.number().optional()
+});
 var parseEnvelope = ({ stdout }) => {
   try {
     return ResultEnvelope.parse(JSON.parse(stdout));
@@ -14884,11 +14912,19 @@ var createClaudeCodeDriver = () => {
       const envelope = resultEvent ?? parseEnvelope({ stdout });
       const text = envelope?.result ?? stdout ?? "";
       const errored = envelope?.is_error === true || exitCode !== 0;
+      const usage2 = resultEvent && (resultEvent.usage || resultEvent.total_cost_usd !== void 0) ? {
+        inputTokens: resultEvent.usage?.input_tokens ?? 0,
+        outputTokens: resultEvent.usage?.output_tokens ?? 0,
+        cacheReadTokens: resultEvent.usage?.cache_read_input_tokens ?? 0,
+        cacheCreationTokens: resultEvent.usage?.cache_creation_input_tokens ?? 0,
+        costUsd: resultEvent.total_cost_usd ?? 0
+      } : void 0;
       return {
         text: text || stderr,
         exitCode,
         rateLimited: errored && rateLimitPattern.test(`${text}
-${stderr}`)
+${stderr}`),
+        usage: usage2
       };
     }
   };
@@ -15276,8 +15312,8 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
 
 // packages/engine/src/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { appendFile as appendFile3, mkdir as mkdir5, readFile as readFile7, writeFile as writeFile3 } from "node:fs/promises";
-import { join as join11 } from "node:path";
+import { appendFile as appendFile4, mkdir as mkdir6, readFile as readFile7, writeFile as writeFile3 } from "node:fs/promises";
+import { join as join12 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
@@ -15473,27 +15509,37 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
   };
 };
 
-// packages/engine/src/appendCommandLog.ts
+// packages/engine/src/appendAgentLog.ts
 import { appendFile, mkdir as mkdir3 } from "node:fs/promises";
 import { join as join8 } from "node:path";
-var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
+var appendAgentLog = async ({ cwd, runId, record: record2 }) => {
   const dir = getRunDir({ cwd, runId });
   await mkdir3(dir, { recursive: true });
-  await appendFile(join8(dir, "commands.jsonl"), `${JSON.stringify(record2)}
+  await appendFile(join8(dir, "agents.jsonl"), `${JSON.stringify(record2)}
+`, "utf8");
+};
+
+// packages/engine/src/appendCommandLog.ts
+import { appendFile as appendFile2, mkdir as mkdir4 } from "node:fs/promises";
+import { join as join9 } from "node:path";
+var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
+  const dir = getRunDir({ cwd, runId });
+  await mkdir4(dir, { recursive: true });
+  await appendFile2(join9(dir, "commands.jsonl"), `${JSON.stringify(record2)}
 `, "utf8");
 };
 
 // packages/engine/src/appendFriction.ts
-import { appendFile as appendFile2, mkdir as mkdir4 } from "node:fs/promises";
-import { join as join9 } from "node:path";
+import { appendFile as appendFile3, mkdir as mkdir5 } from "node:fs/promises";
+import { join as join10 } from "node:path";
 var appendFriction = async ({ cwd, runId, step, friction }) => {
   if (friction.length === 0) {
     return;
   }
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir4(join9(cwd, ".lightsout"), { recursive: true });
-  await appendFile2(join9(cwd, ".lightsout", "friction.jsonl"), `${lines}
+  await mkdir5(join10(cwd, ".lightsout"), { recursive: true });
+  await appendFile3(join10(cwd, ".lightsout", "friction.jsonl"), `${lines}
 `, "utf8");
 };
 
@@ -15542,6 +15588,18 @@ var invokeAgentWithContract = async ({
 }) => {
   let lastFailure = "no attempts made";
   let rejected;
+  let usage2;
+  const addUsage = (attempt) => {
+    if (!attempt) {
+      return;
+    }
+    usage2 = usage2 ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
+    usage2.inputTokens += attempt.inputTokens;
+    usage2.outputTokens += attempt.outputTokens;
+    usage2.cacheReadTokens += attempt.cacheReadTokens;
+    usage2.cacheCreationTokens += attempt.cacheCreationTokens;
+    usage2.costUsd += attempt.costUsd;
+  };
   for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
     const active = rejected ? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt } : invocation;
     let result;
@@ -15558,25 +15616,26 @@ var invokeAgentWithContract = async ({
       });
     } catch (error51) {
       const message = error51 instanceof Error ? error51.message : String(error51);
-      return { report: void 0, failure: `agent invocation failed: ${message}`, rateLimited: false };
+      return { report: void 0, failure: `agent invocation failed: ${message}`, rateLimited: false, usage: usage2 };
     }
+    addUsage(result.usage);
     if (result.rateLimited) {
-      return { report: void 0, failure: "harness rate limit reached", rateLimited: true };
+      return { report: void 0, failure: "harness rate limit reached", rateLimited: true, usage: usage2 };
     }
     const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
     if (parsed.success) {
-      return { report: parsed.data, failure: void 0, rateLimited: false };
+      return { report: parsed.data, failure: void 0, rateLimited: false, usage: usage2 };
     }
     lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
     await onRejectedOutput?.({ text: result.text, attempt, validationError: parsed.error.message });
     rejected = { rejectedText: result.text, validationError: parsed.error.message };
   }
-  return { report: void 0, failure: lastFailure, rateLimited: false };
+  return { report: void 0, failure: lastFailure, rateLimited: false, usage: usage2 };
 };
 
 // packages/engine/src/readStandards.ts
 import { readFile as readFile6 } from "node:fs/promises";
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nThis document outlines universal architectural decisions and patterns that apply across this codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible to everyone); folder-level boundaries are a convention the consuming repo may additionally enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (the default):** a single file holding one exported item plus any non-exported private helpers. The compiler enforces the boundary for free. Examples: a utility function, a small class, a hook.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file concepts and start as folder-modules.\n\n**The graduation trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a concept that fits in one file.\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals (lint-enforced)\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` next to a file marks it as a public boundary; internals under a module's `common/` have no test files of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module, each with its own boundary.\n\n## Functional vs Class-Based Approaches\n\n**Default Preference: Functional Approach**\n\nPrefer functions by default \u2014 they are simpler, more testable, and easier to reason about. Create a class **if and only if at least one** of these is true:\n\n- **Mutable state persists across method calls** (a cache, a connection, accumulated data)\n- **3+ operations share injected config/dependencies** (the constructor injects once; every method uses them)\n- **Multiple implementations of a shared interface** (polymorphism is the design)\n- **The framework requires it** (e.g., NestJS DI)\n\nStatic-only classes are banned \u2014 they are modules wearing costumes. See [classes.md](../../fdrop:code:style-guide/references/patterns/classes.md#when-to-use-a-class--the-bright-line) for the full rule and examples.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder. Each package's architecture doc defines the concrete hierarchy for that package \u2014 defer to those for specific scope rules.\n\nWhen creating or extracting shared code, follow these principles:\n\n1. **First:** Search if it already exists in `common/` at any level\n    - If found \u2192 **use the existing implementation**\n\n2. **Second:** If not found, start local and promote later\n    - It's easier to move code up when reuse is proven\n    - Premature generalization creates unused abstractions\n\n**Additional rules:**\n\n- Import granularity follows the module boundary rule (see [module-api.md](../../fdrop:code:style-guide/references/structure/module-api.md#module-boundaries)): **within your own module, deep-import the specific file** (`from '@/common/utils/formatDate'`); **across a module boundary, import the module's `index.ts` only**. Never import from a package-root barrel like `@common`.\n- If your project doesn't use path aliases, use relative paths consistently\n\n## File Naming Conventions\n\n**Files** follow the rule in the style guide's [file-naming doc](../../fdrop:code:style-guide/references/conventions/file-naming.md): the filename matches the export name including its casing (camelCase exports \u2192 camelCase files, PascalCase exports \u2192 PascalCase files), with framework mandates overriding.\n\n**Folders** follow the rule in [folder-structure.md](./folder-structure.md#folder-naming): container and category folders are `camelCase`; a folder that graduated from a single class or component takes that item's PascalCase name; framework mandates (e.g., NestJS, URL-mapped routes) override.\n\nPackages with their own architecture docs may define their own conventions \u2014 defer to those docs where they diverge.\n\n## Test File Placement\n\nTest files live adjacent to the file they test \u2014 not in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\n**Don't create functions that only rename parameters or add no meaningful abstraction.**\n\n```typescript\n// \u274C BAD: Thin wrapper that adds no value\nexport const buildBrowserLabel = ({ browser, browserVersion }) => {\n	return buildVersionedLabel({ name: browser, version: browserVersion });\n};\n\n// \u2705 GOOD: Just use the underlying function directly\nconst browserLabel = buildVersionedLabel({\n	name: visitorSession.browser,\n	version: visitorSession.browserVersion,\n});\n```\n\n**Why this is bad:**\n\n- Adds unnecessary indirection (more files to navigate)\n- Makes refactoring harder (more files to update)\n- Creates cognitive overhead (readers must trace through layers)\n- Violates DRY by duplicating the function signature\n\n**When a wrapper IS justified:**\n\n- It adds meaningful validation or transformation\n- It provides a significantly simpler API for a complex underlying function\n- It handles error cases or provides defaults\n\n### Unused Code\n\n**Delete unused exports, interfaces, types, and functions immediately.**\n\n- Don't leave dead code \"just in case\" \u2014 version control has history\n- Unused code creates confusion about what's actually used\n- It adds maintenance burden and clutters search results\n- If you're unsure if something is used, search the codebase before deciding\n\n### Premature Abstraction\n\n**Don't create abstractions for hypothetical future use cases.**\n\n- Wait until you have 2\u20133 concrete uses before abstracting\n- The \"right\" abstraction becomes clear with real usage patterns\n- Wrong abstractions are worse than duplication\n\n### Type Alias Indirection\n\n**Don't create separate files just to alias another type.**\n\n**FilterOptions.ts**\n\n```typescript\n// \u274C BAD: Unnecessary alias file\nexport type FilterOptions = TableFilterState;\n\n// \u2705 GOOD: Use the original type directly\nimport type { TableFilterState } from './TableFilterState';\n```\n\nIf semantic distinction is important, add a comment at the usage site instead of creating indirection.\n\n### Circular Dependencies\n\nModule A imports Module B which imports Module A. This creates fragile load-order dependencies and breaks tree-shaking.\n\n```typescript\n// \u274C BAD: order.ts imports customer.ts which imports order.ts\n// order.ts\nimport { Customer } from './customer';\nexport const getOrderSummary = (order: Order) => ({ ...order, customer: getCustomerName(order.customerId) });\nexport type Order = { id: string; customerId: string };\n\n// customer.ts\nimport { Order } from './order'; // circular!\nexport const getCustomerName = (id: string) => { /* ... */ };\nexport const getCustomerOrders = (customer: Customer): Order[] => { /* ... */ };\n\n// \u2705 GOOD: Extract shared type to a third module\n// types.ts\nexport type Order = { id: string; customerId: string };\n\n// order.ts\nimport type { Order } from './types';\nimport { getCustomerName } from './customer';\n\n// customer.ts\nimport type { Order } from './types';\n```\n\n**How to fix:**\n\n- Extract the shared code into a third module that both can import\n- Use dependency injection to break the cycle\n- Restructure to follow the code placement hierarchy (promote shared code to `common/`)\n\n### Duplicated Patterns & Logic\n\nIf the same pattern or logic exists in 2+ files, extract it to a shared location following the Code Placement Philosophy.\n\nCommon signs of duplication:\n\n- Loading/error/data state handling repeated across components\n- Validation logic copied between forms or files\n- Repeated data transformations or API call patterns\n- Generic named constants (e.g., a `SortDirection` union with `Asc`/`Desc`) duplicated across features \u2014 these belong in `src/common/constants/`\n\n**Where to place:** Start at the lowest common ancestor `common/` folder. Create a shared utility, hook, or component as appropriate.\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single path other modules import through, and how the boundary created by the [graduation rule](#modules--the-graduation-rule) becomes real. The barrel rules (named re-exports, one export per line, deliberate public surface) are defined once in [module-api.md](../../fdrop:code:style-guide/references/structure/module-api.md#barrel-files).\n\nPackage-specific additions (e.g., import alias conventions in re-export paths) are documented in each package's architecture doc.\n";
@@ -15731,8 +15790,8 @@ var readStandards = async ({ cwd, paths }) => {
       if (bundled) {
         return bundled;
       }
-      const raw = await readFile6(join10(cwd, path), "utf8").catch(() => {
-        throw new Error(`standards file not found: ${join10(cwd, path)}`);
+      const raw = await readFile6(join11(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join11(cwd, path)}`);
       });
       return `<!-- ${path} -->
 ${raw}`;
@@ -15873,6 +15932,8 @@ var testWriterConcurrency = 5;
 var defaultPermissionMode = "acceptEdits";
 var supervisorPermissionMode = "plan";
 var isTestFilePath = (path) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
+var formatTokens = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
+var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
 var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
 var upsertStep = ({ steps, record: record2 }) => {
   const existing = steps.findIndex((step) => step.id === record2.id);
@@ -15903,8 +15964,35 @@ var executePipeline = async ({
     config: config2,
     baselineDirtyFiles: await readGitChangedFiles({ cwd })
   });
+  const usageTotals = {
+    invocations: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+    costUsd: 0,
+    ...manifest.usage
+  };
   const update = async (patch) => {
-    manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch } });
+    const usage2 = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
+    manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage: usage2 } });
+  };
+  const recordAgentUsage = async ({ step, usage: usage2 }) => {
+    if (!usage2) {
+      return;
+    }
+    usageTotals.invocations += 1;
+    usageTotals.inputTokens += usage2.inputTokens;
+    usageTotals.outputTokens += usage2.outputTokens;
+    usageTotals.cacheReadTokens += usage2.cacheReadTokens;
+    usageTotals.cacheCreationTokens += usage2.cacheCreationTokens;
+    usageTotals.costUsd += usage2.costUsd;
+    await appendAgentLog({
+      cwd,
+      runId: manifest.runId,
+      record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, model: config2.model, ...usage2 }
+    });
+    progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
   };
   const setStep = async ({ record: record2, patch }) => {
     await update({ ...patch, currentStep: record2.id, steps: upsertStep({ steps: manifest.steps, record: record2 }) });
@@ -15916,20 +16004,20 @@ var executePipeline = async ({
     return stopped;
   };
   const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile7(join11(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const planContent = await readFile7(join12(cwd, manifest.plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `plan file not found: ${join11(cwd, manifest.plan)}`
+      error: `plan file not found: ${join12(cwd, manifest.plan)}`
     });
   }
-  const overviewContent = manifest.overview ? await readFile7(join11(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
+  const overviewContent = manifest.overview ? await readFile7(join12(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
   if (manifest.overview && overviewContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `overview file not found: ${join11(cwd, manifest.overview)}`
+      error: `overview file not found: ${join12(cwd, manifest.overview)}`
     });
   }
   const standardsPaths = config2.standards === false ? [] : config2.standards ?? ["lightsout:code-defaults"];
@@ -15976,11 +16064,11 @@ var executePipeline = async ({
   let transcriptCount = 0;
   const agentEventSink = (step) => {
     transcriptCount += 1;
-    const dir = join11(getRunDir({ cwd, runId: manifest.runId }), "agents");
-    const path = join11(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
-    let tail = mkdir5(dir, { recursive: true });
+    const dir = join12(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const path = join12(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    let tail = mkdir6(dir, { recursive: true });
     return (event) => {
-      tail = tail.then(() => appendFile3(path, `${JSON.stringify(event)}
+      tail = tail.then(() => appendFile4(path, `${JSON.stringify(event)}
 `, "utf8")).catch(() => void 0);
       const described = describeAgentEvent({ event });
       if (described) {
@@ -15991,29 +16079,33 @@ var executePipeline = async ({
   let rejectedCount = 0;
   const persistRejected = (step) => async ({ text, attempt, validationError }) => {
     rejectedCount += 1;
-    const dir = join11(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const dir = join12(getRunDir({ cwd, runId: manifest.runId }), "agents");
     const name = `rejected-${String(rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
-    await mkdir5(dir, { recursive: true });
-    await writeFile3(join11(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+    await mkdir6(dir, { recursive: true });
+    await writeFile3(join12(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
 # validation: ${validationError}
 
 ${text}`, "utf8");
     progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
   };
-  const invokeRole = (invocation, step) => invokeAgentWithContract({
-    driver,
-    cwd,
-    invocation,
-    contract: WorkReport,
-    model: config2.model,
-    permissionMode: config2.permissionMode ?? defaultPermissionMode,
-    timeoutMs: agentTimeoutMs,
-    // Harness-level allowance for all working roles; the binding grant
-    // is the prompt section, which only the executor's builder emits.
-    allowedCommands: config2.agentCommands,
-    onEvent: agentEventSink(step),
-    onRejectedOutput: persistRejected(step)
-  });
+  const invokeRole = async (invocation, step) => {
+    const outcome = await invokeAgentWithContract({
+      driver,
+      cwd,
+      invocation,
+      contract: WorkReport,
+      model: config2.model,
+      permissionMode: config2.permissionMode ?? defaultPermissionMode,
+      timeoutMs: agentTimeoutMs,
+      // Harness-level allowance for all working roles; the binding grant
+      // is the prompt section, which only the executor's builder emits.
+      allowedCommands: config2.agentCommands,
+      onEvent: agentEventSink(step),
+      onRejectedOutput: persistRejected(step)
+    });
+    await recordAgentUsage({ step, usage: outcome.usage });
+    return outcome;
+  };
   const packageOf = (file2) => {
     const prefix = `${packagesDir}/`;
     if (!file2.startsWith(prefix)) {
@@ -16126,6 +16218,7 @@ ${text}`, "utf8");
           onEvent: agentEventSink(`${id}-supervisor`),
           onRejectedOutput: persistRejected(`${id}-supervisor`)
         });
+        await recordAgentUsage({ step: `${id}-supervisor`, usage: verdict.usage });
         if (verdict.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
         }
@@ -16421,9 +16514,9 @@ var runImplementPipeline = async (params) => {
 
 // packages/engine/src/readFriction.ts
 import { readFile as readFile8 } from "node:fs/promises";
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var readFriction = async ({ cwd }) => {
-  const raw = await readFile8(join12(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+  const raw = await readFile8(join13(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
   return raw.split("\n").filter(Boolean).flatMap((line) => {
     try {
       const parsed = FrictionRecord.safeParse(JSON.parse(line));
@@ -16436,7 +16529,7 @@ var readFriction = async ({ cwd }) => {
 
 // packages/engine/src/runPromptImprovement.ts
 import { readdir } from "node:fs/promises";
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -16444,8 +16537,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir(join13(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join13(promptsDir, file2));
+  const files = await readdir(join14(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join14(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -16569,8 +16662,15 @@ run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
     console.log(`  package scope: ${manifest.packages.join(", ")}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ""}`);
   }
   console.log(`  command log: .lightsout/runs/${manifest.runId}/commands.jsonl`);
-  if (existsSync(join14(cwd, ".lightsout", "runs", manifest.runId, "agents"))) {
+  if (existsSync(join15(cwd, ".lightsout", "runs", manifest.runId, "agents"))) {
     console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
+  }
+  if (manifest.usage && manifest.usage.invocations > 0) {
+    const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = manifest.usage;
+    const tokens2 = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
+    console.log(
+      `  agent usage: ${invocations} invocation(s) \xB7 in ${tokens2(inputTokens)} \xB7 out ${tokens2(outputTokens)} \xB7 cache-read ${tokens2(cacheReadTokens)} \xB7 $${costUsd.toFixed(2)}`
+    );
   }
   if (manifest.changedFiles.length > 0) {
     console.log("  changed files:");
@@ -16644,7 +16744,7 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join14(cwd, ".lightsout", "runs");
+    const runsDir = join15(cwd, ".lightsout", "runs");
     const runIds = await readdir2(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");

@@ -184,7 +184,19 @@ defaults — was written for a world where prose had to convince an
 unenforced agent. The gate enforces now; cut it. Task 6 measures the
 before/after token weight.
 
-### Task 6: Token/cost accounting per run
+### Task 6: Token/cost accounting per run — DONE
+
+Result: driver normalizes the stream result event's usage
+(input/output/cache tokens + total_cost_usd, fields verified live against
+claude 2.1.200; codex reports nothing and leaves no ledger);
+invokeAgentWithContract sums usage across re-emit retries; every
+invocation appends to the run's `agents.jsonl` with step provenance and is
+narrated live (`implement · usage: in 12 · out 41.2k · cache-read 890k ·
+$0.85`); the manifest carries the run-wide `usage` aggregate (seeded on
+resume, so totals survive process boundaries) and the CLI prints it in
+the final report. 68/68 tests (re-emit summing; ledger + aggregate +
+narration; no-usage driver leaves nothing); live smoke green. Task 5's
+measurement instrument is now in place.
 
 Runs spend the user's subscription invisibly. Capture per-invocation usage
 and make cost a first-class part of the audit trail:

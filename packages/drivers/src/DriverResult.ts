@@ -9,4 +9,12 @@ export interface DriverResult {
 	 * pausable state, so a false negative degrades to a normal failure.
 	 */
 	rateLimited?: boolean;
+	/** Token/cost usage from the harness's result envelope, normalized. Omitted by drivers that report nothing. */
+	usage?: {
+		inputTokens: number;
+		outputTokens: number;
+		cacheReadTokens: number;
+		cacheCreationTokens: number;
+		costUsd: number;
+	};
 }

@@ -161,6 +161,15 @@ const printResult = ({ result, cwd }: { result: PipelineResult; cwd: string }) =
 		console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
 	}
 
+	if (manifest.usage && manifest.usage.invocations > 0) {
+		const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = manifest.usage;
+		const tokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
+
+		console.log(
+			`  agent usage: ${invocations} invocation(s) · in ${tokens(inputTokens)} · out ${tokens(outputTokens)} · cache-read ${tokens(cacheReadTokens)} · $${costUsd.toFixed(2)}`,
+		);
+	}
+
 	if (manifest.changedFiles.length > 0) {
 		console.log('  changed files:');
 

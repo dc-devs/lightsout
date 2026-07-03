@@ -46,6 +46,23 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	let lastFailure = 'no attempts made';
 	let rejected: { rejectedText: string; validationError: string } | undefined;
 
+	// Summed across every attempt — a re-emit retry costs tokens too, and the
+	// caller accounts per role invocation, not per process spawn.
+	let usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; costUsd: number } | undefined;
+
+	const addUsage = (attempt: NonNullable<typeof usage> | undefined) => {
+		if (!attempt) {
+			return;
+		}
+
+		usage = usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
+		usage.inputTokens += attempt.inputTokens;
+		usage.outputTokens += attempt.outputTokens;
+		usage.cacheReadTokens += attempt.cacheReadTokens;
+		usage.cacheCreationTokens += attempt.cacheCreationTokens;
+		usage.costUsd += attempt.costUsd;
+	};
+
 	for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
 		const active = rejected
 			? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt }
@@ -71,17 +88,19 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 			// the cost of learning the ceiling is too low.
 			const message = error instanceof Error ? error.message : String(error);
 
-			return { report: undefined, failure: `agent invocation failed: ${message}`, rateLimited: false };
+			return { report: undefined, failure: `agent invocation failed: ${message}`, rateLimited: false, usage };
 		}
 
+		addUsage(result.usage);
+
 		if (result.rateLimited) {
-			return { report: undefined, failure: 'harness rate limit reached', rateLimited: true };
+			return { report: undefined, failure: 'harness rate limit reached', rateLimited: true, usage };
 		}
 
 		const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
 
 		if (parsed.success) {
-			return { report: parsed.data as z.infer<Contract>, failure: undefined, rateLimited: false };
+			return { report: parsed.data as z.infer<Contract>, failure: undefined, rateLimited: false, usage };
 		}
 
 		lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
@@ -89,5 +108,5 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 		rejected = { rejectedText: result.text, validationError: parsed.error.message };
 	}
 
-	return { report: undefined, failure: lastFailure, rateLimited: false };
+	return { report: undefined, failure: lastFailure, rateLimited: false, usage };
 };
