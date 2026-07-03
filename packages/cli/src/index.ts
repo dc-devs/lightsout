@@ -63,10 +63,24 @@ const getStringFlag = ({ flags, name }: { flags: Map<string, string | true>; nam
 	return typeof value === 'string' ? value : undefined;
 };
 
+const describeStandards = ({ value, token }: { value: string[] | false | undefined; token: string }) => {
+	if (value === false) {
+		return 'none (explicit)';
+	}
+
+	if (value === undefined) {
+		return `lightsout js defaults (none configured — set to false to disable, or list files/${token})`;
+	}
+
+	return value.join(', ');
+};
+
 const printRunHeader = ({ config, driver, cwd }: { config: LightsoutConfig; driver: Driver; cwd: string }) => {
 	const coverage = config.scripts.testCoverage === false ? 'off (explicit)' : config.scripts.testCoverage;
 
 	console.log(`  cwd: ${cwd}`);
+	console.log(`  standards: ${describeStandards({ value: config.standards, token: 'lightsout:code-defaults' })}`);
+	console.log(`  test standards: ${describeStandards({ value: config.testStandards, token: 'lightsout:test-defaults' })}`);
 	console.log(
 		`  driver: ${driver.name} · model: ${config.model ?? 'harness default'} · permissions: ${config.permissionMode ?? 'acceptEdits'}`,
 	);

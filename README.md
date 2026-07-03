@@ -161,8 +161,8 @@ shrinks). Files outside `packagesDir` re-activate the whole-repo `scripts.*`
 as a "root group". Tip: use a dependents filter in the templates
 (`pnpm --filter ...{package}`) to also verify packages that depend on the
 changed ones — the blast radius lives in your template, not in the engine.
-| `standards` | no | Markdown files inlined as binding rules for code-writing agents. A declared-but-missing file is a hard error. |
-| `testStandards` | no | Same, for the test-writer agent |
+| `standards` | no | Standards for code-writing agents. **Unspecified = the engine's bundled JS/TS defaults load** (announced in the run header). `false` = explicitly none. An array = exactly these: repo-relative markdown files (missing = hard error) and/or the token `lightsout:code-defaults` to stack the bundled defaults with repo extras. |
+| `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
 | `driver` | no | `claude-code` (default) or `codex` |
 | `model` | no | Model override passed through to the harness |
 | `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |

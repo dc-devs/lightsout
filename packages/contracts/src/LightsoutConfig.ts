@@ -75,10 +75,16 @@ export const LightsoutConfig = z.object({
 			message: 'every packageScripts command must contain the {package} placeholder — a command without it would run identically for every package and belongs in scripts.* instead',
 		})
 		.optional(),
-	/** Repo-relative markdown files inlined as binding standards for code-writing roles (executor, refactorer). A missing file is a hard error. */
-	standards: z.array(z.string()).optional(),
-	/** Same, for the test-writer role. */
-	testStandards: z.array(z.string()).optional(),
+	/**
+	 * Standards for code-writing roles (executor, refactorer). Unspecified =
+	 * the engine's bundled JS/TS defaults load (announced in the run header);
+	 * `false` = explicitly none; an array = exactly these, where each entry
+	 * is a repo-relative markdown file (missing = hard error) or the token
+	 * `lightsout:code-defaults` to stack the bundled defaults with extras.
+	 */
+	standards: z.union([z.array(z.string()), z.literal(false)]).optional(),
+	/** Same, for the test-writer role (token: `lightsout:test-defaults`). */
+	testStandards: z.union([z.array(z.string()), z.literal(false)]).optional(),
 });
 
 export type LightsoutConfig = z.infer<typeof LightsoutConfig>;

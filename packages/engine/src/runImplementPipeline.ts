@@ -161,12 +161,17 @@ export const runImplementPipeline = async ({
 		});
 	}
 
+	// Unspecified standards = the bundled defaults (announced, never silent);
+	// `false` = explicitly none; an array = exactly what it says.
+	const standardsPaths = config.standards === false ? [] : (config.standards ?? ['lightsout:code-defaults']);
+	const testStandardsPaths = config.testStandards === false ? [] : (config.testStandards ?? ['lightsout:test-defaults']);
+
 	let standards: string | undefined;
 	let testStandards: string | undefined;
 
 	try {
-		standards = await readStandards({ cwd, paths: config.standards ?? [] });
-		testStandards = await readStandards({ cwd, paths: config.testStandards ?? [] });
+		standards = await readStandards({ cwd, paths: standardsPaths });
+		testStandards = await readStandards({ cwd, paths: testStandardsPaths });
 	} catch (error) {
 		return stop({
 			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },

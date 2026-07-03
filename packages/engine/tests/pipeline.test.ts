@@ -110,8 +110,8 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	);
 	assert.equal(prompts['write-tests']?.length, 2, 'one writer per JS/TS file — the .tf earned no writer');
 	assert.ok(
-		prompts['write-tests']?.every((prompt) => (prompt.match(/^- /gm) ?? []).length === 1),
-		'each writer got exactly one file',
+		prompts['write-tests']?.every((prompt) => (prompt.split('# Plan')[0]?.match(/^- /gm) ?? []).length === 1),
+		'each writer got exactly one file in its target list',
 	);
 	assert.ok(result.manifest.changedFiles.includes('src/infra.tf'), 'the .tf is still tracked as changed');
 	assert.ok(!prompts['refactor']?.[0]?.includes('src/infra.tf'), 'refactor review list is JS/TS only');
@@ -506,6 +506,38 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 		commands.every((entry, index) => entry['kind'] !== 'check' || commands.slice(0, index).some((prior) => prior['kind'] === 'generate')),
 		'every check is preceded by a generate',
 	);
+});
+
+test('standards default on when unspecified; false switches them off explicitly', async () => {
+	const run = async ({ config }: { config: Record<string, unknown> }) => {
+		const dir = setupConsumerRepo({ config });
+		let implementPrompt = '';
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'implement') {
+					implementPrompt = prompt;
+
+					return { text: report({ status: 'failed', failures: ['stop early'] }), exitCode: 0 };
+				}
+
+				return { text: report(), exitCode: 0 };
+			},
+		};
+
+		await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+
+		return implementPrompt;
+	};
+
+	const defaulted = await run({ config: {} });
+
+	assert.ok(defaulted.includes('# Standards'), 'unspecified → standards section present');
+	assert.ok(defaulted.includes('One Export Per File'), 'bundled defaults inlined');
+
+	const disabled = await run({ config: { standards: false, testStandards: false } });
+
+	assert.ok(!disabled.includes('# Standards'), 'false → no standards section');
 });
 
 test('missing overview file fails the run before any agent spawns', async () => {

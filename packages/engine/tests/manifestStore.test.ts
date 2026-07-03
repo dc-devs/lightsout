@@ -59,3 +59,17 @@ test('readStandards inlines declared files with their path as provenance', async
 	assert.ok(standards?.includes('RULE-SENTINEL'));
 	assert.ok(standards?.includes('card.md'));
 });
+
+test('readStandards resolves bundled-default tokens and stacks them with files', async () => {
+	const cwd = setupConsumerRepo({ git: false });
+
+	writeFileSync(join(cwd, 'extras.md'), 'EXTRAS-SENTINEL');
+
+	const code = await readStandards({ cwd, paths: ['lightsout:code-defaults', 'extras.md'] });
+	const tests = await readStandards({ cwd, paths: ['lightsout:test-defaults'] });
+
+	assert.ok(code?.includes('One Export Per File'), 'code defaults bundled');
+	assert.ok(code?.includes('lightsout defaults: standards/code/'), 'provenance headers present');
+	assert.ok(code?.includes('EXTRAS-SENTINEL'), 'repo extras stack after the token');
+	assert.ok(tests?.includes('Module Boundary Testing'), 'test defaults bundled');
+});

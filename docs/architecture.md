@@ -89,6 +89,16 @@ Consumer coding standards enter as config, in two forms:
   gate alongside typecheck/tests. Lint errors are just-in-time documentation —
   delivered at the violation, about only the rule violated.
 
+The repo ships default JS/TS standards in `standards/code/` and
+`standards/tests/`, bundled into `dist/cli.mjs` at build time (like the agent
+prompts, so plugin clones carry them). They load when a consumer's config
+says nothing about standards — announced in the run header, never silent —
+and `false` opts out explicitly (the coverage-gate pattern). The reserved
+config tokens `lightsout:code-defaults` / `lightsout:test-defaults` let a
+consumer stack the defaults with repo-specific extras. Regenerate the
+barrels after editing the docs: `node tools/generateStandardsBarrels.mjs`
+then `pnpm bundle`.
+
 ## v0 scope
 
 The **implement pipeline** (v0.6 shape, live):
