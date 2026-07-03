@@ -217,6 +217,49 @@ doing — the observed pain of run #2.
   orchestrator the engine exists to replace; course-correction stays where
   it belongs — gates, supervisor, escalation.
 
+### Task 8: Refactor pipeline (`lightsout refactor`) — DESIGN ONLY, review with the user before any code
+
+(Added 2026-07-03 from the refactor-system discussion. The design below is a
+starting point, NOT approved scope — walk it with the user first.)
+
+Goal: a system that keeps a codebase structurally clean — duplicate
+functions found and abstracted, oversized files/folders split — rinsed and
+repeated until clean, so agent-added features land in a codebase that
+already adheres to a shape. The v1 `refactor-all` skill asked an agent to
+both FIND and fix problems; finding is mostly mechanical. The lightsout
+shape: **detection is code, remediation is agents, verification is gates,
+termination is scanner-clean.**
+
+Pipeline: clean-slate gate → run detector suite → typed findings work-list
+in a run manifest (file, kind, evidence, cluster) → one refactor agent per
+finding-cluster (the per-file test-writer fan-out pattern), each handed a
+specific defect, never "go find problems" → gates per batch → re-scan →
+loop until detectors return empty → test-writer for changed files → final
+verify. Detectors configured per consumer (born generic) with bundled
+JS/TS defaults, like the standards.
+
+Detector suite, duplication as a three-tier ladder:
+1. jscpd — literal/near copy-paste (token-span matching; catches renamed
+   FUNCTIONS with identical bodies, misses systematic identifier renames).
+2. Normalized-AST detector (ours, ~100 lines, TS compiler API): identifiers
+   → placeholders, hash function bodies, compare — catches the renamed tier.
+3. Behavioral duplicates: mechanical candidate-pair generation (signature
+   shape, folder/domain, call-site overlap) → agent judges each bounded
+   pair. Judgment only where judgment is irreplaceable. Ship 1+2 first;
+   hold 3 until they dry out on a real codebase.
+Plus: size/complexity audit (the standards' numeric thresholds run as
+checks), folder census (flag oversized flat folders — packages/engine/src
+is the live specimen and first dogfood target), knip for dead exports.
+
+Related, kept loose per the user: no prescriptive architecture "map" —
+code SHAPE guidance stays light, and placement decisions belong to the
+(future, not yet designed) planning step. Module-boundary lint rules
+(dependency-cruiser) remain a Task 5 option, not a mandate.
+
+Also cheap and independent: give the in-run refactor step's prompt the v1
+refactor-plan audit method (per-file full read, cite the violated rule per
+change, severity ordering) — better changes and better friction data.
+
 ## Rules for all work
 
 - Follow `CLAUDE.md` conventions exactly (one export per file, object params,
