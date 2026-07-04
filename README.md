@@ -186,6 +186,49 @@ bundled ones alongside them.
 | `packagesDir` | no | Workspace packages directory for monorepo mode (default `packages`) |
 | `timeouts.agentMinutes` | no | Ceiling for working agents (executor, test writers, refactorer). Default 60. A hit ceiling is a recorded step failure the run resumes from — never a crash. |
 | `timeouts.supervisorMinutes` | no | Ceiling for the read-only supervisor. Default 15. |
+| `standards` | no | Standards for code-writing agents. **Unspecified = the engine's bundled JS/TS defaults load** (announced in the run header). `false` = explicitly none. An array = exactly these: repo-relative markdown files (missing = hard error) and/or the token `lightsout:code-defaults` to stack the bundled defaults with repo extras. |
+| `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
+| `standardsChannels` | no | Framework channels of the bundled defaults. The base docs always apply; React/Preact and TanStack docs ride along **only when the run's scoped packages actually depend on that framework** (detected from their `package.json` — announced in the run log). Set an array to replace detection (`[]` = base only). A terraform package never pays the React-docs token tax. |
+| `scan.minCloneTokens` | no | Tier-1 clone floor for `lightsout scan` (default 50) — raise for repos with a noisy short-clone tail |
+| `scan.size` | no | Line-cap overrides for the size detector — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; any subset, e.g. `{ "tsxFile": 350 }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. File caps gate runs; function/hook/component caps are advisory. |
+| `driver` | no | `claude-code` (default) or `codex` |
+| `model` | no | Model override passed through to the harness |
+| `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |
+
+Everything together — a maximal config (every optional field set):
+
+```json
+{
+	"driver": "claude-code",
+	"model": "opus",
+	"permissionMode": "acceptEdits",
+	"scripts": {
+		"check": "pnpm typecheck",
+		"testUnit": "pnpm test",
+		"testCoverage": "pnpm test:coverage",
+		"generate": "pnpm prisma:generate",
+		"build": "pnpm build",
+		"format": "pnpm format:write"
+	},
+	"timeouts": { "agentMinutes": 60, "supervisorMinutes": 15 },
+	"agentCommands": ["pnpm --filter api run prisma:migrate:dev:name"],
+	"generated": ["src/generated/", "src/schema.gql"],
+	"packagesDir": "packages",
+	"packageScripts": {
+		"check": "pnpm --filter {package} typecheck",
+		"testUnit": "pnpm --filter {package} test:unit",
+		"testCoverage": "pnpm --filter {package} test:coverage",
+		"build": "pnpm --filter {package} build"
+	},
+	"standards": ["lightsout:code-defaults", "docs/our-extra-rules.md"],
+	"testStandards": ["lightsout:test-defaults"],
+	"standardsChannels": ["react"],
+	"scan": {
+		"minCloneTokens": 70,
+		"size": { "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }
+	}
+}
+```
 
 ### Monorepos
 
@@ -247,13 +290,6 @@ shrinks). Files outside `packagesDir` re-activate the whole-repo `scripts.*`
 as a "root group". Tip: use a dependents filter in the templates
 (`pnpm --filter ...{package}`) to also verify packages that depend on the
 changed ones — the blast radius lives in your template, not in the engine.
-| `standards` | no | Standards for code-writing agents. **Unspecified = the engine's bundled JS/TS defaults load** (announced in the run header). `false` = explicitly none. An array = exactly these: repo-relative markdown files (missing = hard error) and/or the token `lightsout:code-defaults` to stack the bundled defaults with repo extras. |
-| `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
-| `standardsChannels` | no | Framework channels of the bundled defaults. The base docs always apply; React/Preact and TanStack docs ride along **only when the run's scoped packages actually depend on that framework** (detected from their `package.json` — announced in the run log). Set an array to replace detection (`[]` = base only). A terraform package never pays the React-docs token tax. |
-| `scan` | no | `lightsout scan` tuning. `minCloneTokens` raises the tier-1 clone floor (default 50). `size` overrides the size detector's line caps — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; e.g. `{ "size": { "tsxFile": 350 } }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. |
-| `driver` | no | `claude-code` (default) or `codex` |
-| `model` | no | Model override passed through to the harness |
-| `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |
 
 Recommended `.gitignore` entries: commit the config and standards, not run
 state —
