@@ -315,6 +315,7 @@ authoritative for scope.
 | `lightsout status [--cwd <path>]` | List runs and their states |
 | `lightsout doctor [--cwd <path>]` | Read-only audit of the repo against every assumption the engine and standards make — config validity, harness binary, gitignored run state, scoped-gate script coverage, Jest mock-cleanup flags, generated paths, gate binaries. Each warn prints the exact fix; the doctor never edits anything (repo-wide changes like `clearMocks: true` are yours to apply and verify). Exit 1 only on a hard fail. |
 | `lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]` | Read-only structural detector suite: duplicate export names (synonym-aware; conversion opposites like `hexToRgb`/`rgbToHex` and component+route pairs are exempt), token-level clones (jscpd; floor tunable via config `scan.minCloneTokens`, default 50), functions with identical bodies after identifier normalization (uses the repo's own TypeScript — resolved from the root or any workspace package), size thresholds from the standards' numeric tables, one-export-per-file/structure lint (framework dot-suffixes like `.model`/`.dto` count as matching filenames), dead-export candidates. Test files are exempt from duplication tiers — assertion literals are contract-pinning, not copy-paste. `--baseline` writes `lightsout.scan-baseline.json` at the repo root — the explicit act of accepting the current findings as existing debt; **commit it** (it's the reviewable debt ledger, like `phpstan-baseline.neon`). With a baseline present, scans report only NEW findings; `--all` shows everything, `--baseline` again refreshes the ledger. Plain scans never write it. Typed findings persist to `.lightsout/scan.json` (the future remediation pipeline's work-list). Always exits 0 — it reports, gates decide. |
+| `lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--data <field>] [--cwd <path>]` | Cross-repo data-flow traversal: answers questions no single repo can by following data through a committed map of **connection docs** (one small file per process-boundary edge — HTTP, queues, S3, responses — with machine-checkable anchors). The engine owns the worklist loop (frontier + visited set + hop budget, trace state on disk after every hop — resumable via `--run <id>`); each hop is one bounded agent that traces one repo and is structurally unable to recurse. Unmapped exits are reported as GAPs, never guessed through; drifted anchors are named for repair. Map lives in `.lightsout/connections/` by default (`repos.yaml` + one doc per edge). |
 | `lightsout friction [--cwd <path>]` | Show accumulated friction reports from agents |
 | `lightsout improve --engine <lightsout-repo> [--cwd <path>]` | Run the self-improvement loop (below) |
 
@@ -339,7 +340,7 @@ The repo doubles as a plugin whose `/implement` skill is the ignition for the
 bundled engine (no logic in the skill — all of it lives in the engine):
 
 ```
-/plugin marketplace add /path/to/lightsout
+/plugin marketplace add dc-devs/lightsout
 ```
 
 The plugin flow has not been exercised end-to-end yet — the CLI is the proven

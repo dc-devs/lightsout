@@ -4,3 +4,4 @@ export { buildRefactorExecutorInvocation } from './buildRefactorExecutorInvocati
 export { buildSupervisorInvocation } from './buildSupervisorInvocation';
 export { buildReportReemitterInvocation } from './buildReportReemitterInvocation';
 export { buildPromptImproverInvocation } from './buildPromptImproverInvocation';
+export { buildTraverseHopInvocation } from './buildTraverseHopInvocation';

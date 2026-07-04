@@ -12,6 +12,7 @@
 	},
 	"devDependencies": {
 		"@jscpd/core": "^4.2.5",
-		"@jscpd/tokenizer": "^4.2.5"
+		"@jscpd/tokenizer": "^4.2.5",
+		"yaml": "^2.9.0"
 	}
 }

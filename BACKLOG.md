@@ -536,6 +536,44 @@ ships no npm preset — hard rule). Lightsout side: a doctor check that the
 recommended rules are on (grow the doctor checklist), and keep the
 lint-and-formatting.md bridge line current. FD side tracked below.
 
+### Task 15: Traverse — cross-repo data-flow traversal (added 2026-07-05; ordered BEFORE Task 13, whose /plan skill consumes its plan mode)
+
+Migrate the .notes/traverse-plugin prototype into the engine as CLI
+commands (`lightsout traverse|build-map|map-connection`) + thin ignition
+skills — NOT as markdown orchestration (the prototype's own T11 predicted
+losing to the code-spine doctrine). Prototype decision log T1–T10 preserved
+verbatim (connection docs are routers not documentation; machine-checkable
+anchors; nodes = repo OR monorepo package; edges = process-boundary
+crossings; responses are edges; worklist loop, hop agent never recurses;
+scan + mechanical join; change-driven clone-free verification; output modes
+are renderers over one trace). Superseding entries required for T11
+(orchestration → engine code) and T12 (YAML reports → JSON via the
+engine's extractJsonReport machinery).
+
+- Phase 1 — DONE 2026-07-05: contracts (HopReport, TraceState,
+  ConnectionDoc kebab→camel transform, TraverseEdgeKind shared vocabulary,
+  repos registry) + runTraverse worklist loop in code (frontier/visited/
+  budget, trace.json rewritten per hop, rate-limit park, resume grants a
+  fresh budget window, non-repo nodes crossed mechanically without budget,
+  exits routed by deterministic matchExitToEdge — 0 matches = GAP,
+  ambiguity = GAP) + traverseHop prompt/builder (JSON report via
+  invokeAgentWithContract: re-emit retries + rejected-output evidence free)
+  + `lightsout traverse` CLI with hop-chain rendering. yaml dep bundled
+  (esbuild banner createRequire shim). 4 stub-driver tests w/ real local
+  git clones (loop+gaps+drift+cycle-safety, budget/resume, non-repo,
+  matcher). NOT yet exercised with a live hop agent — first real outing is
+  the Phase 2 build-map exercise or a hand-authored two-edge map.
+- Phase 2: build-map — scanEdges prompt, parallel per-node fan-out
+  (test-writer pattern), join as pure code on (match_key, kind), human
+  review gate, durable per-node inventories.
+- Phase 3: anchor verification as code (fetch+grep, SHA-gated),
+  map-connection repair, diagram/plan/bug/doc renderers (Mermaid skeleton
+  derived mechanically; agent only annotates).
+- First live exercise: build-map on two real adjacent nodes; the join must
+  land one edge with both anchors on real lines (per prototype MIGRATION).
+- Connections dir + repos.yaml location configurable (CWD now, central map
+  repo later).
+
 ### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier)
 
 A phase BEFORE implement that produces/vets the plan itself. Collected
@@ -583,6 +621,51 @@ design notes so nothing is lost:
   natural first target for the Cleanup Pipeline (Task 8) or a small lightsout-run plan.
 - Phase 3 of linear-two-way-sync: first run on slimmed standards —
   its standards-friction count is the Task 5 experiment's readout.
+
+### Task 16: Make the write-tests fan-out honor the module-boundary rule the standards already define (added 2026-07-04)
+
+The boundary rule is NOT an open question — it is already settled in two
+places: the `standards/tests/unit/jest/unit-testing.md` "Module Boundary
+Testing" + "Files That Must NOT Have Dedicated Tests" sections (Boundary vs
+Internal classification; internals covered *through* the boundary; barrels /
+type-only / pure-constant files get no dedicated test), and the writer prompt
+itself (`unitTestWriter.md:30,38` — "through each module's public surface" /
+"Skip … type-only files, barrels"). `testStandards` is injected into every
+writer, so the writer is *told* the rule.
+
+The gap is structural in the engine's fan-out, which fights that rule:
+`sourceFiles()` (`runImplementPipeline.ts:416`) = *every* changed source file,
+and the step spawns one writer per file with `changedFiles: [file]`
+(`~:648-653`). So (a) barrels / type-only / internal files each still burn a
+dedicated writer invocation the standard says shouldn't exist, and (b) an
+*internal* whose coverage is supposed to come *through its boundary* (a
+different file) can't be — the per-file writer holds only the internal, and
+the boundary's writer doesn't know it owns the internal's coverage. Per-file
+fan-out cannot express "cover X through Y."
+
+- The one genuinely-open decision: how does a *born-generic* engine group
+  changed files into boundary units when the Boundary/Internal classification
+  is consumer-specific (the jest table is FD's, not universal)? Options to
+  weigh:
+  - (a) Keep per-file fan-out but make "internal / inert — no dedicated test"
+    a first-class writer outcome that neither fails nor is retried, and lean
+    on the per-file coverage gate to force boundary writers to cover internals
+    transitively. Cheapest; stays generic; wastes the skipped slot.
+  - (b) Cheap universal pre-filter before fan-out for provably-inert files
+    (an `index.ts` that only re-exports; type-only modules) — language-level,
+    consumer-agnostic. Doesn't solve internal-through-boundary.
+  - (c) Per-module fan-out: group changed files by owning module and spawn one
+    writer per boundary, covering internals transitively; coverage gate stays
+    per-file. Reuses the new module-registry machinery
+    (`readNodeRegistry.ts` / `readConnectionMap.ts`). Most faithful to the
+    standard; most work; needs a generic module-boundary detector.
+- Keep git-truth changed files as the *scope* — this changes which files earn
+  a dedicated writer and how they're grouped, not what counts as changed.
+- Acceptance: a changed barrel / type-only file no longer spawns (or no longer
+  fails on) a writer; a changed internal's coverage is attributable to its
+  boundary writer; a changed behavioral module still gets covered. Lands with
+  a stub-driver smoke test proving the new selection/grouping and an updated
+  engine test.
 
 ### Task 2: First full pipeline run on the codex driver (live) — LAST, deprioritized 2026-07-03
 
