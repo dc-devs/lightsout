@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -77,8 +77,8 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 
 	assert.ok(!notes.some((note) => note.includes('typescript')), `typescript resolved for the AST tier: ${notes.join('; ')}`);
 	assert.ok(
-		notes.some((note) => note.includes('baseline written')),
-		'first scan writes the baseline',
+		notes.some((note) => note.includes('--baseline')),
+		'without a baseline the accept-debt hint is offered',
 	);
 
 	const astDups = byDetector('ast-duplicate');
@@ -125,11 +125,21 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 	assert.ok(!dead.some((finding) => finding.detail.includes("'buildLabel'")), 'consumed export not flagged');
 });
 
-test('scan baseline ratchet: repeat scans report only what is new; --all shows everything', async () => {
+test('scan baseline ratchet: --baseline accepts debt explicitly; later scans report only what is new', async () => {
 	const dir = setupScanRepo();
 	const first = await runScan({ cwd: dir });
 
-	assert.ok(first.findings.length > 0, 'first scan reports the full debt');
+	assert.ok(first.findings.length > 0, 'scan without a baseline reports the full debt');
+	assert.ok(!existsSync(join(dir, 'lightsout.scan-baseline.json')), 'a plain scan never writes the baseline');
+	assert.ok(
+		first.notes.some((note) => note.includes('--baseline')),
+		'the accept-debt hint is offered',
+	);
+
+	const accepting = await runScan({ cwd: dir, writeBaseline: true });
+
+	assert.ok(existsSync(join(dir, 'lightsout.scan-baseline.json')), 'the explicit flag writes the committed ledger at the repo root');
+	assert.equal(accepting.findings.length, first.findings.length, 'the accepting run still reports everything');
 
 	const second = await runScan({ cwd: dir });
 

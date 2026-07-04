@@ -29685,7 +29685,7 @@ var dominantPath = ({ findings }) => {
   }
   return prefix.split("/").length >= 2 ? { dir: prefix, count, total: paths.length } : void 0;
 };
-var runScan = async ({ cwd, path, all = false, onProgress }) => {
+var runScan = async ({ cwd, path, all = false, writeBaseline = false, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const repoFiles = await listSourceFiles({ cwd, exclude: config2?.generated });
@@ -29717,7 +29717,7 @@ var runScan = async ({ cwd, path, all = false, onProgress }) => {
   }
   const dir = join23(cwd, ".lightsout");
   await mkdir7(dir, { recursive: true });
-  const baselinePath = join23(dir, "scan-baseline.json");
+  const baselinePath = join23(cwd, "lightsout.scan-baseline.json");
   const baselineRaw = await readFile16(baselinePath, "utf8").catch(() => void 0);
   let baselineJson;
   try {
@@ -29727,13 +29727,17 @@ var runScan = async ({ cwd, path, all = false, onProgress }) => {
   }
   const baseline = baselineRaw === void 0 ? void 0 : ScanBaseline.safeParse(baselineJson);
   let reported = findings;
-  if (baseline === void 0) {
+  if (writeBaseline) {
     const clusters = [...new Set(findings.map((finding) => finding.cluster))];
     await writeFile4(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", clusters }, void 0, "	")}
 `, "utf8");
     notes.push(
-      `baseline written (${clusters.length} cluster(s) accepted as existing debt) \u2014 future scans report only NEW findings; --all shows everything, delete .lightsout/scan-baseline.json to re-baseline`
+      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${clusters.length} cluster(s) accepted as existing debt \u2014 commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`
     );
+  } else if (baseline === void 0) {
+    if (findings.length > 0) {
+      notes.push(`no baseline \u2014 \`lightsout scan --baseline\` accepts these findings as existing debt so future scans report only what's new`);
+    }
   } else if (baseline.success) {
     const accepted = new Set(baseline.data.clusters);
     const fresh = findings.filter((finding) => !accepted.has(finding.cluster));
@@ -29744,10 +29748,10 @@ var runScan = async ({ cwd, path, all = false, onProgress }) => {
       notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
     }
     if (resolved > 0) {
-      notes.push(`${resolved} baselined cluster(s) no longer found \u2014 burn-down progress (delete .lightsout/scan-baseline.json to re-baseline)`);
+      notes.push(`${resolved} baselined cluster(s) no longer found \u2014 burn-down progress (--baseline to refresh the ledger)`);
     }
   } else {
-    notes.push("scan-baseline.json is unreadable \u2014 ignored; delete it to re-baseline");
+    notes.push("lightsout.scan-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
   }
   await writeFile4(join23(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
@@ -29786,7 +29790,7 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
-  lightsout scan [--cwd <path>] [--path <subdir>] [--all]
+  lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -30106,7 +30110,13 @@ ${checks.length} check(s) \xB7 ${tally}`);
   }
   if (command === "scan") {
     const scanPath = getStringFlag({ flags, name: "path" });
-    const { findings, notes } = await runScan({ cwd, path: scanPath, all: flags.get("all") === true, onProgress: (message) => console.log(dim(message)) });
+    const { findings, notes } = await runScan({
+      cwd,
+      path: scanPath,
+      all: flags.get("all") === true,
+      writeBaseline: flags.get("baseline") === true,
+      onProgress: (message) => console.log(dim(message))
+    });
     const bySeverity = { finding: findings.filter((entry) => entry.severity === "finding"), advisory: findings.filter((entry) => entry.severity === "advisory") };
     console.log("");
     for (const [severity, list] of Object.entries(bySeverity)) {

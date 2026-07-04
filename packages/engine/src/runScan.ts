@@ -63,22 +63,24 @@ interface Params {
 	path?: string;
 	/** Include baselined findings instead of only what's new since the baseline. */
 	all?: boolean;
+	/** Write/refresh lightsout.scan-baseline.json — the explicit act of accepting the current findings as existing debt. */
+	writeBaseline?: boolean;
 	onProgress?: (message: string) => void;
 }
 
 /**
  * The structural detector suite: detection is code — agents never get asked
- * to "go find problems". Read-only apart from its own state: findings are
- * typed (the future remediation pipeline's work-list) and persisted to
- * .lightsout/scan.json as evidence, and the FIRST scan writes
- * .lightsout/scan-baseline.json — accepted existing debt, so later scans
- * report only what changed (`all` overrides; delete the file to
- * re-baseline). Works with or without a lightsout.config.json (the config
- * contributes `generated` exclusions and `scan` tuning when present); the
- * AST tier borrows the consumer's TypeScript and reports honestly when it
- * can't.
+ * to "go find problems". Read-only apart from .lightsout/scan.json (the
+ * typed evidence file, the future remediation pipeline's work-list).
+ * Baselining is explicit, never a side effect: `writeBaseline` writes
+ * lightsout.scan-baseline.json at the repo root — a COMMITTED debt ledger,
+ * like phpstan-baseline.neon or detekt's baseline.xml — and later scans
+ * report only findings whose cluster is not in it (`all` overrides). Works
+ * with or without a lightsout.config.json (the config contributes
+ * `generated` exclusions and `scan` tuning when present); the AST tier
+ * borrows the consumer's TypeScript and reports honestly when it can't.
  */
-export const runScan = async ({ cwd, path, all = false, onProgress }: Params) => {
+export const runScan = async ({ cwd, path, all = false, writeBaseline = false, onProgress }: Params) => {
 	const progress = onProgress ?? (() => undefined);
 	const config = await loadConfig({ cwd }).catch(() => undefined);
 	const repoFiles = await listSourceFiles({ cwd, exclude: config?.generated });
@@ -121,7 +123,10 @@ export const runScan = async ({ cwd, path, all = false, onProgress }: Params) =>
 
 	await mkdir(dir, { recursive: true });
 
-	const baselinePath = join(dir, 'scan-baseline.json');
+	// The baseline lives at the repo root, next to the config, so it gets
+	// COMMITTED — a debt ledger the PR that creates it makes reviewable, and
+	// whose shrinking diff is the burn-down. Never under gitignored .lightsout/.
+	const baselinePath = join(cwd, 'lightsout.scan-baseline.json');
 	const baselineRaw = await readFile(baselinePath, 'utf8').catch(() => undefined);
 
 	let baselineJson: unknown;
@@ -136,13 +141,17 @@ export const runScan = async ({ cwd, path, all = false, onProgress }: Params) =>
 
 	let reported = findings;
 
-	if (baseline === undefined) {
+	if (writeBaseline) {
 		const clusters = [...new Set(findings.map((finding) => finding.cluster))];
 
 		await writeFile(baselinePath, `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', clusters }, undefined, '\t')}\n`, 'utf8');
 		notes.push(
-			`baseline written (${clusters.length} cluster(s) accepted as existing debt) — future scans report only NEW findings; --all shows everything, delete .lightsout/scan-baseline.json to re-baseline`,
+			`baseline ${baseline === undefined ? 'written' : 'refreshed'}: ${clusters.length} cluster(s) accepted as existing debt — commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`,
 		);
+	} else if (baseline === undefined) {
+		if (findings.length > 0) {
+			notes.push(`no baseline — \`lightsout scan --baseline\` accepts these findings as existing debt so future scans report only what's new`);
+		}
 	} else if (baseline.success) {
 		const accepted = new Set(baseline.data.clusters);
 		const fresh = findings.filter((finding) => !accepted.has(finding.cluster));
@@ -156,10 +165,10 @@ export const runScan = async ({ cwd, path, all = false, onProgress }: Params) =>
 		}
 
 		if (resolved > 0) {
-			notes.push(`${resolved} baselined cluster(s) no longer found — burn-down progress (delete .lightsout/scan-baseline.json to re-baseline)`);
+			notes.push(`${resolved} baselined cluster(s) no longer found — burn-down progress (--baseline to refresh the ledger)`);
 		}
 	} else {
-		notes.push('scan-baseline.json is unreadable — ignored; delete it to re-baseline');
+		notes.push('lightsout.scan-baseline.json is unreadable — ignored; re-run with --baseline to rewrite it');
 	}
 
 	await writeFile(join(dir, 'scan.json'), `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`, 'utf8');

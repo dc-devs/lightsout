@@ -318,8 +318,12 @@ scan: 552 findings, ~60% signal). Live results on FD: tier 2 ran for the
 first time via the workspace fallback (+67 ast-duplicates, +107 size),
 filename-mismatch 142→87 with the survivors verified as real signal
 (users.seed→getUsers, four job-options twins, an actual 'inteface' typo),
-to/from inversions zero, baseline written (601 clusters), second scan
-reports 0 findings. All six items:
+to/from inversions zero, baseline of 601 clusters accepted, follow-up scan
+reports 0 findings. Baseline design revised same day after user review:
+explicit `--baseline` flag only (never a side effect of a plain scan) and
+the file moved to the repo root as committed `lightsout.scan-baseline.json`
+— a reviewable debt ledger à la phpstan-baseline.neon, not invisible local
+state under gitignored .lightsout/. All six items:
 
 1. **Filename-mismatch suffix stripping**: strip framework suffixes
    (`.model`, `.dto`, `.entity`, `.input`, `.args`, …) before comparing
