@@ -159,11 +159,15 @@ Add `lightsout.config.json` at the repo root:
 		"check": "pnpm typecheck",
 		"testUnit": "pnpm test",
 		"testCoverage": "pnpm test:coverage"
-	},
-	"standards": [".lightsout/style-card.md"],
-	"testStandards": [".lightsout/style-card.md"]
+	}
 }
 ```
+
+That's a complete config: the engine's bundled JS/TS standards load by
+default (base docs always; React/TanStack docs join automatically when the
+run's packages use those frameworks). Add a `standards` array only to bring
+your own docs — include the token `lightsout:code-defaults` to stack the
+bundled ones alongside them.
 
 | Field | Required | Purpose |
 |---|---|---|
