@@ -84,13 +84,13 @@ snapshots the config permanently so every run records which settings
 produced it.
 
 Agents are watchable while they work: each invocation's harness event
-stream is teed to `.lightsout/runs/<id>/agents/stream-*.jsonl` (the full
-chat as on-disk evidence — `tail -f` it for raw live access) and every tool
-call is narrated in the progress stream as it happens
-(`implement · Edit: src/app/services/linear-sync.ts`), so a 30-minute agent
-step is a running commentary, not a silent clock. Watching is read-only by
-design: course-correction belongs to gates, the supervisor, and escalation —
-never to a human whispering mid-step.
+stream — every tool call, every chat message, the final result — is teed to
+`.lightsout/runs/<id>/agents/stream-*.jsonl`, the full conversation as
+on-disk evidence. `tail -f` it when you want the live play-by-play; the
+terminal itself stays on the signal (steps, gates, usage) rather than
+echoing hundreds of tool calls. Watching is read-only by design:
+course-correction belongs to gates, the supervisor, and escalation — never
+to a human whispering mid-step.
 
 Runs also account for what they spend: every agent invocation's token usage
 and cost land in the run's `agents.jsonl` with step provenance, each

@@ -15546,35 +15546,6 @@ var appendFriction = async ({ cwd, runId, step, friction }) => {
 `, "utf8");
 };
 
-// packages/engine/src/describeAgentEvent.ts
-var ToolUseBlock = external_exports.object({
-  type: external_exports.literal("tool_use"),
-  name: external_exports.string(),
-  input: external_exports.record(external_exports.string(), external_exports.unknown()).optional()
-});
-var AssistantEvent = external_exports.object({
-  type: external_exports.literal("assistant"),
-  message: external_exports.object({ content: external_exports.array(external_exports.unknown()) })
-});
-var describeAgentEvent = ({ event }) => {
-  const assistant = AssistantEvent.safeParse(event);
-  if (!assistant.success) {
-    return void 0;
-  }
-  for (const block of assistant.data.message.content) {
-    const tool = ToolUseBlock.safeParse(block);
-    if (!tool.success) {
-      continue;
-    }
-    const input = tool.data.input ?? {};
-    const target = [input.file_path, input.path, input.command, input.pattern, input.prompt].find(
-      (value) => typeof value === "string"
-    );
-    return `${tool.data.name}${target ? `: ${String(target).replace(/\s+/g, " ").slice(0, 90)}` : ""}`;
-  }
-  return void 0;
-};
-
 // packages/engine/src/invokeAgentWithContract.ts
 var maxReportAttempts = 2;
 var invokeAgentWithContract = async ({
@@ -16111,10 +16082,6 @@ var executePipeline = async ({
     return (event) => {
       tail = tail.then(() => appendFile4(path, `${JSON.stringify(event)}
 `, "utf8")).catch(() => void 0);
-      const described = describeAgentEvent({ event });
-      if (described) {
-        progress(`  ${step} \xB7 ${described}`);
-      }
     };
   };
   let rejectedCount = 0;

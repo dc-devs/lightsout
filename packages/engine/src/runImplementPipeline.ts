@@ -25,7 +25,6 @@ import { appendAgentLog } from './appendAgentLog';
 import { appendCommandLog } from './appendCommandLog';
 import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
-import { describeAgentEvent } from './describeAgentEvent';
 import { getRunDir } from './getRunDir';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { readGitChangedFiles } from './readGitChangedFiles';
@@ -272,11 +271,12 @@ const executePipeline = async ({
 	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
 	const supervisorTimeoutMs = (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000;
 
-	// Every agent invocation's full event stream (tool calls, token ticks,
-	// the final result) is teed to agents/stream-NN-<step>.jsonl — the chat
-	// as on-disk run evidence, tail-able live — and tool calls are narrated
-	// through the progress stream so a 30-minute step is watchable, not a
-	// silent clock. Display and evidence only: outcomes never depend on it.
+	// Every agent invocation's full event stream (tool calls, chat text, the
+	// final result) is teed to agents/stream-NN-<step>.jsonl — the chat as
+	// on-disk run evidence, tail-able live for anyone who wants the
+	// play-by-play. The progress stream stays quiet per event: a working
+	// agent fires tools every few seconds, and narrating each one drowned
+	// the terminal. Evidence only: outcomes never depend on it.
 	let transcriptCount = 0;
 
 	const agentEventSink = (step: string) => {
@@ -290,12 +290,6 @@ const executePipeline = async ({
 
 		return (event: unknown) => {
 			tail = tail.then(() => appendFile(path, `${JSON.stringify(event)}\n`, 'utf8')).catch(() => undefined);
-
-			const described = describeAgentEvent({ event });
-
-			if (described) {
-				progress(`  ${step} · ${described}`);
-			}
 		};
 	};
 

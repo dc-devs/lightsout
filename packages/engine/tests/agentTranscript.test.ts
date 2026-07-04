@@ -3,7 +3,6 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
-import { describeAgentEvent } from '../src/describeAgentEvent';
 import { loadConfig, runImplementPipeline } from '../src/index';
 import { report } from './helpers/report';
 import { roleOf } from './helpers/roleOf';
@@ -14,22 +13,7 @@ const toolUseEvent = (name: string, input: Record<string, unknown>) => ({
 	message: { content: [{ type: 'tool_use', name, input }] },
 });
 
-test('describeAgentEvent narrates tool calls and ignores everything else', () => {
-	assert.equal(describeAgentEvent({ event: toolUseEvent('Edit', { file_path: 'src/a.ts' }) }), 'Edit: src/a.ts');
-	assert.equal(describeAgentEvent({ event: toolUseEvent('Bash', { command: 'pnpm run generate' }) }), 'Bash: pnpm run generate');
-	assert.equal(describeAgentEvent({ event: toolUseEvent('TodoWrite', {}) }), 'TodoWrite');
-	assert.equal(
-		describeAgentEvent({ event: toolUseEvent('Bash', { command: `x${'y'.repeat(200)}` }) })?.length,
-		'Bash: '.length + 90,
-		'targets truncate',
-	);
-
-	assert.equal(describeAgentEvent({ event: { type: 'assistant', message: { content: [{ type: 'text', text: 'hi' }] } } }), undefined);
-	assert.equal(describeAgentEvent({ event: { type: 'system', subtype: 'estimated_tokens' } }), undefined);
-	assert.equal(describeAgentEvent({ event: 'garbage' }), undefined);
-});
-
-test('pipeline tees each invocation stream to agents/stream-*.jsonl and narrates tool calls', async () => {
+test('pipeline tees each invocation stream to agents/stream-*.jsonl without narrating per-event', async () => {
 	const dir = setupConsumerRepo();
 
 	const driver: Driver = {
@@ -89,8 +73,11 @@ test('pipeline tees each invocation stream to agents/stream-*.jsonl and narrates
 	assert.equal(events[0].type, 'assistant');
 	assert.equal(events[1].type, 'result');
 
+	// The full play-by-play belongs on disk, not in the terminal — a working
+	// agent fires tools every few seconds and narrating each one drowned the
+	// progress stream.
 	assert.ok(
-		progressLines.some((line) => line.includes('implement · Edit: src/implement.js')),
-		`tool call narrated:\n${progressLines.join('\n')}`,
+		progressLines.every((line) => !line.includes('Edit')),
+		`no per-tool-call narration:\n${progressLines.join('\n')}`,
 	);
 });
