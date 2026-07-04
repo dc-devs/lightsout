@@ -190,7 +190,7 @@ bundled ones alongside them.
 | `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
 | `standardsChannels` | no | Framework channels of the bundled defaults. The base docs always apply; React/Preact and TanStack docs ride along **only when the run's scoped packages actually depend on that framework** (detected from their `package.json` — announced in the run log). Set an array to replace detection (`[]` = base only). A terraform package never pays the React-docs token tax. |
 | `scan.minCloneTokens` | no | Tier-1 clone floor for `lightsout scan` (default 50) — raise for repos with a noisy short-clone tail |
-| `scan.size` | no | Line-cap overrides for the size detector — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; any subset, e.g. `{ "tsxFile": 350 }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. File caps gate runs; function/hook/component caps are advisory. |
+| `scan.size` | no | Line-cap overrides for the size detector — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; any subset, e.g. `{ "tsxFile": 350 }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. File caps gate runs; function/hook/component caps go to the refactor agent as judgment items (fix unless a documented exemption applies) and never block. |
 | `driver` | no | `claude-code` (default) or `codex` |
 | `model` | no | Model override passed through to the harness |
 | `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |

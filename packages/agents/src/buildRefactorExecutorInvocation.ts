@@ -9,12 +9,22 @@ interface Params {
 	standards?: string;
 	/** Deterministic scanner findings on the changed files — the typed work-list. */
 	scanFindings?: ScanFinding[];
+	/** Judgment-carrying scanner advisories (function/hook/component size) — fix unless a documented exemption applies. */
+	scanAdvisories?: ScanFinding[];
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
 	errorContext?: string;
 }
 
 /** Assemble the refactor-executor invocation deterministically. */
-export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, errorContext }: Params) => {
+export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }: Params) => {
+	const findingLine = (finding: ScanFinding) => {
+		const where = finding.files
+			.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
+			.join(' ↔ ');
+
+		return `- [${finding.detector}] ${where} — ${finding.detail}`;
+	};
+
 	const sections = [
 		`# Changed files to review\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`,
 		`# Plan (context for what these changes were for)\n\n${planContent}`,
@@ -24,18 +34,22 @@ export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, sta
 		sections.push(`# Standards\n\nThese rules are binding:\n\n${standards}`);
 	}
 
-	if (scanFindings && scanFindings.length > 0) {
-		const lines = scanFindings.map((finding) => {
-			const where = finding.files
-				.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
-				.join(' ↔ ');
+	if ((scanFindings && scanFindings.length > 0) || (scanAdvisories && scanAdvisories.length > 0)) {
+		const parts = ['# Scan findings (deterministic detectors)'];
 
-			return `- [${finding.detector}] ${where} — ${finding.detail}`;
-		});
+		if (scanFindings && scanFindings.length > 0) {
+			parts.push(
+				`The engine's scanner found these on the changed files. Address each one first — they are re-checked after you report — or state in your summary why one must stay:\n\n${scanFindings.map(findingLine).join('\n')}`,
+			);
+		}
 
-		sections.push(
-			`# Scan findings (deterministic detectors)\n\nThe engine's scanner found these on the changed files. Address each one first — they are re-checked after you report — or state in your summary why one must stay:\n\n${lines.join('\n')}`,
-		);
+		if (scanAdvisories && scanAdvisories.length > 0) {
+			parts.push(
+				`Advisory — judge each against the standards' documented exemptions (e.g. orchestration functions that only sequence step calls); fix it unless an exemption genuinely applies, and these never block the run:\n\n${scanAdvisories.map(findingLine).join('\n')}`,
+			);
+		}
+
+		sections.push(parts.join('\n\n'));
 	}
 
 	if (errorContext) {

@@ -23,7 +23,7 @@ test('selectScanFindings keeps finding-severity items touching changed files; ga
 		finding({ cluster: 'multi-export:src/untouched.ts', files: [{ path: 'src/untouched.ts' }] }),
 	];
 
-	const { workList, gating } = selectScanFindings({ findings, changedFiles: ['src/changed.ts'] });
+	const { workList, advisories, gating } = selectScanFindings({ findings, changedFiles: ['src/changed.ts'] });
 
 	assert.deepEqual(
 		workList.map((entry) => entry.cluster),
@@ -34,5 +34,10 @@ test('selectScanFindings keeps finding-severity items touching changed files; ga
 		gating.map((entry) => entry.cluster),
 		['multi-export:src/changed.ts', 'ast:abc123def456', 'size:file:src/changed.ts'],
 		'path-keyed file size gates; line-keyed clone and per-function size inform but never gate',
+	);
+	assert.deepEqual(
+		advisories.map((entry) => entry.cluster),
+		['size:function:src/changed.ts:big'],
+		'size advisories flow to the agent as judgment items; non-size advisories do not',
 	);
 });

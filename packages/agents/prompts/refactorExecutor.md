@@ -17,7 +17,10 @@ high-confidence and behavior-preserving:
 - If a Standards section is provided, any deviation from it
 - If a Scan findings section is provided, those are deterministic detector
   results on the changed files — address them FIRST; the engine re-runs the
-  scanner after you report, and unresolved findings re-invoke you.
+  scanner after you report, and unresolved findings re-invoke you. Entries
+  under its Advisory subsection carry judgment: fix each unless a documented
+  exemption (e.g. orchestration functions) genuinely applies — never block
+  on them, and note applied exemptions in your summary.
 
 ## Hard limits
 

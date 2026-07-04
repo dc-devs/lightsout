@@ -16116,10 +16116,14 @@ ${errorContext}`
 };
 
 // packages/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Scan findings section is provided, those are deterministic detector\n  results on the changed files \u2014 address them FIRST; the engine re-runs the\n  scanner after you report, and unresolved findings re-invoke you.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Scan findings section is provided, those are deterministic detector\n  results on the changed files \u2014 address them FIRST; the engine re-runs the\n  scanner after you report, and unresolved findings re-invoke you. Entries\n  under its Advisory subsection carry judgment: fix each unless a documented\n  exemption (e.g. orchestration functions) genuinely applies \u2014 never block\n  on them, and note applied exemptions in your summary.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // packages/agents/src/buildRefactorExecutorInvocation.ts
-var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, errorContext }) => {
+var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }) => {
+  const findingLine = (finding) => {
+    const where = finding.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(" \u2194 ");
+    return `- [${finding.detector}] ${where} \u2014 ${finding.detail}`;
+  };
   const sections = [
     `# Changed files to review
 
@@ -16135,18 +16139,23 @@ These rules are binding:
 
 ${standards}`);
   }
-  if (scanFindings && scanFindings.length > 0) {
-    const lines = scanFindings.map((finding) => {
-      const where = finding.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(" \u2194 ");
-      return `- [${finding.detector}] ${where} \u2014 ${finding.detail}`;
-    });
-    sections.push(
-      `# Scan findings (deterministic detectors)
+  if (scanFindings && scanFindings.length > 0 || scanAdvisories && scanAdvisories.length > 0) {
+    const parts = ["# Scan findings (deterministic detectors)"];
+    if (scanFindings && scanFindings.length > 0) {
+      parts.push(
+        `The engine's scanner found these on the changed files. Address each one first \u2014 they are re-checked after you report \u2014 or state in your summary why one must stay:
 
-The engine's scanner found these on the changed files. Address each one first \u2014 they are re-checked after you report \u2014 or state in your summary why one must stay:
+${scanFindings.map(findingLine).join("\n")}`
+      );
+    }
+    if (scanAdvisories && scanAdvisories.length > 0) {
+      parts.push(
+        `Advisory \u2014 judge each against the standards' documented exemptions (e.g. orchestration functions that only sequence step calls); fix it unless an exemption genuinely applies, and these never block the run:
 
-${lines.join("\n")}`
-    );
+${scanAdvisories.map(findingLine).join("\n")}`
+      );
+    }
+    sections.push(parts.join("\n\n"));
   }
   if (errorContext) {
     sections.push(
@@ -28911,10 +28920,12 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
 var gatingClusterPattern = /^(ast:|multi-export:|size:file:)/;
 var selectScanFindings = ({ findings, changedFiles }) => {
   const changed = new Set(changedFiles);
-  const workList = findings.filter(
-    (finding) => finding.severity === ScanSeverity.Finding && finding.files.some((file2) => changed.has(file2.path))
+  const touchesChanged = (finding) => finding.files.some((file2) => changed.has(file2.path));
+  const workList = findings.filter((finding) => finding.severity === ScanSeverity.Finding && touchesChanged(finding));
+  const advisories = findings.filter(
+    (finding) => finding.severity === ScanSeverity.Advisory && finding.detector === ScanDetector.Size && touchesChanged(finding)
   );
-  return { workList, gating: workList.filter((finding) => gatingClusterPattern.test(finding.cluster)) };
+  return { workList, advisories, gating: workList.filter((finding) => gatingClusterPattern.test(finding.cluster)) };
 };
 
 // packages/engine/src/runImplementPipeline.ts
@@ -29355,12 +29366,20 @@ ${failures.join("\n")}`
     for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
       await setStep({ record: record2 });
       const scan = await scanWorkList();
-      if (scan.workList.length > 0) {
-        progress(`scan gate: ${scan.workList.length} finding(s) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ""}`);
+      if (scan.workList.length > 0 || scan.advisories.length > 0) {
+        progress(
+          `scan gate: ${scan.workList.length} finding(s) + ${scan.advisories.length} advisory(ies) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ""}`
+        );
       }
       progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
       const { report, failure, rateLimited } = await invokeRole(
-        buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, scanFindings: scan.workList }),
+        buildRefactorExecutorInvocation({
+          planContent,
+          changedFiles: sourceFiles(),
+          standards,
+          scanFindings: scan.workList,
+          scanAdvisories: scan.advisories
+        }),
         "refactor"
       );
       if (rateLimited) {

@@ -722,14 +722,22 @@ const executePipeline = async ({
 
 			const scan = await scanWorkList();
 
-			if (scan.workList.length > 0) {
-				progress(`scan gate: ${scan.workList.length} finding(s) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ''}`);
+			if (scan.workList.length > 0 || scan.advisories.length > 0) {
+				progress(
+					`scan gate: ${scan.workList.length} finding(s) + ${scan.advisories.length} advisory(ies) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ''}`,
+				);
 			}
 
 			progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 
 			const { report, failure, rateLimited } = await invokeRole(
-				buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, scanFindings: scan.workList }),
+				buildRefactorExecutorInvocation({
+					planContent,
+					changedFiles: sourceFiles(),
+					standards,
+					scanFindings: scan.workList,
+					scanAdvisories: scan.advisories,
+				}),
 				'refactor',
 			);
 
