@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { z } from 'zod';
 import type { LightsoutConfig } from '@lightsout/contracts';
 import { extractRunScriptName } from './extractRunScriptName';
 import { loadConfig } from './loadConfig';
@@ -20,6 +21,11 @@ interface DoctorCheck {
 }
 
 const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };
+
+const packageDependencies = z.object({
+	dependencies: z.record(z.string(), z.string()).optional(),
+	devDependencies: z.record(z.string(), z.string()).optional(),
+});
 
 /** Jest config files for one package dir: root-level jest.config.* plus anything jest-named under test/ (bounded — never node_modules). */
 const findJestConfigs = async ({ packageDir }: { packageDir: string }) => {
@@ -201,6 +207,44 @@ export const runDoctor = async ({ cwd, probeHarness }: Params) => {
 						fix: 'add clearMocks: true, restoreMocks: true — then run that package’s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)',
 					},
 		);
+	}
+
+	// The component-test standards mandate userEvent only where the package
+	// depends on it — agents never add deps mid-run, so the doctor is where
+	// the recommendation surfaces for packages still on fireEvent.
+	const fireEventOnly: string[] = [];
+
+	for (const { label, dir } of packageDirs) {
+		const raw = await readFile(join(dir, 'package.json'), 'utf8').catch(() => undefined);
+
+		let json: unknown;
+
+		try {
+			json = raw === undefined ? undefined : JSON.parse(raw);
+		} catch {
+			continue;
+		}
+
+		const parsed = json === undefined ? undefined : packageDependencies.safeParse(json);
+
+		if (!parsed?.success) {
+			continue;
+		}
+
+		const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
+		const hasTestingLibrary = ['@testing-library/react', '@testing-library/preact'].some((name) => name in dependencies);
+
+		if (hasTestingLibrary && !('@testing-library/user-event' in dependencies)) {
+			fireEventOnly.push(label);
+		}
+	}
+
+	if (fireEventOnly.length > 0) {
+		checks.push({
+			id: 'user-event',
+			status: 'note',
+			detail: `${fireEventOnly.join(', ')}: has @testing-library/react but not @testing-library/user-event — component tests will use fireEvent; consider installing user-event for full interaction simulation`,
+		});
 	}
 
 	if (config.generated) {

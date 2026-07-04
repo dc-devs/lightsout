@@ -383,7 +383,7 @@ every standard that assumes environment state contributes one check):
 Fits the run header afterwards ("2 doctor warnings — run `lightsout
 doctor`") without ever gating.
 
-### Task 14: NEXT IMMEDIATE — phase-3 conformance review + cleanup list (added 2026-07-04)
+### Task 14: phase-3 conformance review + cleanup list (added 2026-07-04 — LIGHTSOUT SIDE DONE 2026-07-04; open boxes below are FD handoffs for the user)
 
 Review the "new" files phase 3 produced (run
 68e67550-81dc-48f6-8e01-3297c72adbc2 in FeedbackDrop) against the newly
@@ -397,25 +397,32 @@ touched file). Judge against: setup-factory/flat-describe/AAA, assertions-
 pin-contracts (literals, codes-strict/copy-loose), mock typing rules,
 one-export-per-file, Params/return-types, naming.
 
+Scope rule (settled 2026-07-04): backlog tasks implement LIGHTSOUT changes
+only. FD-side findings are handoff notes for the user to act on in FD —
+never actions taken from here.
+
 Cleanup list (seeded from the phase-3 friction review; append below):
 
-- [ ] ENGINE/standards: `userEvent` mandate made conditional on the package
-      actually depending on @testing-library/user-event (unconditional rule
-      broke a check gate with TS2307; agent fell back to fireEvent). Also a
-      doctor-check candidate.
-- [ ] ENGINE/standards+prompt: known style-precedence conflicts recorded
-      ONCE per run, not once per file (~24 near-identical entries drowned
-      the phase-3 friction log).
-- [ ] FD (user decision): install @testing-library/user-event in web-app,
-      or keep fireEvent as the repo's interaction API.
-- [ ] FD (user decision): delete the legacy FindOneIssueDocument.unit.test.ts
+- [x] ENGINE/standards: `userEvent` mandate now conditional on the package
+      depending on @testing-library/user-event; fireEvent otherwise; agents
+      never add the dep. Plus a doctor `note` (user-event check) when a
+      package has @testing-library/react|preact without user-event —
+      live-verified on FD (flags web-app AND widget). (2026-07-04)
+- [x] ENGINE/standards+prompt: applying the style-precedence rule is now
+      "normal operation, not friction" — one entry only when the rule itself
+      failed (non-stylistic or ambiguous case). unitTestWriter.md +
+      unit-testing.md. Kills the ~24-entry-per-run noise at the root.
+      (2026-07-04)
+- [ ] FD handoff (user): install @testing-library/user-event — doctor shows
+      BOTH web-app and widget need it. (User confirmed intent to install.)
+- [ ] FD handoff (user): delete the legacy FindOneIssueDocument.unit.test.ts
       string-echo test (standards say pure-constant gql Documents get no
       dedicated test; 5 writers independently flagged it).
-- [ ] FD (user decision): the gen:gql verification gap — regeneration needs
-      a live backend the verify environment lacks; agent hand-wrote the
-      deterministic codegen output as a documented deviation. Decide: live
-      backend in verify env / explicit implementer deliverable / accept
-      documented hand-writes. (Also Task 13 planning-phase material.)
+- [ ] FD handoff (user): the gen:gql verification gap — RULED 2026-07-04:
+      defer to Task 13 (plans declare deliverables needing manual/live-env
+      steps). FD-side root fix stays a handoff: adopt codegen client-preset
+      TypedDocumentNode, which also deletes every serverFn `response as`
+      cast.
 - [ ] FD (observation): recurring jest-worker SIGSEGV under coverage (2nd
       occurrence, different file each time); gate re-run absorbed both.
 - [ ] FD (inventory, no urgency): the ~20 legacy GitHub-side test files the
@@ -427,35 +434,32 @@ From the TeamSelector.tsx + test review (2026-07-04 — verdict ~95%
 adherence; setup-factory structure, assertion-literal doctrine, and mock
 typing rules all followed on first live outing):
 
-- [ ] FD: `teams?.find((t) => …)` single-letter variable in
+- [ ] FD handoff (user): `teams?.find((t) => …)` single-letter variable in
       TeamSelector.tsx:67 — standards say `(team) =>`.
-- [ ] ENGINE/standards (reconciliation ruling needed): raw string-literal
-      discriminants in component prop unions (`status: 'notInstalled' | …`)
-      vs named-constants doctrine ("discriminants reference the const
-      object"). Mirrors RepoSelector's established convention. Proposed:
-      exempt component-prop unions (idiomatic React); doctrine's target is
-      domain values crossing module boundaries.
-- [ ] ENGINE/standards: bless the invalid-input cast pattern explicitly —
-      tests may `as unknown as` an invalid prop to reach a defensive
-      branch for coverage (TeamSelector test:506, mirrors RepoSelector) —
-      so it stops reading as a type-assertions violation.
+- [x] ENGINE/standards: prop-union discriminant exemption RULED + codified
+      2026-07-04 in named-constants.md — component `Props` unions may use
+      raw string-literal discriminants (idiomatic React; doctrine targets
+      domain values crossing module boundaries; values also in domain logic
+      still use the const object).
+- [x] ENGINE/standards: invalid-input cast BLESSED + codified 2026-07-04 —
+      unit-testing.md (reaching defensive branches: `as unknown as T`, test
+      files only) + exception note in type-assertions.md.
 
 From the full 57-new-file diff review (2026-07-04 — sweep + 5 shapes read
 closely; zero beforeEach / manual cleanup / assertion anti-patterns
 anywhere; route files correctly untested; QueryKey enums used; why-comments
 on query tuning trace to friction decisions):
 
-- [ ] FD + ENGINE/standards ruling: mutation-result stubs in 3 hook tests
-      typed `as Record<string, unknown>` (useConnectLinearTeam etc.) —
-      Mock Typing Rules vs the pain of stubbing UseMutationResult
-      generics. Bless loose stubs for framework-generic results, or add a
-      shared typed helper in test/utils/.
-- [ ] FD (ties into the gen:gql decision): `response as { … }` casts in
-      ALL serverFns, Linear and GitHub alike — systematic pre-standards
-      convention, not a writer miss. The codegen client-preset's
-      TypedDocumentNode would type responses and delete every cast;
-      resolve together with the gen:gql verification gap.
-- [ ] FD (trivial): empty `className=""` on LinearIcon in
+- [x] ENGINE/standards: framework-generic stubs RULED (bless loose) +
+      codified 2026-07-04 in unit-testing.md Mock Typing Rules — typing
+      rules pin YOUR contracts, not the framework's; UseMutationResult-kin
+      stubs may cast loosely, stub only fields the unit reads. The 3 FD
+      hook tests are now conformant as written.
+- [ ] FD handoff (user, ties into the gen:gql handoff): `response as { … }`
+      casts in ALL serverFns, Linear and GitHub alike — systematic
+      pre-standards convention, not a writer miss. TypedDocumentNode
+      adoption deletes every cast.
+- [ ] FD handoff (user, trivial): empty `className=""` on LinearIcon in
       LinearIssueBadge.tsx.
 
 ### Task 10: Prior-art contract field — implement phase (added 2026-07-04)
@@ -525,6 +529,11 @@ design notes so nothing is lost:
   (e.g. a migration folder) for an existence-only engine check — the
   middle ground between plans listing ALL files (too rigid) and none
   (nobody accountable for the migration).
+- **Manual/live-environment deliverables** (RULED 2026-07-04, from the
+  Task 14 gen:gql gap): plans must be able to declare deliverables that
+  need a step the verify env can't run (e.g. codegen against a live
+  backend), so the human runs it before verify instead of the agent
+  hand-writing generated output as a deviation.
 - Plan quality gates: scope resolvable (packages), referenced paths exist,
   decision-level gaps surfaced (the fdrop gap-check/lint-plan skills are
   prior art).

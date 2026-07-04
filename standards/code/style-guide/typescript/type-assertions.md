@@ -4,6 +4,7 @@ Avoid `as` casts. They tell the compiler to trust you instead of proving the typ
 
 - Prefer type narrowing with `typeof`, `instanceof`, or discriminated unions.
 - If an assertion is truly necessary (e.g., a library returns `unknown`), add a brief comment explaining why narrowing is not possible.
+- Exception: **test files** may use `as unknown as T` to force invalid input into a defensive branch for coverage (see the unit-testing standards).
 
 ✅ GOOD: Narrowing
 

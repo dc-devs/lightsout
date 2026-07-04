@@ -7,7 +7,7 @@ Component tests follow the same [Arrange-Act-Assert with setup factories](./unit
 - Import from `@testing-library/react` (React) or `@testing-library/preact` (Preact) — check the package's `package.json`; the API is identical.
 - Component test files use `.unit.test.tsx` (JSX requires `.tsx`), co-located with the component.
 - **Framework route/page files never get co-located unit tests** — they are thin wiring (guards, layout, a screen render) verified through e2e tests and the screen component's own tests.
-- Interactions use `userEvent`, not `fireEvent`.
+- Interactions use `userEvent` **when the package depends on `@testing-library/user-event`** (check its `package.json`); otherwise use `fireEvent` from the testing-library package. Never add the dependency yourself — that is the repo owner's decision, surfaced by `lightsout doctor`.
 
 ## The Render Pattern
 
@@ -112,6 +112,8 @@ test('calls the dismiss handler when the dismiss button is clicked', async () =>
 	expect(onDismiss).toHaveBeenCalledTimes(1);
 });
 ```
+
+When the package lacks `@testing-library/user-event`, use `fireEvent` instead — synchronous, no setup object: `fireEvent.click(dismissButton);`. The same grouping rule applies: the target query groups with the act.
 
 ## Testing Hooks in Isolation
 

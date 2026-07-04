@@ -14,7 +14,11 @@ document and use another style (`beforeEach` + shared `let`, nested
   structure.
 - Never rewrite passing legacy tests to match this document during a
   feature task — that is deliberate cleanup work with its own review, not a
-  side effect. Record the mismatch as friction instead.
+  side effect.
+- Applying this precedence is **normal operation, not friction** — do not
+  record a friction entry per legacy-style file you encounter. Record ONE
+  friction entry only when the rule itself failed you: the conflict was not
+  stylistic, or it was genuinely ambiguous which case applied.
 
 ## Module Boundary Testing
 
@@ -77,6 +81,7 @@ describe('getAvatarUrl', () => {
 - **Test behavior, not internals.** Assert the observable output a consumer sees. (Asserting an injected repository was called with the right args IS behavior — the persistence call is the unit's observable side effect at its boundary.)
 - When asserting multiple properties of one result, prefer a single `expect`. For a **partial** match use `toEqual(expect.objectContaining({ ... }))` — not `toStrictEqual`: with an asymmetric matcher argument, Jest only runs the matcher and the strict extra-property checks never fire, so `toStrictEqual` there is identical to `toEqual` but misleadingly implies strictness. Reserve `toStrictEqual` for whole-object assertions with a concrete expected object.
 - Cover all code paths — branches, error handling, boundary conditions. Each test exercises a unique code path; don't add tests that only vary input without varying behavior.
+- **Reaching defensive branches:** when a branch guards against input the type system forbids (a `default` arm, an early return on an impossible discriminant), a test may force the invalid input with `as unknown as T` — the one blessed double cast, and it lives only in test files, never in source.
 - Use `test.each` when multiple inputs exercise the **same code path** with different outputs; different code paths get separate tests.
 
 ### Assertions Pin Contracts
@@ -130,6 +135,8 @@ jest.mock('@/utils/get-profile', () => ({
 ```
 
 Using `() => mockFn()` for a function that takes parameters silently discards arguments — the spy records zero-arg calls and `toHaveBeenCalledWith` fails. Some existing files use `(...args: unknown[])` — that is legacy debt; new tests always type the wrapper.
+
+**Framework-generic results are exempt.** These typing rules pin *your* contracts, not the framework's. When a stub must satisfy a framework's heavily generic result type (TanStack's `UseMutationResult` / `UseQueryResult` and kin), stub only the fields the unit under test reads and cast loosely (`as Record<string, unknown>`, or `as unknown as UseMutationResult<…>` where the full type is demanded) — reproducing the framework's generics in a stub adds noise, not safety.
 
 ### `jest.spyOn` vs `jest.mock`
 

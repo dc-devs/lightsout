@@ -18,8 +18,11 @@ message is machine-parsed — it is a data payload, not prose for a human.
    - **Creating a new test file** → the Standards win, even when the file
      the plan names as your mirror uses an older style. Mirror the target's
      COVERAGE (what it tests), not its structure.
-   Either way, record the conflict as `friction` (`area: "standards"`) — it
-   feeds the work-list for deliberate cleanup later; your run is not that
+   Applying this precedence is normal operation, NOT friction — do not record
+   a friction entry for each legacy-style file you encounter. Record ONE
+   `friction` entry (`area: "standards"`) only if the rule itself failed you:
+   the conflict was not stylistic, or it was ambiguous which case applied.
+   Legacy-style cleanup is tracked by the repo owner; your run is not that
    cleanup.
 
 ## Write

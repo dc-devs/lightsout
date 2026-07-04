@@ -89,6 +89,42 @@ test('doctor warns on missing gitignore entries, scriptless packages, jest confi
 	assert.ok(!(checks.get('generated')?.detail ?? '').includes('src/gen'), 'existing generated path not flagged');
 });
 
+test('doctor notes packages with @testing-library/react but no user-event — and stays silent for packages with both or neither', async () => {
+	const dir = setupConsumerRepo({
+		git: false,
+		config: {
+			packageScripts: { check: 'pnpm --filter {package} run check', testUnit: 'pnpm --filter {package} run test:unit' },
+		},
+	});
+	const scripts = { check: 'x', 'test:unit': 'x' };
+
+	mkdirSync(join(dir, 'packages/web-app'), { recursive: true });
+	writeFileSync(
+		join(dir, 'packages/web-app/package.json'),
+		JSON.stringify({ name: '@acme/web-app', scripts, devDependencies: { '@testing-library/react': '^16.0.0' } }),
+	);
+
+	mkdirSync(join(dir, 'packages/widget'), { recursive: true });
+	writeFileSync(
+		join(dir, 'packages/widget/package.json'),
+		JSON.stringify({
+			name: '@acme/widget',
+			scripts,
+			devDependencies: { '@testing-library/preact': '^3.0.0', '@testing-library/user-event': '^14.0.0' },
+		}),
+	);
+
+	mkdirSync(join(dir, 'packages/api'), { recursive: true });
+	writeFileSync(join(dir, 'packages/api/package.json'), JSON.stringify({ name: '@acme/api', scripts }));
+
+	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
+
+	assert.equal(checks.get('user-event')?.status, 'note', 'a recommendation, not a defect');
+	assert.match(checks.get('user-event')?.detail ?? '', /web-app/);
+	assert.ok(!(checks.get('user-event')?.detail ?? '').includes('widget'), 'package already on user-event not flagged');
+	assert.ok(!(checks.get('user-event')?.detail ?? '').includes('api'), 'package without testing-library not flagged');
+});
+
 test('doctor orders checks positives-first: pass, then note, then warn/fail', async () => {
 	const dir = setupConsumerRepo({
 		config: {
