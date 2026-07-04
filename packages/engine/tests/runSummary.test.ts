@@ -52,6 +52,7 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 	const summary = await summarizeRun({ cwd: dir, manifest: result.manifest });
 
 	assert.ok(summary.wallMs >= 0);
+	assert.ok(summary.activeMs > 0, 'active time summed from step durations');
 	assert.ok(summary.gateMs > 0, 'gate time measured from commands.jsonl');
 	assert.ok(summary.gates.commands > 0);
 
@@ -102,6 +103,7 @@ test('summarizeRun tolerates a run dir with no ledger, no commands, no friction'
 	});
 
 	assert.equal(summary.wallMs, 600_000);
+	assert.equal(summary.activeMs, 0);
 	assert.equal(summary.gateMs, 0);
 	assert.equal(summary.usage, undefined);
 	assert.equal(summary.cacheReadShare, undefined);

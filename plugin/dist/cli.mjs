@@ -5,9 +5,8 @@ var __export = (target, all) => {
 };
 
 // packages/cli/src/index.ts
-import { existsSync } from "node:fs";
 import { readdir as readdir3 } from "node:fs/promises";
-import { join as join16 } from "node:path";
+import { basename, join as join16 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -16611,6 +16610,8 @@ var summarizeRun = async ({ cwd, manifest }) => {
   const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
   return {
     wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
+    /** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
+    activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
     gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
     usage: usage2,
     /** Share of all input the model read from cache — the run's cost-efficiency dial. */
@@ -16771,69 +16772,114 @@ var formatTokenCount = (count) => {
   }
   return count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
 };
-var summaryColumns = [
-  { header: "step", width: 22, align: "left" },
-  { header: "tries", width: 6, align: "right" },
-  { header: "time", width: 10, align: "right" },
-  { header: "agents", width: 7, align: "right" },
-  { header: "out", width: 9, align: "right" },
-  { header: "cost", width: 10, align: "right" },
-  { header: "files", width: 6, align: "right" }
-];
-var summaryRow = (cells) => `  ${cells.map((cell, index) => summaryColumns[index]?.align === "left" ? cell.padEnd(summaryColumns[index].width) : cell.padStart(summaryColumns[index]?.width ?? 0)).join("")}`;
+var paint = (code) => (text) => process.stdout.isTTY ? `\x1B[${code}m${text}\x1B[0m` : text;
+var dim = paint("2");
+var bold = paint("1");
+var green = paint("32");
+var red = paint("31");
+var yellow = paint("33");
+var paintStatus = (status, text) => {
+  if (status === RunStatus.Passed) {
+    return green(text);
+  }
+  return status === RunStatus.Failed ? red(text) : yellow(text);
+};
+var paintCell = ({ text, padded, status }) => {
+  if (text === "\u2014") {
+    return dim(padded);
+  }
+  if (status !== void 0 && text.startsWith(statusIcons[status] ?? "?")) {
+    return padded.replace(statusIcons[status] ?? "?", paintStatus(status, statusIcons[status] ?? "?"));
+  }
+  return padded;
+};
+var printStepTable = ({ steps, activeMs }) => {
+  const headers = ["step", "tries", "time", "agents", "out", "cost", "files"];
+  const rows = steps.map((step) => ({
+    status: step.status,
+    cells: [
+      `${statusIcons[step.status] ?? "?"} ${step.id}`,
+      `${step.attempts}`,
+      formatDuration(step.durationMs),
+      step.invocations > 0 ? `${step.invocations}` : "\u2014",
+      step.invocations > 0 ? formatTokenCount(step.outputTokens) : "\u2014",
+      step.invocations > 0 ? `$${step.costUsd.toFixed(2)}` : "\u2014",
+      step.changedFiles ? `${step.changedFiles.length}` : "\u2014"
+    ]
+  }));
+  const invocations = steps.reduce((count, step) => count + step.invocations, 0);
+  const totalCells = [
+    "  total",
+    "\u2014",
+    activeMs > 0 ? formatDuration(activeMs) : "\u2014",
+    invocations > 0 ? `${invocations}` : "\u2014",
+    invocations > 0 ? formatTokenCount(steps.reduce((count, step) => count + step.outputTokens, 0)) : "\u2014",
+    invocations > 0 ? `$${steps.reduce((total, step) => total + step.costUsd, 0).toFixed(2)}` : "\u2014",
+    `${steps.reduce((count, step) => count + (step.changedFiles?.length ?? 0), 0)}`
+  ];
+  const allRows = [headers, ...rows.map((row) => row.cells), totalCells];
+  const widths = headers.map((_, column) => Math.max(...allRows.map((cells) => (cells[column] ?? "").length)) + 2);
+  const rule = (left, mid, right) => dim(`${left}${widths.map((width) => "\u2500".repeat(width)).join(mid)}${right}`);
+  const renderRow = ({ cells, status, emphasis }) => {
+    const rendered = cells.map((text, column) => {
+      const width = widths[column] ?? 0;
+      const padded = column === 0 ? ` ${text.padEnd(width - 1)}` : `${text.padStart(width - 1)} `;
+      const painted = paintCell({ text, padded, status });
+      return emphasis && text !== "\u2014" ? emphasis(painted) : painted;
+    });
+    return `${dim("\u2502")}${rendered.join(dim("\u2502"))}${dim("\u2502")}`;
+  };
+  console.log(rule("\u250C", "\u252C", "\u2510"));
+  console.log(renderRow({ cells: headers }));
+  for (const row of rows) {
+    console.log(rule("\u251C", "\u253C", "\u2524"));
+    console.log(renderRow({ cells: row.cells, status: row.status }));
+  }
+  console.log(rule("\u251C", "\u253C", "\u2524"));
+  console.log(renderRow({ cells: totalCells, emphasis: bold }));
+  console.log(rule("\u2514", "\u2534", "\u2518"));
+};
 var printResult = async ({ result, cwd }) => {
   const { manifest, ok, error: error51 } = result;
   const summary = await summarizeRun({ cwd, manifest });
-  console.log(`
-run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
-  console.log(`  time: ${formatDuration(summary.wallMs)} wall \xB7 ${formatDuration(summary.gateMs)} in gates`);
+  const label = (name, value) => console.log(`${name.padEnd(10)}${value}`);
+  const plural = (count) => count === 1 ? "" : "s";
+  console.log("");
+  label("run", `${manifest.runId.slice(0, 8)} \xB7 ${paintStatus(manifest.status, bold(manifest.status.toUpperCase()))}`);
+  label("plan", basename(manifest.plan));
+  label("wall", formatDuration(summary.wallMs));
+  if (summary.activeMs > 0) {
+    label("active", formatDuration(summary.activeMs));
+  }
+  label("gates", formatDuration(summary.gateMs));
   if (summary.usage && summary.usage.invocations > 0) {
     const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = summary.usage;
-    const share = summary.cacheReadShare === void 0 ? "" : ` (${Math.round(summary.cacheReadShare * 100)}% of all input)`;
-    console.log(
-      `  agents: ${invocations} invocation(s) \xB7 in ${formatTokenCount(inputTokens)} \xB7 out ${formatTokenCount(outputTokens)} \xB7 cache-read ${formatTokenCount(cacheReadTokens)}${share}`
-    );
-    console.log(`  cost: $${costUsd.toFixed(2)} API-equivalent (headless runs ride the harness subscription)`);
+    const share = summary.cacheReadShare === void 0 ? "" : ` (${Math.round(summary.cacheReadShare * 100)}%)`;
+    label("tokens", `in ${formatTokenCount(inputTokens)} \xB7 out ${formatTokenCount(outputTokens)} \xB7 cache-read ${formatTokenCount(cacheReadTokens)}${share}`);
+    label("cost", `$${costUsd.toFixed(2)} API-equivalent \xB7 ${invocations} invocation${plural(invocations)}`);
   }
   console.log("");
-  console.log(summaryRow(summaryColumns.map((column) => column.header)));
-  for (const step of summary.steps) {
-    const withAgents = step.invocations > 0;
-    console.log(
-      summaryRow([
-        `${statusIcons[step.status] ?? "?"} ${step.id}`,
-        `${step.attempts}`,
-        formatDuration(step.durationMs),
-        withAgents ? `${step.invocations}` : "\u2014",
-        withAgents ? formatTokenCount(step.outputTokens) : "\u2014",
-        withAgents ? `$${step.costUsd.toFixed(2)}` : "\u2014",
-        step.changedFiles ? `${step.changedFiles.length}` : "\u2014"
-      ])
-    );
-  }
+  printStepTable({ steps: summary.steps, activeMs: summary.activeMs });
   console.log("");
-  const gateParts = [`${summary.gates.commands} command(s)`];
+  const gateParts = [`${summary.gates.commands} command${plural(summary.gates.commands)}`];
   if (summary.gates.reruns > 0) {
-    gateParts.push(`${summary.gates.reruns} flake re-run(s)`);
+    gateParts.push(`${summary.gates.reruns} flake re-run${plural(summary.gates.reruns)}`);
   }
   if (summary.gates.skipped > 0) {
     gateParts.push(`${summary.gates.skipped} skipped (no script)`);
   }
-  console.log(`  gates: ${gateParts.join(" \xB7 ")}`);
+  label("gates", gateParts.join(" \xB7 "));
   if (summary.rejectedReports > 0) {
-    console.log(`  report retries: ${summary.rejectedReports} rejected message(s) re-emitted`);
+    label("retries", `${summary.rejectedReports} rejected report${plural(summary.rejectedReports)} re-emitted`);
   }
   if (summary.frictionByArea.length > 0) {
     const total = summary.frictionByArea.reduce((count, entry) => count + entry.count, 0);
-    console.log(`  friction: ${total} \u2014 ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(", ")}`);
+    label("friction", `${total} \xB7 ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(" \xB7 ")}`);
   }
   if (manifest.packages.length > 0) {
-    console.log(`  package scope: ${manifest.packages.join(", ")}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ""}`);
+    label("scope", `${manifest.packages.join(" \xB7 ")}${manifest.packagesSource ? ` (${manifest.packagesSource})` : ""}`);
   }
-  console.log(`  command log: .lightsout/runs/${manifest.runId}/commands.jsonl`);
-  if (existsSync(join16(cwd, ".lightsout", "runs", manifest.runId, "agents"))) {
-    console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
-  }
+  label("evidence", `.lightsout/runs/${manifest.runId}/`);
   if (!ok && error51) {
     console.error(`
 ${error51}`);

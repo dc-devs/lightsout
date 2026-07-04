@@ -1,6 +1,5 @@
-import { existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { RunStatus, type LightsoutConfig } from '@lightsout/contracts';
 import { getDriver, type Driver } from '@lightsout/drivers';
 import {
@@ -161,88 +160,143 @@ const formatTokenCount = (count: number) => {
 	return count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`;
 };
 
-const summaryColumns = [
-	{ header: 'step', width: 22, align: 'left' },
-	{ header: 'tries', width: 6, align: 'right' },
-	{ header: 'time', width: 10, align: 'right' },
-	{ header: 'agents', width: 7, align: 'right' },
-	{ header: 'out', width: 9, align: 'right' },
-	{ header: 'cost', width: 10, align: 'right' },
-	{ header: 'files', width: 6, align: 'right' },
-] as const;
+// ANSI paint, no-op when output is piped — alignment is computed on plain
+// text first, so color codes never disturb the table geometry.
+const paint = (code: string) => (text: string) => (process.stdout.isTTY ? `\u001b[${code}m${text}\u001b[0m` : text);
+const dim = paint('2');
+const bold = paint('1');
+const green = paint('32');
+const red = paint('31');
+const yellow = paint('33');
 
-const summaryRow = (cells: string[]) =>
-	`  ${cells.map((cell, index) => (summaryColumns[index]?.align === 'left' ? cell.padEnd(summaryColumns[index].width) : cell.padStart(summaryColumns[index]?.width ?? 0))).join('')}`;
+const paintStatus = (status: string, text: string) => {
+	if (status === RunStatus.Passed) {
+		return green(text);
+	}
+
+	return status === RunStatus.Failed ? red(text) : yellow(text);
+};
+
+const paintCell = ({ text, padded, status }: { text: string; padded: string; status?: string }) => {
+	if (text === '—') {
+		return dim(padded);
+	}
+
+	if (status !== undefined && text.startsWith(statusIcons[status] ?? '?')) {
+		return padded.replace(statusIcons[status] ?? '?', paintStatus(status, statusIcons[status] ?? '?'));
+	}
+
+	return padded;
+};
+
+const printStepTable = ({ steps, activeMs }: { steps: Awaited<ReturnType<typeof summarizeRun>>['steps']; activeMs: number }) => {
+	const headers = ['step', 'tries', 'time', 'agents', 'out', 'cost', 'files'];
+	const rows = steps.map((step) => ({
+		status: step.status,
+		cells: [
+			`${statusIcons[step.status] ?? '?'} ${step.id}`,
+			`${step.attempts}`,
+			formatDuration(step.durationMs),
+			step.invocations > 0 ? `${step.invocations}` : '—',
+			step.invocations > 0 ? formatTokenCount(step.outputTokens) : '—',
+			step.invocations > 0 ? `$${step.costUsd.toFixed(2)}` : '—',
+			step.changedFiles ? `${step.changedFiles.length}` : '—',
+		],
+	}));
+	const invocations = steps.reduce((count, step) => count + step.invocations, 0);
+	const totalCells = [
+		'  total',
+		'—',
+		activeMs > 0 ? formatDuration(activeMs) : '—',
+		invocations > 0 ? `${invocations}` : '—',
+		invocations > 0 ? formatTokenCount(steps.reduce((count, step) => count + step.outputTokens, 0)) : '—',
+		invocations > 0 ? `$${steps.reduce((total, step) => total + step.costUsd, 0).toFixed(2)}` : '—',
+		`${steps.reduce((count, step) => count + (step.changedFiles?.length ?? 0), 0)}`,
+	];
+	const allRows = [headers, ...rows.map((row) => row.cells), totalCells];
+	const widths = headers.map((_, column) => Math.max(...allRows.map((cells) => (cells[column] ?? '').length)) + 2);
+	const rule = (left: string, mid: string, right: string) => dim(`${left}${widths.map((width) => '─'.repeat(width)).join(mid)}${right}`);
+	const renderRow = ({ cells, status, emphasis }: { cells: string[]; status?: string; emphasis?: (text: string) => string }) => {
+		const rendered = cells.map((text, column) => {
+			const width = widths[column] ?? 0;
+			const padded = column === 0 ? ` ${text.padEnd(width - 1)}` : `${text.padStart(width - 1)} `;
+			const painted = paintCell({ text, padded, status });
+
+			return emphasis && text !== '—' ? emphasis(painted) : painted;
+		});
+
+		return `${dim('│')}${rendered.join(dim('│'))}${dim('│')}`;
+	};
+
+	console.log(rule('┌', '┬', '┐'));
+	console.log(renderRow({ cells: headers }));
+
+	for (const row of rows) {
+		console.log(rule('├', '┼', '┤'));
+		console.log(renderRow({ cells: row.cells, status: row.status }));
+	}
+
+	console.log(rule('├', '┼', '┤'));
+	console.log(renderRow({ cells: totalCells, emphasis: bold }));
+	console.log(rule('└', '┴', '┘'));
+};
 
 const printResult = async ({ result, cwd }: { result: PipelineResult; cwd: string }) => {
 	const { manifest, ok, error } = result;
 	const summary = await summarizeRun({ cwd, manifest });
+	const label = (name: string, value: string) => console.log(`${name.padEnd(10)}${value}`);
+	const plural = (count: number) => (count === 1 ? '' : 's');
 
-	console.log(`\nrun ${manifest.runId}: ${manifest.status.toUpperCase()}`);
-	console.log(`  time: ${formatDuration(summary.wallMs)} wall · ${formatDuration(summary.gateMs)} in gates`);
+	console.log('');
+	label('run', `${manifest.runId.slice(0, 8)} · ${paintStatus(manifest.status, bold(manifest.status.toUpperCase()))}`);
+	label('plan', basename(manifest.plan));
+	label('wall', formatDuration(summary.wallMs));
+
+	if (summary.activeMs > 0) {
+		label('active', formatDuration(summary.activeMs));
+	}
+
+	label('gates', formatDuration(summary.gateMs));
 
 	if (summary.usage && summary.usage.invocations > 0) {
 		const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = summary.usage;
-		const share = summary.cacheReadShare === undefined ? '' : ` (${Math.round(summary.cacheReadShare * 100)}% of all input)`;
+		const share = summary.cacheReadShare === undefined ? '' : ` (${Math.round(summary.cacheReadShare * 100)}%)`;
 
-		console.log(
-			`  agents: ${invocations} invocation(s) · in ${formatTokenCount(inputTokens)} · out ${formatTokenCount(outputTokens)} · cache-read ${formatTokenCount(cacheReadTokens)}${share}`,
-		);
-		console.log(`  cost: $${costUsd.toFixed(2)} API-equivalent (headless runs ride the harness subscription)`);
+		label('tokens', `in ${formatTokenCount(inputTokens)} · out ${formatTokenCount(outputTokens)} · cache-read ${formatTokenCount(cacheReadTokens)}${share}`);
+		label('cost', `$${costUsd.toFixed(2)} API-equivalent · ${invocations} invocation${plural(invocations)}`);
 	}
 
 	console.log('');
-	console.log(summaryRow(summaryColumns.map((column) => column.header)));
-
-	for (const step of summary.steps) {
-		const withAgents = step.invocations > 0;
-
-		console.log(
-			summaryRow([
-				`${statusIcons[step.status] ?? '?'} ${step.id}`,
-				`${step.attempts}`,
-				formatDuration(step.durationMs),
-				withAgents ? `${step.invocations}` : '—',
-				withAgents ? formatTokenCount(step.outputTokens) : '—',
-				withAgents ? `$${step.costUsd.toFixed(2)}` : '—',
-				step.changedFiles ? `${step.changedFiles.length}` : '—',
-			]),
-		);
-	}
-
+	printStepTable({ steps: summary.steps, activeMs: summary.activeMs });
 	console.log('');
 
-	const gateParts = [`${summary.gates.commands} command(s)`];
+	const gateParts = [`${summary.gates.commands} command${plural(summary.gates.commands)}`];
 
 	if (summary.gates.reruns > 0) {
-		gateParts.push(`${summary.gates.reruns} flake re-run(s)`);
+		gateParts.push(`${summary.gates.reruns} flake re-run${plural(summary.gates.reruns)}`);
 	}
 
 	if (summary.gates.skipped > 0) {
 		gateParts.push(`${summary.gates.skipped} skipped (no script)`);
 	}
 
-	console.log(`  gates: ${gateParts.join(' · ')}`);
+	label('gates', gateParts.join(' · '));
 
 	if (summary.rejectedReports > 0) {
-		console.log(`  report retries: ${summary.rejectedReports} rejected message(s) re-emitted`);
+		label('retries', `${summary.rejectedReports} rejected report${plural(summary.rejectedReports)} re-emitted`);
 	}
 
 	if (summary.frictionByArea.length > 0) {
 		const total = summary.frictionByArea.reduce((count, entry) => count + entry.count, 0);
 
-		console.log(`  friction: ${total} — ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(', ')}`);
+		label('friction', `${total} · ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(' · ')}`);
 	}
 
 	if (manifest.packages.length > 0) {
-		console.log(`  package scope: ${manifest.packages.join(', ')}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ''}`);
+		label('scope', `${manifest.packages.join(' · ')}${manifest.packagesSource ? ` (${manifest.packagesSource})` : ''}`);
 	}
 
-	console.log(`  command log: .lightsout/runs/${manifest.runId}/commands.jsonl`);
-
-	if (existsSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'agents'))) {
-		console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
-	}
+	label('evidence', `.lightsout/runs/${manifest.runId}/`);
 
 	if (!ok && error) {
 		console.error(`\n${error}`);

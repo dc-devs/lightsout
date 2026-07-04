@@ -78,6 +78,8 @@ export const summarizeRun = async ({ cwd, manifest }: Params) => {
 
 	return {
 		wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
+		/** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
+		activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
 		gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
 		usage,
 		/** Share of all input the model read from cache — the run's cost-efficiency dial. */
