@@ -313,6 +313,38 @@ Validation: run on lightsout engine/src, then FeedbackDrop — the report
 must independently rediscover the known processor duplication the phase-2
 refactor agent flagged (ground truth).
 
+V1.1 (queued 2026-07-04 from the first full FeedbackDrop scan — 552
+findings, ~60% signal; these take it to ~85% and make observation
+sustainable):
+
+1. **Filename-mismatch suffix stripping**: strip framework suffixes
+   (`.model`, `.dto`, `.entity`, `.input`, `.args`, …) before comparing
+   filename to export name — `session-response.model.ts` exporting
+   `SessionResponse` is convention, not a mismatch. ~130 of FD's 142
+   mismatch findings are this one gap.
+2. **Tier-0 to/from inversion guard**: token-sorting collapses deliberate
+   opposites (`hexToRgb` vs `rgbToHex`) into "one concept under two
+   names" — keep order sensitivity when names contain to/from conversion
+   shape. Related: a component + its kebab route file (`GetStarted` vs
+   `get-started`) is a legit framework pair, not a dup.
+3. **Consumer-TypeScript workspace fallback**: resolveConsumerTypescript
+   only tries the repo root — pnpm workspaces keep typescript in package
+   node_modules, so FD's full scan ran with tier 2 skipped entirely. Try
+   scoped packages' manifests before giving up.
+4. **Baseline ratchet**: first scan writes `.lightsout/scan-baseline.json`
+   (accepted debt); later scans report only NEW findings vs baseline
+   (cluster keys are the stable diff identifiers — designed for this).
+   `--all` shows everything. Turns a 552-finding brownfield report into
+   "what did this change add?" and the baseline into the deliberate
+   burn-down list (or v2's remediation queue).
+5. **Threshold config**: expose `scan: { minCloneTokens }` (default 50;
+   FD's 16-line-median clone tail suggests ~70 for that repo) — per-repo
+   floors, not a global guess.
+6. **Dominant-path self-diagnosis**: when one directory produces >50% of
+   findings, say so in the report header — a 2,235-findings-from-one-
+   generated-dir report should diagnose its own config gap (live case:
+   Prisma client dir missing from `generated`).
+
 V2 (separate, after v1 evidence): remediation pipeline — clean-slate gate →
 scan → one refactor agent per finding-cluster (test-writer fan-out
 pattern), each handed a specific defect, never "go find problems" → gates
