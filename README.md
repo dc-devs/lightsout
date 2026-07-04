@@ -60,7 +60,10 @@ lightsout run --plan plans/feature.md
   verify                your check + test commands; exit codes, not claims
   write-tests           one test-writer agent per changed source file, 5 in parallel
   verify                … + coverage gate
-  refactor              refactor agent loops (≤3 passes) until a pass changes nothing
+  refactor              scan gate feeds deterministic findings on the changed files
+                        (baseline-suppressed) to the refactor agent; loops (≤3 passes)
+                        until a pass changes nothing AND the scanner is clean —
+                        surviving gating findings escalate
   verify                … + coverage gate
   format                your formatter runs once; gates re-verify after
 

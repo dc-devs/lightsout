@@ -15998,8 +15998,8 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
 
 // packages/engine/src/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { appendFile as appendFile4, mkdir as mkdir6, readFile as readFile8, writeFile as writeFile3 } from "node:fs/promises";
-import { join as join13 } from "node:path";
+import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile13, writeFile as writeFile4 } from "node:fs/promises";
+import { join as join20 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
@@ -16097,10 +16097,10 @@ ${errorContext}`
 };
 
 // packages/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Scan findings section is provided, those are deterministic detector\n  results on the changed files \u2014 address them FIRST; the engine re-runs the\n  scanner after you report, and unresolved findings re-invoke you.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // packages/agents/src/buildRefactorExecutorInvocation.ts
-var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, errorContext }) => {
+var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, errorContext }) => {
   const sections = [
     `# Changed files to review
 
@@ -16115,6 +16115,19 @@ ${planContent}`
 These rules are binding:
 
 ${standards}`);
+  }
+  if (scanFindings && scanFindings.length > 0) {
+    const lines = scanFindings.map((finding) => {
+      const where = finding.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(" \u2194 ");
+      return `- [${finding.detector}] ${where} \u2014 ${finding.detail}`;
+    });
+    sections.push(
+      `# Scan findings (deterministic detectors)
+
+The engine's scanner found these on the changed files. Address each one first \u2014 they are re-checked after you report \u2014 or state in your summary why one must stay:
+
+${lines.join("\n")}`
+    );
   }
   if (errorContext) {
     sections.push(
@@ -16641,914 +16654,27 @@ ${generated.stderr}`;
   return errors.length > 0 ? errors.join("\n\n") : void 0;
 };
 
-// packages/engine/src/runImplementPipeline.ts
-var defaultAgentTimeoutMinutes = 60;
-var defaultSupervisorTimeoutMinutes = 15;
-var formatTimeoutMs = 10 * 6e4;
-var maxCheapFixRetries = 2;
-var maxRefactorPasses = 3;
-var testWriterConcurrency = 5;
-var defaultPermissionMode = "acceptEdits";
-var supervisorPermissionMode = "plan";
-var isTestFilePath = (path) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
-var formatTokens = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
-var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
-var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
-var upsertStep = ({ steps, record: record2 }) => {
-  const existing = steps.findIndex((step) => step.id === record2.id);
-  if (existing === -1) {
-    return [...steps, record2];
-  }
-  return steps.map((step, index) => index === existing ? record2 : step);
-};
-var executePipeline = async ({
-  cwd,
-  runId,
-  driver,
-  config: config2,
-  planPath,
-  overviewPath,
-  packages,
-  existing,
-  skipRefactor,
-  onProgress
-}) => {
-  const progress = onProgress ?? (() => void 0);
-  let manifest = existing ?? await createRun({
-    cwd,
-    runId,
-    plan: planPath ?? "",
-    overview: overviewPath,
-    driver: driver.name,
-    config: config2,
-    baselineDirtyFiles: await readGitChangedFiles({ cwd })
-  });
-  const usageTotals = {
-    invocations: 0,
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheCreationTokens: 0,
-    costUsd: 0,
-    ...manifest.usage
-  };
-  const update = async (patch) => {
-    const usage2 = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
-    manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage: usage2 } });
-  };
-  const recordAgentUsage = async ({ step, usage: usage2 }) => {
-    if (!usage2) {
-      return;
-    }
-    usageTotals.invocations += 1;
-    usageTotals.inputTokens += usage2.inputTokens;
-    usageTotals.outputTokens += usage2.outputTokens;
-    usageTotals.cacheReadTokens += usage2.cacheReadTokens;
-    usageTotals.cacheCreationTokens += usage2.cacheCreationTokens;
-    usageTotals.costUsd += usage2.costUsd;
-    await appendAgentLog({
-      cwd,
-      runId: manifest.runId,
-      record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, model: config2.model, ...usage2 }
-    });
-    progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
-  };
-  const stepTimers = /* @__PURE__ */ new Map();
-  const setStep = async ({ record: record2, patch }) => {
-    const timer = stepTimers.get(record2.id);
-    const timed = timer ? { ...record2, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record2;
-    await update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: manifest.steps, record: timed }) });
-  };
-  const stop = async ({ record: record2, status, error: error51 }) => {
-    await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
-    progress(`run stopped at ${record2.id} \u2014 ${status}`);
-    const stopped = { ok: false, manifest, error: error51 };
-    return stopped;
-  };
-  const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile8(join13(cwd, manifest.plan), "utf8").catch(() => void 0);
-  if (planContent === void 0) {
-    return stop({
-      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
-      status: RunStatus.Failed,
-      error: `plan file not found: ${join13(cwd, manifest.plan)}`
-    });
-  }
-  const overviewContent = manifest.overview ? await readFile8(join13(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
-  if (manifest.overview && overviewContent === void 0) {
-    return stop({
-      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
-      status: RunStatus.Failed,
-      error: `overview file not found: ${join13(cwd, manifest.overview)}`
-    });
-  }
-  const packagesDir = config2.packagesDir ?? "packages";
-  if (config2.packageScripts && manifest.packages.length === 0) {
-    const fromFlag = packages;
-    const fromFrontMatter = fromFlag ? void 0 : readPlanPackages({ planContent });
-    const fromPlanPaths = fromFlag ?? fromFrontMatter ? void 0 : scanPlanPackagePaths({ planContent, packagesDir });
-    const declared = fromFlag ?? fromFrontMatter ?? fromPlanPaths;
-    if (!declared || declared.length === 0) {
-      return stop({
-        record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
-        status: RunStatus.Failed,
-        error: `packageScripts is configured but no package scope could be resolved \u2014 add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`
-      });
-    }
-    await update({
-      packages: declared,
-      packagesSource: fromFlag ? PackagesSource.Flag : fromFrontMatter ? PackagesSource.FrontMatter : PackagesSource.PlanPaths
-    });
-  }
-  if (manifest.packages.length > 0) {
-    progress(`package scope: ${manifest.packages.join(", ")} (from ${manifest.packagesSource ?? "manifest"})`);
-  }
-  const standardsPaths = config2.standards === false ? [] : config2.standards ?? ["lightsout:code-defaults"];
-  const testStandardsPaths = config2.testStandards === false ? [] : config2.testStandards ?? ["lightsout:test-defaults"];
-  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: manifest.packages });
-  if (standardsPaths.length > 0 || testStandardsPaths.length > 0) {
-    progress(
-      `standards channels: base${channels.length > 0 ? ` + ${channels.join(" + ")}` : ""} (${config2.standardsChannels ? "configured" : "detected from package dependencies"})`
-    );
-  }
-  let standards;
-  let testStandards;
-  try {
-    standards = await readStandards({ cwd, paths: standardsPaths, channels });
-    testStandards = await readStandards({ cwd, paths: testStandardsPaths, channels });
-  } catch (error51) {
-    return stop({
-      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
-      status: RunStatus.Failed,
-      error: error51 instanceof Error ? error51.message : String(error51)
-    });
-  }
-  const nextRecord = ({ id }) => {
-    const prev = manifest.steps.find((step) => step.id === id);
-    stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
-    return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1, changedFiles: prev?.changedFiles };
-  };
-  const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
-  const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
-  let transcriptCount = 0;
-  const agentEventSink = (step) => {
-    transcriptCount += 1;
-    const dir = join13(getRunDir({ cwd, runId: manifest.runId }), "agents");
-    const path = join13(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
-    let tail = mkdir6(dir, { recursive: true });
-    return (event) => {
-      tail = tail.then(() => appendFile4(path, `${JSON.stringify(event)}
-`, "utf8")).catch(() => void 0);
-    };
-  };
-  let rejectedCount = 0;
-  const persistRejected = (step) => async ({ text, attempt, validationError }) => {
-    rejectedCount += 1;
-    const dir = join13(getRunDir({ cwd, runId: manifest.runId }), "agents");
-    const name = `rejected-${String(rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
-    await mkdir6(dir, { recursive: true });
-    await writeFile3(join13(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
-# validation: ${validationError}
-
-${text}`, "utf8");
-    progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
-  };
-  const invokeRole = async (invocation, step) => {
-    const outcome = await invokeAgentWithContract({
-      driver,
-      cwd,
-      invocation,
-      contract: WorkReport,
-      model: config2.model,
-      permissionMode: config2.permissionMode ?? defaultPermissionMode,
-      timeoutMs: agentTimeoutMs,
-      // Harness-level allowance for all working roles; the binding grant
-      // is the prompt section, which only the executor's builder emits.
-      allowedCommands: config2.agentCommands,
-      onEvent: agentEventSink(step),
-      onRejectedOutput: persistRejected(step)
-    });
-    await recordAgentUsage({ step, usage: outcome.usage });
-    return outcome;
-  };
-  const packageOf = (file2) => {
-    const prefix = `${packagesDir}/`;
-    if (!file2.startsWith(prefix)) {
-      return void 0;
-    }
-    const rest = file2.slice(prefix.length);
-    const separator = rest.indexOf("/");
-    return separator > 0 ? rest.slice(0, separator) : void 0;
-  };
-  const isGeneratedFile = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const collectChanged = async (reports) => {
-    const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter(
-      (file2) => !manifest.baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
-    );
-    const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => file2.path)).filter((file2) => !isGeneratedFile(file2));
-    const changedFiles = [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
-    const fromFiles = changedFiles.flatMap((file2) => {
-      const packageDir = packageOf(file2);
-      return packageDir ? [packageDir] : [];
-    });
-    return { changedFiles, packages: [.../* @__PURE__ */ new Set([...manifest.packages, ...fromFiles])] };
-  };
-  const hasRootChanges = () => manifest.changedFiles.some((file2) => packageOf(file2) === void 0);
-  const gates = ({ coverage }) => runGates({
-    cwd,
-    config: config2,
-    coverage,
-    packages: manifest.packages,
-    includeRoot: hasRootChanges(),
-    runId: manifest.runId,
-    step: manifest.currentStep ?? void 0,
-    onProgress
-  });
-  const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFilePath(file2) && isTestableSourceFile(file2));
-  const withStepFiles = ({ record: record2, reports }) => ({
-    ...record2,
-    changedFiles: [
-      .../* @__PURE__ */ new Set([...record2.changedFiles ?? [], ...reports.flatMap((report) => report.changedFiles.map((file2) => file2.path))])
-    ]
-  });
-  const workStep = ({
-    id,
-    build,
-    requireChanges
-  }) => {
-    return async () => {
-      const record2 = nextRecord({ id });
-      await setStep({ record: record2 });
-      progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${agentTimeoutMs / 6e4}m)`);
-      const { report, failure, rateLimited } = await invokeRole(build(), id);
-      if (rateLimited) {
-        return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-      }
-      if (!report) {
-        return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
-      }
-      progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
-      await appendFriction({ cwd, runId: manifest.runId, step: id, friction: report.friction ?? [] });
-      if (report.status !== WorkReportStatus.Complete) {
-        const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
-        return stop({
-          record: { ...record2, report },
-          status,
-          error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
-        });
-      }
-      const changed = await collectChanged([report]);
-      if (requireChanges && changed.changedFiles.length === 0) {
-        return stop({
-          record: { ...record2, report },
-          status: RunStatus.Failed,
-          error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
-        });
-      }
-      await setStep({ record: withStepFiles({ record: { ...record2, status: RunStatus.Passed, report }, reports: [report] }), patch: changed });
-      progress(`step ${id} passed`);
-      return void 0;
-    };
-  };
-  const verifyStep = ({
-    id,
-    coverage,
-    buildFix
-  }) => {
-    return async () => {
-      let record2 = nextRecord({ id });
-      await setStep({ record: record2 });
-      progress(`step ${id} \u2014 attempt ${record2.attempts}`);
-      let error51 = await gates({ coverage });
-      for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
-        record2 = { ...record2, attempts: record2.attempts + 1 };
-        await setStep({ record: record2 });
-        progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
-        const fix = await invokeRole(buildFix(error51), id);
-        if (fix.rateLimited) {
-          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-        }
-        if (fix.report) {
-          await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
-        }
-        if (fix.report?.status === WorkReportStatus.Complete) {
-          record2 = withStepFiles({ record: record2, reports: [fix.report] });
-          await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
-        }
-        error51 = await gates({ coverage });
-      }
-      if (error51) {
-        progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor (ceiling ${supervisorTimeoutMs / 6e4}m)`);
-        const verdict = await invokeAgentWithContract({
-          driver,
-          cwd,
-          invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error51, attempts: record2.attempts }),
-          contract: SupervisorVerdict,
-          model: config2.model,
-          permissionMode: supervisorPermissionMode,
-          timeoutMs: supervisorTimeoutMs,
-          onEvent: agentEventSink(`${id}-supervisor`),
-          onRejectedOutput: persistRejected(`${id}-supervisor`)
-        });
-        await recordAgentUsage({ step: `${id}-supervisor`, usage: verdict.usage });
-        if (verdict.rateLimited) {
-          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-        }
-        if (verdict.report) {
-          progress(`step ${id}: supervisor verdict \u2014 ${verdict.report.decision}`);
-        }
-        if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
-          record2 = { ...record2, attempts: record2.attempts + 1 };
-          await setStep({ record: record2 });
-          const fix = await invokeRole(
-            buildFix(`${error51}
-
-# Supervisor diagnosis
-${verdict.report.diagnosis}
-
-# Supervisor guidance
-${verdict.report.guidance}`),
-            id
-          );
-          if (fix.rateLimited) {
-            return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-          }
-          if (fix.report) {
-            await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
-          }
-          if (fix.report?.status === WorkReportStatus.Complete) {
-            record2 = withStepFiles({ record: record2, reports: [fix.report] });
-            await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
-          }
-          error51 = await gates({ coverage });
-        }
-        if (error51) {
-          const diagnosis = verdict.report ? `
-supervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : "";
-          return stop({ record: record2, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}
-
-${error51}` });
-        }
-      }
-      await setStep({ record: { ...record2, status: RunStatus.Passed } });
-      progress(`step ${id} passed`);
-      return void 0;
-    };
-  };
-  const cleanSlateStep = async () => {
-    const record2 = nextRecord({ id: "clean-slate" });
-    await setStep({ record: record2 });
-    progress(`step clean-slate \u2014 attempt ${record2.attempts}`);
-    const error51 = await gates({ coverage: true });
-    if (error51) {
-      return stop({
-        record: record2,
-        status: RunStatus.Failed,
-        error: `Codebase is not green before implementation \u2014 fix this first.
-${error51}`
-      });
-    }
-    const gateArtifacts = await readGitChangedFiles({ cwd });
-    await setStep({
-      record: { ...record2, status: RunStatus.Passed },
-      patch: gateArtifacts ? { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...manifest.baselineDirtyFiles, ...gateArtifacts])] } : void 0
-    });
-    progress("step clean-slate passed");
-    return void 0;
-  };
-  const writeTestsStep = async () => {
-    let record2 = nextRecord({ id: "write-tests" });
-    await setStep({ record: record2 });
-    const targets = sourceFiles();
-    progress(`step write-tests \u2014 attempt ${record2.attempts} \xB7 ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
-    const reports = [];
-    const failures = [];
-    let terminated = false;
-    let parked = false;
-    for (let start = 0; start < targets.length && !parked; start += testWriterConcurrency) {
-      const batch = targets.slice(start, start + testWriterConcurrency);
-      const results = await Promise.all(
-        batch.map(async (file2) => ({
-          file: file2,
-          ...await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: [file2], standards: testStandards }), "write-tests")
-        }))
-      );
-      for (const result of results) {
-        if (result.rateLimited) {
-          parked = true;
-          continue;
-        }
-        if (!result.report) {
-          failures.push(`${result.file}: ${result.failure ?? "unknown failure"}`);
-          continue;
-        }
-        await appendFriction({ cwd, runId: manifest.runId, step: "write-tests", friction: result.report.friction ?? [] });
-        reports.push(result.report);
-        progress(`write-tests: ${result.file} \u2014 ${result.report.status}`);
-        if (result.report.status !== WorkReportStatus.Complete) {
-          terminated = terminated || result.report.status !== WorkReportStatus.Failed;
-          failures.push(`${result.file}: ${result.report.status} \u2014 ${result.report.failures.join("; ")}`);
-        }
-      }
-    }
-    record2 = withStepFiles({ record: record2, reports });
-    await setStep({ record: { ...record2, report: { reports } }, patch: await collectChanged(reports) });
-    if (parked) {
-      return stop({ record: { ...record2, report: { reports } }, status: RunStatus.PausedRateLimit, error: parkMessage() });
-    }
-    if (failures.length > 0) {
-      return stop({
-        record: { ...record2, report: { reports } },
-        status: terminated ? RunStatus.Escalated : RunStatus.Failed,
-        error: `write-tests: ${failures.length} of ${targets.length} writer(s) did not complete:
-${failures.join("\n")}`
-      });
-    }
-    await setStep({ record: { ...record2, status: RunStatus.Passed, report: { reports } } });
-    progress("step write-tests passed");
-    return void 0;
-  };
-  const refactorStep = async () => {
-    let record2 = nextRecord({ id: "refactor" });
-    let lastReport;
-    for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
-      await setStep({ record: record2 });
-      progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
-      const { report, failure, rateLimited } = await invokeRole(
-        buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards }),
-        "refactor"
-      );
-      if (rateLimited) {
-        return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-      }
-      if (!report) {
-        return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
-      }
-      await appendFriction({ cwd, runId: manifest.runId, step: "refactor", friction: report.friction ?? [] });
-      if (report.status !== WorkReportStatus.Complete) {
-        const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
-        return stop({ record: { ...record2, report }, status, error: `refactor: ${report.status} \u2014 ${report.failures.join("; ")}` });
-      }
-      record2 = withStepFiles({ record: record2, reports: [report] });
-      await setStep({ record: { ...record2, report }, patch: await collectChanged([report]) });
-      lastReport = report;
-      if (report.changedFiles.length === 0) {
-        progress(`refactor pass ${pass}: no changes \u2014 loop complete`);
-        break;
-      }
-      progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
-      record2 = { ...record2, attempts: record2.attempts + 1 };
-    }
-    await setStep({ record: { ...record2, status: RunStatus.Passed, report: lastReport } });
-    progress("step refactor passed");
-    return void 0;
-  };
-  const formatStep = {
-    id: "format",
-    skip: () => config2.scripts.format ? void 0 : "no format command configured",
-    run: async () => {
-      const formatCommand = config2.scripts.format;
-      if (!formatCommand) {
-        return void 0;
-      }
-      const record2 = nextRecord({ id: "format" });
-      await setStep({ record: record2 });
-      progress("step format \u2014 running formatter");
-      const startedAt = Date.now();
-      let result;
-      try {
-        result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
-      } catch (error52) {
-        result = { exitCode: -1, stdout: "", stderr: error52 instanceof Error ? error52.message : String(error52) };
-      }
-      await appendCommandLog({
-        cwd,
-        runId: manifest.runId,
-        record: {
-          at: (/* @__PURE__ */ new Date()).toISOString(),
-          step: "format",
-          group: "root",
-          kind: "format",
-          command: formatCommand,
-          exitCode: result.exitCode,
-          durationMs: Date.now() - startedAt,
-          ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
-${result.stderr}`.slice(-2e3) }
-        }
-      });
-      if (result.exitCode !== 0) {
-        return stop({
-          record: record2,
-          status: RunStatus.Failed,
-          error: `format failed (exit ${result.exitCode}):
-${result.stdout}
-${result.stderr}`
-        });
-      }
-      const error51 = await gates({ coverage: true });
-      if (error51) {
-        return stop({ record: record2, status: RunStatus.Failed, error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
-${error51}` });
-      }
-      await setStep({ record: { ...record2, status: RunStatus.Passed } });
-      progress("step format passed");
-      return void 0;
-    }
-  };
-  const refactorSteps = skipRefactor ? [] : [
-    {
-      id: "refactor",
-      skip: () => sourceFiles().length === 0 ? "no changed source files to review" : void 0,
-      run: refactorStep
-    },
-    {
-      id: "verify-refactor",
-      run: verifyStep({
-        id: "verify-refactor",
-        coverage: true,
-        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, errorContext })
-      })
-    }
-  ];
-  const steps = [
-    { id: "clean-slate", run: cleanSlateStep },
-    {
-      id: "implement",
-      run: workStep({
-        id: "implement",
-        requireChanges: true,
-        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config2.agentCommands })
-      })
-    },
-    {
-      id: "verify-implement",
-      run: verifyStep({
-        id: "verify-implement",
-        buildFix: (errorContext) => buildFeatureExecutorInvocation({
-          planContent,
-          overviewContent,
-          standards,
-          errorContext,
-          changedFiles: manifest.changedFiles,
-          allowedCommands: config2.agentCommands
-        })
-      })
-    },
-    {
-      id: "write-tests",
-      skip: () => sourceFiles().length === 0 ? "no eligible source files" : void 0,
-      run: writeTestsStep
-    },
-    {
-      id: "verify-tests",
-      run: verifyStep({
-        id: "verify-tests",
-        coverage: true,
-        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards, errorContext })
-      })
-    },
-    ...refactorSteps,
-    formatStep
-  ];
-  await update({ status: RunStatus.Running });
-  for (const step of steps) {
-    const prior = manifest.steps.find((record2) => record2.id === step.id);
-    if (prior?.status === RunStatus.Passed) {
-      continue;
-    }
-    const skipReason = step.skip?.();
-    if (skipReason) {
-      await setStep({
-        record: { id: step.id, status: RunStatus.Passed, attempts: prior?.attempts ?? 0, report: { skipped: skipReason } }
-      });
-      progress(`step ${step.id} skipped (${skipReason})`);
-      continue;
-    }
-    const stopped = await step.run();
-    if (stopped) {
-      return stopped;
-    }
-  }
-  await update({ status: RunStatus.Passed, currentStep: null });
-  const passed = { ok: true, manifest };
-  return passed;
-};
-var runImplementPipeline = async (params) => {
-  const { cwd, existing, onProgress } = params;
-  const runId = existing?.runId ?? randomUUID2();
-  const lock = await acquireRunLock({ cwd, runId });
-  if (lock.stalePid !== void 0) {
-    onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
-  }
-  try {
-    return await executePipeline({ ...params, runId });
-  } finally {
-    await releaseRunLock({ cwd, runId });
-  }
-};
-
-// packages/engine/src/summarizeRun.ts
-import { readdir, readFile as readFile10 } from "node:fs/promises";
-import { join as join15 } from "node:path";
-
-// packages/engine/src/readFriction.ts
-import { readFile as readFile9 } from "node:fs/promises";
-import { join as join14 } from "node:path";
-var readFriction = async ({ cwd }) => {
-  const raw = await readFile9(join14(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
-  return raw.split("\n").filter(Boolean).flatMap((line) => {
-    try {
-      const parsed = FrictionRecord.safeParse(JSON.parse(line));
-      return parsed.success ? [parsed.data] : [];
-    } catch {
-      return [];
-    }
-  });
-};
-
-// packages/engine/src/summarizeRun.ts
-var LedgerRecord = external_exports.object({
-  step: external_exports.string(),
-  outputTokens: external_exports.number(),
-  costUsd: external_exports.number()
-});
-var CommandRecord = external_exports.object({
-  durationMs: external_exports.number().optional(),
-  rerun: external_exports.literal(true).optional(),
-  skipped: external_exports.literal(true).optional()
-});
-var readJsonlRecords = async ({ path, schema }) => {
-  const raw = await readFile10(path, "utf8").catch(() => "");
-  return raw.split("\n").filter(Boolean).flatMap((line) => {
-    try {
-      const parsed = schema.safeParse(JSON.parse(line));
-      return parsed.success ? [parsed.data] : [];
-    } catch {
-      return [];
-    }
-  });
-};
-var summarizeRun = async ({ cwd, manifest }) => {
-  const runDir = getRunDir({ cwd, runId: manifest.runId });
-  const ledger = await readJsonlRecords({ path: join15(runDir, "agents.jsonl"), schema: LedgerRecord });
-  const commands = await readJsonlRecords({ path: join15(runDir, "commands.jsonl"), schema: CommandRecord });
-  const agentFiles = await readdir(join15(runDir, "agents")).catch(() => []);
-  const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
-  const perStepUsage = /* @__PURE__ */ new Map();
-  for (const record2 of ledger) {
-    const step = record2.step.endsWith("-supervisor") ? record2.step.slice(0, -"-supervisor".length) : record2.step;
-    const totals = perStepUsage.get(step) ?? { invocations: 0, outputTokens: 0, costUsd: 0 };
-    totals.invocations += 1;
-    totals.outputTokens += record2.outputTokens;
-    totals.costUsd += record2.costUsd;
-    perStepUsage.set(step, totals);
-  }
-  const frictionByArea = /* @__PURE__ */ new Map();
-  for (const entry of friction) {
-    frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
-  }
-  const { usage: usage2 } = manifest;
-  const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
-  return {
-    wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
-    /** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
-    activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
-    gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
-    usage: usage2,
-    /** Share of all input the model read from cache — the run's cost-efficiency dial. */
-    cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
-    steps: manifest.steps.map((step) => ({
-      id: step.id,
-      status: step.status,
-      attempts: step.attempts,
-      durationMs: step.durationMs,
-      changedFiles: step.changedFiles,
-      ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
-    })),
-    gates: {
-      commands: commands.filter((command) => !command.skipped).length,
-      reruns: commands.filter((command) => command.rerun).length,
-      skipped: commands.filter((command) => command.skipped).length
-    },
-    /** Final messages that failed their contract and cost a re-emit retry. */
-    rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
-    frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count }))
-  };
-};
-
-// packages/engine/src/runDoctor.ts
-import { readdir as readdir2, readFile as readFile11, stat } from "node:fs/promises";
-import { join as join16 } from "node:path";
-var probeTimeoutMs = 15e3;
-var driverBinaries = { "claude-code": "claude", codex: "codex" };
-var gitignoreEntries = [".lightsout/runs/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
-var severityRank = { pass: 0, note: 1, warn: 2, fail: 3 };
-var packageDependencies = external_exports.object({
-  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var findJestConfigs = async ({ packageDir }) => {
-  const rootEntries = await readdir2(packageDir).catch(() => []);
-  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join16(packageDir, name));
-  const testEntries = await readdir2(join16(packageDir, "test"), { recursive: true }).catch(() => []);
-  return [
-    ...found,
-    ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join16(packageDir, "test", name))
-  ];
-};
-var runDoctor = async ({ cwd, probeHarness }) => {
-  const checks = [];
-  let config2;
-  try {
-    config2 = await loadConfig({ cwd });
-  } catch (error51) {
-    return [
-      {
-        id: "config",
-        status: "fail",
-        detail: error51 instanceof Error ? error51.message : String(error51),
-        fix: "create or repair lightsout.config.json \u2014 every other check depends on it"
-      }
-    ];
-  }
-  const packagesDir = config2.packagesDir ?? "packages";
-  checks.push({
-    id: "config",
-    status: "pass",
-    detail: `lightsout.config.json valid \xB7 driver ${config2.driver ?? "claude-code"}${config2.packageScripts ? ` \xB7 monorepo (${packagesDir}/)` : ""}`
-  });
-  const binary = driverBinaries[config2.driver ?? "claude-code"] ?? config2.driver;
-  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
-  try {
-    const probed = await probe({ binary });
-    checks.push(
-      probed.exitCode === 0 ? { id: "harness", status: "pass", detail: `${binary} ${probed.stdout.trim().split("\n")[0]} (login not probed \u2014 the first run verifies it)` } : {
-        id: "harness",
-        status: "fail",
-        detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
-${probed.stderr}`.trim().slice(0, 200)}`,
-        fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
-      }
-    );
-  } catch (error51) {
-    checks.push({
-      id: "harness",
-      status: "fail",
-      detail: `${binary} not runnable: ${error51 instanceof Error ? error51.message : String(error51)}`,
-      fix: `install the ${binary} CLI and log in`
-    });
-  }
-  const notIgnored = [];
-  let gitUsable = true;
-  for (const entry of gitignoreEntries) {
-    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
-    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
-      exitCode: 128
-    }));
-    if (result.exitCode === 1) {
-      notIgnored.push(entry);
-    } else if (result.exitCode !== 0) {
-      gitUsable = false;
-    }
-  }
-  checks.push(
-    !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
-      id: "gitignore",
-      status: "warn",
-      detail: `run state not ignored: ${notIgnored.join(", ")}`,
-      fix: `add to .gitignore:
-${notIgnored.join("\n")}`
-    }
-  );
-  const packageDirs = [{ label: "root", dir: cwd }];
-  if (config2.packageScripts) {
-    const entries = await readdir2(join16(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
-    const templates = Object.entries(config2.packageScripts).filter((pair) => typeof pair[1] === "string");
-    const skips = [];
-    for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
-      const manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
-      if (!manifest) {
-        continue;
-      }
-      packageDirs.push({ label: entry.name, dir: join16(cwd, packagesDir, entry.name) });
-      const absent = templates.map(([kind, template]) => ({ kind, script: extractRunScriptName({ command: template }) })).filter(({ script }) => script !== void 0 && !Object.hasOwn(manifest.scripts, script));
-      if (absent.length > 0) {
-        skips.push(`${entry.name} (${absent.map(({ script }) => script).join(", ")})`);
-      }
-    }
-    checks.push(
-      skips.length === 0 ? { id: "scoped-gates", status: "pass", detail: "every package defines every scoped gate script" } : {
-        id: "scoped-gates",
-        status: "note",
-        detail: `gates will skip for: ${skips.join("; ")} \u2014 intentional if these packages have nothing to check; a typo'd script name looks identical`
-      }
-    );
-  }
-  const jestFindings = [];
-  let jestConfigCount = 0;
-  for (const { label, dir } of packageDirs) {
-    for (const configPath of await findJestConfigs({ packageDir: dir })) {
-      jestConfigCount += 1;
-      const text = await readFile11(configPath, "utf8").catch(() => "");
-      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
-      if (absent.length > 0) {
-        jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
-      }
-    }
-  }
-  if (jestConfigCount > 0) {
-    checks.push(
-      jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
-        id: "jest-mocks",
-        status: "warn",
-        detail: jestFindings.join("; "),
-        fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
-      }
-    );
-  }
-  const fireEventOnly = [];
-  for (const { label, dir } of packageDirs) {
-    const raw = await readFile11(join16(dir, "package.json"), "utf8").catch(() => void 0);
-    let json2;
-    try {
-      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
-    } catch {
-      continue;
-    }
-    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
-    if (!parsed?.success) {
-      continue;
-    }
-    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
-    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
-    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
-      fireEventOnly.push(label);
-    }
-  }
-  if (fireEventOnly.length > 0) {
-    checks.push({
-      id: "user-event",
-      status: "note",
-      detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
-    });
-  }
-  if (config2.generated) {
-    const absent = [];
-    for (const prefix of config2.generated) {
-      await stat(join16(cwd, prefix)).catch(() => absent.push(prefix));
-    }
-    checks.push(
-      absent.length === 0 ? { id: "generated", status: "pass", detail: `${config2.generated.length} generated path(s) exist` } : {
-        id: "generated",
-        status: "warn",
-        detail: `not found: ${absent.join(", ")}`,
-        fix: "run the generator once, or remove stale entries from `generated`"
-      }
-    );
-  }
-  const scriptCommands = [...Object.values(config2.scripts), ...Object.values(config2.packageScripts ?? {})].filter(
-    (value) => typeof value === "string"
-  );
-  const binaries = [...new Set(scriptCommands.map((command) => command.trim().split(/\s+/)[0]).filter(Boolean))];
-  const missingBinaries = [];
-  for (const name of binaries) {
-    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
-    if (result.exitCode !== 0) {
-      missingBinaries.push(name);
-    }
-  }
-  checks.push(
-    missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
-      id: "script-binaries",
-      status: "fail",
-      detail: `not on PATH: ${missingBinaries.join(", ")}`,
-      fix: "install the missing tool(s) \u2014 every gate depends on them"
-    }
-  );
-  return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
-};
-
 // packages/engine/src/runScan.ts
-import { mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
-import { join as join23 } from "node:path";
+import { mkdir as mkdir6, readFile as readFile12, writeFile as writeFile3 } from "node:fs/promises";
+import { join as join19 } from "node:path";
 
 // packages/engine/src/isTestFile.ts
 var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
 
 // packages/engine/src/listSourceFiles.ts
-import { readdir as readdir3 } from "node:fs/promises";
-import { join as join17, relative } from "node:path";
+import { readdir } from "node:fs/promises";
+import { join as join13, relative } from "node:path";
 var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
   const files = [];
   const walk = async (dir) => {
-    const entries = await readdir3(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
       if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
         continue;
       }
-      const path = join17(dir, entry.name);
+      const path = join13(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(path);
         continue;
@@ -17570,14 +16696,14 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
 // packages/engine/src/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join as join18 } from "node:path";
+import { join as join14 } from "node:path";
 var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   let packageNames = [];
   try {
-    packageNames = readdirSync(join18(cwd, packagesDir)).filter((name) => !name.startsWith("."));
+    packageNames = readdirSync(join14(cwd, packagesDir)).filter((name) => !name.startsWith("."));
   } catch {
   }
-  const manifests = [join18(cwd, "package.json"), ...packageNames.map((name) => join18(cwd, packagesDir, name, "package.json"))];
+  const manifests = [join14(cwd, "package.json"), ...packageNames.map((name) => join14(cwd, packagesDir, name, "package.json"))];
   for (const manifest of manifests) {
     try {
       return createRequire(manifest)("typescript");
@@ -17590,8 +16716,8 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
 
 // packages/engine/src/scanAstFindings.ts
 import { createHash } from "node:crypto";
-import { readFile as readFile12 } from "node:fs/promises";
-import { basename, join as join19 } from "node:path";
+import { readFile as readFile8 } from "node:fs/promises";
+import { basename, join as join15 } from "node:path";
 var minBodyTokens = 40;
 var fileLineCap = 250;
 var functionSizeCaps = ({ name, path }) => {
@@ -17630,7 +16756,7 @@ var scanAstFindings = async ({ cwd, files, compiler }) => {
     return "(anonymous)";
   };
   for (const file2 of files) {
-    const text = await readFile12(join19(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile8(join15(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -17698,8 +16824,8 @@ var scanAstFindings = async ({ cwd, files, compiler }) => {
 };
 
 // packages/engine/src/scanClones.ts
-import { readFile as readFile13 } from "node:fs/promises";
-import { join as join20 } from "node:path";
+import { readFile as readFile9 } from "node:fs/promises";
+import { join as join16 } from "node:path";
 
 // node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
 var import_index = __toESM(require_eventemitter3(), 1);
@@ -29423,7 +28549,7 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
   const findings = [];
   for (const file2 of files) {
-    const text = await readFile13(join20(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile9(join16(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -29447,14 +28573,14 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
 };
 
 // packages/engine/src/scanDeadExports.ts
-import { readFile as readFile14 } from "node:fs/promises";
-import { basename as basename2, join as join21 } from "node:path";
+import { readFile as readFile10 } from "node:fs/promises";
+import { basename as basename2, join as join17 } from "node:path";
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   const findings = [];
   const contents = /* @__PURE__ */ new Map();
   for (const file2 of /* @__PURE__ */ new Set([...files, ...referenceFiles ?? []])) {
-    contents.set(file2, await readFile14(join21(cwd, file2), "utf8").catch(() => "") ?? "");
+    contents.set(file2, await readFile10(join17(cwd, file2), "utf8").catch(() => "") ?? "");
   }
   const scope = new Set(files);
   const declarations = [];
@@ -29564,8 +28690,8 @@ var scanFilenameDuplicates = ({ files }) => {
 };
 
 // packages/engine/src/scanStructure.ts
-import { readFile as readFile15 } from "node:fs/promises";
-import { basename as basename4, dirname as dirname2, join as join22 } from "node:path";
+import { readFile as readFile11 } from "node:fs/promises";
+import { basename as basename4, dirname as dirname2, join as join18 } from "node:path";
 var folderCensusCap = 20;
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var nameOf2 = (path) => basename4(path).replace(/\.(m|c)?[jt]sx?$/, "");
@@ -29588,7 +28714,7 @@ var scanStructure = async ({ cwd, files }) => {
     if (basename4(file2).startsWith("index.")) {
       continue;
     }
-    const text = await readFile15(join22(cwd, file2), "utf8").catch(() => "");
+    const text = await readFile11(join18(cwd, file2), "utf8").catch(() => "");
     const exports = [];
     for (const line of text.split("\n")) {
       const match = line.match(exportPattern2);
@@ -29685,7 +28811,7 @@ var dominantPath = ({ findings }) => {
   }
   return prefix.split("/").length >= 2 ? { dir: prefix, count, total: paths.length } : void 0;
 };
-var runScan = async ({ cwd, path, all = false, writeBaseline = false, onProgress }) => {
+var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = true, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const repoFiles = await listSourceFiles({ cwd, exclude: config2?.generated });
@@ -29715,10 +28841,10 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, onProgress
       `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`
     );
   }
-  const dir = join23(cwd, ".lightsout");
-  await mkdir7(dir, { recursive: true });
-  const baselinePath = join23(cwd, "lightsout.scan-baseline.json");
-  const baselineRaw = await readFile16(baselinePath, "utf8").catch(() => void 0);
+  const dir = join19(cwd, ".lightsout");
+  await mkdir6(dir, { recursive: true });
+  const baselinePath = join19(cwd, "lightsout.scan-baseline.json");
+  const baselineRaw = await readFile12(baselinePath, "utf8").catch(() => void 0);
   let baselineJson;
   try {
     baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
@@ -29729,7 +28855,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, onProgress
   let reported = findings;
   if (writeBaseline) {
     const clusters = [...new Set(findings.map((finding) => finding.cluster))];
-    await writeFile4(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", clusters }, void 0, "	")}
+    await writeFile3(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", clusters }, void 0, "	")}
 `, "utf8");
     notes.push(
       `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${clusters.length} cluster(s) accepted as existing debt \u2014 commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`
@@ -29753,9 +28879,940 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, onProgress
   } else {
     notes.push("lightsout.scan-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
   }
-  await writeFile4(join23(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
+  if (persist) {
+    await writeFile3(join19(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
+  }
   return { findings: reported, notes };
+};
+
+// packages/engine/src/selectScanFindings.ts
+var gatingClusterPattern = /^(ast:|multi-export:)/;
+var selectScanFindings = ({ findings, changedFiles }) => {
+  const changed = new Set(changedFiles);
+  const workList = findings.filter(
+    (finding) => finding.severity === ScanSeverity.Finding && finding.files.some((file2) => changed.has(file2.path))
+  );
+  return { workList, gating: workList.filter((finding) => gatingClusterPattern.test(finding.cluster)) };
+};
+
+// packages/engine/src/runImplementPipeline.ts
+var defaultAgentTimeoutMinutes = 60;
+var defaultSupervisorTimeoutMinutes = 15;
+var formatTimeoutMs = 10 * 6e4;
+var maxCheapFixRetries = 2;
+var maxRefactorPasses = 3;
+var testWriterConcurrency = 5;
+var defaultPermissionMode = "acceptEdits";
+var supervisorPermissionMode = "plan";
+var isTestFilePath = (path) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
+var formatTokens = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
+var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
+var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
+var upsertStep = ({ steps, record: record2 }) => {
+  const existing = steps.findIndex((step) => step.id === record2.id);
+  if (existing === -1) {
+    return [...steps, record2];
+  }
+  return steps.map((step, index) => index === existing ? record2 : step);
+};
+var executePipeline = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  planPath,
+  overviewPath,
+  packages,
+  existing,
+  skipRefactor,
+  onProgress
+}) => {
+  const progress = onProgress ?? (() => void 0);
+  let manifest = existing ?? await createRun({
+    cwd,
+    runId,
+    plan: planPath ?? "",
+    overview: overviewPath,
+    driver: driver.name,
+    config: config2,
+    baselineDirtyFiles: await readGitChangedFiles({ cwd })
+  });
+  const usageTotals = {
+    invocations: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+    costUsd: 0,
+    ...manifest.usage
+  };
+  const update = async (patch) => {
+    const usage2 = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
+    manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage: usage2 } });
+  };
+  const recordAgentUsage = async ({ step, usage: usage2 }) => {
+    if (!usage2) {
+      return;
+    }
+    usageTotals.invocations += 1;
+    usageTotals.inputTokens += usage2.inputTokens;
+    usageTotals.outputTokens += usage2.outputTokens;
+    usageTotals.cacheReadTokens += usage2.cacheReadTokens;
+    usageTotals.cacheCreationTokens += usage2.cacheCreationTokens;
+    usageTotals.costUsd += usage2.costUsd;
+    await appendAgentLog({
+      cwd,
+      runId: manifest.runId,
+      record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, model: config2.model, ...usage2 }
+    });
+    progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
+  };
+  const stepTimers = /* @__PURE__ */ new Map();
+  const setStep = async ({ record: record2, patch }) => {
+    const timer = stepTimers.get(record2.id);
+    const timed = timer ? { ...record2, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record2;
+    await update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: manifest.steps, record: timed }) });
+  };
+  const stop = async ({ record: record2, status, error: error51 }) => {
+    await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
+    progress(`run stopped at ${record2.id} \u2014 ${status}`);
+    const stopped = { ok: false, manifest, error: error51 };
+    return stopped;
+  };
+  const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
+  const planContent = await readFile13(join20(cwd, manifest.plan), "utf8").catch(() => void 0);
+  if (planContent === void 0) {
+    return stop({
+      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
+      status: RunStatus.Failed,
+      error: `plan file not found: ${join20(cwd, manifest.plan)}`
+    });
+  }
+  const overviewContent = manifest.overview ? await readFile13(join20(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
+  if (manifest.overview && overviewContent === void 0) {
+    return stop({
+      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
+      status: RunStatus.Failed,
+      error: `overview file not found: ${join20(cwd, manifest.overview)}`
+    });
+  }
+  const packagesDir = config2.packagesDir ?? "packages";
+  if (config2.packageScripts && manifest.packages.length === 0) {
+    const fromFlag = packages;
+    const fromFrontMatter = fromFlag ? void 0 : readPlanPackages({ planContent });
+    const fromPlanPaths = fromFlag ?? fromFrontMatter ? void 0 : scanPlanPackagePaths({ planContent, packagesDir });
+    const declared = fromFlag ?? fromFrontMatter ?? fromPlanPaths;
+    if (!declared || declared.length === 0) {
+      return stop({
+        record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
+        status: RunStatus.Failed,
+        error: `packageScripts is configured but no package scope could be resolved \u2014 add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`
+      });
+    }
+    await update({
+      packages: declared,
+      packagesSource: fromFlag ? PackagesSource.Flag : fromFrontMatter ? PackagesSource.FrontMatter : PackagesSource.PlanPaths
+    });
+  }
+  if (manifest.packages.length > 0) {
+    progress(`package scope: ${manifest.packages.join(", ")} (from ${manifest.packagesSource ?? "manifest"})`);
+  }
+  const standardsPaths = config2.standards === false ? [] : config2.standards ?? ["lightsout:code-defaults"];
+  const testStandardsPaths = config2.testStandards === false ? [] : config2.testStandards ?? ["lightsout:test-defaults"];
+  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: manifest.packages });
+  if (standardsPaths.length > 0 || testStandardsPaths.length > 0) {
+    progress(
+      `standards channels: base${channels.length > 0 ? ` + ${channels.join(" + ")}` : ""} (${config2.standardsChannels ? "configured" : "detected from package dependencies"})`
+    );
+  }
+  let standards;
+  let testStandards;
+  try {
+    standards = await readStandards({ cwd, paths: standardsPaths, channels });
+    testStandards = await readStandards({ cwd, paths: testStandardsPaths, channels });
+  } catch (error51) {
+    return stop({
+      record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
+      status: RunStatus.Failed,
+      error: error51 instanceof Error ? error51.message : String(error51)
+    });
+  }
+  const nextRecord = ({ id }) => {
+    const prev = manifest.steps.find((step) => step.id === id);
+    stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
+    return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1, changedFiles: prev?.changedFiles };
+  };
+  const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
+  const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
+  let transcriptCount = 0;
+  const agentEventSink = (step) => {
+    transcriptCount += 1;
+    const dir = join20(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const path = join20(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    let tail = mkdir7(dir, { recursive: true });
+    return (event) => {
+      tail = tail.then(() => appendFile4(path, `${JSON.stringify(event)}
+`, "utf8")).catch(() => void 0);
+    };
+  };
+  let rejectedCount = 0;
+  const persistRejected = (step) => async ({ text, attempt, validationError }) => {
+    rejectedCount += 1;
+    const dir = join20(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const name = `rejected-${String(rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
+    await mkdir7(dir, { recursive: true });
+    await writeFile4(join20(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+# validation: ${validationError}
+
+${text}`, "utf8");
+    progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
+  };
+  const invokeRole = async (invocation, step) => {
+    const outcome = await invokeAgentWithContract({
+      driver,
+      cwd,
+      invocation,
+      contract: WorkReport,
+      model: config2.model,
+      permissionMode: config2.permissionMode ?? defaultPermissionMode,
+      timeoutMs: agentTimeoutMs,
+      // Harness-level allowance for all working roles; the binding grant
+      // is the prompt section, which only the executor's builder emits.
+      allowedCommands: config2.agentCommands,
+      onEvent: agentEventSink(step),
+      onRejectedOutput: persistRejected(step)
+    });
+    await recordAgentUsage({ step, usage: outcome.usage });
+    return outcome;
+  };
+  const packageOf = (file2) => {
+    const prefix = `${packagesDir}/`;
+    if (!file2.startsWith(prefix)) {
+      return void 0;
+    }
+    const rest = file2.slice(prefix.length);
+    const separator = rest.indexOf("/");
+    return separator > 0 ? rest.slice(0, separator) : void 0;
+  };
+  const isGeneratedFile = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const collectChanged = async (reports) => {
+    const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter(
+      (file2) => !manifest.baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
+    );
+    const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => file2.path)).filter((file2) => !isGeneratedFile(file2));
+    const changedFiles = [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
+    const fromFiles = changedFiles.flatMap((file2) => {
+      const packageDir = packageOf(file2);
+      return packageDir ? [packageDir] : [];
+    });
+    return { changedFiles, packages: [.../* @__PURE__ */ new Set([...manifest.packages, ...fromFiles])] };
+  };
+  const hasRootChanges = () => manifest.changedFiles.some((file2) => packageOf(file2) === void 0);
+  const gates = ({ coverage }) => runGates({
+    cwd,
+    config: config2,
+    coverage,
+    packages: manifest.packages,
+    includeRoot: hasRootChanges(),
+    runId: manifest.runId,
+    step: manifest.currentStep ?? void 0,
+    onProgress
+  });
+  const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFilePath(file2) && isTestableSourceFile(file2));
+  const withStepFiles = ({ record: record2, reports }) => ({
+    ...record2,
+    changedFiles: [
+      .../* @__PURE__ */ new Set([...record2.changedFiles ?? [], ...reports.flatMap((report) => report.changedFiles.map((file2) => file2.path))])
+    ]
+  });
+  const workStep = ({
+    id,
+    build,
+    requireChanges
+  }) => {
+    return async () => {
+      const record2 = nextRecord({ id });
+      await setStep({ record: record2 });
+      progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${agentTimeoutMs / 6e4}m)`);
+      const { report, failure, rateLimited } = await invokeRole(build(), id);
+      if (rateLimited) {
+        return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+      }
+      if (!report) {
+        return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
+      }
+      progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
+      await appendFriction({ cwd, runId: manifest.runId, step: id, friction: report.friction ?? [] });
+      if (report.status !== WorkReportStatus.Complete) {
+        const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+        return stop({
+          record: { ...record2, report },
+          status,
+          error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
+        });
+      }
+      const changed = await collectChanged([report]);
+      if (requireChanges && changed.changedFiles.length === 0) {
+        return stop({
+          record: { ...record2, report },
+          status: RunStatus.Failed,
+          error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
+        });
+      }
+      await setStep({ record: withStepFiles({ record: { ...record2, status: RunStatus.Passed, report }, reports: [report] }), patch: changed });
+      progress(`step ${id} passed`);
+      return void 0;
+    };
+  };
+  const verifyStep = ({
+    id,
+    coverage,
+    buildFix
+  }) => {
+    return async () => {
+      let record2 = nextRecord({ id });
+      await setStep({ record: record2 });
+      progress(`step ${id} \u2014 attempt ${record2.attempts}`);
+      let error51 = await gates({ coverage });
+      for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
+        record2 = { ...record2, attempts: record2.attempts + 1 };
+        await setStep({ record: record2 });
+        progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
+        const fix = await invokeRole(buildFix(error51), id);
+        if (fix.rateLimited) {
+          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+        }
+        if (fix.report) {
+          await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
+        }
+        if (fix.report?.status === WorkReportStatus.Complete) {
+          record2 = withStepFiles({ record: record2, reports: [fix.report] });
+          await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
+        }
+        error51 = await gates({ coverage });
+      }
+      if (error51) {
+        progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor (ceiling ${supervisorTimeoutMs / 6e4}m)`);
+        const verdict = await invokeAgentWithContract({
+          driver,
+          cwd,
+          invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error51, attempts: record2.attempts }),
+          contract: SupervisorVerdict,
+          model: config2.model,
+          permissionMode: supervisorPermissionMode,
+          timeoutMs: supervisorTimeoutMs,
+          onEvent: agentEventSink(`${id}-supervisor`),
+          onRejectedOutput: persistRejected(`${id}-supervisor`)
+        });
+        await recordAgentUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+        if (verdict.rateLimited) {
+          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+        }
+        if (verdict.report) {
+          progress(`step ${id}: supervisor verdict \u2014 ${verdict.report.decision}`);
+        }
+        if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
+          record2 = { ...record2, attempts: record2.attempts + 1 };
+          await setStep({ record: record2 });
+          const fix = await invokeRole(
+            buildFix(`${error51}
+
+# Supervisor diagnosis
+${verdict.report.diagnosis}
+
+# Supervisor guidance
+${verdict.report.guidance}`),
+            id
+          );
+          if (fix.rateLimited) {
+            return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+          }
+          if (fix.report) {
+            await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
+          }
+          if (fix.report?.status === WorkReportStatus.Complete) {
+            record2 = withStepFiles({ record: record2, reports: [fix.report] });
+            await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
+          }
+          error51 = await gates({ coverage });
+        }
+        if (error51) {
+          const diagnosis = verdict.report ? `
+supervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : "";
+          return stop({ record: record2, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}
+
+${error51}` });
+        }
+      }
+      await setStep({ record: { ...record2, status: RunStatus.Passed } });
+      progress(`step ${id} passed`);
+      return void 0;
+    };
+  };
+  const cleanSlateStep = async () => {
+    const record2 = nextRecord({ id: "clean-slate" });
+    await setStep({ record: record2 });
+    progress(`step clean-slate \u2014 attempt ${record2.attempts}`);
+    const error51 = await gates({ coverage: true });
+    if (error51) {
+      return stop({
+        record: record2,
+        status: RunStatus.Failed,
+        error: `Codebase is not green before implementation \u2014 fix this first.
+${error51}`
+      });
+    }
+    const gateArtifacts = await readGitChangedFiles({ cwd });
+    await setStep({
+      record: { ...record2, status: RunStatus.Passed },
+      patch: gateArtifacts ? { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...manifest.baselineDirtyFiles, ...gateArtifacts])] } : void 0
+    });
+    progress("step clean-slate passed");
+    return void 0;
+  };
+  const writeTestsStep = async () => {
+    let record2 = nextRecord({ id: "write-tests" });
+    await setStep({ record: record2 });
+    const targets = sourceFiles();
+    progress(`step write-tests \u2014 attempt ${record2.attempts} \xB7 ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
+    const reports = [];
+    const failures = [];
+    let terminated = false;
+    let parked = false;
+    for (let start = 0; start < targets.length && !parked; start += testWriterConcurrency) {
+      const batch = targets.slice(start, start + testWriterConcurrency);
+      const results = await Promise.all(
+        batch.map(async (file2) => ({
+          file: file2,
+          ...await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: [file2], standards: testStandards }), "write-tests")
+        }))
+      );
+      for (const result of results) {
+        if (result.rateLimited) {
+          parked = true;
+          continue;
+        }
+        if (!result.report) {
+          failures.push(`${result.file}: ${result.failure ?? "unknown failure"}`);
+          continue;
+        }
+        await appendFriction({ cwd, runId: manifest.runId, step: "write-tests", friction: result.report.friction ?? [] });
+        reports.push(result.report);
+        progress(`write-tests: ${result.file} \u2014 ${result.report.status}`);
+        if (result.report.status !== WorkReportStatus.Complete) {
+          terminated = terminated || result.report.status !== WorkReportStatus.Failed;
+          failures.push(`${result.file}: ${result.report.status} \u2014 ${result.report.failures.join("; ")}`);
+        }
+      }
+    }
+    record2 = withStepFiles({ record: record2, reports });
+    await setStep({ record: { ...record2, report: { reports } }, patch: await collectChanged(reports) });
+    if (parked) {
+      return stop({ record: { ...record2, report: { reports } }, status: RunStatus.PausedRateLimit, error: parkMessage() });
+    }
+    if (failures.length > 0) {
+      return stop({
+        record: { ...record2, report: { reports } },
+        status: terminated ? RunStatus.Escalated : RunStatus.Failed,
+        error: `write-tests: ${failures.length} of ${targets.length} writer(s) did not complete:
+${failures.join("\n")}`
+      });
+    }
+    await setStep({ record: { ...record2, status: RunStatus.Passed, report: { reports } } });
+    progress("step write-tests passed");
+    return void 0;
+  };
+  const scanWorkList = async () => {
+    const { findings } = await runScan({ cwd, persist: false });
+    return selectScanFindings({ findings, changedFiles: sourceFiles() });
+  };
+  const refactorStep = async () => {
+    let record2 = nextRecord({ id: "refactor" });
+    let lastReport;
+    let cleanExit = false;
+    for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
+      await setStep({ record: record2 });
+      const scan = await scanWorkList();
+      if (scan.workList.length > 0) {
+        progress(`scan gate: ${scan.workList.length} finding(s) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ""}`);
+      }
+      progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
+      const { report, failure, rateLimited } = await invokeRole(
+        buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, scanFindings: scan.workList }),
+        "refactor"
+      );
+      if (rateLimited) {
+        return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
+      }
+      if (!report) {
+        return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
+      }
+      await appendFriction({ cwd, runId: manifest.runId, step: "refactor", friction: report.friction ?? [] });
+      if (report.status !== WorkReportStatus.Complete) {
+        const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+        return stop({ record: { ...record2, report }, status, error: `refactor: ${report.status} \u2014 ${report.failures.join("; ")}` });
+      }
+      record2 = withStepFiles({ record: record2, reports: [report] });
+      await setStep({ record: { ...record2, report }, patch: await collectChanged([report]) });
+      lastReport = report;
+      if (report.changedFiles.length === 0) {
+        if (scan.gating.length === 0) {
+          progress(`refactor pass ${pass}: no changes \u2014 loop complete`);
+          cleanExit = true;
+          break;
+        }
+        if (pass === maxRefactorPasses) {
+          return stop({
+            record: { ...record2, report },
+            status: RunStatus.Escalated,
+            error: `refactor: scan gate \u2014 ${scan.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${scan.gating.map((finding) => finding.cluster).join(", ")}`
+          });
+        }
+        progress(`refactor pass ${pass}: no changes but scanner still reports ${scan.gating.length} gating finding(s) \u2014 another pass`);
+        record2 = { ...record2, attempts: record2.attempts + 1 };
+        continue;
+      }
+      progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
+      record2 = { ...record2, attempts: record2.attempts + 1 };
+    }
+    if (!cleanExit) {
+      const final = await scanWorkList();
+      if (final.gating.length > 0) {
+        return stop({
+          record: { ...record2, report: lastReport },
+          status: RunStatus.Escalated,
+          error: `refactor: scan gate \u2014 ${final.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${final.gating.map((finding) => finding.cluster).join(", ")}`
+        });
+      }
+    }
+    await setStep({ record: { ...record2, status: RunStatus.Passed, report: lastReport } });
+    progress("step refactor passed");
+    return void 0;
+  };
+  const formatStep = {
+    id: "format",
+    skip: () => config2.scripts.format ? void 0 : "no format command configured",
+    run: async () => {
+      const formatCommand = config2.scripts.format;
+      if (!formatCommand) {
+        return void 0;
+      }
+      const record2 = nextRecord({ id: "format" });
+      await setStep({ record: record2 });
+      progress("step format \u2014 running formatter");
+      const startedAt = Date.now();
+      let result;
+      try {
+        result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
+      } catch (error52) {
+        result = { exitCode: -1, stdout: "", stderr: error52 instanceof Error ? error52.message : String(error52) };
+      }
+      await appendCommandLog({
+        cwd,
+        runId: manifest.runId,
+        record: {
+          at: (/* @__PURE__ */ new Date()).toISOString(),
+          step: "format",
+          group: "root",
+          kind: "format",
+          command: formatCommand,
+          exitCode: result.exitCode,
+          durationMs: Date.now() - startedAt,
+          ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
+${result.stderr}`.slice(-2e3) }
+        }
+      });
+      if (result.exitCode !== 0) {
+        return stop({
+          record: record2,
+          status: RunStatus.Failed,
+          error: `format failed (exit ${result.exitCode}):
+${result.stdout}
+${result.stderr}`
+        });
+      }
+      const error51 = await gates({ coverage: true });
+      if (error51) {
+        return stop({ record: record2, status: RunStatus.Failed, error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
+${error51}` });
+      }
+      await setStep({ record: { ...record2, status: RunStatus.Passed } });
+      progress("step format passed");
+      return void 0;
+    }
+  };
+  const refactorSteps = skipRefactor ? [] : [
+    {
+      id: "refactor",
+      skip: () => sourceFiles().length === 0 ? "no changed source files to review" : void 0,
+      run: refactorStep
+    },
+    {
+      id: "verify-refactor",
+      run: verifyStep({
+        id: "verify-refactor",
+        coverage: true,
+        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, errorContext })
+      })
+    }
+  ];
+  const steps = [
+    { id: "clean-slate", run: cleanSlateStep },
+    {
+      id: "implement",
+      run: workStep({
+        id: "implement",
+        requireChanges: true,
+        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config2.agentCommands })
+      })
+    },
+    {
+      id: "verify-implement",
+      run: verifyStep({
+        id: "verify-implement",
+        buildFix: (errorContext) => buildFeatureExecutorInvocation({
+          planContent,
+          overviewContent,
+          standards,
+          errorContext,
+          changedFiles: manifest.changedFiles,
+          allowedCommands: config2.agentCommands
+        })
+      })
+    },
+    {
+      id: "write-tests",
+      skip: () => sourceFiles().length === 0 ? "no eligible source files" : void 0,
+      run: writeTestsStep
+    },
+    {
+      id: "verify-tests",
+      run: verifyStep({
+        id: "verify-tests",
+        coverage: true,
+        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards, errorContext })
+      })
+    },
+    ...refactorSteps,
+    formatStep
+  ];
+  await update({ status: RunStatus.Running });
+  for (const step of steps) {
+    const prior = manifest.steps.find((record2) => record2.id === step.id);
+    if (prior?.status === RunStatus.Passed) {
+      continue;
+    }
+    const skipReason = step.skip?.();
+    if (skipReason) {
+      await setStep({
+        record: { id: step.id, status: RunStatus.Passed, attempts: prior?.attempts ?? 0, report: { skipped: skipReason } }
+      });
+      progress(`step ${step.id} skipped (${skipReason})`);
+      continue;
+    }
+    const stopped = await step.run();
+    if (stopped) {
+      return stopped;
+    }
+  }
+  await update({ status: RunStatus.Passed, currentStep: null });
+  const passed = { ok: true, manifest };
+  return passed;
+};
+var runImplementPipeline = async (params) => {
+  const { cwd, existing, onProgress } = params;
+  const runId = existing?.runId ?? randomUUID2();
+  const lock = await acquireRunLock({ cwd, runId });
+  if (lock.stalePid !== void 0) {
+    onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
+  }
+  try {
+    return await executePipeline({ ...params, runId });
+  } finally {
+    await releaseRunLock({ cwd, runId });
+  }
+};
+
+// packages/engine/src/summarizeRun.ts
+import { readdir as readdir2, readFile as readFile15 } from "node:fs/promises";
+import { join as join22 } from "node:path";
+
+// packages/engine/src/readFriction.ts
+import { readFile as readFile14 } from "node:fs/promises";
+import { join as join21 } from "node:path";
+var readFriction = async ({ cwd }) => {
+  const raw = await readFile14(join21(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+  return raw.split("\n").filter(Boolean).flatMap((line) => {
+    try {
+      const parsed = FrictionRecord.safeParse(JSON.parse(line));
+      return parsed.success ? [parsed.data] : [];
+    } catch {
+      return [];
+    }
+  });
+};
+
+// packages/engine/src/summarizeRun.ts
+var LedgerRecord = external_exports.object({
+  step: external_exports.string(),
+  outputTokens: external_exports.number(),
+  costUsd: external_exports.number()
+});
+var CommandRecord = external_exports.object({
+  durationMs: external_exports.number().optional(),
+  rerun: external_exports.literal(true).optional(),
+  skipped: external_exports.literal(true).optional()
+});
+var readJsonlRecords = async ({ path, schema }) => {
+  const raw = await readFile15(path, "utf8").catch(() => "");
+  return raw.split("\n").filter(Boolean).flatMap((line) => {
+    try {
+      const parsed = schema.safeParse(JSON.parse(line));
+      return parsed.success ? [parsed.data] : [];
+    } catch {
+      return [];
+    }
+  });
+};
+var summarizeRun = async ({ cwd, manifest }) => {
+  const runDir = getRunDir({ cwd, runId: manifest.runId });
+  const ledger = await readJsonlRecords({ path: join22(runDir, "agents.jsonl"), schema: LedgerRecord });
+  const commands = await readJsonlRecords({ path: join22(runDir, "commands.jsonl"), schema: CommandRecord });
+  const agentFiles = await readdir2(join22(runDir, "agents")).catch(() => []);
+  const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
+  const perStepUsage = /* @__PURE__ */ new Map();
+  for (const record2 of ledger) {
+    const step = record2.step.endsWith("-supervisor") ? record2.step.slice(0, -"-supervisor".length) : record2.step;
+    const totals = perStepUsage.get(step) ?? { invocations: 0, outputTokens: 0, costUsd: 0 };
+    totals.invocations += 1;
+    totals.outputTokens += record2.outputTokens;
+    totals.costUsd += record2.costUsd;
+    perStepUsage.set(step, totals);
+  }
+  const frictionByArea = /* @__PURE__ */ new Map();
+  for (const entry of friction) {
+    frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
+  }
+  const { usage: usage2 } = manifest;
+  const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
+  return {
+    wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
+    /** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
+    activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
+    gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
+    usage: usage2,
+    /** Share of all input the model read from cache — the run's cost-efficiency dial. */
+    cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
+    steps: manifest.steps.map((step) => ({
+      id: step.id,
+      status: step.status,
+      attempts: step.attempts,
+      durationMs: step.durationMs,
+      changedFiles: step.changedFiles,
+      ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
+    })),
+    gates: {
+      commands: commands.filter((command) => !command.skipped).length,
+      reruns: commands.filter((command) => command.rerun).length,
+      skipped: commands.filter((command) => command.skipped).length
+    },
+    /** Final messages that failed their contract and cost a re-emit retry. */
+    rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
+    frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count }))
+  };
+};
+
+// packages/engine/src/runDoctor.ts
+import { readdir as readdir3, readFile as readFile16, stat } from "node:fs/promises";
+import { join as join23 } from "node:path";
+var probeTimeoutMs = 15e3;
+var driverBinaries = { "claude-code": "claude", codex: "codex" };
+var gitignoreEntries = [".lightsout/runs/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
+var severityRank = { pass: 0, note: 1, warn: 2, fail: 3 };
+var packageDependencies = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var findJestConfigs = async ({ packageDir }) => {
+  const rootEntries = await readdir3(packageDir).catch(() => []);
+  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join23(packageDir, name));
+  const testEntries = await readdir3(join23(packageDir, "test"), { recursive: true }).catch(() => []);
+  return [
+    ...found,
+    ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join23(packageDir, "test", name))
+  ];
+};
+var runDoctor = async ({ cwd, probeHarness }) => {
+  const checks = [];
+  let config2;
+  try {
+    config2 = await loadConfig({ cwd });
+  } catch (error51) {
+    return [
+      {
+        id: "config",
+        status: "fail",
+        detail: error51 instanceof Error ? error51.message : String(error51),
+        fix: "create or repair lightsout.config.json \u2014 every other check depends on it"
+      }
+    ];
+  }
+  const packagesDir = config2.packagesDir ?? "packages";
+  checks.push({
+    id: "config",
+    status: "pass",
+    detail: `lightsout.config.json valid \xB7 driver ${config2.driver ?? "claude-code"}${config2.packageScripts ? ` \xB7 monorepo (${packagesDir}/)` : ""}`
+  });
+  const binary = driverBinaries[config2.driver ?? "claude-code"] ?? config2.driver;
+  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
+  try {
+    const probed = await probe({ binary });
+    checks.push(
+      probed.exitCode === 0 ? { id: "harness", status: "pass", detail: `${binary} ${probed.stdout.trim().split("\n")[0]} (login not probed \u2014 the first run verifies it)` } : {
+        id: "harness",
+        status: "fail",
+        detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
+${probed.stderr}`.trim().slice(0, 200)}`,
+        fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
+      }
+    );
+  } catch (error51) {
+    checks.push({
+      id: "harness",
+      status: "fail",
+      detail: `${binary} not runnable: ${error51 instanceof Error ? error51.message : String(error51)}`,
+      fix: `install the ${binary} CLI and log in`
+    });
+  }
+  const notIgnored = [];
+  let gitUsable = true;
+  for (const entry of gitignoreEntries) {
+    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
+    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
+      exitCode: 128
+    }));
+    if (result.exitCode === 1) {
+      notIgnored.push(entry);
+    } else if (result.exitCode !== 0) {
+      gitUsable = false;
+    }
+  }
+  checks.push(
+    !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
+      id: "gitignore",
+      status: "warn",
+      detail: `run state not ignored: ${notIgnored.join(", ")}`,
+      fix: `add to .gitignore:
+${notIgnored.join("\n")}`
+    }
+  );
+  const packageDirs = [{ label: "root", dir: cwd }];
+  if (config2.packageScripts) {
+    const entries = await readdir3(join23(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+    const templates = Object.entries(config2.packageScripts).filter((pair) => typeof pair[1] === "string");
+    const skips = [];
+    for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
+      const manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
+      if (!manifest) {
+        continue;
+      }
+      packageDirs.push({ label: entry.name, dir: join23(cwd, packagesDir, entry.name) });
+      const absent = templates.map(([kind, template]) => ({ kind, script: extractRunScriptName({ command: template }) })).filter(({ script }) => script !== void 0 && !Object.hasOwn(manifest.scripts, script));
+      if (absent.length > 0) {
+        skips.push(`${entry.name} (${absent.map(({ script }) => script).join(", ")})`);
+      }
+    }
+    checks.push(
+      skips.length === 0 ? { id: "scoped-gates", status: "pass", detail: "every package defines every scoped gate script" } : {
+        id: "scoped-gates",
+        status: "note",
+        detail: `gates will skip for: ${skips.join("; ")} \u2014 intentional if these packages have nothing to check; a typo'd script name looks identical`
+      }
+    );
+  }
+  const jestFindings = [];
+  let jestConfigCount = 0;
+  for (const { label, dir } of packageDirs) {
+    for (const configPath of await findJestConfigs({ packageDir: dir })) {
+      jestConfigCount += 1;
+      const text = await readFile16(configPath, "utf8").catch(() => "");
+      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
+      if (absent.length > 0) {
+        jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
+      }
+    }
+  }
+  if (jestConfigCount > 0) {
+    checks.push(
+      jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
+        id: "jest-mocks",
+        status: "warn",
+        detail: jestFindings.join("; "),
+        fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
+      }
+    );
+  }
+  const fireEventOnly = [];
+  for (const { label, dir } of packageDirs) {
+    const raw = await readFile16(join23(dir, "package.json"), "utf8").catch(() => void 0);
+    let json2;
+    try {
+      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
+    if (!parsed?.success) {
+      continue;
+    }
+    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
+    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
+    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
+      fireEventOnly.push(label);
+    }
+  }
+  if (fireEventOnly.length > 0) {
+    checks.push({
+      id: "user-event",
+      status: "note",
+      detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
+    });
+  }
+  if (config2.generated) {
+    const absent = [];
+    for (const prefix of config2.generated) {
+      await stat(join23(cwd, prefix)).catch(() => absent.push(prefix));
+    }
+    checks.push(
+      absent.length === 0 ? { id: "generated", status: "pass", detail: `${config2.generated.length} generated path(s) exist` } : {
+        id: "generated",
+        status: "warn",
+        detail: `not found: ${absent.join(", ")}`,
+        fix: "run the generator once, or remove stale entries from `generated`"
+      }
+    );
+  }
+  const scriptCommands = [...Object.values(config2.scripts), ...Object.values(config2.packageScripts ?? {})].filter(
+    (value) => typeof value === "string"
+  );
+  const binaries = [...new Set(scriptCommands.map((command) => command.trim().split(/\s+/)[0]).filter(Boolean))];
+  const missingBinaries = [];
+  for (const name of binaries) {
+    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
+    if (result.exitCode !== 0) {
+      missingBinaries.push(name);
+    }
+  }
+  checks.push(
+    missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
+      id: "script-binaries",
+      status: "fail",
+      detail: `not on PATH: ${missingBinaries.join(", ")}`,
+      fix: "install the missing tool(s) \u2014 every gate depends on them"
+    }
+  );
+  return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
 };
 
 // packages/engine/src/runPromptImprovement.ts

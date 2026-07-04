@@ -353,19 +353,19 @@ state under gitignored .lightsout/. All six items:
    generated-dir report should diagnose its own config gap (live case:
    Prisma client dir missing from `generated`).
 
-SCAN GATE (formerly v2a — in-run, small, do first; split 2026-07-05): wire scan
-into the pipeline so new debt can't sneak in. Scan runs before the refactor
-step (deterministic, seconds, no tokens), filtered to the run's changed
-files, diffed against the committed baseline. New findings become the
-refactor agent's typed work-list (never "go find problems"); post-refactor
-re-scan gates with bounded retries. `finding` severity gates; `advisory`
-never gates. RULED 2026-07-05: the refactor step KEEPS its standards audit
-of changed files alongside the scan work-list (user doesn't trust removing
-it yet) — revisit dropping it once report-card data shows the audit's
-yield vs cost ($8.51/4 invocations/1 file in phase 2).
-Caveat to solve in-task: clone/size cluster keys embed line numbers, so
-shifted lines can make baselined findings look new — fuzzy-match or start
-those detectors advisory-only.
+SCAN GATE — DONE 2026-07-05 (formerly v2a): scan runs at the top of every
+refactor pass (persist:false, so the user's standalone scan.json is never
+clobbered), findings filtered to the run's changed files
+(selectScanFindings) with the committed baseline suppressing accepted debt.
+`finding`-severity items become a `# Scan findings` section in the refactor
+prompt (typed work-list; standards audit KEPT alongside per 2026-07-05
+ruling — revisit with report-card data, $8.51/4 invocations/1 file in
+phase 2). Loop exits only when a pass changes nothing AND no gating
+findings remain; survivors after 3 passes → Escalated naming the clusters,
+and the cap-with-changes exit re-checks so the gate can't be escaped.
+Line-key caveat resolved as designed: only stable path-keyed clusters gate
+(ast:, multi-export:); clone/size inform the work-list but never block.
+Suite 95/95 (prompt-injection + escalation pipeline tests).
 
 CLEANUP PIPELINE (formerly v2b — later, after Scan Gate evidence): standalone run
 type consuming the baseline ledger as its work-list — clean-slate gate →

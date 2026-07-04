@@ -139,6 +139,92 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	assert.ok(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete')), 'refactor loop end announced');
 });
 
+test('scan gate: findings feed the refactor prompt; a fixing pass clears the gate', async () => {
+	const dir = setupConsumerRepo();
+	const prompts: string[] = [];
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'write-tests') {
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, 'test/messy.test.js'), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: 'test/messy.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				prompts.push(prompt);
+
+				// First pass fixes the planted multi-export; later passes are clean.
+				if (prompts.length === 1) {
+					writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\n');
+
+					return { text: report({ changedFiles: [{ path: 'src/messy.js', summary: 'split exports' }] }), exitCode: 0 };
+				}
+
+				return { text: report(), exitCode: 0 };
+			}
+
+			// Implement plants a multi-export violation — the scan gate's target.
+			writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
+
+			return { text: report({ changedFiles: [{ path: 'src/messy.js', summary: 'feature' }] }), exitCode: 0 };
+		},
+	};
+
+	const progress: string[] = [];
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await loadConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	assert.equal(result.ok, true, result.error);
+	assert.ok(progress.some((line) => line.includes('scan gate: 1 finding(s)') && line.includes('1 gating')), 'gate narrated the finding');
+	assert.ok(prompts[0]?.includes('# Scan findings'), 'findings section injected into the refactor prompt');
+	assert.ok(prompts[0]?.includes('[structure] src/messy.js'), 'the planted violation named in the work-list');
+	assert.ok(!prompts[1]?.includes('# Scan findings'), 'clean tree injects no findings section');
+});
+
+test('scan gate: a gating finding the refactorer never fixes escalates after the pass cap', async () => {
+	const dir = setupConsumerRepo();
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'write-tests') {
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, 'test/messy.test.js'), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: 'test/messy.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				// Reports clean without ever fixing the violation.
+				return { text: report(), exitCode: 0 };
+			}
+
+			writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
+
+			return { text: report({ changedFiles: [{ path: 'src/messy.js', summary: 'feature' }] }), exitCode: 0 };
+		},
+	};
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+
+	assert.equal(result.ok, false);
+	assert.equal(result.manifest.status, 'escalated');
+	assert.match(result.error ?? '', /scan gate — 1 finding\(s\) persist/);
+	assert.match(result.error ?? '', /multi-export:src\/messy\.js/);
+});
+
 test('implement that changes nothing fails instead of passing vacuously', async () => {
 	const dir = setupConsumerRepo();
 	const driver: Driver = { name: 'stub', invoke: async () => ({ text: report(), exitCode: 0 }) };

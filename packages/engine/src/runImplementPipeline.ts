@@ -35,6 +35,8 @@ import { releaseRunLock } from './releaseRunLock';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
 import { runCommand } from './runCommand';
 import { runGates } from './runGates';
+import { runScan } from './runScan';
+import { selectScanFindings } from './selectScanFindings';
 import { writeRunManifest } from './writeRunManifest';
 import type { PipelineResult } from './PipelineResult';
 
@@ -698,18 +700,36 @@ const executePipeline = async ({
 		return undefined;
 	};
 
+	// The scan gate's work-list: deterministic findings touching this run's
+	// changed files (baseline-suppressed when a ledger exists). Never asks
+	// the agent to "go find problems" — detection is code.
+	const scanWorkList = async () => {
+		const { findings } = await runScan({ cwd, persist: false });
+
+		return selectScanFindings({ findings, changedFiles: sourceFiles() });
+	};
+
 	const refactorStep: PipelineStep['run'] = async () => {
 		let record = nextRecord({ id: 'refactor' });
 		let lastReport: WorkReport | undefined;
+		let cleanExit = false;
 
-		// Iterate until a pass reports complete with zero changed files — the
-		// typed "nothing left to improve" signal — capped at maxRefactorPasses.
+		// Iterate until a pass reports complete with zero changed files AND the
+		// scanner reports no gating findings on the changed files — capped at
+		// maxRefactorPasses.
 		for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
 			await setStep({ record });
+
+			const scan = await scanWorkList();
+
+			if (scan.workList.length > 0) {
+				progress(`scan gate: ${scan.workList.length} finding(s) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ''}`);
+			}
+
 			progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 
 			const { report, failure, rateLimited } = await invokeRole(
-				buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards }),
+				buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, scanFindings: scan.workList }),
 				'refactor',
 			);
 
@@ -735,12 +755,43 @@ const executePipeline = async ({
 			lastReport = report;
 
 			if (report.changedFiles.length === 0) {
-				progress(`refactor pass ${pass}: no changes — loop complete`);
-				break;
+				// No changes this pass, so the top-of-pass scan still describes
+				// the tree — no re-scan needed to judge the gate.
+				if (scan.gating.length === 0) {
+					progress(`refactor pass ${pass}: no changes — loop complete`);
+					cleanExit = true;
+					break;
+				}
+
+				if (pass === maxRefactorPasses) {
+					return stop({
+						record: { ...record, report },
+						status: RunStatus.Escalated,
+						error: `refactor: scan gate — ${scan.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${scan.gating.map((finding) => finding.cluster).join(', ')}`,
+					});
+				}
+
+				progress(`refactor pass ${pass}: no changes but scanner still reports ${scan.gating.length} gating finding(s) — another pass`);
+				record = { ...record, attempts: record.attempts + 1 };
+				continue;
 			}
 
 			progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
 			record = { ...record, attempts: record.attempts + 1 };
+		}
+
+		// The loop can also exhaust its passes while still reporting changes —
+		// the gate must not be escapable through that exit.
+		if (!cleanExit) {
+			const final = await scanWorkList();
+
+			if (final.gating.length > 0) {
+				return stop({
+					record: { ...record, report: lastReport },
+					status: RunStatus.Escalated,
+					error: `refactor: scan gate — ${final.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${final.gating.map((finding) => finding.cluster).join(', ')}`,
+				});
+			}
 		}
 
 		await setStep({ record: { ...record, status: RunStatus.Passed, report: lastReport } });

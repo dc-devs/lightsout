@@ -65,6 +65,8 @@ interface Params {
 	all?: boolean;
 	/** Write/refresh lightsout.scan-baseline.json — the explicit act of accepting the current findings as existing debt. */
 	writeBaseline?: boolean;
+	/** Skip writing .lightsout/scan.json — for in-pipeline scans that must not clobber the user's standalone report. */
+	persist?: boolean;
 	onProgress?: (message: string) => void;
 }
 
@@ -80,7 +82,7 @@ interface Params {
  * `generated` exclusions and `scan` tuning when present); the AST tier
  * borrows the consumer's TypeScript and reports honestly when it can't.
  */
-export const runScan = async ({ cwd, path, all = false, writeBaseline = false, onProgress }: Params) => {
+export const runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = true, onProgress }: Params) => {
 	const progress = onProgress ?? (() => undefined);
 	const config = await loadConfig({ cwd }).catch(() => undefined);
 	const repoFiles = await listSourceFiles({ cwd, exclude: config?.generated });
@@ -171,7 +173,9 @@ export const runScan = async ({ cwd, path, all = false, writeBaseline = false, o
 		notes.push('lightsout.scan-baseline.json is unreadable — ignored; re-run with --baseline to rewrite it');
 	}
 
-	await writeFile(join(dir, 'scan.json'), `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`, 'utf8');
+	if (persist) {
+		await writeFile(join(dir, 'scan.json'), `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`, 'utf8');
+	}
 
 	return { findings: reported, notes };
 };

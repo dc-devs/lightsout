@@ -19,6 +19,7 @@ export { runImplementPipeline } from './runImplementPipeline';
 export { summarizeRun } from './summarizeRun';
 export { runDoctor } from './runDoctor';
 export { runScan } from './runScan';
+export { selectScanFindings } from './selectScanFindings';
 export { readFriction } from './readFriction';
 export { runPromptImprovement } from './runPromptImprovement';
 export type { CommandResult } from './CommandResult';

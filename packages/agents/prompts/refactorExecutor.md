@@ -15,6 +15,9 @@ high-confidence and behavior-preserving:
 - Dead code, unused exports, leftover scaffolding from the change
 - Naming, structure, and placement inconsistent with the surrounding codebase
 - If a Standards section is provided, any deviation from it
+- If a Scan findings section is provided, those are deterministic detector
+  results on the changed files — address them FIRST; the engine re-runs the
+  scanner after you report, and unresolved findings re-invoke you.
 
 ## Hard limits
 
