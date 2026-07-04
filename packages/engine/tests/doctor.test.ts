@@ -77,8 +77,9 @@ test('doctor warns on missing gitignore entries, scriptless packages, jest confi
 	assert.match(checks.get('gitignore')?.fix ?? '', /lock\.json/);
 	assert.ok(!(checks.get('gitignore')?.fix ?? '').includes('runs/'), 'already-present entry not re-suggested');
 
-	assert.equal(checks.get('scoped-gates')?.status, 'warn');
+	assert.equal(checks.get('scoped-gates')?.status, 'note', 'skips are a decision to surface, not a defect to nag about');
 	assert.match(checks.get('scoped-gates')?.detail ?? '', /infra \(check, test:unit\)/);
+	assert.match(checks.get('scoped-gates')?.detail ?? '', /typo'd script name looks identical/);
 
 	assert.equal(checks.get('jest-mocks')?.status, 'warn');
 	assert.match(checks.get('jest-mocks')?.detail ?? '', /api.*jest\.config\.js lacks restoreMocks/);
@@ -86,6 +87,27 @@ test('doctor warns on missing gitignore entries, scriptless packages, jest confi
 	assert.equal(checks.get('generated')?.status, 'warn');
 	assert.match(checks.get('generated')?.detail ?? '', /schema\.gql/);
 	assert.ok(!(checks.get('generated')?.detail ?? '').includes('src/gen'), 'existing generated path not flagged');
+});
+
+test('doctor orders checks positives-first: pass, then note, then warn/fail', async () => {
+	const dir = setupConsumerRepo({
+		config: {
+			packageScripts: {
+				check: 'pnpm --filter {package} run check',
+				testUnit: 'pnpm --filter {package} run test:unit',
+			},
+		},
+	});
+
+	writeFileSync(join(dir, '.gitignore'), 'node_modules\n'); // warn: run state not ignored
+	mkdirSync(join(dir, 'packages/infra'), { recursive: true });
+	writeFileSync(join(dir, 'packages/infra/package.json'), JSON.stringify({ name: '@acme/infra' })); // note: skips
+
+	const checks = await runDoctor({ cwd: dir, probeHarness: passingProbe });
+	const ranks = checks.map((check) => ({ pass: 0, note: 1, warn: 2, fail: 3 })[check.status]);
+
+	assert.deepEqual([...ranks].sort((a, b) => a - b), ranks, `severity is non-decreasing: ${checks.map((c) => `${c.id}:${c.status}`).join(', ')}`);
+	assert.ok(ranks.includes(1) && ranks.includes(2), 'fixture produced both a note and a warn');
 });
 
 test('doctor finds jest configs nested under test/ and fails on missing gate binaries', async () => {

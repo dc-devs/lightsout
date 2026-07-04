@@ -16641,6 +16641,7 @@ import { join as join15 } from "node:path";
 var probeTimeoutMs = 15e3;
 var driverBinaries = { "claude-code": "claude", codex: "codex" };
 var gitignoreEntries = [".lightsout/runs/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
+var severityRank = { pass: 0, note: 1, warn: 2, fail: 3 };
 var findJestConfigs = async ({ packageDir }) => {
   const rootEntries = await readdir2(packageDir).catch(() => []);
   const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join15(packageDir, name));
@@ -16733,9 +16734,8 @@ ${notIgnored.join("\n")}`
     checks.push(
       skips.length === 0 ? { id: "scoped-gates", status: "pass", detail: "every package defines every scoped gate script" } : {
         id: "scoped-gates",
-        status: "warn",
-        detail: `gates will skip for: ${skips.join("; ")}`,
-        fix: "fine if these packages have nothing to check \u2014 otherwise add the named scripts to their package.json"
+        status: "note",
+        detail: `gates will skip for: ${skips.join("; ")} \u2014 intentional if these packages have nothing to check; a typo'd script name looks identical`
       }
     );
   }
@@ -16794,7 +16794,7 @@ ${notIgnored.join("\n")}`
       fix: "install the missing tool(s) \u2014 every gate depends on them"
     }
   );
-  return checks;
+  return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
 };
 
 // packages/engine/src/runPromptImprovement.ts
@@ -17128,8 +17128,8 @@ var main = async () => {
   }
   if (command === "doctor") {
     const checks = await runDoctor({ cwd });
-    const icon = { pass: green("\u2713"), warn: yellow("\u26A0"), fail: red("\u2717") };
-    const counts = { pass: 0, warn: 0, fail: 0 };
+    const icon = { pass: green("\u2713"), note: dim("\u2139"), warn: yellow("\u26A0"), fail: red("\u2717") };
+    const counts = { pass: 0, note: 0, warn: 0, fail: 0 };
     console.log(`doctor    ${cwd}
 `);
     for (const check2 of checks) {
@@ -17141,8 +17141,9 @@ var main = async () => {
         }
       }
     }
+    const tally = Object.entries(counts).filter(([, count]) => count > 0).map(([status, count]) => `${count} ${status}`).join(" \xB7 ");
     console.log(`
-${checks.length} check(s) \xB7 ${counts.pass} pass \xB7 ${counts.warn} warn \xB7 ${counts.fail} fail`);
+${checks.length} check(s) \xB7 ${tally}`);
     process.exit(counts.fail > 0 ? 1 : 0);
   }
   if (command === "friction") {

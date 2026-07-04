@@ -12,11 +12,14 @@ const gitignoreEntries = ['.lightsout/runs/', '.lightsout/friction.jsonl', '.lig
 
 interface DoctorCheck {
 	id: string;
-	status: 'pass' | 'warn' | 'fail';
+	/** `note` = worth seeing, not worth fixing — a legitimate state that would also be the symptom of a mistake (e.g. intentional gate skips vs a typo'd script name). */
+	status: 'pass' | 'note' | 'warn' | 'fail';
 	detail: string;
 	/** The exact change that clears a warn/fail — the doctor never applies it. */
 	fix?: string;
 }
+
+const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };
 
 /** Jest config files for one package dir: root-level jest.config.* plus anything jest-named under test/ (bounded — never node_modules). */
 const findJestConfigs = async ({ packageDir }: { packageDir: string }) => {
@@ -162,9 +165,8 @@ export const runDoctor = async ({ cwd, probeHarness }: Params) => {
 				? { id: 'scoped-gates', status: 'pass', detail: 'every package defines every scoped gate script' }
 				: {
 						id: 'scoped-gates',
-						status: 'warn',
-						detail: `gates will skip for: ${skips.join('; ')}`,
-						fix: 'fine if these packages have nothing to check — otherwise add the named scripts to their package.json',
+						status: 'note',
+						detail: `gates will skip for: ${skips.join('; ')} — intentional if these packages have nothing to check; a typo'd script name looks identical`,
 					},
 		);
 	}
@@ -245,5 +247,7 @@ export const runDoctor = async ({ cwd, probeHarness }: Params) => {
 				},
 	);
 
-	return checks;
+	// Positives first, actionable items last (nearest the prompt) — stable
+	// within each severity, so related checks keep their relative order.
+	return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
 };
