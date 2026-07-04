@@ -37472,15 +37472,15 @@ import { homedir } from "node:os";
 import { isAbsolute, join as join27 } from "node:path";
 
 // packages/engine/src/ensureNodeWorkspace.ts
-import { stat as stat2 } from "node:fs/promises";
+import { rm as rm2, stat as stat2 } from "node:fs/promises";
 import { basename as basename5, join as join24 } from "node:path";
 var cloneTimeoutMs = 3e5;
 var refreshAfterMs = 24 * 60 * 60 * 1e3;
-var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false }) => {
-  const dirName = basename5(repo, ".git").replace(/[^A-Za-z0-9._-]/g, "-") || "repo";
-  const repoDir = join24(workspaceDir, dirName);
+var inFlight = /* @__PURE__ */ new Map();
+var ensure = async ({ repo, workspaceDir, forceRefresh, repoDir }) => {
   const existing = await stat2(join24(repoDir, ".git")).catch(() => void 0);
   if (!existing) {
+    await rm2(repoDir, { recursive: true, force: true }).catch(() => void 0);
     const clone3 = await runCommand({ command: `git clone --depth 1 '${repo}' '${repoDir}'`, cwd: workspaceDir, timeoutMs: cloneTimeoutMs });
     if (clone3.exitCode !== 0) {
       throw new Error(`clone failed for ${repo}: ${`${clone3.stdout}
@@ -37492,6 +37492,17 @@ ${clone3.stderr}`.trim().slice(0, 300)}`);
     await runCommand({ command: "git fetch --depth 1 origin && git reset --hard FETCH_HEAD", cwd: repoDir, timeoutMs: cloneTimeoutMs }).catch(() => void 0);
   }
   return repoDir;
+};
+var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false }) => {
+  const dirName = basename5(repo, ".git").replace(/[^A-Za-z0-9._-]/g, "-") || "repo";
+  const repoDir = join24(workspaceDir, dirName);
+  const running = inFlight.get(repoDir);
+  if (running) {
+    return running;
+  }
+  const operation = ensure({ repo, workspaceDir, forceRefresh, repoDir }).finally(() => inFlight.delete(repoDir));
+  inFlight.set(repoDir, operation);
+  return operation;
 };
 
 // packages/engine/src/matchExitToEdge.ts

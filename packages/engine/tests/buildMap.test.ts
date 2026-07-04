@@ -75,6 +75,48 @@ test('joinInventories: exact and fuzzy pairing, orphans, noise, scanner gaps', (
 	assert.deepEqual(result.gaps, [{ node: 'node-b', detail: 'dynamic dispatch at src/x.ts — target unresolvable' }]);
 });
 
+test('build-map: two monorepo packages sharing one repo scan in parallel without racing the clone', async () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-monomap-'));
+	const workspaceDir = mkdtempSync(join(tmpdir(), 'lightsout-monomap-ws-'));
+	const mono = mkdtempSync(join(tmpdir(), 'lightsout-monomap-repo-'));
+
+	mkdirSync(join(mono, 'packages/a'), { recursive: true });
+	mkdirSync(join(mono, 'packages/b'), { recursive: true });
+	writeFileSync(join(mono, 'packages/a/send.ts'), "post('/v2/event')\n");
+	writeFileSync(join(mono, 'packages/b/route.ts'), "router.post('/v2/event')\n");
+	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: mono });
+
+	const sha = execSync('git rev-parse HEAD', { cwd: mono }).toString().trim();
+	const connections = join(cwd, '.lightsout/connections');
+
+	mkdirSync(connections, { recursive: true });
+	writeFileSync(join(connections, 'repos.yaml'), `node-a: { repo: ${mono}, path: packages/a }\nnode-b: { repo: ${mono}, path: packages/b }\n`);
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const node = prompt.match(/- node: (\S+)/)?.[1] ?? 'unknown';
+			const direction = node === 'node-a' ? 'out' : 'in';
+
+			return {
+				text: JSON.stringify({
+					node,
+					scannedSha: sha,
+					scannedPathSha: sha,
+					edges: [inventoryEdge({ direction, at: node === 'node-a' ? 'packages/a/send.ts:1' : 'packages/b/route.ts:1' })],
+					gaps: [],
+				}),
+				exitCode: 0,
+			};
+		},
+	};
+
+	const result = await runBuildMap({ cwd, driver, nodes: ['node-a', 'node-b'], connectionsDir: '.lightsout/connections', workspaceDir });
+
+	assert.equal(result.status, 'complete', result.error);
+	assert.equal(result.join?.matched.length, 1, 'wire call between two packages of one repo is a real edge');
+});
+
 test('build-map end to end: scan → join → review-gated author → re-run confirms the authored doc', async () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-buildmap-'));
 	const workspaceDir = mkdtempSync(join(tmpdir(), 'lightsout-buildmap-ws-'));
