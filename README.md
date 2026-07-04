@@ -250,7 +250,7 @@ changed ones — the blast radius lives in your template, not in the engine.
 | `standards` | no | Standards for code-writing agents. **Unspecified = the engine's bundled JS/TS defaults load** (announced in the run header). `false` = explicitly none. An array = exactly these: repo-relative markdown files (missing = hard error) and/or the token `lightsout:code-defaults` to stack the bundled defaults with repo extras. |
 | `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
 | `standardsChannels` | no | Framework channels of the bundled defaults. The base docs always apply; React/Preact and TanStack docs ride along **only when the run's scoped packages actually depend on that framework** (detected from their `package.json` — announced in the run log). Set an array to replace detection (`[]` = base only). A terraform package never pays the React-docs token tax. |
-| `scan` | no | `lightsout scan` tuning: `{ "minCloneTokens": 70 }` raises the tier-1 clone floor for repos with a noisy short-clone tail (default 50) |
+| `scan` | no | `lightsout scan` tuning. `minCloneTokens` raises the tier-1 clone floor (default 50). `size` overrides the size detector's line caps — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; e.g. `{ "size": { "tsxFile": 350 } }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. |
 | `driver` | no | `claude-code` (default) or `codex` |
 | `model` | no | Model override passed through to the harness |
 | `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |

@@ -181,7 +181,7 @@ test('scan resolves typescript from workspace packages and honors scan.minCloneT
 	writeFileSync(join(dir, 'packages/app/package.json'), '{"name":"@ws/app"}');
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
-		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, scan: { minCloneTokens: 5000 } }),
+		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, scan: { minCloneTokens: 5000, size: { file: 5 } } }),
 	);
 
 	writeFileSync(join(dir, 'packages/app/src/sumTotals.ts'), `export const sumTotals = ({ records }: { records: any[] }) => {${bigBody}};\n`);
@@ -200,6 +200,10 @@ test('scan resolves typescript from workspace packages and honors scan.minCloneT
 	assert.ok(
 		!findings.some((finding) => finding.detector === 'clone'),
 		'the per-repo minCloneTokens floor suppressed tier-1 clones',
+	);
+	assert.ok(
+		findings.some((finding) => finding.cluster === 'size:file:packages/app/src/sumTotals.ts'),
+		'the per-repo size.file override (5 lines) flagged an ordinary file',
 	);
 });
 

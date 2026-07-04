@@ -102,7 +102,7 @@ export const runScan = async ({ cwd, path, all = false, writeBaseline = false, p
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config?.packagesDir });
 
 	if (compiler) {
-		findings.push(...(await scanAstFindings({ cwd, files: source, compiler })));
+		findings.push(...(await scanAstFindings({ cwd, files: source, compiler, size: config?.scan?.size })));
 		progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
 	} else {
 		notes.push('tier 2 (ast) + function-size audit skipped — no typescript resolvable from the target repo');

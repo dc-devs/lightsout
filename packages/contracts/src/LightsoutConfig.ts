@@ -106,6 +106,16 @@ export const LightsoutConfig = z.object({
 		.object({
 			/** Minimum jscpd token span for a tier-1 clone finding (default 50). */
 			minCloneTokens: z.number().int().positive().optional(),
+			/** Line-cap overrides for the size detector (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
+			size: z
+				.object({
+					file: z.number().int().positive().optional(),
+					tsxFile: z.number().int().positive().optional(),
+					function: z.number().int().positive().optional(),
+					hook: z.number().int().positive().optional(),
+					component: z.number().int().positive().optional(),
+				})
+				.optional(),
 		})
 		.optional(),
 });

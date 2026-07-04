@@ -15248,7 +15248,15 @@ var LightsoutConfig = external_exports.object({
   /** `lightsout scan` tuning — per-repo floors, not global guesses. */
   scan: external_exports.object({
     /** Minimum jscpd token span for a tier-1 clone finding (default 50). */
-    minCloneTokens: external_exports.number().int().positive().optional()
+    minCloneTokens: external_exports.number().int().positive().optional(),
+    /** Line-cap overrides for the size detector (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
+    size: external_exports.object({
+      file: external_exports.number().int().positive().optional(),
+      tsxFile: external_exports.number().int().positive().optional(),
+      function: external_exports.number().int().positive().optional(),
+      hook: external_exports.number().int().positive().optional(),
+      component: external_exports.number().int().positive().optional()
+    }).optional()
   }).optional()
 });
 
@@ -16730,17 +16738,19 @@ import { createHash } from "node:crypto";
 import { readFile as readFile8 } from "node:fs/promises";
 import { basename, join as join15 } from "node:path";
 var minBodyTokens = 40;
-var fileLineCap = (file2) => file2.endsWith(".tsx") ? 300 : 250;
-var functionSizeCaps = ({ name, path }) => {
+var defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
+var fileLineCap = ({ file: file2, caps }) => file2.endsWith(".tsx") ? caps.tsxFile : caps.file;
+var functionSizeCaps = ({ name, path, caps }) => {
   if (/^use[A-Z]/.test(name)) {
-    return { cap: 160, kind: "hook" };
+    return { cap: caps.hook, kind: "hook" };
   }
   if (path.endsWith(".tsx") && /^[A-Z]/.test(name)) {
-    return { cap: 200, kind: "component" };
+    return { cap: caps.component, kind: "component" };
   }
-  return { cap: 80, kind: "function" };
+  return { cap: caps.function, kind: "function" };
 };
-var scanAstFindings = async ({ cwd, files, compiler }) => {
+var scanAstFindings = async ({ cwd, files, compiler, size }) => {
+  const caps = { ...defaultSizeCaps, ...size };
   const findings = [];
   const sites = [];
   const normalize = (node) => {
@@ -16772,13 +16782,13 @@ var scanAstFindings = async ({ cwd, files, compiler }) => {
       continue;
     }
     const lineCount = text.split("\n").length;
-    if (lineCount > fileLineCap(file2) && basename(file2) !== "index.ts") {
+    if (lineCount > fileLineCap({ file: file2, caps }) && basename(file2) !== "index.ts") {
       findings.push({
         detector: ScanDetector.Size,
         severity: ScanSeverity.Finding,
         cluster: `size:file:${file2}`,
         files: [{ path: file2 }],
-        detail: `${lineCount} lines (cap ~${fileLineCap(file2)}) \u2014 split or graduate the concept`
+        detail: `${lineCount} lines (cap ~${fileLineCap({ file: file2, caps })}) \u2014 split or graduate the concept`
       });
     }
     const source = compiler.createSourceFile(file2, text, compiler.ScriptTarget.Latest, true);
@@ -16800,7 +16810,7 @@ var scanAstFindings = async ({ cwd, files, compiler }) => {
             hash: createHash("sha1").update(tokens2.join(",")).digest("hex")
           });
         }
-        const { cap, kind } = functionSizeCaps({ name, path: file2 });
+        const { cap, kind } = functionSizeCaps({ name, path: file2, caps });
         const lines = endLine - startLine + 1;
         if (lines > cap && name !== "(anonymous)") {
           findings.push({
@@ -28837,7 +28847,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
   progress(`tier 1 (clones): done`);
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2?.packagesDir });
   if (compiler) {
-    findings.push(...await scanAstFindings({ cwd, files: source, compiler }));
+    findings.push(...await scanAstFindings({ cwd, files: source, compiler, size: config2?.scan?.size }));
     progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
   } else {
     notes.push("tier 2 (ast) + function-size audit skipped \u2014 no typescript resolvable from the target repo");

@@ -7,19 +7,23 @@ import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contrac
 /** Bodies below this normalized-token count are too small to call duplicates. */
 const minBodyTokens = 40;
 
-/** .tsx runs larger by nature (JSX + props interfaces around a 200-line component budget). */
-const fileLineCap = (file: string) => (file.endsWith('.tsx') ? 300 : 250);
+/** The standards' numeric tables as code — overridable per repo via config `scan.size`. .tsx files run larger by nature (JSX + props interfaces around the component budget). */
+const defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
 
-const functionSizeCaps = ({ name, path }: { name: string; path: string }) => {
+type SizeCaps = typeof defaultSizeCaps;
+
+const fileLineCap = ({ file, caps }: { file: string; caps: SizeCaps }) => (file.endsWith('.tsx') ? caps.tsxFile : caps.file);
+
+const functionSizeCaps = ({ name, path, caps }: { name: string; path: string; caps: SizeCaps }) => {
 	if (/^use[A-Z]/.test(name)) {
-		return { cap: 160, kind: 'hook' };
+		return { cap: caps.hook, kind: 'hook' };
 	}
 
 	if (path.endsWith('.tsx') && /^[A-Z]/.test(name)) {
-		return { cap: 200, kind: 'component' };
+		return { cap: caps.component, kind: 'component' };
 	}
 
-	return { cap: 80, kind: 'function' };
+	return { cap: caps.function, kind: 'function' };
 };
 
 interface FunctionSite {
@@ -36,6 +40,8 @@ interface Params {
 	/** Repo-relative non-test source files. */
 	files: string[];
 	compiler: typeof ts;
+	/** Per-repo line-cap overrides (config `scan.size`), merged over the defaults. */
+	size?: Partial<SizeCaps>;
 }
 
 /**
@@ -46,7 +52,8 @@ interface Params {
  * walk measures function/file line counts against the standards' numeric
  * thresholds (function 80 / hook 160 / component 200 / file 250).
  */
-export const scanAstFindings = async ({ cwd, files, compiler }: Params) => {
+export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) => {
+	const caps = { ...defaultSizeCaps, ...size };
 	const findings: ScanFinding[] = [];
 	const sites: FunctionSite[] = [];
 
@@ -96,13 +103,13 @@ export const scanAstFindings = async ({ cwd, files, compiler }: Params) => {
 
 		const lineCount = text.split('\n').length;
 
-		if (lineCount > fileLineCap(file) && basename(file) !== 'index.ts') {
+		if (lineCount > fileLineCap({ file, caps }) && basename(file) !== 'index.ts') {
 			findings.push({
 				detector: ScanDetector.Size,
 				severity: ScanSeverity.Finding,
 				cluster: `size:file:${file}`,
 				files: [{ path: file }],
-				detail: `${lineCount} lines (cap ~${fileLineCap(file)}) — split or graduate the concept`,
+				detail: `${lineCount} lines (cap ~${fileLineCap({ file, caps })}) — split or graduate the concept`,
 			});
 		}
 
@@ -131,7 +138,7 @@ export const scanAstFindings = async ({ cwd, files, compiler }: Params) => {
 					});
 				}
 
-				const { cap, kind } = functionSizeCaps({ name, path: file });
+				const { cap, kind } = functionSizeCaps({ name, path: file, caps });
 				const lines = endLine - startLine + 1;
 
 				// Nested function-likes (arrow callbacks) are measured too, but
