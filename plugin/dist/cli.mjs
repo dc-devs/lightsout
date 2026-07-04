@@ -16834,12 +16834,6 @@ run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
   if (existsSync(join16(cwd, ".lightsout", "runs", manifest.runId, "agents"))) {
     console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
   }
-  if (manifest.changedFiles.length > 0) {
-    console.log("  changed files:");
-    for (const file2 of manifest.changedFiles) {
-      console.log(`    - ${file2}`);
-    }
-  }
   if (!ok && error51) {
     console.error(`
 ${error51}`);

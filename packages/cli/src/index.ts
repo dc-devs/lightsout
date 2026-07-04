@@ -244,14 +244,6 @@ const printResult = async ({ result, cwd }: { result: PipelineResult; cwd: strin
 		console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
 	}
 
-	if (manifest.changedFiles.length > 0) {
-		console.log('  changed files:');
-
-		for (const file of manifest.changedFiles) {
-			console.log(`    - ${file}`);
-		}
-	}
-
 	if (!ok && error) {
 		console.error(`\n${error}`);
 	}
