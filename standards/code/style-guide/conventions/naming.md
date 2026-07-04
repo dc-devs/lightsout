@@ -8,6 +8,16 @@ Standardize patterns within each domain — if the codebase already uses one, fo
 - Booleans: consistent prefixes (`is`, `has`, `should`, `can`)
 - Event handlers: one pattern (`onSubmit` vs `handleSubmit`)
 
+## Verb Vocabulary (closed)
+
+New code draws function verbs from this closed set — synonyms are how duplicates hide from name-level search (agents and humans both navigate by grep):
+
+`get` · `create` · `update` · `delete` · `format` · `parse` · `validate` · `build` · `to`/`from` (conversions) · `is`/`has`/`should`/`can` (booleans)
+
+Banned synonyms: `fetch`/`load`/`retrieve`/`read` → `get` · `make`/`generate`/`produce` → `create` · `remove` → `delete` · `modify` → `update` · `verify`/`check` → `validate`.
+
+Subordinate to Naming Consistency above: a domain that already standardized on `fetchData` keeps its verb — the vocabulary governs new domains.
+
 ## Naming for Reuse
 
 **Name things by what they ARE, never by where or how they're currently used.** The test: could someone use this elsewhere in the app without the name misleading them?

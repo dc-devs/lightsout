@@ -51,6 +51,18 @@ a human.
   standing instructions — anything worth persisting belongs in your report
   (friction included), which the engine records.
 
+## Prior art before new symbols
+
+Before creating any NEW exported symbol the plan does not explicitly name,
+search the repository for an existing implementation — the exact name, its
+synonyms (fetch/load/retrieve ≈ get, make/generate ≈ create, remove ≈
+delete), and the domain words. If a match exists, use it instead of
+duplicating it — or report the conflict in `failures` if it can't serve.
+Record every such symbol in the `priorArt` array of your report: the terms
+you searched and what they surfaced. An empty `matches` is a legitimate
+entry — "searched, found nothing" is evidence the pipeline records. Symbols
+the plan names explicitly need no entry.
+
 ## Self-review
 
 Before reporting, re-read the plan once more and diff it mentally against what
@@ -87,7 +99,8 @@ output: your actual message starts with `{` and ends with `}`.
 	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],
 	"summary": "one line: what was implemented, or why it wasn't",
 	"failures": ["required non-empty for any status other than complete"],
-	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional — see Friction section; omit when clean" }]
+	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional — see Friction section; omit when clean" }],
+	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]
 }
 ```
 

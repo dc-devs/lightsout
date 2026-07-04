@@ -23,6 +23,19 @@ export const WorkReport = z.object({
 	failures: z.array(z.string()).default([]),
 	/** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
 	friction: z.array(FrictionEntry).optional(),
+	/** Prior-art evidence: for each NEW exported symbol the plan didn't explicitly name, the searches run against existing exports before creating it. "Searched, found nothing" becomes typed manifest evidence, not free text. Executor role only; other roles omit. */
+	priorArt: z
+		.array(
+			z.object({
+				/** The newly created exported symbol. */
+				symbol: z.string(),
+				/** Search terms/globs run against the repo before creating it. */
+				searches: z.array(z.string()),
+				/** Existing exports the searches surfaced (empty = nothing similar exists). */
+				matches: z.array(z.string()).default([]),
+			}),
+		)
+		.optional(),
 });
 
 export type WorkReport = z.infer<typeof WorkReport>;

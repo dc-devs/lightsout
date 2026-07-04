@@ -483,7 +483,7 @@ on query tuning trace to friction decisions):
 - [ ] FD handoff (user, trivial): empty `className=""` on LinearIcon in
       LinearIssueBadge.tsx.
 
-### Task 10: Prior-art contract field — implement phase (added 2026-07-04)
+### Task 10: Prior-art contract field — implement phase (added 2026-07-04) — DONE 2026-07-05
 
 Duplication attacked at creation time (the scanners catch it at detection
 time — complementary layers). The executor's WorkReport gains a typed
@@ -498,7 +498,7 @@ moves there (the cheapest moment to catch designed duplication is when the
 plan line is written); this field then covers only unplanned symbols —
 which is what it's best at.
 
-### Task 11: Standards edits from the 3rd-party agent-navigation review (added 2026-07-04)
+### Task 11: Standards edits from the 3rd-party agent-navigation review (added 2026-07-04) — DONE 2026-07-05 (all four edits landed: verb vocabulary in naming.md, feature-noun top level + fractal skeleton + README-invariants in folder-structure.md, caveats as specified)
 
 Source: .notes/plans/agent-repo-organization.md. Core principle adopted:
 agents navigate by glob/grep — names are the database keys. Four edits,

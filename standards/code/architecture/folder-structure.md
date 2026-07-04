@@ -15,6 +15,18 @@ Use a `common/` folder pattern for shared code — it keeps related code local, 
 | `utils/` | Stateless pure functions (`formatDate()`) |
 | `services/` | Stateful classes with methods (`ApiClient`) |
 
+## Top Level Is Feature Nouns
+
+`src/`'s top level names features and domains (`billing/`, `issues/`, `sync/`) — never technical layers (`controllers/`, `services/`, `helpers/`). Navigation is by domain first, for humans and agents alike. Framework mandates override (NestJS module layout, file-based routers) — the same carve-out as folder casing below.
+
+## Fractal Skeleton
+
+Every graduated feature folder shares one internal shape — its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.
+
+## Per-Folder READMEs
+
+A folder gets a `README.md` only for a genuine invariant not derivable from these rules (e.g. "everything here runs in the widget sandbox — no DOM globals"). Never prose restating the structure.
+
 ## Folder Naming
 
 Folders match what they hold, in that name's own casing:
