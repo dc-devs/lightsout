@@ -1,7 +1,7 @@
 import { ScanSeverity, type ScanFinding } from '@lightsout/contracts';
 
-/** Cluster prefixes with stable path-keyed identities — safe to gate on. Line-keyed detectors (clone, size) inform the work-list but never block: a shifted line makes an old finding look new. */
-const gatingClusterPattern = /^(ast:|multi-export:)/;
+/** Cluster prefixes with stable path-keyed identities — safe to gate on (size:file: keys on the path alone; per-function size and clone keys embed lines/names, so they inform the work-list but never block). */
+const gatingClusterPattern = /^(ast:|multi-export:|size:file:)/;
 
 interface Params {
 	findings: ScanFinding[];

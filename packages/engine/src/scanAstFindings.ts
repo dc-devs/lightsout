@@ -6,7 +6,9 @@ import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contrac
 
 /** Bodies below this normalized-token count are too small to call duplicates. */
 const minBodyTokens = 40;
-const fileLineCap = 250;
+
+/** .tsx runs larger by nature (JSX + props interfaces around a 200-line component budget). */
+const fileLineCap = (file: string) => (file.endsWith('.tsx') ? 300 : 250);
 
 const functionSizeCaps = ({ name, path }: { name: string; path: string }) => {
 	if (/^use[A-Z]/.test(name)) {
@@ -94,13 +96,13 @@ export const scanAstFindings = async ({ cwd, files, compiler }: Params) => {
 
 		const lineCount = text.split('\n').length;
 
-		if (lineCount > fileLineCap && basename(file) !== 'index.ts') {
+		if (lineCount > fileLineCap(file) && basename(file) !== 'index.ts') {
 			findings.push({
 				detector: ScanDetector.Size,
 				severity: ScanSeverity.Finding,
 				cluster: `size:file:${file}`,
 				files: [{ path: file }],
-				detail: `${lineCount} lines (cap ~${fileLineCap}) — split or graduate the concept`,
+				detail: `${lineCount} lines (cap ~${fileLineCap(file)}) — split or graduate the concept`,
 			});
 		}
 

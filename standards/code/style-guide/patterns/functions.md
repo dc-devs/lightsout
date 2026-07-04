@@ -71,6 +71,6 @@ If a helper's branches cannot be reached through the export's inputs, that branc
 | 50-80 | Review — look for extractable logic |
 | 80+   | Needs splitting |
 
-Files stay under ~250 lines — approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).
+Files stay under ~250 lines (~300 for `.tsx` — JSX and props interfaces earn the slack) — approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).
 
 **Exception — orchestration functions** may exceed 50 lines when each step delegates to a dedicated function (no inline business logic) and the flow is linear: a 150-line `start()` calling 8 step functions is fine; a 150-line function with inline loops and transformations is not.

@@ -57,8 +57,9 @@ const setupScanRepo = () => {
 	writeFileSync(join(dir, 'src/a/GetStarted.tsx'), 'export const GetStarted = () => 1;\n');
 	writeFileSync(join(dir, 'src/b/get-started.ts'), 'export const getStarted = () => 1;\n');
 
-	// size: oversized file
+	// size: oversized .ts file; a 280-line .tsx rides the larger JSX cap (~300)
 	writeFileSync(join(dir, 'src/b/huge.ts'), `export const huge = () => 1;\n${'// filler\n'.repeat(300)}`);
+	writeFileSync(join(dir, 'src/b/BigView.tsx'), `export const BigView = () => 1;\n${'// filler\n'.repeat(278)}`);
 
 	// dead export vs consumed export
 	writeFileSync(join(dir, 'src/a/unusedThing.ts'), 'export const unusedThing = () => 1;\n');
@@ -118,6 +119,7 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 	assert.ok(structure.some((finding) => finding.cluster === 'domain:src/a/utils:format'), 'domain-folder candidate');
 
 	assert.ok(byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts'), 'oversized file flagged');
+	assert.ok(!byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx'), '.tsx under its larger cap not flagged');
 
 	const dead = byDetector('dead-export');
 
