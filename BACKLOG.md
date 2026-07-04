@@ -313,9 +313,13 @@ Validation: run on lightsout engine/src, then FeedbackDrop — the report
 must independently rediscover the known processor duplication the phase-2
 refactor agent flagged (ground truth).
 
-V1.1 (queued 2026-07-04 from the first full FeedbackDrop scan — 552
-findings, ~60% signal; these take it to ~85% and make observation
-sustainable):
+V1.1 — DONE 2026-07-04 (queued the same day from the first full FeedbackDrop
+scan: 552 findings, ~60% signal). Live results on FD: tier 2 ran for the
+first time via the workspace fallback (+67 ast-duplicates, +107 size),
+filename-mismatch 142→87 with the survivors verified as real signal
+(users.seed→getUsers, four job-options twins, an actual 'inteface' typo),
+to/from inversions zero, baseline written (601 clusters), second scan
+reports 0 findings. All six items:
 
 1. **Filename-mismatch suffix stripping**: strip framework suffixes
    (`.model`, `.dto`, `.entity`, `.input`, `.args`, …) before comparing

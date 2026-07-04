@@ -101,6 +101,13 @@ export const LightsoutConfig = z.object({
 	 * docs only).
 	 */
 	standardsChannels: z.array(z.string()).optional(),
+	/** `lightsout scan` tuning — per-repo floors, not global guesses. */
+	scan: z
+		.object({
+			/** Minimum jscpd token span for a tier-1 clone finding (default 50). */
+			minCloneTokens: z.number().int().positive().optional(),
+		})
+		.optional(),
 });
 
 export type LightsoutConfig = z.infer<typeof LightsoutConfig>;

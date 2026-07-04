@@ -48,6 +48,15 @@ const setupScanRepo = () => {
 	// closed exception: const + derived type share a file — must NOT flag
 	writeFileSync(join(dir, 'src/a/Action.ts'), "export const Action = {\n\tAdd: 'add',\n} as const;\nexport type Action = (typeof Action)[keyof typeof Action];\n");
 
+	// V1.1 guards — none of these may produce findings:
+	// framework dot-suffix (filename-mismatch), to/from opposites (tier 0),
+	// component + kebab route pair (tier 0)
+	writeFileSync(join(dir, 'src/b/session-response.model.ts'), 'export interface SessionResponse {\n\tid: string;\n}\n');
+	writeFileSync(join(dir, 'src/a/hexToRgb.ts'), 'export const hexToRgb = () => 1;\n');
+	writeFileSync(join(dir, 'src/b/rgbToHex.ts'), 'export const rgbToHex = () => 2;\n');
+	writeFileSync(join(dir, 'src/a/GetStarted.tsx'), 'export const GetStarted = () => 1;\n');
+	writeFileSync(join(dir, 'src/b/get-started.ts'), 'export const getStarted = () => 1;\n');
+
 	// size: oversized file
 	writeFileSync(join(dir, 'src/b/huge.ts'), `export const huge = () => 1;\n${'// filler\n'.repeat(300)}`);
 
@@ -66,7 +75,11 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 	const { findings, notes } = await runScan({ cwd: dir });
 	const byDetector = (detector: string) => findings.filter((finding) => finding.detector === detector);
 
-	assert.equal(notes.length, 0, `typescript resolved for the AST tier: ${notes.join('; ')}`);
+	assert.ok(!notes.some((note) => note.includes('typescript')), `typescript resolved for the AST tier: ${notes.join('; ')}`);
+	assert.ok(
+		notes.some((note) => note.includes('baseline written')),
+		'first scan writes the baseline',
+	);
 
 	const astDups = byDetector('ast-duplicate');
 
@@ -90,12 +103,18 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 		names.some((finding) => finding.detail.includes("'fetchUserData'") && finding.detail.includes("'getUserData'")),
 		'synonym pair collapses to one concept',
 	);
+	assert.ok(!names.some((finding) => finding.detail.includes('hexToRgb')), 'to/from opposites are deliberate, not duplicates');
+	assert.ok(!names.some((finding) => finding.detail.includes('GetStarted')), 'component + kebab route pair is a framework pair');
 
 	const structure = byDetector('structure');
 
 	assert.ok(structure.some((finding) => finding.cluster === 'multi-export:src/a/config.ts'), 'multi-export flagged');
 	assert.ok(!structure.some((finding) => finding.cluster.includes('Action.ts')), 'const+type named constant is exempt');
 	assert.ok(structure.some((finding) => finding.cluster === 'filename-mismatch:src/a/helpers.ts'), 'misnamed file flagged');
+	assert.ok(
+		!structure.some((finding) => finding.cluster === 'filename-mismatch:src/b/session-response.model.ts'),
+		'framework dot-suffix is convention, not a mismatch',
+	);
 	assert.ok(structure.some((finding) => finding.cluster === 'domain:src/a/utils:format'), 'domain-folder candidate');
 
 	assert.ok(byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts'), 'oversized file flagged');
@@ -104,6 +123,72 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 
 	assert.ok(dead.some((finding) => finding.detail.includes("'unusedThing'")), 'dead export flagged');
 	assert.ok(!dead.some((finding) => finding.detail.includes("'buildLabel'")), 'consumed export not flagged');
+});
+
+test('scan baseline ratchet: repeat scans report only what is new; --all shows everything', async () => {
+	const dir = setupScanRepo();
+	const first = await runScan({ cwd: dir });
+
+	assert.ok(first.findings.length > 0, 'first scan reports the full debt');
+
+	const second = await runScan({ cwd: dir });
+
+	assert.equal(second.findings.length, 0, `clean re-scan is silent: ${second.findings.map((finding) => finding.cluster).join(', ')}`);
+	assert.ok(
+		second.notes.some((note) => note.includes('suppressed')),
+		'suppression is stated, not silent',
+	);
+
+	// a new defect lands after the baseline was accepted
+	writeFileSync(join(dir, 'src/b/config.ts'), 'export const readConfig = () => 1;\nexport const writeConfig = () => 2;\n');
+
+	const third = await runScan({ cwd: dir });
+
+	assert.ok(
+		third.findings.some((finding) => finding.cluster === 'multi-export:src/b/config.ts'),
+		'the new finding is reported',
+	);
+	assert.ok(
+		!third.findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts'),
+		'the baselined cluster stays suppressed',
+	);
+
+	const everything = await runScan({ cwd: dir, all: true });
+
+	assert.ok(everything.findings.length > third.findings.length, '--all includes the baselined findings');
+});
+
+test('scan resolves typescript from workspace packages and honors scan.minCloneTokens', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-scan-ws-'));
+
+	mkdirSync(join(dir, 'packages/app/src'), { recursive: true });
+	mkdirSync(join(dir, 'packages/app/node_modules'), { recursive: true });
+	// typescript lives ONLY in the workspace package, pnpm-style — the root resolves nothing.
+	symlinkSync(join(process.cwd(), 'node_modules/typescript'), join(dir, 'packages/app/node_modules/typescript'), 'dir');
+	writeFileSync(join(dir, 'package.json'), '{"name":"ws-fixture"}');
+	writeFileSync(join(dir, 'packages/app/package.json'), '{"name":"@ws/app"}');
+	writeFileSync(
+		join(dir, 'lightsout.config.json'),
+		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, scan: { minCloneTokens: 5000 } }),
+	);
+
+	writeFileSync(join(dir, 'packages/app/src/sumTotals.ts'), `export const sumTotals = ({ records }: { records: any[] }) => {${bigBody}};\n`);
+	writeFileSync(
+		join(dir, 'packages/app/src/tallyItems.ts'),
+		`export const tallyItems = ({ items }: { items: any[] }) => {\n${bigBody.replace(/records/g, 'items').replace(/record\b/g, 'item').replace(/record\./g, 'item.')}};\n`,
+	);
+
+	const { findings, notes } = await runScan({ cwd: dir });
+
+	assert.ok(!notes.some((note) => note.includes('typescript')), `tier 2 ran via the workspace fallback:\n${notes.join('\n')}`);
+	assert.ok(
+		findings.some((finding) => finding.detector === 'ast-duplicate'),
+		'ast tier found the renamed twins',
+	);
+	assert.ok(
+		!findings.some((finding) => finding.detector === 'clone'),
+		'the per-repo minCloneTokens floor suppressed tier-1 clones',
+	);
 });
 
 test('scan degrades honestly without a resolvable typescript', async () => {

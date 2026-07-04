@@ -4,13 +4,15 @@ import { Detector, MemoryStore } from '@jscpd/core';
 import { Tokenizer } from '@jscpd/tokenizer';
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
 
-const minTokens = 50;
+const defaultMinTokens = 50;
 const formatOf = (path: string) => (/\.(m|c)?tsx?$/.test(path) ? 'typescript' : 'javascript');
 
 interface Params {
 	cwd: string;
 	/** Repo-relative non-test source files (test literals are contract-pinning, never clones). */
 	files: string[];
+	/** Per-repo clone floor (config `scan.minCloneTokens`, default 50). */
+	minTokens?: number;
 }
 
 /**
@@ -19,7 +21,7 @@ interface Params {
  * sub-function spans the AST tier can't see. Misses systematic identifier
  * renames (that's tier 2's job).
  */
-export const scanClones = async ({ cwd, files }: Params) => {
+export const scanClones = async ({ cwd, files, minTokens = defaultMinTokens }: Params) => {
 	const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
 	const findings: ScanFinding[] = [];
 

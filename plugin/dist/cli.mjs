@@ -15244,7 +15244,12 @@ var LightsoutConfig = external_exports.object({
    * package.json dependencies; an array REPLACES detection (empty = base
    * docs only).
    */
-  standardsChannels: external_exports.array(external_exports.string()).optional()
+  standardsChannels: external_exports.array(external_exports.string()).optional(),
+  /** `lightsout scan` tuning — per-repo floors, not global guesses. */
+  scan: external_exports.object({
+    /** Minimum jscpd token span for a tier-1 clone finding (default 50). */
+    minCloneTokens: external_exports.number().int().positive().optional()
+  }).optional()
 });
 
 // packages/contracts/src/PackagesSource.ts
@@ -17524,7 +17529,7 @@ ${notIgnored.join("\n")}`
 };
 
 // packages/engine/src/runScan.ts
-import { mkdir as mkdir7, writeFile as writeFile4 } from "node:fs/promises";
+import { mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join23 } from "node:path";
 
 // packages/engine/src/isTestFile.ts
@@ -17563,15 +17568,24 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
 };
 
 // packages/engine/src/resolveConsumerTypescript.ts
+import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join as join18 } from "node:path";
-var resolveConsumerTypescript = ({ cwd }) => {
+var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
+  let packageNames = [];
   try {
-    const require2 = createRequire(join18(cwd, "package.json"));
-    return require2("typescript");
+    packageNames = readdirSync(join18(cwd, packagesDir)).filter((name) => !name.startsWith("."));
   } catch {
-    return void 0;
   }
+  const manifests = [join18(cwd, "package.json"), ...packageNames.map((name) => join18(cwd, packagesDir, name, "package.json"))];
+  for (const manifest of manifests) {
+    try {
+      return createRequire(manifest)("typescript");
+    } catch {
+      continue;
+    }
+  }
+  return void 0;
 };
 
 // packages/engine/src/scanAstFindings.ts
@@ -29403,9 +29417,9 @@ var Tokenizer = class {
 };
 
 // packages/engine/src/scanClones.ts
-var minTokens = 50;
+var defaultMinTokens = 50;
 var formatOf = (path) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
-var scanClones = async ({ cwd, files }) => {
+var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
   const findings = [];
   for (const file2 of files) {
@@ -29513,7 +29527,8 @@ var scanFilenameDuplicates = ({ files }) => {
       continue;
     }
     byName.set(name, [...byName.get(name) ?? [], file2]);
-    const key = [...tokensOf(name)].sort().join(" ");
+    const tokens2 = tokensOf(name);
+    const key = tokens2.includes("to") || tokens2.includes("from") ? tokens2.join(" ") : [...tokens2].sort().join(" ");
     const group = byTokens.get(key) ?? /* @__PURE__ */ new Map();
     group.set(name, [...group.get(name) ?? [], file2]);
     byTokens.set(key, group);
@@ -29533,6 +29548,9 @@ var scanFilenameDuplicates = ({ files }) => {
     if (group.size > 1) {
       const names = [...group.keys()];
       const paths = [...group.values()].flat();
+      if (new Set(names.map((name) => name.toLowerCase().replace(/[^a-z0-9]/g, ""))).size < 2) {
+        continue;
+      }
       findings.push({
         detector: ScanDetector.FilenameDuplicate,
         severity: ScanSeverity.Advisory,
@@ -29552,6 +29570,7 @@ var folderCensusCap = 20;
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var nameOf2 = (path) => basename4(path).replace(/\.(m|c)?[jt]sx?$/, "");
 var normalized = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+var dotPrefixes = (name) => name.split(".").map((_, index, segments) => segments.slice(0, index + 1).join("."));
 var firstToken = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/)[0]?.toLowerCase() ?? "";
 var scanStructure = async ({ cwd, files }) => {
   const findings = [];
@@ -29596,7 +29615,7 @@ var scanStructure = async ({ cwd, files }) => {
       });
     }
     const primary = exports[0];
-    if (primary && exports.length === 1 && normalized(primary.name) !== normalized(nameOf2(file2))) {
+    if (primary && exports.length === 1 && !dotPrefixes(nameOf2(file2)).some((candidate) => normalized(candidate) === normalized(primary.name))) {
       findings.push({
         detector: ScanDetector.Structure,
         severity: ScanSeverity.Advisory,
@@ -29634,20 +29653,52 @@ var scanStructure = async ({ cwd, files }) => {
 };
 
 // packages/engine/src/runScan.ts
-var runScan = async ({ cwd, path, onProgress }) => {
+var ScanBaseline = external_exports.object({
+  at: external_exports.string(),
+  path: external_exports.string(),
+  clusters: external_exports.array(external_exports.string())
+});
+var dominantPath = ({ findings }) => {
+  const paths = findings.map((finding) => finding.files[0]?.path).filter((path) => path !== void 0);
+  if (paths.length < 20) {
+    return void 0;
+  }
+  let prefix = "";
+  let count = paths.length;
+  for (; ; ) {
+    const children = /* @__PURE__ */ new Map();
+    for (const path of paths) {
+      if (prefix && !path.startsWith(`${prefix}/`)) {
+        continue;
+      }
+      const segment = path.slice(prefix ? prefix.length + 1 : 0).split("/")[0];
+      if (segment && !segment.includes(".")) {
+        children.set(segment, (children.get(segment) ?? 0) + 1);
+      }
+    }
+    const next = [...children.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (!next || next[1] / paths.length <= 0.5) {
+      break;
+    }
+    prefix = prefix ? `${prefix}/${next[0]}` : next[0];
+    count = next[1];
+  }
+  return prefix.split("/").length >= 2 ? { dir: prefix, count, total: paths.length } : void 0;
+};
+var runScan = async ({ cwd, path, all = false, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const repoFiles = await listSourceFiles({ cwd, exclude: config2?.generated });
-  const all = repoFiles.filter((file2) => !path || file2.startsWith(path));
-  const source = all.filter((file2) => !isTestFile(file2));
+  const allFiles = repoFiles.filter((file2) => !path || file2.startsWith(path));
+  const source = allFiles.filter((file2) => !isTestFile(file2));
   const notes = [];
-  progress(`scanning ${source.length} source file(s) (${all.length - source.length} test file(s) excluded from duplication tiers)`);
+  progress(`scanning ${source.length} source file(s) (${allFiles.length - source.length} test file(s) excluded from duplication tiers)`);
   const findings = [];
   findings.push(...scanFilenameDuplicates({ files: source }));
   progress(`tier 0 (names): done`);
-  findings.push(...await scanClones({ cwd, files: source }));
+  findings.push(...await scanClones({ cwd, files: source, minTokens: config2?.scan?.minCloneTokens }));
   progress(`tier 1 (clones): done`);
-  const compiler = resolveConsumerTypescript({ cwd });
+  const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2?.packagesDir });
   if (compiler) {
     findings.push(...await scanAstFindings({ cwd, files: source, compiler }));
     progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
@@ -29656,13 +29707,51 @@ var runScan = async ({ cwd, path, onProgress }) => {
   }
   findings.push(...await scanStructure({ cwd, files: source }));
   progress(`structure: done`);
-  findings.push(...await scanDeadExports({ cwd, files: all, referenceFiles: repoFiles }));
+  findings.push(...await scanDeadExports({ cwd, files: allFiles, referenceFiles: repoFiles }));
   progress(`dead exports: done`);
+  const dominant = dominantPath({ findings });
+  if (dominant) {
+    notes.push(
+      `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`
+    );
+  }
   const dir = join23(cwd, ".lightsout");
   await mkdir7(dir, { recursive: true });
+  const baselinePath = join23(dir, "scan-baseline.json");
+  const baselineRaw = await readFile16(baselinePath, "utf8").catch(() => void 0);
+  let baselineJson;
+  try {
+    baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
+  } catch {
+    baselineJson = null;
+  }
+  const baseline = baselineRaw === void 0 ? void 0 : ScanBaseline.safeParse(baselineJson);
+  let reported = findings;
+  if (baseline === void 0) {
+    const clusters = [...new Set(findings.map((finding) => finding.cluster))];
+    await writeFile4(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", clusters }, void 0, "	")}
+`, "utf8");
+    notes.push(
+      `baseline written (${clusters.length} cluster(s) accepted as existing debt) \u2014 future scans report only NEW findings; --all shows everything, delete .lightsout/scan-baseline.json to re-baseline`
+    );
+  } else if (baseline.success) {
+    const accepted = new Set(baseline.data.clusters);
+    const fresh = findings.filter((finding) => !accepted.has(finding.cluster));
+    const currentClusters = new Set(findings.map((finding) => finding.cluster));
+    const resolved = baseline.data.clusters.filter((cluster) => !currentClusters.has(cluster)).length;
+    reported = all ? findings : fresh;
+    if (!all && findings.length > fresh.length) {
+      notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
+    }
+    if (resolved > 0) {
+      notes.push(`${resolved} baselined cluster(s) no longer found \u2014 burn-down progress (delete .lightsout/scan-baseline.json to re-baseline)`);
+    }
+  } else {
+    notes.push("scan-baseline.json is unreadable \u2014 ignored; delete it to re-baseline");
+  }
   await writeFile4(join23(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
-  return { findings, notes };
+  return { findings: reported, notes };
 };
 
 // packages/engine/src/runPromptImprovement.ts
@@ -29697,7 +29786,7 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
-  lightsout scan [--cwd <path>] [--path <subdir>]
+  lightsout scan [--cwd <path>] [--path <subdir>] [--all]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -30017,7 +30106,7 @@ ${checks.length} check(s) \xB7 ${tally}`);
   }
   if (command === "scan") {
     const scanPath = getStringFlag({ flags, name: "path" });
-    const { findings, notes } = await runScan({ cwd, path: scanPath, onProgress: (message) => console.log(dim(message)) });
+    const { findings, notes } = await runScan({ cwd, path: scanPath, all: flags.get("all") === true, onProgress: (message) => console.log(dim(message)) });
     const bySeverity = { finding: findings.filter((entry) => entry.severity === "finding"), advisory: findings.filter((entry) => entry.severity === "advisory") };
     console.log("");
     for (const [severity, list] of Object.entries(bySeverity)) {

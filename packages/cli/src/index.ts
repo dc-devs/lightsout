@@ -24,7 +24,7 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
-  lightsout scan [--cwd <path>] [--path <subdir>]
+  lightsout scan [--cwd <path>] [--path <subdir>] [--all]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -443,7 +443,7 @@ const main = async () => {
 
 	if (command === 'scan') {
 		const scanPath = getStringFlag({ flags, name: 'path' });
-		const { findings, notes } = await runScan({ cwd, path: scanPath, onProgress: (message) => console.log(dim(message)) });
+		const { findings, notes } = await runScan({ cwd, path: scanPath, all: flags.get('all') === true, onProgress: (message) => console.log(dim(message)) });
 		const bySeverity = { finding: findings.filter((entry) => entry.severity === 'finding'), advisory: findings.filter((entry) => entry.severity === 'advisory') };
 
 		console.log('');

@@ -54,7 +54,10 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 
 		byName.set(name, [...(byName.get(name) ?? []), file]);
 
-		const key = [...tokensOf(name)].sort().join(' ');
+		// Conversion names are order-sensitive: hexToRgb and rgbToHex are
+		// deliberate opposites, not one concept — sorting would collapse them.
+		const tokens = tokensOf(name);
+		const key = tokens.includes('to') || tokens.includes('from') ? tokens.join(' ') : [...tokens].sort().join(' ');
 		const group = byTokens.get(key) ?? new Map<string, string[]>();
 
 		group.set(name, [...(group.get(name) ?? []), file]);
@@ -77,6 +80,13 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 		if (group.size > 1) {
 			const names = [...group.keys()];
 			const paths = [...group.values()].flat();
+
+			// Names identical up to casing/separators (`GetStarted` vs
+			// `get-started`) are a framework pair (component + kebab route),
+			// not a synonym clash.
+			if (new Set(names.map((name) => name.toLowerCase().replace(/[^a-z0-9]/g, ''))).size < 2) {
+				continue;
+			}
 
 			findings.push({
 				detector: ScanDetector.FilenameDuplicate,

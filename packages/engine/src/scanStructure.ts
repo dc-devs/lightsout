@@ -7,6 +7,9 @@ const exportPattern = /^export\s+(?:async\s+)?(const|class|function|interface|ty
 
 const nameOf = (path: string) => basename(path).replace(/\.(m|c)?[jt]sx?$/, '');
 const normalized = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** 'session-response.model' → ['session-response.model', 'session-response'] — framework dot-suffixes (.model/.dto/.entity/…) are convention, not a mismatch. */
+const dotPrefixes = (name: string) => name.split('.').map((_, index, segments) => segments.slice(0, index + 1).join('.'));
 const firstToken = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(/[\s\-_.]+/)[0]?.toLowerCase() ?? '';
 
 interface Params {
@@ -84,7 +87,7 @@ export const scanStructure = async ({ cwd, files }: Params) => {
 
 		const primary = exports[0];
 
-		if (primary && exports.length === 1 && normalized(primary.name) !== normalized(nameOf(file))) {
+		if (primary && exports.length === 1 && !dotPrefixes(nameOf(file)).some((candidate) => normalized(candidate) === normalized(primary.name))) {
 			findings.push({
 				detector: ScanDetector.Structure,
 				severity: ScanSeverity.Advisory,
