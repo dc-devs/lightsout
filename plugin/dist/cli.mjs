@@ -37813,6 +37813,29 @@ var joinInventories = ({ inventories, edges }) => {
   };
   pair({ keyOf: normalizedKey, fuzzy: false });
   pair({ keyOf: fuzzyKey, fuzzy: true });
+  const internal = /* @__PURE__ */ new Set();
+  for (const out of outs) {
+    if (pairedOuts.has(out) || internal.has(out)) {
+      continue;
+    }
+    const selfHit = ins.find(
+      (entry) => !pairedIns.has(entry) && !internal.has(entry) && entry.node === out.node && entry.edge.kind === out.edge.kind && normalizedKey(entry.edge.matchKey) === normalizedKey(out.edge.matchKey)
+    );
+    if (!selfHit) {
+      continue;
+    }
+    internal.add(out);
+    internal.add(selfHit);
+    for (const sighting2 of [out, selfHit]) {
+      noise.push({
+        node: sighting2.node,
+        direction: sighting2.edge.direction,
+        kind: sighting2.edge.kind,
+        matchKey: sighting2.edge.matchKey,
+        at: sighting2.edge.at
+      });
+    }
+  }
   const confirmed = [];
   const drifted = [];
   const newEdges = [];
@@ -37844,8 +37867,8 @@ var joinInventories = ({ inventories, edges }) => {
     matched: newEdges,
     confirmed,
     drifted,
-    orphansOut: outs.filter((entry) => !pairedOuts.has(entry)).map(orphan),
-    orphansIn: ins.filter((entry) => !pairedIns.has(entry)).map(orphan),
+    orphansOut: outs.filter((entry) => !pairedOuts.has(entry) && !internal.has(entry)).map(orphan),
+    orphansIn: ins.filter((entry) => !pairedIns.has(entry) && !internal.has(entry)).map(orphan),
     noise,
     gaps
   };
@@ -38907,7 +38930,7 @@ ${bold(`build-map ${result.runId}`)} \u2014 scanned ${result.scanned.length}, re
         console.log(`${dim("?")} orphan in:  ${orphan.node} [${orphan.kind}] ${orphan.matchKey}`);
       }
       if (joined.noise.length > 0) {
-        console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS) \u2014 excluded; see join.json`));
+        console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS, intra-node self-loops) \u2014 excluded; see join.json`));
       }
       for (const gap of joined.gaps) {
         console.log(`${yellow("!")} scanner gap: ${gap.node} \u2014 ${gap.detail}`);

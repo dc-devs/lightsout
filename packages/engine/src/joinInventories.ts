@@ -92,6 +92,45 @@ export const joinInventories = ({ inventories, edges }: Params): MapJoin => {
 	pair({ keyOf: normalizedKey, fuzzy: false });
 	pair({ keyOf: fuzzyKey, fuzzy: true });
 
+	// Intra-node self-loops: an unpaired out+in within ONE node sharing
+	// kind+matchKey can never be a cross-node edge (pairing requires
+	// entry.node !== out.node), so it's internal plumbing — a service's own
+	// queue producer↔consumer. Route both sightings to noise instead of
+	// double-listing them as orphan-out AND orphan-in.
+	const internal = new Set<Sighting>();
+
+	for (const out of outs) {
+		if (pairedOuts.has(out) || internal.has(out)) {
+			continue;
+		}
+
+		const selfHit = ins.find(
+			(entry) =>
+				!pairedIns.has(entry) &&
+				!internal.has(entry) &&
+				entry.node === out.node &&
+				entry.edge.kind === out.edge.kind &&
+				normalizedKey(entry.edge.matchKey) === normalizedKey(out.edge.matchKey),
+		);
+
+		if (!selfHit) {
+			continue;
+		}
+
+		internal.add(out);
+		internal.add(selfHit);
+
+		for (const sighting of [out, selfHit]) {
+			noise.push({
+				node: sighting.node,
+				direction: sighting.edge.direction,
+				kind: sighting.edge.kind,
+				matchKey: sighting.edge.matchKey,
+				at: sighting.edge.at,
+			});
+		}
+	}
+
 	// Split matched pairs into new edges vs existing docs (confirmed/drifted).
 	const confirmed: MapJoin['confirmed'] = [];
 	const drifted: MapJoin['drifted'] = [];
@@ -130,8 +169,8 @@ export const joinInventories = ({ inventories, edges }: Params): MapJoin => {
 		matched: newEdges,
 		confirmed,
 		drifted,
-		orphansOut: outs.filter((entry) => !pairedOuts.has(entry)).map(orphan),
-		orphansIn: ins.filter((entry) => !pairedIns.has(entry)).map(orphan),
+		orphansOut: outs.filter((entry) => !pairedOuts.has(entry) && !internal.has(entry)).map(orphan),
+		orphansIn: ins.filter((entry) => !pairedIns.has(entry) && !internal.has(entry)).map(orphan),
 		noise,
 		gaps,
 	};

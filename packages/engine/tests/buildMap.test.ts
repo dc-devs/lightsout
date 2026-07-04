@@ -75,6 +75,42 @@ test('joinInventories: exact and fuzzy pairing, orphans, noise, scanner gaps', (
 	assert.deepEqual(result.gaps, [{ node: 'node-b', detail: 'dynamic dispatch at src/x.ts — target unresolvable' }]);
 });
 
+test('joinInventories: intra-node producer↔consumer self-loops collapse to noise, not orphan-both', () => {
+	const inventories = [
+		{
+			node: 'backend',
+			scannedSha: 'aaa',
+			scannedPathSha: null,
+			edges: [
+				inventoryEdge({ kind: 'message-bus', matchKey: 'linear-sync', direction: 'out', at: 'src/linear-sync.service.ts:51', payload: 'enqueue' }),
+				inventoryEdge({ kind: 'message-bus', matchKey: 'linear-sync', direction: 'in', at: 'src/linear-sync.processor.ts:26', payload: 'consume' }),
+				inventoryEdge({ matchKey: '/events', direction: 'out', at: 'src/client.ts:1' }),
+			],
+			gaps: [],
+		},
+		{
+			node: 'web',
+			scannedSha: 'bbb',
+			scannedPathSha: null,
+			edges: [inventoryEdge({ matchKey: '/events', direction: 'in', at: 'src/routes/events.ts:2', pattern: "router.post('/events'" })],
+			gaps: [],
+		},
+	] as EdgeInventory[];
+
+	const result = joinInventories({ inventories, edges: new Map() });
+
+	assert.equal(result.matched.length, 1, 'the genuine cross-node edge still pairs');
+	assert.deepEqual([result.matched[0]?.from, result.matched[0]?.to], ['backend', 'web']);
+	assert.deepEqual(result.orphansOut, [], 'the self-loop is not left as an orphan-out');
+	assert.deepEqual(result.orphansIn, [], 'the self-loop is not left as an orphan-in');
+	assert.equal(result.noise.length, 2, 'both ends of the self-loop bucket to noise, preserving the record');
+	assert.deepEqual(
+		result.noise.map((entry) => entry.direction).sort(),
+		['in', 'out'],
+		'both directions of the internal loop are recorded',
+	);
+});
+
 test('build-map: two monorepo packages sharing one repo scan in parallel without racing the clone', async () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-monomap-'));
 	const workspaceDir = mkdtempSync(join(tmpdir(), 'lightsout-monomap-ws-'));

@@ -710,7 +710,7 @@ const main = async () => {
 			}
 
 			if (joined.noise.length > 0) {
-				console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS) — excluded; see join.json`));
+				console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS, intra-node self-loops) — excluded; see join.json`));
 			}
 
 			for (const gap of joined.gaps) {
