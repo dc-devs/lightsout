@@ -383,6 +383,46 @@ every standard that assumes environment state contributes one check):
 Fits the run header afterwards ("2 doctor warnings — run `lightsout
 doctor`") without ever gating.
 
+### Task 14: NEXT IMMEDIATE — phase-3 conformance review + cleanup list (added 2026-07-04)
+
+Review the "new" files phase 3 produced (run
+68e67550-81dc-48f6-8e01-3297c72adbc2 in FeedbackDrop) against the newly
+slimmed standards: did the writers actually conform to the style they
+reported conforming to? Every non-conformance or cleanup item found gets
+APPENDED HERE as it's discovered — this task is the collection point.
+
+Files to review: the run manifest's per-step changedFiles (implement ~
+sources, write-tests ~ new test files in setup-factory style, refactor's
+touched file). Judge against: setup-factory/flat-describe/AAA, assertions-
+pin-contracts (literals, codes-strict/copy-loose), mock typing rules,
+one-export-per-file, Params/return-types, naming.
+
+Cleanup list (seeded from the phase-3 friction review; append below):
+
+- [ ] ENGINE/standards: `userEvent` mandate made conditional on the package
+      actually depending on @testing-library/user-event (unconditional rule
+      broke a check gate with TS2307; agent fell back to fireEvent). Also a
+      doctor-check candidate.
+- [ ] ENGINE/standards+prompt: known style-precedence conflicts recorded
+      ONCE per run, not once per file (~24 near-identical entries drowned
+      the phase-3 friction log).
+- [ ] FD (user decision): install @testing-library/user-event in web-app,
+      or keep fireEvent as the repo's interaction API.
+- [ ] FD (user decision): delete the legacy FindOneIssueDocument.unit.test.ts
+      string-echo test (standards say pure-constant gql Documents get no
+      dedicated test; 5 writers independently flagged it).
+- [ ] FD (user decision): the gen:gql verification gap — regeneration needs
+      a live backend the verify environment lacks; agent hand-wrote the
+      deterministic codegen output as a documented deviation. Decide: live
+      backend in verify env / explicit implementer deliverable / accept
+      documented hand-writes. (Also Task 13 planning-phase material.)
+- [ ] FD (observation): recurring jest-worker SIGSEGV under coverage (2nd
+      occurrence, different file each time); gate re-run absorbed both.
+- [ ] FD (inventory, no urgency): the ~20 legacy GitHub-side test files the
+      phase-3 writers named while applying the precedence rule — the
+      deliberate-cleanup queue for Task 8 v2 / a dedicated style-migration
+      plan.
+
 ### Task 10: Prior-art contract field — implement phase (added 2026-07-04)
 
 Duplication attacked at creation time (the scanners catch it at detection
