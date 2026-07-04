@@ -440,6 +440,24 @@ typing rules all followed on first live outing):
       branch for coverage (TeamSelector test:506, mirrors RepoSelector) —
       so it stops reading as a type-assertions violation.
 
+From the full 57-new-file diff review (2026-07-04 — sweep + 5 shapes read
+closely; zero beforeEach / manual cleanup / assertion anti-patterns
+anywhere; route files correctly untested; QueryKey enums used; why-comments
+on query tuning trace to friction decisions):
+
+- [ ] FD + ENGINE/standards ruling: mutation-result stubs in 3 hook tests
+      typed `as Record<string, unknown>` (useConnectLinearTeam etc.) —
+      Mock Typing Rules vs the pain of stubbing UseMutationResult
+      generics. Bless loose stubs for framework-generic results, or add a
+      shared typed helper in test/utils/.
+- [ ] FD (ties into the gen:gql decision): `response as { … }` casts in
+      ALL serverFns, Linear and GitHub alike — systematic pre-standards
+      convention, not a writer miss. The codegen client-preset's
+      TypedDocumentNode would type responses and delete every cast;
+      resolve together with the gen:gql verification gap.
+- [ ] FD (trivial): empty `className=""` on LinearIcon in
+      LinearIssueBadge.tsx.
+
 ### Task 10: Prior-art contract field — implement phase (added 2026-07-04)
 
 Duplication attacked at creation time (the scanners catch it at detection
