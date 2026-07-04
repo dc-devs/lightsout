@@ -283,6 +283,31 @@ Also cheap and independent: give the in-run refactor step's prompt the v1
 refactor-plan audit method (per-file full read, cite the violated rule per
 change, severity ordering) — better changes and better friction data.
 
+### Task 9: `lightsout doctor` — consumer environment audit (added 2026-07-04)
+
+Read-only command that checks every assumption the engine and the standards
+make about a consumer repo, printing PASS/WARN per check with the exact
+one-line fix for each WARN. Never mutates: setup-by-mutation makes repo-wide
+behavior decisions silently — the live specimen is `clearMocks: true`, two
+config lines that broke 22 FeedbackDrop tests and needed a human-judged fix.
+The doctor tells you what, why, and what to paste; you ship it. (Same
+philosophy as `improve`: the loop proposes, a human ships.)
+
+Checks (grow the list as Task 5 makes standards assumptions explicit —
+every standard that assumes environment state contributes one check):
+- `lightsout.config.json` parses against the contract
+- Jest config per package: `clearMocks`/`restoreMocks` set (the test
+  standards' Mock Cleanup section assumes them)
+- scoped-gate scripts: which packages lack which `packageScripts` targets
+  (today's skip narration, available before a run)
+- `.gitignore` covers `.lightsout/runs/`, `friction.jsonl`, `lock.json`
+- harness binary present + logged in (driver-specific probe)
+- `generated` paths exist; `scripts.*` commands resolvable
+- later: lint config presence once lint standards exist
+
+Fits the run header afterwards ("2 doctor warnings — run `lightsout
+doctor`") without ever gating.
+
 ### Task 2: First full pipeline run on the codex driver (live) — LAST, deprioritized 2026-07-03
 
 The codex driver has only done a round-trip smoke test, never a full
