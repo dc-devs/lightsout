@@ -423,6 +423,23 @@ Cleanup list (seeded from the phase-3 friction review; append below):
       deliberate-cleanup queue for Task 8 v2 / a dedicated style-migration
       plan.
 
+From the TeamSelector.tsx + test review (2026-07-04 — verdict ~95%
+adherence; setup-factory structure, assertion-literal doctrine, and mock
+typing rules all followed on first live outing):
+
+- [ ] FD: `teams?.find((t) => …)` single-letter variable in
+      TeamSelector.tsx:67 — standards say `(team) =>`.
+- [ ] ENGINE/standards (reconciliation ruling needed): raw string-literal
+      discriminants in component prop unions (`status: 'notInstalled' | …`)
+      vs named-constants doctrine ("discriminants reference the const
+      object"). Mirrors RepoSelector's established convention. Proposed:
+      exempt component-prop unions (idiomatic React); doctrine's target is
+      domain values crossing module boundaries.
+- [ ] ENGINE/standards: bless the invalid-input cast pattern explicitly —
+      tests may `as unknown as` an invalid prop to reach a defensive
+      branch for coverage (TeamSelector test:506, mirrors RepoSelector) —
+      so it stops reading as a type-assertions violation.
+
 ### Task 10: Prior-art contract field — implement phase (added 2026-07-04)
 
 Duplication attacked at creation time (the scanners catch it at detection
