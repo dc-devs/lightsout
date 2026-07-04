@@ -29,6 +29,8 @@ export { joinInventories } from './joinInventories';
 export { authorConnectionDocs } from './authorConnectionDocs';
 export { regenerateConnectionIndex } from './regenerateConnectionIndex';
 export { verifyConnectionAnchors } from './verifyConnectionAnchors';
+export { parseConnectionsSource } from './parseConnectionsSource';
+export { resolveConnectionsSource } from './resolveConnectionsSource';
 export { renderTrace } from './renderTrace';
 export { draftConnectionDocs } from './draftConnectionDocs';
 export { patchConnectionDoc } from './patchConnectionDoc';

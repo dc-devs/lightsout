@@ -22,22 +22,42 @@ decisions: [traverse-decisions.md](traverse-decisions.md).
 - **Anchors** — each side carries `path` + greppable `pattern` +
   `last-verified-sha`, so freshness is a machine check, not human vigilance.
 
-## Where the map lives
+## Where the map lives — central-first
 
-Default: `.lightsout/connections/` in the repo you run from (override
-anywhere with `--connections <dir>`). **The map is meant to be committed** —
-it's shared team knowledge, like the scan baseline. If your `.gitignore`
-ignores all of `.lightsout/` (the recommended setup for run state), carve
-the map out:
+The map is shared team knowledge, and its settled design (T3) is
+**central-first**: one canonical place, built and maintained centrally.
+The recommended setup is a dedicated map repo (or a folder in a shared
+repo) that everyone points at:
+
+```json
+// lightsout.config.json
+{ "traverse": { "connections": "git@github.com:your-org/data-flow-map" } }
+```
+
+All of these work, as config or `--connections`:
+
+```
+git@github.com:your-org/data-flow-map              # a dedicated map repo (root)
+git@github.com:your-org/platform/src/connections   # a folder in a shared repo
+git@github.com:your-org/platform.git/src/connections   # same, explicit .git delimiter
+https://github.com/your-org/platform//src/connections  # same, // separator
+```
+
+The engine clones/refreshes the map into the shared workspace on every
+command — everyone traverses against current HEAD, nobody clones by hand.
+Contributions are ordinary PRs to the map repo; when `build-map --author`
+or `verify --repair` writes docs, the CLI names the local clone to commit
+and push from.
+
+The fallback for the small case (a monorepo mapping wire calls between its
+own packages) is a local dir — default `.lightsout/connections/`. Commit it;
+if your `.gitignore` covers all of `.lightsout/`, carve it out:
 
 ```gitignore
 .lightsout/
 !.lightsout/connections/
 !.lightsout/connections/**
 ```
-
-…or keep the map in a committed directory of its own (even a dedicated map
-repo) and pass `--connections`.
 
 ## 1. Register your nodes
 

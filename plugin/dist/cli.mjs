@@ -7959,7 +7959,7 @@ var require_dist = __commonJS({
 
 // packages/cli/src/index.ts
 import { readdir as readdir8, readFile as readFile25, writeFile as writeFile11 } from "node:fs/promises";
-import { basename as basename6, join as join34 } from "node:path";
+import { basename as basename6, join as join35 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -22579,6 +22579,11 @@ var LightsoutConfig = external_exports.object({
    * docs only).
    */
   standardsChannels: external_exports.array(external_exports.string()).optional(),
+  /** `lightsout traverse`/`build-map` settings. */
+  traverse: external_exports.object({
+    /** Where the connection map lives: a local dir, a git URL (`git@github.com:org/data-flow-map`), or a folder inside one (`git@github.com:org/repo/src/connections`). Central-first — the map is shared team knowledge. */
+    connections: external_exports.string().optional()
+  }).optional(),
   /** `lightsout scan` tuning — per-repo floors, not global guesses. */
   scan: external_exports.object({
     /** Minimum jscpd token span for a tier-1 clone finding (default 50). */
@@ -38170,6 +38175,53 @@ var verifyConnectionAnchors = async ({
   return results;
 };
 
+// packages/engine/src/parseConnectionsSource.ts
+var parseConnectionsSource = ({ source }) => {
+  const looksGit = /^(git@|ssh:\/\/|https?:\/\/)/.test(source) || /\.git(\/|$)/.test(source);
+  if (!looksGit) {
+    return { kind: "local", path: source };
+  }
+  const dotGit = source.indexOf(".git/");
+  if (dotGit !== -1) {
+    return { kind: "git", repo: source.slice(0, dotGit + 4), subpath: source.slice(dotGit + 5) || void 0 };
+  }
+  if (source.endsWith(".git")) {
+    return { kind: "git", repo: source, subpath: void 0 };
+  }
+  const protocolEnd = source.includes("://") ? source.indexOf("://") + 3 : 0;
+  const doubleSlash = source.indexOf("//", protocolEnd);
+  if (doubleSlash !== -1) {
+    return { kind: "git", repo: source.slice(0, doubleSlash), subpath: source.slice(doubleSlash + 2) || void 0 };
+  }
+  if (source.startsWith("git@")) {
+    const colon = source.indexOf(":");
+    const segments2 = source.slice(colon + 1).split("/");
+    return {
+      kind: "git",
+      repo: `${source.slice(0, colon + 1)}${segments2.slice(0, 2).join("/")}`,
+      subpath: segments2.slice(2).join("/") || void 0
+    };
+  }
+  const segments = source.slice(protocolEnd).split("/");
+  return {
+    kind: "git",
+    repo: `${source.slice(0, protocolEnd)}${segments.slice(0, 3).join("/")}`,
+    subpath: segments.slice(3).join("/") || void 0
+  };
+};
+
+// packages/engine/src/resolveConnectionsSource.ts
+import { homedir as homedir4 } from "node:os";
+import { isAbsolute as isAbsolute4, join as join32 } from "node:path";
+var resolveConnectionsSource = async ({ cwd, source, workspaceDir = join32(homedir4(), ".lightsout", "traverse-repos") }) => {
+  const parsed = parseConnectionsSource({ source });
+  if (parsed.kind === "local") {
+    return { dir: isAbsolute4(parsed.path) ? parsed.path : join32(cwd, parsed.path), remote: false, repo: void 0 };
+  }
+  const repoDir = await ensureNodeWorkspace({ repo: parsed.repo, workspaceDir, forceRefresh: true });
+  return { dir: parsed.subpath ? join32(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
+};
+
 // packages/engine/src/renderTrace.ts
 var labelOf = (edgeId) => edgeId.split("--")[2] ?? edgeId;
 var renderTrace = ({ state, edges, mode }) => {
@@ -38244,16 +38296,16 @@ ${hop.note ?? "non-repo node \u2014 crossed mechanically"}`;
 
 // packages/engine/src/draftConnectionDocs.ts
 import { mkdir as mkdir10, readFile as readFile24, writeFile as writeFile10 } from "node:fs/promises";
-import { isAbsolute as isAbsolute4, join as join32 } from "node:path";
+import { isAbsolute as isAbsolute5, join as join33 } from "node:path";
 var slugOf2 = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
 var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
-  const mapDir = isAbsolute4(connectionsDir) ? connectionsDir : join32(cwd, connectionsDir);
-  const tracePath = join32(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
+  const mapDir = isAbsolute5(connectionsDir) ? connectionsDir : join33(cwd, connectionsDir);
+  const tracePath = join33(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
   const raw = await readFile24(tracePath, "utf8").catch(() => {
     throw new Error(`no trace found for run ${traverseRunId} at ${tracePath}`);
   });
   const state = TraceState.parse(JSON.parse(raw));
-  const draftsDir = join32(mapDir, "drafts");
+  const draftsDir = join33(mapDir, "drafts");
   const drafted = [];
   await mkdir10(draftsDir, { recursive: true });
   for (const gap of state.gaps) {
@@ -38276,7 +38328,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
       "",
       `DRAFT from traverse run ${traverseRunId}: ${gap.node} emits ${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at}, carrying ${gap.exit.carries}. Receiver unknown \u2014 ${gap.detail}`
     ].join("\n");
-    await writeFile10(join32(draftsDir, `${id}.md`), `${content}
+    await writeFile10(join33(draftsDir, `${id}.md`), `${content}
 `, "utf8");
     drafted.push(id);
   }
@@ -38285,7 +38337,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
 
 // packages/engine/src/runPromptImprovement.ts
 import { readdir as readdir7 } from "node:fs/promises";
-import { join as join33 } from "node:path";
+import { join as join34 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -38293,8 +38345,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir7(join33(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join33(promptsDir, file2));
+  const files = await readdir7(join34(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join34(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -38618,7 +38670,7 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join34(cwd, ".lightsout", "runs");
+    const runsDir = join35(cwd, ".lightsout", "runs");
     const runIds = await readdir8(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
@@ -38698,11 +38750,18 @@ ${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} 
     const config2 = await loadConfig({ cwd }).catch(() => void 0);
     const driver = getDriver({ name: config2?.driver ?? "claude-code" });
     try {
+      const connections = await resolveConnectionsSource({
+        cwd,
+        source: getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections"
+      });
+      if (connections.remote) {
+        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
+      }
       const result = await runTraverse({
         cwd,
         driver,
         question: question || "(resumed)",
-        connectionsDir: getStringFlag({ flags, name: "connections" }) ?? ".lightsout/connections",
+        connectionsDir: connections.dir,
         mode: modeFlag && Object.values(TraverseMode).includes(modeFlag) ? modeFlag : void 0,
         dataOfInterest: getStringFlag({ flags, name: "data" }),
         start: getStringFlag({ flags, name: "start" }),
@@ -38743,11 +38802,9 @@ ${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connectio
         }
       }
       if (state.mode !== "answer" && state.mode !== "bug") {
-        const edges = await readConnectionMap({
-          connectionsDir: join34(cwd, getStringFlag({ flags, name: "connections" }) ?? ".lightsout/connections")
-        });
+        const edges = await readConnectionMap({ connectionsDir: connections.dir });
         const rendered = renderTrace({ state, edges, mode: state.mode });
-        const outPath = join34(result.runDir, `${state.mode}.md`);
+        const outPath = join35(result.runDir, `${state.mode}.md`);
         await writeFile11(outPath, rendered, "utf8");
         console.log(`
 ${state.mode} rendered: ${outPath}`);
@@ -38765,28 +38822,36 @@ ${result.error}`);
     }
   }
   if (command === "build-map") {
-    const connectionsDir = getStringFlag({ flags, name: "connections" }) ?? ".lightsout/connections";
     const authorRunId = getStringFlag({ flags, name: "author" });
     const config2 = await loadConfig({ cwd }).catch(() => void 0);
+    const connectionsSource = getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections";
     try {
+      const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
+      if (connections.remote) {
+        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
+      }
       if (authorRunId) {
-        const joinPath = join34(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+        const joinPath = join35(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
         const reviewed = MapJoin.parse(JSON.parse(await readFile25(joinPath, "utf8")));
-        const inventoriesDir = join34(cwd, ".lightsout/traverse/inventories");
+        const inventoriesDir = join35(cwd, ".lightsout/traverse/inventories");
         const shaByNode = /* @__PURE__ */ new Map();
         for (const name of (await readdir8(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile25(join34(inventoriesDir, name), "utf8")));
+          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile25(join35(inventoriesDir, name), "utf8")));
           if (inventory.success) {
             shaByNode.set(inventory.data.node, inventory.data.scannedSha);
           }
         }
         const result2 = await authorConnectionDocs({
-          connectionsDir: join34(cwd, connectionsDir),
+          connectionsDir: connections.dir,
           join: reviewed,
           shaByNode
         });
         console.log(`${green("\u2713")} authored ${result2.authored.length} doc(s)${result2.authored.length > 0 ? `: ${result2.authored.join(", ")}` : ""}`);
         console.log(`${green("\u2713")} confirmed ${result2.confirmed} \xB7 repaired ${result2.repaired} \xB7 INDEX.md regenerated (${result2.edgeCount} edge(s))`);
+        if (connections.remote) {
+          console.log(`
+the map is a clone of ${connections.repo} \u2014 commit & push (or open a PR) from ${connections.dir}`);
+        }
         process.exit(0);
       }
       const nodeArgs = getPositionals({ args: rest });
@@ -38799,7 +38864,7 @@ ${result.error}`);
         cwd,
         driver,
         nodes: nodeArgs.length === 1 && nodeArgs[0] === "all" ? "all" : nodeArgs,
-        connectionsDir,
+        connectionsDir: connections.dir,
         rescan: flags.get("rescan") === true,
         model: config2?.model,
         permissionMode: config2?.permissionMode,
@@ -38838,7 +38903,7 @@ ${bold(`build-map ${result.runId}`)} \u2014 scanned ${result.scanned.length}, re
       }
       console.log(`
 ${bold("REVIEW GATE")} \u2014 no docs written yet. Cull ${result.runDir}/join.json (delete rejected entries), then:`);
-      console.log(`  lightsout build-map --author ${result.runId}${connectionsDir === ".lightsout/connections" ? "" : ` --connections ${connectionsDir}`}`);
+      console.log(`  lightsout build-map --author ${result.runId}${connectionsSource === ".lightsout/connections" ? "" : ` --connections ${connectionsSource}`}`);
       process.exit(0);
     } catch (error51) {
       console.error(error51 instanceof Error ? error51.message : String(error51));
@@ -38847,13 +38912,18 @@ ${bold("REVIEW GATE")} \u2014 no docs written yet. Cull ${result.runDir}/join.js
   }
   if (command === "map-connection") {
     const subcommand = getPositionals({ args: rest })[0];
-    const connectionsDir = getStringFlag({ flags, name: "connections" }) ?? ".lightsout/connections";
+    const mapConfig = await loadConfig({ cwd }).catch(() => void 0);
+    const connectionsSource = getStringFlag({ flags, name: "connections" }) ?? mapConfig?.traverse?.connections ?? ".lightsout/connections";
     try {
+      const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
+      if (connections.remote) {
+        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
+      }
       if (subcommand === "verify") {
         const docIds = getPositionals({ args: rest }).slice(1);
         const results = await verifyConnectionAnchors({
           cwd,
-          connectionsDir,
+          connectionsDir: connections.dir,
           docIds: docIds.length > 0 ? docIds : void 0,
           repair: flags.get("repair") === true,
           onProgress: (message) => console.log(dim(message))
@@ -38868,6 +38938,9 @@ ${bold("REVIEW GATE")} \u2014 no docs written yet. Cull ${result.runDir}/join.js
           `
 ${results.length} anchor(s): ${results.filter((entry) => entry.status === "current").length} current \xB7 ${results.filter((entry) => entry.status === "ok").length} ok \xB7 ${broken} need attention${flags.get("repair") === true ? " (drift repaired, sha advanced)" : broken > 0 ? " \u2014 re-run with --repair to apply fixes" : ""}`
         );
+        if (connections.remote && flags.get("repair") === true) {
+          console.log(`the map is a clone of ${connections.repo} \u2014 commit & push (or open a PR) from ${connections.dir}`);
+        }
         process.exit(results.some((entry) => entry.status === "missing") ? 1 : 0);
       }
       if (subcommand === "draft") {
@@ -38876,7 +38949,7 @@ ${results.length} anchor(s): ${results.filter((entry) => entry.status === "curre
           console.error(usage);
           process.exit(1);
         }
-        const { drafted, draftsDir } = await draftConnectionDocs({ cwd, connectionsDir, traverseRunId });
+        const { drafted, draftsDir } = await draftConnectionDocs({ cwd, connectionsDir: connections.dir, traverseRunId });
         console.log(drafted.length === 0 ? "no gaps with concrete exits in that trace \u2014 nothing to draft" : `${green("\u2713")} drafted ${drafted.length} scaffold(s) in ${draftsDir}:`);
         for (const id of drafted) {
           console.log(`  ${id} ${dim("\u2014 fill in the to-side, verify anchors, move up into the connections dir")}`);

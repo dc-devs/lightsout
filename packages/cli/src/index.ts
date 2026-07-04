@@ -19,6 +19,7 @@ import {
 	RunLockError,
 	runPromptImprovement,
 	runTraverse,
+	resolveConnectionsSource,
 	summarizeRun,
 	verifyConnectionAnchors,
 	type PipelineResult,
@@ -535,11 +536,20 @@ const main = async () => {
 		const driver = getDriver({ name: config?.driver ?? 'claude-code' });
 
 		try {
+			const connections = await resolveConnectionsSource({
+				cwd,
+				source: getStringFlag({ flags, name: 'connections' }) ?? config?.traverse?.connections ?? '.lightsout/connections',
+			});
+
+			if (connections.remote) {
+				console.log(dim(`map: ${connections.repo} → ${connections.dir}`));
+			}
+
 			const result = await runTraverse({
 				cwd,
 				driver,
 				question: question || '(resumed)',
-				connectionsDir: getStringFlag({ flags, name: 'connections' }) ?? '.lightsout/connections',
+				connectionsDir: connections.dir,
 				mode: modeFlag && Object.values(TraverseMode).includes(modeFlag as TraverseMode) ? (modeFlag as TraverseMode) : undefined,
 				dataOfInterest: getStringFlag({ flags, name: 'data' }),
 				start: getStringFlag({ flags, name: 'start' }),
@@ -586,9 +596,7 @@ const main = async () => {
 
 			// Non-answer modes render mechanically from the trace to a file.
 			if (state.mode !== 'answer' && state.mode !== 'bug') {
-				const edges = await readConnectionMap({
-					connectionsDir: join(cwd, getStringFlag({ flags, name: 'connections' }) ?? '.lightsout/connections'),
-				});
+				const edges = await readConnectionMap({ connectionsDir: connections.dir });
 				const rendered = renderTrace({ state, edges, mode: state.mode });
 				const outPath = join(result.runDir, `${state.mode}.md`);
 
@@ -610,11 +618,17 @@ const main = async () => {
 	}
 
 	if (command === 'build-map') {
-		const connectionsDir = getStringFlag({ flags, name: 'connections' }) ?? '.lightsout/connections';
 		const authorRunId = getStringFlag({ flags, name: 'author' });
 		const config = await loadConfig({ cwd }).catch(() => undefined);
+		const connectionsSource = getStringFlag({ flags, name: 'connections' }) ?? config?.traverse?.connections ?? '.lightsout/connections';
 
 		try {
+			const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
+
+			if (connections.remote) {
+				console.log(dim(`map: ${connections.repo} → ${connections.dir}`));
+			}
+
 			if (authorRunId) {
 				// Post-review author step: the user has culled join.json by hand.
 				const joinPath = join(cwd, '.lightsout/traverse/map-runs', authorRunId, 'join.json');
@@ -631,13 +645,18 @@ const main = async () => {
 				}
 
 				const result = await authorConnectionDocs({
-					connectionsDir: join(cwd, connectionsDir),
+					connectionsDir: connections.dir,
 					join: reviewed,
 					shaByNode,
 				});
 
 				console.log(`${green('✓')} authored ${result.authored.length} doc(s)${result.authored.length > 0 ? `: ${result.authored.join(', ')}` : ''}`);
 				console.log(`${green('✓')} confirmed ${result.confirmed} · repaired ${result.repaired} · INDEX.md regenerated (${result.edgeCount} edge(s))`);
+
+				if (connections.remote) {
+					console.log(`\nthe map is a clone of ${connections.repo} — commit & push (or open a PR) from ${connections.dir}`);
+				}
+
 				process.exit(0);
 			}
 
@@ -653,7 +672,7 @@ const main = async () => {
 				cwd,
 				driver,
 				nodes: nodeArgs.length === 1 && nodeArgs[0] === 'all' ? 'all' : nodeArgs,
-				connectionsDir,
+				connectionsDir: connections.dir,
 				rescan: flags.get('rescan') === true,
 				model: config?.model,
 				permissionMode: config?.permissionMode,
@@ -699,7 +718,7 @@ const main = async () => {
 			}
 
 			console.log(`\n${bold('REVIEW GATE')} — no docs written yet. Cull ${result.runDir}/join.json (delete rejected entries), then:`);
-			console.log(`  lightsout build-map --author ${result.runId}${connectionsDir === '.lightsout/connections' ? '' : ` --connections ${connectionsDir}`}`);
+			console.log(`  lightsout build-map --author ${result.runId}${connectionsSource === '.lightsout/connections' ? '' : ` --connections ${connectionsSource}`}`);
 			process.exit(0);
 		} catch (error) {
 			console.error(error instanceof Error ? error.message : String(error));
@@ -709,14 +728,21 @@ const main = async () => {
 
 	if (command === 'map-connection') {
 		const subcommand = getPositionals({ args: rest })[0];
-		const connectionsDir = getStringFlag({ flags, name: 'connections' }) ?? '.lightsout/connections';
+		const mapConfig = await loadConfig({ cwd }).catch(() => undefined);
+		const connectionsSource = getStringFlag({ flags, name: 'connections' }) ?? mapConfig?.traverse?.connections ?? '.lightsout/connections';
 
 		try {
+			const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
+
+			if (connections.remote) {
+				console.log(dim(`map: ${connections.repo} → ${connections.dir}`));
+			}
+
 			if (subcommand === 'verify') {
 				const docIds = getPositionals({ args: rest }).slice(1);
 				const results = await verifyConnectionAnchors({
 					cwd,
-					connectionsDir,
+					connectionsDir: connections.dir,
 					docIds: docIds.length > 0 ? docIds : undefined,
 					repair: flags.get('repair') === true,
 					onProgress: (message) => console.log(dim(message)),
@@ -734,6 +760,11 @@ const main = async () => {
 				console.log(
 					`\n${results.length} anchor(s): ${results.filter((entry) => entry.status === 'current').length} current · ${results.filter((entry) => entry.status === 'ok').length} ok · ${broken} need attention${flags.get('repair') === true ? ' (drift repaired, sha advanced)' : broken > 0 ? ' — re-run with --repair to apply fixes' : ''}`,
 				);
+
+				if (connections.remote && flags.get('repair') === true) {
+					console.log(`the map is a clone of ${connections.repo} — commit & push (or open a PR) from ${connections.dir}`);
+				}
+
 				process.exit(results.some((entry) => entry.status === 'missing') ? 1 : 0);
 			}
 
@@ -745,7 +776,7 @@ const main = async () => {
 					process.exit(1);
 				}
 
-				const { drafted, draftsDir } = await draftConnectionDocs({ cwd, connectionsDir, traverseRunId });
+				const { drafted, draftsDir } = await draftConnectionDocs({ cwd, connectionsDir: connections.dir, traverseRunId });
 
 				console.log(drafted.length === 0 ? 'no gaps with concrete exits in that trace — nothing to draft' : `${green('✓')} drafted ${drafted.length} scaffold(s) in ${draftsDir}:`);
 

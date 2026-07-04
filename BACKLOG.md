@@ -616,6 +616,19 @@ design notes so nothing is lost:
   need a step the verify env can't run (e.g. codegen against a live
   backend), so the human runs it before verify instead of the agent
   hand-writing generated output as a deviation.
+- **Migrations declared at plan time** (from .notes/plan-updates): the
+  plan phase must ensure DB migrations and their run commands are built in
+  during planning — a specific case of the manual/live-environment
+  deliverables rule above (the migration file + its `migrate` command are
+  deliverables the verify env may not be able to run).
+- **`packages:` authored/vetted in front-matter** (from .notes/plan-updates):
+  the v0.6 plan front-matter scope already carries `packages:`; the plan
+  phase should author and vet that declaration up front rather than
+  leaving it to plan-body path derivation (see the scope chain in Task 1).
+- **Required-files list, mechanically checked** (from .notes/plan-updates):
+  the plan carries an explicit list of files the workflow existence-checks
+  — the same mechanism as `deliverables:` front-matter above, framed as a
+  plan-authored required-files manifest the engine verifies without reading.
 - Plan quality gates: scope resolvable (packages), referenced paths exist,
   decision-level gaps surfaced (the fdrop gap-check/lint-plan skills are
   prior art).
