@@ -51,13 +51,17 @@ and push from.
 
 The fallback for the small case (a monorepo mapping wire calls between its
 own packages) is a local dir — default `.lightsout/connections/`. Commit it;
-if your `.gitignore` covers all of `.lightsout/`, carve it out:
+if your `.gitignore` covers `.lightsout`, carve the map out. The pattern
+matters: git cannot re-include anything under an excluded *directory*, so
+ignore the children (`/*`), not the directory itself:
 
 ```gitignore
-.lightsout/
+.lightsout/*
 !.lightsout/connections/
-!.lightsout/connections/**
 ```
+
+Verify with `git check-ignore .lightsout/connections/repos.yaml` — exit 1
+(not ignored) is what you want.
 
 ## 1. Register your nodes
 
