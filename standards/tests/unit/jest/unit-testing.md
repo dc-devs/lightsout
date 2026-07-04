@@ -1,5 +1,21 @@
 # Unit Testing
 
+## Precedence in Repos with Older Tests
+
+These standards describe the target style for tests you WRITE, not a mandate
+to renovate tests that exist. When the repo's existing tests predate this
+document and use another style (`beforeEach` + shared `let`, nested
+`describe` pyramids):
+
+- **Extending an existing test file** → match that file's local style. One
+  file, one style — never mix a second convention into a file.
+- **Creating a new test file** → this document wins, even when your mirror
+  target uses the older style. Mirror the target's coverage, not its
+  structure.
+- Never rewrite passing legacy tests to match this document during a
+  feature task — that is deliberate cleanup work with its own review, not a
+  side effect. Record the mismatch as friction instead.
+
 ## Module Boundary Testing
 
 Tests target **module boundaries** — a module's public API — not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.
@@ -535,7 +551,11 @@ With these set, every mock starts each test with clean call tracking and its `se
 - **`clearMocks: true`** — clears `calls`, `instances`, `contexts`, and `results` before each test (equivalent to `jest.clearAllMocks()`). It does **not** clear `mockReturnValue` / `mockImplementation` — that is `resetMocks`. Because every test re-sets its return values in `setup()`, `clearMocks` is sufficient and avoids wiping implementations; reach for `resetMocks` only if a package genuinely needs return values auto-cleared.
 - **`restoreMocks: true`** — additionally restores the original implementation of every `jest.spyOn` before each test (it does not affect standalone `jest.fn()` return values).
 
-**If the package's Jest config lacks these:** add them. But `clearMocks` changes behavior for **every existing test in the package** — any test relying on a mock set once in `beforeAll` (expecting it to persist across tests) will break. After adding, run the package's full `test:unit`; if pre-existing tests fail, **flag it in your report** rather than mass-editing legacy tests.
+**If the package's Jest config lacks these: do NOT add them.** `clearMocks` changes behavior for **every existing test in the package** — any test relying on a mock set once at module scope or in `beforeAll` will break (live example: adding it to a real package broke 22 import-time-construction tests). A repo-wide behavior change is a human's decision, not a test task's side effect. Instead:
+
+- Build **fresh `jest.fn()` mocks inside each `setup()` factory call** (and construct a fresh subject per call), so call tracking cannot accumulate across tests without any config or hooks.
+- For module-level mocks that must persist (a `jest.mock` factory), reset them at the top of `setup()` (`.mockReset()` + re-wire), or assert only with `toHaveBeenCalledWith` — positive assertions are unaffected by accumulated calls; avoid `not.toHaveBeenCalled` on shared mocks.
+- Record the missing config as friction (`area: "environment"`) so the repo owner can adopt it deliberately.
 
 ## Running Tests
 

@@ -8,9 +8,19 @@ message is machine-parsed — it is a data payload, not prose for a human.
 
 1. Read the changed files listed in your task, and the plan for context on
    intended behavior.
-2. Read the repository's existing tests first and mirror them exactly:
-   framework, assertion style, file placement, naming. The repo's conventions
-   are authoritative — never introduce a new test framework or pattern.
+2. Read the repository's existing tests first and mirror their mechanics:
+   framework, assertion style, file placement, naming. Never introduce a new
+   test framework or runner.
+3. When provided Standards and existing tests disagree on STYLE (structure,
+   setup patterns, hooks), precedence is by what you are writing:
+   - **Extending an existing test file** → match that file's local style,
+     even where it predates the Standards. One file, one style; do not mix.
+   - **Creating a new test file** → the Standards win, even when the file
+     the plan names as your mirror uses an older style. Mirror the target's
+     COVERAGE (what it tests), not its structure.
+   Either way, record the conflict as `friction` (`area: "standards"`) — it
+   feeds the work-list for deliberate cleanup later; your run is not that
+   cleanup.
 
 ## Write
 
