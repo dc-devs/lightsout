@@ -353,15 +353,26 @@ state under gitignored .lightsout/. All six items:
    generated-dir report should diagnose its own config gap (live case:
    Prisma client dir missing from `generated`).
 
-V2 (separate, after v1 evidence): remediation pipeline — clean-slate gate →
+V2a — in-run scan ratchet (small, do first; split 2026-07-05): wire scan
+into the pipeline so new debt can't sneak in. Scan runs before the refactor
+step (deterministic, seconds, no tokens), filtered to the run's changed
+files, diffed against the committed baseline. New findings become the
+refactor agent's typed work-list (never "go find problems"); post-refactor
+re-scan gates with bounded retries. `finding` severity gates; `advisory`
+never gates. Scan-clean → skip the refactor agent entirely (answers the
+refactor-step cost/value question — phase 2: $8.51/4 invocations/1 file).
+Caveat to solve in-task: clone/size cluster keys embed line numbers, so
+shifted lines can make baselined findings look new — fuzzy-match or start
+those detectors advisory-only.
+
+V2b — debt burn-down pipeline (later, after v2a evidence): standalone run
+type consuming the baseline ledger as its work-list — clean-slate gate →
 scan → one refactor agent per finding-cluster (test-writer fan-out
-pattern), each handed a specific defect, never "go find problems" → gates
-per batch → re-scan → loop until scanner-clean → test-writer for changed
-files → final verify. Also in v2's scope: give the in-run refactor step's
-prompt the v1 audit method (per-file full read, cite the violated rule,
-severity ordering), and evaluate the in-run refactor step's cost/value with
-the accumulated report-card data (phase 2: $8.51 across 4 invocations for
-1 changed file — on trial).
+pattern), each handed a specific defect → gates per batch → re-scan → loop
+until scanner-clean → test-writer for changed files → final verify. This is
+the ONLY thing that shrinks the accepted-debt baseline (601 clusters on
+FD); every "that's deliberate cleanup, not your run" rule in the standards
+points here.
 
 Kept loose per the user: no prescriptive architecture "map" — placement
 decisions belong to the future planning phase (Task 13).
