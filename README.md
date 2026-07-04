@@ -268,6 +268,7 @@ authoritative for scope.
 | `lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan (optionally with an overview plan as context and a package-scope override) |
 | `lightsout resume --run <id> [--cwd <path>]` | Continue a parked/failed/crashed run from its last incomplete step |
 | `lightsout status [--cwd <path>]` | List runs and their states |
+| `lightsout doctor [--cwd <path>]` | Read-only audit of the repo against every assumption the engine and standards make — config validity, harness binary, gitignored run state, scoped-gate script coverage, Jest mock-cleanup flags, generated paths, gate binaries. Each warn prints the exact fix; the doctor never edits anything (repo-wide changes like `clearMocks: true` are yours to apply and verify). Exit 1 only on a hard fail. |
 | `lightsout friction [--cwd <path>]` | Show accumulated friction reports from agents |
 | `lightsout improve --engine <lightsout-repo> [--cwd <path>]` | Run the self-improvement loop (below) |
 

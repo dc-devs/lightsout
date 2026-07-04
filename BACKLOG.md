@@ -283,7 +283,7 @@ Also cheap and independent: give the in-run refactor step's prompt the v1
 refactor-plan audit method (per-file full read, cite the violated rule per
 change, severity ordering) — better changes and better friction data.
 
-### Task 9: `lightsout doctor` — consumer environment audit (added 2026-07-04)
+### Task 9: `lightsout doctor` — consumer environment audit (added 2026-07-04) — DONE
 
 Read-only command that checks every assumption the engine and the standards
 make about a consumer repo, printing PASS/WARN per check with the exact

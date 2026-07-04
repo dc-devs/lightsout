@@ -8,6 +8,7 @@ import {
 	readFriction,
 	readRunLock,
 	readRunManifest,
+	runDoctor,
 	runImplementPipeline,
 	RunLockError,
 	runPromptImprovement,
@@ -21,6 +22,7 @@ usage:
   lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
+  lightsout doctor [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -408,6 +410,28 @@ const main = async () => {
 		}
 
 		process.exit(0);
+	}
+
+	if (command === 'doctor') {
+		const checks = await runDoctor({ cwd });
+		const icon = { pass: green('✓'), warn: yellow('⚠'), fail: red('✗') };
+		const counts = { pass: 0, warn: 0, fail: 0 };
+
+		console.log(`doctor    ${cwd}\n`);
+
+		for (const check of checks) {
+			counts[check.status] += 1;
+			console.log(`${icon[check.status]} ${check.id.padEnd(16)}${check.detail}`);
+
+			if (check.fix) {
+				for (const line of check.fix.split('\n')) {
+					console.log(dim(`  ${''.padEnd(16)}${line}`));
+				}
+			}
+		}
+
+		console.log(`\n${checks.length} check(s) · ${counts.pass} pass · ${counts.warn} warn · ${counts.fail} fail`);
+		process.exit(counts.fail > 0 ? 1 : 0);
 	}
 
 	if (command === 'friction') {

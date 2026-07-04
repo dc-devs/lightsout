@@ -17,6 +17,7 @@ export { resolvePackageManifest } from './resolvePackageManifest';
 export { scanPlanPackagePaths } from './scanPlanPackagePaths';
 export { runImplementPipeline } from './runImplementPipeline';
 export { summarizeRun } from './summarizeRun';
+export { runDoctor } from './runDoctor';
 export { readFriction } from './readFriction';
 export { runPromptImprovement } from './runPromptImprovement';
 export type { CommandResult } from './CommandResult';

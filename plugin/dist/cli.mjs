@@ -5,8 +5,8 @@ var __export = (target, all) => {
 };
 
 // packages/cli/src/index.ts
-import { readdir as readdir3 } from "node:fs/promises";
-import { basename, join as join16 } from "node:path";
+import { readdir as readdir4 } from "node:fs/promises";
+import { basename, join as join17 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -16635,9 +16635,161 @@ var summarizeRun = async ({ cwd, manifest }) => {
   };
 };
 
-// packages/engine/src/runPromptImprovement.ts
-import { readdir as readdir2 } from "node:fs/promises";
+// packages/engine/src/runDoctor.ts
+import { readdir as readdir2, readFile as readFile10, stat } from "node:fs/promises";
 import { join as join15 } from "node:path";
+var probeTimeoutMs = 15e3;
+var driverBinaries = { "claude-code": "claude", codex: "codex" };
+var gitignoreEntries = [".lightsout/runs/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
+var findJestConfigs = async ({ packageDir }) => {
+  const rootEntries = await readdir2(packageDir).catch(() => []);
+  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join15(packageDir, name));
+  const testEntries = await readdir2(join15(packageDir, "test"), { recursive: true }).catch(() => []);
+  return [
+    ...found,
+    ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join15(packageDir, "test", name))
+  ];
+};
+var runDoctor = async ({ cwd, probeHarness }) => {
+  const checks = [];
+  let config2;
+  try {
+    config2 = await loadConfig({ cwd });
+  } catch (error51) {
+    return [
+      {
+        id: "config",
+        status: "fail",
+        detail: error51 instanceof Error ? error51.message : String(error51),
+        fix: "create or repair lightsout.config.json \u2014 every other check depends on it"
+      }
+    ];
+  }
+  const packagesDir = config2.packagesDir ?? "packages";
+  checks.push({
+    id: "config",
+    status: "pass",
+    detail: `lightsout.config.json valid \xB7 driver ${config2.driver ?? "claude-code"}${config2.packageScripts ? ` \xB7 monorepo (${packagesDir}/)` : ""}`
+  });
+  const binary = driverBinaries[config2.driver ?? "claude-code"] ?? config2.driver;
+  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
+  try {
+    const probed = await probe({ binary });
+    checks.push(
+      probed.exitCode === 0 ? { id: "harness", status: "pass", detail: `${binary} ${probed.stdout.trim().split("\n")[0]} (login not probed \u2014 the first run verifies it)` } : {
+        id: "harness",
+        status: "fail",
+        detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
+${probed.stderr}`.trim().slice(0, 200)}`,
+        fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
+      }
+    );
+  } catch (error51) {
+    checks.push({
+      id: "harness",
+      status: "fail",
+      detail: `${binary} not runnable: ${error51 instanceof Error ? error51.message : String(error51)}`,
+      fix: `install the ${binary} CLI and log in`
+    });
+  }
+  const gitignore = await readFile10(join15(cwd, ".gitignore"), "utf8").catch(() => void 0);
+  const lines = gitignore?.split("\n").map((line) => line.trim()) ?? [];
+  const missing = lines.includes(".lightsout/") ? [] : gitignoreEntries.filter((entry) => !lines.includes(entry));
+  checks.push(
+    missing.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored" } : {
+      id: "gitignore",
+      status: "warn",
+      detail: gitignore === void 0 ? "no .gitignore found" : `run state not ignored: ${missing.join(", ")}`,
+      fix: `add to .gitignore:
+${missing.join("\n")}`
+    }
+  );
+  const packageDirs = [{ label: "root", dir: cwd }];
+  if (config2.packageScripts) {
+    const entries = await readdir2(join15(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+    const templates = Object.entries(config2.packageScripts).filter((pair) => typeof pair[1] === "string");
+    const skips = [];
+    for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
+      const manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
+      if (!manifest) {
+        continue;
+      }
+      packageDirs.push({ label: entry.name, dir: join15(cwd, packagesDir, entry.name) });
+      const absent = templates.map(([kind, template]) => ({ kind, script: extractRunScriptName({ command: template }) })).filter(({ script }) => script !== void 0 && !Object.hasOwn(manifest.scripts, script));
+      if (absent.length > 0) {
+        skips.push(`${entry.name} (${absent.map(({ script }) => script).join(", ")})`);
+      }
+    }
+    checks.push(
+      skips.length === 0 ? { id: "scoped-gates", status: "pass", detail: "every package defines every scoped gate script" } : {
+        id: "scoped-gates",
+        status: "warn",
+        detail: `gates will skip for: ${skips.join("; ")}`,
+        fix: "fine if these packages have nothing to check \u2014 otherwise add the named scripts to their package.json"
+      }
+    );
+  }
+  const jestFindings = [];
+  let jestConfigCount = 0;
+  for (const { label, dir } of packageDirs) {
+    for (const configPath of await findJestConfigs({ packageDir: dir })) {
+      jestConfigCount += 1;
+      const text = await readFile10(configPath, "utf8").catch(() => "");
+      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
+      if (absent.length > 0) {
+        jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
+      }
+    }
+  }
+  if (jestConfigCount > 0) {
+    checks.push(
+      jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
+        id: "jest-mocks",
+        status: "warn",
+        detail: jestFindings.join("; "),
+        fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
+      }
+    );
+  }
+  if (config2.generated) {
+    const absent = [];
+    for (const prefix of config2.generated) {
+      await stat(join15(cwd, prefix)).catch(() => absent.push(prefix));
+    }
+    checks.push(
+      absent.length === 0 ? { id: "generated", status: "pass", detail: `${config2.generated.length} generated path(s) exist` } : {
+        id: "generated",
+        status: "warn",
+        detail: `not found: ${absent.join(", ")}`,
+        fix: "run the generator once, or remove stale entries from `generated`"
+      }
+    );
+  }
+  const scriptCommands = [...Object.values(config2.scripts), ...Object.values(config2.packageScripts ?? {})].filter(
+    (value) => typeof value === "string"
+  );
+  const binaries = [...new Set(scriptCommands.map((command) => command.trim().split(/\s+/)[0]).filter(Boolean))];
+  const missingBinaries = [];
+  for (const name of binaries) {
+    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
+    if (result.exitCode !== 0) {
+      missingBinaries.push(name);
+    }
+  }
+  checks.push(
+    missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
+      id: "script-binaries",
+      status: "fail",
+      detail: `not on PATH: ${missingBinaries.join(", ")}`,
+      fix: "install the missing tool(s) \u2014 every gate depends on them"
+    }
+  );
+  return checks;
+};
+
+// packages/engine/src/runPromptImprovement.ts
+import { readdir as readdir3 } from "node:fs/promises";
+import { join as join16 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -16645,8 +16797,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir2(join15(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join15(promptsDir, file2));
+  const files = await readdir3(join16(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join16(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -16666,6 +16818,7 @@ usage:
   lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
+  lightsout doctor [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -16946,8 +17099,8 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join16(cwd, ".lightsout", "runs");
-    const runIds = await readdir3(runsDir).catch(() => []);
+    const runsDir = join17(cwd, ".lightsout", "runs");
+    const runIds = await readdir4(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
       process.exit(0);
@@ -16962,6 +17115,25 @@ var main = async () => {
       }
     }
     process.exit(0);
+  }
+  if (command === "doctor") {
+    const checks = await runDoctor({ cwd });
+    const icon = { pass: green("\u2713"), warn: yellow("\u26A0"), fail: red("\u2717") };
+    const counts = { pass: 0, warn: 0, fail: 0 };
+    console.log(`doctor    ${cwd}
+`);
+    for (const check2 of checks) {
+      counts[check2.status] += 1;
+      console.log(`${icon[check2.status]} ${check2.id.padEnd(16)}${check2.detail}`);
+      if (check2.fix) {
+        for (const line of check2.fix.split("\n")) {
+          console.log(dim(`  ${"".padEnd(16)}${line}`));
+        }
+      }
+    }
+    console.log(`
+${checks.length} check(s) \xB7 ${counts.pass} pass \xB7 ${counts.warn} warn \xB7 ${counts.fail} fail`);
+    process.exit(counts.fail > 0 ? 1 : 0);
   }
   if (command === "friction") {
     const entries = await readFriction({ cwd });
