@@ -253,48 +253,62 @@ doing — the observed pain of run #2.
   orchestrator the engine exists to replace; course-correction stays where
   it belongs — gates, supervisor, escalation.
 
-### Task 8: Refactor pipeline (`lightsout refactor`) — DESIGN ONLY, review with the user before any code
+### Task 8: `lightsout scan` — structural detector suite (v1 scope agreed 2026-07-04)
 
-(Added 2026-07-03 from the refactor-system discussion. The design below is a
-starting point, NOT approved scope — walk it with the user first.)
+The lightsout shape: **detection is code, remediation is agents,
+verification is gates, termination is scanner-clean.** V1 is the detection
+half only — a read-only command (same spirit as `doctor`, about code shape
+rather than environment) printing a typed findings report. Remediation
+agents are v2.
 
-Goal: a system that keeps a codebase structurally clean — duplicate
-functions found and abstracted, oversized files/folders split — rinsed and
-repeated until clean, so agent-added features land in a codebase that
-already adheres to a shape. The v1 `refactor-all` skill asked an agent to
-both FIND and fix problems; finding is mostly mechanical. The lightsout
-shape: **detection is code, remediation is agents, verification is gates,
-termination is scanner-clean.**
+Detector suite (v1):
+- **Tier 0 — filename dedup** (from 3rd-party review): token-overlap /
+  edit-distance over export names. One-export-per-file makes filenames
+  export names, so name-level dedup is nearly free and runs before any AST
+  work.
+- **Tier 1 — jscpd**: literal/near copy-paste (token-span; catches renamed
+  functions with identical bodies). Test files EXCLUDED from source→test
+  comparisons: assertion literals are contract-pinning, not duplication —
+  DRYing them creates tautologies (doctrine recorded 2026-07-03).
+- **Tier 2 — normalized-AST hashing** (ours, ~100 lines, TS compiler API):
+  identifiers → placeholders, hash function bodies, compare. Catches
+  systematic renames (live specimen: handleFdToGithubCreate/Update vs
+  handleFdToLinearCreate/Update twins in FeedbackDrop).
+- **Tier 3 — HELD**: agent-judged behavioral candidate pairs; not until
+  tiers 0–2 dry out on a real codebase.
+- **Size/threshold audit**: the standards' numeric tables run as code —
+  functions >80 lines, files >250, components >200, hooks >160.
+- **Structure lint** (from 3rd-party review): files with 2+ exports outside
+  the closed exception list; filename ≠ export name; `utils/` folders with
+  2+ functions sharing a domain (heuristic — advisory only, never a hard
+  finding); folder census (oversized flat folders — packages/engine/src is
+  the dogfood specimen, now 40+ files).
+- **knip**: dead exports (the "delete unused code immediately" rule,
+  mechanized).
 
-Pipeline: clean-slate gate → run detector suite → typed findings work-list
-in a run manifest (file, kind, evidence, cluster) → one refactor agent per
-finding-cluster (the per-file test-writer fan-out pattern), each handed a
-specific defect, never "go find problems" → gates per batch → re-scan →
-loop until detectors return empty → test-writer for changed files → final
-verify. Detectors configured per consumer (born generic) with bundled
-JS/TS defaults, like the standards.
+Build notes: jscpd + knip land as lightsout devDependencies (bundled
+tooling; consumers install nothing) — confirm at build time. Command name
+TBD (`scan` vs `refactor --scan-only`). Detectors configured per consumer
+(born generic) with bundled JS/TS defaults, like the standards. Findings
+are typed (zod) with file/kind/evidence/cluster — the shape v2's
+remediation work-list needs.
 
-Detector suite, duplication as a three-tier ladder:
-1. jscpd — literal/near copy-paste (token-span matching; catches renamed
-   FUNCTIONS with identical bodies, misses systematic identifier renames).
-2. Normalized-AST detector (ours, ~100 lines, TS compiler API): identifiers
-   → placeholders, hash function bodies, compare — catches the renamed tier.
-3. Behavioral duplicates: mechanical candidate-pair generation (signature
-   shape, folder/domain, call-site overlap) → agent judges each bounded
-   pair. Judgment only where judgment is irreplaceable. Ship 1+2 first;
-   hold 3 until they dry out on a real codebase.
-Plus: size/complexity audit (the standards' numeric thresholds run as
-checks), folder census (flag oversized flat folders — packages/engine/src
-is the live specimen and first dogfood target), knip for dead exports.
+Validation: run on lightsout engine/src, then FeedbackDrop — the report
+must independently rediscover the known processor duplication the phase-2
+refactor agent flagged (ground truth).
 
-Related, kept loose per the user: no prescriptive architecture "map" —
-code SHAPE guidance stays light, and placement decisions belong to the
-(future, not yet designed) planning step. Module-boundary lint rules
-(dependency-cruiser) remain a Task 5 option, not a mandate.
+V2 (separate, after v1 evidence): remediation pipeline — clean-slate gate →
+scan → one refactor agent per finding-cluster (test-writer fan-out
+pattern), each handed a specific defect, never "go find problems" → gates
+per batch → re-scan → loop until scanner-clean → test-writer for changed
+files → final verify. Also in v2's scope: give the in-run refactor step's
+prompt the v1 audit method (per-file full read, cite the violated rule,
+severity ordering), and evaluate the in-run refactor step's cost/value with
+the accumulated report-card data (phase 2: $8.51 across 4 invocations for
+1 changed file — on trial).
 
-Also cheap and independent: give the in-run refactor step's prompt the v1
-refactor-plan audit method (per-file full read, cite the violated rule per
-change, severity ordering) — better changes and better friction data.
+Kept loose per the user: no prescriptive architecture "map" — placement
+decisions belong to the future planning phase (Task 13).
 
 ### Task 9: `lightsout doctor` — consumer environment audit (added 2026-07-04) — DONE
 
@@ -320,6 +334,102 @@ every standard that assumes environment state contributes one check):
 
 Fits the run header afterwards ("2 doctor warnings — run `lightsout
 doctor`") without ever gating.
+
+### Task 10: Prior-art contract field — implement phase (added 2026-07-04)
+
+Duplication attacked at creation time (the scanners catch it at detection
+time — complementary layers). The executor's WorkReport gains a typed
+field: for each NEW exported symbol it creates beyond the plan's explicit
+list, the searches it ran against existing exports (terms, globs, matches
+found). "Searched, found nothing" becomes zod-validated evidence in the
+manifest, not free text. Prompt section to match. Small: contract field +
+prompt + tests.
+
+When the planning phase (Task 13) lands, prior art for PLAN-listed symbols
+moves there (the cheapest moment to catch designed duplication is when the
+plan line is written); this field then covers only unplanned symbols —
+which is what it's best at.
+
+### Task 11: Standards edits from the 3rd-party agent-navigation review (added 2026-07-04)
+
+Source: .notes/plans/agent-repo-organization.md. Core principle adopted:
+agents navigate by glob/grep — names are the database keys. Four edits,
+two with caveats we insist on:
+
+1. **Closed verb vocabulary** in naming.md (`get`, `create`, `update`,
+   `delete`, `format`, `parse`, `validate`, `build`, `to`/`from`,
+   `is`/`has`/`should`/`can`; synonyms `fetch`/`load`/`retrieve`/`make`
+   banned) — synonyms hide duplicates from name-level search (Task 8 tier
+   0 depends on this). CAVEAT: subordinate to the precedence rule — an
+   existing domain that already uses `fetchData` keeps its verb; the
+   vocabulary governs new domains.
+2. **Feature-noun top level** for `src/` (never layer-first
+   `controllers/`/`services/`) — CAVEAT: framework mandates override
+   (NestJS et al.), same carve-out as file naming.
+3. **Fractal skeleton** one-liner: graduated feature folders share one
+   internal shape; no feature invents its own.
+4. **Per-folder READMEs** only for genuine invariants not derivable from
+   published rules; no prose restating structure.
+
+Explicitly REJECTED from that review (do not implement): one-function-per-
+file (private co-located helpers are correct); forced folder scaffolding
+on every module (graduation stays lazy). DEFERRED from that review: symbol
+catalog INDEX.md generator (stale-prone, token-heavy, duplicates grep —
+revisit only if Task 10's prior-art searches prove insufficient);
+import-boundary lint (consumer-side eslint/dependency-cruiser config — an
+FD item below, plus a future doctor check).
+
+### Task 12: Deterministic-standards follow-through (small, consumer-facing)
+
+The deterministic slice of the standards that ISN'T Task 8 detectors:
+biome/eslint one-liners (`useImportType`, `noExplicitAny`,
+`noExtraneousClass`…) enabled in the CONSUMER's lint config (lightsout
+ships no npm preset — hard rule). Lightsout side: a doctor check that the
+recommended rules are on (grow the doctor checklist), and keep the
+lint-and-formatting.md bridge line current. FD side tracked below.
+
+### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier)
+
+A phase BEFORE implement that produces/vets the plan itself. Collected
+design notes so nothing is lost:
+
+- **Prior-art scan as a first-class plan artifact** (from the 2026-07-04
+  discussion): every "new file/symbol" entry in a plan carries the
+  searches that justified its newness; a plan gate can reject unvetted new
+  symbols. Highest-leverage dedup moment — changing a plan line is free.
+- **`deliverables:` front-matter** (discussed 2026-07-03, phase-1
+  migration lesson): plans declare mechanical artifacts gates can't see
+  (e.g. a migration folder) for an existence-only engine check — the
+  middle ground between plans listing ALL files (too rigid) and none
+  (nobody accountable for the migration).
+- Plan quality gates: scope resolvable (packages), referenced paths exist,
+  decision-level gaps surfaced (the fdrop gap-check/lint-plan skills are
+  prior art).
+- Placement decisions (where new code lives) belong here, not in a
+  prescriptive architecture map (per Task 8 note).
+- Shape TBD: `lightsout plan <request>` producing a plan draft vs a
+  plan-vetting gate on `run` (`lightsout run --plan` validating before
+  clean-slate) vs both. Design with the user before code.
+
+### Consumer-side (FeedbackDrop) tracked items — not engine work, listed so nothing is lost
+
+- Commit pending FD changes: jest config (clearMocks/restoreMocks), 4
+  rewritten mastra agent tests, lightsout.config.json (agentCommands +
+  schema.gql in generated).
+- Jest mock-cleanup migration for the other 7 configs the doctor found
+  (backend-api e2e, fdrop-cli, mcp, react, shared, web-app, widget) — one
+  package at a time, full suite after each.
+- Biome rules audit per Task 12 (useImportType, noExplicitAny, etc.).
+- Import-boundary lint (eslint-plugin-boundaries or dependency-cruiser) —
+  deferred 3rd-party item 9.
+- GitHub-warts cleanup after phase 3: delete the dead
+  `connection.workspaceId !== workspaceId` clause
+  (linear-integrations.service.ts:155, Linear-only); extract the shared
+  create/update handler flow in BOTH sync processors symmetrically
+  (github-sync.processor.ts:74/146, linear-sync.processor.ts:77/173) — a
+  natural first target for Task 8 v2 or a small lightsout-run plan.
+- Phase 3 of linear-two-way-sync: first run on slimmed standards —
+  its standards-friction count is the Task 5 experiment's readout.
 
 ### Task 2: First full pipeline run on the codex driver (live) — LAST, deprioritized 2026-07-03
 
