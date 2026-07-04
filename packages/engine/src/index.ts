@@ -16,6 +16,7 @@ export { readPlanPackages } from './readPlanPackages';
 export { resolvePackageManifest } from './resolvePackageManifest';
 export { scanPlanPackagePaths } from './scanPlanPackagePaths';
 export { runImplementPipeline } from './runImplementPipeline';
+export { summarizeRun } from './summarizeRun';
 export { readFriction } from './readFriction';
 export { runPromptImprovement } from './runPromptImprovement';
 export type { CommandResult } from './CommandResult';

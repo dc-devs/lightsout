@@ -96,8 +96,15 @@ Runs also account for what they spend: every agent invocation's token usage
 and cost land in the run's `agents.jsonl` with step provenance, each
 invocation is narrated as it completes (`implement · usage: in 12 · out
 41.2k · cache-read 890k · $0.85`), and the manifest carries the run-wide
-aggregate, printed in the final report. Drivers that report no usage simply
-leave no ledger — the engine records what it can prove, never estimates.
+aggregate. Drivers that report no usage simply leave no ledger — the engine
+records what it can prove, never estimates.
+
+Every run ends with a report card computed from that evidence: wall time
+and gate time, token totals with the cache-read share (the cost-efficiency
+dial), API-equivalent cost, and a per-step table — tries, time, agent
+invocations, output tokens, cost, files changed — followed by gate flake
+re-runs, skipped gates, re-emitted reports, and friction counts by area.
+Ten runs in, this is the table that tells you which step earns its cost.
 
 One run at a time per repo: `run` and `resume` take a lock
 (`.lightsout/lock.json`) before touching anything, so a second concurrent

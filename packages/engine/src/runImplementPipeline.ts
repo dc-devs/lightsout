@@ -175,8 +175,17 @@ const executePipeline = async ({
 		progress(`  ${step} · usage: ${formatUsage(usage)}`);
 	};
 
+	// Active time per step, accumulated across attempts and resumes: the
+	// timer starts when nextRecord picks the step up (seeded with any prior
+	// durationMs), and every manifest write re-stamps the running total — so
+	// even a crashed run keeps the duration up to its last persisted moment.
+	const stepTimers = new Map<string, { startedAt: number; baseMs: number }>();
+
 	const setStep = async ({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }) => {
-		await update({ ...patch, currentStep: record.id, steps: upsertStep({ steps: manifest.steps, record }) });
+		const timer = stepTimers.get(record.id);
+		const timed = timer ? { ...record, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record;
+
+		await update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: manifest.steps, record: timed }) });
 	};
 
 	const stop = async ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => {
@@ -265,7 +274,9 @@ const executePipeline = async ({
 	const nextRecord = ({ id }: { id: string }): StepRecord => {
 		const prev = manifest.steps.find((step) => step.id === id);
 
-		return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
+		stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
+
+		return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1, changedFiles: prev?.changedFiles };
 	};
 
 	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
@@ -388,6 +399,14 @@ const executePipeline = async ({
 
 	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFilePath(file) && isTestableSourceFile(file));
 
+	/** Merge report file paths into the step record's own attribution (per-step view of the run-wide `changedFiles`). */
+	const withStepFiles = ({ record, reports }: { record: StepRecord; reports: WorkReport[] }): StepRecord => ({
+		...record,
+		changedFiles: [
+			...new Set([...(record.changedFiles ?? []), ...reports.flatMap((report) => report.changedFiles.map((file) => file.path))]),
+		],
+	});
+
 	const workStep = ({
 		id,
 		build,
@@ -442,7 +461,7 @@ const executePipeline = async ({
 				});
 			}
 
-			await setStep({ record: { ...record, status: RunStatus.Passed, report }, patch: changed });
+			await setStep({ record: withStepFiles({ record: { ...record, status: RunStatus.Passed, report }, reports: [report] }), patch: changed });
 			progress(`step ${id} passed`);
 
 			return undefined;
@@ -485,6 +504,8 @@ const executePipeline = async ({
 				}
 
 				if (fix.report?.status === WorkReportStatus.Complete) {
+					record = withStepFiles({ record, reports: [fix.report] });
+
 					await setStep({ record: { ...record, report: fix.report }, patch: await collectChanged([fix.report]) });
 				}
 
@@ -536,6 +557,8 @@ const executePipeline = async ({
 					}
 
 					if (fix.report?.status === WorkReportStatus.Complete) {
+						record = withStepFiles({ record, reports: [fix.report] });
+
 						await setStep({ record: { ...record, report: fix.report }, patch: await collectChanged([fix.report]) });
 					}
 
@@ -592,7 +615,7 @@ const executePipeline = async ({
 	};
 
 	const writeTestsStep: PipelineStep['run'] = async () => {
-		const record = nextRecord({ id: 'write-tests' });
+		let record = nextRecord({ id: 'write-tests' });
 
 		await setStep({ record });
 
@@ -639,6 +662,8 @@ const executePipeline = async ({
 
 		// Persist whatever progress the batches made before deciding the
 		// outcome — a parked or stopped run must still know what was touched.
+		record = withStepFiles({ record, reports });
+
 		await setStep({ record: { ...record, report: { reports } }, patch: await collectChanged(reports) });
 
 		if (parked) {
@@ -689,6 +714,8 @@ const executePipeline = async ({
 
 				return stop({ record: { ...record, report }, status, error: `refactor: ${report.status} — ${report.failures.join('; ')}` });
 			}
+
+			record = withStepFiles({ record, reports: [report] });
 
 			await setStep({ record: { ...record, report }, patch: await collectChanged([report]) });
 			lastReport = report;

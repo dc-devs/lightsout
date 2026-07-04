@@ -12,6 +12,7 @@ import {
 	runImplementPipeline,
 	RunLockError,
 	runPromptImprovement,
+	summarizeRun,
 	type PipelineResult,
 } from '@lightsout/engine';
 
@@ -142,13 +143,95 @@ const runPipelineOrFailFast = async (params: Parameters<typeof runImplementPipel
 	}
 };
 
-const printResult = ({ result, cwd }: { result: PipelineResult; cwd: string }) => {
+const formatDuration = (ms?: number) => {
+	if (ms === undefined) {
+		return '—';
+	}
+
+	const seconds = Math.round(ms / 1000);
+
+	return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
+};
+
+const formatTokenCount = (count: number) => {
+	if (count >= 1_000_000) {
+		return `${(count / 1_000_000).toFixed(1)}M`;
+	}
+
+	return count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`;
+};
+
+const summaryColumns = [
+	{ header: 'step', width: 22, align: 'left' },
+	{ header: 'tries', width: 6, align: 'right' },
+	{ header: 'time', width: 10, align: 'right' },
+	{ header: 'agents', width: 7, align: 'right' },
+	{ header: 'out', width: 9, align: 'right' },
+	{ header: 'cost', width: 10, align: 'right' },
+	{ header: 'files', width: 6, align: 'right' },
+] as const;
+
+const summaryRow = (cells: string[]) =>
+	`  ${cells.map((cell, index) => (summaryColumns[index]?.align === 'left' ? cell.padEnd(summaryColumns[index].width) : cell.padStart(summaryColumns[index]?.width ?? 0))).join('')}`;
+
+const printResult = async ({ result, cwd }: { result: PipelineResult; cwd: string }) => {
 	const { manifest, ok, error } = result;
+	const summary = await summarizeRun({ cwd, manifest });
 
 	console.log(`\nrun ${manifest.runId}: ${manifest.status.toUpperCase()}`);
+	console.log(`  time: ${formatDuration(summary.wallMs)} wall · ${formatDuration(summary.gateMs)} in gates`);
 
-	for (const step of manifest.steps) {
-		console.log(`  ${statusIcons[step.status] ?? '?'} ${step.id} (attempts: ${step.attempts})`);
+	if (summary.usage && summary.usage.invocations > 0) {
+		const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = summary.usage;
+		const share = summary.cacheReadShare === undefined ? '' : ` (${Math.round(summary.cacheReadShare * 100)}% of all input)`;
+
+		console.log(
+			`  agents: ${invocations} invocation(s) · in ${formatTokenCount(inputTokens)} · out ${formatTokenCount(outputTokens)} · cache-read ${formatTokenCount(cacheReadTokens)}${share}`,
+		);
+		console.log(`  cost: $${costUsd.toFixed(2)} API-equivalent (headless runs ride the harness subscription)`);
+	}
+
+	console.log('');
+	console.log(summaryRow(summaryColumns.map((column) => column.header)));
+
+	for (const step of summary.steps) {
+		const withAgents = step.invocations > 0;
+
+		console.log(
+			summaryRow([
+				`${statusIcons[step.status] ?? '?'} ${step.id}`,
+				`${step.attempts}`,
+				formatDuration(step.durationMs),
+				withAgents ? `${step.invocations}` : '—',
+				withAgents ? formatTokenCount(step.outputTokens) : '—',
+				withAgents ? `$${step.costUsd.toFixed(2)}` : '—',
+				step.changedFiles ? `${step.changedFiles.length}` : '—',
+			]),
+		);
+	}
+
+	console.log('');
+
+	const gateParts = [`${summary.gates.commands} command(s)`];
+
+	if (summary.gates.reruns > 0) {
+		gateParts.push(`${summary.gates.reruns} flake re-run(s)`);
+	}
+
+	if (summary.gates.skipped > 0) {
+		gateParts.push(`${summary.gates.skipped} skipped (no script)`);
+	}
+
+	console.log(`  gates: ${gateParts.join(' · ')}`);
+
+	if (summary.rejectedReports > 0) {
+		console.log(`  report retries: ${summary.rejectedReports} rejected message(s) re-emitted`);
+	}
+
+	if (summary.frictionByArea.length > 0) {
+		const total = summary.frictionByArea.reduce((count, entry) => count + entry.count, 0);
+
+		console.log(`  friction: ${total} — ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(', ')}`);
 	}
 
 	if (manifest.packages.length > 0) {
@@ -159,15 +242,6 @@ const printResult = ({ result, cwd }: { result: PipelineResult; cwd: string }) =
 
 	if (existsSync(join(cwd, '.lightsout', 'runs', manifest.runId, 'agents'))) {
 		console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
-	}
-
-	if (manifest.usage && manifest.usage.invocations > 0) {
-		const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = manifest.usage;
-		const tokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
-
-		console.log(
-			`  agent usage: ${invocations} invocation(s) · in ${tokens(inputTokens)} · out ${tokens(outputTokens)} · cache-read ${tokens(cacheReadTokens)} · $${costUsd.toFixed(2)}`,
-		);
 	}
 
 	if (manifest.changedFiles.length > 0) {
@@ -223,7 +297,7 @@ const main = async () => {
 			onProgress: createProgressPrinter(),
 		});
 
-		printResult({ result, cwd });
+		await printResult({ result, cwd });
 		process.exit(result.ok ? 0 : 1);
 	}
 
@@ -257,7 +331,7 @@ const main = async () => {
 			onProgress: createProgressPrinter(),
 		});
 
-		printResult({ result, cwd });
+		await printResult({ result, cwd });
 		process.exit(result.ok ? 0 : 1);
 	}
 

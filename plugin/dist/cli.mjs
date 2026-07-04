@@ -6,8 +6,8 @@ var __export = (target, all) => {
 
 // packages/cli/src/index.ts
 import { existsSync } from "node:fs";
-import { readdir as readdir2 } from "node:fs/promises";
-import { join as join15 } from "node:path";
+import { readdir as readdir3 } from "node:fs/promises";
+import { join as join16 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -14651,6 +14651,10 @@ var StepRecord = external_exports.object({
   id: external_exports.string(),
   status: external_exports.enum(RunStatus),
   attempts: external_exports.number().int().nonnegative(),
+  /** Active time spent in this step, accumulated across attempts and resumes. */
+  durationMs: external_exports.number().optional(),
+  /** Files this step changed (paths from its reports) — per-step attribution; the run-wide union lives on the manifest. */
+  changedFiles: external_exports.array(external_exports.string()).optional(),
   report: external_exports.unknown().optional(),
   error: external_exports.string().optional()
 });
@@ -16015,8 +16019,11 @@ var executePipeline = async ({
     });
     progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
   };
+  const stepTimers = /* @__PURE__ */ new Map();
   const setStep = async ({ record: record2, patch }) => {
-    await update({ ...patch, currentStep: record2.id, steps: upsertStep({ steps: manifest.steps, record: record2 }) });
+    const timer = stepTimers.get(record2.id);
+    const timed = timer ? { ...record2, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record2;
+    await update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: manifest.steps, record: timed }) });
   };
   const stop = async ({ record: record2, status, error: error51 }) => {
     await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
@@ -16078,7 +16085,8 @@ var executePipeline = async ({
   }
   const nextRecord = ({ id }) => {
     const prev = manifest.steps.find((step) => step.id === id);
-    return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1 };
+    stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
+    return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1, changedFiles: prev?.changedFiles };
   };
   const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
   const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
@@ -16157,6 +16165,12 @@ ${text}`, "utf8");
     onProgress
   });
   const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFilePath(file2) && isTestableSourceFile(file2));
+  const withStepFiles = ({ record: record2, reports }) => ({
+    ...record2,
+    changedFiles: [
+      .../* @__PURE__ */ new Set([...record2.changedFiles ?? [], ...reports.flatMap((report) => report.changedFiles.map((file2) => file2.path))])
+    ]
+  });
   const workStep = ({
     id,
     build,
@@ -16191,7 +16205,7 @@ ${text}`, "utf8");
           error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
         });
       }
-      await setStep({ record: { ...record2, status: RunStatus.Passed, report }, patch: changed });
+      await setStep({ record: withStepFiles({ record: { ...record2, status: RunStatus.Passed, report }, reports: [report] }), patch: changed });
       progress(`step ${id} passed`);
       return void 0;
     };
@@ -16218,6 +16232,7 @@ ${text}`, "utf8");
           await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
         }
         if (fix.report?.status === WorkReportStatus.Complete) {
+          record2 = withStepFiles({ record: record2, reports: [fix.report] });
           await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
         }
         error51 = await gates({ coverage });
@@ -16262,6 +16277,7 @@ ${verdict.report.guidance}`),
             await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
           }
           if (fix.report?.status === WorkReportStatus.Complete) {
+            record2 = withStepFiles({ record: record2, reports: [fix.report] });
             await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
           }
           error51 = await gates({ coverage });
@@ -16301,7 +16317,7 @@ ${error51}`
     return void 0;
   };
   const writeTestsStep = async () => {
-    const record2 = nextRecord({ id: "write-tests" });
+    let record2 = nextRecord({ id: "write-tests" });
     await setStep({ record: record2 });
     const targets = sourceFiles();
     progress(`step write-tests \u2014 attempt ${record2.attempts} \xB7 ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
@@ -16335,6 +16351,7 @@ ${error51}`
         }
       }
     }
+    record2 = withStepFiles({ record: record2, reports });
     await setStep({ record: { ...record2, report: { reports } }, patch: await collectChanged(reports) });
     if (parked) {
       return stop({ record: { ...record2, report: { reports } }, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -16372,6 +16389,7 @@ ${failures.join("\n")}`
         const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
         return stop({ record: { ...record2, report }, status, error: `refactor: ${report.status} \u2014 ${report.failures.join("; ")}` });
       }
+      record2 = withStepFiles({ record: record2, reports: [report] });
       await setStep({ record: { ...record2, report }, patch: await collectChanged([report]) });
       lastReport = report;
       if (report.changedFiles.length === 0) {
@@ -16529,6 +16547,10 @@ var runImplementPipeline = async (params) => {
   }
 };
 
+// packages/engine/src/summarizeRun.ts
+import { readdir, readFile as readFile9 } from "node:fs/promises";
+import { join as join14 } from "node:path";
+
 // packages/engine/src/readFriction.ts
 import { readFile as readFile8 } from "node:fs/promises";
 import { join as join13 } from "node:path";
@@ -16544,9 +16566,77 @@ var readFriction = async ({ cwd }) => {
   });
 };
 
+// packages/engine/src/summarizeRun.ts
+var LedgerRecord = external_exports.object({
+  step: external_exports.string(),
+  outputTokens: external_exports.number(),
+  costUsd: external_exports.number()
+});
+var CommandRecord = external_exports.object({
+  durationMs: external_exports.number().optional(),
+  rerun: external_exports.literal(true).optional(),
+  skipped: external_exports.literal(true).optional()
+});
+var readJsonlRecords = async ({ path, schema }) => {
+  const raw = await readFile9(path, "utf8").catch(() => "");
+  return raw.split("\n").filter(Boolean).flatMap((line) => {
+    try {
+      const parsed = schema.safeParse(JSON.parse(line));
+      return parsed.success ? [parsed.data] : [];
+    } catch {
+      return [];
+    }
+  });
+};
+var summarizeRun = async ({ cwd, manifest }) => {
+  const runDir = getRunDir({ cwd, runId: manifest.runId });
+  const ledger = await readJsonlRecords({ path: join14(runDir, "agents.jsonl"), schema: LedgerRecord });
+  const commands = await readJsonlRecords({ path: join14(runDir, "commands.jsonl"), schema: CommandRecord });
+  const agentFiles = await readdir(join14(runDir, "agents")).catch(() => []);
+  const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
+  const perStepUsage = /* @__PURE__ */ new Map();
+  for (const record2 of ledger) {
+    const step = record2.step.endsWith("-supervisor") ? record2.step.slice(0, -"-supervisor".length) : record2.step;
+    const totals = perStepUsage.get(step) ?? { invocations: 0, outputTokens: 0, costUsd: 0 };
+    totals.invocations += 1;
+    totals.outputTokens += record2.outputTokens;
+    totals.costUsd += record2.costUsd;
+    perStepUsage.set(step, totals);
+  }
+  const frictionByArea = /* @__PURE__ */ new Map();
+  for (const entry of friction) {
+    frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
+  }
+  const { usage: usage2 } = manifest;
+  const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
+  return {
+    wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
+    gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
+    usage: usage2,
+    /** Share of all input the model read from cache — the run's cost-efficiency dial. */
+    cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
+    steps: manifest.steps.map((step) => ({
+      id: step.id,
+      status: step.status,
+      attempts: step.attempts,
+      durationMs: step.durationMs,
+      changedFiles: step.changedFiles,
+      ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
+    })),
+    gates: {
+      commands: commands.filter((command) => !command.skipped).length,
+      reruns: commands.filter((command) => command.rerun).length,
+      skipped: commands.filter((command) => command.skipped).length
+    },
+    /** Final messages that failed their contract and cost a re-emit retry. */
+    rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
+    frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count }))
+  };
+};
+
 // packages/engine/src/runPromptImprovement.ts
-import { readdir } from "node:fs/promises";
-import { join as join14 } from "node:path";
+import { readdir as readdir2 } from "node:fs/promises";
+import { join as join15 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -16554,8 +16644,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir(join14(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join14(promptsDir, file2));
+  const files = await readdir2(join15(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join15(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -16668,26 +16758,81 @@ ${error51.message}`);
     throw error51;
   }
 };
-var printResult = ({ result, cwd }) => {
+var formatDuration = (ms) => {
+  if (ms === void 0) {
+    return "\u2014";
+  }
+  const seconds = Math.round(ms / 1e3);
+  return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s` : `${seconds}s`;
+};
+var formatTokenCount = (count) => {
+  if (count >= 1e6) {
+    return `${(count / 1e6).toFixed(1)}M`;
+  }
+  return count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
+};
+var summaryColumns = [
+  { header: "step", width: 22, align: "left" },
+  { header: "tries", width: 6, align: "right" },
+  { header: "time", width: 10, align: "right" },
+  { header: "agents", width: 7, align: "right" },
+  { header: "out", width: 9, align: "right" },
+  { header: "cost", width: 10, align: "right" },
+  { header: "files", width: 6, align: "right" }
+];
+var summaryRow = (cells) => `  ${cells.map((cell, index) => summaryColumns[index]?.align === "left" ? cell.padEnd(summaryColumns[index].width) : cell.padStart(summaryColumns[index]?.width ?? 0)).join("")}`;
+var printResult = async ({ result, cwd }) => {
   const { manifest, ok, error: error51 } = result;
+  const summary = await summarizeRun({ cwd, manifest });
   console.log(`
 run ${manifest.runId}: ${manifest.status.toUpperCase()}`);
-  for (const step of manifest.steps) {
-    console.log(`  ${statusIcons[step.status] ?? "?"} ${step.id} (attempts: ${step.attempts})`);
+  console.log(`  time: ${formatDuration(summary.wallMs)} wall \xB7 ${formatDuration(summary.gateMs)} in gates`);
+  if (summary.usage && summary.usage.invocations > 0) {
+    const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = summary.usage;
+    const share = summary.cacheReadShare === void 0 ? "" : ` (${Math.round(summary.cacheReadShare * 100)}% of all input)`;
+    console.log(
+      `  agents: ${invocations} invocation(s) \xB7 in ${formatTokenCount(inputTokens)} \xB7 out ${formatTokenCount(outputTokens)} \xB7 cache-read ${formatTokenCount(cacheReadTokens)}${share}`
+    );
+    console.log(`  cost: $${costUsd.toFixed(2)} API-equivalent (headless runs ride the harness subscription)`);
+  }
+  console.log("");
+  console.log(summaryRow(summaryColumns.map((column) => column.header)));
+  for (const step of summary.steps) {
+    const withAgents = step.invocations > 0;
+    console.log(
+      summaryRow([
+        `${statusIcons[step.status] ?? "?"} ${step.id}`,
+        `${step.attempts}`,
+        formatDuration(step.durationMs),
+        withAgents ? `${step.invocations}` : "\u2014",
+        withAgents ? formatTokenCount(step.outputTokens) : "\u2014",
+        withAgents ? `$${step.costUsd.toFixed(2)}` : "\u2014",
+        step.changedFiles ? `${step.changedFiles.length}` : "\u2014"
+      ])
+    );
+  }
+  console.log("");
+  const gateParts = [`${summary.gates.commands} command(s)`];
+  if (summary.gates.reruns > 0) {
+    gateParts.push(`${summary.gates.reruns} flake re-run(s)`);
+  }
+  if (summary.gates.skipped > 0) {
+    gateParts.push(`${summary.gates.skipped} skipped (no script)`);
+  }
+  console.log(`  gates: ${gateParts.join(" \xB7 ")}`);
+  if (summary.rejectedReports > 0) {
+    console.log(`  report retries: ${summary.rejectedReports} rejected message(s) re-emitted`);
+  }
+  if (summary.frictionByArea.length > 0) {
+    const total = summary.frictionByArea.reduce((count, entry) => count + entry.count, 0);
+    console.log(`  friction: ${total} \u2014 ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(", ")}`);
   }
   if (manifest.packages.length > 0) {
     console.log(`  package scope: ${manifest.packages.join(", ")}${manifest.packagesSource ? ` (from ${manifest.packagesSource})` : ""}`);
   }
   console.log(`  command log: .lightsout/runs/${manifest.runId}/commands.jsonl`);
-  if (existsSync(join15(cwd, ".lightsout", "runs", manifest.runId, "agents"))) {
+  if (existsSync(join16(cwd, ".lightsout", "runs", manifest.runId, "agents"))) {
     console.log(`  agent transcripts: .lightsout/runs/${manifest.runId}/agents/`);
-  }
-  if (manifest.usage && manifest.usage.invocations > 0) {
-    const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = manifest.usage;
-    const tokens2 = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
-    console.log(
-      `  agent usage: ${invocations} invocation(s) \xB7 in ${tokens2(inputTokens)} \xB7 out ${tokens2(outputTokens)} \xB7 cache-read ${tokens2(cacheReadTokens)} \xB7 $${costUsd.toFixed(2)}`
-    );
   }
   if (manifest.changedFiles.length > 0) {
     console.log("  changed files:");
@@ -16731,7 +16876,7 @@ var main = async () => {
       skipRefactor,
       onProgress: createProgressPrinter()
     });
-    printResult({ result, cwd });
+    await printResult({ result, cwd });
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "resume") {
@@ -16757,12 +16902,12 @@ var main = async () => {
       skipRefactor,
       onProgress: createProgressPrinter()
     });
-    printResult({ result, cwd });
+    await printResult({ result, cwd });
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join15(cwd, ".lightsout", "runs");
-    const runIds = await readdir2(runsDir).catch(() => []);
+    const runsDir = join16(cwd, ".lightsout", "runs");
+    const runIds = await readdir3(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
       process.exit(0);
