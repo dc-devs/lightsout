@@ -527,7 +527,7 @@ revisit only if Task 10's prior-art searches prove insufficient);
 import-boundary lint (consumer-side eslint/dependency-cruiser config — an
 FD item below, plus a future doctor check).
 
-### Task 12: Deterministic-standards follow-through (small, consumer-facing)
+### Task 12: Deterministic-standards follow-through — DONE 2026-07-05 (doctor `lint-rules` note: biome useImportType/noExplicitAny or eslint equivalents missing/disabled, no-linter case, skipped on standards:false; live-fires on FD's biome.json)
 
 The deterministic slice of the standards that ISN'T Task 8 detectors:
 biome/eslint one-liners (`useImportType`, `noExplicitAny`,

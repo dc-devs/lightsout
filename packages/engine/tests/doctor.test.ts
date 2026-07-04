@@ -125,6 +125,40 @@ test('doctor notes packages with @testing-library/react but no user-event — an
 	assert.ok(!(checks.get('user-event')?.detail ?? '').includes('api'), 'package without testing-library not flagged');
 });
 
+test('doctor lint-rules: flags disabled mechanical rules, passes enforced ones, notes a missing linter, and respects standards:false', async () => {
+	// Disabled + missing rules → note naming them
+	const flagged = setupConsumerRepo({ git: false });
+
+	writeFileSync(join(flagged, 'biome.json'), '{"linter":{"rules":{"style":{"useImportType":"off"}}}}');
+
+	const flaggedChecks = byId(await runDoctor({ cwd: flagged, probeHarness: passingProbe }));
+
+	assert.equal(flaggedChecks.get('lint-rules')?.status, 'note');
+	assert.match(flaggedChecks.get('lint-rules')?.detail ?? '', /useImportType, noExplicitAny missing or disabled/);
+
+	// Both rules on → pass
+	const clean = setupConsumerRepo({ git: false });
+
+	writeFileSync(join(clean, 'biome.json'), '{"linter":{"rules":{"style":{"useImportType":"error"},"suspicious":{"noExplicitAny":"error"}}}}');
+
+	const cleanChecks = byId(await runDoctor({ cwd: clean, probeHarness: passingProbe }));
+
+	assert.equal(cleanChecks.get('lint-rules')?.status, 'pass', cleanChecks.get('lint-rules')?.detail);
+
+	// No linter at all → note
+	const bare = setupConsumerRepo({ git: false });
+	const bareChecks = byId(await runDoctor({ cwd: bare, probeHarness: passingProbe }));
+
+	assert.equal(bareChecks.get('lint-rules')?.status, 'note');
+	assert.match(bareChecks.get('lint-rules')?.detail ?? '', /no linter config found/);
+
+	// standards: false = the consumer opted out — no check at all
+	const yolo = setupConsumerRepo({ git: false, config: { standards: false } });
+	const yoloChecks = byId(await runDoctor({ cwd: yolo, probeHarness: passingProbe }));
+
+	assert.equal(yoloChecks.get('lint-rules'), undefined, 'opting out of standards opts out of the lint nudge');
+});
+
 test('doctor orders checks positives-first: pass, then note, then warn/fail', async () => {
 	const dir = setupConsumerRepo({
 		config: {

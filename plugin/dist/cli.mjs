@@ -29790,6 +29790,34 @@ ${notIgnored.join("\n")}`
       detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
     });
   }
+  if (config2.standards !== false) {
+    const lintFindings = [];
+    let lintConfigCount = 0;
+    for (const { label, dir } of packageDirs) {
+      const entries = await readdir3(dir).catch(() => []);
+      const lintConfigs = entries.filter((name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name));
+      for (const name of lintConfigs) {
+        lintConfigCount += 1;
+        const text = await readFile16(join23(dir, name), "utf8").catch(() => "");
+        const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
+        const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
+        if (unenforced.length > 0) {
+          lintFindings.push(`${label}: ${name} \u2014 ${unenforced.join(", ")} missing or disabled`);
+        }
+      }
+    }
+    checks.push(
+      lintConfigCount === 0 ? {
+        id: "lint-rules",
+        status: "note",
+        detail: "no linter config found (biome.json / eslint) \u2014 the standards' mechanical rules (import type, no any) run unenforced"
+      } : lintFindings.length === 0 ? { id: "lint-rules", status: "pass", detail: `mechanical rules enforced across ${lintConfigCount} lint config(s)` } : {
+        id: "lint-rules",
+        status: "note",
+        detail: `${lintFindings.join("; ")} \u2014 the standards state these rules as binding; enabling them makes the linter catch what agents miss`
+      }
+    );
+  }
   if (config2.generated) {
     const absent = [];
     for (const prefix of config2.generated) {
