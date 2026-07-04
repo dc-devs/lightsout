@@ -1,5 +1,5 @@
 {
 	"name": "lightsout",
 	"version": "0.1.0",
-	"description": "Implement plan files with verified, resumable agent pipelines — your own typecheck, test, and coverage commands gate every step, duplicate-code scanning runs on every change, and interrupted runs resume where they stopped. Uses your existing Claude Code subscription."
+	"description": "Plugins for LightsOut"
 }

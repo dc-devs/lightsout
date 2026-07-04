@@ -7,7 +7,7 @@
 		{
 			"name": "lightsout",
 			"source": "./plugin",
-			"description": "Implement plan files with verified, resumable agent pipelines — your own typecheck, test, and coverage commands gate every step. Uses your existing Claude Code subscription."
+			"description": "Plugins for LightsOut"
 		}
 	]
 }
