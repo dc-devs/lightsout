@@ -1,12 +1,11 @@
 # One Export Per File
 
-- Each **exported** function, class, interface, type, or constant has its own dedicated file
-- The file name matches the exported item name (cased per the package's file-naming convention)
+- Each **exported** function, class, interface, type, or constant has its own file, named after the export (cased per the package's file-naming convention)
 - Non-exported items (private helpers, local types) may co-locate with the export they serve
 
 ## The Closed Exception List
 
-These are the **only** cases where a file may contain more than one item. Every exception has a mechanical criterion — there is no judgment call:
+The **only** cases where a file may contain more than one item — every exception has a mechanical criterion:
 
 | # | Exception | Criterion |
 |---|-----------|-----------|
@@ -17,53 +16,20 @@ These are the **only** cases where a file may contain more than one item. Every 
 
 ## Multiple Exported Items — Still Not Negotiable
 
-Multiple **exported** items of independent meaning never share a file.
-
-**Rationalizations that are NOT valid:**
-
-- "The interface is only used by this constant" → Still separate files
-- "They're closely related" → Still separate files
-- "It's just a small helper" → If it's a helper, make it non-exported (exception 2). If it's exported, separate file.
-
-❌ BAD: Exported interface and exported constant in same file
-
-**`config.ts`**
+Invalid rationalizations: "the interface is only used by this constant", "they're closely related", "it's just a small helper" (if it's a helper, make it non-exported — exception 2; if exported, own file).
 
 ```typescript
-export interface Config {
-	name: string;
-}
-
-export const defaultConfig: Config = { name: 'default' };
+// ❌ config.ts: export interface Config + export const defaultConfig — split them:
+// common/types/Config.ts        → export interface Config { ... }
+// common/constants/defaultConfig.ts → export const defaultConfig: Config = { ... }
 ```
 
-✅ GOOD: Separate files
-
-**`common/types/Config.ts`**
+**Exception 3 in practice** — a union family shares one file because the members exist only as constituents:
 
 ```typescript
-export interface Config {
-	name: string;
-}
-```
-
-**`common/constants/defaultConfig.ts`**
-
-```typescript
-import type { Config } from '@/path/to/common/types/Config';
-
-export const defaultConfig: Config = { name: 'default' };
-```
-
-✅ GOOD: Discriminated union family in one file (exception 3)
-
-**`common/types/SyncEvent.ts`**
-
-```typescript
-import { SyncEventKind } from '@/common/constants/SyncEventKind';
-
+// common/types/SyncEvent.ts
 export interface FileAddedEvent {
-	kind: typeof SyncEventKind.FileAdded;
+	kind: typeof SyncEventKind.FileAdded; // discriminant references the const object, never a raw literal
 	path: string;
 }
 
@@ -75,6 +41,4 @@ export interface RecordParsedEvent {
 export type SyncEvent = FileAddedEvent | RecordParsedEvent;
 ```
 
-The discriminant references the `const` object, not raw literals — see [named-constants.md](../patterns/named-constants.md#discriminants-use-the-const-object). The `const` object lives in its own file in `constants/`.
-
-The members exist only as constituents of `SyncEvent` — splitting them across files would fragment one concept. If a member type starts being used independently of the union, it moves to its own file.
+If a member type starts being used independently of the union, it moves to its own file.

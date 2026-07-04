@@ -242,6 +242,7 @@ as a "root group". Tip: use a dependents filter in the templates
 changed ones — the blast radius lives in your template, not in the engine.
 | `standards` | no | Standards for code-writing agents. **Unspecified = the engine's bundled JS/TS defaults load** (announced in the run header). `false` = explicitly none. An array = exactly these: repo-relative markdown files (missing = hard error) and/or the token `lightsout:code-defaults` to stack the bundled defaults with repo extras. |
 | `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
+| `standardsChannels` | no | Framework channels of the bundled defaults. The base docs always apply; React/Preact and TanStack docs ride along **only when the run's scoped packages actually depend on that framework** (detected from their `package.json` — announced in the run log). Set an array to replace detection (`[]` = base only). A terraform package never pays the React-docs token tax. |
 | `driver` | no | `claude-code` (default) or `codex` |
 | `model` | no | Model override passed through to the harness |
 | `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |

@@ -6,46 +6,46 @@ import doc3 from '../../../standards/code/architecture/tanstack-start/architectu
 import doc4 from '../../../standards/code/documentation/ts-docs.md';
 import doc5 from '../../../standards/code/style-guide/conventions/casing.md';
 import doc6 from '../../../standards/code/style-guide/conventions/file-naming.md';
-import doc7 from '../../../standards/code/style-guide/conventions/formatting.md';
+import doc7 from '../../../standards/code/style-guide/conventions/lint-and-formatting.md';
 import doc8 from '../../../standards/code/style-guide/conventions/naming.md';
 import doc9 from '../../../standards/code/style-guide/conventions/variable-declaration.md';
 import doc10 from '../../../standards/code/style-guide/patterns/classes.md';
 import doc11 from '../../../standards/code/style-guide/patterns/functions.md';
 import doc12 from '../../../standards/code/style-guide/patterns/named-constants.md';
 import doc13 from '../../../standards/code/style-guide/patterns/react-components.md';
-import doc14 from '../../../standards/code/style-guide/structure/constant-placement.md';
-import doc15 from '../../../standards/code/style-guide/structure/import-paths.md';
-import doc16 from '../../../standards/code/style-guide/structure/module-api.md';
-import doc17 from '../../../standards/code/style-guide/structure/one-export-per-file.md';
-import doc18 from '../../../standards/code/style-guide/structure/type-placement.md';
-import doc19 from '../../../standards/code/style-guide/typescript/avoid-any.md';
-import doc20 from '../../../standards/code/style-guide/typescript/import-type.md';
-import doc21 from '../../../standards/code/style-guide/typescript/return-types.md';
-import doc22 from '../../../standards/code/style-guide/typescript/type-assertions.md';
+import doc14 from '../../../standards/code/style-guide/structure/import-paths.md';
+import doc15 from '../../../standards/code/style-guide/structure/module-api.md';
+import doc16 from '../../../standards/code/style-guide/structure/one-export-per-file.md';
+import doc17 from '../../../standards/code/style-guide/structure/type-placement.md';
+import doc18 from '../../../standards/code/style-guide/typescript/return-types.md';
+import doc19 from '../../../standards/code/style-guide/typescript/type-assertions.md';
 
-/** Every default code standards doc, concatenated in path order with per-file provenance headers. */
-export const defaultCodeStandards = [
-	`<!-- lightsout defaults: standards/code/architecture/architecture-decisions.md -->\n${doc0}`,
-	`<!-- lightsout defaults: standards/code/architecture/folder-structure.md -->\n${doc1}`,
-	`<!-- lightsout defaults: standards/code/architecture/react/architecture-decisions.md -->\n${doc2}`,
-	`<!-- lightsout defaults: standards/code/architecture/tanstack-start/architecture-decisions.md -->\n${doc3}`,
-	`<!-- lightsout defaults: standards/code/documentation/ts-docs.md -->\n${doc4}`,
-	`<!-- lightsout defaults: standards/code/style-guide/conventions/casing.md -->\n${doc5}`,
-	`<!-- lightsout defaults: standards/code/style-guide/conventions/file-naming.md -->\n${doc6}`,
-	`<!-- lightsout defaults: standards/code/style-guide/conventions/formatting.md -->\n${doc7}`,
-	`<!-- lightsout defaults: standards/code/style-guide/conventions/naming.md -->\n${doc8}`,
-	`<!-- lightsout defaults: standards/code/style-guide/conventions/variable-declaration.md -->\n${doc9}`,
-	`<!-- lightsout defaults: standards/code/style-guide/patterns/classes.md -->\n${doc10}`,
-	`<!-- lightsout defaults: standards/code/style-guide/patterns/functions.md -->\n${doc11}`,
-	`<!-- lightsout defaults: standards/code/style-guide/patterns/named-constants.md -->\n${doc12}`,
-	`<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->\n${doc13}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/constant-placement.md -->\n${doc14}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/import-paths.md -->\n${doc15}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/module-api.md -->\n${doc16}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/one-export-per-file.md -->\n${doc17}`,
-	`<!-- lightsout defaults: standards/code/style-guide/structure/type-placement.md -->\n${doc18}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/avoid-any.md -->\n${doc19}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/import-type.md -->\n${doc20}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/return-types.md -->\n${doc21}`,
-	`<!-- lightsout defaults: standards/code/style-guide/typescript/type-assertions.md -->\n${doc22}`,
-].join('\n\n');
+/** Default code standards docs by channel: base always applies; framework channels apply when the package scope uses that framework. */
+export const defaultCodeStandards: Record<string, string> = {
+	base: [
+		`<!-- lightsout defaults: standards/code/architecture/architecture-decisions.md -->\n${doc0}`,
+		`<!-- lightsout defaults: standards/code/architecture/folder-structure.md -->\n${doc1}`,
+		`<!-- lightsout defaults: standards/code/documentation/ts-docs.md -->\n${doc4}`,
+		`<!-- lightsout defaults: standards/code/style-guide/conventions/casing.md -->\n${doc5}`,
+		`<!-- lightsout defaults: standards/code/style-guide/conventions/file-naming.md -->\n${doc6}`,
+		`<!-- lightsout defaults: standards/code/style-guide/conventions/lint-and-formatting.md -->\n${doc7}`,
+		`<!-- lightsout defaults: standards/code/style-guide/conventions/naming.md -->\n${doc8}`,
+		`<!-- lightsout defaults: standards/code/style-guide/conventions/variable-declaration.md -->\n${doc9}`,
+		`<!-- lightsout defaults: standards/code/style-guide/patterns/classes.md -->\n${doc10}`,
+		`<!-- lightsout defaults: standards/code/style-guide/patterns/functions.md -->\n${doc11}`,
+		`<!-- lightsout defaults: standards/code/style-guide/patterns/named-constants.md -->\n${doc12}`,
+		`<!-- lightsout defaults: standards/code/style-guide/structure/import-paths.md -->\n${doc14}`,
+		`<!-- lightsout defaults: standards/code/style-guide/structure/module-api.md -->\n${doc15}`,
+		`<!-- lightsout defaults: standards/code/style-guide/structure/one-export-per-file.md -->\n${doc16}`,
+		`<!-- lightsout defaults: standards/code/style-guide/structure/type-placement.md -->\n${doc17}`,
+		`<!-- lightsout defaults: standards/code/style-guide/typescript/return-types.md -->\n${doc18}`,
+		`<!-- lightsout defaults: standards/code/style-guide/typescript/type-assertions.md -->\n${doc19}`,
+	].join('\n\n'),
+	react: [
+		`<!-- lightsout defaults: standards/code/architecture/react/architecture-decisions.md -->\n${doc2}`,
+		`<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->\n${doc13}`,
+	].join('\n\n'),
+	tanstack: [
+		`<!-- lightsout defaults: standards/code/architecture/tanstack-start/architecture-decisions.md -->\n${doc3}`,
+	].join('\n\n'),
+};

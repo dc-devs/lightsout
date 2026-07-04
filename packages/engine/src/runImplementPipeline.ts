@@ -29,6 +29,7 @@ import { getRunDir } from './getRunDir';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { readGitChangedFiles } from './readGitChangedFiles';
 import { readPlanPackages } from './readPlanPackages';
+import { detectStandardsChannels } from './detectStandardsChannels';
 import { readStandards } from './readStandards';
 import { releaseRunLock } from './releaseRunLock';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
@@ -222,25 +223,6 @@ const executePipeline = async ({
 		});
 	}
 
-	// Unspecified standards = the bundled defaults (announced, never silent);
-	// `false` = explicitly none; an array = exactly what it says.
-	const standardsPaths = config.standards === false ? [] : (config.standards ?? ['lightsout:code-defaults']);
-	const testStandardsPaths = config.testStandards === false ? [] : (config.testStandards ?? ['lightsout:test-defaults']);
-
-	let standards: string | undefined;
-	let testStandards: string | undefined;
-
-	try {
-		standards = await readStandards({ cwd, paths: standardsPaths });
-		testStandards = await readStandards({ cwd, paths: testStandardsPaths });
-	} catch (error) {
-		return stop({
-			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
-			status: RunStatus.Failed,
-			error: error instanceof Error ? error.message : String(error),
-		});
-	}
-
 	const packagesDir = config.packagesDir ?? 'packages';
 
 	// Monorepo mode needs a scope before any gate runs. The chain: --packages
@@ -269,6 +251,38 @@ const executePipeline = async ({
 
 	if (manifest.packages.length > 0) {
 		progress(`package scope: ${manifest.packages.join(', ')} (from ${manifest.packagesSource ?? 'manifest'})`);
+	}
+
+	// Standards resolve AFTER scope: the bundled defaults are channelled —
+	// base docs always, framework docs (react, tanstack) only when the scoped
+	// packages' dependencies say the framework is in play, so a backend run
+	// never pays the React-docs token tax. Config `standardsChannels`
+	// replaces detection. Unspecified standards = the bundled defaults
+	// (announced, never silent); `false` = explicitly none; an array =
+	// exactly what it says.
+	const standardsPaths = config.standards === false ? [] : (config.standards ?? ['lightsout:code-defaults']);
+	const testStandardsPaths = config.testStandards === false ? [] : (config.testStandards ?? ['lightsout:test-defaults']);
+	const channels =
+		config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir, packages: manifest.packages }));
+
+	if (standardsPaths.length > 0 || testStandardsPaths.length > 0) {
+		progress(
+			`standards channels: base${channels.length > 0 ? ` + ${channels.join(' + ')}` : ''} (${config.standardsChannels ? 'configured' : 'detected from package dependencies'})`,
+		);
+	}
+
+	let standards: string | undefined;
+	let testStandards: string | undefined;
+
+	try {
+		standards = await readStandards({ cwd, paths: standardsPaths, channels });
+		testStandards = await readStandards({ cwd, paths: testStandardsPaths, channels });
+	} catch (error) {
+		return stop({
+			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
+			status: RunStatus.Failed,
+			error: error instanceof Error ? error.message : String(error),
+		});
 	}
 
 	const nextRecord = ({ id }: { id: string }): StepRecord => {

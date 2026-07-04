@@ -3,9 +3,13 @@ import doc0 from '../../../standards/tests/unit/jest/unit-test-examples.md';
 import doc1 from '../../../standards/tests/unit/jest/unit-testing-react-components.md';
 import doc2 from '../../../standards/tests/unit/jest/unit-testing.md';
 
-/** Every default tests standards doc, concatenated in path order with per-file provenance headers. */
-export const defaultTestStandards = [
-	`<!-- lightsout defaults: standards/tests/unit/jest/unit-test-examples.md -->\n${doc0}`,
-	`<!-- lightsout defaults: standards/tests/unit/jest/unit-testing-react-components.md -->\n${doc1}`,
-	`<!-- lightsout defaults: standards/tests/unit/jest/unit-testing.md -->\n${doc2}`,
-].join('\n\n');
+/** Default tests standards docs by channel: base always applies; framework channels apply when the package scope uses that framework. */
+export const defaultTestStandards: Record<string, string> = {
+	base: [
+		`<!-- lightsout defaults: standards/tests/unit/jest/unit-test-examples.md -->\n${doc0}`,
+		`<!-- lightsout defaults: standards/tests/unit/jest/unit-testing.md -->\n${doc2}`,
+	].join('\n\n'),
+	react: [
+		`<!-- lightsout defaults: standards/tests/unit/jest/unit-testing-react-components.md -->\n${doc1}`,
+	].join('\n\n'),
+};

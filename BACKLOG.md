@@ -124,7 +124,20 @@ report. Known bug found in review: the skill invokes `run "<plan-path>"`
 positionally but the CLI requires `run --plan <path>`; it also predates
 `--overview`/`--packages`.
 
-### Task 5: Clean up the default standards (`standards/`)
+### Task 5: Clean up the default standards (`standards/`) — DONE (2026-07-04)
+
+Result: 26 docs → 22; whole-bundle 15.8k words → channelled: base 7.5k
+(−52%, what a backend run carries), react 8.8k, tanstack 9.2k. Channels
+activate from scoped packages' package.json deps (`standardsChannels`
+config replaces detection); provenance-tested (87/87). Evidence-gated
+cuts only: friction-scarred sections (boundary testing, setup factories,
+mock cleanup, precedence) kept intact; duplicate examples, restated model
+defaults, the agent-contradicting "Running Tests" section, and all stale
+fdrop: links removed; import-type/avoid-any/formatting collapsed into
+lint-and-formatting.md with the binding-preset bridge. Test additions
+landed (assertions-pin-contracts doctrine). Deeper terse-style-card
+compression deliberately deferred until more run evidence accumulates.
+Inventory that drove it: .notes/standards-inventory.md (local).
 
 The docs were pasted wholesale from the fdrop skill tree (v0.7); they work
 but carry weight. Goals:

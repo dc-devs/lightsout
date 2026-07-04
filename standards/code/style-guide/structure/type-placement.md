@@ -1,73 +1,40 @@
-# Type Placement
+# Type & Constant Placement
 
-Types and interfaces live in `common/types/` — the folder groups type-level declarations regardless of keyword (`export type …` / `export interface …`). A discriminated union family lives in `types/` under the union's name.
+## Types and Interfaces → `common/types/`
 
-## Interfaces vs Types — Same Folder, Pick by Fit
+The folder groups type-level declarations regardless of keyword. Pick the keyword by fit, not folder:
 
-Both `interface` and `type` declarations live in `common/types/`. The keyword is a per-declaration choice, not a folder decision:
+- `interface` for object shapes (extends and merges cleanly)
+- `type` for what an interface can't express (unions, intersections, mapped types, primitives, tuples, function signatures)
+- Either works for an object shape → stay consistent within a domain. Refactoring between the keywords is an in-place edit; the filename and imports never change.
 
-- Use an `interface` for object shapes — it extends and merges cleanly.
-- Use a `type` for everything an interface cannot express — unions, intersections, mapped types, primitives, tuples, function signatures.
-- When either would work for an object shape, use whichever you prefer and stay consistent within a domain.
+A discriminated union family lives in `types/` under the union's name.
 
-Because both keywords share the `types/` folder, refactoring an object shape from `interface` to `type` (or back) is an in-place keyword edit — the filename, path, and imports never change.
-
-✅ GOOD: Interface in the types folder
-
-**`common/types/UserProfile.ts`**
+**The `Params` interface stays with its function; all other exported types go in `types/`:**
 
 ```typescript
-export interface UserProfile {
-	id: string;
-	name: string;
-}
-```
-
-✅ GOOD: Type in the same folder
-
-**`common/types/UserId.ts`**
-
-```typescript
-export type UserId = string;
-```
-
-## Where Non-Params Types Belong
-
-The `Params` interface for a function stays with the function. **All other exported types and interfaces** go in the `types/` folder.
-
-✅ GOOD: Params stays with function
-
-**`copyFile.ts`**
-
-```typescript
+// copyFile.ts — Params co-located, unexported
 interface Params {
 	sourcePath: string;
 	destPath: string;
 }
 
-export const copyFile = ({ sourcePath, destPath }: Params) => {
-	/* ... */
-};
-```
+export const copyFile = ({ sourcePath, destPath }: Params) => { /* ... */ };
 
-✅ GOOD: Return type in the types folder
-
-**`common/types/CopyResult.ts`**
-
-```typescript
+// common/types/CopyResult.ts — exported return type gets its own types/ file
 export interface CopyResult {
 	success: boolean;
 	bytesWritten: number;
 }
 ```
 
-❌ BAD: Exported non-Params type defined in function file
+## Constants → `common/constants/`
 
-**`copyFile.ts`**
+Constants are not types — they live in `common/constants/` (`export const …`), never in `types/`. A `const` object with its derived union and lookup map lives in `constants/` under the object's name (see [named-constants.md](../patterns/named-constants.md)).
 
 ```typescript
-export interface CopyResult {
-	// SHOULD BE IN common/types/
-	success: boolean;
-}
+// common/constants/defaultConfig.ts
+import type { Config } from '@/path/to/common/types/Config';
+
+export const defaultConfig: Config = { name: 'default' };
 ```

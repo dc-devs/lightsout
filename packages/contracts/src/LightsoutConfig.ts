@@ -94,6 +94,13 @@ export const LightsoutConfig = z.object({
 	standards: z.union([z.array(z.string()), z.literal(false)]).optional(),
 	/** Same, for the test-writer role (token: `lightsout:test-defaults`). */
 	testStandards: z.union([z.array(z.string()), z.literal(false)]).optional(),
+	/**
+	 * Framework channels of the bundled default standards (e.g. 'react',
+	 * 'tanstack'). Unspecified = detected per run from the scoped packages'
+	 * package.json dependencies; an array REPLACES detection (empty = base
+	 * docs only).
+	 */
+	standardsChannels: z.array(z.string()).optional(),
 });
 
 export type LightsoutConfig = z.infer<typeof LightsoutConfig>;
