@@ -2098,7 +2098,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify2(item, ctx, onComment, onChompKeep) {
+    function stringify3(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -2127,7 +2127,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -2137,7 +2137,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -2159,7 +2159,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str = stringify3.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -2211,7 +2211,7 @@ ${indent}:`;
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify3.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -2352,7 +2352,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log = require_log();
     var merge2 = require_merge();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map2, { key, value }) {
@@ -2388,7 +2388,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify3.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -2455,12 +2455,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify3(collection, ctx, options);
+      const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify4(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -2485,7 +2485,7 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify3.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
@@ -2552,7 +2552,7 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify2.stringify(item, itemCtx, () => comment = null);
+        let str = stringify3.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
@@ -3913,7 +3913,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify2 = require_stringify();
+    var stringify3 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -3928,7 +3928,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify2.createStringifyContext(doc, options);
+      const ctx = stringify3.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -3950,7 +3950,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify3.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -3958,7 +3958,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify2.stringify(doc.contents, ctx));
+        lines.push(stringify3.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -6093,7 +6093,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify3 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -6146,7 +6146,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -7876,7 +7876,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify2(value, replacer, options) {
+    function stringify3(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -7901,7 +7901,7 @@ var require_public_api = __commonJS({
     exports.parse = parse7;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
   }
 });
 
@@ -7958,8 +7958,8 @@ var require_dist = __commonJS({
 });
 
 // packages/cli/src/index.ts
-import { readdir as readdir8, readFile as readFile23 } from "node:fs/promises";
-import { basename as basename6, join as join32 } from "node:path";
+import { readdir as readdir8, readFile as readFile25, writeFile as writeFile11 } from "node:fs/promises";
+import { basename as basename6, join as join34 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -37974,22 +37974,39 @@ var runBuildMap = async ({
 };
 
 // packages/engine/src/authorConnectionDocs.ts
-var import_yaml4 = __toESM(require_dist(), 1);
-import { readFile as readFile22, writeFile as writeFile8 } from "node:fs/promises";
+var import_yaml5 = __toESM(require_dist(), 1);
+import { writeFile as writeFile9 } from "node:fs/promises";
 import { join as join30 } from "node:path";
 
-// packages/engine/src/regenerateConnectionIndex.ts
+// packages/engine/src/patchConnectionDoc.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import { readdir as readdir6, readFile as readFile21, writeFile as writeFile7 } from "node:fs/promises";
-import { join as join29 } from "node:path";
+import { readFile as readFile21, writeFile as writeFile7 } from "node:fs/promises";
 var frontmatterPattern2 = /^---\n([\s\S]*?)\n---/;
+var patchConnectionDoc = async ({ path, patch }) => {
+  const text = await readFile21(path, "utf8");
+  const match = text.match(frontmatterPattern2);
+  if (!match?.[1]) {
+    throw new Error(`${path} has no frontmatter to patch`);
+  }
+  const raw = (0, import_yaml3.parse)(match[1]);
+  patch(raw);
+  await writeFile7(path, text.replace(frontmatterPattern2, `---
+${(0, import_yaml3.stringify)(raw).trimEnd()}
+---`), "utf8");
+};
+
+// packages/engine/src/regenerateConnectionIndex.ts
+var import_yaml4 = __toESM(require_dist(), 1);
+import { readdir as readdir6, readFile as readFile22, writeFile as writeFile8 } from "node:fs/promises";
+import { join as join29 } from "node:path";
+var frontmatterPattern3 = /^---\n([\s\S]*?)\n---/;
 var regenerateConnectionIndex = async ({ connectionsDir }) => {
   const entries = await readdir6(connectionsDir);
   const rows = [];
   for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md").sort()) {
-    const text = await readFile21(join29(connectionsDir, name), "utf8");
-    const frontmatter = text.match(frontmatterPattern2)?.[1];
-    const parsed = frontmatter ? ConnectionDoc.safeParse((0, import_yaml3.parse)(frontmatter)) : void 0;
+    const text = await readFile22(join29(connectionsDir, name), "utf8");
+    const frontmatter = text.match(frontmatterPattern3)?.[1];
+    const parsed = frontmatter ? ConnectionDoc.safeParse((0, import_yaml4.parse)(frontmatter)) : void 0;
     if (!parsed?.success) {
       continue;
     }
@@ -38006,30 +38023,17 @@ var regenerateConnectionIndex = async ({ connectionsDir }) => {
     ...rows,
     ""
   ].join("\n");
-  await writeFile7(join29(connectionsDir, "INDEX.md"), index, "utf8");
+  await writeFile8(join29(connectionsDir, "INDEX.md"), index, "utf8");
   return { edgeCount: rows.length };
 };
 
 // packages/engine/src/authorConnectionDocs.ts
-var frontmatterPattern3 = /^---\n([\s\S]*?)\n---/;
 var slugOf = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
-var patchDoc = async ({ path, patch }) => {
-  const text = await readFile22(path, "utf8");
-  const match = text.match(frontmatterPattern3);
-  if (!match?.[1]) {
-    throw new Error(`${path} has no frontmatter to patch`);
-  }
-  const raw = (0, import_yaml4.parse)(match[1]);
-  patch(raw);
-  await writeFile8(path, text.replace(frontmatterPattern3, `---
-${(0, import_yaml4.stringify)(raw).trimEnd()}
----`), "utf8");
-};
 var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNode }) => {
   const authored = [];
   for (const edge of reviewedJoin.matched) {
     const id = `${edge.from}--${edge.to}--${slugOf(edge.matchKey)}`;
-    const frontmatter = (0, import_yaml4.stringify)({
+    const frontmatter = (0, import_yaml5.stringify)({
       from: edge.from,
       to: edge.to,
       type: edge.kind,
@@ -38043,7 +38047,7 @@ var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNod
       "additional-context": []
     }).trimEnd();
     const body = ["# Summary", "", `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`];
-    await writeFile8(join30(connectionsDir, `${id}.md`), `---
+    await writeFile9(join30(connectionsDir, `${id}.md`), `---
 ${frontmatter}
 ---
 
@@ -38052,7 +38056,7 @@ ${body.join("\n")}
     authored.push(id);
   }
   for (const entry of reviewedJoin.confirmed) {
-    await patchDoc({
+    await patchConnectionDoc({
       path: join30(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         const from = raw["from"];
@@ -38065,7 +38069,7 @@ ${body.join("\n")}
     });
   }
   for (const entry of reviewedJoin.drifted) {
-    await patchDoc({
+    await patchConnectionDoc({
       path: join30(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         raw[`${entry.side}-anchor`] = { path: entry.foundAt.split(":")[0], pattern: entry.pattern };
@@ -38076,9 +38080,212 @@ ${body.join("\n")}
   return { authored, confirmed: reviewedJoin.confirmed.length, repaired: reviewedJoin.drifted.length, edgeCount };
 };
 
+// packages/engine/src/verifyConnectionAnchors.ts
+import { readFile as readFile23 } from "node:fs/promises";
+import { homedir as homedir3 } from "node:os";
+import { isAbsolute as isAbsolute3, join as join31 } from "node:path";
+var gitTimeoutMs3 = 6e4;
+var verifyConnectionAnchors = async ({
+  cwd,
+  connectionsDir,
+  docIds,
+  repair = false,
+  workspaceDir = join31(homedir3(), ".lightsout", "traverse-repos"),
+  onProgress
+}) => {
+  const progress = onProgress ?? (() => void 0);
+  const mapDir = isAbsolute3(connectionsDir) ? connectionsDir : join31(cwd, connectionsDir);
+  const edges = await readConnectionMap({ connectionsDir: mapDir });
+  const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
+  const targets = docIds ?? [...edges.keys()];
+  const results = [];
+  const headByRepo = /* @__PURE__ */ new Map();
+  const remoteHead = async (repo) => {
+    if (!headByRepo.has(repo)) {
+      const result = await runCommand({ command: `git ls-remote '${repo}' HEAD`, cwd, timeoutMs: gitTimeoutMs3 }).catch(() => void 0);
+      headByRepo.set(repo, result?.exitCode === 0 ? result.stdout.trim().split(/\s/)[0] : void 0);
+    }
+    return headByRepo.get(repo);
+  };
+  for (const id of targets) {
+    const doc = edges.get(id);
+    if (!doc) {
+      results.push({ doc: id, side: "from", node: "unknown", status: "unverifiable", detail: `no doc named '${id}' in the map` });
+      continue;
+    }
+    for (const side of ["from", "to"]) {
+      const anchor2 = side === "from" ? doc.fromAnchor : doc.toAnchor;
+      const node = side === "from" ? doc.from : doc.to;
+      if (!anchor2) {
+        continue;
+      }
+      const source = registry3.get(node);
+      if (!source) {
+        results.push({ doc: id, side, node, status: "unverifiable", detail: "non-repo node" });
+        continue;
+      }
+      const head = await remoteHead(source.repo);
+      if (head && doc.lastVerifiedSha?.[node] === head) {
+        results.push({ doc: id, side, node, status: "current" });
+        continue;
+      }
+      const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir, forceRefresh: true });
+      const fileText = await readFile23(join31(workspace, anchor2.path), "utf8").catch(() => void 0);
+      if (fileText?.includes(anchor2.pattern)) {
+        results.push({ doc: id, side, node, status: "ok" });
+        if (repair && head) {
+          await patchConnectionDoc({
+            path: join31(mapDir, `${id}.md`),
+            patch: (raw) => {
+              raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head };
+            }
+          });
+        }
+        continue;
+      }
+      const search = await runCommand({
+        command: `grep -rn --fixed-strings ${JSON.stringify(anchor2.pattern)} . --exclude-dir=.git | head -1`,
+        cwd: workspace,
+        timeoutMs: gitTimeoutMs3
+      }).catch(() => void 0);
+      const hit = search?.exitCode === 0 ? search.stdout.trim() : "";
+      const foundAt = hit ? hit.replace(/^\.\//, "").split(":").slice(0, 2).join(":") : void 0;
+      if (foundAt) {
+        results.push({ doc: id, side, node, status: "drifted", foundAt });
+        if (repair) {
+          await patchConnectionDoc({
+            path: join31(mapDir, `${id}.md`),
+            patch: (raw) => {
+              raw[`${side}-anchor`] = { path: foundAt.split(":")[0], pattern: anchor2.pattern };
+              raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head ?? null };
+            }
+          });
+        }
+      } else {
+        results.push({ doc: id, side, node, status: "missing", detail: "pattern not found anywhere in the repo \u2014 endpoint renamed or removed; a human decides (never auto-deleted)" });
+      }
+    }
+    progress(`verify ${id}: ${results.filter((entry) => entry.doc === id).map((entry) => `${entry.side} ${entry.status}`).join(", ")}`);
+  }
+  return results;
+};
+
+// packages/engine/src/renderTrace.ts
+var labelOf = (edgeId) => edgeId.split("--")[2] ?? edgeId;
+var renderTrace = ({ state, edges, mode }) => {
+  const header = [`# ${state.question}`, "", `mode: ${mode} \xB7 hops: ${state.hops.length} \xB7 gaps: ${state.gaps.length} \xB7 drift: ${state.drift.length}`, ""];
+  const chain = state.hops.map((hop, index) => {
+    if (!hop.report) {
+      return `${index + 1}. **${hop.node}** \u2014 ${hop.note ?? "non-repo node"}`;
+    }
+    const lines = [`${index + 1}. **${hop.node}** via \`${hop.edge}\` (${hop.report.confidence})`, `   ${hop.report.answerContribution}`];
+    for (const transform2 of hop.report.transforms) {
+      lines.push(`   - \`${transform2.at}\` \u2014 ${transform2.what}`);
+    }
+    return lines.join("\n");
+  });
+  const gaps = state.gaps.length > 0 ? ["", "## Gaps \u2014 the map ends here", "", ...state.gaps.map((gap) => `- ${gap.node}: ${gap.detail}${gap.exit ? ` (\`${gap.exit.kind}\` \u2192 ${gap.exit.target} at \`${gap.exit.at}\`)` : ""}`)] : [];
+  if (mode === TraverseMode.Diagram) {
+    const arrows = state.hops.map((hop) => {
+      const doc = edges.get(hop.edge);
+      return doc ? `	${doc.from} -->|${doc.type}: ${labelOf(hop.edge)}| ${doc.to}` : void 0;
+    }).filter((line) => line !== void 0);
+    const notes = state.hops.flatMap((hop) => hop.report?.transforms.map((transform2) => `- **${hop.node}** \`${transform2.at}\`: ${transform2.what}`) ?? []);
+    return [...header, "```mermaid", "flowchart LR", ...arrows, "```", ...notes.length > 0 ? ["", "## Transforms along the flow", "", ...notes] : [], ...gaps, ""].join("\n");
+  }
+  if (mode === TraverseMode.Doc) {
+    const sections = state.hops.map((hop, index) => {
+      if (!hop.report) {
+        return `## ${index + 1}. ${hop.node}
+
+${hop.note ?? "non-repo node \u2014 crossed mechanically"}`;
+      }
+      const doc = edges.get(hop.edge);
+      const parts = [
+        `## ${index + 1}. ${hop.node}`,
+        "",
+        `**Arrives** via \`${hop.edge}\`${doc?.type ? ` (${doc.type})` : ""} \u2014 entry: ${hop.report.entry}`
+      ];
+      if (hop.report.transforms.length > 0) {
+        parts.push("", "**Transforms:**", ...hop.report.transforms.map((transform2) => `- \`${transform2.at}\` \u2014 ${transform2.what}`));
+      }
+      if (hop.report.exits.length > 0) {
+        parts.push("", "**Leaves:**", ...hop.report.exits.map((exit) => `- ${exit.kind} \u2192 ${exit.target} at \`${exit.at}\` \u2014 carries ${exit.carries}${exit.conditional ? ` (when ${exit.conditional})` : ""}`));
+      }
+      return parts.join("\n");
+    });
+    return [...header, ...sections.flatMap((section) => [section, ""]), ...gaps, ""].join("\n");
+  }
+  if (mode === TraverseMode.Plan) {
+    const sections = state.hops.filter((hop) => hop.report).map((hop) => {
+      const report = hop.report;
+      const doc = edges.get(hop.edge);
+      const files = [...new Set([report?.entry ?? "", ...report?.transforms.map((transform2) => transform2.at) ?? []].map((at) => at.split(":")[0]).filter(Boolean))];
+      const schemaGates = [doc?.schema?.from, doc?.schema?.to].filter(Boolean);
+      return [
+        `## ${hop.node}`,
+        "",
+        `- establishes: ${report?.answerContribution ?? ""}`,
+        `- files on the trail: ${files.map((file2) => `\`${file2}\``).join(", ") || "none cited"}`,
+        ...schemaGates.length > 0 ? [`- contract change on \`${hop.edge}\` is gated by: ${schemaGates.map((file2) => `\`${file2}\``).join(", ")}`] : []
+      ].join("\n");
+    });
+    return [
+      ...header,
+      "Per-repo change surface derived from the trace \u2014 the planner decides WHAT to change; these are the verified places and contracts it touches.",
+      "",
+      ...sections.flatMap((section) => [section, ""]),
+      ...gaps,
+      ""
+    ].join("\n");
+  }
+  return [...header, ...chain.flatMap((entry) => [entry, ""]), ...gaps, ""].join("\n");
+};
+
+// packages/engine/src/draftConnectionDocs.ts
+import { mkdir as mkdir10, readFile as readFile24, writeFile as writeFile10 } from "node:fs/promises";
+import { isAbsolute as isAbsolute4, join as join32 } from "node:path";
+var slugOf2 = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
+var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
+  const mapDir = isAbsolute4(connectionsDir) ? connectionsDir : join32(cwd, connectionsDir);
+  const tracePath = join32(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
+  const raw = await readFile24(tracePath, "utf8").catch(() => {
+    throw new Error(`no trace found for run ${traverseRunId} at ${tracePath}`);
+  });
+  const state = TraceState.parse(JSON.parse(raw));
+  const draftsDir = join32(mapDir, "drafts");
+  const drafted = [];
+  await mkdir10(draftsDir, { recursive: true });
+  for (const gap of state.gaps) {
+    if (!gap.exit) {
+      continue;
+    }
+    const id = `${gap.node}--UNKNOWN--${slugOf2(gap.exit.target)}`;
+    const content = [
+      "---",
+      `from: ${gap.node}`,
+      "to: UNKNOWN # <- fill in the receiving node, then move this file up into the connections dir",
+      `type: ${gap.exit.kind}`,
+      "from-anchor:",
+      `  path: ${gap.exit.at.split(":")[0]}`,
+      `  pattern: "${gap.exit.target.replace(/"/g, '\\"')}" # <- replace with the greppable code fragment at the emit site`,
+      "additional-context: []",
+      "---",
+      "",
+      "# Summary",
+      "",
+      `DRAFT from traverse run ${traverseRunId}: ${gap.node} emits ${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at}, carrying ${gap.exit.carries}. Receiver unknown \u2014 ${gap.detail}`
+    ].join("\n");
+    await writeFile10(join32(draftsDir, `${id}.md`), `${content}
+`, "utf8");
+    drafted.push(id);
+  }
+  return { drafted, draftsDir };
+};
+
 // packages/engine/src/runPromptImprovement.ts
 import { readdir as readdir7 } from "node:fs/promises";
-import { join as join31 } from "node:path";
+import { join as join33 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -38086,8 +38293,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir7(join31(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join31(promptsDir, file2));
+  const files = await readdir7(join33(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join33(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -38113,6 +38320,8 @@ usage:
   lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
   lightsout build-map <node...|all> [--connections <dir>] [--rescan] [--cwd <path>]
   lightsout build-map --author <run-id> [--connections <dir>] [--cwd <path>]   (post-review: write docs from a culled join.json)
+  lightsout map-connection verify [<doc-id>...] [--repair] [--connections <dir>] [--cwd <path>]
+  lightsout map-connection draft --run <traverse-run-id> [--connections <dir>] [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -38409,7 +38618,7 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join32(cwd, ".lightsout", "runs");
+    const runsDir = join34(cwd, ".lightsout", "runs");
     const runIds = await readdir8(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
@@ -38533,6 +38742,16 @@ ${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connectio
           console.log(`  ${drift.edge} (${drift.node}): ${drift.status}${drift.foundAt ? ` \u2014 found at ${drift.foundAt}` : ""}`);
         }
       }
+      if (state.mode !== "answer" && state.mode !== "bug") {
+        const edges = await readConnectionMap({
+          connectionsDir: join34(cwd, getStringFlag({ flags, name: "connections" }) ?? ".lightsout/connections")
+        });
+        const rendered = renderTrace({ state, edges, mode: state.mode });
+        const outPath = join34(result.runDir, `${state.mode}.md`);
+        await writeFile11(outPath, rendered, "utf8");
+        console.log(`
+${state.mode} rendered: ${outPath}`);
+      }
       console.log(`
 trace: ${result.runDir}/trace.json`);
       if (result.error) {
@@ -38551,18 +38770,18 @@ ${result.error}`);
     const config2 = await loadConfig({ cwd }).catch(() => void 0);
     try {
       if (authorRunId) {
-        const joinPath = join32(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
-        const reviewed = MapJoin.parse(JSON.parse(await readFile23(joinPath, "utf8")));
-        const inventoriesDir = join32(cwd, ".lightsout/traverse/inventories");
+        const joinPath = join34(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+        const reviewed = MapJoin.parse(JSON.parse(await readFile25(joinPath, "utf8")));
+        const inventoriesDir = join34(cwd, ".lightsout/traverse/inventories");
         const shaByNode = /* @__PURE__ */ new Map();
         for (const name of (await readdir8(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile23(join32(inventoriesDir, name), "utf8")));
+          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile25(join34(inventoriesDir, name), "utf8")));
           if (inventory.success) {
             shaByNode.set(inventory.data.node, inventory.data.scannedSha);
           }
         }
         const result2 = await authorConnectionDocs({
-          connectionsDir: join32(cwd, connectionsDir),
+          connectionsDir: join34(cwd, connectionsDir),
           join: reviewed,
           shaByNode
         });
@@ -38621,6 +38840,51 @@ ${bold(`build-map ${result.runId}`)} \u2014 scanned ${result.scanned.length}, re
 ${bold("REVIEW GATE")} \u2014 no docs written yet. Cull ${result.runDir}/join.json (delete rejected entries), then:`);
       console.log(`  lightsout build-map --author ${result.runId}${connectionsDir === ".lightsout/connections" ? "" : ` --connections ${connectionsDir}`}`);
       process.exit(0);
+    } catch (error51) {
+      console.error(error51 instanceof Error ? error51.message : String(error51));
+      process.exit(1);
+    }
+  }
+  if (command === "map-connection") {
+    const subcommand = getPositionals({ args: rest })[0];
+    const connectionsDir = getStringFlag({ flags, name: "connections" }) ?? ".lightsout/connections";
+    try {
+      if (subcommand === "verify") {
+        const docIds = getPositionals({ args: rest }).slice(1);
+        const results = await verifyConnectionAnchors({
+          cwd,
+          connectionsDir,
+          docIds: docIds.length > 0 ? docIds : void 0,
+          repair: flags.get("repair") === true,
+          onProgress: (message) => console.log(dim(message))
+        });
+        const icons = { current: dim("\xB7"), ok: green("\u2713"), drifted: yellow("~"), missing: red("\u2717"), unverifiable: dim("?") };
+        console.log("");
+        for (const entry of results) {
+          console.log(`${icons[entry.status]} ${entry.doc} ${dim(`${entry.side}/${entry.node}`)} ${entry.status}${entry.foundAt ? ` \u2192 ${entry.foundAt}` : ""}${entry.detail ? dim(` \u2014 ${entry.detail}`) : ""}`);
+        }
+        const broken = results.filter((entry) => entry.status === "drifted" || entry.status === "missing").length;
+        console.log(
+          `
+${results.length} anchor(s): ${results.filter((entry) => entry.status === "current").length} current \xB7 ${results.filter((entry) => entry.status === "ok").length} ok \xB7 ${broken} need attention${flags.get("repair") === true ? " (drift repaired, sha advanced)" : broken > 0 ? " \u2014 re-run with --repair to apply fixes" : ""}`
+        );
+        process.exit(results.some((entry) => entry.status === "missing") ? 1 : 0);
+      }
+      if (subcommand === "draft") {
+        const traverseRunId = getStringFlag({ flags, name: "run" });
+        if (!traverseRunId) {
+          console.error(usage);
+          process.exit(1);
+        }
+        const { drafted, draftsDir } = await draftConnectionDocs({ cwd, connectionsDir, traverseRunId });
+        console.log(drafted.length === 0 ? "no gaps with concrete exits in that trace \u2014 nothing to draft" : `${green("\u2713")} drafted ${drafted.length} scaffold(s) in ${draftsDir}:`);
+        for (const id of drafted) {
+          console.log(`  ${id} ${dim("\u2014 fill in the to-side, verify anchors, move up into the connections dir")}`);
+        }
+        process.exit(0);
+      }
+      console.error(usage);
+      process.exit(1);
     } catch (error51) {
       console.error(error51 instanceof Error ? error51.message : String(error51));
       process.exit(1);

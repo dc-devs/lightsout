@@ -578,11 +578,22 @@ engine's extractJsonReport machinery).
   verification sweep (authored doc → confirmed). Suite 103/103. Live agent
   outing still pending (first real exercise: two adjacent FD-adjacent
   nodes).
-- Phase 3: anchor verification as code (fetch+grep, SHA-gated),
-  map-connection repair, diagram/plan/bug/doc renderers (Mermaid skeleton
-  derived mechanically; agent only annotates).
-- First live exercise: build-map on two real adjacent nodes; the join must
-  land one edge with both anchors on real lines (per prototype MIGRATION).
+- Phase 3 — DONE 2026-07-05: verifyConnectionAnchors as pure code (per
+  anchor: ls-remote sha gate → skip; else grep at path → ok, repo-wide →
+  drifted, nowhere → missing; --repair advances shas and repoints drifted
+  anchors; missing only ever reported — never auto-deleted).
+  `map-connection verify [ids] [--repair]` + `map-connection draft --run
+  <traverse-id>` (gaps with concrete exits → drafts/ scaffolds, invisible
+  to the map reader until a human fills the to-side and moves them up).
+  renderTrace: diagram (Mermaid skeleton derived from crossed docs, hops
+  annotate) / doc (section per hop) / plan (per-repo change surface +
+  schema gates — Task 13's input) — all mechanical from trace.json.
+  Ignition skills /traverse + /build-map added to the plugin (zero logic).
+  Suite 106/106.
+- First live exercise (REMAINING — the only open item): build-map on two
+  real adjacent nodes; the join must land one edge with both anchors on
+  real lines (per prototype MIGRATION). Everything is stub-driver tested;
+  no live agent has run yet.
 - Connections dir + repos.yaml location configurable (CWD now, central map
   repo later).
 
@@ -648,36 +659,68 @@ writer, so the writer is *told* the rule.
 The gap is structural in the engine's fan-out, which fights that rule:
 `sourceFiles()` (`runImplementPipeline.ts:416`) = *every* changed source file,
 and the step spawns one writer per file with `changedFiles: [file]`
-(`~:648-653`). So (a) barrels / type-only / internal files each still burn a
-dedicated writer invocation the standard says shouldn't exist, and (b) an
-*internal* whose coverage is supposed to come *through its boundary* (a
-different file) can't be — the per-file writer holds only the internal, and
-the boundary's writer doesn't know it owns the internal's coverage. Per-file
-fan-out cannot express "cover X through Y."
+(`~:648-653`). Two distinct symptoms:
 
-- The one genuinely-open decision: how does a *born-generic* engine group
-  changed files into boundary units when the Boundary/Internal classification
-  is consumer-specific (the jest table is FD's, not universal)? Options to
-  weigh:
-  - (a) Keep per-file fan-out but make "internal / inert — no dedicated test"
-    a first-class writer outcome that neither fails nor is retried, and lean
-    on the per-file coverage gate to force boundary writers to cover internals
-    transitively. Cheapest; stays generic; wastes the skipped slot.
-  - (b) Cheap universal pre-filter before fan-out for provably-inert files
-    (an `index.ts` that only re-exports; type-only modules) — language-level,
-    consumer-agnostic. Doesn't solve internal-through-boundary.
-  - (c) Per-module fan-out: group changed files by owning module and spawn one
-    writer per boundary, covering internals transitively; coverage gate stays
-    per-file. Reuses the new module-registry machinery
-    (`readNodeRegistry.ts` / `readConnectionMap.ts`). Most faithful to the
-    standard; most work; needs a generic module-boundary detector.
+1. **Wasted invocations on inert files.** The writer prompt already tells it to
+   skip barrels / type-only / config and report `complete` with empty
+   `changedFiles` (`unitTestWriter.md:38`), so these don't *fail* — they burn a
+   whole writer invocation to no-op (and, when a writer does write a barrel
+   test anyway, produce the implementation-coupled noise this task exists to
+   kill).
+2. **Internal-through-boundary can't be expressed in the first pass.** A
+   per-file writer for `common/utils/x.ts` is handed *only* that file, so it
+   can't "test through the module's public surface" — it doesn't hold the
+   surface file. It either writes a dedicated internal test (coupling to
+   internals) or skips and leaves `x.ts` uncovered → the per-file coverage gate
+   fails → the retry at `~:932` hands the writer the *whole* `sourceFiles()`
+   set, which finally covers through the boundary. Correct, but only after a
+   wasted first pass + a gate-failure round-trip.
+
+Fix in two layers — different difficulty, ship independently. Note the
+Boundary/Internal *classification* is consumer-specific (the jest table is
+FD's) and the engine must NOT build a boundary detector — it genuinely can't
+generically: `module-api.md` point 5 says internal subfolders keep their own
+`index.ts`, so "nearest ancestor with a barrel" stops at the internal barrel,
+not the feature boundary. Grouping ≠ classifying: the engine groups, the agent
+(which has the injected standard) classifies within.
+
+**Layer 1 — deterministic inert-file filter (ship first; generic, safe).**
+Before fan-out, read each changed source file (cheap, no agent) and drop the
+*provably logic-free* ones — barrel (`export … from` / `export *` only) and
+type-only (`type` / `interface` / `export type` only, comments stripped) — from
+the write-tests target set, and exempt them from the per-file coverage
+requirement (nothing to cover). One pure classifier fn, **conservative: skip
+only when certain there is no executable statement** (a constant file with an
+env-var fallback has logic → stays). False negatives reproduce today's
+behavior (safe); false positives must never happen. Matches the standard's
+"Files That Must NOT Have Dedicated Tests" list exactly. "Has no executable
+code" is a language property, not a consumer architecture rule — so this stays
+born-generic. Kills symptom 1 outright.
+
+**Layer 2 — package-grouped fan-out (harder; do after Layer 1, on evidence).**
+Group the (filtered) changed files by `packageOf(file)` — the one boundary the
+engine truly knows (`manifest.packages` already computed) — and spawn one
+writer per package-group (batched across `testWriterConcurrency`), told: "these
+files in package P changed; test each module through its public surface, cover
+internals transitively, inert files get no test." The writer now holds a
+boundary and its internals together, so it routes internal coverage to the
+boundary *in the first pass* — no gate-failure round-trip. Non-monorepo = one
+group (accept reduced parallelism; cap group size with a per-file fallback
+above the cap, or defer finer intra-package grouping behind *config* — never a
+hard-coded layout). The **per-file coverage gate stays exactly as the
+backstop** — this is what makes an imperfect grouping *safe*: worst case is a
+wasted round-trip, never wrong coverage.
+
 - Keep git-truth changed files as the *scope* — this changes which files earn
   a dedicated writer and how they're grouped, not what counts as changed.
-- Acceptance: a changed barrel / type-only file no longer spawns (or no longer
-  fails on) a writer; a changed internal's coverage is attributable to its
-  boundary writer; a changed behavioral module still gets covered. Lands with
-  a stub-driver smoke test proving the new selection/grouping and an updated
-  engine test.
+- Acceptance (Layer 1): a changed barrel / type-only file no longer spawns a
+  writer and is not held to per-file coverage; a constant-with-logic file still
+  does; a behavioral module still gets covered. Pure unit test over the
+  classifier + a stub-driver smoke on a barrel-only change.
+- Acceptance (Layer 2): a monorepo change fans out one writer per package; a
+  changed internal's coverage lands in the first pass via its boundary writer.
+  Stub-driver smoke proving per-package grouping + a live smoke on
+  `fixtures/toy-calc`; report honestly what was not live-tested.
 
 ### Task 2: First full pipeline run on the codex driver (live) — LAST, deprioritized 2026-07-03
 
