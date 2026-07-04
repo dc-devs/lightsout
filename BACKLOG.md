@@ -359,8 +359,10 @@ step (deterministic, seconds, no tokens), filtered to the run's changed
 files, diffed against the committed baseline. New findings become the
 refactor agent's typed work-list (never "go find problems"); post-refactor
 re-scan gates with bounded retries. `finding` severity gates; `advisory`
-never gates. Scan-clean → skip the refactor agent entirely (answers the
-refactor-step cost/value question — phase 2: $8.51/4 invocations/1 file).
+never gates. RULED 2026-07-05: the refactor step KEEPS its standards audit
+of changed files alongside the scan work-list (user doesn't trust removing
+it yet) — revisit dropping it once report-card data shows the audit's
+yield vs cost ($8.51/4 invocations/1 file in phase 2).
 Caveat to solve in-task: clone/size cluster keys embed line numbers, so
 shifted lines can make baselined findings look new — fuzzy-match or start
 those detectors advisory-only.
