@@ -9,17 +9,19 @@ const passingProbe = async () => ({ exitCode: 0, stdout: '2.1.201 (Claude Code)\
 
 const byId = (checks: Awaited<ReturnType<typeof runDoctor>>) => new Map(checks.map((check) => [check.id, check]));
 
-test('doctor passes a healthy consumer repo', async () => {
-	const dir = setupConsumerRepo({ git: false });
+test('doctor passes a healthy consumer repo — gitignore judged by git, not by line-matching', async () => {
+	const dir = setupConsumerRepo();
 
-	writeFileSync(join(dir, '.gitignore'), '.lightsout/\n');
+	// The bare-directory spelling (no trailing slash) that a real consumer
+	// used and the old literal-line check false-warned on.
+	writeFileSync(join(dir, '.gitignore'), '.lightsout\n');
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
 	assert.equal(checks.get('config')?.status, 'pass');
 	assert.equal(checks.get('harness')?.status, 'pass');
 	assert.match(checks.get('harness')?.detail ?? '', /claude 2\.1\.201/);
-	assert.equal(checks.get('gitignore')?.status, 'pass');
+	assert.equal(checks.get('gitignore')?.status, 'pass', checks.get('gitignore')?.detail);
 	assert.equal(checks.get('script-binaries')?.status, 'pass', checks.get('script-binaries')?.detail);
 });
 
@@ -50,7 +52,6 @@ test('doctor flags a broken harness binary with the probe output', async () => {
 
 test('doctor warns on missing gitignore entries, scriptless packages, jest configs without mock cleanup, and stale generated paths', async () => {
 	const dir = setupConsumerRepo({
-		git: false,
 		config: {
 			generated: ['packages/api/src/gen/', 'packages/api/schema.gql'],
 			packageScripts: {
@@ -102,4 +103,5 @@ test('doctor finds jest configs nested under test/ and fails on missing gate bin
 	assert.equal(checks.get('jest-mocks')?.status, 'pass');
 	assert.equal(checks.get('script-binaries')?.status, 'fail');
 	assert.match(checks.get('script-binaries')?.detail ?? '', /definitely-not-a-real-binary-xyz/);
+	assert.match(checks.get('gitignore')?.detail ?? '', /not a git repository/, 'non-git repo is stated, not guessed at');
 });

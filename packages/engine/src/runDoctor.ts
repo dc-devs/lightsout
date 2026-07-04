@@ -97,19 +97,36 @@ export const runDoctor = async ({ cwd, probeHarness }: Params) => {
 		});
 	}
 
-	const gitignore = await readFile(join(cwd, '.gitignore'), 'utf8').catch(() => undefined);
-	const lines = gitignore?.split('\n').map((line) => line.trim()) ?? [];
-	const missing = lines.includes('.lightsout/') ? [] : gitignoreEntries.filter((entry) => !lines.includes(entry));
+	// Ask git what it actually ignores instead of parsing .gitignore
+	// ourselves — `.lightsout` (no slash), `.lightsout/`, and a dozen other
+	// spellings are all valid; line-matching false-warned on a real consumer.
+	const notIgnored: string[] = [];
+	let gitUsable = true;
+
+	for (const entry of gitignoreEntries) {
+		const probePath = entry.endsWith('/') ? `${entry}probe` : entry;
+		const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
+			exitCode: 128,
+		}));
+
+		if (result.exitCode === 1) {
+			notIgnored.push(entry);
+		} else if (result.exitCode !== 0) {
+			gitUsable = false;
+		}
+	}
 
 	checks.push(
-		missing.length === 0
-			? { id: 'gitignore', status: 'pass', detail: 'run state is ignored' }
-			: {
-					id: 'gitignore',
-					status: 'warn',
-					detail: gitignore === undefined ? 'no .gitignore found' : `run state not ignored: ${missing.join(', ')}`,
-					fix: `add to .gitignore:\n${missing.join('\n')}`,
-				},
+		!gitUsable
+			? { id: 'gitignore', status: 'warn', detail: 'not a git repository — .gitignore not evaluated' }
+			: notIgnored.length === 0
+				? { id: 'gitignore', status: 'pass', detail: 'run state is ignored (verified via git check-ignore)' }
+				: {
+						id: 'gitignore',
+						status: 'warn',
+						detail: `run state not ignored: ${notIgnored.join(', ')}`,
+						fix: `add to .gitignore:\n${notIgnored.join('\n')}`,
+					},
 	);
 
 	// Which scoped gates would skip, surfaced before any run: a package with

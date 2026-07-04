@@ -16692,16 +16692,26 @@ ${probed.stderr}`.trim().slice(0, 200)}`,
       fix: `install the ${binary} CLI and log in`
     });
   }
-  const gitignore = await readFile10(join15(cwd, ".gitignore"), "utf8").catch(() => void 0);
-  const lines = gitignore?.split("\n").map((line) => line.trim()) ?? [];
-  const missing = lines.includes(".lightsout/") ? [] : gitignoreEntries.filter((entry) => !lines.includes(entry));
+  const notIgnored = [];
+  let gitUsable = true;
+  for (const entry of gitignoreEntries) {
+    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
+    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
+      exitCode: 128
+    }));
+    if (result.exitCode === 1) {
+      notIgnored.push(entry);
+    } else if (result.exitCode !== 0) {
+      gitUsable = false;
+    }
+  }
   checks.push(
-    missing.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored" } : {
+    !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
       id: "gitignore",
       status: "warn",
-      detail: gitignore === void 0 ? "no .gitignore found" : `run state not ignored: ${missing.join(", ")}`,
+      detail: `run state not ignored: ${notIgnored.join(", ")}`,
       fix: `add to .gitignore:
-${missing.join("\n")}`
+${notIgnored.join("\n")}`
     }
   );
   const packageDirs = [{ label: "root", dir: cwd }];
