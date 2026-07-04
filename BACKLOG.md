@@ -253,7 +253,7 @@ doing — the observed pain of run #2.
   orchestrator the engine exists to replace; course-correction stays where
   it belongs — gates, supervisor, escalation.
 
-### Task 8: `lightsout scan` — structural detector suite — V1 DONE (2026-07-04); v2 remediation remains
+### Task 8: `lightsout scan` — structural detector suite — scan tool DONE (2026-07-04); Scan Gate + Cleanup Pipeline remain
 
 V1 result: `lightsout scan [--cwd] [--path]`, six detectors (tier-0 name
 dedup w/ synonym collapse, jscpd clones via @jscpd/core, normalized-AST
@@ -353,7 +353,7 @@ state under gitignored .lightsout/. All six items:
    generated-dir report should diagnose its own config gap (live case:
    Prisma client dir missing from `generated`).
 
-V2a — in-run scan ratchet (small, do first; split 2026-07-05): wire scan
+SCAN GATE (formerly v2a — in-run, small, do first; split 2026-07-05): wire scan
 into the pipeline so new debt can't sneak in. Scan runs before the refactor
 step (deterministic, seconds, no tokens), filtered to the run's changed
 files, diffed against the committed baseline. New findings become the
@@ -367,7 +367,7 @@ Caveat to solve in-task: clone/size cluster keys embed line numbers, so
 shifted lines can make baselined findings look new — fuzzy-match or start
 those detectors advisory-only.
 
-V2b — debt burn-down pipeline (later, after v2a evidence): standalone run
+CLEANUP PIPELINE (formerly v2b — later, after Scan Gate evidence): standalone run
 type consuming the baseline ledger as its work-list — clean-slate gate →
 scan → one refactor agent per finding-cluster (test-writer fan-out
 pattern), each handed a specific defect → gates per batch → re-scan → loop
@@ -448,7 +448,7 @@ Cleanup list (seeded from the phase-3 friction review; append below):
       occurrence, different file each time); gate re-run absorbed both.
 - [ ] FD (inventory, no urgency): the ~20 legacy GitHub-side test files the
       phase-3 writers named while applying the precedence rule — the
-      deliberate-cleanup queue for Task 8 v2 / a dedicated style-migration
+      deliberate-cleanup queue for the Cleanup Pipeline (Task 8) / a dedicated style-migration
       plan.
 
 From the TeamSelector.tsx + test review (2026-07-04 — verdict ~95%
@@ -580,7 +580,7 @@ design notes so nothing is lost:
   (linear-integrations.service.ts:155, Linear-only); extract the shared
   create/update handler flow in BOTH sync processors symmetrically
   (github-sync.processor.ts:74/146, linear-sync.processor.ts:77/173) — a
-  natural first target for Task 8 v2 or a small lightsout-run plan.
+  natural first target for the Cleanup Pipeline (Task 8) or a small lightsout-run plan.
 - Phase 3 of linear-two-way-sync: first run on slimmed standards —
   its standards-friction count is the Task 5 experiment's readout.
 
