@@ -14732,7 +14732,13 @@ var FrictionKind = {
 var FrictionEntry = external_exports.object({
   /** `friction` (something fought the agent) or `decision` (a silent-input guess). Omitted means friction. */
   kind: external_exports.enum(FrictionKind).optional(),
-  area: external_exports.enum(FrictionArea),
+  /**
+   * Best-effort taxonomy, never load-bearing: an unrecognized label coerces
+   * to `other` instead of failing the whole report — `detail` carries the
+   * real signal. (A live run's valid zero-change report died over an
+   * invented `"scope"` area.)
+   */
+  area: external_exports.enum(FrictionArea).catch(FrictionArea.Other),
   detail: external_exports.string()
 });
 
@@ -15228,10 +15234,13 @@ var extractJsonReport = ({ text }) => {
     return JSON.parse(trimmed);
   } catch {
   }
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced?.[1]) {
+  const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
+  for (const body of fencedBodies.reverse()) {
+    if (!body) {
+      continue;
+    }
     try {
-      return JSON.parse(fenced[1].trim());
+      return JSON.parse(body.trim());
     } catch {
     }
   }

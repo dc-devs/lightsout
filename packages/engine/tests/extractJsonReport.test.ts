@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { WorkReport } from '@lightsout/contracts';
 import { extractJsonReport } from '../src/extractJsonReport';
 
 test('extractJsonReport accepts bare JSON', () => {
@@ -40,6 +41,46 @@ test('extractJsonReport prefers the LAST embedded object (the report is the clos
 	assert.deepEqual(extractJsonReport({ text: 'I considered {"draft":true} first.\n\nFinal: {"status":"complete"}' }), {
 		status: 'complete',
 	});
+});
+
+// The shape that failed FeedbackDrop run d91f2f74 at attempt 2: the re-emit
+// retry reproduced the rejected report, caught its own invalid friction area
+// mid-message, and emitted a corrected second fenced block — which the old
+// first-fence match threw away.
+test('extractJsonReport prefers the LAST parseable fenced block (a re-emitter self-corrects mid-message)', () => {
+	const text = [
+		'```json',
+		'{"status":"complete","changedFiles":[],"summary":"No changes warranted.","friction":[{"kind":"decision","area":"scope","detail":"duplication across scope boundary"}]}',
+		'```',
+		'',
+		'Wait — the first friction entry uses `area: "scope"`, which is invalid. Best mapped to `other`.',
+		'',
+		'```json',
+		'{"status":"complete","changedFiles":[],"summary":"No changes warranted.","friction":[{"kind":"decision","area":"other","detail":"duplication across scope boundary"}]}',
+		'```',
+	].join('\n');
+	const extracted = extractJsonReport({ text }) as { friction: Array<{ area: string }> };
+
+	assert.equal(extracted.friction[0]?.area, 'other');
+});
+
+test('extractJsonReport falls back to an earlier fenced block when the last is unparseable', () => {
+	assert.deepEqual(extractJsonReport({ text: '```json\n{"a":1}\n```\nnotes:\n```\nnot json at all\n```' }), { a: 1 });
+});
+
+// The shape that failed the same run at attempt 1: a valid zero-change
+// report rejected over one invented friction label. Taxonomy is telemetry —
+// it degrades to `other`, it never sinks the report.
+test('WorkReport coerces an unrecognized friction area to other instead of rejecting', () => {
+	const report = WorkReport.parse({
+		status: 'complete',
+		changedFiles: [],
+		summary: 'No changes warranted.',
+		friction: [{ kind: 'decision', area: 'scope', detail: 'duplication across scope boundary' }],
+	});
+
+	assert.equal(report.friction?.[0]?.area, 'other');
+	assert.equal(report.friction?.[0]?.detail, 'duplication across scope boundary');
 });
 
 test('extractJsonReport ignores braces inside JSON strings', () => {

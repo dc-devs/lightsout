@@ -69,11 +69,14 @@ const lastEmbeddedJsonObject = ({ text }: Params): unknown => {
 
 /**
  * Pull a JSON payload out of an agent's final message. Agents are instructed
- * to emit bare JSON; tolerated deviations, in order: a fenced block, then a
- * JSON object embedded in prose (the first consumer run failed twice holding
- * a valid report behind one sentence of preamble). Strictness lives in the
- * role's zod contract — the only thing allowed to assign meaning to the
- * returned `unknown` — not in finding the payload.
+ * to emit bare JSON; tolerated deviations, in order: the LAST parseable
+ * fenced block, then the last JSON object embedded in prose (the first
+ * consumer run failed twice holding a valid report behind one sentence of
+ * preamble). Last everywhere — the report is the agent's closing act, and a
+ * live re-emit retry once corrected itself mid-message, leaving the fixed
+ * report as a second fenced block after the broken first. Strictness lives
+ * in the role's zod contract — the only thing allowed to assign meaning to
+ * the returned `unknown` — not in finding the payload.
  */
 export const extractJsonReport = ({ text }: Params): unknown => {
 	const trimmed = text.trim();
@@ -84,13 +87,17 @@ export const extractJsonReport = ({ text }: Params): unknown => {
 		// fall through to the tolerant tiers
 	}
 
-	const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+	const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
 
-	if (fenced?.[1]) {
+	for (const body of fencedBodies.reverse()) {
+		if (!body) {
+			continue;
+		}
+
 		try {
-			return JSON.parse(fenced[1].trim());
+			return JSON.parse(body.trim());
 		} catch {
-			// fall through
+			// try the previous fenced block
 		}
 	}
 

@@ -10,7 +10,13 @@ import { FrictionKind } from './FrictionKind';
 export const FrictionEntry = z.object({
 	/** `friction` (something fought the agent) or `decision` (a silent-input guess). Omitted means friction. */
 	kind: z.enum(FrictionKind).optional(),
-	area: z.enum(FrictionArea),
+	/**
+	 * Best-effort taxonomy, never load-bearing: an unrecognized label coerces
+	 * to `other` instead of failing the whole report — `detail` carries the
+	 * real signal. (A live run's valid zero-change report died over an
+	 * invented `"scope"` area.)
+	 */
+	area: z.enum(FrictionArea).catch(FrictionArea.Other),
 	detail: z.string(),
 });
 
