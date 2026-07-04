@@ -10,6 +10,8 @@ interface Params {
 	repo: string;
 	/** Shared clone workspace (clones persist across runs; monorepo packages share their repo's clone). */
 	workspaceDir: string;
+	/** Refresh even when the clone is fresh — needed before path-scoped staleness checks. */
+	forceRefresh?: boolean;
 }
 
 /**
@@ -19,7 +21,7 @@ interface Params {
  * failure degrades to the stale clone (offline-friendly); a clone failure is
  * a hard error, because a hop without code has nothing to trace.
  */
-export const ensureNodeWorkspace = async ({ repo, workspaceDir }: Params) => {
+export const ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false }: Params) => {
 	const dirName = basename(repo, '.git').replace(/[^A-Za-z0-9._-]/g, '-') || 'repo';
 	const repoDir = join(workspaceDir, dirName);
 	const existing = await stat(join(repoDir, '.git')).catch(() => undefined);
@@ -34,7 +36,7 @@ export const ensureNodeWorkspace = async ({ repo, workspaceDir }: Params) => {
 		return repoDir;
 	}
 
-	if (Date.now() - existing.mtimeMs > refreshAfterMs) {
+	if (forceRefresh || Date.now() - existing.mtimeMs > refreshAfterMs) {
 		await runCommand({ command: 'git fetch --depth 1 origin && git reset --hard FETCH_HEAD', cwd: repoDir, timeoutMs: cloneTimeoutMs }).catch(() => undefined);
 	}
 

@@ -563,9 +563,21 @@ engine's extractJsonReport machinery).
   git clones (loop+gaps+drift+cycle-safety, budget/resume, non-repo,
   matcher). NOT yet exercised with a live hop agent — first real outing is
   the Phase 2 build-map exercise or a hand-authored two-edge map.
-- Phase 2: build-map — scanEdges prompt, parallel per-node fan-out
-  (test-writer pattern), join as pure code on (match_key, kind), human
-  review gate, durable per-node inventories.
+- Phase 2 — DONE 2026-07-05: build-map — scanEdges prompt/builder
+  (EdgeInventory contract), parallel fan-out (5 concurrent, one agent per
+  node), joinInventories as pure code (exact normalization + tolerant
+  fuzzy pass flagged for review; matched pairs split vs the existing map
+  into new/confirmed/drifted; orphans both directions; noise bucketed
+  never dropped), SHA-gated inventory freshness (ls-remote for whole
+  repos, path-scoped last-commit for monorepo packages — T9), durable
+  inventories pooled across runs (incremental). REVIEW GATE is join.json:
+  scan step never writes docs; `build-map --author <run-id>` reads the
+  human-culled join back and authors docs with code-verified anchors +
+  last-verified-sha, applies confirmed/drifted repairs, regenerates
+  INDEX.md. Full-cycle test proves re-running the join doubles as the
+  verification sweep (authored doc → confirmed). Suite 103/103. Live agent
+  outing still pending (first real exercise: two adjacent FD-adjacent
+  nodes).
 - Phase 3: anchor verification as code (fetch+grep, SHA-gated),
   map-connection repair, diagram/plan/bug/doc renderers (Mermaid skeleton
   derived mechanically; agent only annotates).

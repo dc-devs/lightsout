@@ -1,13 +1,15 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { RunStatus, TraverseMode, type LightsoutConfig } from '@lightsout/contracts';
+import { EdgeInventory, MapJoin, RunStatus, TraverseMode, type LightsoutConfig } from '@lightsout/contracts';
 import { getDriver, type Driver } from '@lightsout/drivers';
 import {
+	authorConnectionDocs,
 	isPidAlive,
 	loadConfig,
 	readFriction,
 	readRunLock,
 	readRunManifest,
+	runBuildMap,
 	runDoctor,
 	runImplementPipeline,
 	runScan,
@@ -28,6 +30,8 @@ usage:
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
   lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--mode answer|doc|diagram|plan|bug] [--data <field>] [--cwd <path>]
   lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
+  lightsout build-map <node...|all> [--connections <dir>] [--rescan] [--cwd <path>]
+  lightsout build-map --author <run-id> [--connections <dir>] [--cwd <path>]   (post-review: write docs from a culled join.json)
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -72,6 +76,29 @@ const getStringFlag = ({ flags, name }: { flags: Map<string, string | true>; nam
 	const value = flags.get(name);
 
 	return typeof value === 'string' ? value : undefined;
+};
+
+/** Tokens parseFlags didn't claim — mirrors its flag/value pairing exactly. */
+const getPositionals = ({ args }: { args: string[] }) => {
+	const positionals: string[] = [];
+
+	for (let index = 0; index < args.length; index += 1) {
+		const token = args[index];
+
+		if (token?.startsWith('--')) {
+			if (args[index + 1] !== undefined && !args[index + 1]?.startsWith('--')) {
+				index += 1;
+			}
+
+			continue;
+		}
+
+		if (token) {
+			positionals.push(token);
+		}
+	}
+
+	return positionals;
 };
 
 const describeStandards = ({ value, token }: { value: string[] | false | undefined; token: string }) => {
@@ -486,26 +513,7 @@ const main = async () => {
 	}
 
 	if (command === 'traverse') {
-		// Positional tokens (the question) are whatever parseFlags didn't claim.
-		const positionals: string[] = [];
-
-		for (let index = 0; index < rest.length; index += 1) {
-			const token = rest[index];
-
-			if (token?.startsWith('--')) {
-				if (rest[index + 1] !== undefined && !rest[index + 1]?.startsWith('--')) {
-					index += 1;
-				}
-
-				continue;
-			}
-
-			if (token) {
-				positionals.push(token);
-			}
-		}
-
-		const question = positionals.join(' ');
+		const question = getPositionals({ args: rest }).join(' ');
 		const resumeRunId = getStringFlag({ flags, name: 'run' });
 		const budgetFlag = getStringFlag({ flags, name: 'budget' });
 		const modeFlag = getStringFlag({ flags, name: 'mode' });
@@ -577,6 +585,104 @@ const main = async () => {
 			}
 
 			process.exit(result.status === 'complete' ? 0 : 1);
+		} catch (error) {
+			console.error(error instanceof Error ? error.message : String(error));
+			process.exit(1);
+		}
+	}
+
+	if (command === 'build-map') {
+		const connectionsDir = getStringFlag({ flags, name: 'connections' }) ?? '.lightsout/connections';
+		const authorRunId = getStringFlag({ flags, name: 'author' });
+		const config = await loadConfig({ cwd }).catch(() => undefined);
+
+		try {
+			if (authorRunId) {
+				// Post-review author step: the user has culled join.json by hand.
+				const joinPath = join(cwd, '.lightsout/traverse/map-runs', authorRunId, 'join.json');
+				const reviewed = MapJoin.parse(JSON.parse(await readFile(joinPath, 'utf8')));
+				const inventoriesDir = join(cwd, '.lightsout/traverse/inventories');
+				const shaByNode = new Map<string, string>();
+
+				for (const name of (await readdir(inventoriesDir).catch(() => [] as string[])).filter((entry) => entry.endsWith('.json'))) {
+					const inventory = EdgeInventory.safeParse(JSON.parse(await readFile(join(inventoriesDir, name), 'utf8')));
+
+					if (inventory.success) {
+						shaByNode.set(inventory.data.node, inventory.data.scannedSha);
+					}
+				}
+
+				const result = await authorConnectionDocs({
+					connectionsDir: join(cwd, connectionsDir),
+					join: reviewed,
+					shaByNode,
+				});
+
+				console.log(`${green('✓')} authored ${result.authored.length} doc(s)${result.authored.length > 0 ? `: ${result.authored.join(', ')}` : ''}`);
+				console.log(`${green('✓')} confirmed ${result.confirmed} · repaired ${result.repaired} · INDEX.md regenerated (${result.edgeCount} edge(s))`);
+				process.exit(0);
+			}
+
+			const nodeArgs = getPositionals({ args: rest });
+
+			if (nodeArgs.length === 0) {
+				console.error(usage);
+				process.exit(1);
+			}
+
+			const driver = getDriver({ name: config?.driver ?? 'claude-code' });
+			const result = await runBuildMap({
+				cwd,
+				driver,
+				nodes: nodeArgs.length === 1 && nodeArgs[0] === 'all' ? 'all' : nodeArgs,
+				connectionsDir,
+				rescan: flags.get('rescan') === true,
+				model: config?.model,
+				permissionMode: config?.permissionMode,
+				onProgress: (message) => console.log(dim(message)),
+			});
+
+			if (result.status !== 'complete' || !result.join) {
+				console.error(`\n${result.error ?? 'build-map failed'}`);
+				process.exit(1);
+			}
+
+			const { join: joined } = result;
+
+			console.log(`\n${bold(`build-map ${result.runId}`)} — scanned ${result.scanned.length}, reused ${result.reused.length} inventory(ies)\n`);
+
+			for (const edge of joined.matched) {
+				console.log(`${green('＋')} ${edge.from} → ${edge.to} [${edge.kind}] ${edge.matchKey}${edge.fuzzy ? yellow(' (fuzzy — review hardest)') : ''}`);
+				console.log(dim(`    ${edge.fromSighting.at} ↔ ${edge.toSighting.at}`));
+			}
+
+			for (const entry of joined.confirmed) {
+				console.log(`${green('✓')} confirmed ${entry.doc}`);
+			}
+
+			for (const entry of joined.drifted) {
+				console.log(`${yellow('~')} drifted ${entry.doc} (${entry.side} anchor → ${entry.foundAt})`);
+			}
+
+			for (const orphan of joined.orphansOut) {
+				console.log(`${dim('?')} orphan out: ${orphan.node} [${orphan.kind}] ${orphan.matchKey} ${dim(`(${orphan.payload})`)}`);
+			}
+
+			for (const orphan of joined.orphansIn) {
+				console.log(`${dim('?')} orphan in:  ${orphan.node} [${orphan.kind}] ${orphan.matchKey}`);
+			}
+
+			if (joined.noise.length > 0) {
+				console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS) — excluded; see join.json`));
+			}
+
+			for (const gap of joined.gaps) {
+				console.log(`${yellow('!')} scanner gap: ${gap.node} — ${gap.detail}`);
+			}
+
+			console.log(`\n${bold('REVIEW GATE')} — no docs written yet. Cull ${result.runDir}/join.json (delete rejected entries), then:`);
+			console.log(`  lightsout build-map --author ${result.runId}${connectionsDir === '.lightsout/connections' ? '' : ` --connections ${connectionsDir}`}`);
+			process.exit(0);
 		} catch (error) {
 			console.error(error instanceof Error ? error.message : String(error));
 			process.exit(1);

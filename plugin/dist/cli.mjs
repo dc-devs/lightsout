@@ -2098,7 +2098,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify(item, ctx, onComment, onChompKeep) {
+    function stringify2(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -2127,7 +2127,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -2137,7 +2137,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -2159,7 +2159,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -2211,7 +2211,7 @@ ${indent}:`;
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -2352,7 +2352,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log = require_log();
     var merge2 = require_merge();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map2, { key, value }) {
@@ -2388,7 +2388,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -2455,12 +2455,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify2 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify2(collection, ctx, options);
+      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify3(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -2485,7 +2485,7 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
@@ -2552,7 +2552,7 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify.stringify(item, itemCtx, () => comment = null);
+        let str = stringify2.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
@@ -3913,7 +3913,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines = [];
@@ -3928,7 +3928,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines.push("---");
-      const ctx = stringify.createStringifyContext(doc, options);
+      const ctx = stringify2.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines.length !== 1)
@@ -3950,7 +3950,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
@@ -3958,7 +3958,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines.push(body);
       } else {
-        lines.push(stringify.stringify(doc.contents, ctx));
+        lines.push(stringify2.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -6093,7 +6093,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -6146,7 +6146,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -7857,7 +7857,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse5(src, reviver, options) {
+    function parse7(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7876,7 +7876,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify(value, replacer, options) {
+    function stringify2(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -7898,10 +7898,10 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse5;
+    exports.parse = parse7;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -7958,8 +7958,8 @@ var require_dist = __commonJS({
 });
 
 // packages/cli/src/index.ts
-import { readdir as readdir6 } from "node:fs/promises";
-import { basename as basename6, join as join29 } from "node:path";
+import { readdir as readdir8, readFile as readFile23 } from "node:fs/promises";
+import { basename as basename6, join as join32 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -22954,6 +22954,77 @@ var TraceState = external_exports.object({
   answer: external_exports.string().nullable()
 });
 
+// packages/contracts/src/EdgeInventory.ts
+var EdgeInventory = external_exports.object({
+  node: external_exports.string(),
+  /** git rev-parse HEAD of the workspace at scan time. */
+  scannedSha: external_exports.string(),
+  /** Last commit touching the scope (monorepo packages only) — a commit elsewhere in the monorepo doesn't invalidate this inventory. */
+  scannedPathSha: external_exports.string().nullable().default(null),
+  edges: external_exports.array(
+    external_exports.object({
+      direction: external_exports.enum(["in", "out"]),
+      kind: external_exports.enum(TraverseEdgeKind).catch(TraverseEdgeKind.Other),
+      /** Normalized join token: path without host/env prefixes (`/v2/event`), resolved stream name, or honest `env:VAR`. */
+      matchKey: external_exports.string(),
+      /** file:line of the real emit/handler site — becomes the doc anchor. */
+      at: external_exports.string(),
+      /** The greppable code fragment at that site. */
+      pattern: external_exports.string(),
+      /** One line — what data crosses here. */
+      payload: external_exports.string(),
+      schemaAt: external_exports.string().nullable().default(null),
+      conditional: external_exports.string().nullable().default(null),
+      /** Health checks, metrics, feature flags, third-party SaaS — flagged, never omitted; the review gate culls (T14). */
+      noise: external_exports.boolean().default(false)
+    })
+  ).default([]),
+  /** Dynamic or unresolvable edges: where, and why. */
+  gaps: external_exports.array(external_exports.string()).default([])
+});
+
+// packages/contracts/src/MapJoin.ts
+var sighting = external_exports.object({
+  at: external_exports.string(),
+  pattern: external_exports.string(),
+  payload: external_exports.string(),
+  schemaAt: external_exports.string().nullable().default(null)
+});
+var MapJoin = external_exports.object({
+  /** New edges, both sides sighted in code — ready to author. */
+  matched: external_exports.array(
+    external_exports.object({
+      from: external_exports.string(),
+      to: external_exports.string(),
+      kind: external_exports.enum(TraverseEdgeKind),
+      matchKey: external_exports.string(),
+      fromSighting: sighting,
+      toSighting: sighting,
+      /** Matched only under tolerant normalization (slashes, param forms, version prefixes) — review these hardest. */
+      fuzzy: external_exports.boolean()
+    })
+  ),
+  /** Existing docs whose anchors both check out against fresh sightings → update last-verified-sha. */
+  confirmed: external_exports.array(external_exports.object({ doc: external_exports.string() })),
+  /** Existing docs a sighting disagrees with → repair candidates. */
+  drifted: external_exports.array(
+    external_exports.object({
+      doc: external_exports.string(),
+      side: external_exports.enum(["from", "to"]),
+      foundAt: external_exports.string(),
+      pattern: external_exports.string()
+    })
+  ),
+  /** Outbound with no inbound match: receiver unscanned, external, or AWS. */
+  orphansOut: external_exports.array(external_exports.object({ node: external_exports.string(), kind: external_exports.enum(TraverseEdgeKind), matchKey: external_exports.string(), at: external_exports.string(), payload: external_exports.string() })),
+  /** Inbound with no outbound match: sender unscanned, or a dead endpoint. */
+  orphansIn: external_exports.array(external_exports.object({ node: external_exports.string(), kind: external_exports.enum(TraverseEdgeKind), matchKey: external_exports.string(), at: external_exports.string(), payload: external_exports.string() })),
+  /** Everything the scanners flagged — culled by review, never silently dropped. */
+  noise: external_exports.array(external_exports.object({ node: external_exports.string(), direction: external_exports.enum(["in", "out"]), kind: external_exports.enum(TraverseEdgeKind), matchKey: external_exports.string(), at: external_exports.string() })),
+  /** Scanner gaps, surfaced per node. */
+  gaps: external_exports.array(external_exports.object({ node: external_exports.string(), detail: external_exports.string() }))
+});
+
 // packages/drivers/src/spawnCollect.ts
 import { spawn } from "node:child_process";
 var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) => {
@@ -23728,6 +23799,19 @@ ${contextDocs.map((doc) => `- ${doc}`).join("\n")}`);
     prompt: sections.join("\n\n")
   };
 };
+
+// packages/agents/prompts/scanEdges.md
+var scanEdges_default = '# Role: Scan Edges\n\nYou inventory the data edges of ONE node \u2014 a whole repo, or one package\ninside a monorepo. You work autonomously from the task message, and your\nfinal message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman. You know nothing about other repos or connection docs: pairing your\nsightings with other nodes\' is the engine\'s mechanical join, never your job.\n\nYour task message provides: the node name, the local workspace path (repo\nroot), and an optional package scope.\n\n## What counts as an edge\n\nAnywhere data crosses the **process boundary**:\n\n- **Inbound**: HTTP route registrations, queue/stream/topic consumers,\n  message/event listeners, postMessage listeners, S3/file-event triggers,\n  webhook handlers.\n- **Outbound**: HTTP client calls, queue/stream/topic publishes, postMessage\n  sends, S3/file writes, DB writes, script/tag injection into served\n  content, and **response payloads that carry meaningful data** (a response\n  is an edge; a bare 200/ack is not).\n\n## Procedure\n\n1. Orient: entry points, route/consumer registration sites, HTTP client and\n   SDK wrappers (a shared `post()` helper means one grep finds every caller).\n2. Sweep for each edge kind. Follow indirection to the concrete site: the\n   edge\'s `at` is where the route/publish/call is actually bound, not the\n   wrapper\'s definition.\n3. **Normalize each target into a `matchKey`** \u2014 the token the join pairs\n   on. Strip protocol, host, and env prefixes: a POST to\n   `https://edge.example.com/v2/event` has matchKey `/v2/event`. Normalize\n   path params to `:param` form. For streams/queues/topics the matchKey is\n   the resolved name; if it comes from config/env, resolve it from\n   checked-in config when visible, otherwise use the variable name prefixed\n   `env:` (e.g. `env:EVENTS_STREAM`) \u2014 an honest unresolved key beats a\n   guess.\n4. Locate the payload schema/type for each edge if one exists (`schemaAt`).\n5. Flag likely noise rather than omitting it: health checks, metrics/APM,\n   feature-flag SDKs, third-party SaaS calls. Review culls; you flag.\n\n## Monorepo scoping (when a scope is given)\n\n- The scope defines **whose edges you\'re inventorying**: every trail starts\n  from code inside it. You may follow indirection into shared code elsewhere\n  in the same repo to pin the concrete emit/handler site, but an edge\n  belongs in this inventory only if scoped code triggers it. Never inventory\n  a sibling package\'s own edges.\n- **A direct import of a sibling package is NOT an edge** \u2014 same process,\n  followable by reading code. A runtime wire call to a sibling (HTTP, queue,\n  postMessage) IS an edge, even inside one repo: the edge test is process\n  boundary, not repo boundary.\n- All `at` paths are repo-root-relative.\n\n## Rules\n\n- **One repo.** Never clone or read another repo; never try to identify who\n  is on the other side of an edge \u2014 that is the join\'s job.\n- **Read-only.** Shell commands are for `git` inspection only (you need\n  `git rev-parse HEAD` for `scannedSha`, and `git log -1 --format=%H --\n  <scope>` for `scannedPathSha` when scoped).\n- **Cite everything.** Every edge carries `file:line` \u2014 it becomes the\n  connection doc\'s anchor, so it must be the real emit/handler site.\n- **Don\'t guess.** Dynamic targets you can\'t resolve go in `gaps`, not in\n  the inventory with an invented matchKey.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your actual message\nstarts with `{` and ends with `}`.\n\n```\n{\n	"node": "<node name>",\n	"scannedSha": "<git rev-parse HEAD>",\n	"scannedPathSha": "<git log -1 --format=%H -- <scope>, or null when unscoped>",\n	"edges": [{\n		"direction": "in" | "out",\n		"kind": "http" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",\n		"matchKey": "</v2/event, events-stream, env:EVENTS_STREAM, ...>",\n		"at": "<file:line \u2014 the anchor>",\n		"pattern": "<the greppable code fragment at that site>",\n		"payload": "<one line \u2014 what data crosses here>",\n		"schemaAt": "<file path or null>",\n		"conditional": "<null, or the gating condition>",\n		"noise": false\n	}],\n	"gaps": ["<dynamic or unresolvable edges: where, and why>"]\n}\n```\n';
+
+// packages/agents/src/buildScanEdgesInvocation.ts
+var buildScanEdgesInvocation = ({ node, workspace, scope }) => ({
+  systemPrompt: scanEdges_default,
+  prompt: [
+    `# Scan input`,
+    [`- node: ${node}`, `- workspace: ${workspace}`, `- scope: ${scope ?? "null (whole repo)"}`].join("\n"),
+    "Remember: your entire final message must be exactly one JSON inventory object \u2014 nothing else."
+  ].join("\n\n")
+});
 
 // packages/engine/src/appendAgentLog.ts
 import { appendFile, mkdir as mkdir3 } from "node:fs/promises";
@@ -37387,7 +37471,7 @@ import { stat as stat2 } from "node:fs/promises";
 import { basename as basename5, join as join24 } from "node:path";
 var cloneTimeoutMs = 3e5;
 var refreshAfterMs = 24 * 60 * 60 * 1e3;
-var ensureNodeWorkspace = async ({ repo, workspaceDir }) => {
+var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false }) => {
   const dirName = basename5(repo, ".git").replace(/[^A-Za-z0-9._-]/g, "-") || "repo";
   const repoDir = join24(workspaceDir, dirName);
   const existing = await stat2(join24(repoDir, ".git")).catch(() => void 0);
@@ -37399,7 +37483,7 @@ ${clone3.stderr}`.trim().slice(0, 300)}`);
     }
     return repoDir;
   }
-  if (Date.now() - existing.mtimeMs > refreshAfterMs) {
+  if (forceRefresh || Date.now() - existing.mtimeMs > refreshAfterMs) {
     await runCommand({ command: "git fetch --depth 1 origin && git reset --hard FETCH_HEAD", cwd: repoDir, timeoutMs: cloneTimeoutMs }).catch(() => void 0);
   }
   return repoDir;
@@ -37657,9 +37741,344 @@ var runTraverse = async ({
   return { status, state, runId, runDir, error: void 0 };
 };
 
+// packages/engine/src/runBuildMap.ts
+import { randomUUID as randomUUID4 } from "node:crypto";
+import { mkdir as mkdir9, readdir as readdir5, readFile as readFile20, writeFile as writeFile6 } from "node:fs/promises";
+import { homedir as homedir2 } from "node:os";
+import { isAbsolute as isAbsolute2, join as join28 } from "node:path";
+
+// packages/engine/src/joinInventories.ts
+var normalizedKey = (key) => key.trim().toLowerCase().replace(/\{([^}]+)\}/g, ":$1").replace(/<([^>]+)>/g, ":$1").replace(/\/+$/, "");
+var fuzzyKey = (key) => normalizedKey(key).replace(/^\/v\d+(?=\/)/, "").replace(/:[a-z0-9_]+/g, ":param");
+var joinInventories = ({ inventories, edges }) => {
+  const outs = [];
+  const ins = [];
+  const noise = [];
+  const gaps = [];
+  for (const inventory of inventories) {
+    for (const edge of inventory.edges) {
+      if (edge.noise) {
+        noise.push({ node: inventory.node, direction: edge.direction, kind: edge.kind, matchKey: edge.matchKey, at: edge.at });
+        continue;
+      }
+      (edge.direction === "out" ? outs : ins).push({ node: inventory.node, edge });
+    }
+    for (const gap of inventory.gaps) {
+      gaps.push({ node: inventory.node, detail: gap });
+    }
+  }
+  const matched = [];
+  const pairedIns = /* @__PURE__ */ new Set();
+  const pairedOuts = /* @__PURE__ */ new Set();
+  const pair = ({ keyOf, fuzzy }) => {
+    for (const out of outs) {
+      if (pairedOuts.has(out)) {
+        continue;
+      }
+      const candidates = ins.filter(
+        (entry) => !pairedIns.has(entry) && entry.node !== out.node && entry.edge.kind === out.edge.kind && keyOf(entry.edge.matchKey) === keyOf(out.edge.matchKey)
+      );
+      const hit = candidates[0];
+      if (!hit) {
+        continue;
+      }
+      pairedOuts.add(out);
+      pairedIns.add(hit);
+      matched.push({
+        from: out.node,
+        to: hit.node,
+        kind: out.edge.kind,
+        matchKey: normalizedKey(out.edge.matchKey),
+        fromSighting: { at: out.edge.at, pattern: out.edge.pattern, payload: out.edge.payload, schemaAt: out.edge.schemaAt },
+        toSighting: { at: hit.edge.at, pattern: hit.edge.pattern, payload: hit.edge.payload, schemaAt: hit.edge.schemaAt },
+        fuzzy
+      });
+    }
+  };
+  pair({ keyOf: normalizedKey, fuzzy: false });
+  pair({ keyOf: fuzzyKey, fuzzy: true });
+  const confirmed = [];
+  const drifted = [];
+  const newEdges = [];
+  for (const match of matched) {
+    const existing = [...edges.entries()].find(([, doc2]) => doc2.from === match.from && doc2.to === match.to && doc2.type === match.kind);
+    if (!existing) {
+      newEdges.push(match);
+      continue;
+    }
+    const [docId, doc] = existing;
+    const fromAt = match.fromSighting.at.split(":")[0];
+    const toAt = match.toSighting.at.split(":")[0];
+    if (doc.fromAnchor && doc.fromAnchor.path !== fromAt) {
+      drifted.push({ doc: docId, side: "from", foundAt: match.fromSighting.at, pattern: match.fromSighting.pattern });
+    } else if (doc.toAnchor && doc.toAnchor.path !== toAt) {
+      drifted.push({ doc: docId, side: "to", foundAt: match.toSighting.at, pattern: match.toSighting.pattern });
+    } else {
+      confirmed.push({ doc: docId });
+    }
+  }
+  const orphan = (sighting2) => ({
+    node: sighting2.node,
+    kind: sighting2.edge.kind,
+    matchKey: sighting2.edge.matchKey,
+    at: sighting2.edge.at,
+    payload: sighting2.edge.payload
+  });
+  return {
+    matched: newEdges,
+    confirmed,
+    drifted,
+    orphansOut: outs.filter((entry) => !pairedOuts.has(entry)).map(orphan),
+    orphansIn: ins.filter((entry) => !pairedIns.has(entry)).map(orphan),
+    noise,
+    gaps
+  };
+};
+
+// packages/engine/src/runBuildMap.ts
+var scanConcurrency = 5;
+var defaultScanTimeoutMs = 30 * 60 * 1e3;
+var gitTimeoutMs2 = 6e4;
+var runBuildMap = async ({
+  cwd,
+  driver,
+  nodes,
+  connectionsDir,
+  rescan = false,
+  workspaceDir = join28(homedir2(), ".lightsout", "traverse-repos"),
+  model,
+  permissionMode,
+  timeoutMs = defaultScanTimeoutMs,
+  onProgress
+}) => {
+  const progress = onProgress ?? (() => void 0);
+  const mapDir = isAbsolute2(connectionsDir) ? connectionsDir : join28(cwd, connectionsDir);
+  const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
+  const targets = nodes === "all" ? [...registry3.keys()] : nodes;
+  for (const node of targets) {
+    if (!registry3.has(node)) {
+      throw new Error(`node '${node}' is not in repos.yaml \u2014 register it first. Known nodes: ${[...registry3.keys()].join(", ")}`);
+    }
+  }
+  const inventoriesDir = join28(cwd, ".lightsout", "traverse", "inventories");
+  const runId = `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}-${randomUUID4().slice(0, 8)}`;
+  const runDir = join28(cwd, ".lightsout", "traverse", "map-runs", runId);
+  await mkdir9(inventoriesDir, { recursive: true });
+  await mkdir9(runDir, { recursive: true });
+  await mkdir9(workspaceDir, { recursive: true });
+  const savedInventory = async (node) => {
+    const raw = await readFile20(join28(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
+    if (raw === void 0) {
+      return void 0;
+    }
+    const parsed = EdgeInventory.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : void 0;
+  };
+  const isCurrent = async ({ node, saved }) => {
+    const source = registry3.get(node);
+    if (!source) {
+      return false;
+    }
+    const remote = await runCommand({ command: `git ls-remote '${source.repo}' HEAD`, cwd, timeoutMs: gitTimeoutMs2 }).catch(() => void 0);
+    const remoteSha = remote?.exitCode === 0 ? remote.stdout.trim().split(/\s/)[0] : void 0;
+    if (remoteSha && remoteSha === saved.scannedSha) {
+      return true;
+    }
+    if (source.path && saved.scannedPathSha) {
+      const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir, forceRefresh: true });
+      const pathSha = await runCommand({ command: `git log -1 --format=%H -- '${source.path}'`, cwd: workspace, timeoutMs: gitTimeoutMs2 }).catch(() => void 0);
+      return pathSha?.exitCode === 0 && pathSha.stdout.trim() === saved.scannedPathSha;
+    }
+    return false;
+  };
+  const scanned = [];
+  const reused = [];
+  const failures = [];
+  let rateLimited = false;
+  const scanNode = async (node) => {
+    if (!rescan) {
+      const saved = await savedInventory(node);
+      if (saved && await isCurrent({ node, saved })) {
+        reused.push(node);
+        progress(`scan ${node}: inventory current (sha-gated) \u2014 reused`);
+        return;
+      }
+    }
+    const source = registry3.get(node);
+    if (!source) {
+      return;
+    }
+    const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir });
+    progress(`scan ${node}: agent scanning ${workspace}${source.path ? ` (scope ${source.path})` : ""}`);
+    const { report, failure, rateLimited: limited, usage: usage2 } = await invokeAgentWithContract({
+      driver,
+      cwd: workspace,
+      invocation: buildScanEdgesInvocation({ node, workspace, scope: source.path }),
+      contract: EdgeInventory,
+      model,
+      permissionMode,
+      timeoutMs,
+      onRejectedOutput: async ({ text, attempt }) => {
+        await writeFile6(join28(runDir, `scan-${node}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      }
+    });
+    if (usage2) {
+      progress(`scan ${node} usage: out ${usage2.outputTokens} \xB7 $${usage2.costUsd.toFixed(2)}`);
+    }
+    if (limited) {
+      rateLimited = true;
+      failures.push(`${node}: rate limited`);
+      return;
+    }
+    if (!report) {
+      failures.push(`${node}: ${failure}`);
+      return;
+    }
+    await writeFile6(join28(inventoriesDir, `${node}.json`), `${JSON.stringify(report, void 0, "	")}
+`, "utf8");
+    scanned.push(node);
+    progress(`scan ${node}: ${report.edges.length} edge sighting(s), ${report.gaps.length} gap(s) \u2014 inventory saved`);
+  };
+  for (let index = 0; index < targets.length; index += scanConcurrency) {
+    await Promise.all(targets.slice(index, index + scanConcurrency).map(scanNode));
+    if (rateLimited) {
+      break;
+    }
+  }
+  if (failures.length > 0) {
+    return {
+      status: rateLimited ? "paused-rate-limit" : "failed",
+      runId,
+      runDir,
+      join: void 0,
+      scanned,
+      reused,
+      error: `${failures.join("; ")} \u2014 completed inventories are saved; re-run scans only what's missing`
+    };
+  }
+  const pooled = [];
+  for (const name of (await readdir5(inventoriesDir)).filter((entry) => entry.endsWith(".json"))) {
+    const saved = await savedInventory(name.replace(/\.json$/, ""));
+    if (saved) {
+      pooled.push(saved);
+    }
+  }
+  const edges = await readConnectionMap({ connectionsDir: mapDir }).catch(() => /* @__PURE__ */ new Map());
+  const joined = MapJoin.parse(joinInventories({ inventories: pooled, edges }));
+  await writeFile6(join28(runDir, "join.json"), `${JSON.stringify(joined, void 0, "	")}
+`, "utf8");
+  progress(
+    `join: ${joined.matched.length} new edge(s), ${joined.confirmed.length} confirmed, ${joined.drifted.length} drifted, ${joined.orphansOut.length}/${joined.orphansIn.length} orphan(s) out/in, ${joined.noise.length} noise`
+  );
+  return { status: "complete", runId, runDir, join: joined, scanned, reused, error: void 0 };
+};
+
+// packages/engine/src/authorConnectionDocs.ts
+var import_yaml4 = __toESM(require_dist(), 1);
+import { readFile as readFile22, writeFile as writeFile8 } from "node:fs/promises";
+import { join as join30 } from "node:path";
+
+// packages/engine/src/regenerateConnectionIndex.ts
+var import_yaml3 = __toESM(require_dist(), 1);
+import { readdir as readdir6, readFile as readFile21, writeFile as writeFile7 } from "node:fs/promises";
+import { join as join29 } from "node:path";
+var frontmatterPattern2 = /^---\n([\s\S]*?)\n---/;
+var regenerateConnectionIndex = async ({ connectionsDir }) => {
+  const entries = await readdir6(connectionsDir);
+  const rows = [];
+  for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md").sort()) {
+    const text = await readFile21(join29(connectionsDir, name), "utf8");
+    const frontmatter = text.match(frontmatterPattern2)?.[1];
+    const parsed = frontmatter ? ConnectionDoc.safeParse((0, import_yaml3.parse)(frontmatter)) : void 0;
+    if (!parsed?.success) {
+      continue;
+    }
+    const summary = text.slice(text.indexOf("---", 4) + 3).split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith("#")) ?? "";
+    rows.push(`| ${parsed.data.from} | ${parsed.data.to} | ${parsed.data.type} | ${summary} | [${name}](${name}) |`);
+  }
+  const index = [
+    "# Connection index",
+    "",
+    "<!-- Regenerated by lightsout build-map \u2014 do not edit by hand. -->",
+    "",
+    "| from | to | type | summary | doc |",
+    "|---|---|---|---|---|",
+    ...rows,
+    ""
+  ].join("\n");
+  await writeFile7(join29(connectionsDir, "INDEX.md"), index, "utf8");
+  return { edgeCount: rows.length };
+};
+
+// packages/engine/src/authorConnectionDocs.ts
+var frontmatterPattern3 = /^---\n([\s\S]*?)\n---/;
+var slugOf = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
+var patchDoc = async ({ path, patch }) => {
+  const text = await readFile22(path, "utf8");
+  const match = text.match(frontmatterPattern3);
+  if (!match?.[1]) {
+    throw new Error(`${path} has no frontmatter to patch`);
+  }
+  const raw = (0, import_yaml4.parse)(match[1]);
+  patch(raw);
+  await writeFile8(path, text.replace(frontmatterPattern3, `---
+${(0, import_yaml4.stringify)(raw).trimEnd()}
+---`), "utf8");
+};
+var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNode }) => {
+  const authored = [];
+  for (const edge of reviewedJoin.matched) {
+    const id = `${edge.from}--${edge.to}--${slugOf(edge.matchKey)}`;
+    const frontmatter = (0, import_yaml4.stringify)({
+      from: edge.from,
+      to: edge.to,
+      type: edge.kind,
+      "from-anchor": { path: edge.fromSighting.at.split(":")[0], pattern: edge.fromSighting.pattern },
+      "to-anchor": { path: edge.toSighting.at.split(":")[0], pattern: edge.toSighting.pattern },
+      ...edge.fromSighting.schemaAt || edge.toSighting.schemaAt ? { schema: { ...edge.fromSighting.schemaAt ? { from: edge.fromSighting.schemaAt } : {}, ...edge.toSighting.schemaAt ? { to: edge.toSighting.schemaAt } : {} } } : {},
+      "last-verified-sha": {
+        [edge.from]: shaByNode.get(edge.from) ?? null,
+        [edge.to]: shaByNode.get(edge.to) ?? null
+      },
+      "additional-context": []
+    }).trimEnd();
+    const body = ["# Summary", "", `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`];
+    await writeFile8(join30(connectionsDir, `${id}.md`), `---
+${frontmatter}
+---
+
+${body.join("\n")}
+`, "utf8");
+    authored.push(id);
+  }
+  for (const entry of reviewedJoin.confirmed) {
+    await patchDoc({
+      path: join30(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      patch: (raw) => {
+        const from = raw["from"];
+        const to = raw["to"];
+        raw["last-verified-sha"] = {
+          [from]: shaByNode.get(from) ?? raw["last-verified-sha"]?.[from] ?? null,
+          [to]: shaByNode.get(to) ?? raw["last-verified-sha"]?.[to] ?? null
+        };
+      }
+    });
+  }
+  for (const entry of reviewedJoin.drifted) {
+    await patchDoc({
+      path: join30(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      patch: (raw) => {
+        raw[`${entry.side}-anchor`] = { path: entry.foundAt.split(":")[0], pattern: entry.pattern };
+      }
+    });
+  }
+  const { edgeCount } = await regenerateConnectionIndex({ connectionsDir });
+  return { authored, confirmed: reviewedJoin.confirmed.length, repaired: reviewedJoin.drifted.length, edgeCount };
+};
+
 // packages/engine/src/runPromptImprovement.ts
-import { readdir as readdir5 } from "node:fs/promises";
-import { join as join28 } from "node:path";
+import { readdir as readdir7 } from "node:fs/promises";
+import { join as join31 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -37667,8 +38086,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir5(join28(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join28(promptsDir, file2));
+  const files = await readdir7(join31(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join31(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -37692,6 +38111,8 @@ usage:
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
   lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--mode answer|doc|diagram|plan|bug] [--data <field>] [--cwd <path>]
   lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
+  lightsout build-map <node...|all> [--connections <dir>] [--rescan] [--cwd <path>]
+  lightsout build-map --author <run-id> [--connections <dir>] [--cwd <path>]   (post-review: write docs from a culled join.json)
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -37726,6 +38147,22 @@ var parseFlags = ({ args }) => {
 var getStringFlag = ({ flags, name }) => {
   const value = flags.get(name);
   return typeof value === "string" ? value : void 0;
+};
+var getPositionals = ({ args }) => {
+  const positionals = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token?.startsWith("--")) {
+      if (args[index + 1] !== void 0 && !args[index + 1]?.startsWith("--")) {
+        index += 1;
+      }
+      continue;
+    }
+    if (token) {
+      positionals.push(token);
+    }
+  }
+  return positionals;
 };
 var describeStandards = ({ value, token }) => {
   if (value === false) {
@@ -37972,8 +38409,8 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join29(cwd, ".lightsout", "runs");
-    const runIds = await readdir6(runsDir).catch(() => []);
+    const runsDir = join32(cwd, ".lightsout", "runs");
+    const runIds = await readdir8(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
       process.exit(0);
@@ -38041,20 +38478,7 @@ ${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} 
     process.exit(0);
   }
   if (command === "traverse") {
-    const positionals = [];
-    for (let index = 0; index < rest.length; index += 1) {
-      const token = rest[index];
-      if (token?.startsWith("--")) {
-        if (rest[index + 1] !== void 0 && !rest[index + 1]?.startsWith("--")) {
-          index += 1;
-        }
-        continue;
-      }
-      if (token) {
-        positionals.push(token);
-      }
-    }
-    const question = positionals.join(" ");
+    const question = getPositionals({ args: rest }).join(" ");
     const resumeRunId = getStringFlag({ flags, name: "run" });
     const budgetFlag = getStringFlag({ flags, name: "budget" });
     const modeFlag = getStringFlag({ flags, name: "mode" });
@@ -38116,6 +38540,87 @@ trace: ${result.runDir}/trace.json`);
 ${result.error}`);
       }
       process.exit(result.status === "complete" ? 0 : 1);
+    } catch (error51) {
+      console.error(error51 instanceof Error ? error51.message : String(error51));
+      process.exit(1);
+    }
+  }
+  if (command === "build-map") {
+    const connectionsDir = getStringFlag({ flags, name: "connections" }) ?? ".lightsout/connections";
+    const authorRunId = getStringFlag({ flags, name: "author" });
+    const config2 = await loadConfig({ cwd }).catch(() => void 0);
+    try {
+      if (authorRunId) {
+        const joinPath = join32(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+        const reviewed = MapJoin.parse(JSON.parse(await readFile23(joinPath, "utf8")));
+        const inventoriesDir = join32(cwd, ".lightsout/traverse/inventories");
+        const shaByNode = /* @__PURE__ */ new Map();
+        for (const name of (await readdir8(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
+          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile23(join32(inventoriesDir, name), "utf8")));
+          if (inventory.success) {
+            shaByNode.set(inventory.data.node, inventory.data.scannedSha);
+          }
+        }
+        const result2 = await authorConnectionDocs({
+          connectionsDir: join32(cwd, connectionsDir),
+          join: reviewed,
+          shaByNode
+        });
+        console.log(`${green("\u2713")} authored ${result2.authored.length} doc(s)${result2.authored.length > 0 ? `: ${result2.authored.join(", ")}` : ""}`);
+        console.log(`${green("\u2713")} confirmed ${result2.confirmed} \xB7 repaired ${result2.repaired} \xB7 INDEX.md regenerated (${result2.edgeCount} edge(s))`);
+        process.exit(0);
+      }
+      const nodeArgs = getPositionals({ args: rest });
+      if (nodeArgs.length === 0) {
+        console.error(usage);
+        process.exit(1);
+      }
+      const driver = getDriver({ name: config2?.driver ?? "claude-code" });
+      const result = await runBuildMap({
+        cwd,
+        driver,
+        nodes: nodeArgs.length === 1 && nodeArgs[0] === "all" ? "all" : nodeArgs,
+        connectionsDir,
+        rescan: flags.get("rescan") === true,
+        model: config2?.model,
+        permissionMode: config2?.permissionMode,
+        onProgress: (message) => console.log(dim(message))
+      });
+      if (result.status !== "complete" || !result.join) {
+        console.error(`
+${result.error ?? "build-map failed"}`);
+        process.exit(1);
+      }
+      const { join: joined } = result;
+      console.log(`
+${bold(`build-map ${result.runId}`)} \u2014 scanned ${result.scanned.length}, reused ${result.reused.length} inventory(ies)
+`);
+      for (const edge of joined.matched) {
+        console.log(`${green("\uFF0B")} ${edge.from} \u2192 ${edge.to} [${edge.kind}] ${edge.matchKey}${edge.fuzzy ? yellow(" (fuzzy \u2014 review hardest)") : ""}`);
+        console.log(dim(`    ${edge.fromSighting.at} \u2194 ${edge.toSighting.at}`));
+      }
+      for (const entry of joined.confirmed) {
+        console.log(`${green("\u2713")} confirmed ${entry.doc}`);
+      }
+      for (const entry of joined.drifted) {
+        console.log(`${yellow("~")} drifted ${entry.doc} (${entry.side} anchor \u2192 ${entry.foundAt})`);
+      }
+      for (const orphan of joined.orphansOut) {
+        console.log(`${dim("?")} orphan out: ${orphan.node} [${orphan.kind}] ${orphan.matchKey} ${dim(`(${orphan.payload})`)}`);
+      }
+      for (const orphan of joined.orphansIn) {
+        console.log(`${dim("?")} orphan in:  ${orphan.node} [${orphan.kind}] ${orphan.matchKey}`);
+      }
+      if (joined.noise.length > 0) {
+        console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS) \u2014 excluded; see join.json`));
+      }
+      for (const gap of joined.gaps) {
+        console.log(`${yellow("!")} scanner gap: ${gap.node} \u2014 ${gap.detail}`);
+      }
+      console.log(`
+${bold("REVIEW GATE")} \u2014 no docs written yet. Cull ${result.runDir}/join.json (delete rejected entries), then:`);
+      console.log(`  lightsout build-map --author ${result.runId}${connectionsDir === ".lightsout/connections" ? "" : ` --connections ${connectionsDir}`}`);
+      process.exit(0);
     } catch (error51) {
       console.error(error51 instanceof Error ? error51.message : String(error51));
       process.exit(1);
