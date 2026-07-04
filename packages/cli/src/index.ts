@@ -10,6 +10,7 @@ import {
 	readRunManifest,
 	runDoctor,
 	runImplementPipeline,
+	runScan,
 	RunLockError,
 	runPromptImprovement,
 	summarizeRun,
@@ -23,6 +24,7 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
+  lightsout scan [--cwd <path>] [--path <subdir>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -437,6 +439,41 @@ const main = async () => {
 
 		console.log(`\n${checks.length} check(s) · ${tally}`);
 		process.exit(counts.fail > 0 ? 1 : 0);
+	}
+
+	if (command === 'scan') {
+		const scanPath = getStringFlag({ flags, name: 'path' });
+		const { findings, notes } = await runScan({ cwd, path: scanPath, onProgress: (message) => console.log(dim(message)) });
+		const bySeverity = { finding: findings.filter((entry) => entry.severity === 'finding'), advisory: findings.filter((entry) => entry.severity === 'advisory') };
+
+		console.log('');
+
+		for (const [severity, list] of Object.entries(bySeverity)) {
+			for (const entry of list) {
+				const icon = severity === 'finding' ? yellow('⚠') : dim('ℹ');
+				const where = entry.files
+					.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
+					.join(', ');
+
+				console.log(`${icon} ${entry.detector.padEnd(20)}${entry.detail}`);
+				console.log(dim(`  ${''.padEnd(20)}${where}`));
+			}
+		}
+
+		for (const note of notes) {
+			console.log(`${dim('ℹ')} ${'note'.padEnd(20)}${note}`);
+		}
+
+		const detectors = new Map<string, number>();
+
+		for (const entry of findings) {
+			detectors.set(entry.detector, (detectors.get(entry.detector) ?? 0) + 1);
+		}
+
+		const breakdown = [...detectors.entries()].map(([name, count]) => `${name} ${count}`).join(' · ');
+
+		console.log(`\n${findings.length} finding(s)${findings.length > 0 ? ` · ${breakdown}` : ''} — report: .lightsout/scan.json`);
+		process.exit(0);
 	}
 
 	if (command === 'friction') {

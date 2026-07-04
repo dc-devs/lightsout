@@ -253,7 +253,23 @@ doing — the observed pain of run #2.
   orchestrator the engine exists to replace; course-correction stays where
   it belongs — gates, supervisor, escalation.
 
-### Task 8: `lightsout scan` — structural detector suite (v1 scope agreed 2026-07-04)
+### Task 8: `lightsout scan` — structural detector suite — V1 DONE (2026-07-04); v2 remediation remains
+
+V1 result: `lightsout scan [--cwd] [--path]`, six detectors (tier-0 name
+dedup w/ synonym collapse, jscpd clones via @jscpd/core, normalized-AST
+body hashing via the CONSUMER's TypeScript with honest degrade, size
+thresholds, structure lint w/ closed exceptions encoded, dead-export
+reference counting — knip deliberately replaced: unbundleable, and
+name-counting suffices for advisory). Typed ScanFinding[] persisted to
+.lightsout/scan.json (v2's work-list). 89/89 suite incl. planted-defect
+fixture. BOTH ground truths validated live: lightsout's engine flat-folder
+census + 3 real internal duplications found (spawnCollect↔runCommand,
+invocation-builder twins, appendLog twins, readFriction↔summarizeRun
+lambda); FeedbackDrop scan rediscovered the exact processor create/update
+clone the phase-2 refactor agent flagged (linear-sync.processor 96-137 ↔
+192-233) plus its GitHub mirror. Path-scoped dead-export false positive
+found live and fixed (references always count repo-wide). Deviations from
+original spec: knip → own reference counter (reason above).
 
 The lightsout shape: **detection is code, remediation is agents,
 verification is gates, termination is scanner-clean.** V1 is the detection

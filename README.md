@@ -274,6 +274,7 @@ authoritative for scope.
 | `lightsout resume --run <id> [--cwd <path>]` | Continue a parked/failed/crashed run from its last incomplete step |
 | `lightsout status [--cwd <path>]` | List runs and their states |
 | `lightsout doctor [--cwd <path>]` | Read-only audit of the repo against every assumption the engine and standards make — config validity, harness binary, gitignored run state, scoped-gate script coverage, Jest mock-cleanup flags, generated paths, gate binaries. Each warn prints the exact fix; the doctor never edits anything (repo-wide changes like `clearMocks: true` are yours to apply and verify). Exit 1 only on a hard fail. |
+| `lightsout scan [--cwd <path>] [--path <subdir>]` | Read-only structural detector suite: duplicate export names (synonym-aware), token-level clones (jscpd), functions with identical bodies after identifier normalization (uses the repo's own TypeScript), size thresholds from the standards' numeric tables, one-export-per-file/structure lint, dead-export candidates. Test files are exempt from duplication tiers — assertion literals are contract-pinning, not copy-paste. Typed findings persist to `.lightsout/scan.json` (the future remediation pipeline's work-list). Always exits 0 — it reports, gates decide. |
 | `lightsout friction [--cwd <path>]` | Show accumulated friction reports from agents |
 | `lightsout improve --engine <lightsout-repo> [--cwd <path>]` | Run the self-improvement loop (below) |
 

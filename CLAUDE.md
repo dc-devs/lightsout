@@ -53,7 +53,8 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 
 - One exported item per file; file named exactly after its export.
 - Object params, destructured; exported functions declare a `Params` interface.
-- No explicit return type annotations — let TypeScript infer.
+- Return types: explicit on exported functions, inferred internally (see
+  `standards/code/style-guide/typescript/return-types.md`).
 - No enums: PascalCase `as const` object + derived union of the same name.
 - Parse, don't cast: zod at every boundary (agent reports, manifests, config).
 - Tabs. Arrow functions. Barrels are deliberate public APIs.

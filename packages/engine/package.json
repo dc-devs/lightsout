@@ -9,5 +9,9 @@
 		"@lightsout/contracts": "workspace:*",
 		"@lightsout/drivers": "workspace:*",
 		"zod": "^4.0.0"
+	},
+	"devDependencies": {
+		"@jscpd/core": "^4.2.5",
+		"@jscpd/tokenizer": "^4.2.5"
 	}
 }

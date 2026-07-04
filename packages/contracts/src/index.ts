@@ -14,3 +14,6 @@ export { FrictionEntry } from './FrictionEntry';
 export { FrictionRecord } from './FrictionRecord';
 export { LightsoutConfig } from './LightsoutConfig';
 export { PackagesSource } from './PackagesSource';
+export { ScanDetector } from './ScanDetector';
+export { ScanSeverity } from './ScanSeverity';
+export { ScanFinding } from './ScanFinding';
