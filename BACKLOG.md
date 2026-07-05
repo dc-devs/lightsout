@@ -590,12 +590,30 @@ engine's extractJsonReport machinery).
   schema gates — Task 13's input) — all mechanical from trace.json.
   Ignition skills /traverse + /build-map added to the plugin (zero logic).
   Suite 106/106.
-- First live exercise (REMAINING — the only open item): build-map on two
-  real adjacent nodes; the join must land one edge with both anchors on
-  real lines (per prototype MIGRATION). Everything is stub-driver tested;
-  no live agent has run yet.
-- Connections dir + repos.yaml location configurable (CWD now, central map
-  repo later).
+- First live exercise (REMAINING): build-map on two real adjacent nodes;
+  the join must land one edge with both anchors on real lines (per
+  prototype MIGRATION). IN PROGRESS 2026-07-05 on FD (widget +
+  backend-api): first attempt hit the shared-clone race — fixed
+  (in-flight dedupe in ensureNodeWorkspace + dead-partial-clone
+  self-heal); intra-node producer↔consumer self-loops now collapse to
+  noise instead of orphan-both (joinInventories).
+- Connections dir + repos.yaml location: DONE 2026-07-05 — central-first
+  via `traverse.connections` config / `--connections`; accepts local dirs,
+  git URLs, and folders inside repos (`org/repo/src/connections`, `.git/`
+  and `//` delimiter forms); git sources auto-clone/refresh into the
+  shared workspace; author/repair output names the clone to commit from.
+
+- PR MODE (queued 2026-07-05 — the unattended-map follow-up): today the
+  review gate is hand-culling join.json; for a central map repo the gate
+  should be a PULL REQUEST. `build-map all --author --branch` (shape TBD):
+  a scheduled job scans (SHA-gated, so nightly runs are nearly free),
+  joins, authors the new docs on a BRANCH of the map repo, and opens a PR
+  (gh CLI) — T14's review still happens, as a normal PR review; the map
+  repo's CI runs `map-connection verify` as its check. With
+  `verify --repair` already cron-able, this makes the whole map loop
+  unattended except the approve button. Prereq: the first live outing
+  validates scan quality; don't automate authoring before the join has
+  proven trustworthy on real repos.
 
 ### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier)
 
