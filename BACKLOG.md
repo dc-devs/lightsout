@@ -695,6 +695,14 @@ engine's extractJsonReport machinery).
 
 ### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier)
 
+DESIGN RESOLVED + PLAN DRAFTED 2026-07-05: session-conducted, engine-served
+(porting the fdrop `/fdrop:orchestrator:plan` tree). Overview + 3 phase plans
+at `.notes/plans/planning-phase/`. Shape: `lightsout plan explore|draft|grade`
+subcommands (deterministic fact verification + code structural-lint +
+agent gap-check) conducted by a `/plan` interactive-conductor skill
+(Elicitation + Grill + gap-convergence in the session). Not yet grilled/graded
+to A; not yet implemented.
+
 A phase BEFORE implement that produces/vets the plan itself. Collected
 design notes so nothing is lost:
 
@@ -763,7 +771,7 @@ same as the scan AST tier); no TS resolvable ⇒ no filtering (today's
 behavior). Conservative by construction: plain constants, enums,
 export-default, unreadable/deleted files all keep their writer. Unit test
 over the classifier + stub-driver pipeline smoke (typescript symlinked into
-the temp consumer repo); suite 116/116. NOT yet observed live on a real FD
+the temp consumer repo); suite 116/116. NOT yet observed on a live consumer
 run — first live datapoint will come from the next run whose diff touches a
 barrel/type-only file.
 
@@ -842,7 +850,7 @@ wasted round-trip, never wrong coverage.
   Stub-driver smoke proving per-package grouping + a live smoke on
   `fixtures/toy-calc`; report honestly what was not live-tested.
 
-### Task 17: Refactor early-exit — stop re-asking an agent that already declined (added 2026-07-05, from live run FD 78d3544d)
+### Task 17: Refactor early-exit — stop re-asking an agent that already declined (added 2026-07-05, from a live consumer run)
 
 The refactor loop runs up to 3 passes while gating scan findings persist.
 Live case: the agent declined the same (then-false-positive) finding three
