@@ -7,17 +7,41 @@ Use a `common/` folder pattern for shared code — it keeps related code local, 
 1. **Keep `common/` close to consumers** — the lowest level where all dependents can reach it
 2. **Promote when reused** — move to a parent `common/` only when 2+ modules at that level need it
 3. **Avoid circular dependencies** — update imports when promoting; verify no cycles
-4. **Organize by type** — `utils/`, `types/`, `services/` subfolders inside `common/`
-5. **Graduate, don't pre-build** — a concept becomes a folder only when it needs private companions
+4. **`common/` is always typed, never flat** — every file lives under a type subfolder from the first file. The type vocabulary is a closed list: `utils/`, `types/`, `constants/`, `services/`, plus domain folders graduated per [Domain Folders](#domain-folders). Never invent a new type folder; never place a file directly in `common/`.
+5. **Graduate, don't pre-build** — a *concept* becomes a folder only when it needs private companions. This ceremony ban does not apply to `common/`'s type subfolders: that skeleton is always built, so placement is a no-decision.
 
 | Folder | Contents |
 | ----------- | ---------------------------------------- |
 | `utils/` | Stateless pure functions (`formatDate()`) |
+| `types/` | Type-level declarations (`CopyResult`) |
+| `constants/` | Value and named constants (`defaultConfig`, `Action`) |
 | `services/` | Stateful classes with methods (`ApiClient`) |
 
-## Top Level Is Feature Nouns
+## What Lives in `common/` — the Barrel-Omission Test
 
-`src/`'s top level names features and domains (`billing/`, `issues/`, `sync/`) — never technical layers (`controllers/`, `services/`, `helpers/`). Navigation is by domain first, for humans and agents alike. Framework mandates override (NestJS module layout, file-based routers) — the same carve-out as folder casing below.
+`common/` holds shared **file-modules only**: single-file primitives (a pure function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.
+
+A shared concept must leave `common/` and become a module — a sibling of the features that use it — the moment it has private internals. The mechanical test: **write the concept's would-be barrel. Does it omit anything?**
+
+- Everything would be exported → it is a bag of primitives → its files go in `common/<type>/` (or a domain folder)
+- The barrel would hide something → it is a module with a boundary worth enforcing → module with its own `index.ts`
+
+This keeps placement closed under growth: shared code is either a primitive (`common/`) or a module (a domain sibling) — there is no third place.
+
+## Top Level Is Domain Nouns
+
+`src/`'s top level names domains (`billing/`, `issues/`, `sync/`) — capabilities the product has. Infrastructure capabilities are domains too: `git/`, `config/`, `runState/` are valid module names. Navigation is by domain first, for humans and agents alike.
+
+**Banned module names — a closed list, not a judgment call.** A folder is never named for the *role* of the code it holds: `helpers/`, `utils/`\*, `lib/`, `core/`, `misc/`, `shared/`, `services/`\*, `controllers/`, `models/`, `hooks/`, `components/`, `types/`\*, `constants/`\* (\* legal inside `common/` per its closed list). Where the package's framework doc mandates one of these names (NestJS layout, React feature `components/`, file-based routers), the framework doc wins — the same carve-out as folder casing below. The only privileged folder name at any level is `common/`.
+
+## Growing Without New Rules
+
+At every level exactly three kinds of things exist: **modules**, **`common/`**, and **files**. Growth never invents a new kind of place — it is always one of two mechanical moves:
+
+- **Graduate** — a file needs private companions → it becomes a module ([the graduation rule](./architecture-decisions.md#modules--the-graduation-rule))
+- **Consolidate** — a level holds more than ~20 modules → group related sibling modules under a new parent domain module (recursive: a module within a module, each keeping its own barrel)
+
+Consolidation is the census remedy: when a level starts reading like a directory listing instead of a product description, the fix is a parent domain — never a technical-layer bucket.
 
 ## Fractal Skeleton
 
@@ -38,6 +62,8 @@ Folders match what they hold, in that name's own casing:
 ## Domain Folders
 
 A pure function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) — `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.
+
+A domain folder is **not** a module — by the barrel-omission test it hides nothing: every file in it is public, and its `index.ts` is convenience, not a boundary. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.
 
 ## Example
 

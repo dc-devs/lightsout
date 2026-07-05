@@ -14,6 +14,8 @@ A **module** is a unit of code with a public API and private internals. TypeScri
 
 **The trigger is mechanical:** *needs private companion files → folder; doesn't → file.* Never create folder ceremony for a one-file concept.
 
+**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing → the concept is primitives; its files belong in `common/<type>/`. Hides internals → it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).
+
 **Boundary rules for folder-modules:**
 
 1. Cross-module imports go through the module's `index.ts` **only** — never reach into another module's internals
@@ -32,6 +34,7 @@ Place shared code at the lowest common ancestor `common/` folder (each package's
 
 1. **First:** search whether it already exists in `common/` at any level — if found, use it.
 2. **Second:** if not found, start local and promote later — moving code up when reuse is proven beats premature generalization.
+3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules — shared code is a primitive or a module, never a third thing.
 
 Import granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.
 
