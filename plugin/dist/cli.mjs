@@ -38714,7 +38714,9 @@ var runDebug = async ({
     if (report.verdict === "points-elsewhere" && report.nextLead) {
       const matches = findConnectingDoc({ lead: report.nextLead, node: next.node, edges });
       const lead = report.nextLead;
-      if (matches.length === 1 && matches[0]) {
+      if (matches.length === 1 && matches[0] && matches[0].edge === next.viaEdge) {
+        state.gaps.push({ node: next.node, detail: `contradiction across ${next.viaEdge}: ${next.node} points the fault back over the edge it was reached through \u2014 both sides claim correctness. Inspect the boundary contract/integration, or reconsider whether a defect exists on this path. (${lead.why})` });
+      } else if (matches.length === 1 && matches[0]) {
         enqueue({ node: matches[0].node, viaEdge: matches[0].edge, direction: lead.direction, hypothesis: lead.refinedHypothesis, reason: `${lead.direction} \u2014 ${lead.why}` });
       } else if (matches.length === 0) {
         state.gaps.push({ node: next.node, detail: `lead ${lead.direction} via ${lead.kind} '${lead.target}' at ${lead.at} matches no connection doc \u2014 unmapped (GAP); draft it with map-connection` });

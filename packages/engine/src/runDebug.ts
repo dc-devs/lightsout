@@ -256,7 +256,14 @@ export const runDebug = async ({
 			const matches = findConnectingDoc({ lead: report.nextLead, node: next.node, edges });
 			const lead = report.nextLead;
 
-			if (matches.length === 1 && matches[0]) {
+			if (matches.length === 1 && matches[0] && matches[0].edge === next.viaEdge) {
+				// Contradiction: this node points the fault back across the very edge
+				// it was reached through — both endpoints blame the other. Ping-pong,
+				// not a lead. Stop the branch and surface it (integration/contract
+				// mismatch at the boundary, or no defect on this path) rather than
+				// burning budget bouncing across it.
+				state.gaps.push({ node: next.node, detail: `contradiction across ${next.viaEdge}: ${next.node} points the fault back over the edge it was reached through — both sides claim correctness. Inspect the boundary contract/integration, or reconsider whether a defect exists on this path. (${lead.why})` });
+			} else if (matches.length === 1 && matches[0]) {
 				enqueue({ node: matches[0].node, viaEdge: matches[0].edge, direction: lead.direction, hypothesis: lead.refinedHypothesis, reason: `${lead.direction} — ${lead.why}` });
 			} else if (matches.length === 0) {
 				state.gaps.push({ node: next.node, detail: `lead ${lead.direction} via ${lead.kind} '${lead.target}' at ${lead.at} matches no connection doc — unmapped (GAP); draft it with map-connection` });

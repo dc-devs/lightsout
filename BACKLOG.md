@@ -693,6 +693,38 @@ engine's extractJsonReport machinery).
     (auth, billing, destructive deletes) to inline flags in the doc without
     making them edges. Not needed for v1.
 
+- DEBUG COMMAND — DONE 2026-07-05 (plan: .notes/plans/traverse-debug-command.md;
+  commits c729f80…e58067b). Goal-directed cross-repo debugging on the shared
+  traverse spine: `lightsout debug "<symptoms>" [--start <node>] [--at
+  <file:line>] [--suspect <hash>]`. Root-cause-or-name-the-lead hop agent,
+  halts on a root-cause verdict, chases ONE lead depth-first and
+  BIDIRECTIONALLY (agent names a crossing + direction, findConnectingDoc
+  routes it), evolving hypothesis threaded hop to hop, resumable. Seed reads
+  the dev's LOCAL working tree (CWD-inferred) or a full-history clone
+  (--start, remote/CI-ready). Live-validated on FD 3×; two bugs found + fixed
+  live (multiplexed-operation routing; ping-pong contradiction detection).
+  Render-only traverse modes (doc/diagram/plan/bug) dropped — traverse +
+  debug are the two commands. FOLLOW-UPS (not blocking):
+  - `debug → plan → implement` HAND-OFF (highest-leverage — closes the loop
+    from bug report to verified fix): a resolved debug run emits an
+    implement-able plan (per-repo change surface from the root cause +
+    proposed fix), fed to `lightsout implement`. Needs the `plan` renderer
+    (see below) or a debug-specific plan emit.
+  - RE-ADD render modes as their OWN commands (diagram/doc/plan) — restore
+    renderTrace + TraverseMode from git (removed in e58067b), each with its
+    own walk when it's the focus (per the two-axis decision: strategy ×
+    format, built as each earns its place — do NOT rebuild a matrix).
+  - CLIENT-SIDE operation determinism: the web-app scanner enumerates
+    scattered query usage (57↔69 across runs); enumerate from the codegen
+    operation documents / generated client for a deterministic caller-side
+    operation list (mirror the server-side schema/definition-first fix).
+  - IaC-AS-NODE (AWS/ETL): non-repo nodes already crossed mechanically; the
+    high-signal upgrade is scanning the IaC (CDK/Terraform/SAM/serverless) as
+    a definition artifact so pipeline edges auto-derive (IaC is to infra what
+    the SDL is to GraphQL). Guard scope with the cross-boundary test; a
+    service's private bucket stays noise. Manual hand-authored infra docs are
+    the fallback today.
+
 ### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier) — DONE 2026-07-05
 
 Result: shipped as `lightsout plan explore|draft|grade` + the `/plan`

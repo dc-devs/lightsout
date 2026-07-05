@@ -134,6 +134,21 @@ test('findConnectingDoc: a multiplexed transport routes an operation-level lead,
 	assert.deepEqual({ node: matches[0]?.node, edge: matches[0]?.edge }, { node: 'backend-api', edge: 'web-app--backend-api--graphql' });
 });
 
+test('debug: a lead pointing back across the arrival edge is a contradiction, not a ping-pong hop', async () => {
+	const { cwd, workspaceDir } = fixture();
+	// worker (seed) blames api downstream; api blames worker back across the SAME edge → contradiction.
+	const downstreamToApi = { verdict: 'points-elsewhere', nextLead: { direction: 'downstream', kind: 'http', target: '/ingest', at: 'src/send.ts:1', refinedHypothesis: 'check the handler', why: 'sent correct data' } };
+	const upstreamBack = { verdict: 'points-elsewhere', nextLead: { direction: 'upstream', kind: 'http', target: '/ingest', at: 'src/routes/ingest.ts:1', refinedHypothesis: 'check the caller', why: 'received correct data — the caller must be wrong' } };
+	const driver = debugDriver({ worker: downstreamToApi, api: upstreamBack });
+
+	const result = await runDebug({ cwd, driver, symptoms: 'x', connectionsDir: '.lightsout/connections', start: 'worker', workspaceDir, budget: 8 });
+
+	assert.equal(result.status, 'unresolved', 'the ping-pong is stopped, not chased to budget');
+	assert.equal(result.state.hops.length, 2, 'seed (worker) + api, then the contradiction halts the branch');
+	assert.equal(result.state.resolution, null);
+	assert.match(result.state.gaps.at(-1)?.detail ?? '', /contradiction across worker--api--ingest/);
+});
+
 test('debug: budget exhaustion parks the open lead; resume completes it', async () => {
 	const { cwd, workspaceDir } = fixture();
 	const driver = debugDriver({ api: upstreamLead, worker: rootCause });
