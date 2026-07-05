@@ -1,3 +1,4 @@
+import { readGitPrefix } from './readGitPrefix';
 import { runCommand } from './runCommand';
 
 const gitTimeoutMs = 60_000;
@@ -15,9 +16,9 @@ interface Params {
  * agent-reported files only. Run state under `.lightsout/` is never reported.
  */
 export const readGitChangedFiles = async ({ cwd }: Params) => {
-	const prefix = await runCommand({ command: 'git rev-parse --show-prefix', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
+	const prefix = await readGitPrefix({ cwd });
 
-	if (!prefix || prefix.exitCode !== 0) {
+	if (prefix === undefined) {
 		return undefined;
 	}
 
@@ -29,7 +30,7 @@ export const readGitChangedFiles = async ({ cwd }: Params) => {
 
 	// Porcelain paths are repo-root-relative; strip the cwd's prefix so they
 	// line up with the repo-relative paths agents report.
-	const root = prefix.stdout.trim();
+	const root = prefix;
 
 	return status.stdout
 		.split('\n')

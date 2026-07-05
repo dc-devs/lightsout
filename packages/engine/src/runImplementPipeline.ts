@@ -25,12 +25,16 @@ import { acquireRunLock } from './acquireRunLock';
 import { appendAgentLog } from './appendAgentLog';
 import { appendCommandLog } from './appendCommandLog';
 import { appendFriction } from './appendFriction';
+import { chunkFileGroup } from './chunkFileGroup';
+import { collectImportEdges } from './collectImportEdges';
 import { createRun } from './createRun';
+import { groupConnectedFiles } from './groupConnectedFiles';
 import { getRunDir } from './getRunDir';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { isInertSourceFile } from './isInertSourceFile';
 import { resolveConsumerTypescript } from './resolveConsumerTypescript';
 import { readGitChangedFiles } from './readGitChangedFiles';
+import { readGitPrefix } from './readGitPrefix';
 import { readPlanPackages } from './readPlanPackages';
 import { detectStandardsChannels } from './detectStandardsChannels';
 import { readStandards } from './readStandards';
@@ -49,6 +53,8 @@ const formatTimeoutMs = 10 * 60_000;
 const maxCheapFixRetries = 2;
 const maxRefactorPasses = 3;
 const testWriterConcurrency = 5;
+/** Pathological guard: an import component above this splits into sorted chunks — no config knob until live evidence asks for one. */
+const maxWriterGroupFiles = 12;
 const defaultPermissionMode = 'acceptEdits';
 const supervisorPermissionMode = 'plan';
 
@@ -387,11 +393,20 @@ const executePipeline = async ({
 	// real in the diff, but never attributed — their source is the change.
 	const isGeneratedFile = (file: string) => (config.generated ?? []).some((prefix) => file.startsWith(prefix));
 
+	// Agents in a consumer nested inside a larger git repo sometimes echo
+	// repo-ROOT-relative paths in their reports (observed live: the same file
+	// counted twice, doubling its test writers). Strip the git prefix so both
+	// changed-file truths speak consumer-relative paths.
+	const gitPrefix = await readGitPrefix({ cwd });
+	const consumerRelative = (file: string) => (gitPrefix && file.startsWith(gitPrefix) ? file.slice(gitPrefix.length) : file);
+
 	const collectChanged = async (reports: WorkReport[]) => {
 		const fromGit = ((await readGitChangedFiles({ cwd })) ?? []).filter(
 			(file) => !manifest.baselineDirtyFiles.includes(file) && !isGeneratedFile(file),
 		);
-		const fromReports = reports.flatMap((report) => report.changedFiles.map((file) => file.path)).filter((file) => !isGeneratedFile(file));
+		const fromReports = reports
+			.flatMap((report) => report.changedFiles.map((file) => consumerRelative(file.path)))
+			.filter((file) => !isGeneratedFile(file));
 		const changedFiles = [...new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
 		const fromFiles = changedFiles.flatMap((file) => {
 			const packageDir = packageOf(file);
@@ -422,7 +437,7 @@ const executePipeline = async ({
 	const withStepFiles = ({ record, reports }: { record: StepRecord; reports: WorkReport[] }): StepRecord => ({
 		...record,
 		changedFiles: [
-			...new Set([...(record.changedFiles ?? []), ...reports.flatMap((report) => report.changedFiles.map((file) => file.path))]),
+			...new Set([...(record.changedFiles ?? []), ...reports.flatMap((report) => report.changedFiles.map((file) => consumerRelative(file.path)))]),
 		],
 	});
 
@@ -639,9 +654,7 @@ const executePipeline = async ({
 	// standards forbid). Classification borrows the consumer's TypeScript,
 	// exactly like the scan's AST tier; without one, nothing is filtered —
 	// the degraded path is today's behavior, never a lost writer.
-	const selectTestTargets = async (candidates: string[]) => {
-		const compiler = resolveConsumerTypescript({ cwd, packagesDir });
-
+	const selectTestTargets = async ({ candidates, compiler }: { candidates: string[]; compiler: ReturnType<typeof resolveConsumerTypescript> }) => {
 		if (!compiler) {
 			return { targets: candidates, inert: [] as string[] };
 		}
@@ -663,52 +676,99 @@ const executePipeline = async ({
 		return { targets, inert };
 	};
 
+	// One writer per import-graph component, not per file: files that changed
+	// together AND import each other are one test-writing job — the only
+	// grouping that puts a boundary and its internals in the same writer's
+	// hands (so "cover internals through the public surface" is possible on
+	// the FIRST pass), while unrelated changes stay parallel. The engine only
+	// groups; the agent, holding the injected standards, classifies within.
+	// Components never cross packages, so partition by packageOf first.
+	// Without a consumer TypeScript, groups degrade to one file each —
+	// exactly the old fan-out.
+	const groupTestTargets = async ({ targets, compiler }: { targets: string[]; compiler: ReturnType<typeof resolveConsumerTypescript> }) => {
+		if (!compiler) {
+			return targets.map((file) => [file]);
+		}
+
+		const byPackage = new Map<string, string[]>();
+
+		for (const file of targets) {
+			const key = packageOf(file) ?? '';
+
+			byPackage.set(key, [...(byPackage.get(key) ?? []), file]);
+		}
+
+		const groups: string[][] = [];
+
+		for (const partition of [...byPackage.keys()].sort()) {
+			const partitionFiles = byPackage.get(partition) ?? [];
+			const edges = await collectImportEdges({ cwd, files: partitionFiles, compiler });
+
+			for (const component of groupConnectedFiles({ files: partitionFiles, edges })) {
+				if (component.length > maxWriterGroupFiles) {
+					progress(`write-tests: import component of ${component.length} files exceeds the ${maxWriterGroupFiles}-file writer cap — splitting into sorted chunks`);
+				}
+
+				groups.push(...chunkFileGroup({ files: component, max: maxWriterGroupFiles }));
+			}
+		}
+
+		return groups;
+	};
+
 	const writeTestsStep: PipelineStep['run'] = async () => {
 		let record = nextRecord({ id: 'write-tests' });
 
 		await setStep({ record });
 
-		// One writer per source file, batches run in parallel — writers touch
-		// disjoint test files, so they cannot collide on disk.
-		const { targets, inert } = await selectTestTargets(sourceFiles());
+		// One writer per import-graph group, batches run in parallel — groups
+		// are disjoint file sets, so writers cannot collide on disk.
+		const compiler = resolveConsumerTypescript({ cwd, packagesDir });
+		const { targets, inert } = await selectTestTargets({ candidates: sourceFiles(), compiler });
 
 		if (inert.length > 0) {
 			progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(', ')}`);
 		}
 
-		progress(`step write-tests — attempt ${record.attempts} · ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
+		const groups = await groupTestTargets({ targets, compiler });
+
+		progress(
+			`step write-tests — attempt ${record.attempts} · ${groups.length} group(s) across ${targets.length} file(s) (import-graph), up to ${testWriterConcurrency} writers in parallel`,
+		);
 		const reports: WorkReport[] = [];
 		const failures: string[] = [];
 		let terminated = false;
 		let parked = false;
 
-		for (let start = 0; start < targets.length && !parked; start += testWriterConcurrency) {
-			const batch = targets.slice(start, start + testWriterConcurrency);
+		for (let start = 0; start < groups.length && !parked; start += testWriterConcurrency) {
+			const batch = groups.slice(start, start + testWriterConcurrency);
 			const results = await Promise.all(
-				batch.map(async (file) => ({
-					file,
-					...(await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: [file], standards: testStandards }), 'write-tests')),
+				batch.map(async (group) => ({
+					group,
+					...(await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), 'write-tests')),
 				})),
 			);
 
 			for (const result of results) {
+				const label = result.group.join(', ');
+
 				if (result.rateLimited) {
 					parked = true;
 					continue;
 				}
 
 				if (!result.report) {
-					failures.push(`${result.file}: ${result.failure ?? 'unknown failure'}`);
+					failures.push(`${label}: ${result.failure ?? 'unknown failure'}`);
 					continue;
 				}
 
 				await appendFriction({ cwd, runId: manifest.runId, step: 'write-tests', friction: result.report.friction ?? [] });
 				reports.push(result.report);
-				progress(`write-tests: ${result.file} — ${result.report.status}`);
+				progress(`write-tests: ${label} — ${result.report.status}`);
 
 				if (result.report.status !== WorkReportStatus.Complete) {
 					terminated = terminated || result.report.status !== WorkReportStatus.Failed;
-					failures.push(`${result.file}: ${result.report.status} — ${result.report.failures.join('; ')}`);
+					failures.push(`${label}: ${result.report.status} — ${result.report.failures.join('; ')}`);
 				}
 			}
 		}
@@ -727,7 +787,7 @@ const executePipeline = async ({
 			return stop({
 				record: { ...record, report: { reports } },
 				status: terminated ? RunStatus.Escalated : RunStatus.Failed,
-				error: `write-tests: ${failures.length} of ${targets.length} writer(s) did not complete:\n${failures.join('\n')}`,
+				error: `write-tests: ${failures.length} of ${groups.length} writer(s) did not complete:\n${failures.join('\n')}`,
 			});
 		}
 

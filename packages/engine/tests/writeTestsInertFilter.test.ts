@@ -1,26 +1,18 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
 import { loadConfig, runImplementPipeline } from '../src/index';
+import { linkTypescript } from './helpers/linkTypescript';
 import { report } from './helpers/report';
 import { roleOf } from './helpers/roleOf';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';
 
-/** Make the engine repo's own typescript resolvable from the temp consumer repo (resolveConsumerTypescript walks its node_modules). */
-const linkTypescript = (dir: string) => {
-	const typescriptDir = dirname(createRequire(import.meta.url).resolve('typescript/package.json'));
-
-	mkdirSync(join(dir, 'node_modules'), { recursive: true });
-	symlinkSync(realpathSync(typescriptDir), join(dir, 'node_modules', 'typescript'), 'dir');
-};
-
 test('write-tests fan-out: inert files (barrel, type-only) spawn no writer; behavioral files still do', async () => {
 	const dir = setupConsumerRepo();
 
-	linkTypescript(dir);
+	linkTypescript({ dir });
 
 	const writerTargets: string[] = [];
 

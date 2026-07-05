@@ -8,3 +8,5 @@ export { buildTraverseHopInvocation } from './buildTraverseHopInvocation';
 export { buildScanEdgesInvocation } from './buildScanEdgesInvocation';
 export { scanEdgesVersion } from './scanEdgesVersion';
 export { buildPlanExploreInvocation } from './buildPlanExploreInvocation';
+export { buildPlanWriterInvocation } from './buildPlanWriterInvocation';
+export { buildPlanGapCheckInvocation } from './buildPlanGapCheckInvocation';

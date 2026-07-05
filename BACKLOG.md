@@ -775,7 +775,23 @@ design notes so nothing is lost:
 - Phase 3 of linear-two-way-sync: first run on slimmed standards —
   its standards-friction count is the Task 5 experiment's readout.
 
-### Task 16: Make the write-tests fan-out honor the module-boundary rule the standards already define (added 2026-07-04) — LAYER 1 DONE (2026-07-05); Layer 2 remains
+### Task 16: Make the write-tests fan-out honor the module-boundary rule the standards already define (added 2026-07-04) — LAYERS 1+2 DONE (2026-07-05)
+
+Layer 2 result (design upgraded at implementation time — import-graph
+components instead of the package-grouping sketch below): one writer per
+connected component of the import graph RESTRICTED to the changed files
+(`collectImportEdges`: consumer-TS preProcessFile specifiers resolved only
+against the changed set — relative directly, aliased by unique path suffix,
+ambiguity/externals = no edge; `groupConnectedFiles`: deterministic
+union-find; `chunkFileGroup`: >12-file pathological guard, narrated).
+Package partition first; multi-file invocations carry a
+boundary-coverage instruction; failures name the group; no consumer TS ⇒
+one file per group (the old fan-out exactly). Live smoke (toy-calc, same
+plan A/B): 4 writers/$3.61 → 1 writer/$1.63 — and it flushed out two real
+engine bugs, both fixed + regression-tested: relative `--cwd` silently
+killed consumer-TS resolution (createRequire needs absolute), and agents
+in a git-nested consumer echo repo-root-relative report paths, doubling
+file identities (now normalized via `readGitPrefix`). Suite 142/142.
 
 Layer 1 result: `isInertSourceFile` (engine) — every top-level statement an
 import / re-export / type declaration ⇒ no writer spawned, narrated with the

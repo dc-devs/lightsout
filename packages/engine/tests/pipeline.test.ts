@@ -135,7 +135,8 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	assert.ok(progress.some((line) => line.startsWith('step clean-slate — attempt 1')), 'step-start progress emitted');
 	assert.ok(progress.some((line) => /^gate \[root\] check: exit 0/.test(line)), 'gate results streamed');
 	assert.ok(progress.some((line) => line.includes('step implement: agent report complete')), 'agent reports streamed');
-	assert.ok(progress.some((line) => line.includes('2 file(s), up to 5 writers in parallel')), 'writer fan-out announced');
+	// No consumer TypeScript in this repo → grouping degrades to one file per group.
+	assert.ok(progress.some((line) => line.includes('2 group(s) across 2 file(s) (import-graph), up to 5 writers in parallel')), 'writer fan-out announced');
 	assert.ok(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete')), 'refactor loop end announced');
 });
 

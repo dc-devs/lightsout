@@ -1,9 +1,10 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { EdgeInventory, MapJoin, RunStatus, TraverseMode, type LightsoutConfig } from '@lightsout/contracts';
+import { EdgeInventory, MapJoin, PlanVariant, RunStatus, TraverseMode, type LightsoutConfig } from '@lightsout/contracts';
 import { getDriver, type Driver } from '@lightsout/drivers';
 import {
 	authorConnectionDocs,
+	detectStandardsChannels,
 	draftConnectionDocs,
 	isPidAlive,
 	loadConfig,
@@ -11,11 +12,15 @@ import {
 	readFriction,
 	readRunLock,
 	readRunManifest,
+	readStandards,
 	renderTrace,
+	resolvePlansDir,
 	runBuildMap,
 	runDoctor,
 	runImplementPipeline,
+	runPlanDraft,
 	runPlanExplore,
+	runPlanGrade,
 	runScan,
 	RunLockError,
 	runPromptImprovement,
@@ -41,6 +46,8 @@ usage:
   lightsout map-connection verify [<doc-id>...] [--repair] [--connections <dir>] [--cwd <path>]
   lightsout map-connection draft --run <traverse-run-id> [--connections <dir>] [--cwd <path>]
   lightsout plan explore "<request>" --name <n> [--areas <a,b>] [--cwd <path>]
+  lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
+  lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -857,6 +864,121 @@ const main = async () => {
 			}
 
 			console.log(`\nfacts: ${result.factsPath}`);
+			process.exit(0);
+		}
+
+		if (subcommand === 'draft' || subcommand === 'grade') {
+			const name = getStringFlag({ flags, name: 'name' });
+
+			if (!name) {
+				console.error(usage);
+				process.exit(1);
+			}
+
+			// Planning can run before a lightsout.config.json exists — fall back
+			// to the default driver and harness defaults.
+			const config = await loadConfig({ cwd }).catch(() => undefined);
+			const driver = getDriver({ name: config?.driver ?? 'claude-code' });
+			const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: 'plans' }), config });
+
+			// Standards are SUPPLEMENTAL for planning (load-if-configured,
+			// non-fatal if absent) — resolved once and threaded into both draft
+			// and grade, exactly the mechanism the implement pipeline uses.
+			const packagesDir = config?.packagesDir ?? 'packages';
+			const standardsPaths = config?.standards === false ? [] : (config?.standards ?? ['lightsout:code-defaults']);
+			let standards: string | undefined;
+
+			try {
+				const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir, packages: [] }));
+
+				standards = await readStandards({ cwd, paths: standardsPaths, channels });
+			} catch (error) {
+				console.log(dim(`standards not loaded (non-fatal): ${error instanceof Error ? error.message : String(error)}`));
+				standards = undefined;
+			}
+
+			if (subcommand === 'draft') {
+				const scopeFlag = getStringFlag({ flags, name: 'scope' });
+				const scope = scopeFlag === 'phased' ? PlanVariant.Overview : scopeFlag === 'single' ? PlanVariant.Single : undefined;
+				const result = await runPlanDraft({
+					cwd,
+					driver,
+					name,
+					plansDir,
+					scope,
+					standards,
+					model: config?.model,
+					permissionMode: config?.permissionMode,
+					onProgress: createProgressPrinter(),
+				});
+
+				if (result.status === 'paused-rate-limit' || result.status === 'failed') {
+					console.error(`\n${result.error}`);
+					process.exit(1);
+				}
+
+				if (result.status === 'facts-error') {
+					console.error(`\n${red('facts error')} — the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
+
+					for (const discrepancy of result.discrepancies) {
+						console.error(`  ${yellow('⚠')} ${discrepancy}`);
+					}
+
+					process.exit(1);
+				}
+
+				if (result.status === 'structural-issues') {
+					console.error(`\n${red(`${result.findings.length} structural issue(s)`)} remain after re-drafting — resolve, then re-draft:`);
+
+					for (const finding of result.findings) {
+						console.error(`  ${yellow('⚠')} [${finding.check}] ${finding.location} — ${finding.issue}`);
+						console.error(dim(`     fix: ${finding.fix}`));
+					}
+
+					process.exit(1);
+				}
+
+				console.log(`\n${bold(`plan draft ${name}`)} — ${result.variant}, structurally clean`);
+
+				for (const path of result.planPaths) {
+					console.log(`  ${green('✓')} ${path}`);
+				}
+
+				process.exit(0);
+			}
+
+			const result = await runPlanGrade({
+				cwd,
+				driver,
+				name,
+				plansDir,
+				standards,
+				model: config?.model,
+				permissionMode: config?.permissionMode,
+				onProgress: createProgressPrinter(),
+			});
+
+			if (result.status === 'paused-rate-limit' || result.status === 'failed') {
+				console.error(`\n${result.error}`);
+				process.exit(1);
+			}
+
+			const { grade } = result;
+
+			console.log(`\n${bold(`plan grade ${name}`)} — ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
+			console.log(`  structural: ${grade.structural.length} · gaps: ${grade.gaps.length}`);
+
+			for (const finding of grade.structural) {
+				console.log(`${yellow('⚠')} [${finding.check}] ${finding.location} — ${finding.issue}`);
+				console.log(dim(`   fix: ${finding.fix}`));
+			}
+
+			for (const gap of grade.gaps) {
+				console.log(`${yellow('?')} [${gap.area}] ${gap.gap}`);
+				console.log(dim(`   decide: ${gap.decision}${gap.options.length > 0 ? ` — options: ${gap.options.join(' / ')}` : ''}`));
+			}
+
+			console.log(`\ngrade: ${result.gradePath}`);
 			process.exit(0);
 		}
 

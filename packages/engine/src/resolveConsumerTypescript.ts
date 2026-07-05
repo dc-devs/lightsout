@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type ts from 'typescript';
 
 interface Params {
@@ -18,15 +18,19 @@ interface Params {
  * default, so the root often has no typescript while every package does).
  */
 export const resolveConsumerTypescript = ({ cwd, packagesDir = 'packages' }: Params) => {
+	// createRequire rejects relative paths outright (observed live with
+	// `--cwd .`: the whole AST tier silently degraded) — anchor first.
+	const root = resolve(cwd);
+
 	let packageNames: string[] = [];
 
 	try {
-		packageNames = readdirSync(join(cwd, packagesDir)).filter((name) => !name.startsWith('.'));
+		packageNames = readdirSync(join(root, packagesDir)).filter((name) => !name.startsWith('.'));
 	} catch {
 		// not a monorepo — root-only resolution below
 	}
 
-	const manifests = [join(cwd, 'package.json'), ...packageNames.map((name) => join(cwd, packagesDir, name, 'package.json'))];
+	const manifests = [join(root, 'package.json'), ...packageNames.map((name) => join(root, packagesDir, name, 'package.json'))];
 
 	for (const manifest of manifests) {
 		try {
