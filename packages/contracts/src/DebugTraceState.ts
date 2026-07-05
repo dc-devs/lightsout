@@ -15,6 +15,14 @@ const direction = z.enum(['upstream', 'downstream', 'seed']).catch('downstream')
  * frontier shape, own halt); unify only if a second reason appears.
  */
 export const DebugTraceState = z.object({
+	/** How the run was seeded — the node + where its code lives (local working tree vs full-history clone). Persisted so a parked seed hop resumes with the same workspace. */
+	seed: z.object({
+		node: z.string(),
+		workspace: z.discriminatedUnion('kind', [
+			z.object({ kind: z.literal('local'), path: z.string() }),
+			z.object({ kind: z.literal('clone'), repo: z.string(), scope: z.string().optional() }),
+		]),
+	}),
 	/** The user's bug description — symptoms x/y/z (+ any suspect commit / date context). */
 	symptoms: z.string(),
 	/** The current working hypothesis, refined hop to hop; starts from the symptoms. */
