@@ -64,7 +64,10 @@ export const runBuildMap = async ({
 	}
 
 	const inventoriesDir = join(cwd, '.lightsout', 'traverse', 'inventories');
-	const runId = `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 8)}`;
+	// Full timestamp to the second (colons → dashes for the filesystem) so a
+	// lexicographic sort of map-runs/ IS chronological — the newest run is
+	// always last. The short hash only guards same-second collisions.
+	const runId = `${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}-${randomUUID().slice(0, 8)}`;
 	const runDir = join(cwd, '.lightsout', 'traverse', 'map-runs', runId);
 
 	await mkdir(inventoriesDir, { recursive: true });

@@ -66,7 +66,10 @@ export const runTraverse = async ({
 	const edges = await readConnectionMap({ connectionsDir: mapDir });
 	const registry = await readNodeRegistry({ connectionsDir: mapDir });
 
-	const runId = resumeRunId ?? `${new Date().toISOString().slice(0, 10)}-${randomUUID().slice(0, 8)}`;
+	// Full timestamp to the second (colons → dashes for the filesystem) so a
+	// lexicographic sort of the run dirs IS chronological. The short hash only
+	// guards same-second collisions.
+	const runId = resumeRunId ?? `${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}-${randomUUID().slice(0, 8)}`;
 	const runDir = join(cwd, '.lightsout', 'traverse', runId);
 	const tracePath = join(runDir, 'trace.json');
 
