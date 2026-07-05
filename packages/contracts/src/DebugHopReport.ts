@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TraverseEdgeKind } from './TraverseEdgeKind';
 
 /**
  * One debug-hop agent's structured verdict on a single node: given the
@@ -30,14 +31,18 @@ export const DebugHopReport = z
 		rootCause: z.object({ at: z.string(), explanation: z.string() }).nullable().default(null),
 		/** Set only when verdict = root-cause: the proposed fix, concrete enough to act on. */
 		proposedFix: z.string().nullable().default(null),
-		/** Set only when verdict = points-elsewhere: the single strongest lead to follow next. */
+		/** Set only when verdict = points-elsewhere: the single strongest lead to follow next. Describes the CROSSING seen in this node's code (kind + target + at) and the direction — the engine routes it to the adjacent node/edge, because the agent is map-blind (one-repo rule). downstream = an outbound crossing (data leaves here); upstream = the inbound crossing the bad data arrived through. */
 		nextLead: z
 			.object({
-				/** The node to hop to. */
-				node: z.string(),
-				/** Which way the evidence points along the connecting edge. */
+				/** downstream (outbound crossing → its receiver) or upstream (inbound crossing → its sender). */
 				direction: z.enum(['upstream', 'downstream']).catch('downstream'),
-				/** What to look for at that node — the refined hypothesis carried forward. */
+				/** The crossing's kind (http, message-bus, …) as seen in this node's code. */
+				kind: z.enum(TraverseEdgeKind).catch(TraverseEdgeKind.Other),
+				/** URL pattern / stream name / channel of the crossing. */
+				target: z.string(),
+				/** file:line of the crossing in this node. */
+				at: z.string(),
+				/** What to look for at the far side — the refined hypothesis carried forward. */
 				refinedHypothesis: z.string(),
 				/** The evidence for this lead (e.g. "the input was already null on arrival"). */
 				why: z.string(),
