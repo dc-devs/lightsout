@@ -62,9 +62,18 @@ verification between steps, pluggable standards) and replaces the substrate.
    `claude -p` rides the user's Max plan; the Agent SDK is API-key-only and
    explicitly blocked from subscription auth — verified against official docs,
    2026-07), and what keeps the project clear of the third-party-auth policy.
-2. **The plugin skill is the ignition, not the engine.** No gates, retries, or state in markdown,
-   ever. The moment logic leaks into the wrapper, there are two orchestrators
-   again.
+2. **The plugin skill carries no engine logic — never an orchestrator.** No
+   gates, retries, caps, state, or contract parsing in markdown, ever — that
+   machinery is the engine's, and the moment it leaks into a skill there are two
+   orchestrators again. What a skill *may* hold is the human interaction the
+   engine structurally cannot. Two shapes, both zero-determinism: most skills are
+   **pure-relay ignition** (`/implement`, `/traverse`, `/build-map` — resolve the
+   bundle, invoke a subcommand, relay the result verbatim); a skill that drives
+   an interactive flow may also be an **interactive conductor** (`/plan` —
+   conduct Elicitation/Grill dialogue, author the session's inputs, read the
+   subcommand's *typed* verdict), but it still contains no deterministic
+   decision. The test is not "how thin is the markdown" but "is there any
+   deterministic decision in it" — there must be none.
 3. **State lives on disk** (`.lightsout/runs/<id>/manifest.json` in the target
    repo), never in a context window. Crash → `resume` restarts at the failed
    step.

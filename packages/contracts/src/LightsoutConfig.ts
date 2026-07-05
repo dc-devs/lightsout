@@ -63,6 +63,8 @@ export const LightsoutConfig = z.object({
 	generated: z.array(z.string()).optional(),
 	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
 	packagesDir: z.string().optional(),
+	/** Where committed plan deliverables live (`plan draft` output). Default '.claude/plans'. */
+	plansDir: z.string().optional(),
 	/**
 	 * Monorepo mode: gate command templates run per affected package, with
 	 * `{package}` replaced by that package's package.json `name`. When set,

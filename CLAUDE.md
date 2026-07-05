@@ -39,7 +39,12 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 - Drivers shell the user's own logged-in harness binary; the engine NEVER
   handles model credentials. (The Agent SDK is API-key-billed and was
   explicitly rejected — headless `claude -p` rides the Max subscription.)
-- The plugin skill is the ignition, not the engine: zero logic in markdown, ever.
+- The plugin skill carries no engine logic — never an orchestrator. No gates,
+  retries, caps, state, or contract parsing in markdown, ever. A skill is either
+  pure-relay ignition (`/implement`, `/traverse`) or, for an interactive flow, an
+  interactive conductor (`/plan` — conducts human dialogue, reads a subcommand's
+  typed verdict); both hold zero deterministic decisions. The test is "is there
+  any determinism in it," not "how thin is it."
 - Rate-limit exhaustion is a pausable run state, not an error.
 - Born generic: the engine never references any consumer by name; consumers
   integrate via `lightsout.config.json` only.

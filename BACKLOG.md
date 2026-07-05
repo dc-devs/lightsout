@@ -700,8 +700,21 @@ DESIGN RESOLVED + PLAN DRAFTED 2026-07-05: session-conducted, engine-served
 at `.notes/plans/planning-phase/`. Shape: `lightsout plan explore|draft|grade`
 subcommands (deterministic fact verification + code structural-lint +
 agent gap-check) conducted by a `/plan` interactive-conductor skill
-(Elicitation + Grill + gap-convergence in the session). Not yet grilled/graded
-to A; not yet implemented.
+(Elicitation + Grill + gap-convergence in the session). Grill/grade pass done
+2026-07-05 (two independent reviewers vs the real codebase: 13 findings, all
+mechanical specification gaps — enum string values, lint markdown-parsing
+contract, standards wiring, phased naming/glob, decisions.json schema embed,
+partial-explore-failure policy, phantom clock hedge; zero unresolved
+design-decision gaps → grades A). Not yet implemented.
+
+FAST-FOLLOW (deferred from the plan, land on run evidence): plan-time prior-art
+ENFORCEMENT. v1 ships only the cheap half — a plan-writer prompt instruction to
+search existing exports before proposing a new symbol and record them in a
+`## Prior Art` section (the searching is where the dedup value is). Deferred: the
+structured contract field + a `grade` collision check reusing scan's tier-0
+name-dedup + a `DuplicateSymbol` gap type + tests. Cheap to bolt on later
+(reuses existing scan machinery); routes collisions through the existing
+gap-convergence loop, so it adds no new interruption.
 
 A phase BEFORE implement that produces/vets the plan itself. Collected
 design notes so nothing is lost:

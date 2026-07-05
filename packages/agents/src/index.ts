@@ -7,3 +7,4 @@ export { buildPromptImproverInvocation } from './buildPromptImproverInvocation';
 export { buildTraverseHopInvocation } from './buildTraverseHopInvocation';
 export { buildScanEdgesInvocation } from './buildScanEdgesInvocation';
 export { scanEdgesVersion } from './scanEdgesVersion';
+export { buildPlanExploreInvocation } from './buildPlanExploreInvocation';
