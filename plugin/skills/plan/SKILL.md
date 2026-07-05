@@ -47,9 +47,9 @@ Elicitation.
     ]
   }
   ```
-  `source` is exactly `"Elicitation"` | `"Grill"` | `"Converge"`; `options` is a
-  string; `assumption` is a bool. Mark a choice made without user confirmation as
-  an assumption.
+  `source` is exactly `"Elicitation"` | `"Grill"` | `"Dedup"` | `"Converge"`;
+  `options` is a string; `assumption` is a bool. Mark a choice made without user
+  confirmation as an assumption.
 
 **3. Draft.** Run:
 ```sh
@@ -68,7 +68,30 @@ remaining `structural issue(s)` → relay them. On success → note the written
   `Decision Log` row with `Source = Grill`. Do not batch edits to the end.
 - Continue until **the user says stop** — do not self-terminate.
 
-**5. Grade + converge.** Run:
+**5. Dedup Review** — resolve prior-art duplication (interactive). This is the
+last shaping of the plan; after it the plan is complete and Grade only verifies.
+Run:
+```sh
+node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan dedup --name <name>
+```
+Read `.lightsout/plans/<name>/dedup.json`. Detection and judgment are the
+subcommand's; you only conduct the review and apply the chosen edits.
+- `findings` empty → nothing to review; go to Grade.
+- `findings` present → for each finding show its `plannedSymbol`, `collidesWith`,
+  the judge's `recommendation`, and the resolution menu; get the user's choice
+  per finding **or** offer **auto-accept** (apply every `recommendation`, showing
+  a summary first). Apply each chosen resolution to `plan.md` via Edit:
+  - **reuse** → drop the Files-to-Create entry; wire the plan's usage to the
+    existing symbol.
+  - **extend** → add a Files-to-Modify entry for the existing symbol.
+  - **extract** → add the shared file to Files-to-Create at `suggestedLocation`,
+    plus a Files-to-Modify entry per `migrateCallers`.
+  - **defer** → leave the entry; record the accepted duplication in `## Prior Art`
+    (logged debt).
+  - **distinct** → record the justification in `## Prior Art`.
+  Append a `Decision Log` row `Source = Dedup` for each resolution.
+
+**6. Grade + converge.** Run:
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
 ```
@@ -83,7 +106,7 @@ Read `.lightsout/plans/<name>/grade.json`:
 - `structural` findings present (rare) → apply each finding's exact `fix` to
   `plan.md` via Edit, then re-grade.
 
-**6. Handoff.** Relay the final grade and:
+**7. Handoff.** Relay the final grade and:
 ```
 Next: /implement --plan <plansDir>/<name>.md
 ```

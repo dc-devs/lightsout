@@ -18,6 +18,7 @@ import {
 	runBuildMap,
 	runDoctor,
 	runImplementPipeline,
+	runPlanDedup,
 	runPlanDraft,
 	runPlanExplore,
 	runPlanGrade,
@@ -47,6 +48,7 @@ usage:
   lightsout map-connection draft --run <traverse-run-id> [--connections <dir>] [--cwd <path>]
   lightsout plan explore "<request>" --name <n> [--areas <a,b>] [--cwd <path>]
   lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
+  lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
   lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
@@ -867,7 +869,7 @@ const main = async () => {
 			process.exit(0);
 		}
 
-		if (subcommand === 'draft' || subcommand === 'grade') {
+		if (subcommand === 'draft' || subcommand === 'dedup' || subcommand === 'grade') {
 			const name = getStringFlag({ flags, name: 'name' });
 
 			if (!name) {
@@ -944,6 +946,39 @@ const main = async () => {
 					console.log(`  ${green('✓')} ${path}`);
 				}
 
+				process.exit(0);
+			}
+
+			if (subcommand === 'dedup') {
+				const result = await runPlanDedup({
+					cwd,
+					driver,
+					name,
+					plansDir,
+					standards,
+					model: config?.model,
+					permissionMode: config?.permissionMode,
+					onProgress: createProgressPrinter(),
+				});
+
+				if (result.status === 'paused-rate-limit' || result.status === 'failed') {
+					console.error(`\n${result.error}`);
+					process.exit(1);
+				}
+
+				const { dedup } = result;
+				const count = dedup.findings.length;
+
+				console.log(
+					`\n${bold(`plan dedup ${name}`)} — ${count > 0 ? yellow(`${count} duplication(s) to review`) : green('no duplication found')} (reviewed ${dedup.reviewedAt})`,
+				);
+
+				for (const finding of dedup.findings) {
+					console.log(`${yellow('⧉')} ${finding.plannedSymbol} [${finding.recommendation}] collides with ${finding.collidesWith.map((collision) => collision.path).join(', ')}`);
+					console.log(dim(`   ${finding.rationale}`));
+				}
+
+				console.log(`\ndedup: ${result.dedupPath}`);
 				process.exit(0);
 			}
 

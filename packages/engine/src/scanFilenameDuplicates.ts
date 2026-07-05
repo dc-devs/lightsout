@@ -1,31 +1,7 @@
-import { basename } from 'node:path';
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
-
-/** Synonym verbs collapse to one canonical form — synonyms are how duplicates hide from name search. */
-const verbSynonyms: Record<string, string> = {
-	fetch: 'get',
-	load: 'get',
-	retrieve: 'get',
-	read: 'get',
-	make: 'create',
-	generate: 'create',
-	produce: 'create',
-	remove: 'delete',
-	modify: 'update',
-	verify: 'validate',
-	check: 'validate',
-};
-
-const nameOf = (path: string) => basename(path).replace(/\.(m|c)?[jt]sx?$/, '');
-
-/** camelCase / kebab-case / snake_case → lowercase word tokens, synonyms collapsed. */
-const tokensOf = (name: string) =>
-	name
-		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-		.split(/[\s\-_.]+/)
-		.filter(Boolean)
-		.map((token) => token.toLowerCase())
-		.map((token) => verbSynonyms[token] ?? token);
+import { collapseCasing } from './collapseCasing';
+import { nameKey } from './nameKey';
+import { nameOf } from './nameOf';
 
 interface Params {
 	/** Repo-relative non-test source files. */
@@ -55,9 +31,9 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 		byName.set(name, [...(byName.get(name) ?? []), file]);
 
 		// Conversion names are order-sensitive: hexToRgb and rgbToHex are
-		// deliberate opposites, not one concept — sorting would collapse them.
-		const tokens = tokensOf(name);
-		const key = tokens.includes('to') || tokens.includes('from') ? tokens.join(' ') : [...tokens].sort().join(' ');
+		// deliberate opposites, not one concept — the comparator's to/from guard
+		// keeps sorting from collapsing them.
+		const key = nameKey({ name });
 		const group = byTokens.get(key) ?? new Map<string, string[]>();
 
 		group.set(name, [...(group.get(name) ?? []), file]);
@@ -84,7 +60,7 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 			// Names identical up to casing/separators (`GetStarted` vs
 			// `get-started`) are a framework pair (component + kebab route),
 			// not a synonym clash.
-			if (new Set(names.map((name) => name.toLowerCase().replace(/[^a-z0-9]/g, ''))).size < 2) {
+			if (new Set(names.map((name) => collapseCasing(name))).size < 2) {
 				continue;
 			}
 

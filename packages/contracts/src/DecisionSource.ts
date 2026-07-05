@@ -8,6 +8,7 @@
 export const DecisionSource = {
 	Elicitation: 'Elicitation',
 	Grill: 'Grill',
+	Dedup: 'Dedup',
 	Converge: 'Converge',
 } as const;
 

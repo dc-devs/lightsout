@@ -1,6 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { StructuralCheck, type LightsoutConfig, type StructuralFinding } from '@lightsout/contracts';
+import { planCreatePaths } from './planCreatePaths';
 
 interface Params {
 	cwd: string;
@@ -181,7 +182,7 @@ const parsePlan = ({ content, base }: { content: string; base: string }): Parsed
 		title,
 		variant,
 		sections,
-		createPaths: pathsFromSubheadings(sections.get('Files to Create')),
+		createPaths: planCreatePaths({ planText: content }),
 		modifyPaths: pathsFromSubheadings(sections.get('Files to Modify')),
 		mirrorPaths: pathsFromBullets(sections.get('Patterns to Mirror')),
 		verificationCommands: commandsFromVerification(sections.get('Verification')),

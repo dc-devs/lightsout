@@ -3,6 +3,7 @@ import { basename, join } from 'node:path';
 import { GapCheckReport, GradeReport, PlanGrade, type PlanGap, type StructuralFinding } from '@lightsout/contracts';
 import { buildPlanGapCheckInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
+import { detectPriorArtCandidates } from './detectPriorArtCandidates';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { lintPlanStructure } from './lintPlanStructure';
 import { loadConfig } from './loadConfig';
@@ -102,6 +103,17 @@ export const runPlanGrade = async ({
 	const planPaths = [...(overviewPath ? [overviewPath] : []), ...phases.map((phase) => phase.path)];
 	const config = await loadConfig({ cwd }).catch(() => undefined);
 	const structural = await lintPlanStructure({ cwd, planPaths, config });
+
+	// Cheap advisory backstop for the Dedup Review phase: if planned symbols still
+	// name-collide with existing exports, nudge — but never gate. Raw collisions
+	// may be justified-distinct; the Dedup Review phase is the enforcement, not grade.
+	const priorArtCandidates = await detectPriorArtCandidates({ cwd, planPaths, config });
+
+	if (priorArtCandidates.length > 0) {
+		progress(
+			`plan grade ${name}: ${priorArtCandidates.length} planned symbol(s) still name-collide with existing exports — run \`lightsout plan dedup --name ${name}\``,
+		);
+	}
 
 	progress(`plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${phases.length} plan file(s)`);
 

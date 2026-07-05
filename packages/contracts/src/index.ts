@@ -42,3 +42,8 @@ export { StructuralFinding } from './StructuralFinding';
 export { PlanGap } from './PlanGap';
 export { GapCheckReport } from './GapCheckReport';
 export { GradeReport } from './GradeReport';
+export { DedupResolution } from './DedupResolution';
+export { DedupVerdict } from './DedupVerdict';
+export { DedupJudgment } from './DedupJudgment';
+export { DedupFinding } from './DedupFinding';
+export { DedupReport } from './DedupReport';
