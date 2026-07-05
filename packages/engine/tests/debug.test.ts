@@ -4,8 +4,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { ConnectionDoc } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { runDebug } from '../src/index';
+import { findConnectingDoc, runDebug } from '../src/index';
 
 const setupNodeRepo = ({ name, files }: { name: string; files: Record<string, string> }) => {
 	const dir = mkdtempSync(join(tmpdir(), `lightsout-dbg-${name}-`));
@@ -112,6 +113,25 @@ test('debug: a lead that matches no connection doc is a gap, not a guess', async
 	assert.equal(result.state.resolution, null);
 	assert.equal(result.state.gaps.length, 1);
 	assert.match(result.state.gaps[0]?.detail ?? '', /unmapped/);
+});
+
+test('findConnectingDoc: a multiplexed transport routes an operation-level lead, not just the transport path', () => {
+	// The live test caught this: the agent named the operation ("mutation UpdateProject { … }"),
+	// not the /graphql transport, so a path-only match missed the real graphql edge.
+	const doc = ConnectionDoc.parse({
+		from: 'web-app',
+		to: 'backend-api',
+		type: 'graphql',
+		'to-anchor': { path: 'src/graphql.module.ts', pattern: 'GraphQLModule.forRoot' },
+		operations: [{ name: 'updateProject', type: 'mutation' }],
+	});
+	const edges = new Map([['web-app--backend-api--graphql', doc]]);
+	const lead = { direction: 'downstream' as const, kind: 'graphql' as const, target: 'mutation UpdateProject(where: ProjectWhereUniqueInput!) { updateProject { id name } }', at: 'src/x.ts:1', refinedHypothesis: 'h', why: 'w' };
+
+	const matches = findConnectingDoc({ lead, node: 'web-app', edges });
+
+	assert.equal(matches.length, 1, 'routes to the single graphql transport edge');
+	assert.deepEqual({ node: matches[0]?.node, edge: matches[0]?.edge }, { node: 'backend-api', edge: 'web-app--backend-api--graphql' });
 });
 
 test('debug: budget exhaustion parks the open lead; resume completes it', async () => {
