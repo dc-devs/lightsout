@@ -693,7 +693,19 @@ engine's extractJsonReport machinery).
     (auth, billing, destructive deletes) to inline flags in the doc without
     making them edges. Not needed for v1.
 
-### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier)
+### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier) — DONE 2026-07-05
+
+Result: shipped as `lightsout plan explore|draft|grade` + the `/plan`
+interactive-conductor skill (`plugin/skills/plan/SKILL.md`). Phase 1 (contracts
++ `plan explore`, deterministic fact verification) commit 1696fc7; Phase 2
+(`plan draft` + code structural-lint loop, `plan grade` read-only detector +
+gap-check) commit 957dfde; Phase 3 (the `/plan` skill + README) here. Standards
+supplemental; grade advisory to `/implement`; prior-art cheap-half shipped,
+enforcement deferred (fast-follow below). Doctrine updated: skills are
+pure-relay ignition OR interactive conductor, both zero-determinism (CLAUDE.md
++ architecture.md). NOT live-tested (needs a logged-in harness) — stub-driver
++ bundled-CLI dispatch verified; the interactive `/plan` flow is human-only.
+Plans + phase files at `.notes/plans/planning-phase/` (local).
 
 DESIGN RESOLVED + PLAN DRAFTED 2026-07-05: session-conducted, engine-served
 (porting the fdrop `/fdrop:orchestrator:plan` tree). Overview + 3 phase plans
