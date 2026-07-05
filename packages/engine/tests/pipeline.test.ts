@@ -191,8 +191,9 @@ test('scan gate: findings feed the refactor prompt; a fixing pass clears the gat
 	assert.ok(!prompts[1]?.includes('# Scan findings'), 'clean tree injects no findings section');
 });
 
-test('scan gate: a gating finding the refactorer never fixes escalates after the pass cap', async () => {
+test('scan gate: two identical declined passes escalate early — the third pass is never bought', async () => {
 	const dir = setupConsumerRepo();
+	let refactorInvocations = 0;
 
 	const driver: Driver = {
 		name: 'stub',
@@ -207,6 +208,8 @@ test('scan gate: a gating finding the refactorer never fixes escalates after the
 			}
 
 			if (role === 'refactor') {
+				refactorInvocations += 1;
+
 				// Reports clean without ever fixing the violation, and explains why.
 				return {
 					text: report({ friction: [{ kind: 'decision', area: 'plan', detail: 'finding kept: the split would break the public API' }] }),
@@ -224,13 +227,72 @@ test('scan gate: a gating finding the refactorer never fixes escalates after the
 
 	assert.equal(result.ok, false);
 	assert.equal(result.manifest.status, 'escalated');
-	assert.match(result.error ?? '', /scan gate — 1 finding\(s\) persist/);
+	assert.equal(refactorInvocations, 2, 'the second identical decline settles it — no third invocation');
+	assert.match(result.error ?? '', /scan gate — 1 finding\(s\) persist after 2 pass\(es\)/);
 	assert.match(result.error ?? '', /multi-export:src\/messy\.js/);
 	// The escalation carries the evidence a human needs: the finding's detail
 	// with its location, and the agent's own account of why it was left.
 	assert.match(result.error ?? '', /at src\/messy\.js/);
 	assert.match(result.error ?? '', /the refactor agent's account of its final pass:/);
 	assert.match(result.error ?? '', /finding kept: the split would break the public API/);
+});
+
+test('scan gate: a declined pass that still CHANGED the gating set earns the next pass', async () => {
+	const dir = setupConsumerRepo();
+	let refactorInvocations = 0;
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'write-tests') {
+				const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
+				const testFile = `test/${target.split('/').pop()?.replace('.js', '')}.test.js`;
+
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, testFile), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				refactorInvocations += 1;
+
+				// Pass 1 quietly fixes one of the two violations ON DISK while
+				// reporting zero changes — the gating set shrinks, so the
+				// early-exit must NOT fire; passes 2 and 3 decline identically.
+				if (refactorInvocations === 1) {
+					writeFileSync(join(dir, 'src/alpha.js'), 'export const first = () => 1;\n');
+				}
+
+				return { text: report(), exitCode: 0 };
+			}
+
+			// Implement plants two violations in two files (two distinct clusters).
+			writeFileSync(join(dir, 'src/alpha.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
+			writeFileSync(join(dir, 'src/beta.js'), 'export const third = () => 3;\nexport const fourth = () => 4;\n');
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/alpha.js', summary: 'feature' },
+						{ path: 'src/beta.js', summary: 'feature' },
+					],
+				}),
+				exitCode: 0,
+			};
+		},
+	};
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+
+	assert.equal(result.ok, false);
+	assert.equal(result.manifest.status, 'escalated');
+	assert.equal(refactorInvocations, 3, 'a shrinking gating set is progress — the full pass budget stays available');
+	assert.match(result.error ?? '', /persist after 3 pass\(es\)/);
+	assert.match(result.error ?? '', /multi-export:src\/beta\.js/);
+	assert.doesNotMatch(result.error ?? '', /multi-export:src\/alpha\.js/, 'the quietly-fixed violation is gone from the escalation');
 });
 
 test('implement that changes nothing fails instead of passing vacuously', async () => {

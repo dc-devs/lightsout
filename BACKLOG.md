@@ -850,7 +850,14 @@ wasted round-trip, never wrong coverage.
   Stub-driver smoke proving per-package grouping + a live smoke on
   `fixtures/toy-calc`; report honestly what was not live-tested.
 
-### Task 17: Refactor early-exit — stop re-asking an agent that already declined (added 2026-07-05, from a live consumer run)
+### Task 17: Refactor early-exit — stop re-asking an agent that already declined (added 2026-07-05, from a live consumer run) — DONE (2026-07-05)
+
+Result: two consecutive no-change passes over an IDENTICAL gating cluster
+set escalate immediately (tracked per loop, reset by any pass that changes
+files — a shrinking set is progress and keeps the full pass budget); the
+escalation text reports the true pass count. Stub tests: identical decline
+⇒ 2 invocations, never 3; a pass that silently shrinks the gating set still
+earns the next pass. Suite 117/117.
 
 The refactor loop runs up to 3 passes while gating scan findings persist.
 Live case: the agent declined the same (then-false-positive) finding three

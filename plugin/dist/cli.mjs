@@ -35,9 +35,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.js
 var require_eventemitter3 = __commonJS({
-  "node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.js"(exports, module) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.js"(exports, module) {
     "use strict";
     var has = Object.prototype.hasOwnProperty;
     var prefix = "~";
@@ -197,9 +197,9 @@ var require_eventemitter3 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/spark-md5@3.0.2/node_modules/spark-md5/spark-md5.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/spark-md5@3.0.2/node_modules/spark-md5/spark-md5.js
 var require_spark_md5 = __commonJS({
-  "node_modules/.pnpm/spark-md5@3.0.2/node_modules/spark-md5/spark-md5.js"(exports, module) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/spark-md5@3.0.2/node_modules/spark-md5/spark-md5.js"(exports, module) {
     (function(factory) {
       if (typeof exports === "object") {
         module.exports = factory();
@@ -630,9 +630,9 @@ var require_spark_md5 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
     var ALIAS = Symbol.for("yaml.alias");
     var DOC = Symbol.for("yaml.document");
@@ -687,9 +687,9 @@ var require_identity = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js
 var require_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
     var identity = require_identity();
     var BREAK = Symbol("break visit");
@@ -845,9 +845,9 @@ var require_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit = require_visit();
@@ -1016,9 +1016,9 @@ var require_directives = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js"(exports) {
     "use strict";
     var identity = require_identity();
     var visit = require_visit();
@@ -1086,9 +1086,9 @@ var require_anchors = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
     "use strict";
     function applyReviver(reviver, obj, key, val) {
       if (val && typeof val === "object") {
@@ -1136,9 +1136,9 @@ var require_applyReviver = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js"(exports) {
     "use strict";
     var identity = require_identity();
     function toJS(value, arg, ctx) {
@@ -1166,9 +1166,9 @@ var require_toJS = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js"(exports) {
     "use strict";
     var applyReviver = require_applyReviver();
     var identity = require_identity();
@@ -1207,9 +1207,9 @@ var require_Node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var visit = require_visit();
@@ -1323,9 +1323,9 @@ var require_Alias = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Node = require_Node();
@@ -1353,9 +1353,9 @@ var require_Scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -1428,9 +1428,9 @@ var require_createNode = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var identity = require_identity();
@@ -1571,9 +1571,9 @@ var require_Collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
@@ -1588,9 +1588,9 @@ var require_stringifyComment = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
     "use strict";
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
@@ -1724,9 +1724,9 @@ ${indent}${text.slice(fold + 1, end2)}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var foldFlowLines = require_foldFlowLines();
@@ -2007,9 +2007,9 @@ ${indent}`);
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js"(exports) {
     "use strict";
     var anchors = require_anchors();
     var identity = require_identity();
@@ -2131,9 +2131,9 @@ ${ctx.indent}${str}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -2264,9 +2264,9 @@ ${ctx.indent}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js
 var require_log = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js"(exports) {
     "use strict";
     var node_process = __require("process");
     function debug(logLevel, ...messages) {
@@ -2286,9 +2286,9 @@ var require_log = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -2346,9 +2346,9 @@ var require_merge = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
     "use strict";
     var log = require_log();
     var merge2 = require_merge();
@@ -2410,9 +2410,9 @@ var require_addPairToJSMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyPair = require_stringifyPair();
@@ -2450,9 +2450,9 @@ var require_Pair = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify3 = require_stringify();
@@ -2601,9 +2601,9 @@ ${indent}${end}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
     "use strict";
     var stringifyCollection = require_stringifyCollection();
     var addPairToJSMap = require_addPairToJSMap();
@@ -2745,9 +2745,9 @@ var require_YAMLMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLMap = require_YAMLMap();
@@ -2767,9 +2767,9 @@ var require_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
     "use strict";
     var createNode = require_createNode();
     var stringifyCollection = require_stringifyCollection();
@@ -2883,9 +2883,9 @@ var require_YAMLSeq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js"(exports) {
     "use strict";
     var identity = require_identity();
     var YAMLSeq = require_YAMLSeq();
@@ -2905,9 +2905,9 @@ var require_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js"(exports) {
     "use strict";
     var stringifyString = require_stringifyString();
     var string4 = {
@@ -2924,9 +2924,9 @@ var require_string = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var nullTag = {
@@ -2942,9 +2942,9 @@ var require_null = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var boolTag = {
@@ -2966,9 +2966,9 @@ var require_bool = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
     "use strict";
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
       if (typeof value === "bigint")
@@ -2993,9 +2993,9 @@ var require_stringifyNumber = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -3039,9 +3039,9 @@ var require_float = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -3084,9 +3084,9 @@ var require_int = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js"(exports) {
     "use strict";
     var map2 = require_map();
     var _null4 = require_null();
@@ -3112,9 +3112,9 @@ var require_schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var map2 = require_map();
@@ -3179,9 +3179,9 @@ var require_schema2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
     "use strict";
     var node_buffer = __require("buffer");
     var Scalar = require_Scalar();
@@ -3245,9 +3245,9 @@ var require_binary = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -3323,9 +3323,9 @@ ${cn.comment}` : item.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
     "use strict";
     var identity = require_identity();
     var toJS = require_toJS();
@@ -3401,9 +3401,9 @@ var require_omap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function boolStringify({ value, source }, ctx) {
@@ -3433,9 +3433,9 @@ var require_bool2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
@@ -3482,9 +3482,9 @@ var require_float2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -3561,9 +3561,9 @@ var require_int2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -3650,9 +3650,9 @@ var require_set = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     function parseSexagesimal(str, asBigInt) {
@@ -3738,9 +3738,9 @@ var require_timestamp = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
     "use strict";
     var map2 = require_map();
     var _null4 = require_null();
@@ -3782,9 +3782,9 @@ var require_schema3 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js"(exports) {
     "use strict";
     var map2 = require_map();
     var _null4 = require_null();
@@ -3876,9 +3876,9 @@ var require_tags = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js"(exports) {
     "use strict";
     var identity = require_identity();
     var map2 = require_map();
@@ -3908,9 +3908,9 @@ var require_Schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
     var stringify3 = require_stringify();
@@ -3988,9 +3988,9 @@ var require_stringifyDocument = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var Collection = require_Collection();
@@ -4297,9 +4297,9 @@ var require_Document = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js
 var require_errors = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     var YAMLError = class extends Error {
       constructor(name, pos, code, message) {
@@ -4362,9 +4362,9 @@ ${pointer}
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
     "use strict";
     function resolveProps(tokens2, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
       let spaceBefore = false;
@@ -4496,9 +4496,9 @@ var require_resolve_props = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
     "use strict";
     function containsNewline(key) {
       if (!key)
@@ -4538,9 +4538,9 @@ var require_util_contains_newline = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     var utilContainsNewline = require_util_contains_newline();
     function flowIndentCheck(indent, fc, onError) {
@@ -4556,9 +4556,9 @@ var require_util_flow_indent_check = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
     "use strict";
     var identity = require_identity();
     function mapIncludes(ctx, items, search) {
@@ -4572,9 +4572,9 @@ var require_util_map_includes = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
     "use strict";
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
@@ -4680,9 +4680,9 @@ var require_resolve_block_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
     "use strict";
     var YAMLSeq = require_YAMLSeq();
     var resolveProps = require_resolve_props();
@@ -4731,9 +4731,9 @@ var require_resolve_block_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
     "use strict";
     function resolveEnd(end, offset, reqSpace, onError) {
       let comment = "";
@@ -4774,9 +4774,9 @@ var require_resolve_end = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Pair = require_Pair();
@@ -4968,9 +4968,9 @@ var require_resolve_flow_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -5033,9 +5033,9 @@ var require_compose_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
@@ -5216,9 +5216,9 @@ var require_resolve_block_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
     "use strict";
     var Scalar = require_Scalar();
     var resolveEnd = require_resolve_end();
@@ -5436,9 +5436,9 @@ var require_resolve_flow_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -5517,9 +5517,9 @@ var require_compose_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
     "use strict";
     function emptyScalarPosition(offset, before, pos) {
       if (before) {
@@ -5547,9 +5547,9 @@ var require_util_empty_scalar_position = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js"(exports) {
     "use strict";
     var Alias = require_Alias();
     var identity = require_identity();
@@ -5653,9 +5653,9 @@ var require_compose_node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
     var Document = require_Document();
     var composeNode = require_compose_node();
@@ -5696,9 +5696,9 @@ var require_compose_doc = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js"(exports) {
     "use strict";
     var node_process = __require("process");
     var directives = require_directives();
@@ -5904,9 +5904,9 @@ ${end.comment}` : end.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
     "use strict";
     var resolveBlockScalar = require_resolve_block_scalar();
     var resolveFlowScalar = require_resolve_flow_scalar();
@@ -6089,9 +6089,9 @@ var require_cst_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
     var stringify3 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
@@ -6150,9 +6150,9 @@ var require_cst_stringify = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
     "use strict";
     var BREAK = Symbol("break visit");
     var SKIP = Symbol("skip children");
@@ -6212,9 +6212,9 @@ var require_cst_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js"(exports) {
     "use strict";
     var cstScalar = require_cst_scalar();
     var cstStringify = require_cst_stringify();
@@ -6314,9 +6314,9 @@ var require_cst = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js"(exports) {
     "use strict";
     var cst = require_cst();
     function isEmpty(ch) {
@@ -6903,9 +6903,9 @@ var require_lexer = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js"(exports) {
     "use strict";
     var LineCounter = class {
       constructor() {
@@ -6934,9 +6934,9 @@ var require_line_counter = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js"(exports) {
     "use strict";
     var node_process = __require("process");
     var cst = require_cst();
@@ -7808,9 +7808,9 @@ var require_parser = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -7905,9 +7905,9 @@ var require_public_api = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js"(exports) {
+  "../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js"(exports) {
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
@@ -7961,7 +7961,7 @@ var require_dist = __commonJS({
 import { readdir as readdir8, readFile as readFile25, writeFile as writeFile11 } from "node:fs/promises";
 import { basename as basename6, join as join35 } from "node:path";
 
-// packages/contracts/src/RunStatus.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/RunStatus.ts
 var RunStatus = {
   Pending: "pending",
   Running: "running",
@@ -7973,7 +7973,7 @@ var RunStatus = {
   Escalated: "escalated"
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
   $brand: () => $brand,
@@ -8216,7 +8216,7 @@ __export(external_exports, {
   xor: () => xor
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/index.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/index.js
 var core_exports2 = {};
 __export(core_exports2, {
   $ZodAny: () => $ZodAny,
@@ -8495,7 +8495,7 @@ __export(core_exports2, {
   version: () => version
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/core.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/core.js
 var _a;
 var NEVER = /* @__PURE__ */ Object.freeze({
   status: "aborted"
@@ -8572,7 +8572,7 @@ function config(newConfig) {
   return globalConfig;
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/util.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
   BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
@@ -9268,7 +9268,7 @@ var Class = class {
   }
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/errors.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/errors.js
 var initializer = (inst, def) => {
   inst.name = "$ZodError";
   Object.defineProperty(inst, "_zod", {
@@ -9407,7 +9407,7 @@ function prettifyError(error51) {
   return lines.join("\n");
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/parse.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/parse.js
 var _parse = (_Err) => (schema, value, _ctx, _params) => {
   const ctx = _ctx ? { ..._ctx, async: false } : { async: false };
   const result = schema._zod.run({ value, issues: [] }, ctx);
@@ -9495,7 +9495,7 @@ var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
 };
 var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/regexes.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/regexes.js
 var regexes_exports = {};
 __export(regexes_exports, {
   base64: () => base64,
@@ -9654,7 +9654,7 @@ var sha512_hex = /^[0-9a-fA-F]{128}$/;
 var sha512_base64 = /* @__PURE__ */ fixedBase64(86, "==");
 var sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/checks.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/checks.js
 var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
   var _a3;
   inst._zod ?? (inst._zod = {});
@@ -10202,7 +10202,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
   };
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/doc.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/doc.js
 var Doc = class {
   constructor(args = []) {
     this.content = [];
@@ -10238,14 +10238,14 @@ var Doc = class {
   }
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/versions.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/versions.js
 var version = {
   major: 4,
   minor: 4,
   patch: 3
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/schemas.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/schemas.js
 var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
   var _a3;
   inst ?? (inst = {});
@@ -12338,7 +12338,7 @@ function handleRefineResult(result, payload, input, inst) {
   }
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/index.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/index.js
 var locales_exports = {};
 __export(locales_exports, {
   ar: () => ar_default,
@@ -12395,7 +12395,7 @@ __export(locales_exports, {
   zhTW: () => zh_TW_default
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ar.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ar.js
 var error = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
@@ -12502,7 +12502,7 @@ function ar_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/az.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/az.js
 var error2 = () => {
   const Sizable = {
     string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
@@ -12608,7 +12608,7 @@ function az_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/be.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -12765,7 +12765,7 @@ function be_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/bg.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/bg.js
 var error4 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
@@ -12886,7 +12886,7 @@ function bg_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ca.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ca.js
 var error5 = () => {
   const Sizable = {
     string: { unit: "car\xE0cters", verb: "contenir" },
@@ -12995,7 +12995,7 @@ function ca_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/cs.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/cs.js
 var error6 = () => {
   const Sizable = {
     string: { unit: "znak\u016F", verb: "m\xEDt" },
@@ -13107,7 +13107,7 @@ function cs_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/da.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/da.js
 var error7 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "havde" },
@@ -13223,7 +13223,7 @@ function da_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/de.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/de.js
 var error8 = () => {
   const Sizable = {
     string: { unit: "Zeichen", verb: "zu haben" },
@@ -13332,7 +13332,7 @@ function de_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/el.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/el.js
 var error9 = () => {
   const Sizable = {
     string: { unit: "\u03C7\u03B1\u03C1\u03B1\u03BA\u03C4\u03AE\u03C1\u03B5\u03C2", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
@@ -13442,7 +13442,7 @@ function el_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/en.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/en.js
 var error10 = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
@@ -13555,7 +13555,7 @@ function en_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/eo.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/eo.js
 var error11 = () => {
   const Sizable = {
     string: { unit: "karaktrojn", verb: "havi" },
@@ -13665,7 +13665,7 @@ function eo_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/es.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/es.js
 var error12 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "tener" },
@@ -13798,7 +13798,7 @@ function es_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fa.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fa.js
 var error13 = () => {
   const Sizable = {
     string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
@@ -13913,7 +13913,7 @@ function fa_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fi.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fi.js
 var error14 = () => {
   const Sizable = {
     string: { unit: "merkki\xE4", subject: "merkkijonon" },
@@ -14026,7 +14026,7 @@ function fi_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fr.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fr.js
 var error15 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -14152,7 +14152,7 @@ function fr_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fr-CA.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/fr-CA.js
 var error16 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -14260,7 +14260,7 @@ function fr_CA_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/he.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/he.js
 var error17 = () => {
   const TypeNames = {
     string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA", gender: "f" },
@@ -14455,7 +14455,7 @@ function he_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/hr.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/hr.js
 var error18 = () => {
   const Sizable = {
     string: { unit: "znakova", verb: "imati" },
@@ -14578,7 +14578,7 @@ function hr_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/hu.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/hu.js
 var error19 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "legyen" },
@@ -14687,7 +14687,7 @@ function hu_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/hy.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -14835,7 +14835,7 @@ function hy_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/id.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/id.js
 var error21 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "memiliki" },
@@ -14942,7 +14942,7 @@ function id_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/is.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/is.js
 var error22 = () => {
   const Sizable = {
     string: { unit: "stafi", verb: "a\xF0 hafa" },
@@ -15052,7 +15052,7 @@ function is_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/it.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/it.js
 var error23 = () => {
   const Sizable = {
     string: { unit: "caratteri", verb: "avere" },
@@ -15161,7 +15161,7 @@ function it_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ja.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ja.js
 var error24 = () => {
   const Sizable = {
     string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
@@ -15269,7 +15269,7 @@ function ja_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ka.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ka.js
 var error25 = () => {
   const Sizable = {
     string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
@@ -15382,7 +15382,7 @@ function ka_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/km.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/km.js
 var error26 = () => {
   const Sizable = {
     string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
@@ -15493,12 +15493,12 @@ function km_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/kh.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ko.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ko.js
 var error27 = () => {
   const Sizable = {
     string: { unit: "\uBB38\uC790", verb: "to have" },
@@ -15610,7 +15610,7 @@ function ko_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/lt.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/lt.js
 var capitalizeFirstCharacter = (text) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
@@ -15814,7 +15814,7 @@ function lt_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/mk.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/mk.js
 var error29 = () => {
   const Sizable = {
     string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
@@ -15924,7 +15924,7 @@ function mk_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ms.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ms.js
 var error30 = () => {
   const Sizable = {
     string: { unit: "aksara", verb: "mempunyai" },
@@ -16032,7 +16032,7 @@ function ms_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/nl.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/nl.js
 var error31 = () => {
   const Sizable = {
     string: { unit: "tekens", verb: "heeft" },
@@ -16143,7 +16143,7 @@ function nl_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/no.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/no.js
 var error32 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "\xE5 ha" },
@@ -16252,7 +16252,7 @@ function no_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ota.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ota.js
 var error33 = () => {
   const Sizable = {
     string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
@@ -16362,7 +16362,7 @@ function ota_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ps.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ps.js
 var error34 = () => {
   const Sizable = {
     string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
@@ -16477,7 +16477,7 @@ function ps_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/pl.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/pl.js
 var error35 = () => {
   const Sizable = {
     string: { unit: "znak\xF3w", verb: "mie\u0107" },
@@ -16587,7 +16587,7 @@ function pl_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/pt.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/pt.js
 var error36 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "ter" },
@@ -16696,7 +16696,7 @@ function pt_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ro.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ro.js
 var error37 = () => {
   const Sizable = {
     string: { unit: "caractere", verb: "s\u0103 aib\u0103" },
@@ -16816,7 +16816,7 @@ function ro_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ru.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -16973,7 +16973,7 @@ function ru_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/sl.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/sl.js
 var error39 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "imeti" },
@@ -17083,7 +17083,7 @@ function sl_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/sv.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/sv.js
 var error40 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
@@ -17194,7 +17194,7 @@ function sv_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ta.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ta.js
 var error41 = () => {
   const Sizable = {
     string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
@@ -17305,7 +17305,7 @@ function ta_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/th.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/th.js
 var error42 = () => {
   const Sizable = {
     string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
@@ -17416,7 +17416,7 @@ function th_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/tr.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/tr.js
 var error43 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "olmal\u0131" },
@@ -17522,7 +17522,7 @@ function tr_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/uk.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/uk.js
 var error44 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
@@ -17631,12 +17631,12 @@ function uk_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ua.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ur.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ur.js
 var error45 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
@@ -17747,7 +17747,7 @@ function ur_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/uz.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/uz.js
 var error46 = () => {
   const Sizable = {
     string: { unit: "belgi", verb: "bo\u2018lishi kerak" },
@@ -17858,7 +17858,7 @@ function uz_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/vi.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/vi.js
 var error47 = () => {
   const Sizable = {
     string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
@@ -17967,7 +17967,7 @@ function vi_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/zh-CN.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/zh-CN.js
 var error48 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
@@ -18077,7 +18077,7 @@ function zh_CN_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/zh-TW.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/zh-TW.js
 var error49 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
@@ -18185,7 +18185,7 @@ function zh_TW_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/yo.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/yo.js
 var error50 = () => {
   const Sizable = {
     string: { unit: "\xE0mi", verb: "n\xED" },
@@ -18293,7 +18293,7 @@ function yo_default() {
   };
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/registries.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/registries.js
 var _a2;
 var $output = Symbol("ZodOutput");
 var $input = Symbol("ZodInput");
@@ -18343,7 +18343,7 @@ function registry() {
 (_a2 = globalThis).__zod_globalRegistry ?? (_a2.__zod_globalRegistry = registry());
 var globalRegistry = globalThis.__zod_globalRegistry;
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/api.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/api.js
 // @__NO_SIDE_EFFECTS__
 function _string(Class2, params) {
   return new Class2({
@@ -19382,7 +19382,7 @@ function _stringFormat(Class2, format, fnOrRegex, _params = {}) {
   return inst;
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/to-json-schema.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/to-json-schema.js
 function initializeContext(params) {
   let target = params?.target ?? "draft-2020-12";
   if (target === "draft-4")
@@ -19741,7 +19741,7 @@ var createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) =
   return finalize(ctx, schema);
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema-processors.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema-processors.js
 var formatMap = {
   guid: "uuid",
   url: "uri",
@@ -20285,7 +20285,7 @@ function toJSONSchema(input, params) {
   return finalize(ctx, input);
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema-generator.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema-generator.js
 var JSONSchemaGenerator = class {
   /** @deprecated Access via ctx instead */
   get metadataRegistry() {
@@ -20360,10 +20360,10 @@ var JSONSchemaGenerator = class {
   }
 };
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema.js
 var json_schema_exports = {};
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/schemas.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/schemas.js
 var schemas_exports2 = {};
 __export(schemas_exports2, {
   ZodAny: () => ZodAny,
@@ -20534,7 +20534,7 @@ __export(schemas_exports2, {
   xor: () => xor
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/checks.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/checks.js
 var checks_exports2 = {};
 __export(checks_exports2, {
   endsWith: () => _endsWith,
@@ -20568,7 +20568,7 @@ __export(checks_exports2, {
   uppercase: () => _uppercase
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/iso.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/iso.js
 var iso_exports = {};
 __export(iso_exports, {
   ZodISODate: () => ZodISODate,
@@ -20609,7 +20609,7 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/errors.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/errors.js
 var initializer2 = (inst, issues) => {
   $ZodError.init(inst, issues);
   inst.name = "ZodError";
@@ -20649,7 +20649,7 @@ var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, {
   Parent: Error
 });
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/parse.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
@@ -20663,7 +20663,7 @@ var safeDecode2 = /* @__PURE__ */ _safeDecode(ZodRealError);
 var safeEncodeAsync2 = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
 var safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/schemas.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/schemas.js
 var _installedGroups = /* @__PURE__ */ new WeakMap();
 function _installLazyMethods(inst, group, methods) {
   const proto = Object.getPrototypeOf(inst);
@@ -21953,7 +21953,7 @@ function preprocess(fn, schema) {
   });
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/compat.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/compat.js
 var ZodIssueCode = {
   invalid_type: "invalid_type",
   too_big: "too_big",
@@ -21979,7 +21979,7 @@ var ZodFirstPartyTypeKind;
 /* @__PURE__ */ (function(ZodFirstPartyTypeKind2) {
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/from-json-schema.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/from-json-schema.js
 var z = {
   ...schemas_exports2,
   ...checks_exports2,
@@ -22459,7 +22459,7 @@ function fromJSONSchema(schema, params) {
   return convertSchema(normalized3, ctx);
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/coerce.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/coerce.js
 var coerce_exports = {};
 __export(coerce_exports, {
   bigint: () => bigint3,
@@ -22484,10 +22484,10 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
-// node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 config(en_default());
 
-// packages/contracts/src/LightsoutConfig.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/LightsoutConfig.ts
 var LightsoutConfig = external_exports.object({
   /** Driver name. Defaults to 'claude-code'. */
   driver: external_exports.string().optional(),
@@ -22599,7 +22599,7 @@ var LightsoutConfig = external_exports.object({
   }).optional()
 });
 
-// packages/contracts/src/PackagesSource.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/PackagesSource.ts
 var PackagesSource = {
   /** Explicit `--packages` flag. */
   Flag: "flag",
@@ -22609,7 +22609,7 @@ var PackagesSource = {
   PlanPaths: "plan-paths"
 };
 
-// packages/contracts/src/AgentUsage.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/AgentUsage.ts
 var AgentUsage = external_exports.object({
   inputTokens: external_exports.number(),
   outputTokens: external_exports.number(),
@@ -22618,12 +22618,12 @@ var AgentUsage = external_exports.object({
   costUsd: external_exports.number()
 });
 
-// packages/contracts/src/RunUsage.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/RunUsage.ts
 var RunUsage = AgentUsage.extend({
   invocations: external_exports.number()
 });
 
-// packages/contracts/src/StepRecord.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/StepRecord.ts
 var StepRecord = external_exports.object({
   id: external_exports.string(),
   status: external_exports.enum(RunStatus),
@@ -22636,7 +22636,7 @@ var StepRecord = external_exports.object({
   error: external_exports.string().optional()
 });
 
-// packages/contracts/src/RunManifest.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/RunManifest.ts
 var RunManifest = external_exports.object({
   runId: external_exports.string(),
   createdAt: external_exports.string(),
@@ -22681,14 +22681,14 @@ var RunManifest = external_exports.object({
   baselineDirtyFiles: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/RunLock.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/RunLock.ts
 var RunLock = external_exports.object({
   pid: external_exports.number().int(),
   runId: external_exports.string(),
   startedAt: external_exports.string()
 });
 
-// packages/contracts/src/FrictionArea.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/FrictionArea.ts
 var FrictionArea = {
   /** The plan was ambiguous, stale, or underspecified. */
   Plan: "plan",
@@ -22701,7 +22701,7 @@ var FrictionArea = {
   Other: "other"
 };
 
-// packages/contracts/src/FrictionKind.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/FrictionKind.ts
 var FrictionKind = {
   /** Something fought or confused the agent. */
   Friction: "friction",
@@ -22709,7 +22709,7 @@ var FrictionKind = {
   Decision: "decision"
 };
 
-// packages/contracts/src/FrictionEntry.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/FrictionEntry.ts
 var FrictionEntry = external_exports.object({
   /** `friction` (something fought the agent) or `decision` (a silent-input guess). Omitted means friction. */
   kind: external_exports.enum(FrictionKind).optional(),
@@ -22723,7 +22723,7 @@ var FrictionEntry = external_exports.object({
   detail: external_exports.string()
 });
 
-// packages/contracts/src/WorkReportStatus.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/WorkReportStatus.ts
 var WorkReportStatus = {
   Complete: "complete",
   Failed: "failed",
@@ -22735,7 +22735,7 @@ var WorkReportStatus = {
   TerminatedScope: "terminated:scope"
 };
 
-// packages/contracts/src/WorkReport.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/WorkReport.ts
 var WorkReport = external_exports.object({
   status: external_exports.enum(WorkReportStatus),
   /** Every source file created or modified, with a one-clause description. */
@@ -22764,7 +22764,7 @@ var WorkReport = external_exports.object({
   ).optional()
 });
 
-// packages/contracts/src/SupervisorDecision.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/SupervisorDecision.ts
 var SupervisorDecision = {
   /** The failure is mechanically fixable — re-invoke the working role with the supervisor's guidance. */
   Retry: "retry",
@@ -22772,7 +22772,7 @@ var SupervisorDecision = {
   Escalate: "escalate"
 };
 
-// packages/contracts/src/SupervisorVerdict.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/SupervisorVerdict.ts
 var SupervisorVerdict = external_exports.object({
   decision: external_exports.enum(SupervisorDecision),
   /** Root-cause analysis of why the step keeps failing. */
@@ -22781,14 +22781,14 @@ var SupervisorVerdict = external_exports.object({
   guidance: external_exports.string().optional()
 });
 
-// packages/contracts/src/FrictionRecord.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/FrictionRecord.ts
 var FrictionRecord = FrictionEntry.extend({
   at: external_exports.string(),
   runId: external_exports.string(),
   step: external_exports.string()
 });
 
-// packages/contracts/src/ScanDetector.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/ScanDetector.ts
 var ScanDetector = {
   /** Tier 0: export names that collide or differ only by synonym/word order. */
   FilenameDuplicate: "filename-duplicate",
@@ -22804,7 +22804,7 @@ var ScanDetector = {
   DeadExport: "dead-export"
 };
 
-// packages/contracts/src/ScanSeverity.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/ScanSeverity.ts
 var ScanSeverity = {
   /** A rule violation — v2 remediation acts on these. */
   Finding: "finding",
@@ -22812,7 +22812,7 @@ var ScanSeverity = {
   Advisory: "advisory"
 };
 
-// packages/contracts/src/ScanFinding.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/ScanFinding.ts
 var ScanFinding = external_exports.object({
   detector: external_exports.enum(ScanDetector),
   severity: external_exports.enum(ScanSeverity),
@@ -22828,7 +22828,7 @@ var ScanFinding = external_exports.object({
   detail: external_exports.string()
 });
 
-// packages/contracts/src/TraverseEdgeKind.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/TraverseEdgeKind.ts
 var TraverseEdgeKind = {
   Http: "http",
   Graphql: "graphql",
@@ -22841,7 +22841,7 @@ var TraverseEdgeKind = {
   Other: "other"
 };
 
-// packages/contracts/src/TraverseMode.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/TraverseMode.ts
 var TraverseMode = {
   Answer: "answer",
   Doc: "doc",
@@ -22850,7 +22850,7 @@ var TraverseMode = {
   Bug: "bug"
 };
 
-// packages/contracts/src/HopReport.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/HopReport.ts
 var HopReport = external_exports.object({
   node: external_exports.string(),
   anchorCheck: external_exports.object({
@@ -22886,14 +22886,14 @@ var HopReport = external_exports.object({
   confidence: external_exports.enum(["solid", "partial", "dead-end"]).catch("partial")
 });
 
-// packages/contracts/src/EdgeOperation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/EdgeOperation.ts
 var EdgeOperation = external_exports.object({
   name: external_exports.string(),
   /** query | mutation | subscription | event | null — transport-specific, freeform for generality across GraphQL/tRPC/WebSocket/webhook. */
   type: external_exports.string().nullable().default(null)
 });
 
-// packages/contracts/src/ConnectionDoc.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/ConnectionDoc.ts
 var anchor = external_exports.object({
   /** Repo-root-relative, whichever form the node takes. */
   path: external_exports.string(),
@@ -22923,7 +22923,7 @@ var ConnectionDoc = external_exports.object({
   operations: raw.operations ?? []
 }));
 
-// packages/contracts/src/TraceState.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/TraceState.ts
 var TraceState = external_exports.object({
   question: external_exports.string(),
   mode: external_exports.enum(TraverseMode),
@@ -22970,7 +22970,7 @@ var TraceState = external_exports.object({
   answer: external_exports.string().nullable()
 });
 
-// packages/contracts/src/EdgeInventory.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/EdgeInventory.ts
 var EdgeInventory = external_exports.object({
   node: external_exports.string(),
   /** git rev-parse HEAD of the workspace at scan time. */
@@ -23003,7 +23003,7 @@ var EdgeInventory = external_exports.object({
   gaps: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/MapJoin.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/contracts/src/MapJoin.ts
 var sighting = external_exports.object({
   at: external_exports.string(),
   pattern: external_exports.string(),
@@ -23020,8 +23020,10 @@ var MapJoin = external_exports.object({
       matchKey: external_exports.string(),
       fromSighting: sighting,
       toSighting: sighting,
-      /** Operations carried by a multiplexed edge — the union of both sides' sighted operations (decision B). Empty for plain single-operation edges. */
+      /** Operations carried by a multiplexed edge — those sighted on BOTH sides (caller invokes AND handler exposes = verified traffic; decision B). Empty for plain single-operation edges. */
       operations: external_exports.array(EdgeOperation).default([]),
+      /** Operation-level drift for a multiplexed edge: `callerOnly` — invoked but not exposed by the handler (likely renamed/removed); `handlerOnlyCount` — exposed but never called (unused surface). */
+      operationDrift: external_exports.object({ callerOnly: external_exports.array(external_exports.string()).default([]), handlerOnlyCount: external_exports.number().default(0) }).default({ callerOnly: [], handlerOnlyCount: 0 }),
       /** Matched only under tolerant normalization (slashes, param forms, version prefixes) — review these hardest. */
       fuzzy: external_exports.boolean()
     })
@@ -23047,7 +23049,7 @@ var MapJoin = external_exports.object({
   gaps: external_exports.array(external_exports.object({ node: external_exports.string(), detail: external_exports.string() }))
 });
 
-// packages/drivers/src/spawnCollect.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/drivers/src/spawnCollect.ts
 import { spawn } from "node:child_process";
 var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) => {
   return new Promise((resolve, reject) => {
@@ -23096,7 +23098,7 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
   });
 };
 
-// packages/drivers/src/createClaudeCodeDriver.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/drivers/src/createClaudeCodeDriver.ts
 var ResultEnvelope = external_exports.object({
   result: external_exports.string().optional(),
   is_error: external_exports.boolean().optional()
@@ -23188,7 +23190,7 @@ ${stderr}`),
   return driver;
 };
 
-// packages/drivers/src/createCodexDriver.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/drivers/src/createCodexDriver.ts
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23252,7 +23254,7 @@ ${stderr}`)
   return driver;
 };
 
-// packages/drivers/src/getDriver.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/drivers/src/getDriver.ts
 var getDriver = ({ name }) => {
   if (name === "claude-code") {
     return createClaudeCodeDriver();
@@ -23263,17 +23265,17 @@ var getDriver = ({ name }) => {
   throw new Error(`unknown driver: ${name} (available: claude-code, codex)`);
 };
 
-// packages/engine/src/acquireRunLock.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/acquireRunLock.ts
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-// packages/engine/src/getRunLockPath.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/getRunLockPath.ts
 import { join as join2 } from "node:path";
 var getRunLockPath = ({ cwd }) => {
   return join2(cwd, ".lightsout", "lock.json");
 };
 
-// packages/engine/src/isPidAlive.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/isPidAlive.ts
 var isPidAlive = ({ pid }) => {
   try {
     process.kill(pid, 0);
@@ -23283,7 +23285,7 @@ var isPidAlive = ({ pid }) => {
   }
 };
 
-// packages/engine/src/readRunLock.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readRunLock.ts
 import { readFile as readFile2 } from "node:fs/promises";
 var readRunLock = async ({ cwd }) => {
   const raw = await readFile2(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
@@ -23297,11 +23299,11 @@ var readRunLock = async ({ cwd }) => {
   }
 };
 
-// packages/engine/src/RunLockError.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/RunLockError.ts
 var RunLockError = class extends Error {
 };
 
-// packages/engine/src/acquireRunLock.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/acquireRunLock.ts
 var acquireRunLock = async ({ cwd, runId }) => {
   const lockPath = getRunLockPath({ cwd });
   const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, "	")}
@@ -23329,7 +23331,7 @@ var acquireRunLock = async ({ cwd, runId }) => {
   throw new RunLockError("could not acquire .lightsout/lock.json \u2014 another process keeps taking the lock");
 };
 
-// packages/engine/src/releaseRunLock.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/releaseRunLock.ts
 import { unlink as unlink2 } from "node:fs/promises";
 var releaseRunLock = async ({ cwd, runId }) => {
   const holder = await readRunLock({ cwd });
@@ -23339,17 +23341,17 @@ var releaseRunLock = async ({ cwd, runId }) => {
   await unlink2(getRunLockPath({ cwd })).catch(() => void 0);
 };
 
-// packages/engine/src/createRun.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/createRun.ts
 import { randomUUID } from "node:crypto";
 import { mkdir as mkdir2 } from "node:fs/promises";
 
-// packages/engine/src/getRunDir.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/getRunDir.ts
 import { join as join3 } from "node:path";
 var getRunDir = ({ cwd, runId }) => {
   return join3(cwd, ".lightsout", "runs", runId);
 };
 
-// packages/engine/src/writeRunManifest.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/writeRunManifest.ts
 import { rename, writeFile as writeFile2 } from "node:fs/promises";
 import { join as join4 } from "node:path";
 var writeRunManifest = async ({ cwd, manifest }) => {
@@ -23362,7 +23364,7 @@ var writeRunManifest = async ({ cwd, manifest }) => {
   return stamped;
 };
 
-// packages/engine/src/createRun.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/createRun.ts
 var createRun = async ({ cwd, runId, plan, overview, driver, config: config2, baselineDirtyFiles }) => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const manifest = {
@@ -23384,7 +23386,7 @@ var createRun = async ({ cwd, runId, plan, overview, driver, config: config2, ba
   return writeRunManifest({ cwd, manifest });
 };
 
-// packages/engine/src/readRunManifest.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readRunManifest.ts
 import { readFile as readFile3 } from "node:fs/promises";
 import { join as join5 } from "node:path";
 var readRunManifest = async ({ cwd, runId }) => {
@@ -23392,7 +23394,7 @@ var readRunManifest = async ({ cwd, runId }) => {
   return RunManifest.parse(JSON.parse(raw));
 };
 
-// packages/engine/src/runCommand.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runCommand.ts
 import { spawn as spawn2 } from "node:child_process";
 var runCommand = ({ command, cwd, timeoutMs }) => {
   return new Promise((resolve, reject) => {
@@ -23420,7 +23422,7 @@ var runCommand = ({ command, cwd, timeoutMs }) => {
   });
 };
 
-// packages/engine/src/loadConfig.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/loadConfig.ts
 import { readFile as readFile4 } from "node:fs/promises";
 import { join as join6 } from "node:path";
 var loadConfig = async ({ cwd }) => {
@@ -23431,7 +23433,7 @@ var loadConfig = async ({ cwd }) => {
   return LightsoutConfig.parse(JSON.parse(raw));
 };
 
-// packages/engine/src/extractJsonReport.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/extractJsonReport.ts
 var findBalancedEnd = ({ text, start }) => {
   let depth = 0;
   let inString = false;
@@ -23498,7 +23500,7 @@ var extractJsonReport = ({ text }) => {
   return lastEmbeddedJsonObject({ text: trimmed });
 };
 
-// packages/engine/src/readGitChangedFiles.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readGitChangedFiles.ts
 var gitTimeoutMs = 6e4;
 var readGitChangedFiles = async ({ cwd }) => {
   const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
@@ -23517,7 +23519,7 @@ var readGitChangedFiles = async ({ cwd }) => {
   }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
 };
 
-// packages/engine/src/readPlanPackages.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readPlanPackages.ts
 var readPlanPackages = ({ planContent }) => {
   const frontMatter = planContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
   if (!frontMatter) {
@@ -23546,7 +23548,7 @@ var readPlanPackages = ({ planContent }) => {
   return items.length > 0 ? items : void 0;
 };
 
-// packages/engine/src/resolvePackageManifest.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/resolvePackageManifest.ts
 import { readFile as readFile5 } from "node:fs/promises";
 import { join as join7 } from "node:path";
 var PackageManifest = external_exports.object({
@@ -23565,7 +23567,7 @@ var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
   return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
 };
 
-// packages/engine/src/scanPlanPackagePaths.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/scanPlanPackagePaths.ts
 var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
   const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
@@ -23573,15 +23575,15 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
   return found.length > 0 ? [...new Set(found)] : void 0;
 };
 
-// packages/engine/src/runImplementPipeline.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
 import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile13, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join20 } from "node:path";
 
-// packages/agents/prompts/featureExecutor.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
-// packages/agents/src/buildFeatureExecutorInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildFeatureExecutorInvocation.ts
 var buildFeatureExecutorInvocation = ({ planContent, overviewContent, standards, errorContext, changedFiles, allowedCommands }) => {
   const sections = [];
   if (overviewContent) {
@@ -23637,10 +23639,10 @@ ${errorContext}`
   };
 };
 
-// packages/agents/prompts/unitTestWriter.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/unitTestWriter.md
 var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously from the task message, and your final\nmessage is machine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read the changed files listed in your task, and the plan for context on\n   intended behavior.\n2. Read the repository\'s existing tests first and mirror their mechanics:\n   framework, assertion style, file placement, naming. Never introduce a new\n   test framework or runner.\n3. When provided Standards and existing tests disagree on STYLE (structure,\n   setup patterns, hooks), precedence is by what you are writing:\n   - **Extending an existing test file** \u2192 match that file\'s local style,\n     even where it predates the Standards. One file, one style; do not mix.\n   - **Creating a new test file** \u2192 the Standards win, even when the file\n     the plan names as your mirror uses an older style. Mirror the target\'s\n     COVERAGE (what it tests), not its structure.\n   Applying this precedence is normal operation, NOT friction \u2014 do not record\n   a friction entry for each legacy-style file you encounter. Record ONE\n   `friction` entry (`area: "standards"`) only if the rule itself failed you:\n   the conflict was not stylistic, or it was ambiguous which case applied.\n   Legacy-style cleanup is tracked by the repo owner; your run is not that\n   cleanup.\n\n## Write\n\n- Test observable behavior through each module\'s public surface, covering the\n  changed code\'s branches and edge cases \u2014 the engine\'s coverage gate, when\n  configured, holds your work to the consumer\'s threshold after you report.\n- If a target file already has tests, add only what is missing to cover its\n  changed behavior; if nothing is missing, report `complete` with an empty\n  `changedFiles` \u2014 do not rewrite healthy tests.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for the tests you write.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
-// packages/agents/src/buildUnitTestWriterInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildUnitTestWriterInvocation.ts
 var buildUnitTestWriterInvocation = ({ planContent, changedFiles, standards, errorContext }) => {
   const sections = [
     `# Changed files to cover
@@ -23673,10 +23675,10 @@ ${errorContext}`
   };
 };
 
-// packages/agents/prompts/refactorExecutor.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/refactorExecutor.md
 var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously from the task message, and\nyour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Scan findings section is provided, those are deterministic detector\n  results on the changed files \u2014 address them FIRST; the engine re-runs the\n  scanner after you report, and unresolved findings re-invoke you. Entries\n  under its Advisory subsection carry judgment: fix each unless a documented\n  exemption (e.g. orchestration functions) genuinely applies \u2014 never block\n  on them, and note applied exemptions in your summary.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- You may update existing tests ONLY when an internal rename/move you made\n  breaks them mechanically \u2014 never author new tests, never weaken assertions.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
-// packages/agents/src/buildRefactorExecutorInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildRefactorExecutorInvocation.ts
 var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }) => {
   const findingLine = (finding) => {
     const where = finding.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(" \u2194 ");
@@ -23731,10 +23733,10 @@ ${errorContext}`
   };
 };
 
-// packages/agents/prompts/supervisor.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/supervisor.md
 var supervisor_default = '# Role: Pipeline Supervisor\n\nYou are the exception-path judgment of a deterministic coding pipeline. A step\nhas failed repeatedly despite mechanical retries, and the engine cannot decide\nwhat the failure means \u2014 that is your job. You have read-only access:\ninvestigate the repository freely, change nothing.\n\n## Inputs\n\nYour task message contains: the plan, the failing step, the verification-gate\noutput, and how many attempts have been made.\n\n## Decide\n\n- **`retry`** \u2014 the failure has a clear, mechanically fixable root cause that\n  previous attempts missed. Your `guidance` must be concrete enough that the\n  implementing agent cannot repeat the same mistake: name the file, the cause,\n  and the fix approach.\n- **`escalate`** \u2014 a human is needed. Escalate when: the same error has\n  survived multiple fix attempts unchanged; the failure traces to the plan\n  itself (wrong assumption, stale reference, underspecified behavior); the\n  environment is broken (missing tooling, misconfigured scripts); or the fix\n  would require changing behavior the plan didn\'t authorize.\n\nWhen uncertain, escalate \u2014 a wasted retry costs more than a human glance.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"decision": "retry" | "escalate",\n	"diagnosis": "root cause in one or two sentences",\n	"guidance": "required for retry: concrete fix instructions for the implementing agent"\n}\n```\n';
 
-// packages/agents/src/buildSupervisorInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildSupervisorInvocation.ts
 var buildSupervisorInvocation = ({ planContent, stepId, errorOutput, attempts }) => {
   const sections = [
     `# Failing step
@@ -23754,10 +23756,10 @@ ${planContent}`,
   };
 };
 
-// packages/agents/prompts/reportReemitter.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/reportReemitter.md
 var reportReemitter_default = '# Re-emit your report\n\nYour previous session ended with a final message that failed contract\nvalidation \u2014 the engine could not extract a valid JSON report from it.\n\nThat entire final message is included below. Reconstruct the report **from\nthat text only**: do not redo, re-audit, or extend any work, and do not use\nany tools. This is a formatting recovery, not a new work session.\n\nRespond with exactly one JSON object and nothing else \u2014 no prose before or\nafter it, no code fences. If the previous message does not contain enough to\nreconstruct a truthful report, emit a report with `"status": "failed"` and\nexplain why in `failures`; never invent file paths or outcomes that the\nprevious message does not state.\n';
 
-// packages/agents/src/buildReportReemitterInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildReportReemitterInvocation.ts
 var buildReportReemitterInvocation = ({ rejectedText, validationError }) => {
   const sections = [
     reportReemitter_default,
@@ -23773,10 +23775,10 @@ ${rejectedText}`
   };
 };
 
-// packages/agents/prompts/promptImprover.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/promptImprover.md
 var promptImprover_default = '# Role: Prompt Improver\n\nYou maintain the agent role prompts of a deterministic coding pipeline.\nFriction reports from past runs \u2014 moments where an agent was confused,\nguessed, or fought its instructions \u2014 are your only input signal. Your job is\nto turn *systemic* friction into the smallest possible prompt improvements.\n\n## Judge before editing\n\n- Look for **systemic patterns**: the same confusion appearing across multiple\n  entries or runs. A single one-off entry is signal to note in `summary`, not\n  a reason to edit.\n- Entries are tagged `friction` (something fought the agent) or `decision`\n  (the input was silent and the agent had to choose). A recurring decision is\n  prime signal: something upstream \u2014 the plan template, a prompt, a standard \u2014\n  should have settled it.\n- Only friction with area `prompt` \u2014 or friction clearly traceable to prompt\n  wording \u2014 justifies editing a prompt file. Friction about plans, standards,\n  or environment is outside your control: summarize it as recommendations in\n  `summary`, change nothing for it.\n- Read the affected prompt file in full before judging: the confusion may\n  already be addressed and the agent missed it \u2014 in that case, consider\n  whether the existing wording buries the rule, and sharpen placement rather\n  than adding repetition.\n\n## Edit rules\n\n- Edit ONLY the prompt files listed in your task. Nothing else, ever \u2014 no\n  source code, no contracts, no docs.\n- Make the **smallest change that removes the confusion**: sharpen a sentence,\n  resolve a contradiction, add one clarifying clause. Do not restructure,\n  re-voice, or grow a prompt beyond what the fix requires.\n- Preserve every prompt\'s report-contract section: the JSON shape is\n  load-bearing. Never alter field names, statuses, or the output-format rules.\n- Zero edits is a valid, common outcome (`complete` with empty `changedFiles`)\n  when friction is one-off, already addressed, or out of scope.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "packages/agents/prompts/example.md", "summary": "one clause on what was clarified and which friction drove it" }],\n	"summary": "patterns found, edits made, and recommendations for out-of-scope friction (plan/standards/environment)",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "prompt", "detail": "optional \u2014 friction with your own instructions; omit when clean" }]\n}\n```\n';
 
-// packages/agents/src/buildPromptImproverInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildPromptImproverInvocation.ts
 var buildPromptImproverInvocation = ({ friction, promptFiles }) => {
   const entries = friction.map((record2) => `- [${record2.kind ?? "friction"}/${record2.area}] (run ${record2.runId.slice(0, 8)}, step ${record2.step}, ${record2.at}) ${record2.detail}`).join("\n");
   const sections = [
@@ -23794,10 +23796,10 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
   };
 };
 
-// packages/agents/prompts/traverseHop.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/traverseHop.md
 var traverseHop_default = '# Role: Traverse Hop\n\nYou trace ONE hop of a cross-repo data flow. You work autonomously from the\ntask message, and your final message is machine-parsed \u2014 it is a data\npayload, not prose for a human.\n\nYour task message provides: the node (a whole repo, or one package inside a\nmonorepo), the local workspace path holding its code, an optional package\nscope, an entry anchor (path + greppable pattern), the overall question (for\nrelevance judgment only), the data-of-interest to follow, and any context\ndocs to read first.\n\nWhen a scope is given: the entry point lives inside it, and you may follow\nin-process data into shared/sibling code in the same repo \u2014 it is one\nprocess. But an exit is still a **process-boundary** crossing: a wire call\nto a sibling package (HTTP, queue, postMessage) is an exit; a direct import\nnever is. Report all paths repo-root-relative.\n\n## Procedure\n\n1. **Verify the entry anchor.** Confirm the pattern exists at the given path.\n   - Moved \u2192 search the pattern repo-wide, report `anchorCheck.status:\n     "drifted"` with `foundAt`, continue from the new location.\n   - Gone entirely \u2192 report `status: "missing"`, try to locate the handler by\n     the payload shape; if you cannot, return the report with\n     `confidence: "dead-end"`. Do not guess.\n2. **Trace the data-of-interest from the entry point.** Follow it through\n   handlers, transforms, renames, enrichment, filtering, defaulting,\n   buffering. Read only what the trail requires \u2014 you are tracing a value,\n   not reviewing the repo. Record every place the data is mutated, renamed,\n   defaulted, or dropped, with `file:line`.\n3. **Find every exit.** An exit is anywhere the data (or a derivative)\n   leaves this process: outbound HTTP, queue/stream/topic publish,\n   postMessage, S3/file write, DB write, and the **response payload back to\n   the caller** \u2014 a response carrying meaningful data is an edge; a bare ack\n   is not. For each exit record: kind, target (URL pattern / stream /\n   channel), `file:line`, what of the data-of-interest the payload carries,\n   and any condition gating it.\n4. **Judge relevance per exit:** does it plausibly carry the\n   data-of-interest onward toward answering the question?\n   `"yes" | "no" | "unsure"`.\n\n## Rules\n\n- **Never recurse.** Do not clone or read any other repo. Do not follow an\n  exit \u2014 finding and describing it is the whole job.\n- **Read-only.** No writes, no state changes; shell commands are for\n  `git log`/`git blame` style inspection only.\n- **Cite everything.** Every claim carries `file:line`.\n- **Don\'t guess.** If the trail goes cold (dynamic dispatch, generated code,\n  config you can\'t see), say exactly where and why in `gaps`.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your actual message\nstarts with `{` and ends with `}`.\n\n```\n{\n	"node": "<node name from your task>",\n	"anchorCheck": { "status": "ok" | "drifted" | "missing", "foundAt": "<file:line or null>" },\n	"entry": "<one line \u2014 where the data enters, file:line>",\n	"transforms": [{ "at": "<file:line>", "what": "<mutation/rename/default/drop \u2014 one line>" }],\n	"exits": [{\n		"kind": "http" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",\n		"target": "<url pattern / stream name / channel>",\n		"at": "<file:line>",\n		"carries": "<what of the data-of-interest is in this payload>",\n		"conditional": "<null, or the gating condition>",\n		"relevant": "yes" | "no" | "unsure"\n	}],\n	"answerContribution": "<1-3 sentences \u2014 what this hop establishes toward the question>",\n	"gaps": ["<anything you could not determine, and why>"],\n	"confidence": "solid" | "partial" | "dead-end"\n}\n```\n';
 
-// packages/agents/src/buildTraverseHopInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildTraverseHopInvocation.ts
 var buildTraverseHopInvocation = ({ node, workspace, scope, entryAnchor, question, dataOfInterest, contextDocs }) => {
   const sections = [
     `# Hop input`,
@@ -23822,10 +23824,10 @@ ${contextDocs.map((doc) => `- ${doc}`).join("\n")}`);
   };
 };
 
-// packages/agents/prompts/scanEdges.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/prompts/scanEdges.md
 var scanEdges_default = '# Role: Scan Edges\n\nYou inventory the data edges of ONE node \u2014 a whole repo, or one package\ninside a monorepo. You work autonomously from the task message, and your\nfinal message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman. You know nothing about other repos or connection docs: pairing your\nsightings with other nodes\' is the engine\'s mechanical join, never your job.\n\nYour task message provides: the node name, the local workspace path (repo\nroot), and an optional package scope.\n\n## What counts as an edge\n\nAnywhere data crosses the **process boundary**:\n\n- **Inbound**: HTTP route registrations, queue/stream/topic consumers,\n  message/event listeners, postMessage listeners, S3/file-event triggers,\n  webhook handlers.\n- **Outbound**: HTTP client calls, queue/stream/topic publishes, postMessage\n  sends, S3/file writes, DB writes, script/tag injection into served\n  content, and **response payloads that carry meaningful data** (a response\n  is an edge; a bare 200/ack is not).\n\n## Procedure\n\n1. Orient: entry points, route/consumer registration sites, HTTP client and\n   SDK wrappers (a shared `post()` helper means one grep finds every caller).\n2. Sweep for each edge kind. Follow indirection to the concrete site: the\n   edge\'s `at` is where the route/publish/call is actually bound, not the\n   wrapper\'s definition.\n3. **Normalize each target into a `matchKey`** \u2014 the token the join pairs\n   on. Strip protocol, host, and env prefixes: a POST to\n   `https://edge.example.com/v2/event` has matchKey `/v2/event`. Normalize\n   path params to `:param` form. For streams/queues/topics the matchKey is\n   the resolved name; if it comes from config/env, resolve it from\n   checked-in config when visible, otherwise use the variable name prefixed\n   `env:` (e.g. `env:EVENTS_STREAM`) \u2014 an honest unresolved key beats a\n   guess.\n4. Locate the payload schema/type for each edge if one exists (`schemaAt`).\n5. Flag likely noise rather than omitting it: health checks, metrics/APM,\n   feature-flag SDKs, third-party SaaS calls. Review culls; you flag.\n\n## Multiplexed transports (GraphQL, tRPC, WebSocket, webhooks)\n\nSome transports are ONE physical channel carrying MANY logical operations:\na GraphQL endpoint (`POST /graphql`) serving dozens of queries/mutations, a\ntRPC router, a WebSocket/Socket.io connection with many event types, a\nsingle webhook path dispatched by event+action. Emit **one edge for the\ntransport, not one edge per operation** \u2014 otherwise a client with 70\nGraphQL calls floods the map with 70 near-identical edges that never pair\nagainst the server\'s single endpoint.\n\n- **matchKey is the transport**, not the operation: `/graphql` for GraphQL\n  (the endpoint path), the socket path for WebSocket, the webhook path for a\n  dispatched receiver. Both the caller and the handler must normalize to the\n  SAME transport matchKey so the join pairs them.\n- **`kind` is `graphql`** for GraphQL; otherwise the transport\'s kind\n  (`http` for a WebSocket handshake path, `message-bus` for a topic, etc.).\n- **List every operation in `operations`** \u2014 `{ "name": "...", "type":\n  "query"|"mutation"|"subscription"|"event"|null }`. The client side lists\n  the operations it CALLS; the server side lists the operations it EXPOSES\n  (its resolvers). Enumerate them from the generated client hooks / operation\n  documents on the caller, and from the schema/resolvers on the handler. Do\n  NOT hunt a line number per operation \u2014 the edge is anchored at the\n  transport (`at`), operations are the payload it carries.\n- A plain single-purpose REST route is NOT multiplexed \u2014 leave `operations`\n  empty and keep emitting it as its own edge.\n\n## Monorepo scoping (when a scope is given)\n\n- The scope defines **whose edges you\'re inventorying**: every trail starts\n  from code inside it. You may follow indirection into shared code elsewhere\n  in the same repo to pin the concrete emit/handler site, but an edge\n  belongs in this inventory only if scoped code triggers it. Never inventory\n  a sibling package\'s own edges.\n- **A direct import of a sibling package is NOT an edge** \u2014 same process,\n  followable by reading code. A runtime wire call to a sibling (HTTP, queue,\n  postMessage) IS an edge, even inside one repo: the edge test is process\n  boundary, not repo boundary.\n- All `at` paths are repo-root-relative.\n\n## Rules\n\n- **One repo.** Never clone or read another repo; never try to identify who\n  is on the other side of an edge \u2014 that is the join\'s job.\n- **Read-only.** Shell commands are for `git` inspection only (you need\n  `git rev-parse HEAD` for `scannedSha`, and `git log -1 --format=%H --\n  <scope>` for `scannedPathSha` when scoped).\n- **Cite everything.** Every edge carries `file:line` \u2014 it becomes the\n  connection doc\'s anchor, so it must be the real emit/handler site.\n- **Don\'t guess.** Dynamic targets you can\'t resolve go in `gaps`, not in\n  the inventory with an invented matchKey.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your actual message\nstarts with `{` and ends with `}`.\n\n```\n{\n	"node": "<node name>",\n	"scannedSha": "<git rev-parse HEAD>",\n	"scannedPathSha": "<git log -1 --format=%H -- <scope>, or null when unscoped>",\n	"edges": [{\n		"direction": "in" | "out",\n		"kind": "http" | "graphql" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",\n		"matchKey": "</v2/event, /graphql, events-stream, env:EVENTS_STREAM, ...>",\n		"at": "<file:line \u2014 the anchor (the transport site for a multiplexed edge)>",\n		"pattern": "<the greppable code fragment at that site>",\n		"payload": "<one line \u2014 what data crosses here>",\n		"schemaAt": "<file path or null>",\n		"conditional": "<null, or the gating condition>",\n		"operations": [{ "name": "signIn", "type": "mutation" }],\n		"noise": false\n	}],\n	"gaps": ["<dynamic or unresolvable edges: where, and why>"]\n}\n```\n';
 
-// packages/agents/src/buildScanEdgesInvocation.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/buildScanEdgesInvocation.ts
 var buildScanEdgesInvocation = ({ node, workspace, scope }) => ({
   systemPrompt: scanEdges_default,
   prompt: [
@@ -23835,10 +23837,10 @@ var buildScanEdgesInvocation = ({ node, workspace, scope }) => ({
   ].join("\n\n")
 });
 
-// packages/agents/src/scanEdgesVersion.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/agents/src/scanEdgesVersion.ts
 var scanEdgesVersion = "2";
 
-// packages/engine/src/appendAgentLog.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/appendAgentLog.ts
 import { appendFile, mkdir as mkdir3 } from "node:fs/promises";
 import { join as join8 } from "node:path";
 var appendAgentLog = async ({ cwd, runId, record: record2 }) => {
@@ -23848,7 +23850,7 @@ var appendAgentLog = async ({ cwd, runId, record: record2 }) => {
 `, "utf8");
 };
 
-// packages/engine/src/appendCommandLog.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/appendCommandLog.ts
 import { appendFile as appendFile2, mkdir as mkdir4 } from "node:fs/promises";
 import { join as join9 } from "node:path";
 var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
@@ -23858,7 +23860,7 @@ var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
 `, "utf8");
 };
 
-// packages/engine/src/appendFriction.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/appendFriction.ts
 import { appendFile as appendFile3, mkdir as mkdir5 } from "node:fs/promises";
 import { join as join10 } from "node:path";
 var appendFriction = async ({ cwd, runId, step, friction }) => {
@@ -23872,7 +23874,7 @@ var appendFriction = async ({ cwd, runId, step, friction }) => {
 `, "utf8");
 };
 
-// packages/engine/src/invokeAgentWithContract.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/invokeAgentWithContract.ts
 var maxReportAttempts = 2;
 var invokeAgentWithContract = async ({
   driver,
@@ -23933,7 +23935,7 @@ var invokeAgentWithContract = async ({
   return { report: void 0, failure: lastFailure, rateLimited: false, usage: usage2 };
 };
 
-// packages/engine/src/isInertSourceFile.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/isInertSourceFile.ts
 var isInertSourceFile = ({ path, content, compiler }) => {
   const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
   const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
@@ -23942,7 +23944,7 @@ var isInertSourceFile = ({ path, content, compiler }) => {
   );
 };
 
-// packages/engine/src/resolveConsumerTypescript.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join as join11 } from "node:path";
@@ -23963,7 +23965,7 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   return void 0;
 };
 
-// packages/engine/src/detectStandardsChannels.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/detectStandardsChannels.ts
 import { readFile as readFile6 } from "node:fs/promises";
 import { join as join12 } from "node:path";
 var Manifest = external_exports.object({
@@ -23992,71 +23994,71 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
   return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
 };
 
-// packages/engine/src/readStandards.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readStandards.ts
 import { readFile as readFile7 } from "node:fs/promises";
 import { join as join13 } from "node:path";
 
-// standards/code/architecture/architecture-decisions.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
 
-// standards/code/architecture/folder-structure.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/architecture/folder-structure.md
 var folder_structure_default = "# Folder Structure\n\nUse a `common/` folder pattern for shared code \u2014 it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder's `index.ts` is its public API; everything under its `common/` is internal.\n\n## Rules\n\n1. **Keep `common/` close to consumers** \u2014 the lowest level where all dependents can reach it\n2. **Promote when reused** \u2014 move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** \u2014 update imports when promoting; verify no cycles\n4. **Organize by type** \u2014 `utils/`, `types/`, `services/` subfolders inside `common/`\n5. **Graduate, don't pre-build** \u2014 a concept becomes a folder only when it needs private companions\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless pure functions (`formatDate()`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## Top Level Is Feature Nouns\n\n`src/`'s top level names features and domains (`billing/`, `issues/`, `sync/`) \u2014 never technical layers (`controllers/`, `services/`, `helpers/`). Navigation is by domain first, for humans and agents alike. Framework mandates override (NestJS module layout, file-based routers) \u2014 the same carve-out as folder casing below.\n\n## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape \u2014 its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.\n\n## Per-Folder READMEs\n\nA folder gets a `README.md` only for a genuine invariant not derivable from these rules (e.g. \"everything here runs in the widget sandbox \u2014 no DOM globals\"). Never prose restating the structure.\n\n## Folder Naming\n\nFolders match what they hold, in that name's own casing:\n\n- **Category/container folders** \u2014 `camelCase` (`utils/`, `types/`, `formatting/`, `apiTokens/`)\n- **A folder graduated from a single named item** \u2014 that item's name and casing: class/component folders are `PascalCase` (`HttpClient/`, `IssuePanel/`)\n- **Resolve casing in order:** (1) established convention in the directory, (2) the package's framework doc (NestJS is `kebab-case` throughout; URL-mapped route segments are `kebab-case`), (3) the defaults above.\n\n## Domain Folders\n\nA pure function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) \u2014 `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.\n\n## Example\n\n```\nsrc/\n\u251C\u2500 common/            # shared across ALL modules\n\u2502  \u251C\u2500 utils/          #   (index.ts + formatDate.ts)\n\u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 services/\n\u2502  \u251C\u2500 formatting/     # domain folder: 2+ related pure functions\n\u251C\u2500 featureA/\n\u2502  \u251C\u2500 common/         # shared within featureA only\n\u2502  \u2502  \u251C\u2500 utils/\n\u2502  \u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 featureA.ts\n\u2502  \u2514\u2500 index.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\n## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package \u2014 not duplicated per-package.\n\n**Use `packages/shared/` when:** 2+ packages need it, it has zero framework dependencies, and it defines a contract both sides agree on (constants, error codes, pure predicates).\n\n**Don't when:** one package needs it (use its `common/`), it imports a framework (wrap the shared primitive locally), or it's an implementation detail (hooks, guards, resolvers).\n\n**Pattern \u2014 shared primitive + local wrapper:**\n\n```\npackages/shared/src/permissions/utils/hasPermission.ts        \u2190 pure function\npackages/frontend/src/common/permissions/useHasPermission.ts  \u2190 React hook wrapping it\npackages/api/src/auth/guards/                                 \u2190 NestJS guard using it\n```\n";
 
-// standards/code/architecture/react/architecture-decisions.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/architecture/react/architecture-decisions.md
 var architecture_decisions_default2 = "# React Architecture\n\nArchitecture decisions for React packages.\n\n## Component File Structure\n\n**Default to single-file components.** Only create a folder when the component requires bundled utilities, types, or constants:\n\n```\ncomponents/\n\u251C\u2500\u2500 SimpleComponent.tsx              \u2705 Single file (default)\n\u251C\u2500\u2500 ComplexComponent/                \u2705 Folder for bundled logic\n\u2502   \u251C\u2500\u2500 common/\n\u2502   \u2502   \u2514\u2500\u2500 utils/\n\u2502   \u2502       \u251C\u2500\u2500 index.ts\n\u2502   \u2502       \u2514\u2500\u2500 helperFunction.ts\n\u2502   \u251C\u2500\u2500 ComplexComponent.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## Domain Folders\n\nDomain folders follow the shared rules in [folder-structure.md](../folder-structure.md#domain-folders). React-specific examples include JSX-producing functions grouped by domain:\n\n```\ncommon/\n\u251C\u2500\u2500 utils/                         # Ungrouped pure functions\n\u251C\u2500\u2500 stepConfigs/                   # \u2705 Domain folder \u2014 2+ related JSX config builders\n\u2502   \u251C\u2500\u2500 getDesignStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getInstallStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getStepContentConfig.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n\u251C\u2500\u2500 cellRenderers/                 # \u2705 Domain folder \u2014 2+ related JSX renderers\n\u2502   \u251C\u2500\u2500 renderStatusCell.tsx\n\u2502   \u251C\u2500\u2500 renderDateCell.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## File Naming Conventions\n\n| File type | Convention | Example |\n|-----------|------------|---------|\n| Components | `PascalCase.tsx` (or `PascalCase/` folder) | `IssueDetailContent.tsx`, `IssueDetail/` |\n| Hooks | `camelCase.ts` | `useIssues.ts`, `useUpdateIssue.ts` |\n| Utils | `camelCase.ts` | `buildOrderBy.ts`, `formatDate.ts` |\n| Named constants, interfaces | `PascalCase.ts` | `QueryKey.ts`, `FilterOption.ts` |\n| Constants | `camelCase.ts` | `emailRegex.ts`, `defaultPaginationPage.ts` |\n| Folders (domain) | `camelCase` | `hooks/`, `components/`, `queries/` |\n| Folders (component) | `PascalCase` | `IssueDetail/`, `IssueHeaderToolbar/` |\n";
 
-// standards/code/architecture/tanstack-start/architecture-decisions.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/architecture/tanstack-start/architecture-decisions.md
 var architecture_decisions_default3 = "# TanStack Start Architecture\n\nArchitecture decisions for TanStack Start applications. These patterns layer on top of [React architecture](../react/architecture-decisions.md).\n\n## Feature Structure\n\nEach feature in `src/features/` follows this pattern:\n\n```\nfeatures/{feature}/\n\u251C\u2500\u2500 common/                    # Feature-wide shared code\n\u2502   \u251C\u2500\u2500 constants/\n\u2502   \u251C\u2500\u2500 types/\n\u2502   \u2514\u2500\u2500 utils/\n\u251C\u2500\u2500 components/                # Feature-wide reusable components\n\u251C\u2500\u2500 hooks/                     # Feature-specific React hooks\n\u251C\u2500\u2500 queries/                   # TanStack Query options\n\u251C\u2500\u2500 screens/                   # Screen components (route destinations)\n\u2502   \u2514\u2500\u2500 {ScreenName}/\n\u2502       \u251C\u2500\u2500 components/        # Screen-specific components\n\u2502       \u2502   \u2514\u2500\u2500 common/        # Shared across screen components\n\u2502       \u251C\u2500\u2500 hooks/             # Screen-specific hooks\n\u2502       \u251C\u2500\u2500 {ScreenName}.tsx\n\u2502       \u2514\u2500\u2500 index.ts\n\u251C\u2500\u2500 serverFns/                 # TanStack server functions\n\u2514\u2500\u2500 index.ts                   # Feature barrel export\n```\n\n## Code Placement Hierarchy\n\n| Scope              | Location                                                 | When to Use                         |\n| ------------------ | -------------------------------------------------------- | ----------------------------------- |\n| App-wide           | `src/common/`                                            | Used by 2+ features                 |\n| Feature-wide       | `features/{feature}/common/`                             | Used by 2+ screens in one feature   |\n| Screen-wide        | `features/{feature}/screens/{screen}/components/common/` | Used by 2+ components in one screen |\n| Component-specific | `{component}/common/`                                    | Only used by one component          |\n\n## Key Patterns\n\n### Server Functions\n\nServer functions live in `serverFns/` folders at feature or app level:\n\n```\nserverFns/\n\u251C\u2500\u2500 countIssues/\n\u2502   \u251C\u2500\u2500 CountIssuesDocument.ts    # GraphQL document (if applicable)\n\u2502   \u251C\u2500\u2500 countIssuesServerFn.ts    # Server function\n\u2502   \u2514\u2500\u2500 index.ts\n\u2514\u2500\u2500 index.ts\n```\n\n### File Naming for Server Functions\n\n| File type | Convention | Example |\n|-----------|------------|---------|\n| Server functions | `camelCase/` folder with `PascalCase` document + `camelCase` fn | `countIssues/CountIssuesDocument.ts`, `countIssuesServerFn.ts` |\n| Queries | `camelCase.ts` | `issuesQueryOptions.ts` |\n\n### Query Options\n\nTanStack Query options are centralized in `queries/` folders:\n\n```typescript\n// features/issues/queries/issuesQueryOptions.ts\ninterface Params {\n	searchParams: IssuesSearchParams;\n}\n\nexport const issuesQueryOptions = ({ searchParams }: Params) =>\n	queryOptions({\n		queryKey: [QueryKey.Issues, searchParams],\n		queryFn: () => findAllIssuesServerFn({ data: searchParams }),\n	});\n```\n\n### Hooks\n\nCustom hooks that wrap queries or manage state:\n\n```typescript\n// features/issues/hooks/useIssues.ts\ninterface Params {\n	searchParams: IssuesSearchParams;\n}\n\nexport const useIssues = ({ searchParams }: Params) => {\n	return useSuspenseQuery(issuesQueryOptions({ searchParams }));\n};\n```\n\n> **Return types:** query-options factories and hooks infer their return types \u2014 TanStack's `UseSuspenseQueryOptions`/`UseSuspenseQueryResult` generics are the contract, so this falls under the generic-heavy exception in [return-types.md](../../style-guide/typescript/return-types.md#return-types--explicit-on-exports-inferred-internally).\n";
 
-// standards/code/documentation/ts-docs.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/documentation/ts-docs.md
 var ts_docs_default = "# TypeScript Documentation Style Guide\n\nHow to write TSDoc/JSDoc *when documentation is warranted* \u2014 it does not mandate doc comments on every export.\n\n## When to Document\n\nDefault to self-documenting code. Add JSDoc only when:\n\n- The **why** is non-obvious \u2014 business context, constraints, or gotchas a reader wouldn't guess from the code.\n- The function has a **complex contract** \u2014 non-obvious parameter interactions, intentional error-throwing behavior, usage worth an example.\n- The export is a **public API boundary** consumed by other packages or external callers.\n\nIf the name and types already communicate the purpose, skip the comment.\n\n**Inline `//` comments:** default to none. Use only for a non-obvious workaround, a business rule embedded in logic (`// 30-day window per billing agreement`), or a deliberate deviation and why. Never narrate what the next line does.\n\n## Elements\n\n- **Description**: one or two sentences \u2014 what it does and why you'd use it. Focus on *why*; the code shows *what*.\n- **`@param`**: name and purpose only \u2014 TypeScript owns the type. For object-args functions, `@param` tags document the destructured property names directly. Sentence fragments, lowercase.\n- **`@throws`**: only errors intentionally thrown and expected to be caught: `@throws {ConnectionError} When the database is unreachable`.\n- **`@returns`**: only when the value has semantics the type doesn't show (a `string` that is a JWT; a `boolean` where `true` means \"already existed\").\n- **`@example`**: for complex APIs or non-obvious usage; minimal and runnable.\n- **`@typeParam`**: when a generic's purpose isn't obvious from its name.\n\n## Brittle Tags \u2014 Do NOT Use\n\n`@version` / `@since` / `@author` (git owns these) \xB7 `@type` / `@default` / `@readonly` / `@private` / `@public` / `@protected` / `@memberof` (TypeScript owns these) \xB7 `@see` with URLs (use `@see {@link SymbolName}` instead) \xB7 `@todo` (issue tracker) \xB7 `@deprecated` without a migration path.\n\n## Params Interfaces\n\nDo NOT document a function's local `Params` interface \u2014 the function's `@param` tags are sufficient. Individual properties inside it may carry `/** */` comments only when name + type don't convey the contract (`/** Display name shown in the UI, may differ from username */`), and document interfaces at the type level, not every property.\n\n## Complete Example\n\n```typescript\ninterface Params<T> {\n	fn: () => Promise<T>;\n	maxAttempts?: number;\n	baseDelay?: number;\n}\n\n/**\n * Retries an async operation with exponential backoff.\n *\n * Useful for network requests that may fail transiently.\n *\n * @param fn - async function to retry\n * @param maxAttempts - attempts before giving up\n * @param baseDelay - initial delay in ms, doubles after each failure\n * @throws {RetryExhaustedError} When all retry attempts fail\n */\nexport const retry = async <T>({ fn, maxAttempts = 3, baseDelay = 1000 }: Params<T>): Promise<T> => {\n	// ...\n};\n```\n";
 
-// standards/code/style-guide/conventions/casing.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/conventions/casing.md
 var casing_default = "# Casing\n\n| Item              | Convention                            | Example                                   |\n| ----------------- | ------------------------------------- | ----------------------------------------- |\n| Variables         | camelCase                             | `userName`, `isActive`                    |\n| Functions/Methods | camelCase                             | `getUserName()`, `calculateTotal()`       |\n| Classes           | PascalCase                            | `UserService`, `ApiClient`                |\n| Interfaces        | PascalCase                            | `UserProfile`, `ApiResponse`              |\n| Types             | PascalCase                            | `UserId`, `RequestOptions`                |\n| Value constants   | camelCase                             | `maxRetries`, `emailRegex`                |\n| Named constants   | PascalCase                            | `Action`, `LogLevel` (see [named-constants.md](../patterns/named-constants.md)) |\n| File names        | See [file-naming.md](./file-naming.md) | \u2014                                         |\n";
 
-// standards/code/style-guide/conventions/file-naming.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/conventions/file-naming.md
 var file_naming_default = "# File Naming\n\nThe file name always matches the **exported item's name, including its casing** (see the table below). Resolve the casing in this order:\n\n1. **Existing files in the same directory** \u2014 match their convention\n2. **The package's framework doc** \u2014 e.g., NestJS packages use `kebab-case.{suffix}.ts` (see the architecture skill's framework docs)\n3. **Default** (new/empty directory, no framework rule): match the export name's own casing per the rule above\n\n| Convention                          | Applies to                                  | Example                                |\n| ----------------------------------- | ------------------------------------------- | -------------------------------------- |\n| camelCase matching the export name  | functions, value constants                  | `buildVersionedLabel.ts`, `maxRetries.ts` |\n| PascalCase matching the export name | classes, interfaces, types, named constants | `UserProfile.ts`, `Action.ts`          |\n| kebab-case (framework-mandated)     | per framework doc                           | `get-frontend-domain.ts`               |\n\n**Framework mandates override casing entirely** \u2014 e.g., NestJS services are `events.service.ts` even though the class itself is PascalCase.\n";
 
-// standards/code/style-guide/conventions/lint-and-formatting.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/conventions/lint-and-formatting.md
 var lint_and_formatting_default = "# Lint, Formatting & Mechanically-Enforced Rules\n\nThe language is TypeScript. Follow the project's formatter and linter configuration when present (`biome.json`, `.prettierrc`, `eslint.config.*`); with none configured, keep formatting consistent throughout.\n\n**The lint preset is binding even where the repo's lint config does not yet enforce it.** These rules are mechanical \u2014 they are stated here once, without prose, and violations are violations whether or not a linter catches them:\n\n- **`import type` for type-only imports** \u2014 anything used only in type positions (annotations, parameter types, generic arguments) imports with `import type`, so it erases at compile time.\n- **No `any`** \u2014 use `unknown` and narrow with type guards when the type is genuinely unknown; use specific types or generics when it isn't. A rare, justified bypass gets the project's lint-suppression comment with an explanation.\n";
 
-// standards/code/style-guide/conventions/naming.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/conventions/naming.md
 var naming_default = "# Naming\n\n## Naming Consistency\n\nStandardize patterns within each domain \u2014 if the codebase already uses one, follow it; never introduce a competing convention:\n\n- Data fetching: one of `getData` / `fetchData` / `loadData`, not a mix\n- Booleans: consistent prefixes (`is`, `has`, `should`, `can`)\n- Event handlers: one pattern (`onSubmit` vs `handleSubmit`)\n\n## Verb Vocabulary (closed)\n\nNew code draws function verbs from this closed set \u2014 synonyms are how duplicates hide from name-level search (agents and humans both navigate by grep):\n\n`get` \xB7 `create` \xB7 `update` \xB7 `delete` \xB7 `format` \xB7 `parse` \xB7 `validate` \xB7 `build` \xB7 `to`/`from` (conversions) \xB7 `is`/`has`/`should`/`can` (booleans)\n\nBanned synonyms: `fetch`/`load`/`retrieve`/`read` \u2192 `get` \xB7 `make`/`generate`/`produce` \u2192 `create` \xB7 `remove` \u2192 `delete` \xB7 `modify` \u2192 `update` \xB7 `verify`/`check` \u2192 `validate`.\n\nSubordinate to Naming Consistency above: a domain that already standardized on `fetchData` keeps its verb \u2014 the vocabulary governs new domains.\n\n## Naming for Reuse\n\n**Name things by what they ARE, never by where or how they're currently used.** The test: could someone use this elsewhere in the app without the name misleading them?\n\n| Category | \u274C Context-specific | \u2705 Generic, reusable |\n| --- | --- | --- |\n| Value constants | `heroMaxWidth` | `maxContentWidth` |\n| Utils | `formatPricingDate()` | `formatDate()` |\n| Named constants | `HeroButtonVariant` | `ButtonVariant` |\n| Components | `PricingPageCard` | `PlanCard` |\n| Types | `PricingPageProps` | `PlanCardProps` |\n\nApplies to everything you extract or create. A truly feature-specific value may keep a scoped name \u2014 but default to generic: narrowing later is free; renaming a widely-used token is expensive.\n";
 
-// standards/code/style-guide/conventions/variable-declaration.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/conventions/variable-declaration.md
 var variable_declaration_default = "# Variable Declaration\n\n- Verbose, readable names \u2014 code a new developer understands without extra documentation. Single letters only in small loops (`i`) or well-known conventions (`e` for event).\n\n## Don't Hoist Single-Use Scalars\n\nDon't hoist single-use scalars to module scope or a constants file. A value used by one function and not a lookup map is declared inline \u2014 `const maxRetries = 10;` inside the function, not `const MAX_RETRIES = 10;` at module scope. Promote to a module-level constant (or `constants/`) only when it's consumed in 2+ places, or it's a lookup map / structured config.\n";
 
-// standards/code/style-guide/patterns/classes.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/patterns/classes.md
 var classes_default = "# Classes\n\n## When to Use a Class \u2014 The Bright Line\n\nDefault to functions. Create a class **if and only if at least one** of these is true:\n\n| # | Criterion | Example |\n|---|-----------|---------|\n| a | **Mutable state persists across method calls** | `RateLimiter` (remaining tokens), a cache, a connection pool |\n| b | **3+ operations share injected config/dependencies** | `HttpClient` (baseUrl, retries, credentials injected once, used by every method) |\n| c | **Multiple implementations of a shared interface** | `FileSource` / `S3Source` behind one `RecordSource` contract |\n| d | **The framework requires it** | NestJS services, resolvers, guards (DI needs classes) |\n\nIf none apply: **functions in a module.** Gut-check: *is \"how many of these exist right now?\" a meaningful question?* Two `HttpClient`s pointed at different APIs \u2014 meaningful \u2192 class. Two `formatDate`s \u2014 nonsensical \u2192 function.\n\n**Banned:**\n\n- **Static-only classes** \u2014 a module wearing a costume; it adds `ClassName.` prefixes and binds no state. Use module functions (each exported function in its own file).\n- **One-method stateless classes** \u2014 `class ReportGenerator { execute() }` is a function with a hat on. Write the function.\n\n## Syntax & Style\n\n- Constructor takes an object argument, destructured; declare a `ConstructorParams` interface for it.\n- **Instance methods** use inline object types for their params \u2014 not separate interfaces (keeps the signature self-contained, avoids interface-file sprawl).\n- Public methods of an exported class declare return types; `private` methods infer (see [return-types.md](../typescript/return-types.md)). Interface-pinned methods need not restate the type.\n- Export the class as a named export on the line it is defined.\n\n```typescript\ninterface ConstructorParams {\n	name: string;\n	isActive?: boolean;\n}\n\nexport class Person {\n	private readonly name: string;\n	private isActive: boolean;\n\n	constructor({ name, isActive = true }: ConstructorParams) {\n		this.name = name;\n		this.isActive = isActive;\n	}\n\n	greet(): string {\n		return `Hello, my name is ${this.name}.`;\n	}\n\n	setActiveStatus({ status }: { status: boolean }): void {\n		this.isActive = status;\n	}\n}\n```\n\n## File vs Folder \u2014 The Graduation Rule\n\nClasses follow the same graduation rule as everything else (see [architecture-decisions.md](../../architecture/architecture-decisions.md#modules--the-graduation-rule)):\n\n- **A class starts as a single file** \u2014 `RateLimiter.ts` with its test beside it; non-exported helpers may co-locate.\n- **A class graduates to a folder** \u2014 `HttpClient/` \u2014 only when it needs private companions (bundled utils, types, or constants that serve only it). Companions live under `common/` by category (`utils/`, `types/`, `constants/`), each with a barrel; the class folder's `index.ts` exports the class and the boundary rule applies.\n- Do NOT create a folder for a class with no companions \u2014 that is ceremony, not structure.\n\n## Keep the Class Surface Small\n\nPrefer extracting logic into functions over adding instance methods: before graduation, non-exported helpers in the class file; after, files under the folder's `common/utils/`. The class surface stays limited to behavior that genuinely needs its state; logic is covered through the class's public API.\n";
 
-// standards/code/style-guide/patterns/functions.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/patterns/functions.md
 var functions_default = '# Functions\n\n## Syntax & Style\n\n- Use arrow functions (unless the codebase uses a different convention)\n- **If the function has arguments \u2014 exported or private \u2014 pass an object and destructure:**\n    - **Exported functions:** declare an interface called `Params` for the object argument\n    - **Private helpers:** use an inline object type (a file with multiple helpers cannot declare multiple `Params` interfaces)\n    - **Why objects:** positional signatures decay under growth \u2014 params get appended out of order, middle params can never be removed, and same-typed slots transpose silently (`copyFile(dest, src)` compiles). Object args self-document at every call site.\n- **No arguments** \u2192 no argument object, no `Params` interface.\n- **Sole exception \u2014 externally imposed signatures:** callbacks to `map`/`reduce`/`sort`, event handlers, and framework hooks have shapes dictated by their caller. Write what the contract demands.\n- If callers need to *name* the argument type (e.g., to pre-build a typed args object), it has become public contract \u2014 promote it to a named exported type in `types/` in place of `Params`.\n- Export the function as a named export on the line it is defined.\n\n## Single Return Point\n\nBusiness logic uses a single return at the end \u2014 one consistent place to find the result, and a shared post-step (a floor, a wrapper, a log) gets written once instead of repeated per branch, where one branch inevitably forgets it. **Exception:** guard clauses at the top may return early for validation/null checks.\n\n```typescript\nexport const calculateShippingCost = ({ weightKg, isExpress, destination }: Params): number => {\n	let cost = weightKg * destination.ratePerKg;\n\n	if (isExpress) {\n		cost += destination.expressSurcharge;\n	}\n\n	// Minimum-charge floor applies to every path \u2014 single return writes it once.\n	if (cost < destination.minimumCharge) {\n		cost = destination.minimumCharge;\n	}\n\n	return cost;\n};\n```\n\n## One Exported Function Per File \u2014 Not Negotiable\n\nEvery **exported** function gets its own file, named after the export (cased per [file-naming.md](../conventions/file-naming.md)). Rationalizations that are NOT valid: "closely related", "both config functions", "over-engineered to split", "one is just a helper for the other" \u2014 if it\'s truly a helper, make it **non-exported** and co-locate it; if it\'s exported, it gets its own file.\n\n```typescript\n// \u274C config.ts exporting loadConfig AND saveConfig \u2014 split into loadConfig.ts + saveConfig.ts\n```\n\n### Private Helpers May Co-Locate\n\nA **non-exported** helper may live in the file of the export it serves when both hold: (1) no `export` keyword, (2) called only from this file. The file acts as a module: the export is the public API, helpers are compiler-enforced internals, covered through the export\'s tests. **The moment a second file needs the helper, it gets exported \u2014 and exported means its own file.** The bright line stays mechanical: `export` keyword \u2192 own file.\n\n```typescript\ninterface Params {\n	records: ReportRecord[];\n}\n\n// Private helper: inline object type, inferred return\nconst sumTotals = ({ records }: { records: ReportRecord[] }) => {\n	return records.reduce((total, record) => total + record.amount, 0);\n};\n\n// Export: Params interface + declared return type\nexport const buildReportSummary = ({ records }: Params): { total: number } => {\n	return { total: sumTotals({ records }) };\n};\n```\n\nIf a helper\'s branches cannot be reached through the export\'s inputs, that branch is dead code \u2014 delete it. If covering a helper through the export is genuinely impractical (combinatorial inputs), the helper has earned promotion to its own file with its own tests.\n\n## Function Size Limits\n\n| Lines | Assessment |\n| ----- | ------------------------------------ |\n| <=50  | Fine |\n| 50-80 | Review \u2014 look for extractable logic |\n| 80+   | Needs splitting |\n\nFiles stay under ~250 lines (~300 for `.tsx` \u2014 JSX and props interfaces earn the slack) \u2014 approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).\n\n**Exception \u2014 orchestration functions** may exceed 50 lines when each step delegates to a dedicated function (no inline business logic) and the flow is linear: a 150-line `start()` calling 8 step functions is fine; a 150-line function with inline loops and transformations is not.\n';
 
-// standards/code/style-guide/patterns/named-constants.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/patterns/named-constants.md
 var named_constants_default = "# Named Constants\n\n## Use a union type paired with a `const` object\n\nFor a set of named string values, use a **union type** backed by a `const` object. The `const` object is the single source of truth; the union is derived from it. Consumers reference the object (`Action.Add`), never raw string literals.\n\n\u2705 GOOD: `const` object + derived union\n\n**`common/constants/Action.ts`**\n\n```typescript\nexport const Action = {\n	Add: 'add',\n	Remove: 'remove',\n	List: 'list',\n	Update: 'update',\n} as const;\n\nexport type Action = (typeof Action)[keyof typeof Action];\n```\n\n```typescript\n// consumer \u2014 references the object, not a raw string\ndoThing(Action.Add);\n```\n\n\u274C BAD: bare union, values redefined at every call site\n\n```typescript\nexport type Action = 'add' | 'remove' | 'list' | 'update';\n\n// consumers retype raw literals \u2014 the source of truth is now \"everywhere\"\ndoThing('add');\n```\n\n## Casing\n\nNamed constants are **PascalCase** (`Action`, `LogLevel`) \u2014 the `const` object and its derived `type` share one name, and the type must be PascalCase. The file matches: `Action.ts`.\n\nThis is distinct from plain **value constants** (a single scalar or config value like `maxRetries`, `emailRegex`), which stay **camelCase**. The test: if it backs a union or has members consumers dot into (`Action.Add`), it's a named constant \u2192 PascalCase; if it's a lone value, it's a value constant \u2192 camelCase.\n\n## Boundaries\n\nAt boundaries (JSON payloads, query params, DB values) incoming strings are not yet the union \u2014 convert with a small validation function (e.g., `parseAction`), never with an `as` cast.\n\n## Discriminants Use the `const` Object\n\nDiscriminant fields in union families reference the `const` object, not raw string literals \u2014 otherwise consumers retype the literal at every narrowing site. TypeScript narrows identically.\n\n\u2705 GOOD:\n\n```typescript\nexport interface FileAddedEvent {\n	kind: typeof SyncEventKind.FileAdded;\n	path: string;\n}\n\n// consumer \u2014 no raw strings\nif (event.kind === SyncEventKind.FileAdded) { /* ... */ }\n```\n\n\u274C BAD:\n\n```typescript\nexport interface FileAddedEvent {\n	kind: 'file-added'; // literal leaks to every consumer call site\n}\n```\n\n**Exemption \u2014 component prop unions.** A UI component's discriminated `Props` union may use raw string-literal discriminants (`status: 'notInstalled' | 'connected'`): the caller writes the literal once as a JSX attribute, which is idiomatic React and reads better than a constant import. The rule above targets domain values that cross module boundaries and get narrowed at many call sites. If the same discriminant values also appear in domain logic, they are domain values \u2014 use the `const` object everywhere, props included.\n\n## Derived Lookup Maps May Co-Locate\n\nA lookup map keyed by the union (`Record<Action, \u2026>`) may live in the same file as the `const` object \u2014 the two are tautologically coupled, so every change to one changes the other.\n\n```typescript\nexport const LogLevel = {\n	Debug: 'debug',\n	Info: 'info',\n	Error: 'error',\n} as const;\n\nexport type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];\n\nexport const logLevelLabels: Record<LogLevel, string> = {\n	[LogLevel.Debug]: 'Debug',\n	[LogLevel.Info]: 'Info',\n	[LogLevel.Error]: 'Error',\n};\n```\n\nAn unrelated constant that merely *uses* the union goes in `constants/` as usual.\n";
 
-// standards/code/style-guide/patterns/react-components.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/patterns/react-components.md
 var react_components_default = "# Component & Hook Patterns\n\n## React - Function Size Limits\n\nThe base function size thresholds are defined in `code:style-guide/references/patterns/functions.md`. The overrides below apply to the file types they specify \u2014 when a file matches a classification here, use these thresholds instead of the base.\n\n### File Classification\n\n- `.tsx` files with a named/default export returning JSX \u2192 **Component** (use component thresholds)\n- `.ts` files exporting a function starting with `use` \u2192 **Hook** (use hook thresholds)\n- Everything else \u2192 **Utility** (50-line threshold applies)\n\n### Line Counting\n\nCount from function signature to closing brace. Exclude imports, type declarations outside the function, and file-level comments.\n\n### Components (.tsx)\n\n| Lines   | Assessment                                                         |\n| ------- | ------------------------------------------------------------------ |\n| <100    | Almost always fine                                                 |\n| 100\u2013150 | Review \u2014 acceptable if mostly JSX composition with no inline logic |\n| 150+    | Likely needs extraction                                            |\n| 200+    | Definitely needs extraction                                        |\n\n### Hooks (.ts)\n\n| Lines  | Assessment                               |\n| ------ | ---------------------------------------- |\n| <80    | Fine                                     |\n| 80\u2013120 | Review \u2014 look for extractable pure logic |\n| 120+   | Likely needs utility extraction          |\n| 160+   | Definitely needs extraction              |\n\nPure logic inside hooks should be extracted to utility functions. The hook itself should compose, not compute.\n\n## Default Actions \u2014 Components & Hooks\n\n| Issue Type                              | Default Action                   | Review Level |\n| --------------------------------------- | -------------------------------- | ------------ |\n| Component >200 lines                    | Extract sub-components           | Medium       |\n| Hook >160 lines                         | Extract pure logic to utilities  | Medium       |\n| Inline styles / repeated className logic | Extract to shared class or component | Low          |\n";
 
-// standards/code/style-guide/structure/import-paths.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/structure/import-paths.md
 var import_paths_default = "# Import Path Strategy\n\n**Use the package's configured path alias for every import.**\n\n- When a package defines path aliases, NEVER use relative paths (`./`, `../`) \u2014 not even for sibling files, `common/` subfolders, or barrel re-exports\n- If a package defines **no** path aliases, use relative paths consistently \u2014 and consider adding aliases\n- This applies to every file: components, constants, interfaces, types, utils, hooks, etc.\n\n## Path Aliases\n\nEach package defines its own path aliases in `tsconfig.json` \u2192 `compilerOptions.paths`. Common patterns:\n\n| Alias    | Example                                   |\n| -------- | ----------------------------------------- |\n| `@/*`    | `import { X } from '@/common/utils/X'`    |\n| `@src/*` | `import { X } from '@src/common/utils/X'` |\n\n**Rule:** Always check the package's `tsconfig.json` `paths` field to determine the correct alias. Do not hardcode aliases from memory.\n\n\u2705 GOOD: Path alias for everything\n\n```typescript\nimport { ClassName } from '@/path/to/ClassName';\nimport { methodName } from '@/common/utils/methodName';\nimport { features } from '@/features/home/components/HomeIssueDetails/common/constants';\nimport { MockIssuePanel } from '@/features/home/components/HomeIssueDetails/components/MockIssuePanel';\n```\n\n\u274C BAD: Relative paths in an alias-configured package\n\n```typescript\nimport { helper } from './helper';\nimport { util } from '../common/utils/util';\nimport { features } from './common/constants';\n```\n";
 
-// standards/code/style-guide/structure/module-api.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/structure/module-api.md
 var module_api_default = "# Module Boundaries & Exports\n\n## Module Boundaries\n\nA **folder-module** (feature, route, screen, graduated class or component \u2014 see [architecture-decisions.md](../../architecture/architecture-decisions.md#modules--the-graduation-rule)) has a public API: its `index.ts`.\n\n- **Crossing a module boundary:** import ONLY from the module's `index.ts` \u2014 never reach into another module's internals (`@/ingestion`, not `@/ingestion/common/utils/normalizeRecord`).\n- **Inside a module:** import directly from specific files \u2014 deep imports within your own module are correct.\n\n## Module Exports\n\n- Always named exports, on the line the item is defined \u2014 functions, classes, interfaces, and `as const` named constants alike.\n\n## Barrel Files (`index.ts`)\n\nA barrel is the module's **public API contract** \u2014 it lists exactly what consumers may use; everything it omits is internal.\n\n1. **Every folder-module has an `index.ts`** \u2014 the only path other modules import through\n2. **Named re-exports** \u2014 `export { Foo } from '<path>'` (alias when configured), never `export *`\n3. **One export per line** \u2014 clean diffs\n4. **Export deliberately** \u2014 the barrel MAY re-export from subfolders when those items are intentionally public; omissions are internal\n5. **Internal subfolders** (`common/utils/`, `common/types/`) keep their own `index.ts` for tidy intra-module imports, but nothing outside the module imports from them\n\n```typescript\n// ingestion/index.ts \u2014 RawRecord re-exported on purpose; normalizeRecord stays internal\nexport { ingestRecords } from '@/ingestion/ingestRecords';\nexport type { RawRecord } from '@/ingestion/common/types/RawRecord';\n```\n";
 
-// standards/code/style-guide/structure/one-export-per-file.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/structure/one-export-per-file.md
 var one_export_per_file_default = '# One Export Per File\n\n- Each **exported** function, class, interface, type, or constant has its own file, named after the export (cased per the package\'s file-naming convention)\n- Non-exported items (private helpers, local types) may co-locate with the export they serve\n\n## The Closed Exception List\n\nThe **only** cases where a file may contain more than one item \u2014 every exception has a mechanical criterion:\n\n| # | Exception | Criterion |\n|---|-----------|-----------|\n| 1 | `Params` / `ConstructorParams` interfaces | Stays in the file of its function/class; not exported independently |\n| 2 | Private helpers | Not exported; called only within this file (see [functions.md](../patterns/functions.md#private-helpers-may-co-locate)) |\n| 3 | Discriminated union families | A union type and its member types share one file when the members exist only as constituents of that union |\n| 4 | Named constant + derived lookup map | A lookup map keyed by the union (`Record<MyType, \u2026>`) may live in the `const` object\'s file (see [named-constants.md](../patterns/named-constants.md#derived-lookup-maps-may-co-locate)) |\n\n## Multiple Exported Items \u2014 Still Not Negotiable\n\nInvalid rationalizations: "the interface is only used by this constant", "they\'re closely related", "it\'s just a small helper" (if it\'s a helper, make it non-exported \u2014 exception 2; if exported, own file).\n\n```typescript\n// \u274C config.ts: export interface Config + export const defaultConfig \u2014 split them:\n// common/types/Config.ts        \u2192 export interface Config { ... }\n// common/constants/defaultConfig.ts \u2192 export const defaultConfig: Config = { ... }\n```\n\n**Exception 3 in practice** \u2014 a union family shares one file because the members exist only as constituents:\n\n```typescript\n// common/types/SyncEvent.ts\nexport interface FileAddedEvent {\n	kind: typeof SyncEventKind.FileAdded; // discriminant references the const object, never a raw literal\n	path: string;\n}\n\nexport interface RecordParsedEvent {\n	kind: typeof SyncEventKind.RecordParsed;\n	recordId: string;\n}\n\nexport type SyncEvent = FileAddedEvent | RecordParsedEvent;\n```\n\nIf a member type starts being used independently of the union, it moves to its own file.\n';
 
-// standards/code/style-guide/structure/type-placement.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/structure/type-placement.md
 var type_placement_default = "# Type & Constant Placement\n\n## Types and Interfaces \u2192 `common/types/`\n\nThe folder groups type-level declarations regardless of keyword. Pick the keyword by fit, not folder:\n\n- `interface` for object shapes (extends and merges cleanly)\n- `type` for what an interface can't express (unions, intersections, mapped types, primitives, tuples, function signatures)\n- Either works for an object shape \u2192 stay consistent within a domain. Refactoring between the keywords is an in-place edit; the filename and imports never change.\n\nA discriminated union family lives in `types/` under the union's name.\n\n**The `Params` interface stays with its function; all other exported types go in `types/`:**\n\n```typescript\n// copyFile.ts \u2014 Params co-located, unexported\ninterface Params {\n	sourcePath: string;\n	destPath: string;\n}\n\nexport const copyFile = ({ sourcePath, destPath }: Params) => { /* ... */ };\n\n// common/types/CopyResult.ts \u2014 exported return type gets its own types/ file\nexport interface CopyResult {\n	success: boolean;\n	bytesWritten: number;\n}\n```\n\n## Constants \u2192 `common/constants/`\n\nConstants are not types \u2014 they live in `common/constants/` (`export const \u2026`), never in `types/`. A `const` object with its derived union and lookup map lives in `constants/` under the object's name (see [named-constants.md](../patterns/named-constants.md)).\n\n```typescript\n// common/constants/defaultConfig.ts\nimport type { Config } from '@/path/to/common/types/Config';\n\nexport const defaultConfig: Config = { name: 'default' };\n```\n";
 
-// standards/code/style-guide/typescript/return-types.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/typescript/return-types.md
 var return_types_default = "# Return Types \u2014 Explicit on Exports, Inferred Internally\n\nThe bright line is the `export` keyword \u2014 the same trigger as \"own file\" and the `Params` interface:\n\n- **Exported function** \u2192 declare the return type. The annotation is the output half of the public contract, exactly as `Params` is the input half.\n- **Non-exported function** (private helpers, callbacks) \u2192 always infer. Annotations on internals are noise; the consumer is in the same file and inference is precise there.\n\n**Why this rule exists:** with inference, an exported function's return type is whatever the body happens to return today. A refactor can silently widen or change the public contract, and the diff reads as an implementation edit \u2014 the error surfaces later, in a consumer's file, several inference hops away. An explicit annotation fails at the definition site the moment the body stops satisfying the contract, and an intentional API change becomes a visible diff line. It also keeps the codebase compatible with TypeScript's `isolatedDeclarations`.\n\n\u2705 GOOD:\n\n```typescript\ninterface Params {\n	user: User | null;\n}\n\nexport const getUserDisplayName = ({ user }: Params): string => {\n	// ...\n};\n\nconst sumTotals = ({ records }: { records: ReportRecord[] }) => {\n	// private helper \u2014 inferred\n};\n```\n\n\u274C BAD:\n\n```typescript\nexport const getUserDisplayName = ({ user }: Params) => { /* ... */ }; // WRONG \u2014 exported, contract is implicit\n\nconst sumTotals = ({ records }: { records: ReportRecord[] }): number => { /* ... */ }; // WRONG \u2014 internal, annotation is noise\n```\n\n**Exceptions** (inference is correct on these even when exported):\n\n1. **Framework components** \u2014 React components don't annotate `JSX.Element`.\n2. **Generic-heavy signatures** \u2014 when the written return type would be an unreadable conditional-type expression, the generic signature is the contract; infer.\n3. **Interface-pinned signatures** \u2014 methods implementing a declared interface (e.g., a `RecordSource` implementation) are already contracted by the interface; restating the type is duplication.\n\n**Migration:** new exported functions comply immediately; existing exported functions gain a return type when touched. Never remove a return type from an exported function.\n";
 
-// standards/code/style-guide/typescript/type-assertions.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/code/style-guide/typescript/type-assertions.md
 var type_assertions_default = "# Type assertions (`as`)\n\nAvoid `as` casts. They tell the compiler to trust you instead of proving the type is correct.\n\n- Prefer type narrowing with `typeof`, `instanceof`, or discriminated unions.\n- If an assertion is truly necessary (e.g., a library returns `unknown`), add a brief comment explaining why narrowing is not possible.\n- Exception: **test files** may use `as unknown as T` to force invalid input into a defensive branch for coverage (see the unit-testing standards).\n\n\u2705 GOOD: Narrowing\n\n```typescript\nif (typeof value === 'string') {\n	return value.toUpperCase();\n}\n```\n\n\u274C BAD: Assertion without justification\n\n```typescript\nreturn (value as string).toUpperCase();\n```\n";
 
-// packages/engine/src/defaultCodeStandards.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/defaultCodeStandards.ts
 var defaultCodeStandards = {
   base: [
     `<!-- lightsout defaults: standards/code/architecture/architecture-decisions.md -->
@@ -24106,16 +24108,16 @@ ${architecture_decisions_default3}`
   ].join("\n\n")
 };
 
-// standards/tests/unit/jest/unit-test-examples.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/tests/unit/jest/unit-test-examples.md
 var unit_test_examples_default = "# Unit Test Examples\n\nBoth examples follow [Arrange-Act-Assert with setup factories](./unit-testing.md#test-structure--arrange-act-assert-with-setup-factories): arrangement in a named `setup()` factory; act and assertion in the `test`, each call assigned to a named `const`, blank line between the three blocks. Mock cleanup comes from `clearMocks`/`restoreMocks` config (see [Mock Cleanup](./unit-testing.md#mock-cleanup)) \u2014 never `beforeEach`.\n\n## Function with Mocked Dependencies\n\n```typescript\nimport { expect, describe, test, jest } from '@jest/globals';\nimport { UserProfile } from '@/models/user-profile';\nimport { AppSettings } from '@/models/app-settings';\nimport { getAvatarUrl } from '@/models/user-profile/common/utils/get-avatar-url';\n\n// Mocked Imports\n// -------------------------\nconst mockGetAvatarFromProfile = jest.fn<(params: { profile: UserProfile }) => string | null>();\n\njest.mock('@/models/user-profile/common/utils/get-avatar-from-profile', () => ({\n	getAvatarFromProfile: (params: { profile: UserProfile }) =>\n		mockGetAvatarFromProfile(params),\n}));\n// -------------------------\nconst mockGetAvatarFromGravatar = jest.fn<(params: { email: string }) => string | null>();\n\njest.mock('@/models/user-profile/common/utils/get-avatar-from-gravatar', () => ({\n	getAvatarFromGravatar: (params: { email: string }) =>\n		mockGetAvatarFromGravatar(params),\n}));\n// -------------------------\n\nconst setupAvatar = ({\n	profile = null,\n	gravatar = null,\n	setting,\n}: {\n	profile?: string | null;\n	gravatar?: string | null;\n	setting?: 'hasCustomAvatar' | 'useGravatar';\n} = {}) => {\n	mockGetAvatarFromProfile.mockReturnValue(profile);\n	mockGetAvatarFromGravatar.mockReturnValue(gravatar);\n\n	const userProfile = new UserProfile({\n		profileData: { email: 'user@example.com', displayName: 'Test User' },\n	});\n	const appSettings = new AppSettings({ isGuest: false, defaultPreferences: {} });\n	if (setting) {\n		appSettings.set(setting, true);\n	}\n\n	return { userProfile, appSettings };\n};\n\ndescribe('getAvatarUrl', () => {\n	test('returns null when no avatar conditions are met', () => {\n		const { userProfile, appSettings } = setupAvatar();\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBeNull();\n	});\n\n	test('returns the profile avatar when the user has a custom avatar', () => {\n		const { userProfile, appSettings } = setupAvatar({\n			profile: 'https://cdn.example.com/avatars/user-123.png',\n			setting: 'hasCustomAvatar',\n		});\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBe('https://cdn.example.com/avatars/user-123.png');\n	});\n});\n```\n\nThe same shape covers async units: the factory uses `mockResolvedValue`/`mockRejectedValue`, the act is `await`ed, and the rejection case asserts with `await expect(getUserData({ userId: '999' })).rejects.toThrow('Not found')`.\n\nFor a class, the factory returns the constructor's collaborators and the act constructs the instance. Asserting the instance's resolved public fields (`expect(person).toEqual(expect.objectContaining(details))`) is still testing *behavior* \u2014 for a class whose job is to resolve and expose that state, those fields are the output a consumer reads. \"Test behavior, not internals\" bans reaching into things a consumer never touches (private helpers, caches), not reading the public result.\n\n## Parameterized with test.each\n\n```typescript\nimport { expect, describe, test } from '@jest/globals';\nimport { formatCurrency } from '@/common/utils/format-currency';\n\ndescribe('formatCurrency', () => {\n	test.each([\n		{ amount: 100, locale: 'en-US', expected: '$1.00' },\n		{ amount: 100, locale: 'en-GB', expected: '\xA31.00' },\n		{ amount: 0, locale: 'en-US', expected: '$0.00' },\n		{ amount: -50, locale: 'en-US', expected: '-$0.50' },\n	])(\n		'formats $amount in $locale as $expected',\n		({ amount, locale, expected }) => {\n			const formatted = formatCurrency({ amount, locale });\n\n			expect(formatted).toBe(expected);\n		},\n	);\n});\n```\n";
 
-// standards/tests/unit/jest/unit-testing-react-components.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/tests/unit/jest/unit-testing-react-components.md
 var unit_testing_react_components_default = "# Unit Testing Components & Hooks\n\nComponent tests follow the same [Arrange-Act-Assert with setup factories](./unit-testing.md#test-structure--arrange-act-assert-with-setup-factories) structure as every other test. All mock rules from [unit-testing.md](./unit-testing.md#mocks) apply \u2014 typed `jest.fn` generics, typed factory wrappers, no mocking constant modules.\n\n## Framework Basics\n\n- Import from `@testing-library/react` (React) or `@testing-library/preact` (Preact) \u2014 check the package's `package.json`; the API is identical.\n- Component test files use `.unit.test.tsx` (JSX requires `.tsx`), co-located with the component.\n- **Framework route/page files never get co-located unit tests** \u2014 they are thin wiring (guards, layout, a screen render) verified through e2e tests and the screen component's own tests.\n- Interactions use `userEvent` **when the package depends on `@testing-library/user-event`** (check its `package.json`); otherwise use `fireEvent` from the testing-library package. Never add the dependency yourself \u2014 that is the repo owner's decision, surfaced by `lightsout doctor`.\n\n## The Render Pattern\n\nRender inside the `setup()` factory; query and assert in the `test`. For a component, `render()` *is* the act, but by convention it lives in the arrange factory \u2014 the one accepted exception to \"the act lives in the `test`\". Query from `screen` \u2014 never destructure queries from `render()`.\n\n```typescript\nimport { expect, describe, test, jest } from '@jest/globals';\nimport { render, screen } from '@testing-library/preact';\nimport userEvent from '@testing-library/user-event';\nimport { NotificationBanner } from './NotificationBanner';\n\n// Mocked Imports\n// -------------------------\nconst mockUseAppStore = jest.fn<(selector: (state: unknown) => unknown) => unknown>();\n\njest.mock('@store/appStore', () => ({\n	useAppStore: (selector: (state: unknown) => unknown) => mockUseAppStore(selector),\n}));\n// -------------------------\n\nconst setupNotificationBanner = ({ isVisible = true }: { isVisible?: boolean } = {}) => {\n	const onDismiss = jest.fn<() => void>();\n	mockUseAppStore.mockReturnValue(isVisible);\n	render(<NotificationBanner onDismiss={onDismiss} />);\n\n	return { onDismiss };\n};\n\ndescribe('NotificationBanner', () => {\n	test('does not render the banner when not visible', () => {\n		setupNotificationBanner({ isVisible: false });\n\n		const banner = screen.queryByRole('alert');\n\n		expect(banner).not.toBeInTheDocument();\n	});\n\n	test('renders the notification message when visible', () => {\n		setupNotificationBanner({ isVisible: true });\n\n		const message = screen.getByText('Action required');\n\n		expect(message).toBeInTheDocument();\n	});\n\n	test('calls the dismiss handler when the dismiss button is clicked', async () => {\n		const { onDismiss } = setupNotificationBanner({ isVisible: true });\n		const user = userEvent.setup();\n\n		const dismissButton = screen.getByRole('button', { name: /dismiss/i });\n		await user.click(dismissButton);\n\n		expect(onDismiss).toHaveBeenCalledTimes(1);\n	});\n});\n```\n\n## Query Priority\n\n1. **`getByRole`** \u2014 mirrors how users and assistive technology find elements\n2. **`getByLabelText`** \u2014 labeled form inputs\n3. **`getByText`** \u2014 visible text\n4. **`getByTestId`** \u2014 last resort (requires adding `data-testid` to source)\n\nUse `query*` variants to assert an element is **not** rendered (they return `null` instead of throwing). Use `findBy*`/`waitFor` for elements that appear after an async update \u2014 a synchronous `getBy*` throws before the DOM settles.\n\n## Mocking Component Dependencies\n\n**Hooks** mock like utility functions \u2014 and the wrapper must forward parameters with matching types when the hook takes any (see [Mock Typing Rules](./unit-testing.md#mock-typing-rules)):\n\n```typescript\nconst mockUseProjects = jest.fn<(params: { workspaceId: number }) => { data: Project[] }>();\n\njest.mock('@/features/projects/hooks/useProjects', () => ({\n	useProjects: (params: { workspaceId: number }) => mockUseProjects(params),\n}));\n```\n\n**Zustand-style stores**: `mockUseAppStore.mockReturnValue(value)` works only when the component calls the store **once**. When it reads multiple slices, run the real selectors against a mock state instead:\n\n```typescript\nconst setupFeaturePanel = ({ isActive = true, label = 'Panel' }: { isActive?: boolean; label?: string } = {}) => {\n	mockUseAppStore.mockImplementation((selector) => selector({ isActive, label }));\n	render(<FeaturePanel />);\n};\n```\n\n**Child components**: mock a child **only if it is itself a boundary** (its own module, or imported from another feature). Render **real** internal children (under this module's own `common/`) so they are covered through this boundary's tests \u2014 mocking an internal child leaves it with no coverage at all. When you do mock a boundary child, keep it minimal: just enough to verify props and conditional rendering.\n\n## Testing User Interactions\n\n`userEvent` is async \u2014 create the user in the test and `await` the interaction. The query that locates the interaction target groups with the act (the `userEvent` call), not with arrange:\n\n```typescript\ntest('calls the dismiss handler when the dismiss button is clicked', async () => {\n	const { onDismiss } = setupBanner();\n	const user = userEvent.setup();\n\n	const dismissButton = screen.getByRole('button', { name: /dismiss/i });\n	await user.click(dismissButton);\n\n	expect(onDismiss).toHaveBeenCalledTimes(1);\n});\n```\n\nWhen the package lacks `@testing-library/user-event`, use `fireEvent` instead \u2014 synchronous, no setup object: `fireEvent.click(dismissButton);`. The same grouping rule applies: the target query groups with the act.\n\n## Testing Hooks in Isolation\n\nMock the framework's hook primitives with synchronous shims so the hook body executes without a render cycle; capture effect callbacks so tests can invoke them:\n\n```typescript\n// Mocked Imports\n// -------------------------\nlet mockEffectCallback: (() => undefined | (() => void)) | undefined;\n\njest.mock('preact/hooks', () => ({\n	useEffect: (cb: () => undefined | (() => void)) => {\n		mockEffectCallback = cb;\n	},\n	useCallback: <T>(cb: T) => cb,\n	useMemo: (factory: () => unknown) => factory(),\n}));\n// -------------------------\n\nconst setupEscapeKey = ({ isActive = true }: { isActive?: boolean } = {}) => {\n	mockEffectCallback = undefined;\n	const addEventListenerSpy = jest.spyOn(document, 'addEventListener');\n	const onEscape = jest.fn<() => void>();\n	useEscapeKey({ isActive, onEscape });\n\n	return { addEventListenerSpy, onEscape };\n};\n\ndescribe('useEscapeKey', () => {\n	test('adds a keydown event listener', () => {\n		const { addEventListenerSpy } = setupEscapeKey({ isActive: true });\n\n		mockEffectCallback!();\n\n		expect(addEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));\n	});\n});\n```\n\nOnly mock the hook primitives the hook under test actually uses.\n";
 
-// standards/tests/unit/jest/unit-testing.md
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/standards/tests/unit/jest/unit-testing.md
 var unit_testing_default = "# Unit Testing\n\n## Precedence in Repos with Older Tests\n\nThese standards describe the target style for tests you WRITE, not a mandate\nto renovate tests that exist. When the repo's existing tests predate this\ndocument and use another style (`beforeEach` + shared `let`, nested\n`describe` pyramids):\n\n- **Extending an existing test file** \u2192 match that file's local style. One\n  file, one style \u2014 never mix a second convention into a file.\n- **Creating a new test file** \u2192 this document wins, even when your mirror\n  target uses the older style. Mirror the target's coverage, not its\n  structure.\n- Never rewrite passing legacy tests to match this document during a\n  feature task \u2014 that is deliberate cleanup work with its own review, not a\n  side effect.\n- Applying this precedence is **normal operation, not friction** \u2014 do not\n  record a friction entry per legacy-style file you encounter. Record ONE\n  friction entry only when the rule itself failed you: the conflict was not\n  stylistic, or it was genuinely ambiguous which case applied.\n\n## Module Boundary Testing\n\nTests target **module boundaries** \u2014 a module's public API \u2014 not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.\n\n**Classify every source file before writing tests:**\n\n| Classification | Definition | Test file? |\n|---|---|---|\n| **Boundary** | A module's public surface: shared leaf modules under a root-layer `common/` (e.g., `src/common/utils/`, `src/app/common/`); a feature's public exports (hooks, components, top-level operation files); framework files (`.service.ts`, `.resolver.ts`, `.controller.ts`, guards, job services); a graduated folder's main file (`HttpClient/HttpClient.ts`) | \u2705 Co-located `*.unit.test.ts` |\n| **Internal** | A file under a *module's* `common/` \u2014 i.e., a `common/` whose parent folder is a feature, route, screen, component, or class folder (not a root layer like `src/`) | \u274C No dedicated test file \u2014 covered through the owning module's boundary tests |\n\n**Rules:**\n\n- Coverage is still measured per source file: an internal must reach 100% lines/branches/functions, achieved by driving the boundary's inputs.\n- If an internal branch cannot be reached through any boundary input, it is **dead code** \u2014 flag it for deletion. Do not write a direct test to cover it.\n- If covering an internal through the boundary is impractical (combinatorial inputs), that is the promotion signal: the internal has earned its own module and direct tests. Flag it in the report \u2014 do not silently create a dedicated test file.\n- Existing dedicated test files on internals are migration debt: leave them in place and do not extend them \u2014 new coverage goes through the boundary. Flag them in the report as migration candidates.\n\n## Test Files\n\n- Unit tests are **co-located** with their source file: `src/auth/AuthService.ts` \u2192 `src/auth/AuthService.unit.test.ts`.\n- First import: `import { expect, describe, test, jest } from '@jest/globals';` \u2014 but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.\n- The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** \u2014 scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).\n\n## Files That Must NOT Have Dedicated Tests\n\nDo **not** create test files for source files with no runtime logic \u2014 they are covered when consumed:\n\n- **Pure constants** \u2014 only literal values, no computation or side effects\n- **Enums with no computed members** / string-union types\n- **Type-only files** \u2014 only `type`/`interface` declarations\n- **Barrel / re-export files** (`index.ts`)\n\nA file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths \u2014 not the static value.\n\n## Test Structure \u2014 Arrange-Act-Assert with Setup Factories\n\nEvery test follows **Arrange-Act-Assert**, with arrangement extracted into a named `setup()` factory. The test body stays small: call setup, act, assert.\n\n```typescript\ndescribe('getAvatarUrl', () => {\n	test('returns the profile avatar when one exists', () => {\n		const { userProfile, appSettings } = setupAvatar({ profile: 'p.png' });\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBe('p.png');\n	});\n});\n```\n\n**Rules:**\n\n- **Arrange in a `setup()` factory.** The factory wires mocks and builds fixtures, then returns the locals the test needs as `const`s. Do **not** hold the subject under test in a shared `let` reassigned across `beforeEach` blocks \u2014 that is mutable test state.\n- **Act and assert live in the `test`**, not in `beforeEach`. (Component tests are the one accepted exception: `render()` lives in the `setup()` factory by convention \u2014 see the component testing doc.)\n- **One `setup()` and one act per test.** Two setups or two acts means two tests. Multiple `expect`s are fine only when they assert one behavior's result.\n- **No nested method calls in the act.** Assign each call's result to a named `const`. Two exceptions: (1) the error case, where the act sits inside the matcher: `expect(() => parse(bad)).toThrow()`; (2) assertion-matcher composition (`toEqual(expect.objectContaining(...))`).\n- **Blank line between arrange, act, and assert** \u2014 and no `// arrange` / `// act` / `// assert` captions; the spacing already shows the structure.\n- **Test behavior, not internals.** Assert the observable output a consumer sees. (Asserting an injected repository was called with the right args IS behavior \u2014 the persistence call is the unit's observable side effect at its boundary.)\n- When asserting multiple properties of one result, prefer a single `expect`. For a **partial** match use `toEqual(expect.objectContaining({ ... }))` \u2014 not `toStrictEqual`: with an asymmetric matcher argument, Jest only runs the matcher and the strict extra-property checks never fire, so `toStrictEqual` there is identical to `toEqual` but misleadingly implies strictness. Reserve `toStrictEqual` for whole-object assertions with a concrete expected object.\n- Cover all code paths \u2014 branches, error handling, boundary conditions. Each test exercises a unique code path; don't add tests that only vary input without varying behavior.\n- **Reaching defensive branches:** when a branch guards against input the type system forbids (a `default` arm, an early return on an impossible discriminant), a test may force the invalid input with `as unknown as T` \u2014 the one blessed double cast, and it lives only in test files, never in source.\n- Use `test.each` when multiple inputs exercise the **same code path** with different outputs; different code paths get separate tests.\n\n### Assertions Pin Contracts\n\n- **Assert with literals \u2014 never import a constant from the module under test into its own assertions.** A test comparing `x` to `x` is a tautology that passes even when the value is wrong; the literal in the test is the independent second statement of the contract. (Duplication between a source constant and its test literal is contract-pinning, not a DRY violation.) Constants from *other* modules \u2014 shared enums the codebase already defines \u2014 are fine as inputs.\n- **Pin machine-facing values strictly, human-facing copy loosely.** Error codes, event names, and API fields get exact assertions; UI copy and log messages get `stringContaining`/regex or no assertion at all \u2014 wording changes shouldn't fail contract tests.\n- **Construct the subject under test directly; stub only unowned boundaries** (network, filesystem, other modules' services). Don't mock what you own and could simply instantiate.\n- **Prefer behavior assertions over property echoes** \u2014 assert what the unit *does* (output, side effect at its boundary), not that a value passed in reappears unchanged.\n\n### Setup Factories\n\n```typescript\nconst setupAvatar = ({\n	profile = null,\n	gravatar = null,\n}: { profile?: string | null; gravatar?: string | null } = {}) => {\n	mockGetAvatarFromProfile.mockReturnValue(profile);\n	mockGetAvatarFromGravatar.mockReturnValue(gravatar);\n\n	const userProfile = new UserProfile({ profileData: { email: 'user@example.com' } });\n	const appSettings = new AppSettings({ defaultPreferences: {} });\n\n	return { userProfile, appSettings };\n};\n```\n\n- **One factory configures any number of mocks** \u2014 a single factory call is the whole arrangement; variants come from parameters.\n- **A single explicit override is allowed** for the one variable a test varies (`setupAvatar()` then one `mockReturnValue` line).\n- **Cap factory sprawl.** A substantially different arrangement gets a second named factory (`setupEmployee`), not an over-parameterized mega-factory.\n\n## Mocks\n\n- Place mock declarations and `jest.mock()` blocks after the imports, marked with a `// Mocked Imports` header and `// -------------------------` separators between groups (mirror any existing test file's formatting).\n- **Mock variables must be prefixed `mock`** \u2014 Jest hoists `jest.mock()` calls to the top of the file, and only `mock`-prefixed variables are accessible inside the factory.\n- Set mock return values inside the `setup()` factory \u2014 never in a `beforeEach`.\n- **Do NOT mock modules that only export plain constants** \u2014 import the real module; mocking it blocks coverage and adds no isolation. Mock a constant module only if it has import-time side effects or the test needs a *different* value (prefer `jest.replaceProperty` or injection).\n- Scope strategy: inline mocks for one file; a co-located `__mocks__/` folder when multiple tests in the area share a mock; `test/mocks/` (with `test/fixtures/`, `test/utils/`) for codebase-wide utilities.\n\n### Mock Typing Rules\n\nEvery `jest.fn()` **must** be fully typed to the real function's signature \u2014 read the source first.\n\n```typescript\n// \u2705 generic matches the real signature (async: include the Promise wrapper)\nconst mockGetProfile = jest.fn<(params: { userId: string }) => Profile | null>();\n\n// \u2705 factory wrapper uses typed parameters \u2014 never (...args: unknown[]) (causes TS2556)\njest.mock('@/utils/get-profile', () => ({\n	getProfile: (params: { userId: string }) => mockGetProfile(params),\n}));\n```\n\nUsing `() => mockFn()` for a function that takes parameters silently discards arguments \u2014 the spy records zero-arg calls and `toHaveBeenCalledWith` fails. Some existing files use `(...args: unknown[])` \u2014 that is legacy debt; new tests always type the wrapper.\n\n**Framework-generic results are exempt.** These typing rules pin *your* contracts, not the framework's. When a stub must satisfy a framework's heavily generic result type (TanStack's `UseMutationResult` / `UseQueryResult` and kin), stub only the fields the unit under test reads and cast loosely (`as Record<string, unknown>`, or `as unknown as UseMutationResult<\u2026>` where the full type is demanded) \u2014 reproducing the framework's generics in a stub adds noise, not safety.\n\n### `jest.spyOn` vs `jest.mock`\n\n- Prefer **`jest.spyOn`** for a single method on an object you already hold (an injected service/repository), leaving the rest intact.\n- Prefer **`jest.mock`** for a standalone exported function from another module.\n\n### Async\n\nConfigure with `mockResolvedValue` / `mockRejectedValue` in the setup factory; `await` the act in the test; assert rejections with `await expect(...).rejects.toThrow(...)` \u2014 the one place the act sits inside the assertion.\n\n### Import-Time Side Effects\n\n- Use **`jest.isolateModules`** when the module acts at import time (reads `document.currentScript`, checks globals): each call gets a fresh module instance, so per-test state changes take effect on the next require inside the isolate block.\n- Branches unreachable in the default `jsdom` environment (e.g., SSR guards on `typeof window`) get a **separate test file** with a `/** @jest-environment node */` docblock, named to distinguish it (`autoInitInBrowser.ssr.unit.test.ts`).\n\n## Mock Cleanup\n\nMock cleanup is handled by **Jest config, not per-test code**. Set these in the package's Jest config:\n\n```javascript\n// jest.config.js / jest.config.ts\n{\n	clearMocks: true,    // clear call tracking (calls, instances, results) before each test\n	restoreMocks: true,  // restore jest.spyOn originals before each test\n}\n```\n\nWith these set, every mock starts each test with clean call tracking and its `setup()` factory wires the return value fresh. Do **not** add manual `mockClear()` calls or a cleanup `beforeEach` \u2014 the config does it.\n\n- **`clearMocks: true`** \u2014 clears `calls`, `instances`, `contexts`, and `results` before each test (equivalent to `jest.clearAllMocks()`). It does **not** clear `mockReturnValue` / `mockImplementation` \u2014 that is `resetMocks`. Because every test re-sets its return values in `setup()`, `clearMocks` is sufficient and avoids wiping implementations; reach for `resetMocks` only if a package genuinely needs return values auto-cleared.\n- **`restoreMocks: true`** \u2014 additionally restores the original implementation of every `jest.spyOn` before each test (it does not affect standalone `jest.fn()` return values).\n\n**If the package's Jest config lacks these: do NOT add them.** `clearMocks` changes behavior for **every existing test in the package** \u2014 any test relying on a mock set once at module scope or in `beforeAll` will break (live example: adding it to a real package broke 22 import-time-construction tests). A repo-wide behavior change is a human's decision, not a test task's side effect. Instead:\n\n- Build **fresh `jest.fn()` mocks inside each `setup()` factory call** (and construct a fresh subject per call), so call tracking cannot accumulate across tests without any config or hooks.\n- For module-level mocks that must persist (a `jest.mock` factory), reset them at the top of `setup()` (`.mockReset()` + re-wire), or assert only with `toHaveBeenCalledWith` \u2014 positive assertions are unaffected by accumulated calls; avoid `not.toHaveBeenCalled` on shared mocks.\n- Record the missing config as friction (`area: \"environment\"`) so the repo owner can adopt it deliberately.\n";
 
-// packages/engine/src/defaultTestStandards.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/defaultTestStandards.ts
 var defaultTestStandards = {
   base: [
     `<!-- lightsout defaults: standards/tests/unit/jest/unit-test-examples.md -->
@@ -24129,7 +24131,7 @@ ${unit_testing_react_components_default}`
   ].join("\n\n")
 };
 
-// packages/engine/src/readStandards.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readStandards.ts
 var tokens = {
   "lightsout:code-defaults": defaultCodeStandards,
   "lightsout:test-defaults": defaultTestStandards
@@ -24154,7 +24156,7 @@ ${raw}`;
   return contents.join("\n\n");
 };
 
-// packages/engine/src/extractRunScriptName.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/extractRunScriptName.ts
 var extractRunScriptName = ({ command }) => {
   const tokens2 = command.split(/\s+/);
   const runIndex = tokens2.indexOf("run");
@@ -24164,7 +24166,7 @@ var extractRunScriptName = ({ command }) => {
   return tokens2.slice(runIndex + 1).find((token) => token !== "" && !token.startsWith("-"));
 };
 
-// packages/engine/src/runGates.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runGates.ts
 var gateTimeoutMs = 10 * 6e4;
 var defaultPackagesDir = "packages";
 var outputTailChars = 2e3;
@@ -24314,14 +24316,14 @@ ${generated.stderr}`;
   return errors.length > 0 ? errors.join("\n\n") : void 0;
 };
 
-// packages/engine/src/runScan.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runScan.ts
 import { mkdir as mkdir6, readFile as readFile12, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join19 } from "node:path";
 
-// packages/engine/src/isTestFile.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/isTestFile.ts
 var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
 
-// packages/engine/src/listSourceFiles.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/listSourceFiles.ts
 import { readdir } from "node:fs/promises";
 import { join as join14, relative } from "node:path";
 var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
@@ -24353,7 +24355,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
   return files.sort();
 };
 
-// packages/engine/src/scanAstFindings.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/scanAstFindings.ts
 import { createHash } from "node:crypto";
 import { readFile as readFile8 } from "node:fs/promises";
 import { basename, join as join15 } from "node:path";
@@ -24464,15 +24466,15 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
   return findings;
 };
 
-// packages/engine/src/scanClones.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/scanClones.ts
 import { readFile as readFile9 } from "node:fs/promises";
 import { join as join16 } from "node:path";
 
-// node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
 var import_index = __toESM(require_eventemitter3(), 1);
 var eventemitter3_default = import_index.default;
 
-// node_modules/.pnpm/@jscpd+core@4.2.5/node_modules/@jscpd/core/dist/index.mjs
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/@jscpd+core@4.2.5/node_modules/@jscpd/core/dist/index.mjs
 var LinesLengthCloneValidator = class {
   validate(clone3, options) {
     const lines = clone3.duplicationA.end.line - clone3.duplicationA.start.line;
@@ -24647,7 +24649,7 @@ var MemoryStore = class {
   }
 };
 
-// node_modules/.pnpm/@jscpd+tokenizer@4.2.5/node_modules/@jscpd/tokenizer/dist/index.mjs
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/node_modules/.pnpm/@jscpd+tokenizer@4.2.5/node_modules/@jscpd/tokenizer/dist/index.mjs
 var import_spark_md5 = __toESM(require_spark_md5(), 1);
 var uniqueID = 0;
 var Token = class {
@@ -36183,7 +36185,7 @@ var Tokenizer = class {
   }
 };
 
-// packages/engine/src/scanClones.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/scanClones.ts
 var defaultMinTokens = 50;
 var formatOf = (path) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
 var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
@@ -36213,7 +36215,7 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   return findings;
 };
 
-// packages/engine/src/scanDeadExports.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/scanDeadExports.ts
 import { readFile as readFile10 } from "node:fs/promises";
 import { basename as basename2, join as join17 } from "node:path";
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
@@ -36267,7 +36269,7 @@ var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   return findings;
 };
 
-// packages/engine/src/scanFilenameDuplicates.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/scanFilenameDuplicates.ts
 import { basename as basename3 } from "node:path";
 var verbSynonyms = {
   fetch: "get",
@@ -36330,7 +36332,7 @@ var scanFilenameDuplicates = ({ files }) => {
   return findings;
 };
 
-// packages/engine/src/scanStructure.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/scanStructure.ts
 import { readFile as readFile11 } from "node:fs/promises";
 import { basename as basename4, dirname as dirname2, join as join18 } from "node:path";
 var folderCensusCap = 20;
@@ -36419,7 +36421,7 @@ var scanStructure = async ({ cwd, files }) => {
   return findings;
 };
 
-// packages/engine/src/runScan.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runScan.ts
 var ScanBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
@@ -36527,7 +36529,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
   return { findings: reported, notes };
 };
 
-// packages/engine/src/selectScanFindings.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/selectScanFindings.ts
 var gatingClusterPattern = /^(ast:|multi-export:|size:file:)/;
 var selectScanFindings = ({ findings, changedFiles }) => {
   const changed = new Set(changedFiles);
@@ -36539,7 +36541,7 @@ var selectScanFindings = ({ findings, changedFiles }) => {
   return { workList, advisories, gating: workList.filter((finding) => gatingClusterPattern.test(finding.cluster)) };
 };
 
-// packages/engine/src/runImplementPipeline.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runImplementPipeline.ts
 var defaultAgentTimeoutMinutes = 60;
 var defaultSupervisorTimeoutMinutes = 15;
 var formatTimeoutMs = 10 * 6e4;
@@ -36990,7 +36992,7 @@ ${failures.join("\n")}`
     const { findings } = await runScan({ cwd, persist: false });
     return selectScanFindings({ findings, changedFiles: sourceFiles() });
   };
-  const describePersistingFindings = ({ gating, report }) => {
+  const describePersistingFindings = ({ gating, report, passes }) => {
     const findingLines = gating.map((finding) => {
       const where = finding.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(", ");
       return `- ${finding.cluster} \u2014 ${finding.detail}
@@ -36998,7 +37000,7 @@ ${failures.join("\n")}`
     });
     const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
     return [
-      `refactor: scan gate \u2014 ${gating.length} finding(s) persist after ${maxRefactorPasses} passes:`,
+      `refactor: scan gate \u2014 ${gating.length} finding(s) persist after ${passes} pass(es):`,
       ...findingLines,
       ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
     ].join("\n");
@@ -37007,6 +37009,7 @@ ${failures.join("\n")}`
     let record2 = nextRecord({ id: "refactor" });
     let lastReport;
     let cleanExit = false;
+    let lastDeclined;
     for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
       await setStep({ record: record2 });
       const scan = await scanWorkList();
@@ -37046,17 +37049,23 @@ ${failures.join("\n")}`
           cleanExit = true;
           break;
         }
-        if (pass === maxRefactorPasses) {
+        const declined = scan.gating.map((finding) => finding.cluster).sort().join("\n");
+        if (declined === lastDeclined && pass < maxRefactorPasses) {
+          progress(`refactor pass ${pass}: agent declined the same gating set twice \u2014 escalating without spending the remaining pass(es)`);
+        }
+        if (pass === maxRefactorPasses || declined === lastDeclined) {
           return stop({
             record: { ...record2, report },
             status: RunStatus.Escalated,
-            error: describePersistingFindings({ gating: scan.gating, report })
+            error: describePersistingFindings({ gating: scan.gating, report, passes: pass })
           });
         }
+        lastDeclined = declined;
         progress(`refactor pass ${pass}: no changes but scanner still reports ${scan.gating.length} gating finding(s) \u2014 another pass`);
         record2 = { ...record2, attempts: record2.attempts + 1 };
         continue;
       }
+      lastDeclined = void 0;
       progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
       record2 = { ...record2, attempts: record2.attempts + 1 };
     }
@@ -37066,7 +37075,7 @@ ${failures.join("\n")}`
         return stop({
           record: { ...record2, report: lastReport },
           status: RunStatus.Escalated,
-          error: describePersistingFindings({ gating: final.gating, report: lastReport })
+          error: describePersistingFindings({ gating: final.gating, report: lastReport, passes: maxRefactorPasses })
         });
       }
     }
@@ -37218,11 +37227,11 @@ var runImplementPipeline = async (params) => {
   }
 };
 
-// packages/engine/src/summarizeRun.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/summarizeRun.ts
 import { readdir as readdir2, readFile as readFile15 } from "node:fs/promises";
 import { join as join22 } from "node:path";
 
-// packages/engine/src/readFriction.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readFriction.ts
 import { readFile as readFile14 } from "node:fs/promises";
 import { join as join21 } from "node:path";
 var readFriction = async ({ cwd }) => {
@@ -37237,7 +37246,7 @@ var readFriction = async ({ cwd }) => {
   });
 };
 
-// packages/engine/src/summarizeRun.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/summarizeRun.ts
 var LedgerRecord = external_exports.object({
   step: external_exports.string(),
   outputTokens: external_exports.number(),
@@ -37307,7 +37316,7 @@ var summarizeRun = async ({ cwd, manifest }) => {
   };
 };
 
-// packages/engine/src/runDoctor.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runDoctor.ts
 import { readdir as readdir3, readFile as readFile16, stat } from "node:fs/promises";
 import { join as join23 } from "node:path";
 var probeTimeoutMs = 15e3;
@@ -37527,13 +37536,13 @@ ${notIgnored.join("\n")}`
   return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
 };
 
-// packages/engine/src/runTraverse.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runTraverse.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
 import { appendFile as appendFile5, mkdir as mkdir8, readFile as readFile19, writeFile as writeFile5 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join as join27 } from "node:path";
 
-// packages/engine/src/ensureNodeWorkspace.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/ensureNodeWorkspace.ts
 import { rm as rm2, stat as stat2 } from "node:fs/promises";
 import { basename as basename5, join as join24 } from "node:path";
 var cloneTimeoutMs = 3e5;
@@ -37567,7 +37576,7 @@ var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false }) =
   return operation;
 };
 
-// packages/engine/src/matchExitToEdge.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/matchExitToEdge.ts
 var normalized2 = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 var matchExitToEdge = ({ exit, node, edges }) => {
   const target = normalized2(exit.target);
@@ -37588,7 +37597,7 @@ var matchExitToEdge = ({ exit, node, edges }) => {
   return matches;
 };
 
-// packages/engine/src/readConnectionMap.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readConnectionMap.ts
 var import_yaml = __toESM(require_dist(), 1);
 import { readdir as readdir4, readFile as readFile17 } from "node:fs/promises";
 import { join as join25 } from "node:path";
@@ -37613,7 +37622,7 @@ var readConnectionMap = async ({ connectionsDir }) => {
   return edges;
 };
 
-// packages/engine/src/readNodeRegistry.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/readNodeRegistry.ts
 var import_yaml2 = __toESM(require_dist(), 1);
 import { readFile as readFile18 } from "node:fs/promises";
 import { join as join26 } from "node:path";
@@ -37645,7 +37654,7 @@ var readNodeRegistry = async ({ connectionsDir }) => {
   );
 };
 
-// packages/engine/src/runTraverse.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runTraverse.ts
 var defaultBudget = 12;
 var defaultHopTimeoutMs = 30 * 60 * 1e3;
 var runTraverse = async ({
@@ -37819,22 +37828,36 @@ var runTraverse = async ({
   return { status, state, runId, runDir, error: void 0 };
 };
 
-// packages/engine/src/runBuildMap.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runBuildMap.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
 import { mkdir as mkdir9, readdir as readdir5, readFile as readFile20, writeFile as writeFile6 } from "node:fs/promises";
 import { homedir as homedir2 } from "node:os";
 import { isAbsolute as isAbsolute2, join as join28 } from "node:path";
 
-// packages/engine/src/joinInventories.ts
-var mergeOperations = (a, b) => {
-  const byName = /* @__PURE__ */ new Map();
-  for (const op of [...a, ...b]) {
-    const existing = byName.get(op.name);
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/joinInventories.ts
+var sortOps = (ops) => [...ops].sort((x, y) => x.name.localeCompare(y.name));
+var dedupeByLowerName = (ops) => {
+  const byLower = /* @__PURE__ */ new Map();
+  for (const op of ops) {
+    const key = op.name.toLowerCase();
+    const existing = byLower.get(key);
     if (!existing || existing.type === null && op.type !== null) {
-      byName.set(op.name, op);
+      byLower.set(key, op);
     }
   }
-  return [...byName.values()].sort((x, y) => x.name.localeCompare(y.name));
+  return byLower;
+};
+var resolveOperations = ({ caller, handler }) => {
+  const callerMap = dedupeByLowerName(caller);
+  const handlerMap = dedupeByLowerName(handler);
+  if (callerMap.size === 0 || handlerMap.size === 0) {
+    const sole = callerMap.size > 0 ? callerMap : handlerMap;
+    return { operations: sortOps([...sole.values()]), operationDrift: { callerOnly: [], handlerOnlyCount: 0 } };
+  }
+  const operations = [...handlerMap].filter(([key]) => callerMap.has(key)).map(([, op]) => op);
+  const callerOnly = [...callerMap.values()].filter((op) => !handlerMap.has(op.name.toLowerCase())).map((op) => op.name);
+  const handlerOnlyCount = [...handlerMap.keys()].filter((key) => !callerMap.has(key)).length;
+  return { operations: sortOps(operations), operationDrift: { callerOnly: callerOnly.sort((a, b) => a.localeCompare(b)), handlerOnlyCount } };
 };
 var normalizedKey = (key) => key.trim().toLowerCase().replace(/\{([^}]+)\}/g, ":$1").replace(/<([^>]+)>/g, ":$1").replace(/\/+$/, "");
 var fuzzyKey = (key) => normalizedKey(key).replace(/^\/v\d+(?=\/)/, "").replace(/:[a-z0-9_]+/g, ":param");
@@ -37879,7 +37902,7 @@ var joinInventories = ({ inventories, edges }) => {
         matchKey: normalizedKey(out.edge.matchKey),
         fromSighting: { at: out.edge.at, pattern: out.edge.pattern, payload: out.edge.payload, schemaAt: out.edge.schemaAt },
         toSighting: { at: hit.edge.at, pattern: hit.edge.pattern, payload: hit.edge.payload, schemaAt: hit.edge.schemaAt },
-        operations: mergeOperations(out.edge.operations, hit.edge.operations),
+        ...resolveOperations({ caller: out.edge.operations, handler: hit.edge.operations }),
         fuzzy
       });
     }
@@ -37947,7 +37970,7 @@ var joinInventories = ({ inventories, edges }) => {
   };
 };
 
-// packages/engine/src/runBuildMap.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runBuildMap.ts
 var scanConcurrency = 5;
 var defaultScanTimeoutMs = 30 * 60 * 1e3;
 var gitTimeoutMs2 = 6e4;
@@ -38090,12 +38113,12 @@ var runBuildMap = async ({
   return { status: "complete", runId, runDir, join: joined, scanned, reused, error: void 0 };
 };
 
-// packages/engine/src/authorConnectionDocs.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/authorConnectionDocs.ts
 var import_yaml5 = __toESM(require_dist(), 1);
 import { writeFile as writeFile9 } from "node:fs/promises";
 import { join as join30 } from "node:path";
 
-// packages/engine/src/patchConnectionDoc.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/patchConnectionDoc.ts
 var import_yaml3 = __toESM(require_dist(), 1);
 import { readFile as readFile21, writeFile as writeFile7 } from "node:fs/promises";
 var frontmatterPattern2 = /^---\n([\s\S]*?)\n---/;
@@ -38112,7 +38135,7 @@ ${(0, import_yaml3.stringify)(raw).trimEnd()}
 ---`), "utf8");
 };
 
-// packages/engine/src/regenerateConnectionIndex.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/regenerateConnectionIndex.ts
 var import_yaml4 = __toESM(require_dist(), 1);
 import { readdir as readdir6, readFile as readFile22, writeFile as writeFile8 } from "node:fs/promises";
 import { join as join29 } from "node:path";
@@ -38144,17 +38167,26 @@ var regenerateConnectionIndex = async ({ connectionsDir }) => {
   return { edgeCount: rows.length };
 };
 
-// packages/engine/src/authorConnectionDocs.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/authorConnectionDocs.ts
 var slugOf = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
-var renderOperations = (operations) => {
+var renderOperations = (operations, drift) => {
   const groups = /* @__PURE__ */ new Map();
   for (const op of operations) {
     const key = op.type ?? "other";
     groups.set(key, [...groups.get(key) ?? [], op.name]);
   }
-  const lines = [`## Operations (${operations.length})`, "", "_Generated from the scan \u2014 carried over the single transport above._", ""];
+  const lines = [`## Operations (${operations.length})`, "", "_Generated from the scan \u2014 verified traffic (called by the caller AND exposed by the handler)._", ""];
   for (const [type, names] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     lines.push(`**${type}** (${names.length}): ${[...names].sort((a, b) => a.localeCompare(b)).join(", ")}`, "");
+  }
+  if (drift.callerOnly.length > 0 || drift.handlerOnlyCount > 0) {
+    lines.push("### Drift", "");
+    if (drift.callerOnly.length > 0) {
+      lines.push(`- **${drift.callerOnly.length} called but not exposed** by the handler (possible rename/removal \u2014 review): ${drift.callerOnly.join(", ")}`, "");
+    }
+    if (drift.handlerOnlyCount > 0) {
+      lines.push(`- ${drift.handlerOnlyCount} exposed by the handler but not called here (unused surface).`, "");
+    }
   }
   return lines;
 };
@@ -38180,7 +38212,7 @@ var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNod
       "# Summary",
       "",
       `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`,
-      ...edge.operations.length > 0 ? ["", ...renderOperations(edge.operations)] : []
+      ...edge.operations.length > 0 || edge.operationDrift.callerOnly.length > 0 ? ["", ...renderOperations(edge.operations, edge.operationDrift)] : []
     ];
     await writeFile9(join30(connectionsDir, `${id}.md`), `---
 ${frontmatter}
@@ -38215,7 +38247,7 @@ ${body.join("\n")}
   return { authored, confirmed: reviewedJoin.confirmed.length, repaired: reviewedJoin.drifted.length, edgeCount };
 };
 
-// packages/engine/src/verifyConnectionAnchors.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/verifyConnectionAnchors.ts
 import { readFile as readFile23 } from "node:fs/promises";
 import { homedir as homedir3 } from "node:os";
 import { isAbsolute as isAbsolute3, join as join31 } from "node:path";
@@ -38305,7 +38337,7 @@ var verifyConnectionAnchors = async ({
   return results;
 };
 
-// packages/engine/src/parseConnectionsSource.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/parseConnectionsSource.ts
 var parseConnectionsSource = ({ source }) => {
   const looksGit = /^(git@|ssh:\/\/|https?:\/\/)/.test(source) || /\.git(\/|$)/.test(source);
   if (!looksGit) {
@@ -38340,7 +38372,7 @@ var parseConnectionsSource = ({ source }) => {
   };
 };
 
-// packages/engine/src/resolveConnectionsSource.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/resolveConnectionsSource.ts
 import { homedir as homedir4 } from "node:os";
 import { isAbsolute as isAbsolute4, join as join32 } from "node:path";
 var resolveConnectionsSource = async ({ cwd, source, workspaceDir = join32(homedir4(), ".lightsout", "traverse-repos") }) => {
@@ -38352,7 +38384,7 @@ var resolveConnectionsSource = async ({ cwd, source, workspaceDir = join32(homed
   return { dir: parsed.subpath ? join32(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
 };
 
-// packages/engine/src/renderTrace.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/renderTrace.ts
 var labelOf = (edgeId) => edgeId.split("--")[2] ?? edgeId;
 var renderTrace = ({ state, edges, mode }) => {
   const header = [`# ${state.question}`, "", `mode: ${mode} \xB7 hops: ${state.hops.length} \xB7 gaps: ${state.gaps.length} \xB7 drift: ${state.drift.length}`, ""];
@@ -38424,7 +38456,7 @@ ${hop.note ?? "non-repo node \u2014 crossed mechanically"}`;
   return [...header, ...chain.flatMap((entry) => [entry, ""]), ...gaps, ""].join("\n");
 };
 
-// packages/engine/src/draftConnectionDocs.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/draftConnectionDocs.ts
 import { mkdir as mkdir10, readFile as readFile24, writeFile as writeFile10 } from "node:fs/promises";
 import { isAbsolute as isAbsolute5, join as join33 } from "node:path";
 var slugOf2 = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
@@ -38465,7 +38497,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
   return { drafted, draftsDir };
 };
 
-// packages/engine/src/runPromptImprovement.ts
+// ../../../../../../../Users/dchristian/Developer/code/lightsout/packages/engine/src/runPromptImprovement.ts
 import { readdir as readdir7 } from "node:fs/promises";
 import { join as join34 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;

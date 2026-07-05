@@ -750,7 +750,7 @@ const executePipeline = async ({
 	// must carry the evidence (what persists, where) and the agent's own
 	// account of why it left the findings, not just opaque cluster ids that
 	// send the reader digging through friction.jsonl.
-	const describePersistingFindings = ({ gating, report }: { gating: ScanFinding[]; report?: WorkReport }) => {
+	const describePersistingFindings = ({ gating, report, passes }: { gating: ScanFinding[]; report?: WorkReport; passes: number }) => {
 		const findingLines = gating.map((finding) => {
 			const where = finding.files
 				.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
@@ -761,7 +761,7 @@ const executePipeline = async ({
 		const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
 
 		return [
-			`refactor: scan gate — ${gating.length} finding(s) persist after ${maxRefactorPasses} passes:`,
+			`refactor: scan gate — ${gating.length} finding(s) persist after ${passes} pass(es):`,
 			...findingLines,
 			...(rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []),
 		].join('\n');
@@ -771,6 +771,12 @@ const executePipeline = async ({
 		let record = nextRecord({ id: 'refactor' });
 		let lastReport: WorkReport | undefined;
 		let cleanExit = false;
+
+		// Gating cluster set of the last no-change pass. When the next pass
+		// declines the IDENTICAL set, the disagreement is stable — the agent
+		// has judged, the scanner cannot hear judgment, and a further pass
+		// only re-buys the same answer. Reset by any pass that changes files.
+		let lastDeclined: string | undefined;
 
 		// Iterate until a pass reports complete with zero changed files AND the
 		// scanner reports no gating findings on the changed files — capped at
@@ -829,19 +835,31 @@ const executePipeline = async ({
 					break;
 				}
 
-				if (pass === maxRefactorPasses) {
+				const declined = scan.gating
+					.map((finding) => finding.cluster)
+					.sort()
+					.join('\n');
+
+				if (declined === lastDeclined && pass < maxRefactorPasses) {
+					progress(`refactor pass ${pass}: agent declined the same gating set twice — escalating without spending the remaining pass(es)`);
+				}
+
+				if (pass === maxRefactorPasses || declined === lastDeclined) {
 					return stop({
 						record: { ...record, report },
 						status: RunStatus.Escalated,
-						error: describePersistingFindings({ gating: scan.gating, report }),
+						error: describePersistingFindings({ gating: scan.gating, report, passes: pass }),
 					});
 				}
 
+				lastDeclined = declined;
 				progress(`refactor pass ${pass}: no changes but scanner still reports ${scan.gating.length} gating finding(s) — another pass`);
 				record = { ...record, attempts: record.attempts + 1 };
 				continue;
 			}
 
+			// The tree changed — the next scan is a fresh question, not a repeat.
+			lastDeclined = undefined;
 			progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
 			record = { ...record, attempts: record.attempts + 1 };
 		}
@@ -855,7 +873,7 @@ const executePipeline = async ({
 				return stop({
 					record: { ...record, report: lastReport },
 					status: RunStatus.Escalated,
-					error: describePersistingFindings({ gating: final.gating, report: lastReport }),
+					error: describePersistingFindings({ gating: final.gating, report: lastReport, passes: maxRefactorPasses }),
 				});
 			}
 		}
