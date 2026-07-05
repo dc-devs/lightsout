@@ -719,14 +719,15 @@ contract, standards wiring, phased naming/glob, decisions.json schema embed,
 partial-explore-failure policy, phantom clock hedge; zero unresolved
 design-decision gaps → grades A). Not yet implemented.
 
-FAST-FOLLOW (deferred from the plan, land on run evidence): plan-time prior-art
-ENFORCEMENT. v1 ships only the cheap half — a plan-writer prompt instruction to
-search existing exports before proposing a new symbol and record them in a
-`## Prior Art` section (the searching is where the dedup value is). Deferred: the
-structured contract field + a `grade` collision check reusing scan's tier-0
-name-dedup + a `DuplicateSymbol` gap type + tests. Cheap to bolt on later
-(reuses existing scan machinery); routes collisions through the existing
-gap-convergence loop, so it adds no new interruption.
+PRIOR-ART ENFORCEMENT — DONE 2026-07-05 (commit c7a0ab2, re-designed vs this
+note). Shipped NOT as a grade check but as its own interactive **Dedup Review**
+phase (`plan dedup` + /plan skill step 5), between Grill and grade: detect
+(code, reusing scan tier-0 factored into nameKey/nameOf/collapseCasing) → judge
+(agent: real-dup + resolution recommendation reuse/extend/extract/defer/distinct
++ suggested location) → resolve (human applies to plan.md). Grade stays a clean
+terminal gate (non-blocking advisory count only). Cheap-half prompt instruction
+retained (complementary layer). v1 = name-level; behavioral dedup out of scope
+(scan-tier-3 territory). 17 tests; live smoke passed.
 
 A phase BEFORE implement that produces/vets the plan itself. Collected
 design notes so nothing is lost:
