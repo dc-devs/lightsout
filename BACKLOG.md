@@ -754,7 +754,18 @@ design notes so nothing is lost:
 - Phase 3 of linear-two-way-sync: first run on slimmed standards —
   its standards-friction count is the Task 5 experiment's readout.
 
-### Task 16: Make the write-tests fan-out honor the module-boundary rule the standards already define (added 2026-07-04)
+### Task 16: Make the write-tests fan-out honor the module-boundary rule the standards already define (added 2026-07-04) — LAYER 1 DONE (2026-07-05); Layer 2 remains
+
+Layer 1 result: `isInertSourceFile` (engine) — every top-level statement an
+import / re-export / type declaration ⇒ no writer spawned, narrated with the
+file list. Borrows the consumer's TypeScript (resolveConsumerTypescript,
+same as the scan AST tier); no TS resolvable ⇒ no filtering (today's
+behavior). Conservative by construction: plain constants, enums,
+export-default, unreadable/deleted files all keep their writer. Unit test
+over the classifier + stub-driver pipeline smoke (typescript symlinked into
+the temp consumer repo); suite 116/116. NOT yet observed live on a real FD
+run — first live datapoint will come from the next run whose diff touches a
+barrel/type-only file.
 
 The boundary rule is NOT an open question — it is already settled in two
 places: the `standards/tests/unit/jest/unit-testing.md` "Module Boundary
@@ -830,6 +841,27 @@ wasted round-trip, never wrong coverage.
   changed internal's coverage lands in the first pass via its boundary writer.
   Stub-driver smoke proving per-package grouping + a live smoke on
   `fixtures/toy-calc`; report honestly what was not live-tested.
+
+### Task 17: Refactor early-exit — stop re-asking an agent that already declined (added 2026-07-05, from live run FD 78d3544d)
+
+The refactor loop runs up to 3 passes while gating scan findings persist.
+Live case: the agent declined the same (then-false-positive) finding three
+times with the same friction rationale — passes 2 and 3 were predictable
+no-ops costing ~13 min / ~$4 before escalation. Now that escalations carry
+the agent's friction account (db133a7), the loop has what it needs to stop
+earlier:
+
+- Early-exit rule: two consecutive passes that BOTH report complete with
+  zero changed files over an IDENTICAL gating cluster set ⇒ escalate
+  immediately (don't spend the third pass). One repeat is still required —
+  a single no-change pass can be a legitimate "scanner will clear next
+  scan" boundary case, and the second pass proves the disagreement stable.
+- Keep maxRefactorPasses as the outer cap; the early exit only shortens the
+  losing path, never extends it.
+- Escalation message unchanged (findings + agent rationale, per db133a7).
+- Acceptance: stub-driver test — refactorer declines twice with identical
+  gating set ⇒ escalated after pass 2 with both passes' evidence; a pass
+  that CHANGES the gating set (partial fix) still earns the next pass.
 
 ### Task 2: First full pipeline run on the codex driver (live) — LAST, deprioritized 2026-07-03
 

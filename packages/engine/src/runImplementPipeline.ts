@@ -28,6 +28,8 @@ import { appendFriction } from './appendFriction';
 import { createRun } from './createRun';
 import { getRunDir } from './getRunDir';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { isInertSourceFile } from './isInertSourceFile';
+import { resolveConsumerTypescript } from './resolveConsumerTypescript';
 import { readGitChangedFiles } from './readGitChangedFiles';
 import { readPlanPackages } from './readPlanPackages';
 import { detectStandardsChannels } from './detectStandardsChannels';
@@ -631,6 +633,36 @@ const executePipeline = async ({
 		return undefined;
 	};
 
+	// Inert-file filter for the write-tests fan-out: barrels and type-only
+	// files provably hold no executable code, so a writer per file is a
+	// guaranteed no-op spawn (or worse, an implementation-coupled test the
+	// standards forbid). Classification borrows the consumer's TypeScript,
+	// exactly like the scan's AST tier; without one, nothing is filtered —
+	// the degraded path is today's behavior, never a lost writer.
+	const selectTestTargets = async (candidates: string[]) => {
+		const compiler = resolveConsumerTypescript({ cwd, packagesDir });
+
+		if (!compiler) {
+			return { targets: candidates, inert: [] as string[] };
+		}
+
+		const targets: string[] = [];
+		const inert: string[] = [];
+
+		for (const file of candidates) {
+			const content = await readFile(join(cwd, file), 'utf8').catch(() => undefined);
+
+			// Unreadable (deleted mid-run) keeps its writer — same as before.
+			if (content !== undefined && isInertSourceFile({ path: file, content, compiler })) {
+				inert.push(file);
+			} else {
+				targets.push(file);
+			}
+		}
+
+		return { targets, inert };
+	};
+
 	const writeTestsStep: PipelineStep['run'] = async () => {
 		let record = nextRecord({ id: 'write-tests' });
 
@@ -638,7 +670,11 @@ const executePipeline = async ({
 
 		// One writer per source file, batches run in parallel — writers touch
 		// disjoint test files, so they cannot collide on disk.
-		const targets = sourceFiles();
+		const { targets, inert } = await selectTestTargets(sourceFiles());
+
+		if (inert.length > 0) {
+			progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(', ')}`);
+		}
 
 		progress(`step write-tests — attempt ${record.attempts} · ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
 		const reports: WorkReport[] = [];

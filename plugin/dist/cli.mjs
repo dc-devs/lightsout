@@ -23934,9 +23934,39 @@ var invokeAgentWithContract = async ({
   return { report: void 0, failure: lastFailure, rateLimited: false, usage: usage2 };
 };
 
+// packages/engine/src/isInertSourceFile.ts
+var isInertSourceFile = ({ path, content, compiler }) => {
+  const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
+  const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
+  return source.statements.every(
+    (statement) => compiler.isImportDeclaration(statement) || compiler.isExportDeclaration(statement) || compiler.isTypeAliasDeclaration(statement) || compiler.isInterfaceDeclaration(statement)
+  );
+};
+
+// packages/engine/src/resolveConsumerTypescript.ts
+import { readdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join as join11 } from "node:path";
+var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
+  let packageNames = [];
+  try {
+    packageNames = readdirSync(join11(cwd, packagesDir)).filter((name) => !name.startsWith("."));
+  } catch {
+  }
+  const manifests = [join11(cwd, "package.json"), ...packageNames.map((name) => join11(cwd, packagesDir, name, "package.json"))];
+  for (const manifest of manifests) {
+    try {
+      return createRequire(manifest)("typescript");
+    } catch {
+      continue;
+    }
+  }
+  return void 0;
+};
+
 // packages/engine/src/detectStandardsChannels.ts
 import { readFile as readFile6 } from "node:fs/promises";
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 var Manifest = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
@@ -23947,7 +23977,7 @@ var channelSignals = {
   tanstack: ["@tanstack/react-start", "@tanstack/start"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join11(cwd, packagesDir, name, "package.json")) : [join11(cwd, "package.json")];
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join12(cwd, packagesDir, name, "package.json")) : [join12(cwd, "package.json")];
   const dependencies = /* @__PURE__ */ new Set();
   for (const path of manifestPaths) {
     try {
@@ -23965,7 +23995,7 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
 
 // packages/engine/src/readStandards.ts
 import { readFile as readFile7 } from "node:fs/promises";
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
@@ -24115,8 +24145,8 @@ var readStandards = async ({ cwd, paths, channels = [] }) => {
       if (bundled) {
         return [bundled.base, ...channels.map((channel) => bundled[channel])].filter(Boolean).join("\n\n");
       }
-      const raw = await readFile7(join12(cwd, path), "utf8").catch(() => {
-        throw new Error(`standards file not found: ${join12(cwd, path)}`);
+      const raw = await readFile7(join13(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join13(cwd, path)}`);
       });
       return `<!-- ${path} -->
 ${raw}`;
@@ -24294,7 +24324,7 @@ var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path)
 
 // packages/engine/src/listSourceFiles.ts
 import { readdir } from "node:fs/promises";
-import { join as join13, relative } from "node:path";
+import { join as join14, relative } from "node:path";
 var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
@@ -24305,7 +24335,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
         continue;
       }
-      const path = join13(dir, entry.name);
+      const path = join14(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(path);
         continue;
@@ -24322,27 +24352,6 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
   };
   await walk(cwd);
   return files.sort();
-};
-
-// packages/engine/src/resolveConsumerTypescript.ts
-import { readdirSync } from "node:fs";
-import { createRequire } from "node:module";
-import { join as join14 } from "node:path";
-var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
-  let packageNames = [];
-  try {
-    packageNames = readdirSync(join14(cwd, packagesDir)).filter((name) => !name.startsWith("."));
-  } catch {
-  }
-  const manifests = [join14(cwd, "package.json"), ...packageNames.map((name) => join14(cwd, packagesDir, name, "package.json"))];
-  for (const manifest of manifests) {
-    try {
-      return createRequire(manifest)("typescript");
-    } catch {
-      continue;
-    }
-  }
-  return void 0;
 };
 
 // packages/engine/src/scanAstFindings.ts
@@ -36906,10 +36915,30 @@ ${error51}`
     progress("step clean-slate passed");
     return void 0;
   };
+  const selectTestTargets = async (candidates) => {
+    const compiler = resolveConsumerTypescript({ cwd, packagesDir });
+    if (!compiler) {
+      return { targets: candidates, inert: [] };
+    }
+    const targets = [];
+    const inert = [];
+    for (const file2 of candidates) {
+      const content = await readFile13(join20(cwd, file2), "utf8").catch(() => void 0);
+      if (content !== void 0 && isInertSourceFile({ path: file2, content, compiler })) {
+        inert.push(file2);
+      } else {
+        targets.push(file2);
+      }
+    }
+    return { targets, inert };
+  };
   const writeTestsStep = async () => {
     let record2 = nextRecord({ id: "write-tests" });
     await setStep({ record: record2 });
-    const targets = sourceFiles();
+    const { targets, inert } = await selectTestTargets(sourceFiles());
+    if (inert.length > 0) {
+      progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(", ")}`);
+    }
     progress(`step write-tests \u2014 attempt ${record2.attempts} \xB7 ${targets.length} file(s), up to ${testWriterConcurrency} writers in parallel`);
     const reports = [];
     const failures = [];
