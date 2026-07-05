@@ -38397,7 +38397,7 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
 var usage = `lightsout \u2014 deterministic engine for coding agents
 
 usage:
-  lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
+  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
@@ -38648,7 +38648,7 @@ var main = async () => {
   const flags = parseFlags({ args: rest });
   const cwd = getStringFlag({ flags, name: "cwd" }) ?? process.cwd();
   const skipRefactor = flags.get("skip-refactor") === true;
-  if (command === "run") {
+  if (command === "implement") {
     const planPath = getStringFlag({ flags, name: "plan" });
     const overviewPath = getStringFlag({ flags, name: "overview" });
     const packagesFlag = getStringFlag({ flags, name: "packages" });

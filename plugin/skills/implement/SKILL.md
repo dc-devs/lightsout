@@ -20,7 +20,7 @@ it is deterministic code. Do not add workflow steps to this file.
 2. Run it on the plan path the user provided:
 
    ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" run --plan "<plan-path>"
+   node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" implement --plan "<plan-path>"
    ```
 
    Pass through what the user gave you, nothing more:

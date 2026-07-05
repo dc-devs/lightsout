@@ -53,7 +53,7 @@ with every model release; scaffolding that verifies it appreciates.
 ## How a run works
 
 ```
-lightsout run --plan plans/feature.md
+lightsout implement --plan plans/feature.md
 
   clean-slate gate      repo must be green before any agent runs
   implement             feature-executor agent works from your plan
@@ -109,7 +109,7 @@ invocations, output tokens, cost, files changed — followed by gate flake
 re-runs, skipped gates, re-emitted reports, and friction counts by area.
 Ten runs in, this is the table that tells you which step earns its cost.
 
-One run at a time per repo: `run` and `resume` take a lock
+One run at a time per repo: `implement` and `resume` take a lock
 (`.lightsout/lock.json`) before touching anything, so a second concurrent
 invocation fails fast instead of fighting the first over the worktree. A lock
 left by a crashed process is detected by pid and stolen automatically, and
@@ -144,7 +144,7 @@ alias lightsout="node $(pwd)/lightsout/plugin/dist/cli.mjs"
 
 ```sh
 cd lightsout/fixtures/toy-calc
-node ../../plugin/dist/cli.mjs run --plan plans/power.md --cwd .
+node ../../plugin/dist/cli.mjs implement --plan plans/power.md --cwd .
 ```
 
 Watch the pipeline run (an agent implements `power`, another writes its tests,
@@ -311,7 +311,7 @@ authoritative for scope.
 
 | Command | Purpose |
 |---|---|
-| `lightsout run --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan (optionally with an overview plan as context and a package-scope override) |
+| `lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan (optionally with an overview plan as context and a package-scope override) |
 | `lightsout resume --run <id> [--cwd <path>]` | Continue a parked/failed/crashed run from its last incomplete step |
 | `lightsout status [--cwd <path>]` | List runs and their states |
 | `lightsout doctor [--cwd <path>]` | Read-only audit of the repo against every assumption the engine and standards make — config validity, harness binary, gitignored run state, scoped-gate script coverage, Jest mock-cleanup flags, generated paths, gate binaries. Each warn prints the exact fix; the doctor never edits anything (repo-wide changes like `clearMocks: true` are yours to apply and verify). Exit 1 only on a hard fail. |

@@ -5,7 +5,7 @@ it's the runnable quick-start plan; the other plans were implemented by past
 engine runs and exist as reference.
 
 ```sh
-node ../../plugin/dist/cli.mjs run --plan plans/power.md --cwd .
+node ../../plugin/dist/cli.mjs implement --plan plans/power.md --cwd .
 ```
 
 Run state lands in `.lightsout/runs/` (gitignored at repo root). A successful

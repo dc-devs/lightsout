@@ -52,7 +52,7 @@ verification between steps, pluggable standards) and replaces the substrate.
 | `agents` | Roles = markdown prompt + typed output contract. v0 roles: feature-executor, unit-test-writer, refactor-executor. Prompts are written fresh for the typed interface (not ports of v1). |
 | `supervisor` (lives in engine for v0) | The one place non-determinism is *added*: invoked only on gate failure with (manifest, error output, attempt history); returns a structured verdict — retry-with-context / replan / split-scope / escalate-to-human. |
 | `drivers` | Spawns the user's own installed harness. See billing rule below. |
-| `cli` | `run`, `resume`, `status`. Bundled to `plugin/dist/cli.mjs`. |
+| `cli` | `implement`, `resume`, `status`. Bundled to `plugin/dist/cli.mjs`. |
 
 ## Non-negotiable rules
 

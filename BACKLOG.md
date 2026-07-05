@@ -653,8 +653,8 @@ design notes so nothing is lost:
 - Placement decisions (where new code lives) belong here, not in a
   prescriptive architecture map (per Task 8 note).
 - Shape TBD: `lightsout plan <request>` producing a plan draft vs a
-  plan-vetting gate on `run` (`lightsout run --plan` validating before
-  clean-slate) vs both. Design with the user before code.
+  plan-vetting gate on `implement` (`lightsout implement --plan` validating
+  before clean-slate) vs both. Design with the user before code.
 
 ### Consumer-side (FeedbackDrop) tracked items — not engine work, listed so nothing is lost
 
