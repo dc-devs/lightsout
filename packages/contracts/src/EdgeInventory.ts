@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EdgeOperation } from './EdgeOperation';
 import { TraverseEdgeKind } from './TraverseEdgeKind';
 
 /**
@@ -29,6 +30,8 @@ export const EdgeInventory = z.object({
 				payload: z.string(),
 				schemaAt: z.string().nullable().default(null),
 				conditional: z.string().nullable().default(null),
+				/** Multiplexed transports (GraphQL, tRPC, WebSocket, webhook) carry many operations over one channel: emit ONE edge and list them here rather than one edge per operation (decision B). Empty for plain edges. */
+				operations: z.array(EdgeOperation).default([]),
 				/** Health checks, metrics, feature flags, third-party SaaS — flagged, never omitted; the review gate culls (T14). */
 				noise: z.boolean().default(false),
 			}),

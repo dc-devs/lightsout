@@ -17,6 +17,7 @@ const inventoryEdge = (overrides: Record<string, unknown>) => ({
 	payload: 'telemetry event',
 	schemaAt: null,
 	conditional: null,
+	operations: [],
 	noise: false,
 	...overrides,
 });
@@ -73,6 +74,66 @@ test('joinInventories: exact and fuzzy pairing, orphans, noise, scanner gaps', (
 	);
 	assert.equal(result.noise.length, 1, 'noise flagged by scanners is bucketed, never silently dropped');
 	assert.deepEqual(result.gaps, [{ node: 'node-b', detail: 'dynamic dispatch at src/x.ts — target unresolvable' }]);
+});
+
+test('joinInventories: a multiplexed graphql edge pairs at the transport and unions both sides operations', () => {
+	const inventories = [
+		{
+			node: 'web-app',
+			scannedSha: 'aaa',
+			scannedPathSha: null,
+			edges: [
+				inventoryEdge({
+					kind: 'graphql',
+					matchKey: '/graphql',
+					direction: 'out',
+					at: 'src/common/graphql/client.ts:12',
+					payload: 'all queries/mutations',
+					operations: [
+						{ name: 'signIn', type: 'mutation' },
+						{ name: 'findAllProjects', type: null },
+					],
+				}),
+			],
+			gaps: [],
+		},
+		{
+			node: 'backend',
+			scannedSha: 'bbb',
+			scannedPathSha: null,
+			edges: [
+				inventoryEdge({
+					kind: 'graphql',
+					matchKey: '/graphql',
+					direction: 'in',
+					at: 'src/base/app/modules/graphql.module.ts:9',
+					pattern: "GraphQLModule.forRoot({ path: '/graphql'",
+					operations: [
+						{ name: 'findAllProjects', type: 'query' },
+						{ name: 'createProject', type: 'mutation' },
+					],
+				}),
+			],
+			gaps: [],
+		},
+	] as EdgeInventory[];
+
+	const result = joinInventories({ inventories, edges: new Map() });
+
+	assert.equal(result.matched.length, 1, 'one transport edge, not one per operation');
+	assert.deepEqual([result.matched[0]?.from, result.matched[0]?.to], ['web-app', 'backend']);
+	assert.deepEqual(
+		result.matched[0]?.operations.map((op) => op.name),
+		['createProject', 'findAllProjects', 'signIn'],
+		'operations are the union of both sides, sorted, deduped by name',
+	);
+	assert.equal(
+		result.matched[0]?.operations.find((op) => op.name === 'findAllProjects')?.type,
+		'query',
+		'a typed sighting (server: query) wins over the untyped client sighting',
+	);
+	assert.deepEqual(result.orphansOut, [], 'no per-operation orphans');
+	assert.deepEqual(result.orphansIn, [], 'no per-operation orphans');
 });
 
 test('joinInventories: intra-node producer↔consumer self-loops collapse to noise, not orphan-both', () => {

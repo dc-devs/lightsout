@@ -102,6 +102,7 @@ test('renderTrace: diagram, doc, and plan derive mechanically from the trace —
 				schema: { from: 'src/types/Event.ts', to: 'src/contracts/event.ts' },
 				lastVerifiedSha: undefined,
 				additionalContext: [],
+				operations: [],
 			},
 		],
 	]);

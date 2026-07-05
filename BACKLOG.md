@@ -590,13 +590,25 @@ engine's extractJsonReport machinery).
   schema gates — Task 13's input) — all mechanical from trace.json.
   Ignition skills /traverse + /build-map added to the plugin (zero logic).
   Suite 106/106.
-- First live exercise (REMAINING): build-map on two real adjacent nodes;
-  the join must land one edge with both anchors on real lines (per
-  prototype MIGRATION). IN PROGRESS 2026-07-05 on FD (widget +
-  backend-api): first attempt hit the shared-clone race — fixed
-  (in-flight dedupe in ensureNodeWorkspace + dead-partial-clone
-  self-heal); intra-node producer↔consumer self-loops now collapse to
-  noise instead of orphan-both (joinInventories).
+- First live exercise: build-map on real adjacent nodes; the join must
+  land edges with both anchors on real lines (per prototype MIGRATION).
+  PARTIAL 2026-07-05 on FD (widget + backend-api + web-app):
+  - REST validated end-to-end live: widget→backend-api paired 2 edges
+    (/events/feedback, /widget/config) with code-verified anchors on both
+    sides. The scan→join→review-gate loop works on real repos for REST.
+  - Fixes shaken out live: shared-clone race (in-flight dedupe in
+    ensureNodeWorkspace + dead-partial-clone self-heal); intra-node
+    producer↔consumer self-loops collapse to noise not orphan-both
+    (joinInventories) — confirmed on the 3-node run (message-bus: 0
+    orphans, folded to noise).
+  - DECIDED 2026-07-05, blocks web-app until built — the GRAPHQL ALTITUDE MISMATCH: adding web-app
+    produced 67 orphansOut (every GraphQL operation — signIn,
+    createProject, findAllProjects, …) that never pair with backend's
+    single inbound /graphql. The client names N operations; the server
+    exposes one multiplexed transport. The join pairs on (kind, matchKey)
+    and assumes symmetric keys, so the whole web-app data plane is
+    unmapped. Not a bug — a scanner-contract decision the live run forced.
+    Resolved → option B; see MULTIPLEXED EDGES below (the next build task).
 - Connections dir + repos.yaml location: DONE 2026-07-05 — central-first
   via `traverse.connections` config / `--connections`; accepts local dirs,
   git URLs, and folders inside repos (`org/repo/src/connections`, `.git/`
@@ -605,15 +617,81 @@ engine's extractJsonReport machinery).
 
 - PR MODE (queued 2026-07-05 — the unattended-map follow-up): today the
   review gate is hand-culling join.json; for a central map repo the gate
-  should be a PULL REQUEST. `build-map all --author --branch` (shape TBD):
-  a scheduled job scans (SHA-gated, so nightly runs are nearly free),
-  joins, authors the new docs on a BRANCH of the map repo, and opens a PR
-  (gh CLI) — T14's review still happens, as a normal PR review; the map
-  repo's CI runs `map-connection verify` as its check. With
-  `verify --repair` already cron-able, this makes the whole map loop
-  unattended except the approve button. Prereq: the first live outing
-  validates scan quality; don't automate authoring before the join has
-  proven trustworthy on real repos.
+  should be a PULL REQUEST. A scheduled job scans (SHA-gated, so nightly
+  runs are nearly free), joins, authors the new docs on a BRANCH of the
+  map repo, and opens a PR — T14's review still happens, as a normal PR
+  review; the map repo's CI runs `map-connection verify` as its check.
+  With `verify --repair` already cron-able, this makes the whole map loop
+  unattended except the approve button.
+  Prereq: the first live outing validates scan quality; don't automate
+  authoring before the join has proven trustworthy on real repos.
+  Refinements to carry when picked up (2026-07-05 review):
+  - Factoring — keep the engine credential/remote-write-free (it already
+    is: it writes the clone and names it, never touches the remote).
+    Engine gains ONLY `--branch <name>`: author onto a named branch of the
+    clone and COMMIT it (the deterministic, testable primitive). A thin CI
+    wrapper the team owns (a GH Action calling the CLI) does `git push` +
+    `gh pr create` — that's where credentials, branch policy, labels, and
+    reviewers live. Don't bake `gh` into the engine.
+  - Semantics inversion — today: cull join.json, THEN author. PR mode:
+    author everything, THEN review. Rejecting an edge stops being "delete
+    a join.json line" and becomes "delete a doc file / amend the branch".
+    Unattended there's no human to cull, so the PR reviewer inherits the
+    full cull burden as file deletions. Land fuzzy matches as drafts/
+    (quarantined) so the PR separates high-confidence from needs-review.
+  - Surface orphans + gaps in the PR body ("saw these, couldn't pair") —
+    only matched/newEdges author, so a missing node/edge would otherwise
+    vanish silently (this run's 67 GraphQL orphans are the cautionary case).
+  - reset --hard interaction — the workspace clone is force-refreshed
+    (git reset --hard FETCH_HEAD) every invocation, so `--branch` MUST
+    commit before yielding and the refresh must become branch-aware (never
+    reset --hard over an unpushed local branch), or the next run wipes it.
+
+- MULTIPLEXED EDGES (DECIDED 2026-07-05 — surfaced by the first live 3-node
+  run; blocks web-app coverage): the join's "sighted twice, pair on
+  matchKey" model assumes both ends name the same thing. GraphQL breaks it —
+  the client emits N operations (signIn, createProject, …), the server
+  exposes one multiplexed /graphql transport. 67/74 web-app orphansOut are
+  this. NOT a GraphQL special-case: it's the general shape of any ONE
+  physical channel carrying MANY logical operations — tRPC (/trpc + procs),
+  WebSocket/Socket.io (one socket + event types), webhook receivers (one
+  path, dispatched by event+action — FD's /github/webhook already), message
+  topics (one topic, many schemas), S3 prefix (one bucket, many asset kinds
+  — FD's s3-drop already). Build the general representation once; GraphQL is
+  just the widest instance.
+  DECISION = option B (transport edge + operations as payload). Both
+  scanners emit ONE edge (kind=graphql, matchKey=/graphql); operation names
+  ride as payload. Pairs 1:1 deterministically; keeps the join dumb
+  string-matching (a scanner-CONTRACT change, not join logic). Rejected: (A)
+  per-operation edges — invents 67 connections where one physically exists,
+  ~67-doc CRUD explosion, hairball diagrams; (C) bare transport — drops what
+  flows. B is the right altitude for a connection map AND better for a future
+  diagram (one labelled edge, not 70 parallel CRUD hops — the noise reduction
+  is a feature, per 2026-07-05 review).
+  Design (settled this session):
+  - Verify at the TRANSPORT level, not per-operation: the edge carries the
+    two transport anchors (from = web-app graphql client; to =
+    backend/…/graphql.module.ts) — cheap, stable, exactly what verify does
+    today. Do NOT anchor all ~70 operations (would make every verify sweep
+    ~70× heavier and re-import the weight B deletes).
+  - Operations are GENERATED, GROUPED evidence — refreshed from the scan,
+    never hand-maintained (else it rots on the first schema change). Group
+    by resolver/domain (auth/projects/users/billing — mechanical from
+    names); doc header carries operationsCount.
+  - FREE bonus only B gives: the join holds BOTH lists (ops the client
+    calls ∪ ops the server exposes). Diffing them = automatic contract-drift
+    detection — client calls a server no longer exposes (broken/renamed
+    bug), or server ops no client calls (dead). Turns the 70-wide problem
+    into a verification asset.
+  - Contract cost (small, general): EdgeInventory edges gain optional
+    `operations` (name + type query/mutation/subscription/event); the
+    ConnectionDoc gains a grouped operations section + operationsCount; the
+    scanEdges prompt learns "for a multiplexed transport emit ONE edge with
+    operations listed, not one edge per operation." Same field then serves
+    tRPC/WebSocket/webhook/topic edges — no GraphQL-specific code.
+  - Optional later refinement: promote a HANDFUL of significant operations
+    (auth, billing, destructive deletes) to inline flags in the doc without
+    making them edges. Not needed for v1.
 
 ### Task 13: Planning phase (added 2026-07-04 — the next pipeline frontier)
 

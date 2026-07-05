@@ -1,11 +1,35 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { stringify } from 'yaml';
-import type { MapJoin } from '@lightsout/contracts';
+import type { EdgeOperation, MapJoin } from '@lightsout/contracts';
 import { patchConnectionDoc } from './patchConnectionDoc';
 import { regenerateConnectionIndex } from './regenerateConnectionIndex';
 
 const slugOf = (key: string) => key.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'edge';
+
+/**
+ * A multiplexed edge's operations, rendered as generated evidence — grouped
+ * by type (query/mutation/subscription/…) so ~70 operations read as a few
+ * scannable groups, not a wall (decision B). Regenerated from the join on
+ * every author, never hand-maintained, so it can't rot.
+ */
+const renderOperations = (operations: EdgeOperation[]): string[] => {
+	const groups = new Map<string, string[]>();
+
+	for (const op of operations) {
+		const key = op.type ?? 'other';
+
+		groups.set(key, [...(groups.get(key) ?? []), op.name]);
+	}
+
+	const lines = [`## Operations (${operations.length})`, '', '_Generated from the scan — carried over the single transport above._', ''];
+
+	for (const [type, names] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+		lines.push(`**${type}** (${names.length}): ${[...names].sort((a, b) => a.localeCompare(b)).join(', ')}`, '');
+	}
+
+	return lines;
+};
 
 interface Params {
 	connectionsDir: string;
@@ -44,8 +68,14 @@ export const authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin,
 				[edge.to]: shaByNode.get(edge.to) ?? null,
 			},
 			'additional-context': [],
+			...(edge.operations.length > 0 ? { operations: edge.operations } : {}),
 		}).trimEnd();
-		const body = ['# Summary', '', `${edge.from} → ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`];
+		const body = [
+			'# Summary',
+			'',
+			`${edge.from} → ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`,
+			...(edge.operations.length > 0 ? ['', ...renderOperations(edge.operations)] : []),
+		];
 
 		await writeFile(join(connectionsDir, `${id}.md`), `---\n${frontmatter}\n---\n\n${body.join('\n')}\n`, 'utf8');
 		authored.push(id);

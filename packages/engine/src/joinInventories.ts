@@ -1,4 +1,19 @@
-import type { ConnectionDoc, EdgeInventory, MapJoin } from '@lightsout/contracts';
+import type { ConnectionDoc, EdgeInventory, EdgeOperation, MapJoin } from '@lightsout/contracts';
+
+/** Union both sides' operations by name (a multiplexed edge is sighted from BOTH the caller and the handler); a typed sighting wins over an untyped one. */
+const mergeOperations = (a: EdgeOperation[], b: EdgeOperation[]): EdgeOperation[] => {
+	const byName = new Map<string, EdgeOperation>();
+
+	for (const op of [...a, ...b]) {
+		const existing = byName.get(op.name);
+
+		if (!existing || (existing.type === null && op.type !== null)) {
+			byName.set(op.name, op);
+		}
+	}
+
+	return [...byName.values()].sort((x, y) => x.name.localeCompare(y.name));
+};
 
 /** Exact-join normalization: case, trailing slash, `{id}`/`<id>` → `:id`. */
 const normalizedKey = (key: string) =>
@@ -84,6 +99,7 @@ export const joinInventories = ({ inventories, edges }: Params): MapJoin => {
 				matchKey: normalizedKey(out.edge.matchKey),
 				fromSighting: { at: out.edge.at, pattern: out.edge.pattern, payload: out.edge.payload, schemaAt: out.edge.schemaAt },
 				toSighting: { at: hit.edge.at, pattern: hit.edge.pattern, payload: hit.edge.payload, schemaAt: hit.edge.schemaAt },
+				operations: mergeOperations(out.edge.operations, hit.edge.operations),
 				fuzzy,
 			});
 		}

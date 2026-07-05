@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EdgeOperation } from './EdgeOperation';
 import { TraverseEdgeKind } from './TraverseEdgeKind';
 
 const anchor = z.object({
@@ -26,6 +27,8 @@ export const ConnectionDoc = z
 		schema: z.object({ from: z.string().optional(), to: z.string().optional() }).optional(),
 		'last-verified-sha': z.record(z.string(), z.string().nullable()).optional(),
 		'additional-context': z.array(z.string()).optional(),
+		/** Operations carried by a multiplexed edge (GraphQL/tRPC/WebSocket/webhook) — generated evidence, verified at the transport not per-operation (decision B). Absent for plain edges. */
+		operations: z.array(EdgeOperation).optional(),
 	})
 	.transform((raw) => ({
 		from: raw.from,
@@ -36,6 +39,7 @@ export const ConnectionDoc = z
 		schema: raw.schema,
 		lastVerifiedSha: raw['last-verified-sha'],
 		additionalContext: raw['additional-context'] ?? [],
+		operations: raw.operations ?? [],
 	}));
 
 export type ConnectionDoc = z.infer<typeof ConnectionDoc>;

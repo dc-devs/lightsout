@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EdgeOperation } from './EdgeOperation';
 import { TraverseEdgeKind } from './TraverseEdgeKind';
 
 const sighting = z.object({
@@ -25,6 +26,8 @@ export const MapJoin = z.object({
 			matchKey: z.string(),
 			fromSighting: sighting,
 			toSighting: sighting,
+			/** Operations carried by a multiplexed edge — the union of both sides' sighted operations (decision B). Empty for plain single-operation edges. */
+			operations: z.array(EdgeOperation).default([]),
 			/** Matched only under tolerant normalization (slashes, param forms, version prefixes) — review these hardest. */
 			fuzzy: z.boolean(),
 		}),

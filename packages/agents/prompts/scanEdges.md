@@ -40,6 +40,32 @@ Anywhere data crosses the **process boundary**:
 5. Flag likely noise rather than omitting it: health checks, metrics/APM,
    feature-flag SDKs, third-party SaaS calls. Review culls; you flag.
 
+## Multiplexed transports (GraphQL, tRPC, WebSocket, webhooks)
+
+Some transports are ONE physical channel carrying MANY logical operations:
+a GraphQL endpoint (`POST /graphql`) serving dozens of queries/mutations, a
+tRPC router, a WebSocket/Socket.io connection with many event types, a
+single webhook path dispatched by event+action. Emit **one edge for the
+transport, not one edge per operation** — otherwise a client with 70
+GraphQL calls floods the map with 70 near-identical edges that never pair
+against the server's single endpoint.
+
+- **matchKey is the transport**, not the operation: `/graphql` for GraphQL
+  (the endpoint path), the socket path for WebSocket, the webhook path for a
+  dispatched receiver. Both the caller and the handler must normalize to the
+  SAME transport matchKey so the join pairs them.
+- **`kind` is `graphql`** for GraphQL; otherwise the transport's kind
+  (`http` for a WebSocket handshake path, `message-bus` for a topic, etc.).
+- **List every operation in `operations`** — `{ "name": "...", "type":
+  "query"|"mutation"|"subscription"|"event"|null }`. The client side lists
+  the operations it CALLS; the server side lists the operations it EXPOSES
+  (its resolvers). Enumerate them from the generated client hooks / operation
+  documents on the caller, and from the schema/resolvers on the handler. Do
+  NOT hunt a line number per operation — the edge is anchored at the
+  transport (`at`), operations are the payload it carries.
+- A plain single-purpose REST route is NOT multiplexed — leave `operations`
+  empty and keep emitting it as its own edge.
+
 ## Monorepo scoping (when a scope is given)
 
 - The scope defines **whose edges you're inventorying**: every trail starts
@@ -77,13 +103,14 @@ starts with `{` and ends with `}`.
 	"scannedPathSha": "<git log -1 --format=%H -- <scope>, or null when unscoped>",
 	"edges": [{
 		"direction": "in" | "out",
-		"kind": "http" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",
-		"matchKey": "</v2/event, events-stream, env:EVENTS_STREAM, ...>",
-		"at": "<file:line — the anchor>",
+		"kind": "http" | "graphql" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",
+		"matchKey": "</v2/event, /graphql, events-stream, env:EVENTS_STREAM, ...>",
+		"at": "<file:line — the anchor (the transport site for a multiplexed edge)>",
 		"pattern": "<the greppable code fragment at that site>",
 		"payload": "<one line — what data crosses here>",
 		"schemaAt": "<file path or null>",
 		"conditional": "<null, or the gating condition>",
+		"operations": [{ "name": "signIn", "type": "mutation" }],
 		"noise": false
 	}],
 	"gaps": ["<dynamic or unresolvable edges: where, and why>"]

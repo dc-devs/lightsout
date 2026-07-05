@@ -5,6 +5,7 @@
  */
 export const TraverseEdgeKind = {
 	Http: 'http',
+	Graphql: 'graphql',
 	MessageBus: 'message-bus',
 	PostMessage: 'postMessage',
 	Response: 'response',

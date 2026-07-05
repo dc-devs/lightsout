@@ -23,4 +23,5 @@ export { HopReport } from './HopReport';
 export { ConnectionDoc } from './ConnectionDoc';
 export { TraceState } from './TraceState';
 export { EdgeInventory } from './EdgeInventory';
+export { EdgeOperation } from './EdgeOperation';
 export { MapJoin } from './MapJoin';
