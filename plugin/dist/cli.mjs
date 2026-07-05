@@ -22977,6 +22977,8 @@ var EdgeInventory = external_exports.object({
   scannedSha: external_exports.string(),
   /** Last commit touching the scope (monorepo packages only) — a commit elsewhere in the monorepo doesn't invalidate this inventory. */
   scannedPathSha: external_exports.string().nullable().default(null),
+  /** Fingerprint of the scanner (prompt hash) that produced this inventory — the engine stamps it; the freshness gate re-scans on a mismatch so a scanner change invalidates the cache, not only a code change. Null on legacy/unversioned inventories (→ re-scan). */
+  scannerVersion: external_exports.string().nullable().default(null),
   edges: external_exports.array(
     external_exports.object({
       direction: external_exports.enum(["in", "out"]),
@@ -23833,6 +23835,10 @@ var buildScanEdgesInvocation = ({ node, workspace, scope }) => ({
   ].join("\n\n")
 });
 
+// packages/agents/src/scanEdgesVersion.ts
+import { createHash } from "node:crypto";
+var scanEdgesVersion = createHash("sha256").update(scanEdges_default).digest("hex").slice(0, 12);
+
 // packages/engine/src/appendAgentLog.ts
 import { appendFile, mkdir as mkdir3 } from "node:fs/promises";
 import { join as join8 } from "node:path";
@@ -24340,7 +24346,7 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
 };
 
 // packages/engine/src/scanAstFindings.ts
-import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 import { readFile as readFile8 } from "node:fs/promises";
 import { basename, join as join15 } from "node:path";
 var minBodyTokens = 40;
@@ -24413,7 +24419,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
             startLine,
             endLine,
             tokenCount: tokens2.length,
-            hash: createHash("sha1").update(tokens2.join(",")).digest("hex")
+            hash: createHash2("sha1").update(tokens2.join(",")).digest("hex")
           });
         }
         const { cap, kind } = functionSizeCaps({ name, path: file2, caps });
@@ -37634,7 +37640,7 @@ var runTraverse = async ({
   const mapDir = isAbsolute(connectionsDir) ? connectionsDir : join27(cwd, connectionsDir);
   const edges = await readConnectionMap({ connectionsDir: mapDir });
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
-  const runId = resumeRunId ?? `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}-${randomUUID3().slice(0, 8)}`;
+  const runId = resumeRunId ?? `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/:/g, "-")}-${randomUUID3().slice(0, 8)}`;
   const runDir = join27(cwd, ".lightsout", "traverse", runId);
   const tracePath = join27(runDir, "trace.json");
   await mkdir8(runDir, { recursive: true });
@@ -37939,7 +37945,7 @@ var runBuildMap = async ({
     }
   }
   const inventoriesDir = join28(cwd, ".lightsout", "traverse", "inventories");
-  const runId = `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}-${randomUUID4().slice(0, 8)}`;
+  const runId = `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/:/g, "-")}-${randomUUID4().slice(0, 8)}`;
   const runDir = join28(cwd, ".lightsout", "traverse", "map-runs", runId);
   await mkdir9(inventoriesDir, { recursive: true });
   await mkdir9(runDir, { recursive: true });
@@ -37976,10 +37982,14 @@ var runBuildMap = async ({
   const scanNode = async (node) => {
     if (!rescan) {
       const saved = await savedInventory(node);
-      if (saved && await isCurrent({ node, saved })) {
-        reused.push(node);
-        progress(`scan ${node}: inventory current (sha-gated) \u2014 reused`);
-        return;
+      if (saved) {
+        if (saved.scannerVersion !== scanEdgesVersion) {
+          progress(`scan ${node}: scanner changed (${saved.scannerVersion ?? "unversioned"} \u2192 ${scanEdgesVersion}) \u2014 re-scanning`);
+        } else if (await isCurrent({ node, saved })) {
+          reused.push(node);
+          progress(`scan ${node}: inventory current (sha-gated, scanner ${scanEdgesVersion}) \u2014 reused`);
+          return;
+        }
       }
     }
     const source = registry3.get(node);
@@ -38012,7 +38022,8 @@ var runBuildMap = async ({
       failures.push(`${node}: ${failure}`);
       return;
     }
-    await writeFile6(join28(inventoriesDir, `${node}.json`), `${JSON.stringify(report, void 0, "	")}
+    const stamped = { ...report, scannerVersion: scanEdgesVersion };
+    await writeFile6(join28(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, void 0, "	")}
 `, "utf8");
     scanned.push(node);
     progress(`scan ${node}: ${report.edges.length} edge sighting(s), ${report.gaps.length} gap(s) \u2014 inventory saved`);

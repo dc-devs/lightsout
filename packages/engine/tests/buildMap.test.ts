@@ -37,6 +37,7 @@ test('joinInventories: exact and fuzzy pairing, orphans, noise, scanner gaps', (
 			node: 'node-a',
 			scannedSha: 'aaa',
 			scannedPathSha: null,
+			scannerVersion: null,
 			edges: [
 				inventoryEdge({}),
 				inventoryEdge({ matchKey: '/v2/users/{id}', at: 'src/users.ts:8', payload: 'user fetch' }),
@@ -49,6 +50,7 @@ test('joinInventories: exact and fuzzy pairing, orphans, noise, scanner gaps', (
 			node: 'node-b',
 			scannedSha: 'bbb',
 			scannedPathSha: null,
+			scannerVersion: null,
 			edges: [
 				inventoryEdge({ direction: 'in', matchKey: '/v2/event/', at: 'src/routes/event.ts:3', pattern: "router.post('/v2/event'" }),
 				inventoryEdge({ direction: 'in', matchKey: '/users/:id', at: 'src/routes/users.ts:4', pattern: "router.get('/users/:id'" }),
@@ -82,6 +84,7 @@ test('joinInventories: a multiplexed graphql edge pairs at the transport and uni
 			node: 'web-app',
 			scannedSha: 'aaa',
 			scannedPathSha: null,
+			scannerVersion: null,
 			edges: [
 				inventoryEdge({
 					kind: 'graphql',
@@ -101,6 +104,7 @@ test('joinInventories: a multiplexed graphql edge pairs at the transport and uni
 			node: 'backend',
 			scannedSha: 'bbb',
 			scannedPathSha: null,
+			scannerVersion: null,
 			edges: [
 				inventoryEdge({
 					kind: 'graphql',
@@ -142,6 +146,7 @@ test('joinInventories: intra-node producer↔consumer self-loops collapse to noi
 			node: 'backend',
 			scannedSha: 'aaa',
 			scannedPathSha: null,
+			scannerVersion: null,
 			edges: [
 				inventoryEdge({ kind: 'message-bus', matchKey: 'linear-sync', direction: 'out', at: 'src/linear-sync.service.ts:51', payload: 'enqueue' }),
 				inventoryEdge({ kind: 'message-bus', matchKey: 'linear-sync', direction: 'in', at: 'src/linear-sync.processor.ts:26', payload: 'consume' }),
@@ -153,6 +158,7 @@ test('joinInventories: intra-node producer↔consumer self-loops collapse to noi
 			node: 'web',
 			scannedSha: 'bbb',
 			scannedPathSha: null,
+			scannerVersion: null,
 			edges: [inventoryEdge({ matchKey: '/events', direction: 'in', at: 'src/routes/events.ts:2', pattern: "router.post('/events'" })],
 			gaps: [],
 		},
@@ -289,4 +295,43 @@ test('build-map end to end: scan → join → review-gated author → re-run con
 
 	assert.equal(third.join?.matched.length, 0, 'the edge is no longer "new"');
 	assert.deepEqual(third.join?.confirmed, [{ doc: 'node-a--node-b--v2-event' }], 'the verification sweep is the same join re-run');
+});
+
+test('build-map: a scanner-version change invalidates a code-fresh inventory (re-scan, not reuse)', async () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-scanver-'));
+	const workspaceDir = mkdtempSync(join(tmpdir(), 'lightsout-scanver-ws-'));
+	const node = setupRepo('n');
+	const connections = join(cwd, '.lightsout/connections');
+
+	mkdirSync(connections, { recursive: true });
+	writeFileSync(join(connections, 'repos.yaml'), `node-n: ${node.dir}\n`);
+
+	let invocations = 0;
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			invocations += 1;
+
+			return { text: JSON.stringify({ node: 'node-n', scannedSha: node.sha, scannedPathSha: null, edges: [inventoryEdge({})], gaps: [] }), exitCode: 0 };
+		},
+	};
+	const run = () => runBuildMap({ cwd, driver, nodes: ['node-n'], connectionsDir: '.lightsout/connections', workspaceDir });
+	const inventoryPath = join(cwd, '.lightsout/traverse/inventories/node-n.json');
+
+	await run();
+	assert.equal(invocations, 1, 'first run scans');
+
+	const reuse = await run();
+	assert.equal(invocations, 1, 'code + scanner unchanged → reused, no new scan');
+	assert.deepEqual(reuse.reused, ['node-n']);
+
+	// Same code (same sha), but pretend the inventory came from an older scanner.
+	const saved = JSON.parse(readFileSync(inventoryPath, 'utf8'));
+	assert.ok(saved.scannerVersion, 'a scanned inventory carries the scanner fingerprint');
+	writeFileSync(inventoryPath, JSON.stringify({ ...saved, scannerVersion: 'stale-000000' }));
+
+	const after = await run();
+	assert.equal(invocations, 2, 'scanner changed → re-scan even though the code sha is unchanged');
+	assert.deepEqual(after.scanned, ['node-n']);
+	assert.deepEqual(after.reused, [], 'not reused');
 });

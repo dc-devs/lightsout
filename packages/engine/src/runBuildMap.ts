@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { EdgeInventory, MapJoin } from '@lightsout/contracts';
-import { buildScanEdgesInvocation } from '@lightsout/agents';
+import { buildScanEdgesInvocation, scanEdgesVersion } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
@@ -122,11 +122,18 @@ export const runBuildMap = async ({
 		if (!rescan) {
 			const saved = await savedInventory(node);
 
-			if (saved && (await isCurrent({ node, saved }))) {
-				reused.push(node);
-				progress(`scan ${node}: inventory current (sha-gated) — reused`);
+			if (saved) {
+				// Freshness needs BOTH the scanned code AND the scanner to be
+				// unchanged — a prompt bump changes the inventory format/content,
+				// so a stale scanner invalidates the cache like a code change does.
+				if (saved.scannerVersion !== scanEdgesVersion) {
+					progress(`scan ${node}: scanner changed (${saved.scannerVersion ?? 'unversioned'} → ${scanEdgesVersion}) — re-scanning`);
+				} else if (await isCurrent({ node, saved })) {
+					reused.push(node);
+					progress(`scan ${node}: inventory current (sha-gated, scanner ${scanEdgesVersion}) — reused`);
 
-				return;
+					return;
+				}
 			}
 		}
 
@@ -170,7 +177,11 @@ export const runBuildMap = async ({
 			return;
 		}
 
-		await writeFile(join(inventoriesDir, `${node}.json`), `${JSON.stringify(report, undefined, '\t')}\n`, 'utf8');
+		// Stamp the scanner fingerprint the engine knows (the agent doesn't) so
+		// the next run's freshness gate can detect a scanner change.
+		const stamped = { ...report, scannerVersion: scanEdgesVersion };
+
+		await writeFile(join(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, undefined, '\t')}\n`, 'utf8');
 		scanned.push(node);
 		progress(`scan ${node}: ${report.edges.length} edge sighting(s), ${report.gaps.length} gap(s) — inventory saved`);
 	};
