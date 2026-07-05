@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { ConnectionDoc } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { findConnectingDoc, runDebug } from '../src/index';
+import { findConnectingDoc, resolveSeedNode, runDebug } from '../src/index';
 
 const setupNodeRepo = ({ name, files }: { name: string; files: Record<string, string> }) => {
 	const dir = mkdtempSync(join(tmpdir(), `lightsout-dbg-${name}-`));
@@ -113,6 +113,40 @@ test('debug: a lead that matches no connection doc is a gap, not a guess', async
 	assert.equal(result.state.resolution, null);
 	assert.equal(result.state.gaps.length, 1);
 	assert.match(result.state.gaps[0]?.detail ?? '', /unmapped/);
+});
+
+test('resolveSeedNode: infers the node from the CWD repo and reads the local working tree', async () => {
+	const repo = setupNodeRepo({ name: 'seed', files: { 'src/x.ts': 'x\n' } });
+	const seed = await resolveSeedNode({ cwd: repo, registry: new Map([['svc', { repo }]]), edges: new Map() });
+
+	assert.equal(seed.node, 'svc', 'matched the registered node by its repo root');
+	assert.equal(seed.registered, true);
+	assert.deepEqual(seed.workspace, { kind: 'local', path: repo }, 'CWD seed reads the local working tree, not a clone');
+});
+
+test('resolveSeedNode: a CWD repo not in the map degrades to local-only debug, not an error', async () => {
+	const repo = setupNodeRepo({ name: 'orphan', files: { 'src/x.ts': 'x\n' } });
+	const seed = await resolveSeedNode({ cwd: repo, registry: new Map([['svc', { repo: '/elsewhere/repo' }]]), edges: new Map() });
+
+	assert.equal(seed.registered, false);
+	assert.equal(seed.workspace.kind, 'local');
+	assert.match(seed.notes.join(' '), /not in the map/);
+});
+
+test('resolveSeedNode: the monorepo root is ambiguous — asks for --start rather than guessing', async () => {
+	const repo = setupNodeRepo({ name: 'mono', files: { 'packages/a/x.ts': 'x\n', 'packages/b/y.ts': 'y\n' } });
+	const registry = new Map([
+		['a', { repo, path: 'packages/a' }],
+		['b', { repo, path: 'packages/b' }],
+	]);
+
+	await assert.rejects(() => resolveSeedNode({ cwd: repo, registry, edges: new Map() }), /--start/);
+});
+
+test('resolveSeedNode: --start resolves to a full-history clone, no CWD inference', async () => {
+	const seed = await resolveSeedNode({ cwd: '/tmp', registry: new Map([['svc', { repo: '/some/repo', path: 'pkg' }]]), edges: new Map(), start: 'svc' });
+
+	assert.deepEqual(seed.workspace, { kind: 'clone', repo: '/some/repo', scope: 'pkg' }, '--start clones (works remote/CI), no local tree');
 });
 
 test('findConnectingDoc: a multiplexed transport routes an operation-level lead, not just the transport path', () => {

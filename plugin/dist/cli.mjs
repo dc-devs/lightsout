@@ -38488,7 +38488,15 @@ var findConnectingDoc = ({ lead, node, edges }) => {
 };
 
 // packages/engine/src/resolveSeedNode.ts
+import { realpathSync } from "node:fs";
 import { basename as basename6, isAbsolute as isAbsolute2, relative as relative2 } from "node:path";
+var realOf = (value) => {
+  try {
+    return realpathSync(value);
+  } catch {
+    return value;
+  }
+};
 var normalizeRepo = (value) => value.trim().toLowerCase().replace(/^(git\+)?(ssh|https?):\/\//, "").replace(/^git@/, "").replace(/:/g, "/").replace(/\.git$/, "").replace(/\/+$/, "");
 var resolveSeedNode = async ({ cwd, registry: registry3, edges, start }) => {
   const hasEdges = (node2) => [...edges.values()].some((doc) => doc.from === node2 || doc.to === node2);
@@ -38515,9 +38523,12 @@ var resolveSeedNode = async ({ cwd, registry: registry3, edges, start }) => {
     const rel = relative2(path, subpath || ".");
     return rel === "" || !rel.startsWith("..") && !isAbsolute2(rel);
   };
+  const remoteKey = remote ? normalizeRepo(remote) : "";
+  const rootKey = root ? normalizeRepo(realOf(root)) : "";
   const repoNodes = [...registry3.entries()].filter(([, source]) => {
-    const key = normalizeRepo(source.repo);
-    return remote && key === normalizeRepo(remote) || root && key === normalizeRepo(root);
+    const byRemote = remoteKey !== "" && normalizeRepo(source.repo) === remoteKey;
+    const byRoot = rootKey !== "" && normalizeRepo(realOf(source.repo)) === rootKey;
+    return byRemote || byRoot;
   });
   if (repoNodes.length === 0) {
     const node2 = basename6(root || cwd) || "local";

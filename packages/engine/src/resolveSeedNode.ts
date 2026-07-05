@@ -1,6 +1,16 @@
+import { realpathSync } from 'node:fs';
 import { basename, isAbsolute, relative } from 'node:path';
 import type { ConnectionDoc } from '@lightsout/contracts';
 import { runCommand } from './runCommand';
+
+/** Resolve symlinks so a repos.yaml path and `git rev-parse` (which reports the realpath, e.g. /private/var vs /var) compare equal; a non-path (git URL) or missing dir falls through unchanged. */
+const realOf = (value: string) => {
+	try {
+		return realpathSync(value);
+	} catch {
+		return value;
+	}
+};
 
 /** Normalize a repo reference so ssh/https/`.git` forms of the same remote compare equal (`git@github.com:o/r.git` ≡ `https://github.com/o/r`). */
 const normalizeRepo = (value: string) =>
@@ -68,10 +78,14 @@ export const resolveSeedNode = async ({ cwd, registry, edges, start }: Params) =
 		return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 	};
 
-	const repoNodes = [...registry.entries()].filter(([, source]) => {
-		const key = normalizeRepo(source.repo);
+	const remoteKey = remote ? normalizeRepo(remote) : '';
+	const rootKey = root ? normalizeRepo(realOf(root)) : '';
 
-		return (remote && key === normalizeRepo(remote)) || (root && key === normalizeRepo(root));
+	const repoNodes = [...registry.entries()].filter(([, source]) => {
+		const byRemote = remoteKey !== '' && normalizeRepo(source.repo) === remoteKey;
+		const byRoot = rootKey !== '' && normalizeRepo(realOf(source.repo)) === rootKey;
+
+		return byRemote || byRoot;
 	});
 
 	if (repoNodes.length === 0) {
