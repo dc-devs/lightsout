@@ -19,5 +19,9 @@
  *   1 — original edge scanner.
  *   2 — multiplexed edges (GraphQL/tRPC/… as one transport edge carrying
  *       operations); EdgeInventory gained `operations` + the `graphql` kind.
+ *   3 — enumerate a multiplexed transport's operations from its interface
+ *       DEFINITION (GraphQL SDL, OpenAPI, proto, AsyncAPI) rather than by
+ *       hand-reading handlers/call sites — complete and deterministic, on
+ *       both sides; code-reading is the fallback when no definition exists.
  */
-export const scanEdgesVersion = '2';
+export const scanEdgesVersion = '3';

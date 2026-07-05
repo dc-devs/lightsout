@@ -57,12 +57,24 @@ against the server's single endpoint.
 - **`kind` is `graphql`** for GraphQL; otherwise the transport's kind
   (`http` for a WebSocket handshake path, `message-bus` for a topic, etc.).
 - **List every operation in `operations`** — `{ "name": "...", "type":
-  "query"|"mutation"|"subscription"|"event"|null }`. The client side lists
-  the operations it CALLS; the server side lists the operations it EXPOSES
-  (its resolvers). Enumerate them from the generated client hooks / operation
-  documents on the caller, and from the schema/resolvers on the handler. Do
-  NOT hunt a line number per operation — the edge is anchored at the
-  transport (`at`), operations are the payload it carries.
+  "query"|"mutation"|"subscription"|"event"|null }`. The outbound (caller)
+  side lists the operations it CALLS; the inbound (handler) side lists the
+  operations it EXPOSES.
+- **Prefer the interface DEFINITION over hand-reading code — on either
+  side.** When a transport publishes a machine-readable definition — a
+  GraphQL SDL schema, an OpenAPI/Swagger document, a protobuf/gRPC `.proto`,
+  an AsyncAPI spec — enumerate operations from that definition, not by
+  reading handlers or call sites. The definition is the complete,
+  deterministic list; inferring from generated or derived code (base-class
+  resolvers, dynamic routers, codegen hooks) silently misses operations and
+  varies run to run. Read whichever definition THIS repo publishes — the
+  handler's exposed set from the schema it serves, the caller's called set
+  from its operation documents / generated client. Extract the names from the
+  definition's operation section (e.g. an SDL's root types) — you do not need
+  to read a large generated file end to end. Fall back to reading code only
+  when no definition artifact exists in this repo.
+- Do NOT hunt a line number per operation — the edge is anchored at the
+  transport (`at`); operations are the payload it carries.
 - A plain single-purpose REST route is NOT multiplexed — leave `operations`
   empty and keep emitting it as its own edge.
 
