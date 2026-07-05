@@ -4,8 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { TraverseMode, type ConnectionDoc, type TraceState } from '@lightsout/contracts';
-import { draftConnectionDocs, readConnectionMap, renderTrace, verifyConnectionAnchors } from '../src/index';
+import { draftConnectionDocs, readConnectionMap, verifyConnectionAnchors } from '../src/index';
 
 const commit = (dir: string) => {
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm change', { cwd: dir });
@@ -87,68 +86,6 @@ test('verifyConnectionAnchors: ok advances the sha on repair, then the sha gate 
 
 	assert.equal(fourth[0]?.status, 'missing');
 	assert.ok(existsSync(join(connections, 'node-a--node-b--evt.md')), 'a missing anchor never deletes the doc');
-});
-
-test('renderTrace: diagram, doc, and plan derive mechanically from the trace — nothing invented', () => {
-	const edges = new Map<string, ConnectionDoc>([
-		[
-			'node-a--node-b--evt',
-			{
-				from: 'node-a',
-				to: 'node-b',
-				type: 'http',
-				fromAnchor: { path: 'src/send.ts', pattern: '/evt' },
-				toAnchor: { path: 'src/routes/evt.ts', pattern: "router.post('/evt'" },
-				schema: { from: 'src/types/Event.ts', to: 'src/contracts/event.ts' },
-				lastVerifiedSha: undefined,
-				additionalContext: [],
-				operations: [],
-			},
-		],
-	]);
-	const state: TraceState = {
-		question: 'where does the event go?',
-		mode: TraverseMode.Diagram,
-		dataOfInterest: 'the event',
-		budget: { maxHops: 12, used: 1 },
-		frontier: [],
-		visited: ['node-a--node-b--evt'],
-		hops: [
-			{
-				edge: 'node-a--node-b--evt',
-				node: 'node-b',
-				report: {
-					node: 'node-b',
-					anchorCheck: { status: 'ok', foundAt: null },
-					entry: 'handler src/routes/evt.ts:3',
-					transforms: [{ at: 'src/enrich.ts:7', what: 'adds geo fields' }],
-					exits: [{ kind: 'message-bus', target: 'events-stream', at: 'src/publish.ts:4', carries: 'enriched event', conditional: null, relevant: 'yes' }],
-					answerContribution: 'node-b enriches and republishes the event',
-					gaps: [],
-					confidence: 'solid',
-				},
-			},
-		],
-		gaps: [{ node: 'node-b', detail: 'no doc for events-stream', exit: { kind: 'message-bus', target: 'events-stream', at: 'src/publish.ts:4', carries: 'enriched event' } }],
-		drift: [],
-		answer: null,
-	};
-
-	const diagram = renderTrace({ state, edges, mode: TraverseMode.Diagram });
-
-	assert.ok(diagram.includes('flowchart LR'), 'mermaid skeleton present');
-	assert.ok(diagram.includes('node-a -->|http: evt| node-b'), 'edge derived from the crossed doc, not invented');
-	assert.ok(diagram.includes('adds geo fields'), 'transforms annotate the flow');
-
-	const docMode = renderTrace({ state, edges, mode: TraverseMode.Doc });
-
-	assert.ok(docMode.includes('## 1. node-b'));
-	assert.ok(docMode.includes('message-bus → events-stream'), 'exits listed with kind and target');
-
-	const plan = renderTrace({ state, edges, mode: TraverseMode.Plan });
-
-	assert.ok(plan.includes('`src/enrich.ts`'), 'files on the trail cited from the trace');
-	assert.ok(plan.includes('src/contracts/event.ts'), 'contract change gated by the edge schema pointers');
 });
 
 test('draftConnectionDocs: gaps with concrete exits become drafts/ scaffolds invisible to the map reader', async () => {

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { HopReport } from './HopReport';
 import { TraverseEdgeKind } from './TraverseEdgeKind';
-import { TraverseMode } from './TraverseMode';
 
 /**
  * The traversal's entire loop state, rewritten to disk after every hop so a
@@ -12,7 +11,6 @@ import { TraverseMode } from './TraverseMode';
  */
 export const TraceState = z.object({
 	question: z.string(),
-	mode: z.enum(TraverseMode),
 	dataOfInterest: z.string(),
 	budget: z.object({
 		maxHops: z.number().int().positive(),

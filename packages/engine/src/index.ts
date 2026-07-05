@@ -34,7 +34,6 @@ export { regenerateConnectionIndex } from './regenerateConnectionIndex';
 export { verifyConnectionAnchors } from './verifyConnectionAnchors';
 export { parseConnectionsSource } from './parseConnectionsSource';
 export { resolveConnectionsSource } from './resolveConnectionsSource';
-export { renderTrace } from './renderTrace';
 export { draftConnectionDocs } from './draftConnectionDocs';
 export { patchConnectionDoc } from './patchConnectionDoc';
 export { readFriction } from './readFriction';

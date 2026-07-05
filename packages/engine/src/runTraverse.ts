@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
-import { HopReport, TraceState, TraverseMode } from '@lightsout/contracts';
+import { HopReport, TraceState } from '@lightsout/contracts';
 import { buildTraverseHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
@@ -20,7 +20,6 @@ interface Params {
 	question: string;
 	/** Directory of connection docs + repos.yaml (cwd-relative or absolute). */
 	connectionsDir: string;
-	mode?: TraverseMode;
 	/** The specific payload/field/behavior to follow. Defaults to the question itself. */
 	dataOfInterest?: string;
 	/** Edge id or node name to start from. Required unless resuming. */
@@ -50,7 +49,6 @@ export const runTraverse = async ({
 	driver,
 	question,
 	connectionsDir,
-	mode = TraverseMode.Answer,
 	dataOfInterest,
 	start,
 	budget,
@@ -107,7 +105,6 @@ export const runTraverse = async ({
 
 		state = {
 			question,
-			mode,
 			dataOfInterest: dataOfInterest ?? question,
 			budget: { maxHops: budget ?? defaultBudget, used: 0 },
 			frontier: seeds.map((edge) => ({ edge, reason: `seeded from --start ${start}` })),

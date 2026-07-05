@@ -18,7 +18,6 @@ export { ScanDetector } from './ScanDetector';
 export { ScanSeverity } from './ScanSeverity';
 export { ScanFinding } from './ScanFinding';
 export { TraverseEdgeKind } from './TraverseEdgeKind';
-export { TraverseMode } from './TraverseMode';
 export { HopReport } from './HopReport';
 export { DebugHopReport } from './DebugHopReport';
 export { ConnectionDoc } from './ConnectionDoc';

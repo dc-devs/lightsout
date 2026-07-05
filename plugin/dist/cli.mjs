@@ -7958,8 +7958,8 @@ var require_dist = __commonJS({
 });
 
 // packages/cli/src/index.ts
-import { readdir as readdir10, readFile as readFile33, writeFile as writeFile15 } from "node:fs/promises";
-import { basename as basename8, join as join46 } from "node:path";
+import { readdir as readdir10, readFile as readFile34 } from "node:fs/promises";
+import { basename as basename9, join as join47 } from "node:path";
 
 // packages/contracts/src/RunStatus.ts
 var RunStatus = {
@@ -11052,7 +11052,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
   const _normalized = cached(() => normalizeDef(def));
   const generateFastpass = (shape) => {
     const doc = new Doc(["shape", "payload", "ctx"]);
-    const normalized3 = _normalized.value;
+    const normalized4 = _normalized.value;
     const parseStr = (key) => {
       const k = esc(key);
       return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
@@ -11060,11 +11060,11 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     doc.write(`const input = payload.value;`);
     const ids = /* @__PURE__ */ Object.create(null);
     let counter = 0;
-    for (const key of normalized3.keys) {
+    for (const key of normalized4.keys) {
       ids[key] = `key_${counter++}`;
     }
     doc.write(`const newResult = {};`);
-    for (const key of normalized3.keys) {
+    for (const key of normalized4.keys) {
       const id = ids[key];
       const k = esc(key);
       const schema = shape[key];
@@ -22440,23 +22440,23 @@ function fromJSONSchema(schema, params) {
   if (typeof schema === "boolean") {
     return schema ? z.any() : z.never();
   }
-  let normalized3;
+  let normalized4;
   try {
-    normalized3 = JSON.parse(JSON.stringify(schema));
+    normalized4 = JSON.parse(JSON.stringify(schema));
   } catch {
     throw new Error("fromJSONSchema input is not valid JSON (possibly cyclic); use $defs/$ref for recursive schemas");
   }
-  const version2 = detectVersion(normalized3, params?.defaultTarget);
-  const defs = normalized3.$defs || normalized3.definitions || {};
+  const version2 = detectVersion(normalized4, params?.defaultTarget);
+  const defs = normalized4.$defs || normalized4.definitions || {};
   const ctx = {
     version: version2,
     defs,
     refs: /* @__PURE__ */ new Map(),
     processing: /* @__PURE__ */ new Set(),
-    rootSchema: normalized3,
+    rootSchema: normalized4,
     registry: params?.registry ?? globalRegistry
   };
-  return convertSchema(normalized3, ctx);
+  return convertSchema(normalized4, ctx);
 }
 
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/coerce.js
@@ -22843,15 +22843,6 @@ var TraverseEdgeKind = {
   Other: "other"
 };
 
-// packages/contracts/src/TraverseMode.ts
-var TraverseMode = {
-  Answer: "answer",
-  Doc: "doc",
-  Diagram: "diagram",
-  Plan: "plan",
-  Bug: "bug"
-};
-
 // packages/contracts/src/HopReport.ts
 var HopReport = external_exports.object({
   node: external_exports.string(),
@@ -22891,11 +22882,12 @@ var HopReport = external_exports.object({
 // packages/contracts/src/DebugHopReport.ts
 var DebugHopReport = external_exports.object({
   node: external_exports.string(),
+  /** Entry-anchor verification — omitted on the SEED hop, which has no entry anchor (it investigates the whole node for the symptoms). */
   anchorCheck: external_exports.object({
     status: external_exports.enum(["ok", "drifted", "missing"]).catch("ok"),
     /** file:line where the anchor actually was, when drifted. */
     foundAt: external_exports.string().nullable().default(null)
-  }),
+  }).optional(),
   /** What was examined here and what was found — the local investigation, 1–4 sentences. */
   investigation: external_exports.string(),
   /** root-cause: the defect is here. points-elsewhere: not here, follow the lead. stuck: can't localize and no lead. */
@@ -22904,13 +22896,17 @@ var DebugHopReport = external_exports.object({
   rootCause: external_exports.object({ at: external_exports.string(), explanation: external_exports.string() }).nullable().default(null),
   /** Set only when verdict = root-cause: the proposed fix, concrete enough to act on. */
   proposedFix: external_exports.string().nullable().default(null),
-  /** Set only when verdict = points-elsewhere: the single strongest lead to follow next. */
+  /** Set only when verdict = points-elsewhere: the single strongest lead to follow next. Describes the CROSSING seen in this node's code (kind + target + at) and the direction — the engine routes it to the adjacent node/edge, because the agent is map-blind (one-repo rule). downstream = an outbound crossing (data leaves here); upstream = the inbound crossing the bad data arrived through. */
   nextLead: external_exports.object({
-    /** The node to hop to. */
-    node: external_exports.string(),
-    /** Which way the evidence points along the connecting edge. */
+    /** downstream (outbound crossing → its receiver) or upstream (inbound crossing → its sender). */
     direction: external_exports.enum(["upstream", "downstream"]).catch("downstream"),
-    /** What to look for at that node — the refined hypothesis carried forward. */
+    /** The crossing's kind (http, message-bus, …) as seen in this node's code. */
+    kind: external_exports.enum(TraverseEdgeKind).catch(TraverseEdgeKind.Other),
+    /** URL pattern / stream name / channel of the crossing. */
+    target: external_exports.string(),
+    /** file:line of the crossing in this node. */
+    at: external_exports.string(),
+    /** What to look for at the far side — the refined hypothesis carried forward. */
     refinedHypothesis: external_exports.string(),
     /** The evidence for this lead (e.g. "the input was already null on arrival"). */
     why: external_exports.string()
@@ -22918,7 +22914,18 @@ var DebugHopReport = external_exports.object({
   /** Anything the agent could not determine, and why — never a guess. */
   gaps: external_exports.array(external_exports.string()).default([]),
   confidence: external_exports.enum(["solid", "partial", "dead-end"]).catch("partial")
-});
+}).refine(
+  (report) => {
+    if (report.verdict === "root-cause") {
+      return report.rootCause !== null && report.proposedFix !== null;
+    }
+    if (report.verdict === "points-elsewhere") {
+      return report.nextLead !== null;
+    }
+    return true;
+  },
+  { message: "verdict 'root-cause' needs rootCause + proposedFix; 'points-elsewhere' needs nextLead" }
+);
 
 // packages/contracts/src/EdgeOperation.ts
 var EdgeOperation = external_exports.object({
@@ -22960,7 +22967,6 @@ var ConnectionDoc = external_exports.object({
 // packages/contracts/src/TraceState.ts
 var TraceState = external_exports.object({
   question: external_exports.string(),
-  mode: external_exports.enum(TraverseMode),
   dataOfInterest: external_exports.string(),
   budget: external_exports.object({
     maxHops: external_exports.number().int().positive(),
@@ -23007,6 +23013,14 @@ var TraceState = external_exports.object({
 // packages/contracts/src/DebugTraceState.ts
 var direction = external_exports.enum(["upstream", "downstream", "seed"]).catch("downstream");
 var DebugTraceState = external_exports.object({
+  /** How the run was seeded — the node + where its code lives (local working tree vs full-history clone). Persisted so a parked seed hop resumes with the same workspace. */
+  seed: external_exports.object({
+    node: external_exports.string(),
+    workspace: external_exports.discriminatedUnion("kind", [
+      external_exports.object({ kind: external_exports.literal("local"), path: external_exports.string() }),
+      external_exports.object({ kind: external_exports.literal("clone"), repo: external_exports.string(), scope: external_exports.string().optional() })
+    ])
+  }),
   /** The user's bug description — symptoms x/y/z (+ any suspect commit / date context). */
   symptoms: external_exports.string(),
   /** The current working hypothesis, refined hop to hop; starts from the symptoms. */
@@ -24131,6 +24145,35 @@ ${contextDocs.map((doc) => `- ${doc}`).join("\n")}`);
   };
 };
 
+// packages/agents/prompts/debugHop.md
+var debugHop_default = '# Role: Debug Hop\n\nYou investigate ONE node (a whole repo, or one package in a monorepo) to\nfind whether a bug\'s root cause is HERE \u2014 and if it is not, the single\nstrongest lead for where to look next. You work autonomously from the task\nmessage, and your final message is machine-parsed \u2014 it is a data payload,\nnot prose for a human.\n\nYour task message provides: the node, the local workspace path holding its\ncode, an optional package scope, the **symptoms** (the reported bug), the\ncurrent **hypothesis** (refined from earlier hops), an optional **entry\nanchor** (path + greppable pattern \u2014 absent on the first/seed hop), an\noptional **suspect commit**, and any context docs to read first.\n\n## Procedure\n\n1. **If a suspect commit is given, check it first.** `git show <hash>` (full\n   history is available \u2014 use `git log`, `git blame`, `git show`, bisect\n   freely). Does that change plausibly produce the symptoms? Confirm or\n   refute it before anything else, and say which in `investigation`.\n2. **Enter.**\n   - Entry anchor given \u2192 verify the pattern exists at the path. Moved \u2192\n     `anchorCheck.status: "drifted"` + `foundAt`, continue from there. Gone \u2192\n     `"missing"`; try to pick up the trail by the symptoms; if you cannot,\n     `confidence: "dead-end"`.\n   - No anchor (seed hop) \u2192 omit `anchorCheck`; investigate the node from the\n     symptoms \u2014 the failing endpoint/handler/job named or implied by them.\n3. **Try to root-cause it HERE first.** Follow the suspect data/behavior\n   through this node\'s code using the symptoms + hypothesis. Read only what\n   the trail requires \u2014 you are hunting a defect, not reviewing the repo.\n   Exhaust the local investigation before concluding the cause is elsewhere.\n4. **Reach a verdict:**\n   - **`root-cause`** \u2014 the defect is in this node. Give `rootCause` (the\n     `file:line` and why it produces the symptoms) and a concrete\n     `proposedFix`.\n   - **`points-elsewhere`** \u2014 the cause is not here, and you have EVIDENCE it\n     is across a boundary (e.g. "the input to this handler is already wrong\n     on arrival" \u2192 upstream; "this value is correct here but the consumer\n     mangles it" \u2192 downstream). Give ONE `nextLead` (see below). Do not hop\n     on a hunch \u2014 only when the local evidence points out.\n   - **`stuck`** \u2014 you cannot localize it here and have no evidenced lead.\n     Say why in `gaps`.\n\n## Naming the lead (you are map-blind)\n\nYou do NOT know the other repos or the connection map \u2014 never name a node on\nthe far side. Describe the **crossing you see in this node\'s code** and the\nengine routes it:\n\n- **`direction: "downstream"`** \u2014 an OUTBOUND crossing (data leaves here: an\n  HTTP client call, a queue/topic publish, an S3/DB write, a response). The\n  engine follows it to the receiver.\n- **`direction: "upstream"`** \u2014 the INBOUND crossing the bad data arrived\n  through (the route/consumer/handler that fed this node). The engine follows\n  it back to the sender.\n- Record the crossing\'s `kind`, `target` (URL pattern / stream / channel),\n  and `at` (`file:line` in THIS node) \u2014 the same tokens a connection doc\n  pairs on.\n\n## Rules\n\n- **Never recurse.** Do not clone or read any other repo. Investigating this\n  one node and naming at most one lead is the whole job.\n- **Read-only.** No writes, no state changes; shell is for `git`\n  inspection (`log`/`blame`/`show`/bisect) only.\n- **Cite everything** with `file:line`.\n- **Don\'t guess.** A cold trail (dynamic dispatch, generated code, config you\n  can\'t see) goes in `gaps` with exactly where and why \u2014 never an invented\n  cause or lead.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Starts with `{`, ends\nwith `}`.\n\n```\n{\n	"node": "<node name from your task>",\n	"anchorCheck": { "status": "ok" | "drifted" | "missing", "foundAt": "<file:line or null>" },   // omit entirely on the seed hop\n	"investigation": "<what you examined and found here, 1-4 sentences, with file:line citations>",\n	"verdict": "root-cause" | "points-elsewhere" | "stuck",\n	"rootCause": { "at": "<file:line>", "explanation": "<why this produces the symptoms>" },   // only when verdict = root-cause, else null\n	"proposedFix": "<concrete fix>",                                                            // only when verdict = root-cause, else null\n	"nextLead": {                                                                               // only when verdict = points-elsewhere, else null\n		"direction": "upstream" | "downstream",\n		"kind": "http" | "graphql" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",\n		"target": "<url pattern / stream / channel>",\n		"at": "<file:line of the crossing in this node>",\n		"refinedHypothesis": "<what to look for on the far side>",\n		"why": "<the evidence this lead rests on>"\n	},\n	"gaps": ["<anything you could not determine, and why>"],\n	"confidence": "solid" | "partial" | "dead-end"\n}\n```\n';
+
+// packages/agents/src/buildDebugHopInvocation.ts
+var buildDebugHopInvocation = ({ node, workspace, scope, symptoms, hypothesis, entryAnchor, suspectCommit, contextDocs }) => {
+  const sections = [
+    `# Hop input`,
+    [
+      `- node: ${node}`,
+      `- workspace: ${workspace}`,
+      `- scope: ${scope ?? "null (whole repo)"}`,
+      `- entry anchor: ${entryAnchor ? `${entryAnchor.path} \u2014 pattern: ${entryAnchor.pattern}` : "null (seed hop \u2014 investigate the node from the symptoms)"}`,
+      `- suspect commit: ${suspectCommit ?? "null"}`,
+      `- symptoms: ${symptoms}`,
+      `- hypothesis: ${hypothesis}`
+    ].join("\n")
+  ];
+  if (contextDocs && contextDocs.length > 0) {
+    sections.push(`# Context docs \u2014 read these first
+
+${contextDocs.map((doc) => `- ${doc}`).join("\n")}`);
+  }
+  sections.push("Remember: your entire final message must be exactly one JSON report object \u2014 nothing else.");
+  return {
+    systemPrompt: debugHop_default,
+    prompt: sections.join("\n\n")
+  };
+};
+
 // packages/agents/prompts/scanEdges.md
 var scanEdges_default = '# Role: Scan Edges\n\nYou inventory the data edges of ONE node \u2014 a whole repo, or one package\ninside a monorepo. You work autonomously from the task message, and your\nfinal message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman. You know nothing about other repos or connection docs: pairing your\nsightings with other nodes\' is the engine\'s mechanical join, never your job.\n\nYour task message provides: the node name, the local workspace path (repo\nroot), and an optional package scope.\n\n## What counts as an edge\n\nAnywhere data crosses the **process boundary**:\n\n- **Inbound**: HTTP route registrations, queue/stream/topic consumers,\n  message/event listeners, postMessage listeners, S3/file-event triggers,\n  webhook handlers.\n- **Outbound**: HTTP client calls, queue/stream/topic publishes, postMessage\n  sends, S3/file writes, DB writes, script/tag injection into served\n  content, and **response payloads that carry meaningful data** (a response\n  is an edge; a bare 200/ack is not).\n\n## Procedure\n\n1. Orient: entry points, route/consumer registration sites, HTTP client and\n   SDK wrappers (a shared `post()` helper means one grep finds every caller).\n2. Sweep for each edge kind. Follow indirection to the concrete site: the\n   edge\'s `at` is where the route/publish/call is actually bound, not the\n   wrapper\'s definition.\n3. **Normalize each target into a `matchKey`** \u2014 the token the join pairs\n   on. Strip protocol, host, and env prefixes: a POST to\n   `https://edge.example.com/v2/event` has matchKey `/v2/event`. Normalize\n   path params to `:param` form. For streams/queues/topics the matchKey is\n   the resolved name; if it comes from config/env, resolve it from\n   checked-in config when visible, otherwise use the variable name prefixed\n   `env:` (e.g. `env:EVENTS_STREAM`) \u2014 an honest unresolved key beats a\n   guess.\n4. Locate the payload schema/type for each edge if one exists (`schemaAt`).\n5. Flag likely noise rather than omitting it: health checks, metrics/APM,\n   feature-flag SDKs, third-party SaaS calls. Review culls; you flag.\n\n## Multiplexed transports (GraphQL, tRPC, WebSocket, webhooks)\n\nSome transports are ONE physical channel carrying MANY logical operations:\na GraphQL endpoint (`POST /graphql`) serving dozens of queries/mutations, a\ntRPC router, a WebSocket/Socket.io connection with many event types, a\nsingle webhook path dispatched by event+action. Emit **one edge for the\ntransport, not one edge per operation** \u2014 otherwise a client with 70\nGraphQL calls floods the map with 70 near-identical edges that never pair\nagainst the server\'s single endpoint.\n\n- **matchKey is the transport**, not the operation: `/graphql` for GraphQL\n  (the endpoint path), the socket path for WebSocket, the webhook path for a\n  dispatched receiver. Both the caller and the handler must normalize to the\n  SAME transport matchKey so the join pairs them.\n- **`kind` is `graphql`** for GraphQL; otherwise the transport\'s kind\n  (`http` for a WebSocket handshake path, `message-bus` for a topic, etc.).\n- **List every operation in `operations`** \u2014 `{ "name": "...", "type":\n  "query"|"mutation"|"subscription"|"event"|null }`. The outbound (caller)\n  side lists the operations it CALLS; the inbound (handler) side lists the\n  operations it EXPOSES.\n- **Prefer the interface DEFINITION over hand-reading code \u2014 on either\n  side.** When a transport publishes a machine-readable definition \u2014 a\n  GraphQL SDL schema, an OpenAPI/Swagger document, a protobuf/gRPC `.proto`,\n  an AsyncAPI spec \u2014 enumerate operations from that definition, not by\n  reading handlers or call sites. The definition is the complete,\n  deterministic list; inferring from generated or derived code (base-class\n  resolvers, dynamic routers, codegen hooks) silently misses operations and\n  varies run to run. Read whichever definition THIS repo publishes \u2014 the\n  handler\'s exposed set from the schema it serves, the caller\'s called set\n  from its operation documents / generated client. Extract the names from the\n  definition\'s operation section (e.g. an SDL\'s root types) \u2014 you do not need\n  to read a large generated file end to end. Fall back to reading code only\n  when no definition artifact exists in this repo.\n- Do NOT hunt a line number per operation \u2014 the edge is anchored at the\n  transport (`at`); operations are the payload it carries.\n- A plain single-purpose REST route is NOT multiplexed \u2014 leave `operations`\n  empty and keep emitting it as its own edge.\n\n## Monorepo scoping (when a scope is given)\n\n- The scope defines **whose edges you\'re inventorying**: every trail starts\n  from code inside it. You may follow indirection into shared code elsewhere\n  in the same repo to pin the concrete emit/handler site, but an edge\n  belongs in this inventory only if scoped code triggers it. Never inventory\n  a sibling package\'s own edges.\n- **A direct import of a sibling package is NOT an edge** \u2014 same process,\n  followable by reading code. A runtime wire call to a sibling (HTTP, queue,\n  postMessage) IS an edge, even inside one repo: the edge test is process\n  boundary, not repo boundary.\n- All `at` paths are repo-root-relative.\n\n## Rules\n\n- **One repo.** Never clone or read another repo; never try to identify who\n  is on the other side of an edge \u2014 that is the join\'s job.\n- **Read-only.** Shell commands are for `git` inspection only (you need\n  `git rev-parse HEAD` for `scannedSha`, and `git log -1 --format=%H --\n  <scope>` for `scannedPathSha` when scoped).\n- **Cite everything.** Every edge carries `file:line` \u2014 it becomes the\n  connection doc\'s anchor, so it must be the real emit/handler site.\n- **Don\'t guess.** Dynamic targets you can\'t resolve go in `gaps`, not in\n  the inventory with an invented matchKey.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your actual message\nstarts with `{` and ends with `}`.\n\n```\n{\n	"node": "<node name>",\n	"scannedSha": "<git rev-parse HEAD>",\n	"scannedPathSha": "<git log -1 --format=%H -- <scope>, or null when unscoped>",\n	"edges": [{\n		"direction": "in" | "out",\n		"kind": "http" | "graphql" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",\n		"matchKey": "</v2/event, /graphql, events-stream, env:EVENTS_STREAM, ...>",\n		"at": "<file:line \u2014 the anchor (the transport site for a multiplexed edge)>",\n		"pattern": "<the greppable code fragment at that site>",\n		"payload": "<one line \u2014 what data crosses here>",\n		"schemaAt": "<file path or null>",\n		"conditional": "<null, or the gating condition>",\n		"operations": [{ "name": "signIn", "type": "mutation" }],\n		"noise": false\n	}],\n	"gaps": ["<dynamic or unresolvable edges: where, and why>"]\n}\n```\n';
 
@@ -24540,10 +24583,10 @@ import { readFile as readFile8 } from "node:fs/promises";
 import { join as join14 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
-var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
+var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing \u2192 the concept is primitives; its files belong in `common/<type>/`. Hides internals \u2192 it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules \u2014 shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
 
 // standards/code/architecture/folder-structure.md
-var folder_structure_default = "# Folder Structure\n\nUse a `common/` folder pattern for shared code \u2014 it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder's `index.ts` is its public API; everything under its `common/` is internal.\n\n## Rules\n\n1. **Keep `common/` close to consumers** \u2014 the lowest level where all dependents can reach it\n2. **Promote when reused** \u2014 move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** \u2014 update imports when promoting; verify no cycles\n4. **Organize by type** \u2014 `utils/`, `types/`, `services/` subfolders inside `common/`\n5. **Graduate, don't pre-build** \u2014 a concept becomes a folder only when it needs private companions\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless pure functions (`formatDate()`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## Top Level Is Feature Nouns\n\n`src/`'s top level names features and domains (`billing/`, `issues/`, `sync/`) \u2014 never technical layers (`controllers/`, `services/`, `helpers/`). Navigation is by domain first, for humans and agents alike. Framework mandates override (NestJS module layout, file-based routers) \u2014 the same carve-out as folder casing below.\n\n## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape \u2014 its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.\n\n## Per-Folder READMEs\n\nA folder gets a `README.md` only for a genuine invariant not derivable from these rules (e.g. \"everything here runs in the widget sandbox \u2014 no DOM globals\"). Never prose restating the structure.\n\n## Folder Naming\n\nFolders match what they hold, in that name's own casing:\n\n- **Category/container folders** \u2014 `camelCase` (`utils/`, `types/`, `formatting/`, `apiTokens/`)\n- **A folder graduated from a single named item** \u2014 that item's name and casing: class/component folders are `PascalCase` (`HttpClient/`, `IssuePanel/`)\n- **Resolve casing in order:** (1) established convention in the directory, (2) the package's framework doc (NestJS is `kebab-case` throughout; URL-mapped route segments are `kebab-case`), (3) the defaults above.\n\n## Domain Folders\n\nA pure function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) \u2014 `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.\n\n## Example\n\n```\nsrc/\n\u251C\u2500 common/            # shared across ALL modules\n\u2502  \u251C\u2500 utils/          #   (index.ts + formatDate.ts)\n\u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 services/\n\u2502  \u251C\u2500 formatting/     # domain folder: 2+ related pure functions\n\u251C\u2500 featureA/\n\u2502  \u251C\u2500 common/         # shared within featureA only\n\u2502  \u2502  \u251C\u2500 utils/\n\u2502  \u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 featureA.ts\n\u2502  \u2514\u2500 index.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\n## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package \u2014 not duplicated per-package.\n\n**Use `packages/shared/` when:** 2+ packages need it, it has zero framework dependencies, and it defines a contract both sides agree on (constants, error codes, pure predicates).\n\n**Don't when:** one package needs it (use its `common/`), it imports a framework (wrap the shared primitive locally), or it's an implementation detail (hooks, guards, resolvers).\n\n**Pattern \u2014 shared primitive + local wrapper:**\n\n```\npackages/shared/src/permissions/utils/hasPermission.ts        \u2190 pure function\npackages/frontend/src/common/permissions/useHasPermission.ts  \u2190 React hook wrapping it\npackages/api/src/auth/guards/                                 \u2190 NestJS guard using it\n```\n";
+var folder_structure_default = "# Folder Structure\n\nUse a `common/` folder pattern for shared code \u2014 it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder's `index.ts` is its public API; everything under its `common/` is internal.\n\n## Rules\n\n1. **Keep `common/` close to consumers** \u2014 the lowest level where all dependents can reach it\n2. **Promote when reused** \u2014 move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** \u2014 update imports when promoting; verify no cycles\n4. **`common/` is always typed, never flat** \u2014 every file lives under a type subfolder from the first file. The type vocabulary is a closed list: `utils/`, `types/`, `constants/`, `services/`, plus domain folders graduated per [Domain Folders](#domain-folders). Never invent a new type folder; never place a file directly in `common/`.\n5. **Graduate, don't pre-build** \u2014 a *concept* becomes a folder only when it needs private companions. This ceremony ban does not apply to `common/`'s type subfolders: that skeleton is always built, so placement is a no-decision.\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless pure functions (`formatDate()`) |\n| `types/` | Type-level declarations (`CopyResult`) |\n| `constants/` | Value and named constants (`defaultConfig`, `Action`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## What Lives in `common/` \u2014 the Barrel-Omission Test\n\n`common/` holds shared **file-modules only**: single-file primitives (a pure function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.\n\nA shared concept must leave `common/` and become a module \u2014 a sibling of the features that use it \u2014 the moment it has private internals. The mechanical test: **write the concept's would-be barrel. Does it omit anything?**\n\n- Everything would be exported \u2192 it is a bag of primitives \u2192 its files go in `common/<type>/` (or a domain folder)\n- The barrel would hide something \u2192 it is a module with a boundary worth enforcing \u2192 module with its own `index.ts`\n\nThis keeps placement closed under growth: shared code is either a primitive (`common/`) or a module (a domain sibling) \u2014 there is no third place.\n\n## Top Level Is Domain Nouns\n\n`src/`'s top level names domains (`billing/`, `issues/`, `sync/`) \u2014 capabilities the product has. Infrastructure capabilities are domains too: `git/`, `config/`, `runState/` are valid module names. Navigation is by domain first, for humans and agents alike.\n\n**Banned module names \u2014 a closed list, not a judgment call.** A folder is never named for the *role* of the code it holds: `helpers/`, `utils/`\\*, `lib/`, `core/`, `misc/`, `shared/`, `services/`\\*, `controllers/`, `models/`, `hooks/`, `components/`, `types/`\\*, `constants/`\\* (\\* legal inside `common/` per its closed list). Where the package's framework doc mandates one of these names (NestJS layout, React feature `components/`, file-based routers), the framework doc wins \u2014 the same carve-out as folder casing below. The only privileged folder name at any level is `common/`.\n\n## Growing Without New Rules\n\nAt every level exactly three kinds of things exist: **modules**, **`common/`**, and **files**. Growth never invents a new kind of place \u2014 it is always one of two mechanical moves:\n\n- **Graduate** \u2014 a file needs private companions \u2192 it becomes a module ([the graduation rule](./architecture-decisions.md#modules--the-graduation-rule))\n- **Consolidate** \u2014 a level holds more than ~20 modules \u2192 group related sibling modules under a new parent domain module (recursive: a module within a module, each keeping its own barrel)\n\nConsolidation is the census remedy: when a level starts reading like a directory listing instead of a product description, the fix is a parent domain \u2014 never a technical-layer bucket.\n\n## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape \u2014 its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.\n\n## Per-Folder READMEs\n\nA folder gets a `README.md` only for a genuine invariant not derivable from these rules (e.g. \"everything here runs in the widget sandbox \u2014 no DOM globals\"). Never prose restating the structure.\n\n## Folder Naming\n\nFolders match what they hold, in that name's own casing:\n\n- **Category/container folders** \u2014 `camelCase` (`utils/`, `types/`, `formatting/`, `apiTokens/`)\n- **A folder graduated from a single named item** \u2014 that item's name and casing: class/component folders are `PascalCase` (`HttpClient/`, `IssuePanel/`)\n- **Resolve casing in order:** (1) established convention in the directory, (2) the package's framework doc (NestJS is `kebab-case` throughout; URL-mapped route segments are `kebab-case`), (3) the defaults above.\n\n## Domain Folders\n\nA pure function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) \u2014 `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.\n\nA domain folder is **not** a module \u2014 by the barrel-omission test it hides nothing: every file in it is public, and its `index.ts` is convenience, not a boundary. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.\n\n## Example\n\n```\nsrc/\n\u251C\u2500 common/            # shared across ALL modules\n\u2502  \u251C\u2500 utils/          #   (index.ts + formatDate.ts)\n\u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 services/\n\u2502  \u251C\u2500 formatting/     # domain folder: 2+ related pure functions\n\u251C\u2500 featureA/\n\u2502  \u251C\u2500 common/         # shared within featureA only\n\u2502  \u2502  \u251C\u2500 utils/\n\u2502  \u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 featureA.ts\n\u2502  \u2514\u2500 index.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\n## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package \u2014 not duplicated per-package.\n\n**Use `packages/shared/` when:** 2+ packages need it, it has zero framework dependencies, and it defines a contract both sides agree on (constants, error codes, pure predicates).\n\n**Don't when:** one package needs it (use its `common/`), it imports a framework (wrap the shared primitive locally), or it's an implementation detail (hooks, guards, resolvers).\n\n**Pattern \u2014 shared primitive + local wrapper:**\n\n```\npackages/shared/src/permissions/utils/hasPermission.ts        \u2190 pure function\npackages/frontend/src/common/permissions/useHasPermission.ts  \u2190 React hook wrapping it\npackages/api/src/auth/guards/                                 \u2190 NestJS guard using it\n```\n";
 
 // standards/code/architecture/react/architecture-decisions.md
 var architecture_decisions_default2 = "# React Architecture\n\nArchitecture decisions for React packages.\n\n## Component File Structure\n\n**Default to single-file components.** Only create a folder when the component requires bundled utilities, types, or constants:\n\n```\ncomponents/\n\u251C\u2500\u2500 SimpleComponent.tsx              \u2705 Single file (default)\n\u251C\u2500\u2500 ComplexComponent/                \u2705 Folder for bundled logic\n\u2502   \u251C\u2500\u2500 common/\n\u2502   \u2502   \u2514\u2500\u2500 utils/\n\u2502   \u2502       \u251C\u2500\u2500 index.ts\n\u2502   \u2502       \u2514\u2500\u2500 helperFunction.ts\n\u2502   \u251C\u2500\u2500 ComplexComponent.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## Domain Folders\n\nDomain folders follow the shared rules in [folder-structure.md](../folder-structure.md#domain-folders). React-specific examples include JSX-producing functions grouped by domain:\n\n```\ncommon/\n\u251C\u2500\u2500 utils/                         # Ungrouped pure functions\n\u251C\u2500\u2500 stepConfigs/                   # \u2705 Domain folder \u2014 2+ related JSX config builders\n\u2502   \u251C\u2500\u2500 getDesignStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getInstallStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getStepContentConfig.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n\u251C\u2500\u2500 cellRenderers/                 # \u2705 Domain folder \u2014 2+ related JSX renderers\n\u2502   \u251C\u2500\u2500 renderStatusCell.tsx\n\u2502   \u251C\u2500\u2500 renderDateCell.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## File Naming Conventions\n\n| File type | Convention | Example |\n|-----------|------------|---------|\n| Components | `PascalCase.tsx` (or `PascalCase/` folder) | `IssueDetailContent.tsx`, `IssueDetail/` |\n| Hooks | `camelCase.ts` | `useIssues.ts`, `useUpdateIssue.ts` |\n| Utils | `camelCase.ts` | `buildOrderBy.ts`, `formatDate.ts` |\n| Named constants, interfaces | `PascalCase.ts` | `QueryKey.ts`, `FilterOption.ts` |\n| Constants | `camelCase.ts` | `emailRegex.ts`, `defaultPaginationPage.ts` |\n| Folders (domain) | `camelCase` | `hooks/`, `components/`, `queries/` |\n| Folders (component) | `PascalCase` | `IssueDetail/`, `IssueHeaderToolbar/` |\n";
@@ -36144,16 +36187,16 @@ function tokenizeAstro(source, id, options) {
       `Astro source exceeds the maximum tokenizable length of ${MAX_SOURCE_LENGTH.toLocaleString()} characters (got ${source.length.toLocaleString()}). Refusing to process to prevent potential regex performance issues on malformed input.`
     );
   }
-  const normalized3 = source.replace(/\r\n/g, "\n");
+  const normalized4 = source.replace(/\r\n/g, "\n");
   const { ignoreCase } = options;
   const allTokens = [];
-  let templateSource = normalized3;
+  let templateSource = normalized4;
   const frontmatterRegex = /^---\n([\s\S]*?)\n?---(?:\n|$)/;
-  const frontmatterMatch = frontmatterRegex.exec(normalized3);
+  const frontmatterMatch = frontmatterRegex.exec(normalized4);
   if (frontmatterMatch) {
     const innerContent = frontmatterMatch[1] ?? "";
     if (innerContent.trim().length > 0) {
-      const lineOffset = countNewlines2(normalized3.substring(0, frontmatterMatch.index + "---\n".length));
+      const lineOffset = countNewlines2(normalized4.substring(0, frontmatterMatch.index + "---\n".length));
       const blockTokens = tokenize2(innerContent, "typescript");
       for (const token of blockTokens) {
         if (token.loc) {
@@ -36165,11 +36208,11 @@ function tokenizeAstro(source, id, options) {
     }
     const frontmatterFull = frontmatterMatch[0];
     const frontmatterNewlines = countNewlines2(frontmatterFull);
-    templateSource = "\n".repeat(frontmatterNewlines) + normalized3.slice(frontmatterFull.length);
+    templateSource = "\n".repeat(frontmatterNewlines) + normalized4.slice(frontmatterFull.length);
   }
   const blockRegex = /<(script|style)(\s[^>]*)?>[\s\S]*?<\/\1>/gi;
   let match;
-  while ((match = blockRegex.exec(normalized3)) !== null) {
+  while ((match = blockRegex.exec(normalized4)) !== null) {
     const [fullMatch, tagName, attrsRaw] = match;
     if (!tagName) continue;
     const attrs = attrsRaw ?? "";
@@ -36180,9 +36223,9 @@ function tokenizeAstro(source, id, options) {
     const closeTagStart = fullMatch.lastIndexOf("</");
     if (closeTagStart <= openTagEnd) continue;
     const innerContent = fullMatch.substring(openTagEnd, closeTagStart);
-    const lineOffset = countNewlines2(normalized3.substring(0, match.index));
+    const lineOffset = countNewlines2(normalized4.substring(0, match.index));
     const contentAbsStart = match.index + openTagEnd;
-    const lastNlBeforeContent = normalized3.lastIndexOf("\n", contentAbsStart - 1);
+    const lastNlBeforeContent = normalized4.lastIndexOf("\n", contentAbsStart - 1);
     const colOffset = contentAbsStart - lastNlBeforeContent - 1;
     const blockTokens = tokenize2(innerContent, resolvedFormat);
     for (const token of blockTokens) {
@@ -36228,7 +36271,7 @@ function tokenizeAstro(source, id, options) {
       return token;
     });
   }
-  return createTokensMaps(id, normalized3, processedTokens, options);
+  return createTokensMaps(id, normalized4, processedTokens, options);
 }
 var MAX_SOURCE_LENGTH2 = 5e6;
 function countNewlines3(s) {
@@ -36263,8 +36306,8 @@ function tokenizeSvelte(source, id, options) {
   if (source.length > MAX_SOURCE_LENGTH2) {
     return [];
   }
-  const normalized3 = source.replace(/\r\n/g, "\n");
-  if (normalized3.length === 0) {
+  const normalized4 = source.replace(/\r\n/g, "\n");
+  if (normalized4.length === 0) {
     return [];
   }
   const { ignoreCase } = options;
@@ -36273,7 +36316,7 @@ function tokenizeSvelte(source, id, options) {
   const blocks = [];
   let match;
   const blockPositions = [];
-  while ((match = blockRegex.exec(normalized3)) !== null) {
+  while ((match = blockRegex.exec(normalized4)) !== null) {
     const [fullMatch, tagName, attrsRaw] = match;
     if (!tagName) continue;
     const tag = tagName.toLowerCase();
@@ -36302,10 +36345,10 @@ function tokenizeSvelte(source, id, options) {
       record: record2
     });
   }
-  let sanitizedSource = normalized3;
+  let sanitizedSource = normalized4;
   for (let i = blockPositions.length - 1; i >= 0; i--) {
     const bp = blockPositions[i];
-    const inner = normalized3.slice(bp.record.contentStart, bp.record.contentEnd);
+    const inner = normalized4.slice(bp.record.contentStart, bp.record.contentEnd);
     const blanked = inner.replace(/[^\n]/g, " ");
     sanitizedSource = sanitizedSource.slice(0, bp.record.contentStart) + blanked + sanitizedSource.slice(bp.record.contentEnd);
   }
@@ -36315,9 +36358,9 @@ function tokenizeSvelte(source, id, options) {
   }
   for (const block of blocks) {
     const resolvedFormat = resolveBlockFormat2(block.tagType, block.lang);
-    const blockStartLine = countNewlines3(normalized3.slice(0, block.contentStart)) + 1;
+    const blockStartLine = countNewlines3(normalized4.slice(0, block.contentStart)) + 1;
     const lineOffset = blockStartLine - 1;
-    const lastNlBefore = normalized3.lastIndexOf("\n", block.contentStart - 1);
+    const lastNlBefore = normalized4.lastIndexOf("\n", block.contentStart - 1);
     const colOffset = block.contentStart - (lastNlBefore + 1);
     const blockTokens = tokenize2(block.blockContent, resolvedFormat).filter((token) => token.length > 0);
     for (const token of blockTokens) {
@@ -36347,7 +36390,7 @@ function tokenizeSvelte(source, id, options) {
       return token;
     });
   }
-  return createTokensMaps(id, normalized3, processedTokens, options);
+  return createTokensMaps(id, normalized4, processedTokens, options);
 }
 function tokenizeWithPrism(code, language) {
   const prismLang = language in FORMATS && FORMATS[language]?.parent ? FORMATS[language]?.parent : language;
@@ -36412,12 +36455,12 @@ var SYNONYM_MAP = /* @__PURE__ */ new Map([
   ["golang", "go"]
 ]);
 function resolveFormat(lang) {
-  const normalized3 = lang.toLowerCase();
-  const tier1 = EXT_TO_FORMAT.get(normalized3);
+  const normalized4 = lang.toLowerCase();
+  const tier1 = EXT_TO_FORMAT.get(normalized4);
   if (tier1) return tier1;
-  const synonym = SYNONYM_MAP.get(normalized3);
+  const synonym = SYNONYM_MAP.get(normalized4);
   if (synonym) return synonym;
-  if (normalized3 in FORMATS) return normalized3;
+  if (normalized4 in FORMATS) return normalized4;
   return null;
 }
 function blankRanges(source, ranges) {
@@ -36446,16 +36489,16 @@ function countNewlines4(s) {
   return count;
 }
 function tokenizeMarkdown(source, id, options) {
-  const normalized3 = source.replace(/\r\n/g, "\n");
+  const normalized4 = source.replace(/\r\n/g, "\n");
   const { ignoreCase } = options;
   const allTokens = [];
   const ranges = [];
   const frontMatterRegex = /^---[ \t]*\n([\s\S]*?)\n(---|\.\.\.)[ \t]*(?:\n|$)/;
-  const frontMatterMatch = frontMatterRegex.exec(normalized3);
+  const frontMatterMatch = frontMatterRegex.exec(normalized4);
   if (frontMatterMatch) {
     const innerContent = frontMatterMatch[1] ?? "";
     if (innerContent.trim().length > 0) {
-      const lineOffset = countNewlines4(normalized3.substring(0, frontMatterMatch.index + "---\n".length));
+      const lineOffset = countNewlines4(normalized4.substring(0, frontMatterMatch.index + "---\n".length));
       for (const token of tokenizeWithPrism(innerContent, "yaml")) {
         if (token.length > 0) {
           if (token.loc) {
@@ -36468,7 +36511,7 @@ function tokenizeMarkdown(source, id, options) {
     }
     ranges.push({ start: frontMatterMatch.index, end: frontMatterMatch.index + frontMatterMatch[0].length });
   }
-  const lines = normalized3.split("\n");
+  const lines = normalized4.split("\n");
   const lineStartPositions = [];
   let pos = 0;
   for (const line of lines) {
@@ -36517,10 +36560,10 @@ function tokenizeMarkdown(source, id, options) {
     }
     const rangeStart = lineStartPositions[i];
     const closingLineEnd = lineStartPositions[closeLineIndex] + lines[closeLineIndex].length + 1;
-    ranges.push({ start: rangeStart, end: Math.min(closingLineEnd, normalized3.length) });
+    ranges.push({ start: rangeStart, end: Math.min(closingLineEnd, normalized4.length) });
     i = closeLineIndex + 1;
   }
-  const sanitized = blankRanges(normalized3, ranges);
+  const sanitized = blankRanges(normalized4, ranges);
   for (const token of tokenizeWithPrism(sanitized, "markdown")) {
     if (token.format === "markdown" && token.length > 0) allTokens.push(token);
   }
@@ -36537,7 +36580,7 @@ function tokenizeMarkdown(source, id, options) {
       return token;
     });
   }
-  return createTokensMaps(id, normalized3, processedTokens, options);
+  return createTokensMaps(id, normalized4, processedTokens, options);
 }
 var punctuation2 = {
   // eslint-disable-next-line @typescript-eslint/camelcase
@@ -38128,30 +38171,31 @@ import { basename as basename5, join as join25 } from "node:path";
 var cloneTimeoutMs = 3e5;
 var refreshAfterMs = 24 * 60 * 60 * 1e3;
 var inFlight = /* @__PURE__ */ new Map();
-var ensure = async ({ repo, workspaceDir, forceRefresh, repoDir }) => {
+var ensure = async ({ repo, workspaceDir, forceRefresh, fullHistory, repoDir }) => {
   const existing = await stat2(join25(repoDir, ".git")).catch(() => void 0);
   if (!existing) {
     await rm2(repoDir, { recursive: true, force: true }).catch(() => void 0);
-    const clone3 = await runCommand({ command: `git clone --depth 1 '${repo}' '${repoDir}'`, cwd: workspaceDir, timeoutMs: cloneTimeoutMs });
+    const clone3 = await runCommand({ command: `git clone ${fullHistory ? "" : "--depth 1 "}'${repo}' '${repoDir}'`, cwd: workspaceDir, timeoutMs: cloneTimeoutMs });
     if (clone3.exitCode !== 0) {
       throw new Error(`clone failed for ${repo}: ${`${clone3.stdout}
 ${clone3.stderr}`.trim().slice(0, 300)}`);
     }
     return repoDir;
   }
-  if (forceRefresh || Date.now() - existing.mtimeMs > refreshAfterMs) {
-    await runCommand({ command: "git fetch --depth 1 origin && git reset --hard FETCH_HEAD", cwd: repoDir, timeoutMs: cloneTimeoutMs }).catch(() => void 0);
+  if (forceRefresh || fullHistory || Date.now() - existing.mtimeMs > refreshAfterMs) {
+    const refresh = fullHistory ? "{ git fetch --unshallow origin || git fetch origin; } && git reset --hard FETCH_HEAD" : "git fetch --depth 1 origin && git reset --hard FETCH_HEAD";
+    await runCommand({ command: refresh, cwd: repoDir, timeoutMs: cloneTimeoutMs }).catch(() => void 0);
   }
   return repoDir;
 };
-var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false }) => {
+var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false, fullHistory = false }) => {
   const dirName = basename5(repo, ".git").replace(/[^A-Za-z0-9._-]/g, "-") || "repo";
   const repoDir = join25(workspaceDir, dirName);
   const running = inFlight.get(repoDir);
   if (running) {
     return running;
   }
-  const operation = ensure({ repo, workspaceDir, forceRefresh, repoDir }).finally(() => inFlight.delete(repoDir));
+  const operation = ensure({ repo, workspaceDir, forceRefresh, fullHistory, repoDir }).finally(() => inFlight.delete(repoDir));
   inFlight.set(repoDir, operation);
   return operation;
 };
@@ -38242,7 +38286,6 @@ var runTraverse = async ({
   driver,
   question,
   connectionsDir,
-  mode = TraverseMode.Answer,
   dataOfInterest,
   start,
   budget,
@@ -38282,7 +38325,6 @@ var runTraverse = async ({
     }
     state = {
       question,
-      mode,
       dataOfInterest: dataOfInterest ?? question,
       budget: { maxHops: budget ?? defaultBudget, used: 0 },
       frontier: seeds.map((edge) => ({ edge, reason: `seeded from --start ${start}` })),
@@ -38408,11 +38450,294 @@ var runTraverse = async ({
   return { status, state, runId, runDir, error: void 0 };
 };
 
-// packages/engine/src/runBuildMap.ts
+// packages/engine/src/runDebug.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
-import { mkdir as mkdir9, readdir as readdir5, readFile as readFile21, writeFile as writeFile6 } from "node:fs/promises";
+import { appendFile as appendFile6, mkdir as mkdir9, readFile as readFile21, writeFile as writeFile6 } from "node:fs/promises";
 import { homedir as homedir2 } from "node:os";
-import { isAbsolute as isAbsolute2, join as join29 } from "node:path";
+import { isAbsolute as isAbsolute3, join as join29 } from "node:path";
+
+// packages/engine/src/findConnectingDoc.ts
+var normalized3 = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+var findConnectingDoc = ({ lead, node, edges }) => {
+  const target = normalized3(lead.target);
+  if (!target) {
+    return [];
+  }
+  const downstream = lead.direction === "downstream";
+  const hit = (id, doc) => ({ edge: id, node: downstream ? doc.to : doc.from, anchor: downstream ? doc.toAnchor : doc.fromAnchor });
+  const plain = [];
+  const transports = [];
+  for (const [id, doc] of edges) {
+    const originMatches = downstream ? doc.from === node : doc.to === node;
+    if (!originMatches || doc.type !== lead.kind) {
+      continue;
+    }
+    if (doc.operations.length > 0) {
+      transports.push({ hit: hit(id, doc), opMatch: doc.operations.some((op) => op.name !== "" && target.includes(normalized3(op.name))) });
+      continue;
+    }
+    const label = id.split("--")[2] ?? "";
+    const keys = [label, doc.fromAnchor?.pattern ?? "", doc.toAnchor?.pattern ?? ""].map(normalized3).filter(Boolean);
+    if (keys.some((key) => key.includes(target) || target.includes(key))) {
+      plain.push(hit(id, doc));
+    }
+  }
+  const opMatched = transports.filter((t) => t.opMatch);
+  const transportResults = (opMatched.length > 0 ? opMatched : transports).map((t) => t.hit);
+  return [...plain, ...transportResults];
+};
+
+// packages/engine/src/resolveSeedNode.ts
+import { basename as basename6, isAbsolute as isAbsolute2, relative as relative2 } from "node:path";
+var normalizeRepo = (value) => value.trim().toLowerCase().replace(/^(git\+)?(ssh|https?):\/\//, "").replace(/^git@/, "").replace(/:/g, "/").replace(/\.git$/, "").replace(/\/+$/, "");
+var resolveSeedNode = async ({ cwd, registry: registry3, edges, start }) => {
+  const hasEdges = (node2) => [...edges.values()].some((doc) => doc.from === node2 || doc.to === node2);
+  const advisory = (node2) => hasEdges(node2) ? [] : [`'${node2}' has no mapped edges \u2014 local-only debug (no cross-repo hops); register + build-map to enable them`];
+  if (start) {
+    const source = registry3.get(start);
+    if (!source) {
+      throw new Error(`--start '${start}' is not a registered node. Known: ${[...registry3.keys()].join(", ") || "none"}`);
+    }
+    return {
+      node: start,
+      workspace: { kind: "clone", repo: source.repo, scope: source.path },
+      registered: true,
+      notes: [`seed: ${start} (--start) \u2014 full-history clone`, ...advisory(start)]
+    };
+  }
+  const root = (await runCommand({ command: "git rev-parse --show-toplevel", cwd }).catch(() => void 0))?.stdout.trim() ?? "";
+  const remote = (await runCommand({ command: "git remote get-url origin", cwd }).catch(() => void 0))?.stdout.trim() ?? "";
+  const subpath = root ? relative2(root, cwd) : "";
+  const withinPath = (path) => {
+    if (!path) {
+      return true;
+    }
+    const rel = relative2(path, subpath || ".");
+    return rel === "" || !rel.startsWith("..") && !isAbsolute2(rel);
+  };
+  const repoNodes = [...registry3.entries()].filter(([, source]) => {
+    const key = normalizeRepo(source.repo);
+    return remote && key === normalizeRepo(remote) || root && key === normalizeRepo(root);
+  });
+  if (repoNodes.length === 0) {
+    const node2 = basename6(root || cwd) || "local";
+    return {
+      node: node2,
+      workspace: { kind: "local", path: cwd },
+      registered: false,
+      notes: [`CWD repo is not in the map \u2014 local-only debug as '${node2}' (no cross-repo hops; register it + build-map to enable them)`]
+    };
+  }
+  const pathMatches = repoNodes.filter(([, source]) => withinPath(source.path));
+  if (pathMatches.length === 0) {
+    throw new Error(`CWD is in the repo but not inside a registered package \u2014 pass --start to pick a node: ${repoNodes.map(([node2]) => node2).join(", ")}`);
+  }
+  if (pathMatches.length > 1) {
+    throw new Error(`CWD matches multiple nodes (${pathMatches.map(([node2]) => node2).join(", ")}) \u2014 pass --start to pick one`);
+  }
+  const node = pathMatches[0][0];
+  return {
+    node,
+    workspace: { kind: "local", path: cwd },
+    registered: true,
+    notes: [`seed: inferred node ${node} from CWD \u2014 local working tree`, ...advisory(node)]
+  };
+};
+
+// packages/engine/src/runDebug.ts
+var defaultBudget2 = 12;
+var defaultHopTimeoutMs2 = 30 * 60 * 1e3;
+var runDebug = async ({
+  cwd,
+  driver,
+  symptoms,
+  connectionsDir,
+  start,
+  at,
+  suspectCommit,
+  budget,
+  workspaceDir = join29(homedir2(), ".lightsout", "traverse-repos"),
+  resumeRunId,
+  model,
+  permissionMode,
+  timeoutMs = defaultHopTimeoutMs2,
+  onProgress
+}) => {
+  const progress = onProgress ?? (() => void 0);
+  const mapDir = isAbsolute3(connectionsDir) ? connectionsDir : join29(cwd, connectionsDir);
+  const edges = await readConnectionMap({ connectionsDir: mapDir });
+  const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
+  const runId = resumeRunId ?? `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/:/g, "-")}-${randomUUID4().slice(0, 8)}`;
+  const runDir = join29(cwd, ".lightsout", "debug", runId);
+  const tracePath = join29(runDir, "trace.json");
+  await mkdir9(runDir, { recursive: true });
+  await mkdir9(workspaceDir, { recursive: true });
+  let state;
+  if (resumeRunId) {
+    const raw = await readFile21(tracePath, "utf8").catch(() => {
+      throw new Error(`no debug trace found for run ${resumeRunId} at ${tracePath}`);
+    });
+    state = DebugTraceState.parse(JSON.parse(raw));
+    if (state.budget.used >= state.budget.maxHops) {
+      state.budget.maxHops = state.budget.used + (budget ?? state.budget.maxHops);
+    }
+    progress(`resuming debug ${runId}: ${state.frontier.length} lead(s), ${state.budget.used}/${state.budget.maxHops} hops used`);
+  } else {
+    const seed = await resolveSeedNode({ cwd, registry: registry3, edges, start });
+    for (const note of seed.notes) {
+      progress(note);
+    }
+    const hypothesis = suspectCommit ? `${symptoms} (suspect commit ${suspectCommit})` : symptoms;
+    state = {
+      seed: { node: seed.node, workspace: seed.workspace },
+      symptoms,
+      hypothesis,
+      budget: { maxHops: budget ?? defaultBudget2, used: 0 },
+      frontier: [{ node: seed.node, viaEdge: null, direction: "seed", hypothesis, reason: seed.notes[0] ?? "seed" }],
+      visited: [],
+      hops: [],
+      gaps: [],
+      drift: [],
+      resolution: null
+    };
+    progress(`debug ${runId}: seeded at ${seed.node} \xB7 budget ${state.budget.maxHops} hops`);
+  }
+  const writeTrace = async () => writeFile6(tracePath, `${JSON.stringify(state, void 0, "	")}
+`, "utf8");
+  await writeTrace();
+  const enqueue = (entry) => {
+    const key = `${entry.node}+${entry.direction}`;
+    if (!state.visited.includes(key) && !state.frontier.some((f) => `${f.node}+${f.direction}` === key)) {
+      state.frontier.push(entry);
+    }
+  };
+  while (state.frontier.length > 0 && state.budget.used < state.budget.maxHops && state.resolution === null) {
+    const next = state.frontier.shift();
+    if (!next) {
+      continue;
+    }
+    const key = `${next.node}+${next.direction}`;
+    if (state.visited.includes(key)) {
+      continue;
+    }
+    const isSeed = next.direction === "seed";
+    const source = registry3.get(next.node);
+    if (!isSeed && !source) {
+      state.visited.push(key);
+      state.hops.push({ node: next.node, viaEdge: next.viaEdge, direction: next.direction, note: "non-repo node \u2014 no code to investigate; crossed mechanically" });
+      for (const [id, doc] of edges) {
+        const onward = next.direction === "downstream" ? doc.from === next.node : doc.to === next.node;
+        if (onward) {
+          enqueue({
+            node: next.direction === "downstream" ? doc.to : doc.from,
+            viaEdge: id,
+            direction: next.direction,
+            hypothesis: next.hypothesis,
+            reason: `continues ${next.direction} of non-repo node ${next.node}`
+          });
+        }
+      }
+      progress(`hop \u2014: ${next.node} (non-repo node, crossed mechanically)`);
+      await writeTrace();
+      continue;
+    }
+    let workspace;
+    let scope;
+    let entryAnchor;
+    if (isSeed) {
+      const seedWs = state.seed.workspace;
+      scope = seedWs.kind === "clone" ? seedWs.scope : void 0;
+      workspace = seedWs.kind === "local" ? seedWs.path : await ensureNodeWorkspace({ repo: seedWs.repo, workspaceDir, fullHistory: true });
+      entryAnchor = at ? { path: at.split(":")[0] ?? at, pattern: at } : void 0;
+    } else {
+      if (!source) {
+        continue;
+      }
+      const doc = next.viaEdge ? edges.get(next.viaEdge) : void 0;
+      const anchor2 = doc ? next.direction === "downstream" ? doc.toAnchor : doc.fromAnchor : void 0;
+      if (!anchor2) {
+        state.gaps.push({ node: next.node, detail: `edge '${next.viaEdge}' has no ${next.direction === "downstream" ? "to" : "from"}-anchor \u2014 cannot enter (repair with map-connection)` });
+        state.visited.push(key);
+        await writeTrace();
+        continue;
+      }
+      scope = source.path;
+      entryAnchor = anchor2;
+      workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir, fullHistory: true });
+    }
+    progress(`hop ${state.budget.used + 1}/${state.budget.maxHops}: ${next.node} (${next.direction}) \u2014 ${next.reason}`);
+    const hopNumber = state.hops.length + 1;
+    const { report, failure, rateLimited, usage: usage2 } = await invokeAgentWithContract({
+      driver,
+      cwd: workspace,
+      invocation: buildDebugHopInvocation({ node: next.node, workspace, scope, symptoms: state.symptoms, hypothesis: next.hypothesis, entryAnchor, suspectCommit: isSeed ? suspectCommit : void 0 }),
+      contract: DebugHopReport,
+      model,
+      permissionMode,
+      timeoutMs,
+      onEvent: (event) => {
+        void appendFile6(join29(runDir, `hop-${hopNumber}-stream.jsonl`), `${JSON.stringify(event)}
+`, "utf8").catch(() => void 0);
+      },
+      onRejectedOutput: async ({ text, attempt }) => {
+        await writeFile6(join29(runDir, `hop-${hopNumber}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      }
+    });
+    if (usage2) {
+      progress(`hop ${state.budget.used + 1} usage: out ${usage2.outputTokens} \xB7 cache-read ${usage2.cacheReadTokens} \xB7 $${usage2.costUsd.toFixed(2)}`);
+    }
+    if (rateLimited) {
+      state.frontier.unshift(next);
+      await writeTrace();
+      return { status: "paused-rate-limit", state, runId, runDir, error: `rate limit reached \u2014 resume with: lightsout debug --run ${runId}` };
+    }
+    if (!report) {
+      state.frontier.unshift(next);
+      await writeTrace();
+      return { status: "failed", state, runId, runDir, error: `debug hop into ${next.node} failed: ${failure}` };
+    }
+    state.budget.used += 1;
+    state.visited.push(key);
+    state.hops.push({ node: next.node, viaEdge: next.viaEdge, direction: next.direction, report });
+    if (report.anchorCheck && report.anchorCheck.status !== "ok") {
+      state.drift.push({ node: next.node, viaEdge: next.viaEdge, status: report.anchorCheck.status, foundAt: report.anchorCheck.foundAt });
+    }
+    for (const gap of report.gaps) {
+      state.gaps.push({ node: next.node, detail: gap });
+    }
+    if (report.verdict === "root-cause" && report.rootCause && report.proposedFix) {
+      state.resolution = { node: next.node, at: report.rootCause.at, explanation: report.rootCause.explanation, proposedFix: report.proposedFix };
+      progress(`root cause found at ${next.node} \u2014 ${report.rootCause.at}`);
+      await writeTrace();
+      break;
+    }
+    if (report.verdict === "points-elsewhere" && report.nextLead) {
+      const matches = findConnectingDoc({ lead: report.nextLead, node: next.node, edges });
+      const lead = report.nextLead;
+      if (matches.length === 1 && matches[0]) {
+        enqueue({ node: matches[0].node, viaEdge: matches[0].edge, direction: lead.direction, hypothesis: lead.refinedHypothesis, reason: `${lead.direction} \u2014 ${lead.why}` });
+      } else if (matches.length === 0) {
+        state.gaps.push({ node: next.node, detail: `lead ${lead.direction} via ${lead.kind} '${lead.target}' at ${lead.at} matches no connection doc \u2014 unmapped (GAP); draft it with map-connection` });
+      } else {
+        state.gaps.push({ node: next.node, detail: `ambiguous ${lead.direction} lead (${lead.kind} '${lead.target}') \u2014 matches ${matches.map((m) => m.edge).join(", ")}; disambiguate the docs' anchors` });
+      }
+    }
+    state.hypothesis = next.hypothesis;
+    await writeTrace();
+  }
+  const status = state.resolution ? "resolved" : state.frontier.length === 0 ? "unresolved" : "budget-exhausted";
+  await writeTrace();
+  progress(
+    status === "resolved" ? `debug complete: root cause at ${state.resolution?.node} (${state.hops.length} hop(s), ${state.gaps.length} gap(s))` : status === "unresolved" ? `debug exhausted the trail unresolved: ${state.hops.length} hop(s), ${state.gaps.length} gap(s) \u2014 the cause is beyond the mapped edges` : `budget exhausted (${state.budget.used}/${state.budget.maxHops}): ${state.frontier.length} lead(s) open \u2014 resume with: lightsout debug --run ${runId}`
+  );
+  return { status, state, runId, runDir, error: void 0 };
+};
+
+// packages/engine/src/runBuildMap.ts
+import { randomUUID as randomUUID5 } from "node:crypto";
+import { mkdir as mkdir10, readdir as readdir5, readFile as readFile22, writeFile as writeFile7 } from "node:fs/promises";
+import { homedir as homedir3 } from "node:os";
+import { isAbsolute as isAbsolute4, join as join30 } from "node:path";
 
 // packages/engine/src/joinInventories.ts
 var sortOps = (ops) => [...ops].sort((x, y) => x.name.localeCompare(y.name));
@@ -38560,14 +38885,14 @@ var runBuildMap = async ({
   nodes,
   connectionsDir,
   rescan = false,
-  workspaceDir = join29(homedir2(), ".lightsout", "traverse-repos"),
+  workspaceDir = join30(homedir3(), ".lightsout", "traverse-repos"),
   model,
   permissionMode,
   timeoutMs = defaultScanTimeoutMs,
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute2(connectionsDir) ? connectionsDir : join29(cwd, connectionsDir);
+  const mapDir = isAbsolute4(connectionsDir) ? connectionsDir : join30(cwd, connectionsDir);
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const targets = nodes === "all" ? [...registry3.keys()] : nodes;
   for (const node of targets) {
@@ -38575,14 +38900,14 @@ var runBuildMap = async ({
       throw new Error(`node '${node}' is not in repos.yaml \u2014 register it first. Known nodes: ${[...registry3.keys()].join(", ")}`);
     }
   }
-  const inventoriesDir = join29(cwd, ".lightsout", "traverse", "inventories");
-  const runId = `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/:/g, "-")}-${randomUUID4().slice(0, 8)}`;
-  const runDir = join29(cwd, ".lightsout", "traverse", "map-runs", runId);
-  await mkdir9(inventoriesDir, { recursive: true });
-  await mkdir9(runDir, { recursive: true });
-  await mkdir9(workspaceDir, { recursive: true });
+  const inventoriesDir = join30(cwd, ".lightsout", "traverse", "inventories");
+  const runId = `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/:/g, "-")}-${randomUUID5().slice(0, 8)}`;
+  const runDir = join30(cwd, ".lightsout", "traverse", "map-runs", runId);
+  await mkdir10(inventoriesDir, { recursive: true });
+  await mkdir10(runDir, { recursive: true });
+  await mkdir10(workspaceDir, { recursive: true });
   const savedInventory = async (node) => {
-    const raw = await readFile21(join29(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
+    const raw = await readFile22(join30(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
     if (raw === void 0) {
       return void 0;
     }
@@ -38638,7 +38963,7 @@ var runBuildMap = async ({
       permissionMode,
       timeoutMs,
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile6(join29(runDir, `scan-${node}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile7(join30(runDir, `scan-${node}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (usage2) {
@@ -38654,7 +38979,7 @@ var runBuildMap = async ({
       return;
     }
     const stamped = { ...report, scannerVersion: scanEdgesVersion };
-    await writeFile6(join29(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, void 0, "	")}
+    await writeFile7(join30(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, void 0, "	")}
 `, "utf8");
     scanned.push(node);
     progress(`scan ${node}: ${report.edges.length} edge sighting(s), ${report.gaps.length} gap(s) \u2014 inventory saved`);
@@ -38685,7 +39010,7 @@ var runBuildMap = async ({
   }
   const edges = await readConnectionMap({ connectionsDir: mapDir }).catch(() => /* @__PURE__ */ new Map());
   const joined = MapJoin.parse(joinInventories({ inventories: pooled, edges }));
-  await writeFile6(join29(runDir, "join.json"), `${JSON.stringify(joined, void 0, "	")}
+  await writeFile7(join30(runDir, "join.json"), `${JSON.stringify(joined, void 0, "	")}
 `, "utf8");
   progress(
     `join: ${joined.matched.length} new edge(s), ${joined.confirmed.length} confirmed, ${joined.drifted.length} drifted, ${joined.orphansOut.length}/${joined.orphansIn.length} orphan(s) out/in, ${joined.noise.length} noise`
@@ -38695,36 +39020,36 @@ var runBuildMap = async ({
 
 // packages/engine/src/authorConnectionDocs.ts
 var import_yaml5 = __toESM(require_dist(), 1);
-import { writeFile as writeFile9 } from "node:fs/promises";
-import { join as join31 } from "node:path";
+import { writeFile as writeFile10 } from "node:fs/promises";
+import { join as join32 } from "node:path";
 
 // packages/engine/src/patchConnectionDoc.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import { readFile as readFile22, writeFile as writeFile7 } from "node:fs/promises";
+import { readFile as readFile23, writeFile as writeFile8 } from "node:fs/promises";
 var frontmatterPattern2 = /^---\n([\s\S]*?)\n---/;
 var patchConnectionDoc = async ({ path, patch }) => {
-  const text = await readFile22(path, "utf8");
+  const text = await readFile23(path, "utf8");
   const match = text.match(frontmatterPattern2);
   if (!match?.[1]) {
     throw new Error(`${path} has no frontmatter to patch`);
   }
   const raw = (0, import_yaml3.parse)(match[1]);
   patch(raw);
-  await writeFile7(path, text.replace(frontmatterPattern2, `---
+  await writeFile8(path, text.replace(frontmatterPattern2, `---
 ${(0, import_yaml3.stringify)(raw).trimEnd()}
 ---`), "utf8");
 };
 
 // packages/engine/src/regenerateConnectionIndex.ts
 var import_yaml4 = __toESM(require_dist(), 1);
-import { readdir as readdir6, readFile as readFile23, writeFile as writeFile8 } from "node:fs/promises";
-import { join as join30 } from "node:path";
+import { readdir as readdir6, readFile as readFile24, writeFile as writeFile9 } from "node:fs/promises";
+import { join as join31 } from "node:path";
 var frontmatterPattern3 = /^---\n([\s\S]*?)\n---/;
 var regenerateConnectionIndex = async ({ connectionsDir }) => {
   const entries = await readdir6(connectionsDir);
   const rows = [];
   for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md").sort()) {
-    const text = await readFile23(join30(connectionsDir, name), "utf8");
+    const text = await readFile24(join31(connectionsDir, name), "utf8");
     const frontmatter = text.match(frontmatterPattern3)?.[1];
     const parsed = frontmatter ? ConnectionDoc.safeParse((0, import_yaml4.parse)(frontmatter)) : void 0;
     if (!parsed?.success) {
@@ -38743,7 +39068,7 @@ var regenerateConnectionIndex = async ({ connectionsDir }) => {
     ...rows,
     ""
   ].join("\n");
-  await writeFile8(join30(connectionsDir, "INDEX.md"), index, "utf8");
+  await writeFile9(join31(connectionsDir, "INDEX.md"), index, "utf8");
   return { edgeCount: rows.length };
 };
 
@@ -38794,7 +39119,7 @@ var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNod
       `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`,
       ...edge.operations.length > 0 || edge.operationDrift.callerOnly.length > 0 ? ["", ...renderOperations(edge.operations, edge.operationDrift)] : []
     ];
-    await writeFile9(join31(connectionsDir, `${id}.md`), `---
+    await writeFile10(join32(connectionsDir, `${id}.md`), `---
 ${frontmatter}
 ---
 
@@ -38804,7 +39129,7 @@ ${body.join("\n")}
   }
   for (const entry of reviewedJoin.confirmed) {
     await patchConnectionDoc({
-      path: join31(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      path: join32(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         const from = raw["from"];
         const to = raw["to"];
@@ -38817,7 +39142,7 @@ ${body.join("\n")}
   }
   for (const entry of reviewedJoin.drifted) {
     await patchConnectionDoc({
-      path: join31(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      path: join32(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         raw[`${entry.side}-anchor`] = { path: entry.foundAt.split(":")[0], pattern: entry.pattern };
       }
@@ -38828,20 +39153,20 @@ ${body.join("\n")}
 };
 
 // packages/engine/src/verifyConnectionAnchors.ts
-import { readFile as readFile24 } from "node:fs/promises";
-import { homedir as homedir3 } from "node:os";
-import { isAbsolute as isAbsolute3, join as join32 } from "node:path";
+import { readFile as readFile25 } from "node:fs/promises";
+import { homedir as homedir4 } from "node:os";
+import { isAbsolute as isAbsolute5, join as join33 } from "node:path";
 var gitTimeoutMs4 = 6e4;
 var verifyConnectionAnchors = async ({
   cwd,
   connectionsDir,
   docIds,
   repair = false,
-  workspaceDir = join32(homedir3(), ".lightsout", "traverse-repos"),
+  workspaceDir = join33(homedir4(), ".lightsout", "traverse-repos"),
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute3(connectionsDir) ? connectionsDir : join32(cwd, connectionsDir);
+  const mapDir = isAbsolute5(connectionsDir) ? connectionsDir : join33(cwd, connectionsDir);
   const edges = await readConnectionMap({ connectionsDir: mapDir });
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const targets = docIds ?? [...edges.keys()];
@@ -38877,12 +39202,12 @@ var verifyConnectionAnchors = async ({
         continue;
       }
       const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir, forceRefresh: true });
-      const fileText = await readFile24(join32(workspace, anchor2.path), "utf8").catch(() => void 0);
+      const fileText = await readFile25(join33(workspace, anchor2.path), "utf8").catch(() => void 0);
       if (fileText?.includes(anchor2.pattern)) {
         results.push({ doc: id, side, node, status: "ok" });
         if (repair && head) {
           await patchConnectionDoc({
-            path: join32(mapDir, `${id}.md`),
+            path: join33(mapDir, `${id}.md`),
             patch: (raw) => {
               raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head };
             }
@@ -38901,7 +39226,7 @@ var verifyConnectionAnchors = async ({
         results.push({ doc: id, side, node, status: "drifted", foundAt });
         if (repair) {
           await patchConnectionDoc({
-            path: join32(mapDir, `${id}.md`),
+            path: join33(mapDir, `${id}.md`),
             patch: (raw) => {
               raw[`${side}-anchor`] = { path: foundAt.split(":")[0], pattern: anchor2.pattern };
               raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head ?? null };
@@ -38953,103 +39278,31 @@ var parseConnectionsSource = ({ source }) => {
 };
 
 // packages/engine/src/resolveConnectionsSource.ts
-import { homedir as homedir4 } from "node:os";
-import { isAbsolute as isAbsolute4, join as join33 } from "node:path";
-var resolveConnectionsSource = async ({ cwd, source, workspaceDir = join33(homedir4(), ".lightsout", "traverse-repos") }) => {
+import { homedir as homedir5 } from "node:os";
+import { isAbsolute as isAbsolute6, join as join34 } from "node:path";
+var resolveConnectionsSource = async ({ cwd, source, workspaceDir = join34(homedir5(), ".lightsout", "traverse-repos") }) => {
   const parsed = parseConnectionsSource({ source });
   if (parsed.kind === "local") {
-    return { dir: isAbsolute4(parsed.path) ? parsed.path : join33(cwd, parsed.path), remote: false, repo: void 0 };
+    return { dir: isAbsolute6(parsed.path) ? parsed.path : join34(cwd, parsed.path), remote: false, repo: void 0 };
   }
   const repoDir = await ensureNodeWorkspace({ repo: parsed.repo, workspaceDir, forceRefresh: true });
-  return { dir: parsed.subpath ? join33(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
-};
-
-// packages/engine/src/renderTrace.ts
-var labelOf = (edgeId) => edgeId.split("--")[2] ?? edgeId;
-var renderTrace = ({ state, edges, mode }) => {
-  const header = [`# ${state.question}`, "", `mode: ${mode} \xB7 hops: ${state.hops.length} \xB7 gaps: ${state.gaps.length} \xB7 drift: ${state.drift.length}`, ""];
-  const chain = state.hops.map((hop, index) => {
-    if (!hop.report) {
-      return `${index + 1}. **${hop.node}** \u2014 ${hop.note ?? "non-repo node"}`;
-    }
-    const lines = [`${index + 1}. **${hop.node}** via \`${hop.edge}\` (${hop.report.confidence})`, `   ${hop.report.answerContribution}`];
-    for (const transform2 of hop.report.transforms) {
-      lines.push(`   - \`${transform2.at}\` \u2014 ${transform2.what}`);
-    }
-    return lines.join("\n");
-  });
-  const gaps = state.gaps.length > 0 ? ["", "## Gaps \u2014 the map ends here", "", ...state.gaps.map((gap) => `- ${gap.node}: ${gap.detail}${gap.exit ? ` (\`${gap.exit.kind}\` \u2192 ${gap.exit.target} at \`${gap.exit.at}\`)` : ""}`)] : [];
-  if (mode === TraverseMode.Diagram) {
-    const arrows = state.hops.map((hop) => {
-      const doc = edges.get(hop.edge);
-      return doc ? `	${doc.from} -->|${doc.type}: ${labelOf(hop.edge)}| ${doc.to}` : void 0;
-    }).filter((line) => line !== void 0);
-    const notes = state.hops.flatMap((hop) => hop.report?.transforms.map((transform2) => `- **${hop.node}** \`${transform2.at}\`: ${transform2.what}`) ?? []);
-    return [...header, "```mermaid", "flowchart LR", ...arrows, "```", ...notes.length > 0 ? ["", "## Transforms along the flow", "", ...notes] : [], ...gaps, ""].join("\n");
-  }
-  if (mode === TraverseMode.Doc) {
-    const sections = state.hops.map((hop, index) => {
-      if (!hop.report) {
-        return `## ${index + 1}. ${hop.node}
-
-${hop.note ?? "non-repo node \u2014 crossed mechanically"}`;
-      }
-      const doc = edges.get(hop.edge);
-      const parts = [
-        `## ${index + 1}. ${hop.node}`,
-        "",
-        `**Arrives** via \`${hop.edge}\`${doc?.type ? ` (${doc.type})` : ""} \u2014 entry: ${hop.report.entry}`
-      ];
-      if (hop.report.transforms.length > 0) {
-        parts.push("", "**Transforms:**", ...hop.report.transforms.map((transform2) => `- \`${transform2.at}\` \u2014 ${transform2.what}`));
-      }
-      if (hop.report.exits.length > 0) {
-        parts.push("", "**Leaves:**", ...hop.report.exits.map((exit) => `- ${exit.kind} \u2192 ${exit.target} at \`${exit.at}\` \u2014 carries ${exit.carries}${exit.conditional ? ` (when ${exit.conditional})` : ""}`));
-      }
-      return parts.join("\n");
-    });
-    return [...header, ...sections.flatMap((section) => [section, ""]), ...gaps, ""].join("\n");
-  }
-  if (mode === TraverseMode.Plan) {
-    const sections = state.hops.filter((hop) => hop.report).map((hop) => {
-      const report = hop.report;
-      const doc = edges.get(hop.edge);
-      const files = [...new Set([report?.entry ?? "", ...report?.transforms.map((transform2) => transform2.at) ?? []].map((at) => at.split(":")[0]).filter(Boolean))];
-      const schemaGates = [doc?.schema?.from, doc?.schema?.to].filter(Boolean);
-      return [
-        `## ${hop.node}`,
-        "",
-        `- establishes: ${report?.answerContribution ?? ""}`,
-        `- files on the trail: ${files.map((file2) => `\`${file2}\``).join(", ") || "none cited"}`,
-        ...schemaGates.length > 0 ? [`- contract change on \`${hop.edge}\` is gated by: ${schemaGates.map((file2) => `\`${file2}\``).join(", ")}`] : []
-      ].join("\n");
-    });
-    return [
-      ...header,
-      "Per-repo change surface derived from the trace \u2014 the planner decides WHAT to change; these are the verified places and contracts it touches.",
-      "",
-      ...sections.flatMap((section) => [section, ""]),
-      ...gaps,
-      ""
-    ].join("\n");
-  }
-  return [...header, ...chain.flatMap((entry) => [entry, ""]), ...gaps, ""].join("\n");
+  return { dir: parsed.subpath ? join34(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
 };
 
 // packages/engine/src/draftConnectionDocs.ts
-import { mkdir as mkdir10, readFile as readFile25, writeFile as writeFile10 } from "node:fs/promises";
-import { isAbsolute as isAbsolute5, join as join34 } from "node:path";
+import { mkdir as mkdir11, readFile as readFile26, writeFile as writeFile11 } from "node:fs/promises";
+import { isAbsolute as isAbsolute7, join as join35 } from "node:path";
 var slugOf2 = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
 var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
-  const mapDir = isAbsolute5(connectionsDir) ? connectionsDir : join34(cwd, connectionsDir);
-  const tracePath = join34(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
-  const raw = await readFile25(tracePath, "utf8").catch(() => {
+  const mapDir = isAbsolute7(connectionsDir) ? connectionsDir : join35(cwd, connectionsDir);
+  const tracePath = join35(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
+  const raw = await readFile26(tracePath, "utf8").catch(() => {
     throw new Error(`no trace found for run ${traverseRunId} at ${tracePath}`);
   });
   const state = TraceState.parse(JSON.parse(raw));
-  const draftsDir = join34(mapDir, "drafts");
+  const draftsDir = join35(mapDir, "drafts");
   const drafted = [];
-  await mkdir10(draftsDir, { recursive: true });
+  await mkdir11(draftsDir, { recursive: true });
   for (const gap of state.gaps) {
     if (!gap.exit) {
       continue;
@@ -39070,7 +39323,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
       "",
       `DRAFT from traverse run ${traverseRunId}: ${gap.node} emits ${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at}, carrying ${gap.exit.carries}. Receiver unknown \u2014 ${gap.detail}`
     ].join("\n");
-    await writeFile10(join34(draftsDir, `${id}.md`), `${content}
+    await writeFile11(join35(draftsDir, `${id}.md`), `${content}
 `, "utf8");
     drafted.push(id);
   }
@@ -39079,7 +39332,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
 
 // packages/engine/src/runPromptImprovement.ts
 import { readdir as readdir7 } from "node:fs/promises";
-import { join as join35 } from "node:path";
+import { join as join36 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -39087,8 +39340,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir7(join35(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join35(promptsDir, file2));
+  const files = await readdir7(join36(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join36(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -39102,19 +39355,19 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
 };
 
 // packages/engine/src/planWorkspaceDir.ts
-import { join as join36 } from "node:path";
-var planWorkspaceDir = ({ cwd, name }) => join36(cwd, ".lightsout", "plans", name);
+import { join as join37 } from "node:path";
+var planWorkspaceDir = ({ cwd, name }) => join37(cwd, ".lightsout", "plans", name);
 
 // packages/engine/src/resolvePlansDir.ts
-import { isAbsolute as isAbsolute6, join as join37 } from "node:path";
+import { isAbsolute as isAbsolute8, join as join38 } from "node:path";
 var resolvePlansDir = ({ cwd, flag, config: config2 }) => {
   const dir = flag ?? config2?.plansDir ?? ".claude/plans";
-  return isAbsolute6(dir) ? dir : join37(cwd, dir);
+  return isAbsolute8(dir) ? dir : join38(cwd, dir);
 };
 
 // packages/engine/src/verifyFacts.ts
-import { readFile as readFile26, stat as stat3 } from "node:fs/promises";
-import { join as join38 } from "node:path";
+import { readFile as readFile27, stat as stat3 } from "node:fs/promises";
+import { join as join39 } from "node:path";
 var scriptKeysOf = (raw) => {
   try {
     const parsed = JSON.parse(raw);
@@ -39127,7 +39380,7 @@ var verifyFacts = async ({ cwd, report }) => {
   const paths = report.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists4 = await stat3(join38(cwd, path)).then(
+    const exists4 = await stat3(join39(cwd, path)).then(
       () => true,
       () => false
     );
@@ -39141,10 +39394,10 @@ var verifyFacts = async ({ cwd, report }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join38(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join38(cwd, pkg, "package.json"))];
+    const manifestPaths = [join39(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join39(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile26(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile27(manifestPath, "utf8").catch(() => void 0);
       if (raw) {
         for (const key of scriptKeysOf(raw)) {
           available.add(key);
@@ -39170,22 +39423,22 @@ var verifyFacts = async ({ cwd, report }) => {
 };
 
 // packages/engine/src/readPlanFacts.ts
-import { readFile as readFile27 } from "node:fs/promises";
-import { join as join39 } from "node:path";
+import { readFile as readFile28 } from "node:fs/promises";
+import { join as join40 } from "node:path";
 var readPlanFacts = async ({ cwd, name }) => {
-  const factsPath = join39(planWorkspaceDir({ cwd, name }), "facts.json");
-  const raw = await readFile27(factsPath, "utf8").catch(() => {
+  const factsPath = join40(planWorkspaceDir({ cwd, name }), "facts.json");
+  const raw = await readFile28(factsPath, "utf8").catch(() => {
     throw new Error(`no facts found for plan ${name} at ${factsPath} \u2014 run: lightsout plan explore`);
   });
   return PlanFacts.parse(JSON.parse(raw));
 };
 
 // packages/engine/src/readDecisions.ts
-import { readFile as readFile28 } from "node:fs/promises";
-import { join as join40 } from "node:path";
+import { readFile as readFile29 } from "node:fs/promises";
+import { join as join41 } from "node:path";
 var readDecisions = async ({ cwd, name }) => {
-  const decisionsPath = join40(planWorkspaceDir({ cwd, name }), "decisions.json");
-  const raw = await readFile28(decisionsPath, "utf8").catch(() => {
+  const decisionsPath = join41(planWorkspaceDir({ cwd, name }), "decisions.json");
+  const raw = await readFile29(decisionsPath, "utf8").catch(() => {
     throw new Error(`no decisions found for plan ${name} at ${decisionsPath} \u2014 author decisions.json before drafting`);
   });
   return DecisionsRecord.parse(JSON.parse(raw));
@@ -39207,8 +39460,8 @@ var estimatePlanScope = ({ facts }) => {
 };
 
 // packages/engine/src/lintPlanStructure.ts
-import { readFile as readFile29, stat as stat4 } from "node:fs/promises";
-import { basename as basename6, join as join41 } from "node:path";
+import { readFile as readFile30, stat as stat4 } from "node:fs/promises";
+import { basename as basename7, join as join42 } from "node:path";
 
 // packages/engine/src/planCreatePaths.ts
 var pathFromLine = (line) => {
@@ -39368,7 +39621,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const packagesDir = config2?.packagesDir ?? "packages";
   const configCommands = new Set(Object.values(config2?.scripts ?? {}).filter((value) => typeof value === "string"));
   for (const planPath of planPaths) {
-    const content = await readFile29(planPath, "utf8").catch(() => void 0);
+    const content = await readFile30(planPath, "utf8").catch(() => void 0);
     if (content === void 0) {
       findings.push({
         check: StructuralCheck.SectionsPresent,
@@ -39378,33 +39631,33 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       });
       continue;
     }
-    const plan = parsePlan({ content, base: basename6(planPath) });
+    const plan = parsePlan({ content, base: basename7(planPath) });
     for (const section of requiredSections[plan.variant]) {
       if (!plan.sections.has(section)) {
         findings.push({
           check: StructuralCheck.SectionsPresent,
           issue: `missing required section '## ${section}' (${plan.variant} plan)`,
-          location: basename6(planPath),
+          location: basename7(planPath),
           fix: `add a '## ${section}' section`
         });
       }
     }
     for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-      if (!await pathExists(join41(cwd, path))) {
+      if (!await pathExists(join42(cwd, path))) {
         findings.push({
           check: StructuralCheck.PathExists,
           issue: `referenced path does not exist: ${path}`,
-          location: `${basename6(planPath)} \u2192 ${path}`,
+          location: `${basename7(planPath)} \u2192 ${path}`,
           fix: `correct the path or move it under Files to Create if it does not exist yet`
         });
       }
     }
     for (const path of plan.createPaths) {
-      if (await pathExists(join41(cwd, path))) {
+      if (await pathExists(join42(cwd, path))) {
         findings.push({
           check: StructuralCheck.PathExists,
           issue: `Files to Create path already exists: ${path}`,
-          location: `${basename6(planPath)} \u2192 ${path}`,
+          location: `${basename7(planPath)} \u2192 ${path}`,
           fix: `move it to Files to Modify, or choose a new path`
         });
       }
@@ -39418,10 +39671,10 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
         }
       }
     }
-    const manifestPaths = [join41(cwd, "package.json"), ...[...packageDirs].map((dir) => join41(cwd, packagesDir, dir, "package.json"))];
+    const manifestPaths = [join42(cwd, "package.json"), ...[...packageDirs].map((dir) => join42(cwd, packagesDir, dir, "package.json"))];
     const availableScripts = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile29(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile30(manifestPath, "utf8").catch(() => void 0);
       if (!raw) {
         continue;
       }
@@ -39445,7 +39698,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
         findings.push({
           check: StructuralCheck.ScriptExists,
           issue: `verification command '${command}' references package script '${scriptName}' which is not in any target package.json`,
-          location: `${basename6(planPath)} \u2192 Verification`,
+          location: `${basename7(planPath)} \u2192 Verification`,
           fix: `use a script that exists, or add '${scriptName}' to the package.json`
         });
       }
@@ -39456,7 +39709,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
         findings.push({
           check: StructuralCheck.NoPlaceholders,
           issue: `unresolved placeholder '${label}' present`,
-          location: `${basename6(planPath)}:${index + 1}`,
+          location: `${basename7(planPath)}:${index + 1}`,
           fix: `resolve '${label}' \u2014 every open question must be decided before the plan is written`
         });
       }
@@ -39466,7 +39719,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       findings.push({
         check: StructuralCheck.ScopeWithinGuardrail,
         issue: `plan touches ${sourceCount} source files, over the ${scopeGuardrail}-file executor guardrail`,
-        location: basename6(planPath),
+        location: basename7(planPath),
         fix: `split into phases so each stays under ${scopeGuardrail} source files`
       });
     }
@@ -39475,7 +39728,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
         findings.push({
           check: StructuralCheck.PackagesIdentifiable,
           issue: `path '${path}' is directly under ${packagesDir}/ with no package segment`,
-          location: `${basename6(planPath)} \u2192 ${path}`,
+          location: `${basename7(planPath)} \u2192 ${path}`,
           fix: `place the file under ${packagesDir}/<package>/\u2026`
         });
       }
@@ -39485,8 +39738,8 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
 };
 
 // packages/engine/src/runPlanExplore.ts
-import { appendFile as appendFile6, mkdir as mkdir11, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join42 } from "node:path";
+import { appendFile as appendFile7, mkdir as mkdir12, writeFile as writeFile12 } from "node:fs/promises";
+import { join as join43 } from "node:path";
 var defaultExploreTimeoutMs = 30 * 60 * 1e3;
 var runPlanExplore = async ({
   cwd,
@@ -39501,7 +39754,7 @@ var runPlanExplore = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir11(workspaceDir, { recursive: true });
+  await mkdir12(workspaceDir, { recursive: true });
   const targetAreas = areas && areas.length > 0 ? areas : [request];
   progress(`plan explore ${name}: ${targetAreas.length} explorer(s)`);
   const results = await Promise.all(
@@ -39515,11 +39768,11 @@ var runPlanExplore = async ({
         permissionMode,
         timeoutMs,
         onEvent: (event) => {
-          void appendFile6(join42(workspaceDir, `explore-${index}-stream.jsonl`), `${JSON.stringify(event)}
+          void appendFile7(join43(workspaceDir, `explore-${index}-stream.jsonl`), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
         },
         onRejectedOutput: async ({ text, attempt }) => {
-          await writeFile11(join42(workspaceDir, `explore-${index}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+          await writeFile12(join43(workspaceDir, `explore-${index}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
         }
       });
       return { area, ...outcome };
@@ -39552,8 +39805,8 @@ var runPlanExplore = async ({
     verification,
     verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const factsPath = join42(workspaceDir, "facts.json");
-  await writeFile11(factsPath, `${JSON.stringify(facts, void 0, "	")}
+  const factsPath = join43(workspaceDir, "facts.json");
+  await writeFile12(factsPath, `${JSON.stringify(facts, void 0, "	")}
 `, "utf8");
   const missingPart = verification.missingPaths.length > 0 ? `, ${verification.missingPaths.length} missing: ${verification.missingPaths.join(", ")}` : "";
   progress(
@@ -39563,8 +39816,8 @@ var runPlanExplore = async ({
 };
 
 // packages/engine/src/runPlanDraft.ts
-import { appendFile as appendFile7, mkdir as mkdir12, stat as stat5, writeFile as writeFile12 } from "node:fs/promises";
-import { isAbsolute as isAbsolute7, join as join43 } from "node:path";
+import { appendFile as appendFile8, mkdir as mkdir13, stat as stat5, writeFile as writeFile13 } from "node:fs/promises";
+import { isAbsolute as isAbsolute9, join as join44 } from "node:path";
 var defaultDraftTimeoutMs = 30 * 60 * 1e3;
 var maxDraftAttempts = 5;
 var exists = (path) => stat5(path).then(
@@ -39585,13 +39838,13 @@ var runPlanDraft = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir12(workspaceDir, { recursive: true });
+  await mkdir13(workspaceDir, { recursive: true });
   const facts = await readPlanFacts({ cwd, name });
   const decisions = await readDecisions({ cwd, name });
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const variant = scope ?? estimatePlanScope({ facts });
-  const outputs = variant === PlanVariant.Single ? [{ path: join43(plansDir, `${name}.md`), variant: PlanVariant.Single }] : [{ path: join43(plansDir, name, "overview.md"), variant: PlanVariant.Overview }];
-  await mkdir12(variant === PlanVariant.Single ? plansDir : join43(plansDir, name), { recursive: true });
+  const outputs = variant === PlanVariant.Single ? [{ path: join44(plansDir, `${name}.md`), variant: PlanVariant.Single }] : [{ path: join44(plansDir, name, "overview.md"), variant: PlanVariant.Overview }];
+  await mkdir13(variant === PlanVariant.Single ? plansDir : join44(plansDir, name), { recursive: true });
   progress(`plan draft ${name}: variant ${variant} (${scope ? "scope flag" : "estimated"})`);
   let findings = [];
   let planPaths = [];
@@ -39607,11 +39860,11 @@ var runPlanDraft = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile7(join43(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile8(join44(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
-        await writeFile12(join43(workspaceDir, `draft-rejected-${attempt}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile13(join44(workspaceDir, `draft-rejected-${attempt}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (rateLimited) {
@@ -39628,7 +39881,7 @@ var runPlanDraft = async ({
     if (report.status === PlanDraftStatus.Error) {
       return { status: "facts-error", workspaceDir, discrepancies: report.discrepancies };
     }
-    planPaths = report.filesWritten.map((file2) => isAbsolute7(file2.path) ? file2.path : join43(cwd, file2.path));
+    planPaths = report.filesWritten.map((file2) => isAbsolute9(file2.path) ? file2.path : join44(cwd, file2.path));
     const missing = [];
     for (const path of planPaths) {
       if (!await exists(path)) {
@@ -39656,16 +39909,16 @@ var runPlanDraft = async ({
 };
 
 // packages/engine/src/runPlanGrade.ts
-import { appendFile as appendFile8, mkdir as mkdir13, readFile as readFile31, readdir as readdir8, stat as stat6, writeFile as writeFile13 } from "node:fs/promises";
-import { basename as basename7, join as join44 } from "node:path";
+import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile32, readdir as readdir8, stat as stat6, writeFile as writeFile14 } from "node:fs/promises";
+import { basename as basename8, join as join45 } from "node:path";
 
 // packages/engine/src/detectPriorArtCandidates.ts
-import { readFile as readFile30 } from "node:fs/promises";
+import { readFile as readFile31 } from "node:fs/promises";
 var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   const planned = [];
   const plannedPaths = /* @__PURE__ */ new Set();
   for (const planPath of planPaths) {
-    const planText = await readFile30(planPath, "utf8").catch(() => void 0);
+    const planText = await readFile31(planPath, "utf8").catch(() => void 0);
     if (planText === void 0) {
       continue;
     }
@@ -39720,19 +39973,19 @@ var runPlanGrade = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir13(workspaceDir, { recursive: true });
-  const singlePath = join44(plansDir, `${name}.md`);
-  const phaseDir = join44(plansDir, name);
+  await mkdir14(workspaceDir, { recursive: true });
+  const singlePath = join45(plansDir, `${name}.md`);
+  const phaseDir = join45(plansDir, name);
   let overviewPath;
   let overviewText;
   const phases = [];
   if (await exists2(singlePath)) {
-    phases.push({ path: singlePath, text: await readFile31(singlePath, "utf8") });
+    phases.push({ path: singlePath, text: await readFile32(singlePath, "utf8") });
   } else {
     const entries = (await readdir8(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
-      const path = join44(phaseDir, entry);
-      const text = await readFile31(path, "utf8");
+      const path = join45(phaseDir, entry);
+      const text = await readFile32(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
         overviewText = text;
@@ -39769,11 +40022,11 @@ var runPlanGrade = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile8(join44(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile9(join45(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile13(join44(workspaceDir, `grade-rejected-${basename7(phase.path)}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile14(join45(workspaceDir, `grade-rejected-${basename8(phase.path)}-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (rateLimited) {
@@ -39784,7 +40037,7 @@ var runPlanGrade = async ({
       };
     }
     if (!report2) {
-      return { status: "failed", workspaceDir, error: `gap-check failed for ${basename7(phase.path)}: ${failure ?? "unknown failure"}` };
+      return { status: "failed", workspaceDir, error: `gap-check failed for ${basename8(phase.path)}: ${failure ?? "unknown failure"}` };
     }
     gaps.push(...report2.gaps);
   }
@@ -39798,16 +40051,16 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join44(workspaceDir, "grade.json");
-  await writeFile13(gradePath, `${JSON.stringify(report, void 0, "	")}
+  const gradePath = join45(workspaceDir, "grade.json");
+  await writeFile14(gradePath, `${JSON.stringify(report, void 0, "	")}
 `, "utf8");
   progress(`plan grade ${name}: ${grade} (${structuralFindings.length} structural, ${gaps.length} gap(s))`);
   return { status: "complete", workspaceDir, grade: report, gradePath };
 };
 
 // packages/engine/src/runPlanDedup.ts
-import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile32, readdir as readdir9, stat as stat7, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join45 } from "node:path";
+import { appendFile as appendFile10, mkdir as mkdir15, readFile as readFile33, readdir as readdir9, stat as stat7, writeFile as writeFile15 } from "node:fs/promises";
+import { join as join46 } from "node:path";
 var defaultDedupTimeoutMs = 30 * 60 * 1e3;
 var exists3 = (path) => stat7(path).then(
   () => true,
@@ -39826,19 +40079,19 @@ var runPlanDedup = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir14(workspaceDir, { recursive: true });
-  const singlePath = join45(plansDir, `${name}.md`);
-  const phaseDir = join45(plansDir, name);
+  await mkdir15(workspaceDir, { recursive: true });
+  const singlePath = join46(plansDir, `${name}.md`);
+  const phaseDir = join46(plansDir, name);
   let overviewPath;
   let overviewText;
   const planFiles = [];
   if (await exists3(singlePath)) {
-    planFiles.push({ path: singlePath, text: await readFile32(singlePath, "utf8") });
+    planFiles.push({ path: singlePath, text: await readFile33(singlePath, "utf8") });
   } else {
     const entries = (await readdir9(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
-      const path = join45(phaseDir, entry);
-      const text = await readFile32(path, "utf8");
+      const path = join46(phaseDir, entry);
+      const text = await readFile33(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
         overviewText = text;
@@ -39859,8 +40112,8 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join45(workspaceDir, "dedup.json");
-    await writeFile14(dedupPath2, `${JSON.stringify(dedup2, void 0, "	")}
+    const dedupPath2 = join46(workspaceDir, "dedup.json");
+    await writeFile15(dedupPath2, `${JSON.stringify(dedup2, void 0, "	")}
 `, "utf8");
     return { dedup: dedup2, dedupPath: dedupPath2 };
   };
@@ -39880,11 +40133,11 @@ var runPlanDedup = async ({
     permissionMode,
     timeoutMs,
     onEvent: (event) => {
-      void appendFile9(join45(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
+      void appendFile10(join46(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
     },
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile14(join45(workspaceDir, `dedup-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile15(join46(workspaceDir, `dedup-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   if (rateLimited) {
@@ -39928,8 +40181,10 @@ usage:
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
-  lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--mode answer|doc|diagram|plan|bug] [--data <field>] [--cwd <path>]
+  lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--data <field>] [--cwd <path>]
   lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
+  lightsout debug "<symptoms>" [--start <node>] [--at <file:line>] [--suspect <hash>] [--connections <dir>] [--budget <n>] [--cwd <path>]
+  lightsout debug --run <id> [--cwd <path>]           (resume a parked/budget-exhausted debug run)
   lightsout build-map <node...|all> [--connections <dir>] [--rescan] [--cwd <path>]
   lightsout build-map --author <run-id> [--connections <dir>] [--cwd <path>]   (post-review: write docs from a culled join.json)
   lightsout map-connection verify [<doc-id>...] [--repair] [--connections <dir>] [--cwd <path>]
@@ -40134,7 +40389,7 @@ var printResult = async ({ result, cwd }) => {
   const plural = (count) => count === 1 ? "" : "s";
   console.log("");
   label("run", `${manifest.runId.slice(0, 8)} \xB7 ${paintStatus(manifest.status, bold(manifest.status.toUpperCase()))}`);
-  label("plan", basename8(manifest.plan));
+  label("plan", basename9(manifest.plan));
   label("wall", formatDuration(summary.wallMs));
   if (summary.activeMs > 0) {
     label("active", formatDuration(summary.activeMs));
@@ -40234,7 +40489,7 @@ var main = async () => {
     process.exit(result.ok ? 0 : 1);
   }
   if (command === "status") {
-    const runsDir = join46(cwd, ".lightsout", "runs");
+    const runsDir = join47(cwd, ".lightsout", "runs");
     const runIds = await readdir10(runsDir).catch(() => []);
     if (runIds.length === 0) {
       console.log("no runs found");
@@ -40306,7 +40561,6 @@ ${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} 
     const question = getPositionals({ args: rest }).join(" ");
     const resumeRunId = getStringFlag({ flags, name: "run" });
     const budgetFlag = getStringFlag({ flags, name: "budget" });
-    const modeFlag = getStringFlag({ flags, name: "mode" });
     if (!question && !resumeRunId) {
       console.error(usage);
       process.exit(1);
@@ -40326,7 +40580,6 @@ ${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} 
         driver,
         question: question || "(resumed)",
         connectionsDir: connections.dir,
-        mode: modeFlag && Object.values(TraverseMode).includes(modeFlag) ? modeFlag : void 0,
         dataOfInterest: getStringFlag({ flags, name: "data" }),
         start: getStringFlag({ flags, name: "start" }),
         budget: budgetFlag ? Number.parseInt(budgetFlag, 10) : void 0,
@@ -40365,14 +40618,6 @@ ${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connectio
           console.log(`  ${drift.edge} (${drift.node}): ${drift.status}${drift.foundAt ? ` \u2014 found at ${drift.foundAt}` : ""}`);
         }
       }
-      if (state.mode !== "answer" && state.mode !== "bug") {
-        const edges = await readConnectionMap({ connectionsDir: connections.dir });
-        const rendered = renderTrace({ state, edges, mode: state.mode });
-        const outPath = join46(result.runDir, `${state.mode}.md`);
-        await writeFile15(outPath, rendered, "utf8");
-        console.log(`
-${state.mode} rendered: ${outPath}`);
-      }
       console.log(`
 trace: ${result.runDir}/trace.json`);
       if (result.error) {
@@ -40380,6 +40625,88 @@ trace: ${result.runDir}/trace.json`);
 ${result.error}`);
       }
       process.exit(result.status === "complete" ? 0 : 1);
+    } catch (error51) {
+      console.error(error51 instanceof Error ? error51.message : String(error51));
+      process.exit(1);
+    }
+  }
+  if (command === "debug") {
+    const symptoms = getPositionals({ args: rest }).join(" ");
+    const resumeRunId = getStringFlag({ flags, name: "run" });
+    const budgetFlag = getStringFlag({ flags, name: "budget" });
+    if (!symptoms && !resumeRunId) {
+      console.error(usage);
+      process.exit(1);
+    }
+    const config2 = await loadConfig({ cwd }).catch(() => void 0);
+    const driver = getDriver({ name: config2?.driver ?? "claude-code" });
+    try {
+      const connections = await resolveConnectionsSource({
+        cwd,
+        source: getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections"
+      });
+      if (connections.remote) {
+        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
+      }
+      const result = await runDebug({
+        cwd,
+        driver,
+        symptoms: symptoms || "(resumed)",
+        connectionsDir: connections.dir,
+        start: getStringFlag({ flags, name: "start" }),
+        at: getStringFlag({ flags, name: "at" }),
+        suspectCommit: getStringFlag({ flags, name: "suspect" }),
+        budget: budgetFlag ? Number.parseInt(budgetFlag, 10) : void 0,
+        resumeRunId,
+        model: config2?.model,
+        permissionMode: config2?.permissionMode,
+        onProgress: (message) => console.log(dim(message))
+      });
+      const { state } = result;
+      console.log(`
+${bold(`debug ${result.runId}`)} \u2014 ${result.status}`);
+      console.log(`${state.symptoms}
+`);
+      for (const [index, hop] of state.hops.entries()) {
+        if (!hop.report) {
+          console.log(`${dim(`${index + 1}.`)} ${hop.node} ${dim(`(${hop.note ?? "non-repo node"})`)}`);
+          continue;
+        }
+        const paintVerdict = hop.report.verdict === "root-cause" ? green : hop.report.verdict === "stuck" ? yellow : dim;
+        console.log(`${dim(`${index + 1}.`)} ${bold(hop.node)} ${dim(`(${hop.direction})`)} \u2014 ${paintVerdict(hop.report.verdict)}`);
+        console.log(`   ${hop.report.investigation}`);
+        if (hop.report.nextLead) {
+          console.log(dim(`   \u21B3 ${hop.report.nextLead.direction} via ${hop.report.nextLead.kind} ${hop.report.nextLead.target} \u2014 ${hop.report.nextLead.why}`));
+        }
+      }
+      if (state.resolution) {
+        console.log(`
+${green("root cause")} \u2014 ${bold(state.resolution.node)} at ${state.resolution.at}`);
+        console.log(`  ${state.resolution.explanation}`);
+        console.log(`
+${green("proposed fix")}: ${state.resolution.proposedFix}`);
+      }
+      if (state.gaps.length > 0) {
+        console.log(`
+${yellow(`${state.gaps.length} gap(s)`)} \u2014 the trail ends here; draft missing docs with map-connection:`);
+        for (const gap of state.gaps) {
+          console.log(`  ${gap.node}: ${gap.detail}`);
+        }
+      }
+      if (state.drift.length > 0) {
+        console.log(`
+${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connection docs:`);
+        for (const drift of state.drift) {
+          console.log(`  ${drift.node}${drift.viaEdge ? ` (${drift.viaEdge})` : ""}: ${drift.status}${drift.foundAt ? ` \u2014 found at ${drift.foundAt}` : ""}`);
+        }
+      }
+      console.log(`
+trace: ${result.runDir}/trace.json`);
+      if (result.error) {
+        console.error(`
+${result.error}`);
+      }
+      process.exit(result.status === "resolved" ? 0 : 1);
     } catch (error51) {
       console.error(error51 instanceof Error ? error51.message : String(error51));
       process.exit(1);
@@ -40395,12 +40722,12 @@ ${result.error}`);
         console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
       }
       if (authorRunId) {
-        const joinPath = join46(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
-        const reviewed = MapJoin.parse(JSON.parse(await readFile33(joinPath, "utf8")));
-        const inventoriesDir = join46(cwd, ".lightsout/traverse/inventories");
+        const joinPath = join47(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+        const reviewed = MapJoin.parse(JSON.parse(await readFile34(joinPath, "utf8")));
+        const inventoriesDir = join47(cwd, ".lightsout/traverse/inventories");
         const shaByNode = /* @__PURE__ */ new Map();
         for (const name of (await readdir10(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile33(join46(inventoriesDir, name), "utf8")));
+          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile34(join47(inventoriesDir, name), "utf8")));
           if (inventory.success) {
             shaByNode.set(inventory.data.node, inventory.data.scannedSha);
           }
