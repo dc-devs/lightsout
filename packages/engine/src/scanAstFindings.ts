@@ -59,7 +59,13 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 
 	const normalize = (node: ts.Node): string[] => {
 		if (compiler.isIdentifier(node) || compiler.isPrivateIdentifier(node)) {
-			return ['ID'];
+			// Hook names stay significant: in React, "calls a different hook" is
+			// exactly what makes two otherwise-identical functions legitimately
+			// un-mergeable (the Rules of Hooks forbid parameterizing or
+			// conditionally calling them), so blurring use* identifiers
+			// manufactured duplicates out of thin wrappers that each bind a
+			// different hook — an irreducible, idiomatic pattern.
+			return /^use[A-Z]/.test(node.text) ? [node.text] : ['ID'];
 		}
 
 		if (

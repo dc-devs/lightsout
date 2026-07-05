@@ -17,6 +17,7 @@ import {
 	type AgentUsage,
 	type LightsoutConfig,
 	type RunManifest,
+	type ScanFinding,
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
@@ -709,6 +710,27 @@ const executePipeline = async ({
 		return selectScanFindings({ findings, changedFiles: sourceFiles() });
 	};
 
+	// Escalations are read by a human deciding what to do next — the message
+	// must carry the evidence (what persists, where) and the agent's own
+	// account of why it left the findings, not just opaque cluster ids that
+	// send the reader digging through friction.jsonl.
+	const describePersistingFindings = ({ gating, report }: { gating: ScanFinding[]; report?: WorkReport }) => {
+		const findingLines = gating.map((finding) => {
+			const where = finding.files
+				.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
+				.join(', ');
+
+			return `- ${finding.cluster} — ${finding.detail}\n  at ${where}`;
+		});
+		const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
+
+		return [
+			`refactor: scan gate — ${gating.length} finding(s) persist after ${maxRefactorPasses} passes:`,
+			...findingLines,
+			...(rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []),
+		].join('\n');
+	};
+
 	const refactorStep: PipelineStep['run'] = async () => {
 		let record = nextRecord({ id: 'refactor' });
 		let lastReport: WorkReport | undefined;
@@ -775,7 +797,7 @@ const executePipeline = async ({
 					return stop({
 						record: { ...record, report },
 						status: RunStatus.Escalated,
-						error: `refactor: scan gate — ${scan.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${scan.gating.map((finding) => finding.cluster).join(', ')}`,
+						error: describePersistingFindings({ gating: scan.gating, report }),
 					});
 				}
 
@@ -797,7 +819,7 @@ const executePipeline = async ({
 				return stop({
 					record: { ...record, report: lastReport },
 					status: RunStatus.Escalated,
-					error: `refactor: scan gate — ${final.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${final.gating.map((finding) => finding.cluster).join(', ')}`,
+					error: describePersistingFindings({ gating: final.gating, report: lastReport }),
 				});
 			}
 		}

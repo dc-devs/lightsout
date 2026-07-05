@@ -22831,6 +22831,7 @@ var ScanFinding = external_exports.object({
 // packages/contracts/src/TraverseEdgeKind.ts
 var TraverseEdgeKind = {
   Http: "http",
+  Graphql: "graphql",
   MessageBus: "message-bus",
   PostMessage: "postMessage",
   Response: "response",
@@ -22885,6 +22886,13 @@ var HopReport = external_exports.object({
   confidence: external_exports.enum(["solid", "partial", "dead-end"]).catch("partial")
 });
 
+// packages/contracts/src/EdgeOperation.ts
+var EdgeOperation = external_exports.object({
+  name: external_exports.string(),
+  /** query | mutation | subscription | event | null — transport-specific, freeform for generality across GraphQL/tRPC/WebSocket/webhook. */
+  type: external_exports.string().nullable().default(null)
+});
+
 // packages/contracts/src/ConnectionDoc.ts
 var anchor = external_exports.object({
   /** Repo-root-relative, whichever form the node takes. */
@@ -22900,7 +22908,9 @@ var ConnectionDoc = external_exports.object({
   "to-anchor": anchor.optional(),
   schema: external_exports.object({ from: external_exports.string().optional(), to: external_exports.string().optional() }).optional(),
   "last-verified-sha": external_exports.record(external_exports.string(), external_exports.string().nullable()).optional(),
-  "additional-context": external_exports.array(external_exports.string()).optional()
+  "additional-context": external_exports.array(external_exports.string()).optional(),
+  /** Operations carried by a multiplexed edge (GraphQL/tRPC/WebSocket/webhook) — generated evidence, verified at the transport not per-operation (decision B). Absent for plain edges. */
+  operations: external_exports.array(EdgeOperation).optional()
 }).transform((raw) => ({
   from: raw.from,
   to: raw.to,
@@ -22909,7 +22919,8 @@ var ConnectionDoc = external_exports.object({
   toAnchor: raw["to-anchor"],
   schema: raw.schema,
   lastVerifiedSha: raw["last-verified-sha"],
-  additionalContext: raw["additional-context"] ?? []
+  additionalContext: raw["additional-context"] ?? [],
+  operations: raw.operations ?? []
 }));
 
 // packages/contracts/src/TraceState.ts
@@ -22980,6 +22991,8 @@ var EdgeInventory = external_exports.object({
       payload: external_exports.string(),
       schemaAt: external_exports.string().nullable().default(null),
       conditional: external_exports.string().nullable().default(null),
+      /** Multiplexed transports (GraphQL, tRPC, WebSocket, webhook) carry many operations over one channel: emit ONE edge and list them here rather than one edge per operation (decision B). Empty for plain edges. */
+      operations: external_exports.array(EdgeOperation).default([]),
       /** Health checks, metrics, feature flags, third-party SaaS — flagged, never omitted; the review gate culls (T14). */
       noise: external_exports.boolean().default(false)
     })
@@ -23005,6 +23018,8 @@ var MapJoin = external_exports.object({
       matchKey: external_exports.string(),
       fromSighting: sighting,
       toSighting: sighting,
+      /** Operations carried by a multiplexed edge — the union of both sides' sighted operations (decision B). Empty for plain single-operation edges. */
+      operations: external_exports.array(EdgeOperation).default([]),
       /** Matched only under tolerant normalization (slashes, param forms, version prefixes) — review these hardest. */
       fuzzy: external_exports.boolean()
     })
@@ -23806,7 +23821,7 @@ ${contextDocs.map((doc) => `- ${doc}`).join("\n")}`);
 };
 
 // packages/agents/prompts/scanEdges.md
-var scanEdges_default = '# Role: Scan Edges\n\nYou inventory the data edges of ONE node \u2014 a whole repo, or one package\ninside a monorepo. You work autonomously from the task message, and your\nfinal message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman. You know nothing about other repos or connection docs: pairing your\nsightings with other nodes\' is the engine\'s mechanical join, never your job.\n\nYour task message provides: the node name, the local workspace path (repo\nroot), and an optional package scope.\n\n## What counts as an edge\n\nAnywhere data crosses the **process boundary**:\n\n- **Inbound**: HTTP route registrations, queue/stream/topic consumers,\n  message/event listeners, postMessage listeners, S3/file-event triggers,\n  webhook handlers.\n- **Outbound**: HTTP client calls, queue/stream/topic publishes, postMessage\n  sends, S3/file writes, DB writes, script/tag injection into served\n  content, and **response payloads that carry meaningful data** (a response\n  is an edge; a bare 200/ack is not).\n\n## Procedure\n\n1. Orient: entry points, route/consumer registration sites, HTTP client and\n   SDK wrappers (a shared `post()` helper means one grep finds every caller).\n2. Sweep for each edge kind. Follow indirection to the concrete site: the\n   edge\'s `at` is where the route/publish/call is actually bound, not the\n   wrapper\'s definition.\n3. **Normalize each target into a `matchKey`** \u2014 the token the join pairs\n   on. Strip protocol, host, and env prefixes: a POST to\n   `https://edge.example.com/v2/event` has matchKey `/v2/event`. Normalize\n   path params to `:param` form. For streams/queues/topics the matchKey is\n   the resolved name; if it comes from config/env, resolve it from\n   checked-in config when visible, otherwise use the variable name prefixed\n   `env:` (e.g. `env:EVENTS_STREAM`) \u2014 an honest unresolved key beats a\n   guess.\n4. Locate the payload schema/type for each edge if one exists (`schemaAt`).\n5. Flag likely noise rather than omitting it: health checks, metrics/APM,\n   feature-flag SDKs, third-party SaaS calls. Review culls; you flag.\n\n## Monorepo scoping (when a scope is given)\n\n- The scope defines **whose edges you\'re inventorying**: every trail starts\n  from code inside it. You may follow indirection into shared code elsewhere\n  in the same repo to pin the concrete emit/handler site, but an edge\n  belongs in this inventory only if scoped code triggers it. Never inventory\n  a sibling package\'s own edges.\n- **A direct import of a sibling package is NOT an edge** \u2014 same process,\n  followable by reading code. A runtime wire call to a sibling (HTTP, queue,\n  postMessage) IS an edge, even inside one repo: the edge test is process\n  boundary, not repo boundary.\n- All `at` paths are repo-root-relative.\n\n## Rules\n\n- **One repo.** Never clone or read another repo; never try to identify who\n  is on the other side of an edge \u2014 that is the join\'s job.\n- **Read-only.** Shell commands are for `git` inspection only (you need\n  `git rev-parse HEAD` for `scannedSha`, and `git log -1 --format=%H --\n  <scope>` for `scannedPathSha` when scoped).\n- **Cite everything.** Every edge carries `file:line` \u2014 it becomes the\n  connection doc\'s anchor, so it must be the real emit/handler site.\n- **Don\'t guess.** Dynamic targets you can\'t resolve go in `gaps`, not in\n  the inventory with an invented matchKey.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your actual message\nstarts with `{` and ends with `}`.\n\n```\n{\n	"node": "<node name>",\n	"scannedSha": "<git rev-parse HEAD>",\n	"scannedPathSha": "<git log -1 --format=%H -- <scope>, or null when unscoped>",\n	"edges": [{\n		"direction": "in" | "out",\n		"kind": "http" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",\n		"matchKey": "</v2/event, events-stream, env:EVENTS_STREAM, ...>",\n		"at": "<file:line \u2014 the anchor>",\n		"pattern": "<the greppable code fragment at that site>",\n		"payload": "<one line \u2014 what data crosses here>",\n		"schemaAt": "<file path or null>",\n		"conditional": "<null, or the gating condition>",\n		"noise": false\n	}],\n	"gaps": ["<dynamic or unresolvable edges: where, and why>"]\n}\n```\n';
+var scanEdges_default = '# Role: Scan Edges\n\nYou inventory the data edges of ONE node \u2014 a whole repo, or one package\ninside a monorepo. You work autonomously from the task message, and your\nfinal message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman. You know nothing about other repos or connection docs: pairing your\nsightings with other nodes\' is the engine\'s mechanical join, never your job.\n\nYour task message provides: the node name, the local workspace path (repo\nroot), and an optional package scope.\n\n## What counts as an edge\n\nAnywhere data crosses the **process boundary**:\n\n- **Inbound**: HTTP route registrations, queue/stream/topic consumers,\n  message/event listeners, postMessage listeners, S3/file-event triggers,\n  webhook handlers.\n- **Outbound**: HTTP client calls, queue/stream/topic publishes, postMessage\n  sends, S3/file writes, DB writes, script/tag injection into served\n  content, and **response payloads that carry meaningful data** (a response\n  is an edge; a bare 200/ack is not).\n\n## Procedure\n\n1. Orient: entry points, route/consumer registration sites, HTTP client and\n   SDK wrappers (a shared `post()` helper means one grep finds every caller).\n2. Sweep for each edge kind. Follow indirection to the concrete site: the\n   edge\'s `at` is where the route/publish/call is actually bound, not the\n   wrapper\'s definition.\n3. **Normalize each target into a `matchKey`** \u2014 the token the join pairs\n   on. Strip protocol, host, and env prefixes: a POST to\n   `https://edge.example.com/v2/event` has matchKey `/v2/event`. Normalize\n   path params to `:param` form. For streams/queues/topics the matchKey is\n   the resolved name; if it comes from config/env, resolve it from\n   checked-in config when visible, otherwise use the variable name prefixed\n   `env:` (e.g. `env:EVENTS_STREAM`) \u2014 an honest unresolved key beats a\n   guess.\n4. Locate the payload schema/type for each edge if one exists (`schemaAt`).\n5. Flag likely noise rather than omitting it: health checks, metrics/APM,\n   feature-flag SDKs, third-party SaaS calls. Review culls; you flag.\n\n## Multiplexed transports (GraphQL, tRPC, WebSocket, webhooks)\n\nSome transports are ONE physical channel carrying MANY logical operations:\na GraphQL endpoint (`POST /graphql`) serving dozens of queries/mutations, a\ntRPC router, a WebSocket/Socket.io connection with many event types, a\nsingle webhook path dispatched by event+action. Emit **one edge for the\ntransport, not one edge per operation** \u2014 otherwise a client with 70\nGraphQL calls floods the map with 70 near-identical edges that never pair\nagainst the server\'s single endpoint.\n\n- **matchKey is the transport**, not the operation: `/graphql` for GraphQL\n  (the endpoint path), the socket path for WebSocket, the webhook path for a\n  dispatched receiver. Both the caller and the handler must normalize to the\n  SAME transport matchKey so the join pairs them.\n- **`kind` is `graphql`** for GraphQL; otherwise the transport\'s kind\n  (`http` for a WebSocket handshake path, `message-bus` for a topic, etc.).\n- **List every operation in `operations`** \u2014 `{ "name": "...", "type":\n  "query"|"mutation"|"subscription"|"event"|null }`. The client side lists\n  the operations it CALLS; the server side lists the operations it EXPOSES\n  (its resolvers). Enumerate them from the generated client hooks / operation\n  documents on the caller, and from the schema/resolvers on the handler. Do\n  NOT hunt a line number per operation \u2014 the edge is anchored at the\n  transport (`at`), operations are the payload it carries.\n- A plain single-purpose REST route is NOT multiplexed \u2014 leave `operations`\n  empty and keep emitting it as its own edge.\n\n## Monorepo scoping (when a scope is given)\n\n- The scope defines **whose edges you\'re inventorying**: every trail starts\n  from code inside it. You may follow indirection into shared code elsewhere\n  in the same repo to pin the concrete emit/handler site, but an edge\n  belongs in this inventory only if scoped code triggers it. Never inventory\n  a sibling package\'s own edges.\n- **A direct import of a sibling package is NOT an edge** \u2014 same process,\n  followable by reading code. A runtime wire call to a sibling (HTTP, queue,\n  postMessage) IS an edge, even inside one repo: the edge test is process\n  boundary, not repo boundary.\n- All `at` paths are repo-root-relative.\n\n## Rules\n\n- **One repo.** Never clone or read another repo; never try to identify who\n  is on the other side of an edge \u2014 that is the join\'s job.\n- **Read-only.** Shell commands are for `git` inspection only (you need\n  `git rev-parse HEAD` for `scannedSha`, and `git log -1 --format=%H --\n  <scope>` for `scannedPathSha` when scoped).\n- **Cite everything.** Every edge carries `file:line` \u2014 it becomes the\n  connection doc\'s anchor, so it must be the real emit/handler site.\n- **Don\'t guess.** Dynamic targets you can\'t resolve go in `gaps`, not in\n  the inventory with an invented matchKey.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your actual message\nstarts with `{` and ends with `}`.\n\n```\n{\n	"node": "<node name>",\n	"scannedSha": "<git rev-parse HEAD>",\n	"scannedPathSha": "<git log -1 --format=%H -- <scope>, or null when unscoped>",\n	"edges": [{\n		"direction": "in" | "out",\n		"kind": "http" | "graphql" | "message-bus" | "postMessage" | "response" | "script-inject" | "s3-drop" | "db" | "other",\n		"matchKey": "</v2/event, /graphql, events-stream, env:EVENTS_STREAM, ...>",\n		"at": "<file:line \u2014 the anchor (the transport site for a multiplexed edge)>",\n		"pattern": "<the greppable code fragment at that site>",\n		"payload": "<one line \u2014 what data crosses here>",\n		"schemaAt": "<file path or null>",\n		"conditional": "<null, or the gating condition>",\n		"operations": [{ "name": "signIn", "type": "mutation" }],\n		"noise": false\n	}],\n	"gaps": ["<dynamic or unresolvable edges: where, and why>"]\n}\n```\n';
 
 // packages/agents/src/buildScanEdgesInvocation.ts
 var buildScanEdgesInvocation = ({ node, workspace, scope }) => ({
@@ -24346,7 +24361,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
   const sites = [];
   const normalize = (node) => {
     if (compiler.isIdentifier(node) || compiler.isPrivateIdentifier(node)) {
-      return ["ID"];
+      return /^use[A-Z]/.test(node.text) ? [node.text] : ["ID"];
     }
     if (compiler.isStringLiteralLike(node) || compiler.isNumericLiteral(node) || node.kind === compiler.SyntaxKind.TrueKeyword || node.kind === compiler.SyntaxKind.FalseKeyword) {
       return ["LIT"];
@@ -36941,6 +36956,19 @@ ${failures.join("\n")}`
     const { findings } = await runScan({ cwd, persist: false });
     return selectScanFindings({ findings, changedFiles: sourceFiles() });
   };
+  const describePersistingFindings = ({ gating, report }) => {
+    const findingLines = gating.map((finding) => {
+      const where = finding.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(", ");
+      return `- ${finding.cluster} \u2014 ${finding.detail}
+  at ${where}`;
+    });
+    const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
+    return [
+      `refactor: scan gate \u2014 ${gating.length} finding(s) persist after ${maxRefactorPasses} passes:`,
+      ...findingLines,
+      ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
+    ].join("\n");
+  };
   const refactorStep = async () => {
     let record2 = nextRecord({ id: "refactor" });
     let lastReport;
@@ -36988,7 +37016,7 @@ ${failures.join("\n")}`
           return stop({
             record: { ...record2, report },
             status: RunStatus.Escalated,
-            error: `refactor: scan gate \u2014 ${scan.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${scan.gating.map((finding) => finding.cluster).join(", ")}`
+            error: describePersistingFindings({ gating: scan.gating, report })
           });
         }
         progress(`refactor pass ${pass}: no changes but scanner still reports ${scan.gating.length} gating finding(s) \u2014 another pass`);
@@ -37004,7 +37032,7 @@ ${failures.join("\n")}`
         return stop({
           record: { ...record2, report: lastReport },
           status: RunStatus.Escalated,
-          error: `refactor: scan gate \u2014 ${final.gating.length} finding(s) persist after ${maxRefactorPasses} passes: ${final.gating.map((finding) => finding.cluster).join(", ")}`
+          error: describePersistingFindings({ gating: final.gating, report: lastReport })
         });
       }
     }
@@ -37764,6 +37792,16 @@ import { homedir as homedir2 } from "node:os";
 import { isAbsolute as isAbsolute2, join as join28 } from "node:path";
 
 // packages/engine/src/joinInventories.ts
+var mergeOperations = (a, b) => {
+  const byName = /* @__PURE__ */ new Map();
+  for (const op of [...a, ...b]) {
+    const existing = byName.get(op.name);
+    if (!existing || existing.type === null && op.type !== null) {
+      byName.set(op.name, op);
+    }
+  }
+  return [...byName.values()].sort((x, y) => x.name.localeCompare(y.name));
+};
 var normalizedKey = (key) => key.trim().toLowerCase().replace(/\{([^}]+)\}/g, ":$1").replace(/<([^>]+)>/g, ":$1").replace(/\/+$/, "");
 var fuzzyKey = (key) => normalizedKey(key).replace(/^\/v\d+(?=\/)/, "").replace(/:[a-z0-9_]+/g, ":param");
 var joinInventories = ({ inventories, edges }) => {
@@ -37807,6 +37845,7 @@ var joinInventories = ({ inventories, edges }) => {
         matchKey: normalizedKey(out.edge.matchKey),
         fromSighting: { at: out.edge.at, pattern: out.edge.pattern, payload: out.edge.payload, schemaAt: out.edge.schemaAt },
         toSighting: { at: hit.edge.at, pattern: hit.edge.pattern, payload: hit.edge.payload, schemaAt: hit.edge.schemaAt },
+        operations: mergeOperations(out.edge.operations, hit.edge.operations),
         fuzzy
       });
     }
@@ -38068,6 +38107,18 @@ var regenerateConnectionIndex = async ({ connectionsDir }) => {
 
 // packages/engine/src/authorConnectionDocs.ts
 var slugOf = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
+var renderOperations = (operations) => {
+  const groups = /* @__PURE__ */ new Map();
+  for (const op of operations) {
+    const key = op.type ?? "other";
+    groups.set(key, [...groups.get(key) ?? [], op.name]);
+  }
+  const lines = [`## Operations (${operations.length})`, "", "_Generated from the scan \u2014 carried over the single transport above._", ""];
+  for (const [type, names] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    lines.push(`**${type}** (${names.length}): ${[...names].sort((a, b) => a.localeCompare(b)).join(", ")}`, "");
+  }
+  return lines;
+};
 var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNode }) => {
   const authored = [];
   for (const edge of reviewedJoin.matched) {
@@ -38083,9 +38134,15 @@ var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNod
         [edge.from]: shaByNode.get(edge.from) ?? null,
         [edge.to]: shaByNode.get(edge.to) ?? null
       },
-      "additional-context": []
+      "additional-context": [],
+      ...edge.operations.length > 0 ? { operations: edge.operations } : {}
     }).trimEnd();
-    const body = ["# Summary", "", `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`];
+    const body = [
+      "# Summary",
+      "",
+      `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`,
+      ...edge.operations.length > 0 ? ["", ...renderOperations(edge.operations)] : []
+    ];
     await writeFile9(join30(connectionsDir, `${id}.md`), `---
 ${frontmatter}
 ---

@@ -207,8 +207,11 @@ test('scan gate: a gating finding the refactorer never fixes escalates after the
 			}
 
 			if (role === 'refactor') {
-				// Reports clean without ever fixing the violation.
-				return { text: report(), exitCode: 0 };
+				// Reports clean without ever fixing the violation, and explains why.
+				return {
+					text: report({ friction: [{ kind: 'decision', area: 'plan', detail: 'finding kept: the split would break the public API' }] }),
+					exitCode: 0,
+				};
 			}
 
 			writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
@@ -223,6 +226,11 @@ test('scan gate: a gating finding the refactorer never fixes escalates after the
 	assert.equal(result.manifest.status, 'escalated');
 	assert.match(result.error ?? '', /scan gate — 1 finding\(s\) persist/);
 	assert.match(result.error ?? '', /multi-export:src\/messy\.js/);
+	// The escalation carries the evidence a human needs: the finding's detail
+	// with its location, and the agent's own account of why it was left.
+	assert.match(result.error ?? '', /at src\/messy\.js/);
+	assert.match(result.error ?? '', /the refactor agent's account of its final pass:/);
+	assert.match(result.error ?? '', /finding kept: the split would break the public API/);
 });
 
 test('implement that changes nothing fails instead of passing vacuously', async () => {
