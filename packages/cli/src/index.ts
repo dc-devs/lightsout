@@ -683,7 +683,7 @@ const main = async () => {
 			}
 
 			if (state.gaps.length > 0) {
-				console.log(`\n${yellow(`${state.gaps.length} gap(s)`)} — the trail ends here; draft missing docs with map-connection:`);
+				console.log(`\n${yellow(`${state.gaps.length} gap(s)`)} — where the trail stopped (unmapped boundary → build-map or author the doc; contradiction/unobservable → inspect by hand):`);
 
 				for (const gap of state.gaps) {
 					console.log(`  ${gap.node}: ${gap.detail}`);

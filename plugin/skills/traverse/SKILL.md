@@ -1,6 +1,6 @@
 ---
 name: traverse
-description: Answer questions that span multiple repos by following data flow through the lightsout connection map. Use for cross-repo bug traces ("where does field X get dropped?"), end-to-end feature docs, data-flow diagrams, and multi-repo feature plans. Input is a question, a starting edge or node, and optionally a mode or hop budget.
+description: Answer a question that spans multiple repos by following data flow through the lightsout connection map ("where does field X end up?", "which backend op does the web-app call?"). Input is a question, a starting edge or node, and optionally the data-of-interest or a hop budget. For root-causing a bug across repos, use the `debug` skill instead.
 allowed-tools: Bash, Read
 ---
 
@@ -20,9 +20,9 @@ workflow steps to this file.
    node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" traverse "<question>" --start <edge-or-node>
    ```
 
-   Pass through when provided: `--mode answer|doc|diagram|plan|bug`,
-   `--budget <n>`, `--data "<field>"`, `--connections <dir>`. To resume a
-   parked or budget-exhausted run: `traverse --run <id>`.
+   Pass through when provided: `--budget <n>`, `--data "<field>"`,
+   `--connections <dir>`. To resume a parked or budget-exhausted run:
+   `traverse --run <id>`.
 3. Relay the engine's output verbatim — the hop chain, gaps, and drift ARE
    the answer's evidence. If gaps were reported, mention that
    `map-connection draft --run <id>` scaffolds the missing docs.

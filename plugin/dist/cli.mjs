@@ -40690,7 +40690,7 @@ ${green("proposed fix")}: ${state.resolution.proposedFix}`);
       }
       if (state.gaps.length > 0) {
         console.log(`
-${yellow(`${state.gaps.length} gap(s)`)} \u2014 the trail ends here; draft missing docs with map-connection:`);
+${yellow(`${state.gaps.length} gap(s)`)} \u2014 where the trail stopped (unmapped boundary \u2192 build-map or author the doc; contradiction/unobservable \u2192 inspect by hand):`);
         for (const gap of state.gaps) {
           console.log(`  ${gap.node}: ${gap.detail}`);
         }

@@ -26,6 +26,7 @@ deterministic code. Do not add workflow steps to this file.
    `--connections <dir>`. To resume a parked or budget-exhausted run:
    `debug --run <id>`.
 3. Relay the engine's output verbatim — the hop chain, the root cause +
-   proposed fix, and any gaps/drift ARE the answer's evidence. If gaps ended
-   the trail, mention that `map-connection draft --run <id>` scaffolds the
-   missing docs.
+   proposed fix, and any gaps/drift ARE the answer's evidence. A gap at an
+   unmapped boundary means the map is incomplete there (build-map or author
+   the connection doc to let a re-run continue); a contradiction or
+   unobservable gap is a lead to inspect by hand.

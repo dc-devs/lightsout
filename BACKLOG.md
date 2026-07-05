@@ -718,6 +718,16 @@ engine's extractJsonReport machinery).
     scattered query usage (57↔69 across runs); enumerate from the codegen
     operation documents / generated client for a deterministic caller-side
     operation list (mirror the server-side schema/definition-first fix).
+  - `map-connection draft` FOR DEBUG runs: today it reads only traverse
+    traces (`.lightsout/traverse/<id>`, TraceState, gaps carry `exit`). A
+    debug unmapped-lead gap knows the crossing (kind/target/at in nextLead)
+    but stores only `{node, detail}`. Store the structured crossing on debug
+    gaps, then teach draftConnectionDocs to scaffold from either trace type —
+    closes the "map is incomplete here → re-run continues" loop for debug.
+    (Guidance softened for now: debug points to build-map/authoring, not the
+    unwired draft command.)
+  - `--since <date>` for debug (only `--suspect <hash>` is wired): bound the
+    hop agent's git archaeology to a time window ("bug started <date>").
   - IaC-AS-NODE (AWS/ETL): non-repo nodes already crossed mechanically; the
     high-signal upgrade is scanning the IaC (CDK/Terraform/SAM/serverless) as
     a definition artifact so pipeline edges auto-derive (IaC is to infra what
