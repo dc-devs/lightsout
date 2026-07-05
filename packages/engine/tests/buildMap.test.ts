@@ -78,7 +78,7 @@ test('joinInventories: exact and fuzzy pairing, orphans, noise, scanner gaps', (
 	assert.deepEqual(result.gaps, [{ node: 'node-b', detail: 'dynamic dispatch at src/x.ts — target unresolvable' }]);
 });
 
-test('joinInventories: a multiplexed graphql edge pairs at the transport and unions both sides operations', () => {
+test('joinInventories: a multiplexed graphql edge carries verified (both-sighted) operations and flags drift', () => {
 	const inventories = [
 		{
 			node: 'web-app',
@@ -94,7 +94,8 @@ test('joinInventories: a multiplexed graphql edge pairs at the transport and uni
 					payload: 'all queries/mutations',
 					operations: [
 						{ name: 'signIn', type: 'mutation' },
-						{ name: 'findAllProjects', type: null },
+						// PascalCase op-document name on the client vs camelCase resolver on the server — must still pair.
+						{ name: 'FindAllProjects', type: null },
 					],
 				}),
 			],
@@ -123,19 +124,18 @@ test('joinInventories: a multiplexed graphql edge pairs at the transport and uni
 	] as EdgeInventory[];
 
 	const result = joinInventories({ inventories, edges: new Map() });
+	const edge = result.matched[0];
 
 	assert.equal(result.matched.length, 1, 'one transport edge, not one per operation');
-	assert.deepEqual([result.matched[0]?.from, result.matched[0]?.to], ['web-app', 'backend']);
+	assert.deepEqual([edge?.from, edge?.to], ['web-app', 'backend']);
 	assert.deepEqual(
-		result.matched[0]?.operations.map((op) => op.name),
-		['createProject', 'findAllProjects', 'signIn'],
-		'operations are the union of both sides, sorted, deduped by name',
+		edge?.operations.map((op) => op.name),
+		['findAllProjects'],
+		'operations = sighted on BOTH sides (verified traffic), named from the handler resolver — case-insensitive match',
 	);
-	assert.equal(
-		result.matched[0]?.operations.find((op) => op.name === 'findAllProjects')?.type,
-		'query',
-		'a typed sighting (server: query) wins over the untyped client sighting',
-	);
+	assert.equal(edge?.operations[0]?.type, 'query', 'the verified op takes the handler’s canonical type');
+	assert.deepEqual(edge?.operationDrift.callerOnly, ['signIn'], 'called but not exposed → drift the reviewer sees');
+	assert.equal(edge?.operationDrift.handlerOnlyCount, 1, 'createProject is exposed but never called → unused-surface count');
 	assert.deepEqual(result.orphansOut, [], 'no per-operation orphans');
 	assert.deepEqual(result.orphansIn, [], 'no per-operation orphans');
 });

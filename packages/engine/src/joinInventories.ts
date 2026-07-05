@@ -1,18 +1,48 @@
 import type { ConnectionDoc, EdgeInventory, EdgeOperation, MapJoin } from '@lightsout/contracts';
 
-/** Union both sides' operations by name (a multiplexed edge is sighted from BOTH the caller and the handler); a typed sighting wins over an untyped one. */
-const mergeOperations = (a: EdgeOperation[], b: EdgeOperation[]): EdgeOperation[] => {
-	const byName = new Map<string, EdgeOperation>();
+const sortOps = (ops: EdgeOperation[]) => [...ops].sort((x, y) => x.name.localeCompare(y.name));
 
-	for (const op of [...a, ...b]) {
-		const existing = byName.get(op.name);
+/** Case-insensitive dedupe (the caller names a GraphQL op-document PascalCase, the handler its resolver field camelCase); a typed sighting wins over an untyped one. */
+const dedupeByLowerName = (ops: EdgeOperation[]): Map<string, EdgeOperation> => {
+	const byLower = new Map<string, EdgeOperation>();
+
+	for (const op of ops) {
+		const key = op.name.toLowerCase();
+		const existing = byLower.get(key);
 
 		if (!existing || (existing.type === null && op.type !== null)) {
-			byName.set(op.name, op);
+			byLower.set(key, op);
 		}
 	}
 
-	return [...byName.values()].sort((x, y) => x.name.localeCompare(y.name));
+	return byLower;
+};
+
+/**
+ * A multiplexed edge's operations, resolved from both sightings. The join's
+ * thesis is "sighted twice = verified", so an operation is real TRAFFIC only
+ * when the caller invokes it AND the handler exposes it — those become the
+ * edge's operations (named/typed from the handler, whose resolver field name
+ * is canonical). The rest is drift: `callerOnly` (invoked but not exposed —
+ * likely renamed/removed, a possible bug) and `handlerOnlyCount` (exposed but
+ * never called — unused surface). When only one side enumerated, use it
+ * verbatim with no drift — there's nothing to cross-check against.
+ */
+const resolveOperations = ({ caller, handler }: { caller: EdgeOperation[]; handler: EdgeOperation[] }) => {
+	const callerMap = dedupeByLowerName(caller);
+	const handlerMap = dedupeByLowerName(handler);
+
+	if (callerMap.size === 0 || handlerMap.size === 0) {
+		const sole = callerMap.size > 0 ? callerMap : handlerMap;
+
+		return { operations: sortOps([...sole.values()]), operationDrift: { callerOnly: [], handlerOnlyCount: 0 } };
+	}
+
+	const operations = [...handlerMap].filter(([key]) => callerMap.has(key)).map(([, op]) => op);
+	const callerOnly = [...callerMap.values()].filter((op) => !handlerMap.has(op.name.toLowerCase())).map((op) => op.name);
+	const handlerOnlyCount = [...handlerMap.keys()].filter((key) => !callerMap.has(key)).length;
+
+	return { operations: sortOps(operations), operationDrift: { callerOnly: callerOnly.sort((a, b) => a.localeCompare(b)), handlerOnlyCount } };
 };
 
 /** Exact-join normalization: case, trailing slash, `{id}`/`<id>` → `:id`. */
@@ -99,7 +129,7 @@ export const joinInventories = ({ inventories, edges }: Params): MapJoin => {
 				matchKey: normalizedKey(out.edge.matchKey),
 				fromSighting: { at: out.edge.at, pattern: out.edge.pattern, payload: out.edge.payload, schemaAt: out.edge.schemaAt },
 				toSighting: { at: hit.edge.at, pattern: hit.edge.pattern, payload: hit.edge.payload, schemaAt: hit.edge.schemaAt },
-				operations: mergeOperations(out.edge.operations, hit.edge.operations),
+				...resolveOperations({ caller: out.edge.operations, handler: hit.edge.operations }),
 				fuzzy,
 			});
 		}

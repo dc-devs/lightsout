@@ -8,12 +8,13 @@ import { regenerateConnectionIndex } from './regenerateConnectionIndex';
 const slugOf = (key: string) => key.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'edge';
 
 /**
- * A multiplexed edge's operations, rendered as generated evidence — grouped
- * by type (query/mutation/subscription/…) so ~70 operations read as a few
- * scannable groups, not a wall (decision B). Regenerated from the join on
- * every author, never hand-maintained, so it can't rot.
+ * A multiplexed edge's operations, rendered as generated evidence — the
+ * verified traffic (sighted on both sides) grouped by type so it reads as a
+ * few scannable groups, not a wall (decision B), followed by a drift section
+ * when the two sides disagree. Regenerated from the join on every author,
+ * never hand-maintained, so it can't rot.
  */
-const renderOperations = (operations: EdgeOperation[]): string[] => {
+const renderOperations = (operations: EdgeOperation[], drift: MapJoin['matched'][number]['operationDrift']): string[] => {
 	const groups = new Map<string, string[]>();
 
 	for (const op of operations) {
@@ -22,10 +23,22 @@ const renderOperations = (operations: EdgeOperation[]): string[] => {
 		groups.set(key, [...(groups.get(key) ?? []), op.name]);
 	}
 
-	const lines = [`## Operations (${operations.length})`, '', '_Generated from the scan — carried over the single transport above._', ''];
+	const lines = [`## Operations (${operations.length})`, '', '_Generated from the scan — verified traffic (called by the caller AND exposed by the handler)._', ''];
 
 	for (const [type, names] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
 		lines.push(`**${type}** (${names.length}): ${[...names].sort((a, b) => a.localeCompare(b)).join(', ')}`, '');
+	}
+
+	if (drift.callerOnly.length > 0 || drift.handlerOnlyCount > 0) {
+		lines.push('### Drift', '');
+
+		if (drift.callerOnly.length > 0) {
+			lines.push(`- **${drift.callerOnly.length} called but not exposed** by the handler (possible rename/removal — review): ${drift.callerOnly.join(', ')}`, '');
+		}
+
+		if (drift.handlerOnlyCount > 0) {
+			lines.push(`- ${drift.handlerOnlyCount} exposed by the handler but not called here (unused surface).`, '');
+		}
 	}
 
 	return lines;
@@ -74,7 +87,7 @@ export const authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin,
 			'# Summary',
 			'',
 			`${edge.from} → ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`,
-			...(edge.operations.length > 0 ? ['', ...renderOperations(edge.operations)] : []),
+			...(edge.operations.length > 0 || edge.operationDrift.callerOnly.length > 0 ? ['', ...renderOperations(edge.operations, edge.operationDrift)] : []),
 		];
 
 		await writeFile(join(connectionsDir, `${id}.md`), `---\n${frontmatter}\n---\n\n${body.join('\n')}\n`, 'utf8');

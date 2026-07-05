@@ -26,8 +26,12 @@ export const MapJoin = z.object({
 			matchKey: z.string(),
 			fromSighting: sighting,
 			toSighting: sighting,
-			/** Operations carried by a multiplexed edge — the union of both sides' sighted operations (decision B). Empty for plain single-operation edges. */
+			/** Operations carried by a multiplexed edge — those sighted on BOTH sides (caller invokes AND handler exposes = verified traffic; decision B). Empty for plain single-operation edges. */
 			operations: z.array(EdgeOperation).default([]),
+			/** Operation-level drift for a multiplexed edge: `callerOnly` — invoked but not exposed by the handler (likely renamed/removed); `handlerOnlyCount` — exposed but never called (unused surface). */
+			operationDrift: z
+				.object({ callerOnly: z.array(z.string()).default([]), handlerOnlyCount: z.number().default(0) })
+				.default({ callerOnly: [], handlerOnlyCount: 0 }),
 			/** Matched only under tolerant normalization (slashes, param forms, version prefixes) — review these hardest. */
 			fuzzy: z.boolean(),
 		}),
