@@ -327,7 +327,7 @@ test('build-map: a scanner-version change invalidates a code-fresh inventory (re
 
 	// Same code (same sha), but pretend the inventory came from an older scanner.
 	const saved = JSON.parse(readFileSync(inventoryPath, 'utf8'));
-	assert.ok(saved.scannerVersion, 'a scanned inventory carries the scanner fingerprint');
+	assert.ok(saved.scannerVersion, 'a scanned inventory carries the scanner version');
 	writeFileSync(inventoryPath, JSON.stringify({ ...saved, scannerVersion: 'stale-000000' }));
 
 	const after = await run();

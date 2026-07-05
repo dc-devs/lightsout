@@ -22977,7 +22977,7 @@ var EdgeInventory = external_exports.object({
   scannedSha: external_exports.string(),
   /** Last commit touching the scope (monorepo packages only) — a commit elsewhere in the monorepo doesn't invalidate this inventory. */
   scannedPathSha: external_exports.string().nullable().default(null),
-  /** Fingerprint of the scanner (prompt hash) that produced this inventory — the engine stamps it; the freshness gate re-scans on a mismatch so a scanner change invalidates the cache, not only a code change. Null on legacy/unversioned inventories (→ re-scan). */
+  /** Declared version of the scanner that produced this inventory — the engine stamps it; the freshness gate re-scans on a mismatch so a scanner change invalidates the cache, not only a code change. Null on legacy/unversioned inventories (→ re-scan). */
   scannerVersion: external_exports.string().nullable().default(null),
   edges: external_exports.array(
     external_exports.object({
@@ -23836,8 +23836,7 @@ var buildScanEdgesInvocation = ({ node, workspace, scope }) => ({
 });
 
 // packages/agents/src/scanEdgesVersion.ts
-import { createHash } from "node:crypto";
-var scanEdgesVersion = createHash("sha256").update(scanEdges_default).digest("hex").slice(0, 12);
+var scanEdgesVersion = "2";
 
 // packages/engine/src/appendAgentLog.ts
 import { appendFile, mkdir as mkdir3 } from "node:fs/promises";
@@ -24355,7 +24354,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
 };
 
 // packages/engine/src/scanAstFindings.ts
-import { createHash as createHash2 } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFile as readFile8 } from "node:fs/promises";
 import { basename, join as join15 } from "node:path";
 var minBodyTokens = 40;
@@ -24428,7 +24427,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
             startLine,
             endLine,
             tokenCount: tokens2.length,
-            hash: createHash2("sha1").update(tokens2.join(",")).digest("hex")
+            hash: createHash("sha1").update(tokens2.join(",")).digest("hex")
           });
         }
         const { cap, kind } = functionSizeCaps({ name, path: file2, caps });

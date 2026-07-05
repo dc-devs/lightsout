@@ -15,7 +15,7 @@ export const EdgeInventory = z.object({
 	scannedSha: z.string(),
 	/** Last commit touching the scope (monorepo packages only) — a commit elsewhere in the monorepo doesn't invalidate this inventory. */
 	scannedPathSha: z.string().nullable().default(null),
-	/** Fingerprint of the scanner (prompt hash) that produced this inventory — the engine stamps it; the freshness gate re-scans on a mismatch so a scanner change invalidates the cache, not only a code change. Null on legacy/unversioned inventories (→ re-scan). */
+	/** Declared version of the scanner that produced this inventory — the engine stamps it; the freshness gate re-scans on a mismatch so a scanner change invalidates the cache, not only a code change. Null on legacy/unversioned inventories (→ re-scan). */
 	scannerVersion: z.string().nullable().default(null),
 	edges: z
 		.array(
