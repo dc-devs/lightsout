@@ -7957,8 +7957,61 @@ var require_dist = __commonJS({
   }
 });
 
-// packages/cli/src/index.ts
-import { readdir as readdir10, readFile as readFile34 } from "node:fs/promises";
+// packages/cli/src/common/args/getStringFlag.ts
+var getStringFlag = ({ flags, name }) => {
+  const value = flags.get(name);
+  return typeof value === "string" ? value : void 0;
+};
+
+// packages/cli/src/common/args/parseFlags.ts
+var parseFlags = ({ args }) => {
+  const flags = /* @__PURE__ */ new Map();
+  let index = 0;
+  while (index < args.length) {
+    const key = args[index];
+    if (!key?.startsWith("--")) {
+      index += 1;
+      continue;
+    }
+    const value = args[index + 1];
+    if (value === void 0 || value.startsWith("--")) {
+      flags.set(key.slice(2), true);
+      index += 1;
+    } else {
+      flags.set(key.slice(2), value);
+      index += 2;
+    }
+  }
+  return flags;
+};
+
+// packages/cli/src/common/constants/usage.ts
+var usage = `lightsout \u2014 deterministic engine for coding agents
+
+usage:
+  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
+  lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
+  lightsout status [--cwd <path>]
+  lightsout doctor [--cwd <path>]
+  lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--data <field>] [--cwd <path>]
+  lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
+  lightsout debug "<symptoms>" [--start <node>] [--at <file:line>] [--suspect <hash>] [--connections <dir>] [--budget <n>] [--cwd <path>]
+  lightsout debug --run <id> [--cwd <path>]           (resume a parked/budget-exhausted debug run)
+  lightsout build-map <node...|all> [--connections <dir>] [--rescan] [--cwd <path>]
+  lightsout build-map --author <run-id> [--connections <dir>] [--cwd <path>]   (post-review: write docs from a culled join.json)
+  lightsout map-connection verify [<doc-id>...] [--repair] [--connections <dir>] [--cwd <path>]
+  lightsout map-connection draft --run <traverse-run-id> [--connections <dir>] [--cwd <path>]
+  lightsout plan explore "<request>" --name <n> [--areas <a,b>] [--cwd <path>]
+  lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
+  lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
+  lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]
+  lightsout friction [--cwd <path>]
+  lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
+`;
+
+// packages/cli/src/buildMapCommand.ts
+import { readFile as readFile34, readdir as readdir10 } from "node:fs/promises";
 import { join as join47 } from "node:path";
 
 // packages/contracts/src/run/RunStatus.ts
@@ -23707,7 +23760,7 @@ var readJsonlRecords = async ({ path, schema }) => {
 var summarizeRun = async ({ cwd, manifest }) => {
   const runDir = getRunDir({ cwd, runId: manifest.runId });
   const ledger = await readJsonlRecords({ path: join9(runDir, "agents.jsonl"), schema: LedgerRecord });
-  const commands = await readJsonlRecords({ path: join9(runDir, "commands.jsonl"), schema: CommandRecord });
+  const commands2 = await readJsonlRecords({ path: join9(runDir, "commands.jsonl"), schema: CommandRecord });
   const agentFiles = await readdir(join9(runDir, "agents")).catch(() => []);
   const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
   const perStepUsage = /* @__PURE__ */ new Map();
@@ -23729,7 +23782,7 @@ var summarizeRun = async ({ cwd, manifest }) => {
     wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
     /** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
     activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
-    gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
+    gateMs: commands2.reduce((total, command) => total + (command.durationMs ?? 0), 0),
     usage: usage2,
     /** Share of all input the model read from cache — the run's cost-efficiency dial. */
     cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
@@ -23742,9 +23795,9 @@ var summarizeRun = async ({ cwd, manifest }) => {
       ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
     })),
     gates: {
-      commands: commands.filter((command) => !command.skipped).length,
-      reruns: commands.filter((command) => command.rerun).length,
-      skipped: commands.filter((command) => command.skipped).length
+      commands: commands2.filter((command) => !command.skipped).length,
+      reruns: commands2.filter((command) => command.rerun).length,
+      skipped: commands2.filter((command) => command.skipped).length
     },
     /** Final messages that failed their contract and cost a re-emit retry. */
     rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
@@ -24841,34 +24894,34 @@ var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
 var gateTimeoutMs = 10 * 6e4;
 var defaultPackagesDir = "packages";
 var outputTailChars = 2e3;
-var runGateSet = async ({ commands, label, gate }) => {
+var runGateSet = async ({ commands: commands2, label, gate }) => {
   const group = label ?? "root";
   const prefix = label ? `[${label}] ` : "";
-  if (commands.check) {
-    const check2 = await gate({ kind: "check", command: commands.check, group });
+  if (commands2.check) {
+    const check2 = await gate({ kind: "check", command: commands2.check, group });
     if (check2.exitCode !== 0) {
       return `${prefix}check failed (exit ${check2.exitCode}):
 ${check2.stdout}
 ${check2.stderr}`;
     }
   }
-  if (commands.testCoverage) {
-    const coverageResult = await gate({ kind: "testCoverage", command: commands.testCoverage, group });
+  if (commands2.testCoverage) {
+    const coverageResult = await gate({ kind: "testCoverage", command: commands2.testCoverage, group });
     if (coverageResult.exitCode !== 0) {
       return `${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
 ${coverageResult.stdout}
 ${coverageResult.stderr}`;
     }
-  } else if (commands.testUnit) {
-    const tests = await gate({ kind: "testUnit", command: commands.testUnit, group });
+  } else if (commands2.testUnit) {
+    const tests = await gate({ kind: "testUnit", command: commands2.testUnit, group });
     if (tests.exitCode !== 0) {
       return `${prefix}test-unit failed (exit ${tests.exitCode}):
 ${tests.stdout}
 ${tests.stderr}`;
     }
   }
-  if (commands.build) {
-    const build = await gate({ kind: "build", command: commands.build, group });
+  if (commands2.build) {
+    const build = await gate({ kind: "build", command: commands2.build, group });
     if (build.exitCode !== 0) {
       return `${prefix}build failed (exit ${build.exitCode}):
 ${build.stdout}
@@ -39629,17 +39682,17 @@ var commandsFromVerification = (sectionLines) => {
   if (!sectionLines) {
     return [];
   }
-  const commands = [];
+  const commands2 = [];
   for (const line of sectionLines) {
     if (!/^\s*-\s+/.test(line)) {
       continue;
     }
     const span = /`([^`]+)`/.exec(line);
     if (span) {
-      commands.push(span[1].trim());
+      commands2.push(span[1].trim());
     }
   }
-  return commands;
+  return commands2;
 };
 var scriptNameOf = (command) => {
   const tokens2 = command.split(/\s+/);
@@ -40205,58 +40258,239 @@ var getPositionals = ({ args }) => {
   return positionals;
 };
 
-// packages/cli/src/common/args/getStringFlag.ts
-var getStringFlag = ({ flags, name }) => {
-  const value = flags.get(name);
-  return typeof value === "string" ? value : void 0;
+// packages/cli/src/common/terminal/paint.ts
+var paint = ({ code }) => (text) => process.stdout.isTTY ? `\\u001b[${code}m${text}\\u001b[0m` : text;
+
+// packages/cli/src/common/terminal/bold.ts
+var bold = paint({ code: "1" });
+
+// packages/cli/src/common/terminal/dim.ts
+var dim = paint({ code: "2" });
+
+// packages/cli/src/common/terminal/green.ts
+var green = paint({ code: "32" });
+
+// packages/cli/src/common/terminal/yellow.ts
+var yellow = paint({ code: "33" });
+
+// packages/cli/src/buildMapCommand.ts
+var renderJoin = ({ joined }) => {
+  for (const edge of joined.matched) {
+    console.log(`${green("\uFF0B")} ${edge.from} \u2192 ${edge.to} [${edge.kind}] ${edge.matchKey}${edge.fuzzy ? yellow(" (fuzzy \u2014 review hardest)") : ""}`);
+    console.log(dim(`    ${edge.fromSighting.at} \u2194 ${edge.toSighting.at}`));
+  }
+  for (const entry of joined.confirmed) {
+    console.log(`${green("\u2713")} confirmed ${entry.doc}`);
+  }
+  for (const entry of joined.drifted) {
+    console.log(`${yellow("~")} drifted ${entry.doc} (${entry.side} anchor \u2192 ${entry.foundAt})`);
+  }
+  for (const orphan of joined.orphansOut) {
+    console.log(`${dim("?")} orphan out: ${orphan.node} [${orphan.kind}] ${orphan.matchKey} ${dim(`(${orphan.payload})`)}`);
+  }
+  for (const orphan of joined.orphansIn) {
+    console.log(`${dim("?")} orphan in:  ${orphan.node} [${orphan.kind}] ${orphan.matchKey}`);
+  }
+  if (joined.noise.length > 0) {
+    console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS, intra-node self-loops) \u2014 excluded; see join.json`));
+  }
+  for (const gap of joined.gaps) {
+    console.log(`${yellow("!")} scanner gap: ${gap.node} \u2014 ${gap.detail}`);
+  }
+};
+var buildMapCommand = async ({ flags, rest, cwd }) => {
+  const authorRunId = getStringFlag({ flags, name: "author" });
+  const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const connectionsSource = getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections";
+  try {
+    const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
+    if (connections.remote) {
+      console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
+    }
+    if (authorRunId) {
+      const joinPath = join47(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+      const reviewed = MapJoin.parse(JSON.parse(await readFile34(joinPath, "utf8")));
+      const inventoriesDir = join47(cwd, ".lightsout/traverse/inventories");
+      const shaByNode = /* @__PURE__ */ new Map();
+      for (const name of (await readdir10(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
+        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile34(join47(inventoriesDir, name), "utf8")));
+        if (inventory.success) {
+          shaByNode.set(inventory.data.node, inventory.data.scannedSha);
+        }
+      }
+      const result2 = await authorConnectionDocs({
+        connectionsDir: connections.dir,
+        join: reviewed,
+        shaByNode
+      });
+      console.log(`${green("\u2713")} authored ${result2.authored.length} doc(s)${result2.authored.length > 0 ? `: ${result2.authored.join(", ")}` : ""}`);
+      console.log(`${green("\u2713")} confirmed ${result2.confirmed} \xB7 repaired ${result2.repaired} \xB7 INDEX.md regenerated (${result2.edgeCount} edge(s))`);
+      if (connections.remote) {
+        console.log(`
+the map is a clone of ${connections.repo} \u2014 commit & push (or open a PR) from ${connections.dir}`);
+      }
+      process.exit(0);
+    }
+    const nodeArgs = getPositionals({ args: rest });
+    if (nodeArgs.length === 0) {
+      console.error(usage);
+      process.exit(1);
+    }
+    const driver = getDriver({ name: config2?.driver ?? "claude-code" });
+    const result = await runBuildMap({
+      cwd,
+      driver,
+      nodes: nodeArgs.length === 1 && nodeArgs[0] === "all" ? "all" : nodeArgs,
+      connectionsDir: connections.dir,
+      rescan: flags.get("rescan") === true,
+      model: config2?.model,
+      permissionMode: config2?.permissionMode,
+      onProgress: (message) => console.log(dim(message))
+    });
+    if (result.status !== "complete" || !result.join) {
+      console.error(`
+${result.error ?? "build-map failed"}`);
+      process.exit(1);
+    }
+    const { join: joined } = result;
+    console.log(`
+${bold(`build-map ${result.runId}`)} \u2014 scanned ${result.scanned.length}, reused ${result.reused.length} inventory(ies)
+`);
+    renderJoin({ joined });
+    console.log(`
+${bold("REVIEW GATE")} \u2014 no docs written yet. Cull ${result.runDir}/join.json (delete rejected entries), then:`);
+    console.log(`  lightsout build-map --author ${result.runId}${connectionsSource === ".lightsout/connections" ? "" : ` --connections ${connectionsSource}`}`);
+    process.exit(0);
+  } catch (error51) {
+    console.error(error51 instanceof Error ? error51.message : String(error51));
+    process.exit(1);
+  }
 };
 
-// packages/cli/src/common/args/parseFlags.ts
-var parseFlags = ({ args }) => {
-  const flags = /* @__PURE__ */ new Map();
-  let index = 0;
-  while (index < args.length) {
-    const key = args[index];
-    if (!key?.startsWith("--")) {
-      index += 1;
+// packages/cli/src/debugCommand.ts
+var renderHops = ({ hops }) => {
+  for (const [index, hop] of hops.entries()) {
+    if (!hop.report) {
+      console.log(`${dim(`${index + 1}.`)} ${hop.node} ${dim(`(${hop.note ?? "non-repo node"})`)}`);
       continue;
     }
-    const value = args[index + 1];
-    if (value === void 0 || value.startsWith("--")) {
-      flags.set(key.slice(2), true);
-      index += 1;
-    } else {
-      flags.set(key.slice(2), value);
-      index += 2;
+    const paintVerdict = hop.report.verdict === "root-cause" ? green : hop.report.verdict === "stuck" ? yellow : dim;
+    console.log(`${dim(`${index + 1}.`)} ${bold(hop.node)} ${dim(`(${hop.direction})`)} \u2014 ${paintVerdict(hop.report.verdict)}`);
+    console.log(`   ${hop.report.investigation}`);
+    if (hop.report.nextLead) {
+      console.log(dim(`   \u21B3 ${hop.report.nextLead.direction} via ${hop.report.nextLead.kind} ${hop.report.nextLead.target} \u2014 ${hop.report.nextLead.why}`));
     }
   }
-  return flags;
+};
+var debugCommand = async ({ flags, rest, cwd }) => {
+  const symptoms = getPositionals({ args: rest }).join(" ");
+  const resumeRunId = getStringFlag({ flags, name: "run" });
+  const budgetFlag = getStringFlag({ flags, name: "budget" });
+  if (!symptoms && !resumeRunId) {
+    console.error(usage);
+    process.exit(1);
+  }
+  const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const driver = getDriver({ name: config2?.driver ?? "claude-code" });
+  try {
+    const connections = await resolveConnectionsSource({
+      cwd,
+      source: getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections"
+    });
+    if (connections.remote) {
+      console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
+    }
+    const result = await runDebug({
+      cwd,
+      driver,
+      symptoms: symptoms || "(resumed)",
+      connectionsDir: connections.dir,
+      start: getStringFlag({ flags, name: "start" }),
+      at: getStringFlag({ flags, name: "at" }),
+      suspectCommit: getStringFlag({ flags, name: "suspect" }),
+      budget: budgetFlag ? Number.parseInt(budgetFlag, 10) : void 0,
+      resumeRunId,
+      model: config2?.model,
+      permissionMode: config2?.permissionMode,
+      onProgress: (message) => console.log(dim(message))
+    });
+    const { state } = result;
+    console.log(`
+${bold(`debug ${result.runId}`)} \u2014 ${result.status}`);
+    console.log(`${state.symptoms}
+`);
+    renderHops({ hops: state.hops });
+    if (state.resolution) {
+      console.log(`
+${green("root cause")} \u2014 ${bold(state.resolution.node)} at ${state.resolution.at}`);
+      console.log(`  ${state.resolution.explanation}`);
+      console.log(`
+${green("proposed fix")}: ${state.resolution.proposedFix}`);
+    }
+    if (state.gaps.length > 0) {
+      console.log(`
+${yellow(`${state.gaps.length} gap(s)`)} \u2014 where the trail stopped (unmapped boundary \u2192 build-map or author the doc; contradiction/unobservable \u2192 inspect by hand):`);
+      for (const gap of state.gaps) {
+        console.log(`  ${gap.node}: ${gap.detail}`);
+      }
+    }
+    if (state.drift.length > 0) {
+      console.log(`
+${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connection docs:`);
+      for (const drift of state.drift) {
+        console.log(`  ${drift.node}${drift.viaEdge ? ` (${drift.viaEdge})` : ""}: ${drift.status}${drift.foundAt ? ` \u2014 found at ${drift.foundAt}` : ""}`);
+      }
+    }
+    console.log(`
+trace: ${result.runDir}/trace.json`);
+    if (result.error) {
+      console.error(`
+${result.error}`);
+    }
+    process.exit(result.status === "resolved" ? 0 : 1);
+  } catch (error51) {
+    console.error(error51 instanceof Error ? error51.message : String(error51));
+    process.exit(1);
+  }
 };
 
-// packages/cli/src/common/constants/usage.ts
-var usage = `lightsout \u2014 deterministic engine for coding agents
+// packages/cli/src/common/terminal/red.ts
+var red = paint({ code: "31" });
 
-usage:
-  lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
-  lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
-  lightsout status [--cwd <path>]
-  lightsout doctor [--cwd <path>]
-  lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
-  lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--data <field>] [--cwd <path>]
-  lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
-  lightsout debug "<symptoms>" [--start <node>] [--at <file:line>] [--suspect <hash>] [--connections <dir>] [--budget <n>] [--cwd <path>]
-  lightsout debug --run <id> [--cwd <path>]           (resume a parked/budget-exhausted debug run)
-  lightsout build-map <node...|all> [--connections <dir>] [--rescan] [--cwd <path>]
-  lightsout build-map --author <run-id> [--connections <dir>] [--cwd <path>]   (post-review: write docs from a culled join.json)
-  lightsout map-connection verify [<doc-id>...] [--repair] [--connections <dir>] [--cwd <path>]
-  lightsout map-connection draft --run <traverse-run-id> [--connections <dir>] [--cwd <path>]
-  lightsout plan explore "<request>" --name <n> [--areas <a,b>] [--cwd <path>]
-  lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
-  lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
-  lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]
-  lightsout friction [--cwd <path>]
-  lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
-`;
+// packages/cli/src/doctorCommand.ts
+var doctorCommand = async ({ cwd }) => {
+  const checks = await runDoctor({ cwd });
+  const icon = { pass: green("\u2713"), note: dim("\u2139"), warn: yellow("\u26A0"), fail: red("\u2717") };
+  const counts = { pass: 0, note: 0, warn: 0, fail: 0 };
+  console.log(`doctor    ${cwd}
+`);
+  for (const check2 of checks) {
+    counts[check2.status] += 1;
+    console.log(`${icon[check2.status]} ${check2.id.padEnd(16)}${check2.detail}`);
+    if (check2.fix) {
+      for (const line of check2.fix.split("\n")) {
+        console.log(dim(`  ${"".padEnd(16)}${line}`));
+      }
+    }
+  }
+  const tally = Object.entries(counts).filter(([, count]) => count > 0).map(([status, count]) => `${count} ${status}`).join(" \xB7 ");
+  console.log(`
+${checks.length} check(s) \xB7 ${tally}`);
+  process.exit(counts.fail > 0 ? 1 : 0);
+};
+
+// packages/cli/src/frictionCommand.ts
+var frictionCommand = async ({ cwd }) => {
+  const entries = await readFriction({ cwd });
+  if (entries.length === 0) {
+    console.log("no friction recorded");
+    process.exit(0);
+  }
+  for (const entry of entries) {
+    console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
+  }
+  process.exit(0);
+};
 
 // packages/cli/src/common/render/printResult.ts
 import { basename as basename9 } from "node:path";
@@ -40278,21 +40512,6 @@ var formatTokenCount = ({ count }) => {
   return count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
 };
 
-// packages/cli/src/common/terminal/paint.ts
-var paint = ({ code }) => (text) => process.stdout.isTTY ? `\\u001b[${code}m${text}\\u001b[0m` : text;
-
-// packages/cli/src/common/terminal/bold.ts
-var bold = paint({ code: "1" });
-
-// packages/cli/src/common/terminal/green.ts
-var green = paint({ code: "32" });
-
-// packages/cli/src/common/terminal/red.ts
-var red = paint({ code: "31" });
-
-// packages/cli/src/common/terminal/yellow.ts
-var yellow = paint({ code: "33" });
-
 // packages/cli/src/common/terminal/paintStatus.ts
 var paintStatus = ({ status, text }) => {
   if (status === RunStatus.Passed) {
@@ -40310,9 +40529,6 @@ var statusIcons = {
   [RunStatus.PausedRateLimit]: "\u23F8",
   [RunStatus.Escalated]: "\u2691"
 };
-
-// packages/cli/src/common/terminal/dim.ts
-var dim = paint({ code: "2" });
 
 // packages/cli/src/common/render/printStepTable.ts
 var paintCell = ({ text, padded, status }) => {
@@ -40483,645 +40699,514 @@ ${error51.message}`);
   }
 };
 
-// packages/cli/src/index.ts
-var main = async () => {
-  const [command, ...rest] = process.argv.slice(2);
-  const flags = parseFlags({ args: rest });
-  const cwd = getStringFlag({ flags, name: "cwd" }) ?? process.cwd();
+// packages/cli/src/implementCommand.ts
+var implementCommand = async ({ flags, cwd }) => {
   const skipRefactor = flags.get("skip-refactor") === true;
-  if (command === "implement") {
-    const planPath = getStringFlag({ flags, name: "plan" });
-    const overviewPath = getStringFlag({ flags, name: "overview" });
-    const packagesFlag = getStringFlag({ flags, name: "packages" });
-    const packages = packagesFlag ? packagesFlag.split(",").map((name) => name.trim()).filter(Boolean) : void 0;
-    if (!planPath) {
-      console.error(usage);
-      process.exit(1);
-    }
-    const config2 = await loadConfig({ cwd });
-    const driver = getDriver({ name: config2.driver ?? "claude-code" });
-    console.log(`lightsout: starting run`);
-    console.log(`  plan: ${planPath}${overviewPath ? `
+  const planPath = getStringFlag({ flags, name: "plan" });
+  const overviewPath = getStringFlag({ flags, name: "overview" });
+  const packagesFlag = getStringFlag({ flags, name: "packages" });
+  const packages = packagesFlag ? packagesFlag.split(",").map((name) => name.trim()).filter(Boolean) : void 0;
+  if (!planPath) {
+    console.error(usage);
+    process.exit(1);
+  }
+  const config2 = await loadConfig({ cwd });
+  const driver = getDriver({ name: config2.driver ?? "claude-code" });
+  console.log(`lightsout: starting run`);
+  console.log(`  plan: ${planPath}${overviewPath ? `
   overview: ${overviewPath}` : ""}${packages ? `
   packages flag: ${packages.join(", ")}` : ""}`);
-    printRunHeader({ config: config2, driver, cwd });
-    const result = await runPipelineOrFailFast({
-      cwd,
-      planPath,
-      overviewPath,
-      packages,
-      driver,
-      config: config2,
-      skipRefactor,
-      onProgress: createProgressPrinter()
-    });
-    await printResult({ result, cwd });
-    process.exit(result.ok ? 0 : 1);
+  printRunHeader({ config: config2, driver, cwd });
+  const result = await runPipelineOrFailFast({
+    cwd,
+    planPath,
+    overviewPath,
+    packages,
+    driver,
+    config: config2,
+    skipRefactor,
+    onProgress: createProgressPrinter()
+  });
+  await printResult({ result, cwd });
+  process.exit(result.ok ? 0 : 1);
+};
+
+// packages/cli/src/improveCommand.ts
+var improveCommand = async ({ flags, cwd }) => {
+  const engineCwd = getStringFlag({ flags, name: "engine" });
+  if (!engineCwd) {
+    console.error(usage);
+    process.exit(1);
   }
-  if (command === "resume") {
-    const runId = getStringFlag({ flags, name: "run" });
-    if (!runId) {
-      console.error(usage);
-      process.exit(1);
-    }
-    const manifest = await readRunManifest({ cwd, runId });
-    if (manifest.status === RunStatus.Passed) {
-      console.error(`run ${runId} already passed \u2014 nothing to resume`);
-      process.exit(1);
-    }
-    const config2 = await loadConfig({ cwd });
-    const driver = getDriver({ name: manifest.driver });
-    console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
-    printRunHeader({ config: config2, driver, cwd });
-    const result = await runPipelineOrFailFast({
-      cwd,
-      driver,
-      config: config2,
-      existing: manifest,
-      skipRefactor,
-      onProgress: createProgressPrinter()
-    });
-    await printResult({ result, cwd });
-    process.exit(result.ok ? 0 : 1);
-  }
-  if (command === "status") {
-    const runsDir = join47(cwd, ".lightsout", "runs");
-    const runIds = await readdir10(runsDir).catch(() => []);
-    if (runIds.length === 0) {
-      console.log("no runs found");
-      process.exit(0);
-    }
-    const lock = await readRunLock({ cwd });
-    for (const runId of runIds) {
-      const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
-      if (manifest) {
-        const zombie = manifest.status === RunStatus.Running && !(lock && lock.runId === manifest.runId && isPidAlive({ pid: lock.pid }));
-        const status = zombie ? `${manifest.status} (no live process \u2014 crashed? resume with --run ${manifest.runId})` : manifest.status;
-        console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}  updated: ${manifest.updatedAt}`);
-      }
-    }
+  const driver = getDriver({ name: "claude-code" });
+  const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver });
+  if (result.friction.length === 0) {
+    console.log("no friction recorded \u2014 nothing to improve from");
     process.exit(0);
   }
-  if (command === "doctor") {
-    const checks = await runDoctor({ cwd });
-    const icon = { pass: green("\u2713"), note: dim("\u2139"), warn: yellow("\u26A0"), fail: red("\u2717") };
-    const counts = { pass: 0, note: 0, warn: 0, fail: 0 };
-    console.log(`doctor    ${cwd}
-`);
-    for (const check2 of checks) {
-      counts[check2.status] += 1;
-      console.log(`${icon[check2.status]} ${check2.id.padEnd(16)}${check2.detail}`);
-      if (check2.fix) {
-        for (const line of check2.fix.split("\n")) {
-          console.log(dim(`  ${"".padEnd(16)}${line}`));
-        }
-      }
-    }
-    const tally = Object.entries(counts).filter(([, count]) => count > 0).map(([status, count]) => `${count} ${status}`).join(" \xB7 ");
+  if (result.rateLimited || !result.report) {
+    console.error(result.failure ?? "improver produced no valid report");
+    process.exit(1);
+  }
+  console.log(`
+improve: ${result.report.status} (${result.friction.length} friction entries considered)`);
+  console.log(`  ${result.report.summary}`);
+  for (const file2 of result.report.changedFiles) {
+    console.log(`  ~ ${file2.path} \u2014 ${file2.summary}`);
+  }
+  if (result.report.changedFiles.length > 0) {
     console.log(`
-${checks.length} check(s) \xB7 ${tally}`);
-    process.exit(counts.fail > 0 ? 1 : 0);
+review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
   }
-  if (command === "scan") {
-    const scanPath = getStringFlag({ flags, name: "path" });
-    const { findings, notes } = await runScan({
-      cwd,
-      path: scanPath,
-      all: flags.get("all") === true,
-      writeBaseline: flags.get("baseline") === true,
-      onProgress: (message) => console.log(dim(message))
-    });
-    const bySeverity = { finding: findings.filter((entry) => entry.severity === "finding"), advisory: findings.filter((entry) => entry.severity === "advisory") };
-    console.log("");
-    for (const [severity, list] of Object.entries(bySeverity)) {
-      for (const entry of list) {
-        const icon = severity === "finding" ? yellow("\u26A0") : dim("\u2139");
-        const where = entry.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(", ");
-        console.log(`${icon} ${entry.detector.padEnd(20)}${entry.detail}`);
-        console.log(dim(`  ${"".padEnd(20)}${where}`));
-      }
+  process.exit(result.report.status === "complete" ? 0 : 1);
+};
+
+// packages/cli/src/mapConnectionCommand.ts
+var mapConnectionCommand = async ({ flags, rest, cwd }) => {
+  const subcommand = getPositionals({ args: rest })[0];
+  const mapConfig = await loadConfig({ cwd }).catch(() => void 0);
+  const connectionsSource = getStringFlag({ flags, name: "connections" }) ?? mapConfig?.traverse?.connections ?? ".lightsout/connections";
+  try {
+    const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
+    if (connections.remote) {
+      console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
     }
-    for (const note of notes) {
-      console.log(`${dim("\u2139")} ${"note".padEnd(20)}${note}`);
-    }
-    const detectors = /* @__PURE__ */ new Map();
-    for (const entry of findings) {
-      detectors.set(entry.detector, (detectors.get(entry.detector) ?? 0) + 1);
-    }
-    const breakdown = [...detectors.entries()].map(([name, count]) => `${name} ${count}`).join(" \xB7 ");
-    console.log(`
-${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} \u2014 report: .lightsout/scan.json`);
-    process.exit(0);
-  }
-  if (command === "traverse") {
-    const question = getPositionals({ args: rest }).join(" ");
-    const resumeRunId = getStringFlag({ flags, name: "run" });
-    const budgetFlag = getStringFlag({ flags, name: "budget" });
-    if (!question && !resumeRunId) {
-      console.error(usage);
-      process.exit(1);
-    }
-    const config2 = await loadConfig({ cwd }).catch(() => void 0);
-    const driver = getDriver({ name: config2?.driver ?? "claude-code" });
-    try {
-      const connections = await resolveConnectionsSource({
+    if (subcommand === "verify") {
+      const docIds = getPositionals({ args: rest }).slice(1);
+      const results = await verifyConnectionAnchors({
         cwd,
-        source: getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections"
-      });
-      if (connections.remote) {
-        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
-      }
-      const result = await runTraverse({
-        cwd,
-        driver,
-        question: question || "(resumed)",
         connectionsDir: connections.dir,
-        dataOfInterest: getStringFlag({ flags, name: "data" }),
-        start: getStringFlag({ flags, name: "start" }),
-        budget: budgetFlag ? Number.parseInt(budgetFlag, 10) : void 0,
-        resumeRunId,
-        model: config2?.model,
-        permissionMode: config2?.permissionMode,
+        docIds: docIds.length > 0 ? docIds : void 0,
+        repair: flags.get("repair") === true,
         onProgress: (message) => console.log(dim(message))
       });
-      const { state } = result;
-      console.log(`
-${bold(`traverse ${result.runId}`)} \u2014 ${result.status}`);
-      console.log(`${state.question}
-`);
-      for (const [index, hop] of state.hops.entries()) {
-        if (!hop.report) {
-          console.log(`${dim(`${index + 1}.`)} ${hop.node} ${dim(`(${hop.note ?? "non-repo node"})`)}`);
-          continue;
-        }
-        console.log(`${dim(`${index + 1}.`)} ${bold(hop.node)} ${dim(`via ${hop.edge} \xB7 confidence ${hop.report.confidence}`)}`);
-        console.log(`   ${hop.report.answerContribution}`);
-        for (const transform2 of hop.report.transforms) {
-          console.log(dim(`   \xB7 ${transform2.at} \u2014 ${transform2.what}`));
-        }
+      const icons = { current: dim("\xB7"), ok: green("\u2713"), drifted: yellow("~"), missing: red("\u2717"), unverifiable: dim("?") };
+      console.log("");
+      for (const entry of results) {
+        console.log(`${icons[entry.status]} ${entry.doc} ${dim(`${entry.side}/${entry.node}`)} ${entry.status}${entry.foundAt ? ` \u2192 ${entry.foundAt}` : ""}${entry.detail ? dim(` \u2014 ${entry.detail}`) : ""}`);
       }
-      if (state.gaps.length > 0) {
-        console.log(`
-${yellow(`${state.gaps.length} gap(s)`)} \u2014 the map ends here; draft missing docs with map-connection:`);
-        for (const gap of state.gaps) {
-          console.log(`  ${gap.node}: ${gap.detail}${gap.exit ? ` (${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at})` : ""}`);
-        }
-      }
-      if (state.drift.length > 0) {
-        console.log(`
-${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connection docs:`);
-        for (const drift of state.drift) {
-          console.log(`  ${drift.edge} (${drift.node}): ${drift.status}${drift.foundAt ? ` \u2014 found at ${drift.foundAt}` : ""}`);
-        }
-      }
-      console.log(`
-trace: ${result.runDir}/trace.json`);
-      if (result.error) {
-        console.error(`
-${result.error}`);
-      }
-      process.exit(result.status === "complete" ? 0 : 1);
-    } catch (error51) {
-      console.error(error51 instanceof Error ? error51.message : String(error51));
-      process.exit(1);
-    }
-  }
-  if (command === "debug") {
-    const symptoms = getPositionals({ args: rest }).join(" ");
-    const resumeRunId = getStringFlag({ flags, name: "run" });
-    const budgetFlag = getStringFlag({ flags, name: "budget" });
-    if (!symptoms && !resumeRunId) {
-      console.error(usage);
-      process.exit(1);
-    }
-    const config2 = await loadConfig({ cwd }).catch(() => void 0);
-    const driver = getDriver({ name: config2?.driver ?? "claude-code" });
-    try {
-      const connections = await resolveConnectionsSource({
-        cwd,
-        source: getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections"
-      });
-      if (connections.remote) {
-        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
-      }
-      const result = await runDebug({
-        cwd,
-        driver,
-        symptoms: symptoms || "(resumed)",
-        connectionsDir: connections.dir,
-        start: getStringFlag({ flags, name: "start" }),
-        at: getStringFlag({ flags, name: "at" }),
-        suspectCommit: getStringFlag({ flags, name: "suspect" }),
-        budget: budgetFlag ? Number.parseInt(budgetFlag, 10) : void 0,
-        resumeRunId,
-        model: config2?.model,
-        permissionMode: config2?.permissionMode,
-        onProgress: (message) => console.log(dim(message))
-      });
-      const { state } = result;
-      console.log(`
-${bold(`debug ${result.runId}`)} \u2014 ${result.status}`);
-      console.log(`${state.symptoms}
-`);
-      for (const [index, hop] of state.hops.entries()) {
-        if (!hop.report) {
-          console.log(`${dim(`${index + 1}.`)} ${hop.node} ${dim(`(${hop.note ?? "non-repo node"})`)}`);
-          continue;
-        }
-        const paintVerdict = hop.report.verdict === "root-cause" ? green : hop.report.verdict === "stuck" ? yellow : dim;
-        console.log(`${dim(`${index + 1}.`)} ${bold(hop.node)} ${dim(`(${hop.direction})`)} \u2014 ${paintVerdict(hop.report.verdict)}`);
-        console.log(`   ${hop.report.investigation}`);
-        if (hop.report.nextLead) {
-          console.log(dim(`   \u21B3 ${hop.report.nextLead.direction} via ${hop.report.nextLead.kind} ${hop.report.nextLead.target} \u2014 ${hop.report.nextLead.why}`));
-        }
-      }
-      if (state.resolution) {
-        console.log(`
-${green("root cause")} \u2014 ${bold(state.resolution.node)} at ${state.resolution.at}`);
-        console.log(`  ${state.resolution.explanation}`);
-        console.log(`
-${green("proposed fix")}: ${state.resolution.proposedFix}`);
-      }
-      if (state.gaps.length > 0) {
-        console.log(`
-${yellow(`${state.gaps.length} gap(s)`)} \u2014 where the trail stopped (unmapped boundary \u2192 build-map or author the doc; contradiction/unobservable \u2192 inspect by hand):`);
-        for (const gap of state.gaps) {
-          console.log(`  ${gap.node}: ${gap.detail}`);
-        }
-      }
-      if (state.drift.length > 0) {
-        console.log(`
-${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connection docs:`);
-        for (const drift of state.drift) {
-          console.log(`  ${drift.node}${drift.viaEdge ? ` (${drift.viaEdge})` : ""}: ${drift.status}${drift.foundAt ? ` \u2014 found at ${drift.foundAt}` : ""}`);
-        }
-      }
-      console.log(`
-trace: ${result.runDir}/trace.json`);
-      if (result.error) {
-        console.error(`
-${result.error}`);
-      }
-      process.exit(result.status === "resolved" ? 0 : 1);
-    } catch (error51) {
-      console.error(error51 instanceof Error ? error51.message : String(error51));
-      process.exit(1);
-    }
-  }
-  if (command === "build-map") {
-    const authorRunId = getStringFlag({ flags, name: "author" });
-    const config2 = await loadConfig({ cwd }).catch(() => void 0);
-    const connectionsSource = getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections";
-    try {
-      const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
-      if (connections.remote) {
-        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
-      }
-      if (authorRunId) {
-        const joinPath = join47(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
-        const reviewed = MapJoin.parse(JSON.parse(await readFile34(joinPath, "utf8")));
-        const inventoriesDir = join47(cwd, ".lightsout/traverse/inventories");
-        const shaByNode = /* @__PURE__ */ new Map();
-        for (const name of (await readdir10(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-          const inventory = EdgeInventory.safeParse(JSON.parse(await readFile34(join47(inventoriesDir, name), "utf8")));
-          if (inventory.success) {
-            shaByNode.set(inventory.data.node, inventory.data.scannedSha);
-          }
-        }
-        const result2 = await authorConnectionDocs({
-          connectionsDir: connections.dir,
-          join: reviewed,
-          shaByNode
-        });
-        console.log(`${green("\u2713")} authored ${result2.authored.length} doc(s)${result2.authored.length > 0 ? `: ${result2.authored.join(", ")}` : ""}`);
-        console.log(`${green("\u2713")} confirmed ${result2.confirmed} \xB7 repaired ${result2.repaired} \xB7 INDEX.md regenerated (${result2.edgeCount} edge(s))`);
-        if (connections.remote) {
-          console.log(`
-the map is a clone of ${connections.repo} \u2014 commit & push (or open a PR) from ${connections.dir}`);
-        }
-        process.exit(0);
-      }
-      const nodeArgs = getPositionals({ args: rest });
-      if (nodeArgs.length === 0) {
-        console.error(usage);
-        process.exit(1);
-      }
-      const driver = getDriver({ name: config2?.driver ?? "claude-code" });
-      const result = await runBuildMap({
-        cwd,
-        driver,
-        nodes: nodeArgs.length === 1 && nodeArgs[0] === "all" ? "all" : nodeArgs,
-        connectionsDir: connections.dir,
-        rescan: flags.get("rescan") === true,
-        model: config2?.model,
-        permissionMode: config2?.permissionMode,
-        onProgress: (message) => console.log(dim(message))
-      });
-      if (result.status !== "complete" || !result.join) {
-        console.error(`
-${result.error ?? "build-map failed"}`);
-        process.exit(1);
-      }
-      const { join: joined } = result;
-      console.log(`
-${bold(`build-map ${result.runId}`)} \u2014 scanned ${result.scanned.length}, reused ${result.reused.length} inventory(ies)
-`);
-      for (const edge of joined.matched) {
-        console.log(`${green("\uFF0B")} ${edge.from} \u2192 ${edge.to} [${edge.kind}] ${edge.matchKey}${edge.fuzzy ? yellow(" (fuzzy \u2014 review hardest)") : ""}`);
-        console.log(dim(`    ${edge.fromSighting.at} \u2194 ${edge.toSighting.at}`));
-      }
-      for (const entry of joined.confirmed) {
-        console.log(`${green("\u2713")} confirmed ${entry.doc}`);
-      }
-      for (const entry of joined.drifted) {
-        console.log(`${yellow("~")} drifted ${entry.doc} (${entry.side} anchor \u2192 ${entry.foundAt})`);
-      }
-      for (const orphan of joined.orphansOut) {
-        console.log(`${dim("?")} orphan out: ${orphan.node} [${orphan.kind}] ${orphan.matchKey} ${dim(`(${orphan.payload})`)}`);
-      }
-      for (const orphan of joined.orphansIn) {
-        console.log(`${dim("?")} orphan in:  ${orphan.node} [${orphan.kind}] ${orphan.matchKey}`);
-      }
-      if (joined.noise.length > 0) {
-        console.log(dim(`${joined.noise.length} noise sighting(s) (health/metrics/SaaS, intra-node self-loops) \u2014 excluded; see join.json`));
-      }
-      for (const gap of joined.gaps) {
-        console.log(`${yellow("!")} scanner gap: ${gap.node} \u2014 ${gap.detail}`);
-      }
-      console.log(`
-${bold("REVIEW GATE")} \u2014 no docs written yet. Cull ${result.runDir}/join.json (delete rejected entries), then:`);
-      console.log(`  lightsout build-map --author ${result.runId}${connectionsSource === ".lightsout/connections" ? "" : ` --connections ${connectionsSource}`}`);
-      process.exit(0);
-    } catch (error51) {
-      console.error(error51 instanceof Error ? error51.message : String(error51));
-      process.exit(1);
-    }
-  }
-  if (command === "map-connection") {
-    const subcommand = getPositionals({ args: rest })[0];
-    const mapConfig = await loadConfig({ cwd }).catch(() => void 0);
-    const connectionsSource = getStringFlag({ flags, name: "connections" }) ?? mapConfig?.traverse?.connections ?? ".lightsout/connections";
-    try {
-      const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
-      if (connections.remote) {
-        console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
-      }
-      if (subcommand === "verify") {
-        const docIds = getPositionals({ args: rest }).slice(1);
-        const results = await verifyConnectionAnchors({
-          cwd,
-          connectionsDir: connections.dir,
-          docIds: docIds.length > 0 ? docIds : void 0,
-          repair: flags.get("repair") === true,
-          onProgress: (message) => console.log(dim(message))
-        });
-        const icons = { current: dim("\xB7"), ok: green("\u2713"), drifted: yellow("~"), missing: red("\u2717"), unverifiable: dim("?") };
-        console.log("");
-        for (const entry of results) {
-          console.log(`${icons[entry.status]} ${entry.doc} ${dim(`${entry.side}/${entry.node}`)} ${entry.status}${entry.foundAt ? ` \u2192 ${entry.foundAt}` : ""}${entry.detail ? dim(` \u2014 ${entry.detail}`) : ""}`);
-        }
-        const broken = results.filter((entry) => entry.status === "drifted" || entry.status === "missing").length;
-        console.log(
-          `
+      const broken = results.filter((entry) => entry.status === "drifted" || entry.status === "missing").length;
+      console.log(
+        `
 ${results.length} anchor(s): ${results.filter((entry) => entry.status === "current").length} current \xB7 ${results.filter((entry) => entry.status === "ok").length} ok \xB7 ${broken} need attention${flags.get("repair") === true ? " (drift repaired, sha advanced)" : broken > 0 ? " \u2014 re-run with --repair to apply fixes" : ""}`
-        );
-        if (connections.remote && flags.get("repair") === true) {
-          console.log(`the map is a clone of ${connections.repo} \u2014 commit & push (or open a PR) from ${connections.dir}`);
-        }
-        process.exit(results.some((entry) => entry.status === "missing") ? 1 : 0);
+      );
+      if (connections.remote && flags.get("repair") === true) {
+        console.log(`the map is a clone of ${connections.repo} \u2014 commit & push (or open a PR) from ${connections.dir}`);
       }
-      if (subcommand === "draft") {
-        const traverseRunId = getStringFlag({ flags, name: "run" });
-        if (!traverseRunId) {
-          console.error(usage);
-          process.exit(1);
-        }
-        const { drafted, draftsDir } = await draftConnectionDocs({ cwd, connectionsDir: connections.dir, traverseRunId });
-        console.log(drafted.length === 0 ? "no gaps with concrete exits in that trace \u2014 nothing to draft" : `${green("\u2713")} drafted ${drafted.length} scaffold(s) in ${draftsDir}:`);
-        for (const id of drafted) {
-          console.log(`  ${id} ${dim("\u2014 fill in the to-side, verify anchors, move up into the connections dir")}`);
-        }
-        process.exit(0);
-      }
-      console.error(usage);
-      process.exit(1);
-    } catch (error51) {
-      console.error(error51 instanceof Error ? error51.message : String(error51));
-      process.exit(1);
+      process.exit(results.some((entry) => entry.status === "missing") ? 1 : 0);
     }
-  }
-  if (command === "plan") {
-    const subcommand = getPositionals({ args: rest })[0];
-    if (subcommand === "explore") {
-      const name = getStringFlag({ flags, name: "name" });
-      const request = getPositionals({ args: rest }).slice(1).join(" ");
-      const areasFlag = getStringFlag({ flags, name: "areas" });
-      const areas = areasFlag ? areasFlag.split(",").map((area) => area.trim()).filter(Boolean) : void 0;
-      if (!name || !request) {
+    if (subcommand === "draft") {
+      const traverseRunId = getStringFlag({ flags, name: "run" });
+      if (!traverseRunId) {
         console.error(usage);
         process.exit(1);
       }
-      const config2 = await loadConfig({ cwd }).catch(() => void 0);
-      const driver = getDriver({ name: config2?.driver ?? "claude-code" });
-      const result = await runPlanExplore({
-        cwd,
-        driver,
-        request,
-        name,
-        areas,
-        model: config2?.model,
-        permissionMode: config2?.permissionMode,
-        onProgress: createProgressPrinter()
-      });
-      if (result.status === "paused-rate-limit") {
-        console.error(`
-${result.error}`);
-        process.exit(1);
+      const { drafted, draftsDir } = await draftConnectionDocs({ cwd, connectionsDir: connections.dir, traverseRunId });
+      console.log(drafted.length === 0 ? "no gaps with concrete exits in that trace \u2014 nothing to draft" : `${green("\u2713")} drafted ${drafted.length} scaffold(s) in ${draftsDir}:`);
+      for (const id of drafted) {
+        console.log(`  ${id} ${dim("\u2014 fill in the to-side, verify anchors, move up into the connections dir")}`);
       }
-      if (result.status === "failed" || !result.facts) {
-        console.error(`
-${result.error ?? "plan explore failed"}`);
-        process.exit(1);
-      }
-      const { verification } = result.facts;
-      console.log(`
-${bold(`plan explore ${name}`)} \u2014 ${result.facts.areas.length} area(s), verified ${result.facts.verifiedAt}`);
-      console.log(`  paths:   ${verification.pathsChecked} checked \xB7 ${verification.missingPaths.length} missing`);
-      console.log(`  scripts: ${verification.scriptsChecked} checked \xB7 ${verification.missingScripts.length} missing`);
-      for (const missing of verification.missingPaths) {
-        console.log(`${yellow("\u26A0")} path not found: ${missing}`);
-      }
-      for (const missing of verification.missingScripts) {
-        console.log(`${yellow("\u26A0")} script not found: ${missing}`);
-      }
-      console.log(`
-facts: ${result.factsPath}`);
-      process.exit(0);
-    }
-    if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {
-      const name = getStringFlag({ flags, name: "name" });
-      if (!name) {
-        console.error(usage);
-        process.exit(1);
-      }
-      const config2 = await loadConfig({ cwd }).catch(() => void 0);
-      const driver = getDriver({ name: config2?.driver ?? "claude-code" });
-      const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: "plans" }), config: config2 });
-      const packagesDir = config2?.packagesDir ?? "packages";
-      const standardsPaths = config2?.standards === false ? [] : config2?.standards ?? ["lightsout:code-defaults"];
-      let standards;
-      try {
-        const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
-        standards = await readStandards({ cwd, paths: standardsPaths, channels });
-      } catch (error51) {
-        console.log(dim(`standards not loaded (non-fatal): ${error51 instanceof Error ? error51.message : String(error51)}`));
-        standards = void 0;
-      }
-      if (subcommand === "draft") {
-        const scopeFlag = getStringFlag({ flags, name: "scope" });
-        const scope = scopeFlag === "phased" ? PlanVariant.Overview : scopeFlag === "single" ? PlanVariant.Single : void 0;
-        const result2 = await runPlanDraft({
-          cwd,
-          driver,
-          name,
-          plansDir,
-          scope,
-          standards,
-          model: config2?.model,
-          permissionMode: config2?.permissionMode,
-          onProgress: createProgressPrinter()
-        });
-        if (result2.status === "paused-rate-limit" || result2.status === "failed") {
-          console.error(`
-${result2.error}`);
-          process.exit(1);
-        }
-        if (result2.status === "facts-error") {
-          console.error(`
-${red("facts error")} \u2014 the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
-          for (const discrepancy of result2.discrepancies) {
-            console.error(`  ${yellow("\u26A0")} ${discrepancy}`);
-          }
-          process.exit(1);
-        }
-        if (result2.status === "structural-issues") {
-          console.error(`
-${red(`${result2.findings.length} structural issue(s)`)} remain after re-drafting \u2014 resolve, then re-draft:`);
-          for (const finding of result2.findings) {
-            console.error(`  ${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
-            console.error(dim(`     fix: ${finding.fix}`));
-          }
-          process.exit(1);
-        }
-        console.log(`
-${bold(`plan draft ${name}`)} \u2014 ${result2.variant}, structurally clean`);
-        for (const path of result2.planPaths) {
-          console.log(`  ${green("\u2713")} ${path}`);
-        }
-        process.exit(0);
-      }
-      if (subcommand === "dedup") {
-        const result2 = await runPlanDedup({
-          cwd,
-          driver,
-          name,
-          plansDir,
-          standards,
-          model: config2?.model,
-          permissionMode: config2?.permissionMode,
-          onProgress: createProgressPrinter()
-        });
-        if (result2.status === "paused-rate-limit" || result2.status === "failed") {
-          console.error(`
-${result2.error}`);
-          process.exit(1);
-        }
-        const { dedup } = result2;
-        const count = dedup.findings.length;
-        console.log(
-          `
-${bold(`plan dedup ${name}`)} \u2014 ${count > 0 ? yellow(`${count} duplication(s) to review`) : green("no duplication found")} (reviewed ${dedup.reviewedAt})`
-        );
-        for (const finding of dedup.findings) {
-          console.log(`${yellow("\u29C9")} ${finding.plannedSymbol} [${finding.recommendation}] collides with ${finding.collidesWith.map((collision) => collision.path).join(", ")}`);
-          console.log(dim(`   ${finding.rationale}`));
-        }
-        console.log(`
-dedup: ${result2.dedupPath}`);
-        process.exit(0);
-      }
-      const result = await runPlanGrade({
-        cwd,
-        driver,
-        name,
-        plansDir,
-        standards,
-        model: config2?.model,
-        permissionMode: config2?.permissionMode,
-        onProgress: createProgressPrinter()
-      });
-      if (result.status === "paused-rate-limit" || result.status === "failed") {
-        console.error(`
-${result.error}`);
-        process.exit(1);
-      }
-      const { grade } = result;
-      console.log(`
-${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
-      console.log(`  structural: ${grade.structural.length} \xB7 gaps: ${grade.gaps.length}`);
-      for (const finding of grade.structural) {
-        console.log(`${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
-        console.log(dim(`   fix: ${finding.fix}`));
-      }
-      for (const gap of grade.gaps) {
-        console.log(`${yellow("?")} [${gap.area}] ${gap.gap}`);
-        console.log(dim(`   decide: ${gap.decision}${gap.options.length > 0 ? ` \u2014 options: ${gap.options.join(" / ")}` : ""}`));
-      }
-      console.log(`
-grade: ${result.gradePath}`);
       process.exit(0);
     }
     console.error(usage);
     process.exit(1);
+  } catch (error51) {
+    console.error(error51 instanceof Error ? error51.message : String(error51));
+    process.exit(1);
   }
-  if (command === "friction") {
-    const entries = await readFriction({ cwd });
-    if (entries.length === 0) {
-      console.log("no friction recorded");
-      process.exit(0);
-    }
-    for (const entry of entries) {
-      console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
-    }
-    process.exit(0);
+};
+
+// packages/cli/src/plan/loadPlanningStandards.ts
+var loadPlanningStandards = async ({ cwd, config: config2 }) => {
+  const packagesDir = config2?.packagesDir ?? "packages";
+  const standardsPaths = config2?.standards === false ? [] : config2?.standards ?? ["lightsout:code-defaults"];
+  let standards;
+  try {
+    const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
+    standards = await readStandards({ cwd, paths: standardsPaths, channels });
+  } catch (error51) {
+    console.log(dim(`standards not loaded (non-fatal): ${error51 instanceof Error ? error51.message : String(error51)}`));
+    standards = void 0;
   }
-  if (command === "improve") {
-    const engineCwd = getStringFlag({ flags, name: "engine" });
-    if (!engineCwd) {
+  return standards;
+};
+
+// packages/cli/src/plan/planDedupCommand.ts
+var planDedupCommand = async ({ cwd, driver, name, plansDir, standards, config: config2 }) => {
+  const result = await runPlanDedup({
+    cwd,
+    driver,
+    name,
+    plansDir,
+    standards,
+    model: config2?.model,
+    permissionMode: config2?.permissionMode,
+    onProgress: createProgressPrinter()
+  });
+  if (result.status === "paused-rate-limit" || result.status === "failed") {
+    console.error(`
+${result.error}`);
+    process.exit(1);
+  }
+  const { dedup } = result;
+  const count = dedup.findings.length;
+  console.log(
+    `
+${bold(`plan dedup ${name}`)} \u2014 ${count > 0 ? yellow(`${count} duplication(s) to review`) : green("no duplication found")} (reviewed ${dedup.reviewedAt})`
+  );
+  for (const finding of dedup.findings) {
+    console.log(`${yellow("\u29C9")} ${finding.plannedSymbol} [${finding.recommendation}] collides with ${finding.collidesWith.map((collision) => collision.path).join(", ")}`);
+    console.log(dim(`   ${finding.rationale}`));
+  }
+  console.log(`
+dedup: ${result.dedupPath}`);
+  process.exit(0);
+};
+
+// packages/cli/src/plan/planDraftCommand.ts
+var planDraftCommand = async ({ cwd, driver, name, plansDir, standards, config: config2, flags }) => {
+  const scopeFlag = getStringFlag({ flags, name: "scope" });
+  const scope = scopeFlag === "phased" ? PlanVariant.Overview : scopeFlag === "single" ? PlanVariant.Single : void 0;
+  const result = await runPlanDraft({
+    cwd,
+    driver,
+    name,
+    plansDir,
+    scope,
+    standards,
+    model: config2?.model,
+    permissionMode: config2?.permissionMode,
+    onProgress: createProgressPrinter()
+  });
+  if (result.status === "paused-rate-limit" || result.status === "failed") {
+    console.error(`
+${result.error}`);
+    process.exit(1);
+  }
+  if (result.status === "facts-error") {
+    console.error(`
+${red("facts error")} \u2014 the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
+    for (const discrepancy of result.discrepancies) {
+      console.error(`  ${yellow("\u26A0")} ${discrepancy}`);
+    }
+    process.exit(1);
+  }
+  if (result.status === "structural-issues") {
+    console.error(`
+${red(`${result.findings.length} structural issue(s)`)} remain after re-drafting \u2014 resolve, then re-draft:`);
+    for (const finding of result.findings) {
+      console.error(`  ${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
+      console.error(dim(`     fix: ${finding.fix}`));
+    }
+    process.exit(1);
+  }
+  console.log(`
+${bold(`plan draft ${name}`)} \u2014 ${result.variant}, structurally clean`);
+  for (const path of result.planPaths) {
+    console.log(`  ${green("\u2713")} ${path}`);
+  }
+  process.exit(0);
+};
+
+// packages/cli/src/plan/planExploreCommand.ts
+var planExploreCommand = async ({ flags, rest, cwd }) => {
+  const name = getStringFlag({ flags, name: "name" });
+  const request = getPositionals({ args: rest }).slice(1).join(" ");
+  const areasFlag = getStringFlag({ flags, name: "areas" });
+  const areas = areasFlag ? areasFlag.split(",").map((area) => area.trim()).filter(Boolean) : void 0;
+  if (!name || !request) {
+    console.error(usage);
+    process.exit(1);
+  }
+  const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const driver = getDriver({ name: config2?.driver ?? "claude-code" });
+  const result = await runPlanExplore({
+    cwd,
+    driver,
+    request,
+    name,
+    areas,
+    model: config2?.model,
+    permissionMode: config2?.permissionMode,
+    onProgress: createProgressPrinter()
+  });
+  if (result.status === "paused-rate-limit") {
+    console.error(`
+${result.error}`);
+    process.exit(1);
+  }
+  if (result.status === "failed" || !result.facts) {
+    console.error(`
+${result.error ?? "plan explore failed"}`);
+    process.exit(1);
+  }
+  const { verification } = result.facts;
+  console.log(`
+${bold(`plan explore ${name}`)} \u2014 ${result.facts.areas.length} area(s), verified ${result.facts.verifiedAt}`);
+  console.log(`  paths:   ${verification.pathsChecked} checked \xB7 ${verification.missingPaths.length} missing`);
+  console.log(`  scripts: ${verification.scriptsChecked} checked \xB7 ${verification.missingScripts.length} missing`);
+  for (const missing of verification.missingPaths) {
+    console.log(`${yellow("\u26A0")} path not found: ${missing}`);
+  }
+  for (const missing of verification.missingScripts) {
+    console.log(`${yellow("\u26A0")} script not found: ${missing}`);
+  }
+  console.log(`
+facts: ${result.factsPath}`);
+  process.exit(0);
+};
+
+// packages/cli/src/plan/planGradeCommand.ts
+var planGradeCommand = async ({ cwd, driver, name, plansDir, standards, config: config2 }) => {
+  const result = await runPlanGrade({
+    cwd,
+    driver,
+    name,
+    plansDir,
+    standards,
+    model: config2?.model,
+    permissionMode: config2?.permissionMode,
+    onProgress: createProgressPrinter()
+  });
+  if (result.status === "paused-rate-limit" || result.status === "failed") {
+    console.error(`
+${result.error}`);
+    process.exit(1);
+  }
+  const { grade } = result;
+  console.log(`
+${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
+  console.log(`  structural: ${grade.structural.length} \xB7 gaps: ${grade.gaps.length}`);
+  for (const finding of grade.structural) {
+    console.log(`${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
+    console.log(dim(`   fix: ${finding.fix}`));
+  }
+  for (const gap of grade.gaps) {
+    console.log(`${yellow("?")} [${gap.area}] ${gap.gap}`);
+    console.log(dim(`   decide: ${gap.decision}${gap.options.length > 0 ? ` \u2014 options: ${gap.options.join(" / ")}` : ""}`));
+  }
+  console.log(`
+grade: ${result.gradePath}`);
+  process.exit(0);
+};
+
+// packages/cli/src/plan/planCommand.ts
+var planCommand = async ({ flags, rest, cwd }) => {
+  const subcommand = getPositionals({ args: rest })[0];
+  if (subcommand === "explore") {
+    await planExploreCommand({ flags, rest, cwd });
+    return;
+  }
+  if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {
+    const name = getStringFlag({ flags, name: "name" });
+    if (!name) {
       console.error(usage);
       process.exit(1);
     }
-    const driver = getDriver({ name: "claude-code" });
-    const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver });
-    if (result.friction.length === 0) {
-      console.log("no friction recorded \u2014 nothing to improve from");
-      process.exit(0);
+    const config2 = await loadConfig({ cwd }).catch(() => void 0);
+    const driver = getDriver({ name: config2?.driver ?? "claude-code" });
+    const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: "plans" }), config: config2 });
+    const standards = await loadPlanningStandards({ cwd, config: config2 });
+    if (subcommand === "draft") {
+      await planDraftCommand({ cwd, driver, name, plansDir, standards, config: config2, flags });
+      return;
     }
-    if (result.rateLimited || !result.report) {
-      console.error(result.failure ?? "improver produced no valid report");
-      process.exit(1);
+    if (subcommand === "dedup") {
+      await planDedupCommand({ cwd, driver, name, plansDir, standards, config: config2 });
+      return;
+    }
+    await planGradeCommand({ cwd, driver, name, plansDir, standards, config: config2 });
+    return;
+  }
+  console.error(usage);
+  process.exit(1);
+};
+
+// packages/cli/src/resumeCommand.ts
+var resumeCommand = async ({ flags, cwd }) => {
+  const skipRefactor = flags.get("skip-refactor") === true;
+  const runId = getStringFlag({ flags, name: "run" });
+  if (!runId) {
+    console.error(usage);
+    process.exit(1);
+  }
+  const manifest = await readRunManifest({ cwd, runId });
+  if (manifest.status === RunStatus.Passed) {
+    console.error(`run ${runId} already passed \u2014 nothing to resume`);
+    process.exit(1);
+  }
+  const config2 = await loadConfig({ cwd });
+  const driver = getDriver({ name: manifest.driver });
+  console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
+  printRunHeader({ config: config2, driver, cwd });
+  const result = await runPipelineOrFailFast({
+    cwd,
+    driver,
+    config: config2,
+    existing: manifest,
+    skipRefactor,
+    onProgress: createProgressPrinter()
+  });
+  await printResult({ result, cwd });
+  process.exit(result.ok ? 0 : 1);
+};
+
+// packages/cli/src/scanCommand.ts
+var scanCommand = async ({ flags, cwd }) => {
+  const scanPath = getStringFlag({ flags, name: "path" });
+  const { findings, notes } = await runScan({
+    cwd,
+    path: scanPath,
+    all: flags.get("all") === true,
+    writeBaseline: flags.get("baseline") === true,
+    onProgress: (message) => console.log(dim(message))
+  });
+  const bySeverity = { finding: findings.filter((entry) => entry.severity === "finding"), advisory: findings.filter((entry) => entry.severity === "advisory") };
+  console.log("");
+  for (const [severity, list] of Object.entries(bySeverity)) {
+    for (const entry of list) {
+      const icon = severity === "finding" ? yellow("\u26A0") : dim("\u2139");
+      const where = entry.files.map((file2) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`).join(", ");
+      console.log(`${icon} ${entry.detector.padEnd(20)}${entry.detail}`);
+      console.log(dim(`  ${"".padEnd(20)}${where}`));
+    }
+  }
+  for (const note of notes) {
+    console.log(`${dim("\u2139")} ${"note".padEnd(20)}${note}`);
+  }
+  const detectors = /* @__PURE__ */ new Map();
+  for (const entry of findings) {
+    detectors.set(entry.detector, (detectors.get(entry.detector) ?? 0) + 1);
+  }
+  const breakdown = [...detectors.entries()].map(([name, count]) => `${name} ${count}`).join(" \xB7 ");
+  console.log(`
+${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} \u2014 report: .lightsout/scan.json`);
+  process.exit(0);
+};
+
+// packages/cli/src/statusCommand.ts
+import { readdir as readdir11 } from "node:fs/promises";
+import { join as join48 } from "node:path";
+var statusCommand = async ({ cwd }) => {
+  const runsDir = join48(cwd, ".lightsout", "runs");
+  const runIds = await readdir11(runsDir).catch(() => []);
+  if (runIds.length === 0) {
+    console.log("no runs found");
+    process.exit(0);
+  }
+  const lock = await readRunLock({ cwd });
+  for (const runId of runIds) {
+    const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
+    if (manifest) {
+      const zombie = manifest.status === RunStatus.Running && !(lock && lock.runId === manifest.runId && isPidAlive({ pid: lock.pid }));
+      const status = zombie ? `${manifest.status} (no live process \u2014 crashed? resume with --run ${manifest.runId})` : manifest.status;
+      console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}  updated: ${manifest.updatedAt}`);
+    }
+  }
+  process.exit(0);
+};
+
+// packages/cli/src/traverseCommand.ts
+var renderHops2 = ({ hops }) => {
+  for (const [index, hop] of hops.entries()) {
+    if (!hop.report) {
+      console.log(`${dim(`${index + 1}.`)} ${hop.node} ${dim(`(${hop.note ?? "non-repo node"})`)}`);
+      continue;
+    }
+    console.log(`${dim(`${index + 1}.`)} ${bold(hop.node)} ${dim(`via ${hop.edge} \xB7 confidence ${hop.report.confidence}`)}`);
+    console.log(`   ${hop.report.answerContribution}`);
+    for (const transform2 of hop.report.transforms) {
+      console.log(dim(`   \xB7 ${transform2.at} \u2014 ${transform2.what}`));
+    }
+  }
+};
+var traverseCommand = async ({ flags, rest, cwd }) => {
+  const question = getPositionals({ args: rest }).join(" ");
+  const resumeRunId = getStringFlag({ flags, name: "run" });
+  const budgetFlag = getStringFlag({ flags, name: "budget" });
+  if (!question && !resumeRunId) {
+    console.error(usage);
+    process.exit(1);
+  }
+  const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const driver = getDriver({ name: config2?.driver ?? "claude-code" });
+  try {
+    const connections = await resolveConnectionsSource({
+      cwd,
+      source: getStringFlag({ flags, name: "connections" }) ?? config2?.traverse?.connections ?? ".lightsout/connections"
+    });
+    if (connections.remote) {
+      console.log(dim(`map: ${connections.repo} \u2192 ${connections.dir}`));
+    }
+    const result = await runTraverse({
+      cwd,
+      driver,
+      question: question || "(resumed)",
+      connectionsDir: connections.dir,
+      dataOfInterest: getStringFlag({ flags, name: "data" }),
+      start: getStringFlag({ flags, name: "start" }),
+      budget: budgetFlag ? Number.parseInt(budgetFlag, 10) : void 0,
+      resumeRunId,
+      model: config2?.model,
+      permissionMode: config2?.permissionMode,
+      onProgress: (message) => console.log(dim(message))
+    });
+    const { state } = result;
+    console.log(`
+${bold(`traverse ${result.runId}`)} \u2014 ${result.status}`);
+    console.log(`${state.question}
+`);
+    renderHops2({ hops: state.hops });
+    if (state.gaps.length > 0) {
+      console.log(`
+${yellow(`${state.gaps.length} gap(s)`)} \u2014 the map ends here; draft missing docs with map-connection:`);
+      for (const gap of state.gaps) {
+        console.log(`  ${gap.node}: ${gap.detail}${gap.exit ? ` (${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at})` : ""}`);
+      }
+    }
+    if (state.drift.length > 0) {
+      console.log(`
+${yellow(`${state.drift.length} drifted anchor(s)`)} \u2014 repair the connection docs:`);
+      for (const drift of state.drift) {
+        console.log(`  ${drift.edge} (${drift.node}): ${drift.status}${drift.foundAt ? ` \u2014 found at ${drift.foundAt}` : ""}`);
+      }
     }
     console.log(`
-improve: ${result.report.status} (${result.friction.length} friction entries considered)`);
-    console.log(`  ${result.report.summary}`);
-    for (const file2 of result.report.changedFiles) {
-      console.log(`  ~ ${file2.path} \u2014 ${file2.summary}`);
+trace: ${result.runDir}/trace.json`);
+    if (result.error) {
+      console.error(`
+${result.error}`);
     }
-    if (result.report.changedFiles.length > 0) {
-      console.log(`
-review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
-    }
-    process.exit(result.report.status === "complete" ? 0 : 1);
+    process.exit(result.status === "complete" ? 0 : 1);
+  } catch (error51) {
+    console.error(error51 instanceof Error ? error51.message : String(error51));
+    process.exit(1);
+  }
+};
+
+// packages/cli/src/index.ts
+var commands = {
+  implement: implementCommand,
+  resume: resumeCommand,
+  status: statusCommand,
+  doctor: doctorCommand,
+  scan: scanCommand,
+  traverse: traverseCommand,
+  debug: debugCommand,
+  "build-map": buildMapCommand,
+  "map-connection": mapConnectionCommand,
+  plan: planCommand,
+  friction: frictionCommand,
+  improve: improveCommand
+};
+var main = async () => {
+  const [command, ...rest] = process.argv.slice(2);
+  const flags = parseFlags({ args: rest });
+  const cwd = getStringFlag({ flags, name: "cwd" }) ?? process.cwd();
+  const run = command === void 0 ? void 0 : commands[command];
+  if (run) {
+    await run({ flags, rest, cwd });
+    return;
   }
   console.error(usage);
   process.exit(command === void 0 || command === "help" ? 0 : 1);
