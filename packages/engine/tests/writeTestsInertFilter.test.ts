@@ -9,7 +9,49 @@ import { report } from './helpers/report';
 import { roleOf } from './helpers/roleOf';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';
 
-test('write-tests fan-out: inert files (barrel, type-only) spawn no writer; behavioral files still do', async () => {
+// The write-tests fan-out is the boundary the inert-file classifier lives
+// behind: a source file provably free of executable statements (a barrel, a
+// type-only file) earns no test-writer; anything with runtime code does. Every
+// file kind is written by one implement stub in a single pipeline run, and the
+// observable contract is which files earned a writer vs. were narrated inert.
+
+// Files that PROVABLY hold no executable statement — every top-level statement
+// is an import, a re-export, or a pure type declaration.
+const inertFiles = {
+	// barrel: export * plus a named re-export
+	'src/barrelStar.ts': "export * from './add';\nexport { Thing } from './Thing';\n",
+	// type re-export barrel
+	'src/typeReexport.ts': "export type { Feature } from './feature';\n",
+	// type-only file: import type + interface + type alias
+	'src/Shape.ts': "import type { Base } from './Base';\n\nexport interface Shape extends Base {\n\tid: number;\n}\n\nexport type Kind = 'a' | 'b';\n",
+	// import-then-export barrel
+	'src/importThenExport.ts': "import { add } from './add';\n\nexport { add };\n",
+	// empty file
+	'src/empty.ts': '',
+};
+
+// Files that carry executable code — each keeps its writer.
+const behavioralFiles = {
+	// constant with fallback logic
+	'src/config.ts': "export const url = process.env.API_URL ?? 'http://localhost';\n",
+	// plain constant (conservative: still a value)
+	'src/constants.ts': 'export const LIMIT = 50;\n',
+	// enum has runtime code
+	'src/Status.ts': 'export enum Status {\n\tOpen,\n\tClosed,\n}\n',
+	// function
+	'src/add.ts': 'export const add = (a: number, b: number) => a + b;\n',
+	// export-default value
+	'src/main.ts': 'export default 42;\n',
+	// a value + a type in one file — behavioral because the value statement is
+	// executable (same-name const+type, the scan's closed multi-export exception)
+	'src/Pair.ts': "export const Pair = {\n\tfirst: 'a',\n} as const;\nexport type Pair = (typeof Pair)[keyof typeof Pair];\n",
+	// tsx component parses and has logic
+	'src/App.tsx': 'export const App = () => <div>hi</div>;\n',
+	// class declaration
+	'src/Thing.ts': 'export class Thing {\n\tvalue = 1;\n}\n',
+};
+
+test('write-tests fan-out: every executable-code kind earns a writer; barrels and type-only files are inert-skipped', async () => {
 	const dir = setupConsumerRepo();
 
 	linkTypescript({ dir });
@@ -33,19 +75,15 @@ test('write-tests fan-out: inert files (barrel, type-only) spawn no writer; beha
 				return { text: report(), exitCode: 0 };
 			}
 
-			// Implement: one behavioral module, one barrel, one type-only file.
-			writeFileSync(join(dir, 'src/feature.ts'), 'export const feature = (n: number) => n * 2;\n');
-			writeFileSync(join(dir, 'src/barrel.ts'), `export { feature } from './feature';\n`);
-			writeFileSync(join(dir, 'src/types.ts'), 'export interface Feature {\n\tvalue: number;\n}\n');
+			// Implement: write one file of every inert and behavioral kind.
+			const all = { ...inertFiles, ...behavioralFiles };
+
+			for (const [path, content] of Object.entries(all)) {
+				writeFileSync(join(dir, path), content);
+			}
 
 			return {
-				text: report({
-					changedFiles: [
-						{ path: 'src/feature.ts', summary: 'feature' },
-						{ path: 'src/barrel.ts', summary: 'barrel' },
-						{ path: 'src/types.ts', summary: 'types' },
-					],
-				}),
+				text: report({ changedFiles: Object.keys(all).map((path) => ({ path, summary: path })) }),
 				exitCode: 0,
 			};
 		},
@@ -61,13 +99,27 @@ test('write-tests fan-out: inert files (barrel, type-only) spawn no writer; beha
 	});
 
 	assert.equal(result.ok, true, result.error);
-	assert.deepEqual(writerTargets, ['src/feature.ts'], 'only the behavioral file earned a writer');
-	assert.ok(
-		progress.some((line) => line.includes('2 inert file(s) skipped') && line.includes('src/barrel.ts') && line.includes('src/types.ts')),
-		`inert skip narrated with the file list — got:\n${progress.join('\n')}`,
+
+	// Every executable-code kind — constant-with-fallback, plain constant, enum,
+	// function, export-default, mixed type+value, tsx component, class — earned a
+	// writer; no inert file did.
+	assert.deepEqual(
+		[...writerTargets].sort(),
+		Object.keys(behavioralFiles).sort(),
+		`only behavioral files earned writers — got:\n${writerTargets.join('\n')}`,
 	);
+
+	// Every inert kind — export-* barrel, type re-export, type-only file,
+	// import-then-export barrel, empty file — was skipped and named in the narration.
+	const inertLine = progress.find((line) => line.includes('inert file(s) skipped'));
+	assert.ok(inertLine?.includes(`${Object.keys(inertFiles).length} inert file(s) skipped`), `inert count narrated — got:\n${progress.join('\n')}`);
+	for (const path of Object.keys(inertFiles)) {
+		assert.ok(inertLine?.includes(path), `${path} narrated as inert — got: ${inertLine}`);
+	}
+
+	// The fan-out count reflects the filtered (behavioral-only) set.
 	assert.ok(
-		progress.some((line) => line.includes('step write-tests') && line.includes('1 file(s)')),
-		'fan-out count reflects the filtered set',
+		progress.some((line) => line.includes('step write-tests') && line.includes(`${Object.keys(behavioralFiles).length} file(s)`)),
+		`fan-out count reflects the filtered set — got:\n${progress.join('\n')}`,
 	);
 });
