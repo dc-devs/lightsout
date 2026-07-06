@@ -11,7 +11,7 @@
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
-		"test": "esbuild packages/engine/tests/*.test.ts --bundle --platform=node --format=esm --loader:.md=text --banner:js=\"import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);\" --outdir=.test-dist --log-level=warning && node --test \".test-dist/*.test.js\"",
+		"test": "esbuild packages/engine/tests/*.test.ts --bundle --platform=node --format=esm --loader:.md=text --banner:js=\"import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);\" --outdir=.test-dist --log-level=warning && esbuild packages/cli/tests/*.test.ts --bundle --platform=node --format=esm --loader:.md=text --banner:js=\"import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);\" --outdir=.test-dist --log-level=warning && esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --loader:.md=text --banner:js=\"import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);\" --outfile=.test-dist/cli-under-test.mjs --log-level=warning && node --test \".test-dist/*.test.js\"",
 		"bundle": "esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --loader:.md=text --banner:js=\"import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);\" --outfile=plugin/dist/cli.mjs"
 	},
 	"devDependencies": {
