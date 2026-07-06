@@ -24395,6 +24395,9 @@ var isInertSourceFile = ({ path, content, compiler }) => {
   );
 };
 
+// packages/engine/src/common/utils/isTestFile.ts
+var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
+
 // packages/engine/src/common/utils/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -24827,9 +24830,6 @@ ${generated.stderr}`;
 // packages/engine/src/scan/runScan.ts
 import { mkdir as mkdir6, readFile as readFile14, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join21 } from "node:path";
-
-// packages/engine/src/common/utils/isTestFile.ts
-var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
 
 // packages/engine/src/common/utils/listSourceFiles.ts
 import { readdir as readdir2 } from "node:fs/promises";
@@ -37069,7 +37069,6 @@ var testWriterConcurrency = 5;
 var maxWriterGroupFiles = 12;
 var defaultPermissionMode = "acceptEdits";
 var supervisorPermissionMode = "plan";
-var isTestFilePath = (path) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
 var formatTokens = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
 var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
 var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
@@ -37285,7 +37284,7 @@ ${text}`, "utf8");
     step: manifest.currentStep ?? void 0,
     onProgress
   });
-  const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFilePath(file2) && isTestableSourceFile(file2));
+  const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
   const withStepFiles = ({ record: record2, reports }) => ({
     ...record2,
     changedFiles: [
@@ -39517,7 +39516,7 @@ var pathExists = (path) => stat4(path).then(
   () => true,
   () => false
 );
-var isSourceFile = (path) => !/(^|\/)tests?\//.test(path) && !/\.(test|spec)\./.test(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
+var isSourceFile = (path) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const findings = [];
   const packagesDir = config2?.packagesDir ?? "packages";

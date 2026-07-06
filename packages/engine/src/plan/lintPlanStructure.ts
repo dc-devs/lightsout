@@ -2,6 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { StructuralCheck, type LightsoutConfig, type StructuralFinding } from '@lightsout/contracts';
 import { extractRunScriptName } from '../common/utils/extractRunScriptName';
+import { isTestFile } from '../common/utils/isTestFile';
 import { planCreatePaths } from './planCreatePaths';
 
 interface Params {
@@ -203,8 +204,7 @@ const pathExists = (path: string) =>
 		() => false,
 	);
 
-const isSourceFile = (path: string) =>
-	!/(^|\/)tests?\//.test(path) && !/\.(test|spec)\./.test(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
+const isSourceFile = (path: string) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 
 /**
  * The deterministic structural lint — no agent. This is to plans what

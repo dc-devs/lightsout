@@ -32,6 +32,7 @@ import { groupConnectedFiles } from './groupConnectedFiles';
 import { getRunDir } from '../runState';
 import { invokeAgentWithContract } from '../invoke';
 import { isInertSourceFile } from './isInertSourceFile';
+import { isTestFile } from '../common/utils/isTestFile';
 import { resolveConsumerTypescript } from '../common/utils/resolveConsumerTypescript';
 import { readGitChangedFiles } from '../common/git/readGitChangedFiles';
 import { readGitPrefix } from '../common/git/readGitPrefix';
@@ -57,8 +58,6 @@ const testWriterConcurrency = 5;
 const maxWriterGroupFiles = 12;
 const defaultPermissionMode = 'acceptEdits';
 const supervisorPermissionMode = 'plan';
-
-const isTestFilePath = (path: string) => /(^|\/)tests?\//.test(path) || /\.(test|spec)\./.test(path);
 
 const formatTokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
 
@@ -431,7 +430,7 @@ const executePipeline = async ({
 			onProgress,
 		});
 
-	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFilePath(file) && isTestableSourceFile(file));
+	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFile(file) && isTestableSourceFile(file));
 
 	/** Merge report file paths into the step record's own attribution (per-step view of the run-wide `changedFiles`). */
 	const withStepFiles = ({ record, reports }: { record: StepRecord; reports: WorkReport[] }): StepRecord => ({
