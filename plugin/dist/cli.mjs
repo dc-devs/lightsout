@@ -24987,7 +24987,7 @@ ${generated.stderr}`;
   return errors.length > 0 ? errors.join("\n\n") : void 0;
 };
 
-// packages/engine/src/runScan.ts
+// packages/engine/src/scan/runScan.ts
 import { mkdir as mkdir6, readFile as readFile15, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join22 } from "node:path";
 
@@ -25026,7 +25026,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
   return files.sort();
 };
 
-// packages/engine/src/scanAstFindings.ts
+// packages/engine/src/scan/scanAstFindings.ts
 import { createHash } from "node:crypto";
 import { readFile as readFile11 } from "node:fs/promises";
 import { basename, join as join18 } from "node:path";
@@ -25137,7 +25137,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
   return findings;
 };
 
-// packages/engine/src/scanClones.ts
+// packages/engine/src/scan/scanClones.ts
 import { readFile as readFile12 } from "node:fs/promises";
 import { join as join19 } from "node:path";
 
@@ -36856,7 +36856,7 @@ var Tokenizer = class {
   }
 };
 
-// packages/engine/src/scanClones.ts
+// packages/engine/src/scan/scanClones.ts
 var defaultMinTokens = 50;
 var formatOf = (path) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
 var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
@@ -36886,7 +36886,7 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   return findings;
 };
 
-// packages/engine/src/scanDeadExports.ts
+// packages/engine/src/scan/scanDeadExports.ts
 import { readFile as readFile13 } from "node:fs/promises";
 import { basename as basename2, join as join20 } from "node:path";
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
@@ -36967,7 +36967,7 @@ var nameKey = ({ name }) => {
 import { basename as basename3 } from "node:path";
 var nameOf = (path) => basename3(path).replace(/\.(m|c)?[jt]sx?$/, "");
 
-// packages/engine/src/scanFilenameDuplicates.ts
+// packages/engine/src/scan/scanFilenameDuplicates.ts
 var scanFilenameDuplicates = ({ files }) => {
   const findings = [];
   const byName = /* @__PURE__ */ new Map();
@@ -37013,7 +37013,7 @@ var scanFilenameDuplicates = ({ files }) => {
   return findings;
 };
 
-// packages/engine/src/scanStructure.ts
+// packages/engine/src/scan/scanStructure.ts
 import { readFile as readFile14 } from "node:fs/promises";
 import { basename as basename4, dirname as dirname3, join as join21 } from "node:path";
 var folderCensusCap = 20;
@@ -37102,7 +37102,7 @@ var scanStructure = async ({ cwd, files }) => {
   return findings;
 };
 
-// packages/engine/src/runScan.ts
+// packages/engine/src/scan/runScan.ts
 var ScanBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
@@ -37210,7 +37210,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
   return { findings: reported, notes };
 };
 
-// packages/engine/src/selectScanFindings.ts
+// packages/engine/src/scan/selectScanFindings.ts
 var gatingClusterPattern = /^(ast:|multi-export:|size:file:)/;
 var selectScanFindings = ({ findings, changedFiles }) => {
   const changed = new Set(changedFiles);

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { scanAstFindings } from '../src/scanAstFindings';
+import { scanAstFindings } from '../src/scan/scanAstFindings';
 
 // Runtime require, mirroring resolveConsumerTypescript: a static import would
 // make esbuild inline the whole CJS compiler into the ESM test bundle, where

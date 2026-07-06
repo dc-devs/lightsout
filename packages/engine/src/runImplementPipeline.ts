@@ -42,8 +42,8 @@ import { releaseRunLock } from './runState';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
 import { runCommand } from './common/utils/runCommand';
 import { runGates } from './runGates';
-import { runScan } from './runScan';
-import { selectScanFindings } from './selectScanFindings';
+import { runScan } from './scan';
+import { selectScanFindings } from './scan';
 import { writeRunManifest } from './runState';
 import type { PipelineResult } from './PipelineResult';
 

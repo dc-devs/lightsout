@@ -1,7 +1,7 @@
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
-import { collapseCasing } from './common/naming/collapseCasing';
-import { nameKey } from './common/naming/nameKey';
-import { nameOf } from './common/naming/nameOf';
+import { collapseCasing } from '../common/naming/collapseCasing';
+import { nameKey } from '../common/naming/nameKey';
+import { nameOf } from '../common/naming/nameOf';
 
 interface Params {
 	/** Repo-relative non-test source files. */

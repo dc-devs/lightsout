@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
-import { isTestFile } from './common/utils/isTestFile';
+import { isTestFile } from '../common/utils/isTestFile';
 
 const exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 
