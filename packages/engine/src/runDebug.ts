@@ -7,7 +7,7 @@ import { buildDebugHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { findConnectingDoc } from './findConnectingDoc';
-import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { invokeAgentWithContract } from './invoke';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';
 import { resolveSeedNode } from './resolveSeedNode';

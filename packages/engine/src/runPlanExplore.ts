@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { ExploreReport, type PlanFacts } from '@lightsout/contracts';
 import { buildPlanExploreInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
-import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { invokeAgentWithContract } from './invoke';
 import { planWorkspaceDir } from './planWorkspaceDir';
 import { verifyFacts } from './verifyFacts';
 

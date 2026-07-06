@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { buildPromptImproverInvocation } from '@lightsout/agents';
 import { WorkReport } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { invokeAgentWithContract } from './invoke';
 import { readFriction } from './runState';
 
 const improverTimeoutMs = 20 * 60_000;

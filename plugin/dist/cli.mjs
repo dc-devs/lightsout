@@ -23867,160 +23867,6 @@ var loadConfig = async ({ cwd }) => {
   return LightsoutConfig.parse(JSON.parse(raw));
 };
 
-// packages/engine/src/extractJsonReport.ts
-var findBalancedEnd = ({ text, start }) => {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index];
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (char === '"') {
-      inString = true;
-    } else if (char === "{") {
-      depth += 1;
-    } else if (char === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return index;
-      }
-    }
-  }
-  return -1;
-};
-var lastEmbeddedJsonObject = ({ text }) => {
-  let found;
-  let start = text.indexOf("{");
-  while (start !== -1) {
-    const end = findBalancedEnd({ text, start });
-    if (end === -1) {
-      start = text.indexOf("{", start + 1);
-      continue;
-    }
-    try {
-      found = JSON.parse(text.slice(start, end + 1));
-      start = text.indexOf("{", end + 1);
-    } catch {
-      start = text.indexOf("{", start + 1);
-    }
-  }
-  return found;
-};
-var extractJsonReport = ({ text }) => {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-  }
-  const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
-  for (const body of fencedBodies.reverse()) {
-    if (!body) {
-      continue;
-    }
-    try {
-      return JSON.parse(body.trim());
-    } catch {
-    }
-  }
-  return lastEmbeddedJsonObject({ text: trimmed });
-};
-
-// packages/engine/src/common/git/readGitPrefix.ts
-var gitTimeoutMs = 6e4;
-var readGitPrefix = async ({ cwd }) => {
-  const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
-  return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : void 0;
-};
-
-// packages/engine/src/common/git/readGitChangedFiles.ts
-var gitTimeoutMs2 = 6e4;
-var readGitChangedFiles = async ({ cwd }) => {
-  const prefix = await readGitPrefix({ cwd });
-  if (prefix === void 0) {
-    return void 0;
-  }
-  const status = await runCommand({ command: "git status --porcelain=v1 -uall -- .", cwd, timeoutMs: gitTimeoutMs2 }).catch(() => void 0);
-  if (!status || status.exitCode !== 0) {
-    return void 0;
-  }
-  const root = prefix;
-  return status.stdout.split("\n").filter(Boolean).map((line) => {
-    const path = line.slice(3);
-    const renameTarget = path.split(" -> ").at(-1) ?? path;
-    return renameTarget.replace(/^"|"$/g, "");
-  }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
-};
-
-// packages/engine/src/readPlanPackages.ts
-var readPlanPackages = ({ planContent }) => {
-  const frontMatter = planContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
-  if (!frontMatter) {
-    return void 0;
-  }
-  const lines = frontMatter.split(/\r?\n/);
-  const keyIndex = lines.findIndex((line) => /^packages:/.test(line.trim()));
-  const keyLine = lines[keyIndex]?.trim();
-  if (keyIndex === -1 || keyLine === void 0) {
-    return void 0;
-  }
-  const unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
-  const inline = keyLine.match(/^packages:\s*\[(.*)\]\s*$/);
-  if (inline?.[1] !== void 0) {
-    const items2 = inline[1].split(",").map(unquote).filter(Boolean);
-    return items2.length > 0 ? items2 : void 0;
-  }
-  const items = [];
-  for (let index = keyIndex + 1; index < lines.length; index += 1) {
-    const entry = lines[index]?.trim().match(/^-\s+(.+)$/);
-    if (!entry?.[1]) {
-      break;
-    }
-    items.push(unquote(entry[1]));
-  }
-  return items.length > 0 ? items : void 0;
-};
-
-// packages/engine/src/common/utils/resolvePackageManifest.ts
-import { readFile as readFile7 } from "node:fs/promises";
-import { join as join12 } from "node:path";
-var PackageManifest = external_exports.object({
-  name: external_exports.string().min(1),
-  scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
-  const manifestPath = join12(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile7(manifestPath, "utf8").catch(() => {
-    throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
-  });
-  const parsed = PackageManifest.safeParse(JSON.parse(raw));
-  if (!parsed.success) {
-    throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
-  }
-  return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
-};
-
-// packages/engine/src/scanPlanPackagePaths.ts
-var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
-  const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
-  const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name) => Boolean(name));
-  return found.length > 0 ? [...new Set(found)] : void 0;
-};
-
-// packages/engine/src/runImplementPipeline.ts
-import { randomUUID as randomUUID2 } from "node:crypto";
-import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
-import { join as join23 } from "node:path";
-
 // packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
@@ -24460,6 +24306,221 @@ ${standards}`);
   };
 };
 
+// packages/engine/src/invoke/extractJsonReport.ts
+var findBalancedEnd = ({ text, start }) => {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+};
+var lastEmbeddedJsonObject = ({ text }) => {
+  let found;
+  let start = text.indexOf("{");
+  while (start !== -1) {
+    const end = findBalancedEnd({ text, start });
+    if (end === -1) {
+      start = text.indexOf("{", start + 1);
+      continue;
+    }
+    try {
+      found = JSON.parse(text.slice(start, end + 1));
+      start = text.indexOf("{", end + 1);
+    } catch {
+      start = text.indexOf("{", start + 1);
+    }
+  }
+  return found;
+};
+var extractJsonReport = ({ text }) => {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+  }
+  const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
+  for (const body of fencedBodies.reverse()) {
+    if (!body) {
+      continue;
+    }
+    try {
+      return JSON.parse(body.trim());
+    } catch {
+    }
+  }
+  return lastEmbeddedJsonObject({ text: trimmed });
+};
+
+// packages/engine/src/invoke/invokeAgentWithContract.ts
+var maxReportAttempts = 2;
+var invokeAgentWithContract = async ({
+  driver,
+  cwd,
+  invocation,
+  contract,
+  model,
+  permissionMode,
+  timeoutMs,
+  allowedCommands,
+  onEvent,
+  onRejectedOutput
+}) => {
+  let lastFailure = "no attempts made";
+  let rejected;
+  let usage2;
+  const addUsage = (attempt) => {
+    if (!attempt) {
+      return;
+    }
+    usage2 = usage2 ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
+    usage2.inputTokens += attempt.inputTokens;
+    usage2.outputTokens += attempt.outputTokens;
+    usage2.cacheReadTokens += attempt.cacheReadTokens;
+    usage2.cacheCreationTokens += attempt.cacheCreationTokens;
+    usage2.costUsd += attempt.costUsd;
+  };
+  for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
+    const active = rejected ? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt } : invocation;
+    let result;
+    try {
+      result = await driver.invoke({
+        prompt: active.prompt,
+        systemPrompt: active.systemPrompt,
+        model,
+        permissionMode,
+        allowedCommands,
+        cwd,
+        timeoutMs,
+        onEvent
+      });
+    } catch (error51) {
+      const message = error51 instanceof Error ? error51.message : String(error51);
+      return { report: void 0, failure: `agent invocation failed: ${message}`, rateLimited: false, usage: usage2 };
+    }
+    addUsage(result.usage);
+    if (result.rateLimited) {
+      return { report: void 0, failure: "harness rate limit reached", rateLimited: true, usage: usage2 };
+    }
+    const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
+    if (parsed.success) {
+      return { report: parsed.data, failure: void 0, rateLimited: false, usage: usage2 };
+    }
+    lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
+    await onRejectedOutput?.({ text: result.text, attempt, validationError: parsed.error.message });
+    rejected = { rejectedText: result.text, validationError: parsed.error.message };
+  }
+  return { report: void 0, failure: lastFailure, rateLimited: false, usage: usage2 };
+};
+
+// packages/engine/src/common/git/readGitPrefix.ts
+var gitTimeoutMs = 6e4;
+var readGitPrefix = async ({ cwd }) => {
+  const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
+  return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : void 0;
+};
+
+// packages/engine/src/common/git/readGitChangedFiles.ts
+var gitTimeoutMs2 = 6e4;
+var readGitChangedFiles = async ({ cwd }) => {
+  const prefix = await readGitPrefix({ cwd });
+  if (prefix === void 0) {
+    return void 0;
+  }
+  const status = await runCommand({ command: "git status --porcelain=v1 -uall -- .", cwd, timeoutMs: gitTimeoutMs2 }).catch(() => void 0);
+  if (!status || status.exitCode !== 0) {
+    return void 0;
+  }
+  const root = prefix;
+  return status.stdout.split("\n").filter(Boolean).map((line) => {
+    const path = line.slice(3);
+    const renameTarget = path.split(" -> ").at(-1) ?? path;
+    return renameTarget.replace(/^"|"$/g, "");
+  }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
+};
+
+// packages/engine/src/readPlanPackages.ts
+var readPlanPackages = ({ planContent }) => {
+  const frontMatter = planContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
+  if (!frontMatter) {
+    return void 0;
+  }
+  const lines = frontMatter.split(/\r?\n/);
+  const keyIndex = lines.findIndex((line) => /^packages:/.test(line.trim()));
+  const keyLine = lines[keyIndex]?.trim();
+  if (keyIndex === -1 || keyLine === void 0) {
+    return void 0;
+  }
+  const unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
+  const inline = keyLine.match(/^packages:\s*\[(.*)\]\s*$/);
+  if (inline?.[1] !== void 0) {
+    const items2 = inline[1].split(",").map(unquote).filter(Boolean);
+    return items2.length > 0 ? items2 : void 0;
+  }
+  const items = [];
+  for (let index = keyIndex + 1; index < lines.length; index += 1) {
+    const entry = lines[index]?.trim().match(/^-\s+(.+)$/);
+    if (!entry?.[1]) {
+      break;
+    }
+    items.push(unquote(entry[1]));
+  }
+  return items.length > 0 ? items : void 0;
+};
+
+// packages/engine/src/common/utils/resolvePackageManifest.ts
+import { readFile as readFile7 } from "node:fs/promises";
+import { join as join12 } from "node:path";
+var PackageManifest = external_exports.object({
+  name: external_exports.string().min(1),
+  scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
+  const manifestPath = join12(cwd, packagesDir, packageDir, "package.json");
+  const raw = await readFile7(manifestPath, "utf8").catch(() => {
+    throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
+  });
+  const parsed = PackageManifest.safeParse(JSON.parse(raw));
+  if (!parsed.success) {
+    throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
+  }
+  return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
+};
+
+// packages/engine/src/scanPlanPackagePaths.ts
+var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
+  const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
+  const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name) => Boolean(name));
+  return found.length > 0 ? [...new Set(found)] : void 0;
+};
+
+// packages/engine/src/runImplementPipeline.ts
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
+import { join as join23 } from "node:path";
+
 // packages/engine/src/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
   const sorted = [...files].sort();
@@ -24544,67 +24605,6 @@ var groupConnectedFiles = ({ files, edges }) => {
   return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
 };
 
-// packages/engine/src/invokeAgentWithContract.ts
-var maxReportAttempts = 2;
-var invokeAgentWithContract = async ({
-  driver,
-  cwd,
-  invocation,
-  contract,
-  model,
-  permissionMode,
-  timeoutMs,
-  allowedCommands,
-  onEvent,
-  onRejectedOutput
-}) => {
-  let lastFailure = "no attempts made";
-  let rejected;
-  let usage2;
-  const addUsage = (attempt) => {
-    if (!attempt) {
-      return;
-    }
-    usage2 = usage2 ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
-    usage2.inputTokens += attempt.inputTokens;
-    usage2.outputTokens += attempt.outputTokens;
-    usage2.cacheReadTokens += attempt.cacheReadTokens;
-    usage2.cacheCreationTokens += attempt.cacheCreationTokens;
-    usage2.costUsd += attempt.costUsd;
-  };
-  for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
-    const active = rejected ? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt } : invocation;
-    let result;
-    try {
-      result = await driver.invoke({
-        prompt: active.prompt,
-        systemPrompt: active.systemPrompt,
-        model,
-        permissionMode,
-        allowedCommands,
-        cwd,
-        timeoutMs,
-        onEvent
-      });
-    } catch (error51) {
-      const message = error51 instanceof Error ? error51.message : String(error51);
-      return { report: void 0, failure: `agent invocation failed: ${message}`, rateLimited: false, usage: usage2 };
-    }
-    addUsage(result.usage);
-    if (result.rateLimited) {
-      return { report: void 0, failure: "harness rate limit reached", rateLimited: true, usage: usage2 };
-    }
-    const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
-    if (parsed.success) {
-      return { report: parsed.data, failure: void 0, rateLimited: false, usage: usage2 };
-    }
-    lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
-    await onRejectedOutput?.({ text: result.text, attempt, validationError: parsed.error.message });
-    rejected = { rejectedText: result.text, validationError: parsed.error.message };
-  }
-  return { report: void 0, failure: lastFailure, rateLimited: false, usage: usage2 };
-};
-
 // packages/engine/src/isInertSourceFile.ts
 var isInertSourceFile = ({ path, content, compiler }) => {
   const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
@@ -24636,38 +24636,9 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   return void 0;
 };
 
-// packages/engine/src/detectStandardsChannels.ts
+// packages/engine/src/standards/readStandards.ts
 import { readFile as readFile9 } from "node:fs/promises";
 import { join as join15 } from "node:path";
-var Manifest = external_exports.object({
-  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var channelSignals = {
-  react: ["react", "preact", "react-dom"],
-  tanstack: ["@tanstack/react-start", "@tanstack/start"]
-};
-var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join15(cwd, packagesDir, name, "package.json")) : [join15(cwd, "package.json")];
-  const dependencies = /* @__PURE__ */ new Set();
-  for (const path of manifestPaths) {
-    try {
-      const parsed = Manifest.parse(JSON.parse(await readFile9(path, "utf8")));
-      for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
-        for (const name of Object.keys(record2 ?? {})) {
-          dependencies.add(name);
-        }
-      }
-    } catch {
-    }
-  }
-  return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
-};
-
-// packages/engine/src/readStandards.ts
-import { readFile as readFile10 } from "node:fs/promises";
-import { join as join16 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing \u2192 the concept is primitives; its files belong in `common/<type>/`. Hides internals \u2192 it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules \u2014 shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
@@ -24729,7 +24700,7 @@ var return_types_default = "# Return Types \u2014 Explicit on Exports, Inferred 
 // standards/code/style-guide/typescript/type-assertions.md
 var type_assertions_default = "# Type assertions (`as`)\n\nAvoid `as` casts. They tell the compiler to trust you instead of proving the type is correct.\n\n- Prefer type narrowing with `typeof`, `instanceof`, or discriminated unions.\n- If an assertion is truly necessary (e.g., a library returns `unknown`), add a brief comment explaining why narrowing is not possible.\n- Exception: **test files** may use `as unknown as T` to force invalid input into a defensive branch for coverage (see the unit-testing standards).\n\n\u2705 GOOD: Narrowing\n\n```typescript\nif (typeof value === 'string') {\n	return value.toUpperCase();\n}\n```\n\n\u274C BAD: Assertion without justification\n\n```typescript\nreturn (value as string).toUpperCase();\n```\n";
 
-// packages/engine/src/defaultCodeStandards.ts
+// packages/engine/src/standards/defaultCodeStandards.ts
 var defaultCodeStandards = {
   base: [
     `<!-- lightsout defaults: standards/code/architecture/architecture-decisions.md -->
@@ -24788,7 +24759,7 @@ var unit_testing_react_components_default = "# Unit Testing Components & Hooks\n
 // standards/tests/unit/jest/unit-testing.md
 var unit_testing_default = "# Unit Testing\n\n## Precedence in Repos with Older Tests\n\nThese standards describe the target style for tests you WRITE, not a mandate\nto renovate tests that exist. When the repo's existing tests predate this\ndocument and use another style (`beforeEach` + shared `let`, nested\n`describe` pyramids):\n\n- **Extending an existing test file** \u2192 match that file's local style. One\n  file, one style \u2014 never mix a second convention into a file.\n- **Creating a new test file** \u2192 this document wins, even when your mirror\n  target uses the older style. Mirror the target's coverage, not its\n  structure.\n- Never rewrite passing legacy tests to match this document during a\n  feature task \u2014 that is deliberate cleanup work with its own review, not a\n  side effect.\n- Applying this precedence is **normal operation, not friction** \u2014 do not\n  record a friction entry per legacy-style file you encounter. Record ONE\n  friction entry only when the rule itself failed you: the conflict was not\n  stylistic, or it was genuinely ambiguous which case applied.\n\n## Module Boundary Testing\n\nTests target **module boundaries** \u2014 a module's public API \u2014 not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.\n\n**Classify every source file before writing tests:**\n\n| Classification | Definition | Test file? |\n|---|---|---|\n| **Boundary** | A module's public surface: shared leaf modules under a root-layer `common/` (e.g., `src/common/utils/`, `src/app/common/`); a feature's public exports (hooks, components, top-level operation files); framework files (`.service.ts`, `.resolver.ts`, `.controller.ts`, guards, job services); a graduated folder's main file (`HttpClient/HttpClient.ts`) | \u2705 Co-located `*.unit.test.ts` |\n| **Internal** | A file under a *module's* `common/` \u2014 i.e., a `common/` whose parent folder is a feature, route, screen, component, or class folder (not a root layer like `src/`) | \u274C No dedicated test file \u2014 covered through the owning module's boundary tests |\n\n**Rules:**\n\n- Coverage is still measured per source file: an internal must reach 100% lines/branches/functions, achieved by driving the boundary's inputs.\n- If an internal branch cannot be reached through any boundary input, it is **dead code** \u2014 flag it for deletion. Do not write a direct test to cover it.\n- If covering an internal through the boundary is impractical (combinatorial inputs), that is the promotion signal: the internal has earned its own module and direct tests. Flag it in the report \u2014 do not silently create a dedicated test file.\n- Existing dedicated test files on internals are migration debt: leave them in place and do not extend them \u2014 new coverage goes through the boundary. Flag them in the report as migration candidates.\n\n## Test Files\n\n- Unit tests are **co-located** with their source file: `src/auth/AuthService.ts` \u2192 `src/auth/AuthService.unit.test.ts`.\n- First import: `import { expect, describe, test, jest } from '@jest/globals';` \u2014 but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.\n- The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** \u2014 scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).\n\n## Files That Must NOT Have Dedicated Tests\n\nDo **not** create test files for source files with no runtime logic \u2014 they are covered when consumed:\n\n- **Pure constants** \u2014 only literal values, no computation or side effects\n- **Enums with no computed members** / string-union types\n- **Type-only files** \u2014 only `type`/`interface` declarations\n- **Barrel / re-export files** (`index.ts`)\n\nA file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths \u2014 not the static value.\n\n## Test Structure \u2014 Arrange-Act-Assert with Setup Factories\n\nEvery test follows **Arrange-Act-Assert**, with arrangement extracted into a named `setup()` factory. The test body stays small: call setup, act, assert.\n\n```typescript\ndescribe('getAvatarUrl', () => {\n	test('returns the profile avatar when one exists', () => {\n		const { userProfile, appSettings } = setupAvatar({ profile: 'p.png' });\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBe('p.png');\n	});\n});\n```\n\n**Rules:**\n\n- **Arrange in a `setup()` factory.** The factory wires mocks and builds fixtures, then returns the locals the test needs as `const`s. Do **not** hold the subject under test in a shared `let` reassigned across `beforeEach` blocks \u2014 that is mutable test state.\n- **Act and assert live in the `test`**, not in `beforeEach`. (Component tests are the one accepted exception: `render()` lives in the `setup()` factory by convention \u2014 see the component testing doc.)\n- **One `setup()` and one act per test.** Two setups or two acts means two tests. Multiple `expect`s are fine only when they assert one behavior's result.\n- **No nested method calls in the act.** Assign each call's result to a named `const`. Two exceptions: (1) the error case, where the act sits inside the matcher: `expect(() => parse(bad)).toThrow()`; (2) assertion-matcher composition (`toEqual(expect.objectContaining(...))`).\n- **Blank line between arrange, act, and assert** \u2014 and no `// arrange` / `// act` / `// assert` captions; the spacing already shows the structure.\n- **Test behavior, not internals.** Assert the observable output a consumer sees. (Asserting an injected repository was called with the right args IS behavior \u2014 the persistence call is the unit's observable side effect at its boundary.)\n- When asserting multiple properties of one result, prefer a single `expect`. For a **partial** match use `toEqual(expect.objectContaining({ ... }))` \u2014 not `toStrictEqual`: with an asymmetric matcher argument, Jest only runs the matcher and the strict extra-property checks never fire, so `toStrictEqual` there is identical to `toEqual` but misleadingly implies strictness. Reserve `toStrictEqual` for whole-object assertions with a concrete expected object.\n- Cover all code paths \u2014 branches, error handling, boundary conditions. Each test exercises a unique code path; don't add tests that only vary input without varying behavior.\n- **Reaching defensive branches:** when a branch guards against input the type system forbids (a `default` arm, an early return on an impossible discriminant), a test may force the invalid input with `as unknown as T` \u2014 the one blessed double cast, and it lives only in test files, never in source.\n- Use `test.each` when multiple inputs exercise the **same code path** with different outputs; different code paths get separate tests.\n\n### Assertions Pin Contracts\n\n- **Assert with literals \u2014 never import a constant from the module under test into its own assertions.** A test comparing `x` to `x` is a tautology that passes even when the value is wrong; the literal in the test is the independent second statement of the contract. (Duplication between a source constant and its test literal is contract-pinning, not a DRY violation.) Constants from *other* modules \u2014 shared enums the codebase already defines \u2014 are fine as inputs.\n- **Pin machine-facing values strictly, human-facing copy loosely.** Error codes, event names, and API fields get exact assertions; UI copy and log messages get `stringContaining`/regex or no assertion at all \u2014 wording changes shouldn't fail contract tests.\n- **Construct the subject under test directly; stub only unowned boundaries** (network, filesystem, other modules' services). Don't mock what you own and could simply instantiate.\n- **Prefer behavior assertions over property echoes** \u2014 assert what the unit *does* (output, side effect at its boundary), not that a value passed in reappears unchanged.\n\n### Setup Factories\n\n```typescript\nconst setupAvatar = ({\n	profile = null,\n	gravatar = null,\n}: { profile?: string | null; gravatar?: string | null } = {}) => {\n	mockGetAvatarFromProfile.mockReturnValue(profile);\n	mockGetAvatarFromGravatar.mockReturnValue(gravatar);\n\n	const userProfile = new UserProfile({ profileData: { email: 'user@example.com' } });\n	const appSettings = new AppSettings({ defaultPreferences: {} });\n\n	return { userProfile, appSettings };\n};\n```\n\n- **One factory configures any number of mocks** \u2014 a single factory call is the whole arrangement; variants come from parameters.\n- **A single explicit override is allowed** for the one variable a test varies (`setupAvatar()` then one `mockReturnValue` line).\n- **Cap factory sprawl.** A substantially different arrangement gets a second named factory (`setupEmployee`), not an over-parameterized mega-factory.\n\n## Mocks\n\n- Place mock declarations and `jest.mock()` blocks after the imports, marked with a `// Mocked Imports` header and `// -------------------------` separators between groups (mirror any existing test file's formatting).\n- **Mock variables must be prefixed `mock`** \u2014 Jest hoists `jest.mock()` calls to the top of the file, and only `mock`-prefixed variables are accessible inside the factory.\n- Set mock return values inside the `setup()` factory \u2014 never in a `beforeEach`.\n- **Do NOT mock modules that only export plain constants** \u2014 import the real module; mocking it blocks coverage and adds no isolation. Mock a constant module only if it has import-time side effects or the test needs a *different* value (prefer `jest.replaceProperty` or injection).\n- Scope strategy: inline mocks for one file; a co-located `__mocks__/` folder when multiple tests in the area share a mock; `test/mocks/` (with `test/fixtures/`, `test/utils/`) for codebase-wide utilities.\n\n### Mock Typing Rules\n\nEvery `jest.fn()` **must** be fully typed to the real function's signature \u2014 read the source first.\n\n```typescript\n// \u2705 generic matches the real signature (async: include the Promise wrapper)\nconst mockGetProfile = jest.fn<(params: { userId: string }) => Profile | null>();\n\n// \u2705 factory wrapper uses typed parameters \u2014 never (...args: unknown[]) (causes TS2556)\njest.mock('@/utils/get-profile', () => ({\n	getProfile: (params: { userId: string }) => mockGetProfile(params),\n}));\n```\n\nUsing `() => mockFn()` for a function that takes parameters silently discards arguments \u2014 the spy records zero-arg calls and `toHaveBeenCalledWith` fails. Some existing files use `(...args: unknown[])` \u2014 that is legacy debt; new tests always type the wrapper.\n\n**Framework-generic results are exempt.** These typing rules pin *your* contracts, not the framework's. When a stub must satisfy a framework's heavily generic result type (TanStack's `UseMutationResult` / `UseQueryResult` and kin), stub only the fields the unit under test reads and cast loosely (`as Record<string, unknown>`, or `as unknown as UseMutationResult<\u2026>` where the full type is demanded) \u2014 reproducing the framework's generics in a stub adds noise, not safety.\n\n### `jest.spyOn` vs `jest.mock`\n\n- Prefer **`jest.spyOn`** for a single method on an object you already hold (an injected service/repository), leaving the rest intact.\n- Prefer **`jest.mock`** for a standalone exported function from another module.\n\n### Async\n\nConfigure with `mockResolvedValue` / `mockRejectedValue` in the setup factory; `await` the act in the test; assert rejections with `await expect(...).rejects.toThrow(...)` \u2014 the one place the act sits inside the assertion.\n\n### Import-Time Side Effects\n\n- Use **`jest.isolateModules`** when the module acts at import time (reads `document.currentScript`, checks globals): each call gets a fresh module instance, so per-test state changes take effect on the next require inside the isolate block.\n- Branches unreachable in the default `jsdom` environment (e.g., SSR guards on `typeof window`) get a **separate test file** with a `/** @jest-environment node */` docblock, named to distinguish it (`autoInitInBrowser.ssr.unit.test.ts`).\n\n## Mock Cleanup\n\nMock cleanup is handled by **Jest config, not per-test code**. Set these in the package's Jest config:\n\n```javascript\n// jest.config.js / jest.config.ts\n{\n	clearMocks: true,    // clear call tracking (calls, instances, results) before each test\n	restoreMocks: true,  // restore jest.spyOn originals before each test\n}\n```\n\nWith these set, every mock starts each test with clean call tracking and its `setup()` factory wires the return value fresh. Do **not** add manual `mockClear()` calls or a cleanup `beforeEach` \u2014 the config does it.\n\n- **`clearMocks: true`** \u2014 clears `calls`, `instances`, `contexts`, and `results` before each test (equivalent to `jest.clearAllMocks()`). It does **not** clear `mockReturnValue` / `mockImplementation` \u2014 that is `resetMocks`. Because every test re-sets its return values in `setup()`, `clearMocks` is sufficient and avoids wiping implementations; reach for `resetMocks` only if a package genuinely needs return values auto-cleared.\n- **`restoreMocks: true`** \u2014 additionally restores the original implementation of every `jest.spyOn` before each test (it does not affect standalone `jest.fn()` return values).\n\n**If the package's Jest config lacks these: do NOT add them.** `clearMocks` changes behavior for **every existing test in the package** \u2014 any test relying on a mock set once at module scope or in `beforeAll` will break (live example: adding it to a real package broke 22 import-time-construction tests). A repo-wide behavior change is a human's decision, not a test task's side effect. Instead:\n\n- Build **fresh `jest.fn()` mocks inside each `setup()` factory call** (and construct a fresh subject per call), so call tracking cannot accumulate across tests without any config or hooks.\n- For module-level mocks that must persist (a `jest.mock` factory), reset them at the top of `setup()` (`.mockReset()` + re-wire), or assert only with `toHaveBeenCalledWith` \u2014 positive assertions are unaffected by accumulated calls; avoid `not.toHaveBeenCalled` on shared mocks.\n- Record the missing config as friction (`area: \"environment\"`) so the repo owner can adopt it deliberately.\n";
 
-// packages/engine/src/defaultTestStandards.ts
+// packages/engine/src/standards/defaultTestStandards.ts
 var defaultTestStandards = {
   base: [
     `<!-- lightsout defaults: standards/tests/unit/jest/unit-test-examples.md -->
@@ -24802,7 +24773,7 @@ ${unit_testing_react_components_default}`
   ].join("\n\n")
 };
 
-// packages/engine/src/readStandards.ts
+// packages/engine/src/standards/readStandards.ts
 var tokens = {
   "lightsout:code-defaults": defaultCodeStandards,
   "lightsout:test-defaults": defaultTestStandards
@@ -24817,14 +24788,43 @@ var readStandards = async ({ cwd, paths, channels = [] }) => {
       if (bundled) {
         return [bundled.base, ...channels.map((channel) => bundled[channel])].filter(Boolean).join("\n\n");
       }
-      const raw = await readFile10(join16(cwd, path), "utf8").catch(() => {
-        throw new Error(`standards file not found: ${join16(cwd, path)}`);
+      const raw = await readFile9(join15(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join15(cwd, path)}`);
       });
       return `<!-- ${path} -->
 ${raw}`;
     })
   );
   return contents.join("\n\n");
+};
+
+// packages/engine/src/standards/detectStandardsChannels.ts
+import { readFile as readFile10 } from "node:fs/promises";
+import { join as join16 } from "node:path";
+var Manifest = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var channelSignals = {
+  react: ["react", "preact", "react-dom"],
+  tanstack: ["@tanstack/react-start", "@tanstack/start"]
+};
+var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join16(cwd, packagesDir, name, "package.json")) : [join16(cwd, "package.json")];
+  const dependencies = /* @__PURE__ */ new Set();
+  for (const path of manifestPaths) {
+    try {
+      const parsed = Manifest.parse(JSON.parse(await readFile10(path, "utf8")));
+      for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
+        for (const name of Object.keys(record2 ?? {})) {
+          dependencies.add(name);
+        }
+      }
+    } catch {
+    }
+  }
+  return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
 };
 
 // packages/engine/src/common/utils/extractRunScriptName.ts

@@ -6,7 +6,7 @@ import { EdgeInventory, MapJoin } from '@lightsout/contracts';
 import { buildScanEdgesInvocation, scanEdgesVersion } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
-import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { invokeAgentWithContract } from './invoke';
 import { joinInventories } from './joinInventories';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';

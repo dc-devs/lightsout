@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
 import { WorkReport } from '@lightsout/contracts';
-import { invokeAgentWithContract } from '../src/invokeAgentWithContract';
+import { invokeAgentWithContract } from '../src/invoke/invokeAgentWithContract';
 import { loadConfig, runImplementPipeline } from '../src/index';
 import { report } from './helpers/report';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';

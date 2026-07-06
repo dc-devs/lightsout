@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { WorkReport } from '@lightsout/contracts';
-import { extractJsonReport } from '../src/extractJsonReport';
+import { extractJsonReport } from '../src/invoke/extractJsonReport';
 
 test('extractJsonReport accepts bare JSON', () => {
 	assert.deepEqual(extractJsonReport({ text: ' {"status":"complete"} ' }), { status: 'complete' });

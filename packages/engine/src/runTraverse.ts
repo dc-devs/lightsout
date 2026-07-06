@@ -6,7 +6,7 @@ import { HopReport, TraceState } from '@lightsout/contracts';
 import { buildTraverseHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
-import { invokeAgentWithContract } from './invokeAgentWithContract';
+import { invokeAgentWithContract } from './invoke';
 import { matchExitToEdge } from './matchExitToEdge';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';
