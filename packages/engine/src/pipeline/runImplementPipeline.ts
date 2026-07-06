@@ -26,7 +26,7 @@ import { appendAgentLog } from '../runState';
 import { appendCommandLog } from '../runState';
 import { appendFriction } from '../runState';
 import { chunkFileGroup } from './chunkFileGroup';
-import { collectImportEdges } from './collectImportEdges';
+import { collectImportEdges } from '../common/utils/collectImportEdges';
 import { createRun } from '../runState';
 import { groupConnectedFiles } from './groupConnectedFiles';
 import { getRunDir } from '../runState';

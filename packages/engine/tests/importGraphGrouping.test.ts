@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { chunkFileGroup } from '../src/pipeline/chunkFileGroup';
-import { collectImportEdges } from '../src/pipeline/collectImportEdges';
+import { collectImportEdges } from '../src/common/utils/collectImportEdges';
 import { groupConnectedFiles } from '../src/pipeline/groupConnectedFiles';
 
 // Runtime require, mirroring resolveConsumerTypescript: a static import would

@@ -24312,7 +24312,7 @@ var chunkFileGroup = ({ files, max }) => {
   return chunks;
 };
 
-// packages/engine/src/pipeline/collectImportEdges.ts
+// packages/engine/src/common/utils/collectImportEdges.ts
 import { readFile as readFile6 } from "node:fs/promises";
 import { join as join11, posix } from "node:path";
 var stripExtension = (path) => path.replace(/\.(m|c)?[jt]sx?$/i, "");
