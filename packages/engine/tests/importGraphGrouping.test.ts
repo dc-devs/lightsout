@@ -4,9 +4,9 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { chunkFileGroup } from '../src/chunkFileGroup';
-import { collectImportEdges } from '../src/collectImportEdges';
-import { groupConnectedFiles } from '../src/groupConnectedFiles';
+import { chunkFileGroup } from '../src/pipeline/chunkFileGroup';
+import { collectImportEdges } from '../src/pipeline/collectImportEdges';
+import { groupConnectedFiles } from '../src/pipeline/groupConnectedFiles';
 
 // Runtime require, mirroring resolveConsumerTypescript: a static import would
 // make esbuild inline the whole CJS compiler into the ESM test bundle, where

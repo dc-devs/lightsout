@@ -1,8 +1,8 @@
 import type { LightsoutConfig } from '@lightsout/contracts';
-import { appendCommandLog } from './runState';
-import { extractRunScriptName } from './common/utils/extractRunScriptName';
-import { resolvePackageManifest } from './common/utils/resolvePackageManifest';
-import { runCommand } from './common/utils/runCommand';
+import { appendCommandLog } from '../runState';
+import { extractRunScriptName } from '../common/utils/extractRunScriptName';
+import { resolvePackageManifest } from '../common/utils/resolvePackageManifest';
+import { runCommand } from '../common/utils/runCommand';
 
 const gateTimeoutMs = 10 * 60_000;
 const defaultPackagesDir = 'packages';

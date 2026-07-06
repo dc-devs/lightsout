@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { isInertSourceFile } from '../src/isInertSourceFile';
+import { isInertSourceFile } from '../src/pipeline/isInertSourceFile';
 
 // Runtime require, mirroring resolveConsumerTypescript: a static import would
 // make esbuild inline the whole CJS compiler into the ESM test bundle, where

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { loadConfig } from '../src/index';
-import { runGates } from '../src/runGates';
+import { runGates } from '../src/pipeline/runGates';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';
 import { setupMonorepo } from './helpers/setupMonorepo';
 import { readGateLog } from './helpers/readGateLog';

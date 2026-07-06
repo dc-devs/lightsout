@@ -24460,68 +24460,12 @@ var readGitChangedFiles = async ({ cwd }) => {
   }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
 };
 
-// packages/engine/src/readPlanPackages.ts
-var readPlanPackages = ({ planContent }) => {
-  const frontMatter = planContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
-  if (!frontMatter) {
-    return void 0;
-  }
-  const lines = frontMatter.split(/\r?\n/);
-  const keyIndex = lines.findIndex((line) => /^packages:/.test(line.trim()));
-  const keyLine = lines[keyIndex]?.trim();
-  if (keyIndex === -1 || keyLine === void 0) {
-    return void 0;
-  }
-  const unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
-  const inline = keyLine.match(/^packages:\s*\[(.*)\]\s*$/);
-  if (inline?.[1] !== void 0) {
-    const items2 = inline[1].split(",").map(unquote).filter(Boolean);
-    return items2.length > 0 ? items2 : void 0;
-  }
-  const items = [];
-  for (let index = keyIndex + 1; index < lines.length; index += 1) {
-    const entry = lines[index]?.trim().match(/^-\s+(.+)$/);
-    if (!entry?.[1]) {
-      break;
-    }
-    items.push(unquote(entry[1]));
-  }
-  return items.length > 0 ? items : void 0;
-};
-
-// packages/engine/src/common/utils/resolvePackageManifest.ts
-import { readFile as readFile7 } from "node:fs/promises";
-import { join as join12 } from "node:path";
-var PackageManifest = external_exports.object({
-  name: external_exports.string().min(1),
-  scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
-  const manifestPath = join12(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile7(manifestPath, "utf8").catch(() => {
-    throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
-  });
-  const parsed = PackageManifest.safeParse(JSON.parse(raw));
-  if (!parsed.success) {
-    throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
-  }
-  return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
-};
-
-// packages/engine/src/scanPlanPackagePaths.ts
-var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
-  const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
-  const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name) => Boolean(name));
-  return found.length > 0 ? [...new Set(found)] : void 0;
-};
-
-// packages/engine/src/runImplementPipeline.ts
+// packages/engine/src/pipeline/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
 import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join23 } from "node:path";
 
-// packages/engine/src/chunkFileGroup.ts
+// packages/engine/src/pipeline/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
   const sorted = [...files].sort();
   const chunks = [];
@@ -24531,9 +24475,9 @@ var chunkFileGroup = ({ files, max }) => {
   return chunks;
 };
 
-// packages/engine/src/collectImportEdges.ts
-import { readFile as readFile8 } from "node:fs/promises";
-import { join as join13, posix } from "node:path";
+// packages/engine/src/pipeline/collectImportEdges.ts
+import { readFile as readFile7 } from "node:fs/promises";
+import { join as join12, posix } from "node:path";
 var stripExtension = (path) => path.replace(/\.(m|c)?[jt]sx?$/i, "");
 var collectImportEdges = async ({ cwd, files, compiler }) => {
   const byStripped = /* @__PURE__ */ new Map();
@@ -24560,7 +24504,7 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   };
   const edges = [];
   for (const from of files) {
-    const content = await readFile8(join13(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile7(join12(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
@@ -24575,7 +24519,7 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   return edges;
 };
 
-// packages/engine/src/groupConnectedFiles.ts
+// packages/engine/src/pipeline/groupConnectedFiles.ts
 var groupConnectedFiles = ({ files, edges }) => {
   const parent = new Map(files.map((file2) => [file2, file2]));
   const find = (file2) => {
@@ -24605,7 +24549,7 @@ var groupConnectedFiles = ({ files, edges }) => {
   return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
 };
 
-// packages/engine/src/isInertSourceFile.ts
+// packages/engine/src/pipeline/isInertSourceFile.ts
 var isInertSourceFile = ({ path, content, compiler }) => {
   const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
   const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
@@ -24617,15 +24561,15 @@ var isInertSourceFile = ({ path, content, compiler }) => {
 // packages/engine/src/common/utils/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join as join14, resolve } from "node:path";
+import { join as join13, resolve } from "node:path";
 var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   const root = resolve(cwd);
   let packageNames = [];
   try {
-    packageNames = readdirSync(join14(root, packagesDir)).filter((name) => !name.startsWith("."));
+    packageNames = readdirSync(join13(root, packagesDir)).filter((name) => !name.startsWith("."));
   } catch {
   }
-  const manifests = [join14(root, "package.json"), ...packageNames.map((name) => join14(root, packagesDir, name, "package.json"))];
+  const manifests = [join13(root, "package.json"), ...packageNames.map((name) => join13(root, packagesDir, name, "package.json"))];
   for (const manifest of manifests) {
     try {
       return createRequire(manifest)("typescript");
@@ -24636,9 +24580,38 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   return void 0;
 };
 
+// packages/engine/src/pipeline/readPlanPackages.ts
+var readPlanPackages = ({ planContent }) => {
+  const frontMatter = planContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
+  if (!frontMatter) {
+    return void 0;
+  }
+  const lines = frontMatter.split(/\r?\n/);
+  const keyIndex = lines.findIndex((line) => /^packages:/.test(line.trim()));
+  const keyLine = lines[keyIndex]?.trim();
+  if (keyIndex === -1 || keyLine === void 0) {
+    return void 0;
+  }
+  const unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
+  const inline = keyLine.match(/^packages:\s*\[(.*)\]\s*$/);
+  if (inline?.[1] !== void 0) {
+    const items2 = inline[1].split(",").map(unquote).filter(Boolean);
+    return items2.length > 0 ? items2 : void 0;
+  }
+  const items = [];
+  for (let index = keyIndex + 1; index < lines.length; index += 1) {
+    const entry = lines[index]?.trim().match(/^-\s+(.+)$/);
+    if (!entry?.[1]) {
+      break;
+    }
+    items.push(unquote(entry[1]));
+  }
+  return items.length > 0 ? items : void 0;
+};
+
 // packages/engine/src/standards/readStandards.ts
-import { readFile as readFile9 } from "node:fs/promises";
-import { join as join15 } from "node:path";
+import { readFile as readFile8 } from "node:fs/promises";
+import { join as join14 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing \u2192 the concept is primitives; its files belong in `common/<type>/`. Hides internals \u2192 it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules \u2014 shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
@@ -24788,8 +24761,8 @@ var readStandards = async ({ cwd, paths, channels = [] }) => {
       if (bundled) {
         return [bundled.base, ...channels.map((channel) => bundled[channel])].filter(Boolean).join("\n\n");
       }
-      const raw = await readFile9(join15(cwd, path), "utf8").catch(() => {
-        throw new Error(`standards file not found: ${join15(cwd, path)}`);
+      const raw = await readFile8(join14(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join14(cwd, path)}`);
       });
       return `<!-- ${path} -->
 ${raw}`;
@@ -24799,8 +24772,8 @@ ${raw}`;
 };
 
 // packages/engine/src/standards/detectStandardsChannels.ts
-import { readFile as readFile10 } from "node:fs/promises";
-import { join as join16 } from "node:path";
+import { readFile as readFile9 } from "node:fs/promises";
+import { join as join15 } from "node:path";
 var Manifest = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
@@ -24811,11 +24784,11 @@ var channelSignals = {
   tanstack: ["@tanstack/react-start", "@tanstack/start"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join16(cwd, packagesDir, name, "package.json")) : [join16(cwd, "package.json")];
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join15(cwd, packagesDir, name, "package.json")) : [join15(cwd, "package.json")];
   const dependencies = /* @__PURE__ */ new Set();
   for (const path of manifestPaths) {
     try {
-      const parsed = Manifest.parse(JSON.parse(await readFile10(path, "utf8")));
+      const parsed = Manifest.parse(JSON.parse(await readFile9(path, "utf8")));
       for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
         for (const name of Object.keys(record2 ?? {})) {
           dependencies.add(name);
@@ -24825,6 +24798,14 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
     }
   }
   return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
+};
+
+// packages/engine/src/pipeline/scanPlanPackagePaths.ts
+var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
+  const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
+  const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name) => Boolean(name));
+  return found.length > 0 ? [...new Set(found)] : void 0;
 };
 
 // packages/engine/src/common/utils/extractRunScriptName.ts
@@ -24837,7 +24818,26 @@ var extractRunScriptName = ({ command }) => {
   return tokens2.slice(runIndex + 1).find((token) => token !== "" && !token.startsWith("-"));
 };
 
-// packages/engine/src/runGates.ts
+// packages/engine/src/common/utils/resolvePackageManifest.ts
+import { readFile as readFile10 } from "node:fs/promises";
+import { join as join16 } from "node:path";
+var PackageManifest = external_exports.object({
+  name: external_exports.string().min(1),
+  scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
+  const manifestPath = join16(cwd, packagesDir, packageDir, "package.json");
+  const raw = await readFile10(manifestPath, "utf8").catch(() => {
+    throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
+  });
+  const parsed = PackageManifest.safeParse(JSON.parse(raw));
+  if (!parsed.success) {
+    throw new Error(`package.json at ${manifestPath} has no "name" \u2014 required for {package} substitution`);
+  }
+  return { name: parsed.data.name, scripts: parsed.data.scripts ?? {} };
+};
+
+// packages/engine/src/pipeline/runGates.ts
 var gateTimeoutMs = 10 * 6e4;
 var defaultPackagesDir = "packages";
 var outputTailChars = 2e3;
@@ -37222,7 +37222,7 @@ var selectScanFindings = ({ findings, changedFiles }) => {
   return { workList, advisories, gating: workList.filter((finding) => gatingClusterPattern.test(finding.cluster)) };
 };
 
-// packages/engine/src/runImplementPipeline.ts
+// packages/engine/src/pipeline/runImplementPipeline.ts
 var defaultAgentTimeoutMinutes = 60;
 var defaultSupervisorTimeoutMinutes = 15;
 var formatTimeoutMs = 10 * 6e4;
