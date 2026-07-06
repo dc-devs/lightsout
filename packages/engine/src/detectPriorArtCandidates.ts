@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import type { LightsoutConfig } from '@lightsout/contracts';
-import { isTestFile } from './isTestFile';
-import { listSourceFiles } from './listSourceFiles';
-import { collapseCasing } from './collapseCasing';
-import { nameKey } from './nameKey';
-import { nameOf } from './nameOf';
+import { isTestFile } from './common/utils/isTestFile';
+import { listSourceFiles } from './common/utils/listSourceFiles';
+import { collapseCasing } from './common/naming/collapseCasing';
+import { nameKey } from './common/naming/nameKey';
+import { nameOf } from './common/naming/nameOf';
 import { planCreatePaths } from './planCreatePaths';
 
 /**

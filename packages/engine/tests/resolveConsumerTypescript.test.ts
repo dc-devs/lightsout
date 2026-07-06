@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { resolveConsumerTypescript } from '../src/resolveConsumerTypescript';
+import { resolveConsumerTypescript } from '../src/common/utils/resolveConsumerTypescript';
 import { linkTypescript } from './helpers/linkTypescript';
 
 test('resolveConsumerTypescript: a RELATIVE cwd resolves too (createRequire rejects relative paths — observed live with --cwd .)', () => {

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { extractRunScriptName } from '../src/extractRunScriptName';
+import { extractRunScriptName } from '../src/common/utils/extractRunScriptName';
 import { loadConfig } from '../src/index';
 import { runGates } from '../src/runGates';
 import { gateLogCommand } from './helpers/gateLogCommand';

@@ -6,7 +6,7 @@ import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { lintPlanStructure } from './lintPlanStructure';
-import { loadConfig } from './loadConfig';
+import { loadConfig } from './common/utils/loadConfig';
 import { planWorkspaceDir } from './planWorkspaceDir';
 
 const defaultGradeTimeoutMs = 30 * 60 * 1000;

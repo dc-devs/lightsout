@@ -23707,7 +23707,7 @@ var readRunManifest = async ({ cwd, runId }) => {
   return RunManifest.parse(JSON.parse(raw));
 };
 
-// packages/engine/src/runCommand.ts
+// packages/engine/src/common/utils/runCommand.ts
 import { spawn as spawn2 } from "node:child_process";
 var runCommand = ({ command, cwd, timeoutMs }) => {
   return new Promise((resolve2, reject) => {
@@ -23735,7 +23735,7 @@ var runCommand = ({ command, cwd, timeoutMs }) => {
   });
 };
 
-// packages/engine/src/loadConfig.ts
+// packages/engine/src/common/utils/loadConfig.ts
 import { readFile as readFile4 } from "node:fs/promises";
 import { join as join6 } from "node:path";
 var loadConfig = async ({ cwd }) => {
@@ -23813,14 +23813,14 @@ var extractJsonReport = ({ text }) => {
   return lastEmbeddedJsonObject({ text: trimmed });
 };
 
-// packages/engine/src/readGitPrefix.ts
+// packages/engine/src/common/git/readGitPrefix.ts
 var gitTimeoutMs = 6e4;
 var readGitPrefix = async ({ cwd }) => {
   const prefix = await runCommand({ command: "git rev-parse --show-prefix", cwd, timeoutMs: gitTimeoutMs }).catch(() => void 0);
   return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : void 0;
 };
 
-// packages/engine/src/readGitChangedFiles.ts
+// packages/engine/src/common/git/readGitChangedFiles.ts
 var gitTimeoutMs2 = 6e4;
 var readGitChangedFiles = async ({ cwd }) => {
   const prefix = await readGitPrefix({ cwd });
@@ -23868,7 +23868,7 @@ var readPlanPackages = ({ planContent }) => {
   return items.length > 0 ? items : void 0;
 };
 
-// packages/engine/src/resolvePackageManifest.ts
+// packages/engine/src/common/utils/resolvePackageManifest.ts
 import { readFile as readFile5 } from "node:fs/promises";
 import { join as join7 } from "node:path";
 var PackageManifest = external_exports.object({
@@ -24527,7 +24527,7 @@ var isInertSourceFile = ({ path, content, compiler }) => {
   );
 };
 
-// packages/engine/src/resolveConsumerTypescript.ts
+// packages/engine/src/common/utils/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join as join12, resolve } from "node:path";
@@ -24740,7 +24740,7 @@ ${raw}`;
   return contents.join("\n\n");
 };
 
-// packages/engine/src/extractRunScriptName.ts
+// packages/engine/src/common/utils/extractRunScriptName.ts
 var extractRunScriptName = ({ command }) => {
   const tokens2 = command.split(/\s+/);
   const runIndex = tokens2.indexOf("run");
@@ -24904,10 +24904,10 @@ ${generated.stderr}`;
 import { mkdir as mkdir6, readFile as readFile13, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join20 } from "node:path";
 
-// packages/engine/src/isTestFile.ts
+// packages/engine/src/common/utils/isTestFile.ts
 var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
 
-// packages/engine/src/listSourceFiles.ts
+// packages/engine/src/common/utils/listSourceFiles.ts
 import { readdir } from "node:fs/promises";
 import { join as join15, relative } from "node:path";
 var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
@@ -36853,10 +36853,10 @@ var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   return findings;
 };
 
-// packages/engine/src/collapseCasing.ts
+// packages/engine/src/common/naming/collapseCasing.ts
 var collapseCasing = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-// packages/engine/src/nameKey.ts
+// packages/engine/src/common/naming/nameKey.ts
 var verbSynonyms = {
   fetch: "get",
   load: "get",
@@ -36876,7 +36876,7 @@ var nameKey = ({ name }) => {
   return tokens2.includes("to") || tokens2.includes("from") ? tokens2.join(" ") : [...tokens2].sort().join(" ");
 };
 
-// packages/engine/src/nameOf.ts
+// packages/engine/src/common/naming/nameOf.ts
 import { basename as basename3 } from "node:path";
 var nameOf = (path) => basename3(path).replace(/\.(m|c)?[jt]sx?$/, "");
 

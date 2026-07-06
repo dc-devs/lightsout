@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import type { CommandResult } from './CommandResult';
+import type { CommandResult } from '../types/CommandResult';
 
 interface Params {
 	/** Full shell command from consumer config (e.g. `pnpm --filter api check`). */

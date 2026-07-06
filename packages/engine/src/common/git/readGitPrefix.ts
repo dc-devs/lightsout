@@ -1,4 +1,4 @@
-import { runCommand } from './runCommand';
+import { runCommand } from '../utils/runCommand';
 
 const gitTimeoutMs = 60_000;
 

@@ -2,10 +2,10 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { LightsoutConfig } from '@lightsout/contracts';
-import { extractRunScriptName } from './extractRunScriptName';
-import { loadConfig } from './loadConfig';
-import { resolvePackageManifest } from './resolvePackageManifest';
-import { runCommand } from './runCommand';
+import { extractRunScriptName } from './common/utils/extractRunScriptName';
+import { loadConfig } from './common/utils/loadConfig';
+import { resolvePackageManifest } from './common/utils/resolvePackageManifest';
+import { runCommand } from './common/utils/runCommand';
 
 const probeTimeoutMs = 15_000;
 const driverBinaries: Record<string, string> = { 'claude-code': 'claude', codex: 'codex' };

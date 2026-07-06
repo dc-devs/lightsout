@@ -6,7 +6,7 @@ import type { Driver } from '@lightsout/drivers';
 import { estimatePlanScope } from './estimatePlanScope';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { lintPlanStructure } from './lintPlanStructure';
-import { loadConfig } from './loadConfig';
+import { loadConfig } from './common/utils/loadConfig';
 import { planWorkspaceDir } from './planWorkspaceDir';
 import { readDecisions } from './readDecisions';
 import { readPlanFacts } from './readPlanFacts';

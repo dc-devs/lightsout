@@ -1,6 +1,6 @@
 import { rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { runCommand } from './runCommand';
+import { runCommand } from './common/utils/runCommand';
 
 const cloneTimeoutMs = 300_000;
 const refreshAfterMs = 24 * 60 * 60 * 1000;

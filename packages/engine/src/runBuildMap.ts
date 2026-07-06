@@ -10,7 +10,7 @@ import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { joinInventories } from './joinInventories';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';
-import { runCommand } from './runCommand';
+import { runCommand } from './common/utils/runCommand';
 
 const scanConcurrency = 5;
 const defaultScanTimeoutMs = 30 * 60 * 1000;

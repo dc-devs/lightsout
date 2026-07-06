@@ -5,7 +5,7 @@ import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { patchConnectionDoc } from './patchConnectionDoc';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';
-import { runCommand } from './runCommand';
+import { runCommand } from './common/utils/runCommand';
 
 const gitTimeoutMs = 60_000;
 

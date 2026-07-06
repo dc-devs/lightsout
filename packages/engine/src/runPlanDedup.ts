@@ -5,7 +5,7 @@ import { buildPlanDedupInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
-import { loadConfig } from './loadConfig';
+import { loadConfig } from './common/utils/loadConfig';
 import { planWorkspaceDir } from './planWorkspaceDir';
 
 const defaultDedupTimeoutMs = 30 * 60 * 1000;
