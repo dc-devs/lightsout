@@ -1,7 +1,7 @@
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
 
-/** Cluster prefixes with stable path-keyed identities — safe to gate on (size:file: keys on the path alone; per-function size and clone keys embed lines/names, so they inform the work-list but never block). */
-const gatingClusterPattern = /^(ast:|multi-export:|size:file:)/;
+/** Cluster prefixes with stable path-keyed identities — safe to gate on (size:file: and boundary: key on the path alone; per-function size and clone keys embed lines/names, so they inform the work-list but never block). Placement and barrel-star stay work-list, not gate, until they've been lived with. */
+const gatingClusterPattern = /^(ast:|multi-export:|size:file:|boundary:)/;
 
 interface Params {
 	findings: ScanFinding[];

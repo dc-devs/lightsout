@@ -37273,7 +37273,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
 };
 
 // packages/engine/src/scan/selectScanFindings.ts
-var gatingClusterPattern = /^(ast:|multi-export:|size:file:)/;
+var gatingClusterPattern = /^(ast:|multi-export:|size:file:|boundary:)/;
 var selectScanFindings = ({ findings, changedFiles }) => {
   const changed = new Set(changedFiles);
   const touchesChanged = (finding) => finding.files.some((file2) => changed.has(file2.path));

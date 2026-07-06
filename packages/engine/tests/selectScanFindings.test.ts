@@ -21,19 +21,21 @@ test('selectScanFindings keeps finding-severity items touching changed files; ga
 		finding({ detector: 'size', severity: 'advisory', cluster: 'size:function:src/changed.ts:big', files: [{ path: 'src/changed.ts', startLine: 5, endLine: 99 }] }),
 		finding({ severity: 'advisory', cluster: 'filename-mismatch:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
 		finding({ cluster: 'multi-export:src/untouched.ts', files: [{ path: 'src/untouched.ts' }] }),
+		finding({ detector: 'module-boundary', cluster: 'boundary:src/changed.ts', files: [{ path: 'src/changed.ts' }, { path: 'src/other.ts' }] }),
+		finding({ detector: 'placement', cluster: 'placement:src/other/common/x.ts', files: [{ path: 'src/other/common/x.ts' }, { path: 'src/changed.ts' }] }),
 	];
 
 	const { workList, advisories, gating } = selectScanFindings({ findings, changedFiles: ['src/changed.ts'] });
 
 	assert.deepEqual(
 		workList.map((entry) => entry.cluster),
-		['multi-export:src/changed.ts', 'ast:abc123def456', 'clone:src/changed.ts:10', 'size:file:src/changed.ts'],
-		'advisories and untouched-file findings excluded; the changed↔legacy dup included',
+		['multi-export:src/changed.ts', 'ast:abc123def456', 'clone:src/changed.ts:10', 'size:file:src/changed.ts', 'boundary:src/changed.ts', 'placement:src/other/common/x.ts'],
+		'advisories and untouched-file findings excluded; the changed↔legacy dup and both architecture findings included',
 	);
 	assert.deepEqual(
 		gating.map((entry) => entry.cluster),
-		['multi-export:src/changed.ts', 'ast:abc123def456', 'size:file:src/changed.ts'],
-		'path-keyed file size gates; line-keyed clone and per-function size inform but never gate',
+		['multi-export:src/changed.ts', 'ast:abc123def456', 'size:file:src/changed.ts', 'boundary:src/changed.ts'],
+		'path-keyed file size and module boundaries gate; line-keyed clone, per-function size and placement inform but never gate',
 	);
 	assert.deepEqual(
 		advisories.map((entry) => entry.cluster),
