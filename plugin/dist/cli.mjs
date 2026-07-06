@@ -8011,7 +8011,7 @@ usage:
 `;
 
 // packages/cli/src/buildMapCommand.ts
-import { readFile as readFile36, readdir as readdir10 } from "node:fs/promises";
+import { readFile as readFile35, readdir as readdir10 } from "node:fs/promises";
 import { join as join50 } from "node:path";
 
 // packages/contracts/src/run/RunStatus.ts
@@ -23509,13 +23509,15 @@ var appendFriction = async ({ cwd, runId, step, friction }) => {
 };
 
 // packages/engine/src/runState/readFriction.ts
-import { readFile as readFile2 } from "node:fs/promises";
 import { join as join7 } from "node:path";
-var readFriction = async ({ cwd }) => {
-  const raw = await readFile2(join7(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+
+// packages/engine/src/runState/common/utils/readJsonlRecords.ts
+import { readFile as readFile2 } from "node:fs/promises";
+var readJsonlRecords = async ({ path, schema }) => {
+  const raw = await readFile2(path, "utf8").catch(() => "");
   return raw.split("\n").filter(Boolean).flatMap((line) => {
     try {
-      const parsed = FrictionRecord.safeParse(JSON.parse(line));
+      const parsed = schema.safeParse(JSON.parse(line));
       return parsed.success ? [parsed.data] : [];
     } catch {
       return [];
@@ -23523,8 +23525,11 @@ var readFriction = async ({ cwd }) => {
   });
 };
 
+// packages/engine/src/runState/readFriction.ts
+var readFriction = async ({ cwd }) => readJsonlRecords({ path: join7(cwd, ".lightsout", "friction.jsonl"), schema: FrictionRecord });
+
 // packages/engine/src/runState/summarizeRun.ts
-import { readdir, readFile as readFile3 } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join as join8 } from "node:path";
 var LedgerRecord = external_exports.object({
   step: external_exports.string(),
@@ -23536,17 +23541,6 @@ var CommandRecord = external_exports.object({
   rerun: external_exports.literal(true).optional(),
   skipped: external_exports.literal(true).optional()
 });
-var readJsonlRecords = async ({ path, schema }) => {
-  const raw = await readFile3(path, "utf8").catch(() => "");
-  return raw.split("\n").filter(Boolean).flatMap((line) => {
-    try {
-      const parsed = schema.safeParse(JSON.parse(line));
-      return parsed.success ? [parsed.data] : [];
-    } catch {
-      return [];
-    }
-  });
-};
 var summarizeRun = async ({ cwd, manifest }) => {
   const runDir = getRunDir({ cwd, runId: manifest.runId });
   const ledger = await readJsonlRecords({ path: join8(runDir, "agents.jsonl"), schema: LedgerRecord });
@@ -23616,9 +23610,9 @@ var isPidAlive = ({ pid }) => {
 };
 
 // packages/engine/src/runState/readRunLock.ts
-import { readFile as readFile4 } from "node:fs/promises";
+import { readFile as readFile3 } from "node:fs/promises";
 var readRunLock = async ({ cwd }) => {
-  const raw = await readFile4(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
+  const raw = await readFile3(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -23700,11 +23694,11 @@ var runCommand = ({ command, cwd, timeoutMs }) => {
 };
 
 // packages/engine/src/common/utils/loadConfig.ts
-import { readFile as readFile5 } from "node:fs/promises";
+import { readFile as readFile4 } from "node:fs/promises";
 import { join as join10 } from "node:path";
 var loadConfig = async ({ cwd }) => {
   const configPath = join10(cwd, "lightsout.config.json");
-  const raw = await readFile5(configPath, "utf8").catch(() => {
+  const raw = await readFile4(configPath, "utf8").catch(() => {
     throw new Error(`lightsout.config.json not found at ${configPath}`);
   });
   return LightsoutConfig.parse(JSON.parse(raw));
@@ -24305,7 +24299,7 @@ var readGitChangedFiles = async ({ cwd }) => {
 
 // packages/engine/src/pipeline/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile17, writeFile as writeFile4 } from "node:fs/promises";
+import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join24 } from "node:path";
 
 // packages/engine/src/pipeline/chunkFileGroup.ts
@@ -24319,7 +24313,7 @@ var chunkFileGroup = ({ files, max }) => {
 };
 
 // packages/engine/src/common/utils/collectImportEdges.ts
-import { readFile as readFile6 } from "node:fs/promises";
+import { readFile as readFile5 } from "node:fs/promises";
 import { join as join11, posix } from "node:path";
 var stripExtension = (path) => path.replace(/\.(m|c)?[jt]sx?$/i, "");
 var collectImportEdges = async ({ cwd, files, compiler }) => {
@@ -24347,7 +24341,7 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   };
   const edges = [];
   for (const from of files) {
-    const content = await readFile6(join11(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile5(join11(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
@@ -24456,7 +24450,7 @@ var readPlanPackages = ({ planContent }) => {
 };
 
 // packages/engine/src/standards/readStandards.ts
-import { readFile as readFile7 } from "node:fs/promises";
+import { readFile as readFile6 } from "node:fs/promises";
 import { join as join13 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
@@ -24607,7 +24601,7 @@ var readStandards = async ({ cwd, paths, channels = [] }) => {
       if (bundled) {
         return [bundled.base, ...channels.map((channel) => bundled[channel])].filter(Boolean).join("\n\n");
       }
-      const raw = await readFile7(join13(cwd, path), "utf8").catch(() => {
+      const raw = await readFile6(join13(cwd, path), "utf8").catch(() => {
         throw new Error(`standards file not found: ${join13(cwd, path)}`);
       });
       return `<!-- ${path} -->
@@ -24618,7 +24612,7 @@ ${raw}`;
 };
 
 // packages/engine/src/standards/detectStandardsChannels.ts
-import { readFile as readFile8 } from "node:fs/promises";
+import { readFile as readFile7 } from "node:fs/promises";
 import { join as join14 } from "node:path";
 var Manifest = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
@@ -24634,7 +24628,7 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
   const dependencies = /* @__PURE__ */ new Set();
   for (const path of manifestPaths) {
     try {
-      const parsed = Manifest.parse(JSON.parse(await readFile8(path, "utf8")));
+      const parsed = Manifest.parse(JSON.parse(await readFile7(path, "utf8")));
       for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
         for (const name of Object.keys(record2 ?? {})) {
           dependencies.add(name);
@@ -24665,7 +24659,7 @@ var extractRunScriptName = ({ command }) => {
 };
 
 // packages/engine/src/common/utils/resolvePackageManifest.ts
-import { readFile as readFile9 } from "node:fs/promises";
+import { readFile as readFile8 } from "node:fs/promises";
 import { join as join15 } from "node:path";
 var PackageManifest = external_exports.object({
   name: external_exports.string().min(1),
@@ -24673,7 +24667,7 @@ var PackageManifest = external_exports.object({
 });
 var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
   const manifestPath = join15(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile9(manifestPath, "utf8").catch(() => {
+  const raw = await readFile8(manifestPath, "utf8").catch(() => {
     throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
   });
   const parsed = PackageManifest.safeParse(JSON.parse(raw));
@@ -24834,7 +24828,7 @@ ${generated.stderr}`;
 };
 
 // packages/engine/src/scan/runScan.ts
-import { mkdir as mkdir6, readFile as readFile16, writeFile as writeFile3 } from "node:fs/promises";
+import { mkdir as mkdir6, readFile as readFile15, writeFile as writeFile3 } from "node:fs/promises";
 import { join as join23 } from "node:path";
 
 // packages/engine/src/common/utils/listSourceFiles.ts
@@ -24871,7 +24865,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
 
 // packages/engine/src/scan/scanAstFindings.ts
 import { createHash } from "node:crypto";
-import { readFile as readFile10 } from "node:fs/promises";
+import { readFile as readFile9 } from "node:fs/promises";
 import { basename, join as join17 } from "node:path";
 var minBodyTokens = 40;
 var defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
@@ -24913,7 +24907,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
     return "(anonymous)";
   };
   for (const file2 of files) {
-    const text = await readFile10(join17(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile9(join17(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -24981,7 +24975,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
 };
 
 // packages/engine/src/scan/scanClones.ts
-import { readFile as readFile11 } from "node:fs/promises";
+import { readFile as readFile10 } from "node:fs/promises";
 import { join as join18 } from "node:path";
 
 // node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
@@ -36706,7 +36700,7 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
   const findings = [];
   for (const file2 of files) {
-    const text = await readFile11(join18(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile10(join18(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -36730,14 +36724,14 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
 };
 
 // packages/engine/src/scan/scanDeadExports.ts
-import { readFile as readFile12 } from "node:fs/promises";
+import { readFile as readFile11 } from "node:fs/promises";
 import { basename as basename2, join as join19 } from "node:path";
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   const findings = [];
   const contents = /* @__PURE__ */ new Map();
   for (const file2 of /* @__PURE__ */ new Set([...files, ...referenceFiles ?? []])) {
-    contents.set(file2, await readFile12(join19(cwd, file2), "utf8").catch(() => "") ?? "");
+    contents.set(file2, await readFile11(join19(cwd, file2), "utf8").catch(() => "") ?? "");
   }
   const scope = new Set(files);
   const declarations = [];
@@ -36784,11 +36778,11 @@ var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
 };
 
 // packages/engine/src/scan/scanBarrelHygiene.ts
-import { readFile as readFile14 } from "node:fs/promises";
+import { readFile as readFile13 } from "node:fs/promises";
 import { join as join21 } from "node:path";
 
 // packages/engine/src/scan/mapFolderModules.ts
-import { readFile as readFile13 } from "node:fs/promises";
+import { readFile as readFile12 } from "node:fs/promises";
 import { basename as basename3, dirname as dirname3, join as join20 } from "node:path";
 
 // packages/engine/src/scan/readBarrelExports.ts
@@ -36853,7 +36847,7 @@ var mapFolderModules = async ({
   const nestedModuleDirs = [...barrelDirs.keys()];
   const map2 = /* @__PURE__ */ new Map();
   for (const [folder, barrelPath] of barrelDirs) {
-    const text = await readFile13(join20(cwd, barrelPath), "utf8").catch(() => "");
+    const text = await readFile12(join20(cwd, barrelPath), "utf8").catch(() => "");
     const exportedTargets = new Set(
       readBarrelExports({ barrelPath, text, files }).map((entry) => entry.target).filter((target) => target !== void 0)
     );
@@ -36877,7 +36871,7 @@ var scanBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
   const modules = await mapFolderModules({ cwd, files });
   const contents = /* @__PURE__ */ new Map();
   for (const file2 of /* @__PURE__ */ new Set([...files, ...referenceFiles ?? []])) {
-    contents.set(file2, await readFile14(join21(cwd, file2), "utf8").catch(() => "") ?? "");
+    contents.set(file2, await readFile13(join21(cwd, file2), "utf8").catch(() => "") ?? "");
   }
   const findings = [];
   for (const [folder, entry] of modules) {
@@ -37070,7 +37064,7 @@ var scanPlacement = async ({ cwd, files, compiler }) => {
 };
 
 // packages/engine/src/scan/scanStructure.ts
-import { readFile as readFile15 } from "node:fs/promises";
+import { readFile as readFile14 } from "node:fs/promises";
 import { basename as basename5, dirname as dirname5, join as join22 } from "node:path";
 var folderCensusCap = 20;
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
@@ -37092,7 +37086,7 @@ var scanStructure = async ({ cwd, files }) => {
     if (basename5(file2).startsWith("index.")) {
       continue;
     }
-    const text = await readFile15(join22(cwd, file2), "utf8").catch(() => "");
+    const text = await readFile14(join22(cwd, file2), "utf8").catch(() => "");
     const exports = [];
     for (const line of text.split("\n")) {
       const match = line.match(exportPattern2);
@@ -37228,7 +37222,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
   const dir = join23(cwd, ".lightsout");
   await mkdir6(dir, { recursive: true });
   const baselinePath = join23(cwd, "lightsout.scan-baseline.json");
-  const baselineRaw = await readFile16(baselinePath, "utf8").catch(() => void 0);
+  const baselineRaw = await readFile15(baselinePath, "utf8").catch(() => void 0);
   let baselineJson;
   try {
     baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
@@ -37367,7 +37361,7 @@ var executePipeline = async ({
     return stopped;
   };
   const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile17(join24(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const planContent = await readFile16(join24(cwd, manifest.plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
@@ -37375,7 +37369,7 @@ var executePipeline = async ({
       error: `plan file not found: ${join24(cwd, manifest.plan)}`
     });
   }
-  const overviewContent = manifest.overview ? await readFile17(join24(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
+  const overviewContent = manifest.overview ? await readFile16(join24(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
   if (manifest.overview && overviewContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
@@ -37666,7 +37660,7 @@ ${error51}`
     const targets = [];
     const inert = [];
     for (const file2 of candidates) {
-      const content = await readFile17(join24(cwd, file2), "utf8").catch(() => void 0);
+      const content = await readFile16(join24(cwd, file2), "utf8").catch(() => void 0);
       if (content !== void 0 && isInertSourceFile({ path: file2, content, compiler })) {
         inert.push(file2);
       } else {
@@ -37997,7 +37991,7 @@ var runImplementPipeline = async (params) => {
 };
 
 // packages/engine/src/runDoctor.ts
-import { readdir as readdir3, readFile as readFile18, stat } from "node:fs/promises";
+import { readdir as readdir3, readFile as readFile17, stat } from "node:fs/promises";
 import { join as join25 } from "node:path";
 var probeTimeoutMs = 15e3;
 var driverBinaries = { "claude-code": "claude", codex: "codex" };
@@ -38109,7 +38103,7 @@ ${notIgnored.join("\n")}`
   for (const { label, dir } of packageDirs) {
     for (const configPath of await findJestConfigs({ packageDir: dir })) {
       jestConfigCount += 1;
-      const text = await readFile18(configPath, "utf8").catch(() => "");
+      const text = await readFile17(configPath, "utf8").catch(() => "");
       const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
       if (absent.length > 0) {
         jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
@@ -38128,7 +38122,7 @@ ${notIgnored.join("\n")}`
   }
   const fireEventOnly = [];
   for (const { label, dir } of packageDirs) {
-    const raw = await readFile18(join25(dir, "package.json"), "utf8").catch(() => void 0);
+    const raw = await readFile17(join25(dir, "package.json"), "utf8").catch(() => void 0);
     let json2;
     try {
       json2 = raw === void 0 ? void 0 : JSON.parse(raw);
@@ -38160,7 +38154,7 @@ ${notIgnored.join("\n")}`
       const lintConfigs = entries.filter((name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name));
       for (const name of lintConfigs) {
         lintConfigCount += 1;
-        const text = await readFile18(join25(dir, name), "utf8").catch(() => "");
+        const text = await readFile17(join25(dir, name), "utf8").catch(() => "");
         const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
         const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
         if (unenforced.length > 0) {
@@ -38217,7 +38211,7 @@ ${notIgnored.join("\n")}`
 };
 
 // packages/engine/src/traverse/runTraverse.ts
-import { appendFile as appendFile5, mkdir as mkdir8, readFile as readFile21, writeFile as writeFile5 } from "node:fs/promises";
+import { appendFile as appendFile5, mkdir as mkdir8, readFile as readFile20, writeFile as writeFile5 } from "node:fs/promises";
 import { isAbsolute, join as join30 } from "node:path";
 
 // packages/engine/src/traverse/common/constants/defaultWorkspaceDir.ts
@@ -38286,7 +38280,7 @@ var matchExitToEdge = ({ exit, node, edges }) => {
 
 // packages/engine/src/traverse/readConnectionMap.ts
 var import_yaml = __toESM(require_dist(), 1);
-import { readdir as readdir4, readFile as readFile19 } from "node:fs/promises";
+import { readdir as readdir4, readFile as readFile18 } from "node:fs/promises";
 import { join as join28 } from "node:path";
 
 // packages/engine/src/traverse/common/constants/frontmatterPattern.ts
@@ -38299,7 +38293,7 @@ var readConnectionMap = async ({ connectionsDir }) => {
   });
   const edges = /* @__PURE__ */ new Map();
   for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md")) {
-    const text = await readFile19(join28(connectionsDir, name), "utf8");
+    const text = await readFile18(join28(connectionsDir, name), "utf8");
     const frontmatter = text.match(frontmatterPattern)?.[1];
     if (!frontmatter) {
       throw new Error(`connection doc ${name} has no frontmatter`);
@@ -38315,7 +38309,7 @@ var readConnectionMap = async ({ connectionsDir }) => {
 
 // packages/engine/src/traverse/readNodeRegistry.ts
 var import_yaml2 = __toESM(require_dist(), 1);
-import { readFile as readFile20 } from "node:fs/promises";
+import { readFile as readFile19 } from "node:fs/promises";
 import { join as join29 } from "node:path";
 var registry2 = external_exports.record(
   external_exports.string(),
@@ -38330,7 +38324,7 @@ var registry2 = external_exports.record(
 );
 var readNodeRegistry = async ({ connectionsDir }) => {
   const path = join29(connectionsDir, "repos.yaml");
-  const raw = await readFile20(path, "utf8").catch(() => {
+  const raw = await readFile19(path, "utf8").catch(() => {
     throw new Error(`node registry not found: ${path}`);
   });
   const parsed = registry2.safeParse((0, import_yaml2.parse)(raw));
@@ -38374,7 +38368,7 @@ var runTraverse = async ({
   await mkdir8(workspaceDir, { recursive: true });
   let state;
   if (resumeRunId) {
-    const raw = await readFile21(tracePath, "utf8").catch(() => {
+    const raw = await readFile20(tracePath, "utf8").catch(() => {
       throw new Error(`no trace found for run ${resumeRunId} at ${tracePath}`);
     });
     state = TraceState.parse(JSON.parse(raw));
@@ -38518,7 +38512,7 @@ var runTraverse = async ({
 };
 
 // packages/engine/src/traverse/runDebug.ts
-import { appendFile as appendFile6, mkdir as mkdir9, readFile as readFile22, writeFile as writeFile6 } from "node:fs/promises";
+import { appendFile as appendFile6, mkdir as mkdir9, readFile as readFile21, writeFile as writeFile6 } from "node:fs/promises";
 import { isAbsolute as isAbsolute3, join as join31 } from "node:path";
 
 // packages/engine/src/traverse/findConnectingDoc.ts
@@ -38649,7 +38643,7 @@ var runDebug = async ({
   await mkdir9(workspaceDir, { recursive: true });
   let state;
   if (resumeRunId) {
-    const raw = await readFile22(tracePath, "utf8").catch(() => {
+    const raw = await readFile21(tracePath, "utf8").catch(() => {
       throw new Error(`no debug trace found for run ${resumeRunId} at ${tracePath}`);
     });
     state = DebugTraceState.parse(JSON.parse(raw));
@@ -38812,9 +38806,9 @@ var runDebug = async ({
 
 // packages/engine/src/traverse/patchConnectionDoc.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import { readFile as readFile23, writeFile as writeFile7 } from "node:fs/promises";
+import { readFile as readFile22, writeFile as writeFile7 } from "node:fs/promises";
 var patchConnectionDoc = async ({ path, patch }) => {
-  const text = await readFile23(path, "utf8");
+  const text = await readFile22(path, "utf8");
   const match = text.match(frontmatterPattern);
   if (!match?.[1]) {
     throw new Error(`${path} has no frontmatter to patch`);
@@ -38873,7 +38867,7 @@ var resolveConnectionsSource = async ({ cwd, source, workspaceDir = defaultWorks
 };
 
 // packages/engine/src/traverse/runBuildMap.ts
-import { mkdir as mkdir10, readdir as readdir5, readFile as readFile24, writeFile as writeFile8 } from "node:fs/promises";
+import { mkdir as mkdir10, readdir as readdir5, readFile as readFile23, writeFile as writeFile8 } from "node:fs/promises";
 import { isAbsolute as isAbsolute5, join as join33 } from "node:path";
 
 // packages/engine/src/traverse/joinInventories.ts
@@ -39044,7 +39038,7 @@ var runBuildMap = async ({
   await mkdir10(runDir, { recursive: true });
   await mkdir10(workspaceDir, { recursive: true });
   const savedInventory = async (node) => {
-    const raw = await readFile24(join33(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
+    const raw = await readFile23(join33(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
     if (raw === void 0) {
       return void 0;
     }
@@ -39165,13 +39159,13 @@ var slugOf = ({ key }) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 
 // packages/engine/src/traverse/regenerateConnectionIndex.ts
 var import_yaml4 = __toESM(require_dist(), 1);
-import { readdir as readdir6, readFile as readFile25, writeFile as writeFile9 } from "node:fs/promises";
+import { readdir as readdir6, readFile as readFile24, writeFile as writeFile9 } from "node:fs/promises";
 import { join as join34 } from "node:path";
 var regenerateConnectionIndex = async ({ connectionsDir }) => {
   const entries = await readdir6(connectionsDir);
   const rows = [];
   for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md").sort()) {
-    const text = await readFile25(join34(connectionsDir, name), "utf8");
+    const text = await readFile24(join34(connectionsDir, name), "utf8");
     const frontmatter = text.match(frontmatterPattern)?.[1];
     const parsed = frontmatter ? ConnectionDoc.safeParse((0, import_yaml4.parse)(frontmatter)) : void 0;
     if (!parsed?.success) {
@@ -39274,12 +39268,12 @@ ${body.join("\n")}
 };
 
 // packages/engine/src/traverse/draftConnectionDocs.ts
-import { mkdir as mkdir11, readFile as readFile26, writeFile as writeFile11 } from "node:fs/promises";
+import { mkdir as mkdir11, readFile as readFile25, writeFile as writeFile11 } from "node:fs/promises";
 import { isAbsolute as isAbsolute6, join as join36 } from "node:path";
 var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
   const mapDir = isAbsolute6(connectionsDir) ? connectionsDir : join36(cwd, connectionsDir);
   const tracePath = join36(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
-  const raw = await readFile26(tracePath, "utf8").catch(() => {
+  const raw = await readFile25(tracePath, "utf8").catch(() => {
     throw new Error(`no trace found for run ${traverseRunId} at ${tracePath}`);
   });
   const state = TraceState.parse(JSON.parse(raw));
@@ -39314,7 +39308,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
 };
 
 // packages/engine/src/traverse/verifyConnectionAnchors.ts
-import { readFile as readFile27 } from "node:fs/promises";
+import { readFile as readFile26 } from "node:fs/promises";
 import { isAbsolute as isAbsolute7, join as join37 } from "node:path";
 var gitTimeoutMs4 = 6e4;
 var verifyConnectionAnchors = async ({
@@ -39362,7 +39356,7 @@ var verifyConnectionAnchors = async ({
         continue;
       }
       const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir, forceRefresh: true });
-      const fileText = await readFile27(join37(workspace, anchor2.path), "utf8").catch(() => void 0);
+      const fileText = await readFile26(join37(workspace, anchor2.path), "utf8").catch(() => void 0);
       if (fileText?.includes(anchor2.pattern)) {
         results.push({ doc: id, side, node, status: "ok" });
         if (repair && head) {
@@ -39435,7 +39429,7 @@ import { join as join39 } from "node:path";
 var planWorkspaceDir = ({ cwd, name }) => join39(cwd, ".lightsout", "plans", name);
 
 // packages/engine/src/plan/verifyFacts.ts
-import { readFile as readFile28 } from "node:fs/promises";
+import { readFile as readFile27 } from "node:fs/promises";
 import { join as join40 } from "node:path";
 
 // packages/engine/src/plan/common/utils/pathExists.ts
@@ -39472,7 +39466,7 @@ var verifyFacts = async ({ cwd, report }) => {
     const manifestPaths = [join40(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join40(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile28(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile27(manifestPath, "utf8").catch(() => void 0);
       if (raw) {
         for (const key of scriptKeysOf(raw)) {
           available.add(key);
@@ -39593,7 +39587,7 @@ var estimatePlanScope = ({ facts }) => {
 };
 
 // packages/engine/src/plan/lintPlanStructure.ts
-import { readFile as readFile29 } from "node:fs/promises";
+import { readFile as readFile28 } from "node:fs/promises";
 import { basename as basename8, join as join42 } from "node:path";
 
 // packages/engine/src/plan/planCreatePaths.ts
@@ -39749,7 +39743,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const packagesDir = config2?.packagesDir ?? "packages";
   const configCommands = new Set(Object.values(config2?.scripts ?? {}).filter((value) => typeof value === "string"));
   for (const planPath of planPaths) {
-    const content = await readFile29(planPath, "utf8").catch(() => void 0);
+    const content = await readFile28(planPath, "utf8").catch(() => void 0);
     if (content === void 0) {
       findings.push({
         check: StructuralCheck.SectionsPresent,
@@ -39802,7 +39796,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
     const manifestPaths = [join42(cwd, "package.json"), ...[...packageDirs].map((dir) => join42(cwd, packagesDir, dir, "package.json"))];
     const availableScripts = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile29(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile28(manifestPath, "utf8").catch(() => void 0);
       if (!raw) {
         continue;
       }
@@ -39866,22 +39860,22 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
 };
 
 // packages/engine/src/plan/readDecisions.ts
-import { readFile as readFile30 } from "node:fs/promises";
+import { readFile as readFile29 } from "node:fs/promises";
 import { join as join43 } from "node:path";
 var readDecisions = async ({ cwd, name }) => {
   const decisionsPath = join43(planWorkspaceDir({ cwd, name }), "decisions.json");
-  const raw = await readFile30(decisionsPath, "utf8").catch(() => {
+  const raw = await readFile29(decisionsPath, "utf8").catch(() => {
     throw new Error(`no decisions found for plan ${name} at ${decisionsPath} \u2014 author decisions.json before drafting`);
   });
   return DecisionsRecord.parse(JSON.parse(raw));
 };
 
 // packages/engine/src/plan/readPlanFacts.ts
-import { readFile as readFile31 } from "node:fs/promises";
+import { readFile as readFile30 } from "node:fs/promises";
 import { join as join44 } from "node:path";
 var readPlanFacts = async ({ cwd, name }) => {
   const factsPath = join44(planWorkspaceDir({ cwd, name }), "facts.json");
-  const raw = await readFile31(factsPath, "utf8").catch(() => {
+  const raw = await readFile30(factsPath, "utf8").catch(() => {
     throw new Error(`no facts found for plan ${name} at ${factsPath} \u2014 run: lightsout plan explore`);
   });
   return PlanFacts.parse(JSON.parse(raw));
@@ -39975,16 +39969,16 @@ var runPlanDraft = async ({
 };
 
 // packages/engine/src/plan/runPlanGrade.ts
-import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile33, readdir as readdir8, writeFile as writeFile14 } from "node:fs/promises";
+import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile32, readdir as readdir8, writeFile as writeFile14 } from "node:fs/promises";
 import { basename as basename9, join as join46 } from "node:path";
 
 // packages/engine/src/plan/detectPriorArtCandidates.ts
-import { readFile as readFile32 } from "node:fs/promises";
+import { readFile as readFile31 } from "node:fs/promises";
 var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   const planned = [];
   const plannedPaths = /* @__PURE__ */ new Set();
   for (const planPath of planPaths) {
-    const planText = await readFile32(planPath, "utf8").catch(() => void 0);
+    const planText = await readFile31(planPath, "utf8").catch(() => void 0);
     if (planText === void 0) {
       continue;
     }
@@ -40042,12 +40036,12 @@ var runPlanGrade = async ({
   let overviewText;
   const phases = [];
   if (await pathExists({ path: singlePath })) {
-    phases.push({ path: singlePath, text: await readFile33(singlePath, "utf8") });
+    phases.push({ path: singlePath, text: await readFile32(singlePath, "utf8") });
   } else {
     const entries = (await readdir8(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
       const path = join46(phaseDir, entry);
-      const text = await readFile33(path, "utf8");
+      const text = await readFile32(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
         overviewText = text;
@@ -40121,7 +40115,7 @@ var runPlanGrade = async ({
 };
 
 // packages/engine/src/plan/runPlanDedup.ts
-import { appendFile as appendFile10, mkdir as mkdir15, readFile as readFile34, readdir as readdir9, writeFile as writeFile15 } from "node:fs/promises";
+import { appendFile as appendFile10, mkdir as mkdir15, readFile as readFile33, readdir as readdir9, writeFile as writeFile15 } from "node:fs/promises";
 import { join as join47 } from "node:path";
 var defaultDedupTimeoutMs = 30 * 60 * 1e3;
 var runPlanDedup = async ({
@@ -40144,12 +40138,12 @@ var runPlanDedup = async ({
   let overviewText;
   const planFiles = [];
   if (await pathExists({ path: singlePath })) {
-    planFiles.push({ path: singlePath, text: await readFile34(singlePath, "utf8") });
+    planFiles.push({ path: singlePath, text: await readFile33(singlePath, "utf8") });
   } else {
     const entries = (await readdir9(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
       const path = join47(phaseDir, entry);
-      const text = await readFile34(path, "utf8");
+      const text = await readFile33(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
         overviewText = text;
@@ -40426,7 +40420,7 @@ ${stderr}`),
 };
 
 // packages/drivers/src/createCodexDriver.ts
-import { mkdtemp, readFile as readFile35, rm as rm2 } from "node:fs/promises";
+import { mkdtemp, readFile as readFile34, rm as rm2 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join as join49 } from "node:path";
 var rateLimitPattern2 = /usage limit|rate limit|limit reached|quota/i;
@@ -40473,7 +40467,7 @@ ${prompt}` : prompt;
           stdinText: fullPrompt,
           timeoutMs
         });
-        const text = await readFile35(outFile, "utf8").catch(() => "");
+        const text = await readFile34(outFile, "utf8").catch(() => "");
         const errored = exitCode !== 0 || text === "";
         return {
           text: text || stdout || stderr,
@@ -40539,11 +40533,11 @@ var buildMapCommand = async ({ flags, rest, cwd }) => {
     const { source: connectionsSource, connections } = await resolveCommandConnections({ cwd, flags, config: config2 });
     if (authorRunId) {
       const joinPath = join50(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
-      const reviewed = MapJoin.parse(JSON.parse(await readFile36(joinPath, "utf8")));
+      const reviewed = MapJoin.parse(JSON.parse(await readFile35(joinPath, "utf8")));
       const inventoriesDir = join50(cwd, ".lightsout/traverse/inventories");
       const shaByNode = /* @__PURE__ */ new Map();
       for (const name of (await readdir10(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile36(join50(inventoriesDir, name), "utf8")));
+        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile35(join50(inventoriesDir, name), "utf8")));
         if (inventory.success) {
           shaByNode.set(inventory.data.node, inventory.data.scannedSha);
         }

@@ -1,7 +1,8 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { RunManifest } from '@lightsout/contracts';
+import { readJsonlRecords } from './common/utils/readJsonlRecords';
 import { getRunDir } from './getRunDir';
 import { readFriction } from './readFriction';
 
@@ -16,23 +17,6 @@ const CommandRecord = z.object({
 	rerun: z.literal(true).optional(),
 	skipped: z.literal(true).optional(),
 });
-
-const readJsonlRecords = async <Shape>({ path, schema }: { path: string; schema: z.ZodType<Shape> }) => {
-	const raw = await readFile(path, 'utf8').catch(() => '');
-
-	return raw
-		.split('\n')
-		.filter(Boolean)
-		.flatMap((line) => {
-			try {
-				const parsed = schema.safeParse(JSON.parse(line));
-
-				return parsed.success ? [parsed.data] : [];
-			} catch {
-				return [];
-			}
-		});
-};
 
 interface Params {
 	cwd: string;

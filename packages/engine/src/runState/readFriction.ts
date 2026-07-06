@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { FrictionRecord } from '@lightsout/contracts';
+import { readJsonlRecords } from './common/utils/readJsonlRecords';
 
 interface Params {
 	cwd: string;
@@ -10,19 +10,4 @@ interface Params {
  * Read the accumulated friction log. Validated line-by-line at the boundary;
  * malformed lines are skipped, never guessed at.
  */
-export const readFriction = async ({ cwd }: Params) => {
-	const raw = await readFile(join(cwd, '.lightsout', 'friction.jsonl'), 'utf8').catch(() => '');
-
-	return raw
-		.split('\n')
-		.filter(Boolean)
-		.flatMap((line) => {
-			try {
-				const parsed = FrictionRecord.safeParse(JSON.parse(line));
-
-				return parsed.success ? [parsed.data] : [];
-			} catch {
-				return [];
-			}
-		});
-};
+export const readFriction = async ({ cwd }: Params) => readJsonlRecords({ path: join(cwd, '.lightsout', 'friction.jsonl'), schema: FrictionRecord });
