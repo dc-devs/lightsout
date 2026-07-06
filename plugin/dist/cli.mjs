@@ -7961,7 +7961,7 @@ var require_dist = __commonJS({
 import { readdir as readdir10, readFile as readFile34 } from "node:fs/promises";
 import { basename as basename9, join as join47 } from "node:path";
 
-// packages/contracts/src/RunStatus.ts
+// packages/contracts/src/run/RunStatus.ts
 var RunStatus = {
   Pending: "pending",
   Running: "running",
@@ -22601,7 +22601,7 @@ var LightsoutConfig = external_exports.object({
   }).optional()
 });
 
-// packages/contracts/src/PackagesSource.ts
+// packages/contracts/src/run/PackagesSource.ts
 var PackagesSource = {
   /** Explicit `--packages` flag. */
   Flag: "flag",
@@ -22611,7 +22611,7 @@ var PackagesSource = {
   PlanPaths: "plan-paths"
 };
 
-// packages/contracts/src/AgentUsage.ts
+// packages/contracts/src/run/AgentUsage.ts
 var AgentUsage = external_exports.object({
   inputTokens: external_exports.number(),
   outputTokens: external_exports.number(),
@@ -22620,12 +22620,12 @@ var AgentUsage = external_exports.object({
   costUsd: external_exports.number()
 });
 
-// packages/contracts/src/RunUsage.ts
+// packages/contracts/src/run/RunUsage.ts
 var RunUsage = AgentUsage.extend({
   invocations: external_exports.number()
 });
 
-// packages/contracts/src/StepRecord.ts
+// packages/contracts/src/run/StepRecord.ts
 var StepRecord = external_exports.object({
   id: external_exports.string(),
   status: external_exports.enum(RunStatus),
@@ -22638,7 +22638,7 @@ var StepRecord = external_exports.object({
   error: external_exports.string().optional()
 });
 
-// packages/contracts/src/RunManifest.ts
+// packages/contracts/src/run/RunManifest.ts
 var RunManifest = external_exports.object({
   runId: external_exports.string(),
   createdAt: external_exports.string(),
@@ -22683,14 +22683,14 @@ var RunManifest = external_exports.object({
   baselineDirtyFiles: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/RunLock.ts
+// packages/contracts/src/run/RunLock.ts
 var RunLock = external_exports.object({
   pid: external_exports.number().int(),
   runId: external_exports.string(),
   startedAt: external_exports.string()
 });
 
-// packages/contracts/src/FrictionArea.ts
+// packages/contracts/src/friction/FrictionArea.ts
 var FrictionArea = {
   /** The plan was ambiguous, stale, or underspecified. */
   Plan: "plan",
@@ -22703,7 +22703,7 @@ var FrictionArea = {
   Other: "other"
 };
 
-// packages/contracts/src/FrictionKind.ts
+// packages/contracts/src/friction/FrictionKind.ts
 var FrictionKind = {
   /** Something fought or confused the agent. */
   Friction: "friction",
@@ -22711,7 +22711,7 @@ var FrictionKind = {
   Decision: "decision"
 };
 
-// packages/contracts/src/FrictionEntry.ts
+// packages/contracts/src/friction/FrictionEntry.ts
 var FrictionEntry = external_exports.object({
   /** `friction` (something fought the agent) or `decision` (a silent-input guess). Omitted means friction. */
   kind: external_exports.enum(FrictionKind).optional(),
@@ -22725,7 +22725,7 @@ var FrictionEntry = external_exports.object({
   detail: external_exports.string()
 });
 
-// packages/contracts/src/WorkReportStatus.ts
+// packages/contracts/src/work/WorkReportStatus.ts
 var WorkReportStatus = {
   Complete: "complete",
   Failed: "failed",
@@ -22737,7 +22737,7 @@ var WorkReportStatus = {
   TerminatedScope: "terminated:scope"
 };
 
-// packages/contracts/src/WorkReport.ts
+// packages/contracts/src/work/WorkReport.ts
 var WorkReport = external_exports.object({
   status: external_exports.enum(WorkReportStatus),
   /** Every source file created or modified, with a one-clause description. */
@@ -22766,7 +22766,7 @@ var WorkReport = external_exports.object({
   ).optional()
 });
 
-// packages/contracts/src/SupervisorDecision.ts
+// packages/contracts/src/work/SupervisorDecision.ts
 var SupervisorDecision = {
   /** The failure is mechanically fixable — re-invoke the working role with the supervisor's guidance. */
   Retry: "retry",
@@ -22774,7 +22774,7 @@ var SupervisorDecision = {
   Escalate: "escalate"
 };
 
-// packages/contracts/src/SupervisorVerdict.ts
+// packages/contracts/src/work/SupervisorVerdict.ts
 var SupervisorVerdict = external_exports.object({
   decision: external_exports.enum(SupervisorDecision),
   /** Root-cause analysis of why the step keeps failing. */
@@ -22783,14 +22783,14 @@ var SupervisorVerdict = external_exports.object({
   guidance: external_exports.string().optional()
 });
 
-// packages/contracts/src/FrictionRecord.ts
+// packages/contracts/src/friction/FrictionRecord.ts
 var FrictionRecord = FrictionEntry.extend({
   at: external_exports.string(),
   runId: external_exports.string(),
   step: external_exports.string()
 });
 
-// packages/contracts/src/ScanDetector.ts
+// packages/contracts/src/scan/ScanDetector.ts
 var ScanDetector = {
   /** Tier 0: export names that collide or differ only by synonym/word order. */
   FilenameDuplicate: "filename-duplicate",
@@ -22806,7 +22806,7 @@ var ScanDetector = {
   DeadExport: "dead-export"
 };
 
-// packages/contracts/src/ScanSeverity.ts
+// packages/contracts/src/scan/ScanSeverity.ts
 var ScanSeverity = {
   /** A rule violation — v2 remediation acts on these. */
   Finding: "finding",
@@ -22814,7 +22814,7 @@ var ScanSeverity = {
   Advisory: "advisory"
 };
 
-// packages/contracts/src/ScanFinding.ts
+// packages/contracts/src/scan/ScanFinding.ts
 var ScanFinding = external_exports.object({
   detector: external_exports.enum(ScanDetector),
   severity: external_exports.enum(ScanSeverity),
@@ -22830,7 +22830,7 @@ var ScanFinding = external_exports.object({
   detail: external_exports.string()
 });
 
-// packages/contracts/src/TraverseEdgeKind.ts
+// packages/contracts/src/traverse/TraverseEdgeKind.ts
 var TraverseEdgeKind = {
   Http: "http",
   Graphql: "graphql",
@@ -22843,7 +22843,7 @@ var TraverseEdgeKind = {
   Other: "other"
 };
 
-// packages/contracts/src/HopReport.ts
+// packages/contracts/src/traverse/HopReport.ts
 var HopReport = external_exports.object({
   node: external_exports.string(),
   anchorCheck: external_exports.object({
@@ -22879,7 +22879,7 @@ var HopReport = external_exports.object({
   confidence: external_exports.enum(["solid", "partial", "dead-end"]).catch("partial")
 });
 
-// packages/contracts/src/DebugHopReport.ts
+// packages/contracts/src/traverse/DebugHopReport.ts
 var DebugHopReport = external_exports.object({
   node: external_exports.string(),
   /** Entry-anchor verification — omitted on the SEED hop, which has no entry anchor (it investigates the whole node for the symptoms). */
@@ -22927,14 +22927,14 @@ var DebugHopReport = external_exports.object({
   { message: "verdict 'root-cause' needs rootCause + proposedFix; 'points-elsewhere' needs nextLead" }
 );
 
-// packages/contracts/src/EdgeOperation.ts
+// packages/contracts/src/traverse/EdgeOperation.ts
 var EdgeOperation = external_exports.object({
   name: external_exports.string(),
   /** query | mutation | subscription | event | null — transport-specific, freeform for generality across GraphQL/tRPC/WebSocket/webhook. */
   type: external_exports.string().nullable().default(null)
 });
 
-// packages/contracts/src/ConnectionDoc.ts
+// packages/contracts/src/traverse/ConnectionDoc.ts
 var anchor = external_exports.object({
   /** Repo-root-relative, whichever form the node takes. */
   path: external_exports.string(),
@@ -22964,7 +22964,7 @@ var ConnectionDoc = external_exports.object({
   operations: raw.operations ?? []
 }));
 
-// packages/contracts/src/TraceState.ts
+// packages/contracts/src/traverse/TraceState.ts
 var TraceState = external_exports.object({
   question: external_exports.string(),
   dataOfInterest: external_exports.string(),
@@ -23010,7 +23010,7 @@ var TraceState = external_exports.object({
   answer: external_exports.string().nullable()
 });
 
-// packages/contracts/src/DebugTraceState.ts
+// packages/contracts/src/traverse/DebugTraceState.ts
 var direction = external_exports.enum(["upstream", "downstream", "seed"]).catch("downstream");
 var DebugTraceState = external_exports.object({
   /** How the run was seeded — the node + where its code lives (local working tree vs full-history clone). Persisted so a parked seed hop resumes with the same workspace. */
@@ -23067,7 +23067,7 @@ var DebugTraceState = external_exports.object({
   resolution: external_exports.object({ node: external_exports.string(), at: external_exports.string(), explanation: external_exports.string(), proposedFix: external_exports.string() }).nullable()
 });
 
-// packages/contracts/src/EdgeInventory.ts
+// packages/contracts/src/traverse/EdgeInventory.ts
 var EdgeInventory = external_exports.object({
   node: external_exports.string(),
   /** git rev-parse HEAD of the workspace at scan time. */
@@ -23100,7 +23100,7 @@ var EdgeInventory = external_exports.object({
   gaps: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/MapJoin.ts
+// packages/contracts/src/traverse/MapJoin.ts
 var sighting = external_exports.object({
   at: external_exports.string(),
   pattern: external_exports.string(),
@@ -23146,7 +23146,7 @@ var MapJoin = external_exports.object({
   gaps: external_exports.array(external_exports.object({ node: external_exports.string(), detail: external_exports.string() }))
 });
 
-// packages/contracts/src/DecisionSource.ts
+// packages/contracts/src/plan/DecisionSource.ts
 var DecisionSource = {
   Elicitation: "Elicitation",
   Grill: "Grill",
@@ -23154,26 +23154,26 @@ var DecisionSource = {
   Converge: "Converge"
 };
 
-// packages/contracts/src/PlanDraftStatus.ts
+// packages/contracts/src/plan/PlanDraftStatus.ts
 var PlanDraftStatus = {
   Drafted: "drafted",
   Error: "error"
 };
 
-// packages/contracts/src/PlanVariant.ts
+// packages/contracts/src/plan/PlanVariant.ts
 var PlanVariant = {
   Single: "single",
   Overview: "overview",
   Phase: "phase"
 };
 
-// packages/contracts/src/PlanGrade.ts
+// packages/contracts/src/plan/PlanGrade.ts
 var PlanGrade = {
   A: "A",
   BelowA: "below-A"
 };
 
-// packages/contracts/src/StructuralCheck.ts
+// packages/contracts/src/plan/StructuralCheck.ts
 var StructuralCheck = {
   PathExists: "path-exists",
   ScriptExists: "script-exists",
@@ -23184,7 +23184,7 @@ var StructuralCheck = {
   PackagesIdentifiable: "packages-identifiable"
 };
 
-// packages/contracts/src/GapArea.ts
+// packages/contracts/src/plan/GapArea.ts
 var GapArea = {
   UnderspecifiedSurface: "underspecified-surface",
   UnwiredDependency: "unwired-dependency",
@@ -23194,7 +23194,7 @@ var GapArea = {
   StandardsConflict: "standards-conflict"
 };
 
-// packages/contracts/src/ExploreArea.ts
+// packages/contracts/src/plan/ExploreArea.ts
 var ExploreArea = external_exports.object({
   /** The area of the feature this explorer focused on. */
   area: external_exports.string(),
@@ -23234,12 +23234,12 @@ var ExploreArea = external_exports.object({
   namingConvention: external_exports.string()
 });
 
-// packages/contracts/src/ExploreReport.ts
+// packages/contracts/src/plan/ExploreReport.ts
 var ExploreReport = external_exports.object({
   areas: external_exports.array(ExploreArea).default([])
 });
 
-// packages/contracts/src/PathVerification.ts
+// packages/contracts/src/plan/PathVerification.ts
 var PathVerification = external_exports.object({
   pathsChecked: external_exports.number(),
   missingPaths: external_exports.array(external_exports.string()).default([]),
@@ -23249,7 +23249,7 @@ var PathVerification = external_exports.object({
   createPathsThatExist: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/PlanFacts.ts
+// packages/contracts/src/plan/PlanFacts.ts
 var PlanFacts = external_exports.object({
   request: external_exports.string(),
   areas: external_exports.array(ExploreArea).default([]),
@@ -23257,7 +23257,7 @@ var PlanFacts = external_exports.object({
   verifiedAt: external_exports.string()
 });
 
-// packages/contracts/src/DecisionRow.ts
+// packages/contracts/src/plan/DecisionRow.ts
 var DecisionRow = external_exports.object({
   source: external_exports.enum(DecisionSource),
   question: external_exports.string(),
@@ -23267,13 +23267,13 @@ var DecisionRow = external_exports.object({
   assumption: external_exports.boolean().default(false)
 });
 
-// packages/contracts/src/DecisionsRecord.ts
+// packages/contracts/src/plan/DecisionsRecord.ts
 var DecisionsRecord = external_exports.object({
   planName: external_exports.string(),
   decisions: external_exports.array(DecisionRow).default([])
 });
 
-// packages/contracts/src/PlanDraftReport.ts
+// packages/contracts/src/plan/PlanDraftReport.ts
 var PlanDraftReport = external_exports.object({
   status: external_exports.enum(PlanDraftStatus),
   filesWritten: external_exports.array(
@@ -23289,7 +23289,7 @@ var PlanDraftReport = external_exports.object({
   discrepancies: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/StructuralFinding.ts
+// packages/contracts/src/plan/StructuralFinding.ts
 var StructuralFinding = external_exports.object({
   check: external_exports.enum(StructuralCheck),
   issue: external_exports.string(),
@@ -23297,7 +23297,7 @@ var StructuralFinding = external_exports.object({
   fix: external_exports.string()
 });
 
-// packages/contracts/src/PlanGap.ts
+// packages/contracts/src/plan/PlanGap.ts
 var PlanGap = external_exports.object({
   area: external_exports.enum(GapArea),
   gap: external_exports.string(),
@@ -23305,12 +23305,12 @@ var PlanGap = external_exports.object({
   options: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/GapCheckReport.ts
+// packages/contracts/src/plan/GapCheckReport.ts
 var GapCheckReport = external_exports.object({
   gaps: external_exports.array(PlanGap).default([])
 });
 
-// packages/contracts/src/GradeReport.ts
+// packages/contracts/src/plan/GradeReport.ts
 var GradeReport = external_exports.object({
   planName: external_exports.string(),
   grade: external_exports.enum(PlanGrade),
@@ -23320,7 +23320,7 @@ var GradeReport = external_exports.object({
   gradedAt: external_exports.string()
 });
 
-// packages/contracts/src/DedupResolution.ts
+// packages/contracts/src/dedup/DedupResolution.ts
 var DedupResolution = {
   Reuse: "reuse",
   Extend: "extend",
@@ -23329,7 +23329,7 @@ var DedupResolution = {
   Distinct: "distinct"
 };
 
-// packages/contracts/src/DedupVerdict.ts
+// packages/contracts/src/dedup/DedupVerdict.ts
 var DedupVerdict = external_exports.object({
   plannedSymbol: external_exports.string(),
   isDuplicate: external_exports.boolean(),
@@ -23339,12 +23339,12 @@ var DedupVerdict = external_exports.object({
   migrateCallers: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/DedupJudgment.ts
+// packages/contracts/src/dedup/DedupJudgment.ts
 var DedupJudgment = external_exports.object({
   verdicts: external_exports.array(DedupVerdict).default([])
 });
 
-// packages/contracts/src/DedupFinding.ts
+// packages/contracts/src/dedup/DedupFinding.ts
 var DedupFinding = external_exports.object({
   plannedSymbol: external_exports.string(),
   plannedPath: external_exports.string(),
@@ -23355,7 +23355,7 @@ var DedupFinding = external_exports.object({
   migrateCallers: external_exports.array(external_exports.string()).default([])
 });
 
-// packages/contracts/src/DedupReport.ts
+// packages/contracts/src/dedup/DedupReport.ts
 var DedupReport = external_exports.object({
   planName: external_exports.string(),
   findings: external_exports.array(DedupFinding).default([]),

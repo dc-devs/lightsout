@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LightsoutConfig } from './LightsoutConfig';
+import { LightsoutConfig } from '../LightsoutConfig';
 import { PackagesSource } from './PackagesSource';
 import { RunStatus } from './RunStatus';
 import { RunUsage } from './RunUsage';
