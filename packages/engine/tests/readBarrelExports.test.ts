@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readBarrelExports } from '../src/scan/readBarrelExports';
+import { readBarrelExports } from '../src/scan';
 
 const files = ['m/index.ts', 'm/foo.ts', 'm/bar.ts', 'm/baz.tsx', 'm/sub/index.ts'];
 
