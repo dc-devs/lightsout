@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnCollect } from './spawnCollect';
-import type { Driver } from './Driver';
+import { spawnCollect } from './common/utils/spawnCollect';
+import type { Driver } from './common/types/Driver';
 
 /** Same error-path-only heuristic as the claude-code driver. */
 const rateLimitPattern = /usage limit|rate limit|limit reached|quota/i;

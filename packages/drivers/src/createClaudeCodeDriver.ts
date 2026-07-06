@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { spawnCollect } from './spawnCollect';
-import type { Driver } from './Driver';
+import { spawnCollect } from './common/utils/spawnCollect';
+import type { Driver } from './common/types/Driver';
 
 /**
  * The final `result` event of `claude -p --output-format stream-json`

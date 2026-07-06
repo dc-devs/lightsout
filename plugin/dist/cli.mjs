@@ -23362,7 +23362,7 @@ var DedupReport = external_exports.object({
   reviewedAt: external_exports.string()
 });
 
-// packages/drivers/src/spawnCollect.ts
+// packages/drivers/src/common/utils/spawnCollect.ts
 import { spawn } from "node:child_process";
 var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) => {
   return new Promise((resolve2, reject) => {

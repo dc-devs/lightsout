@@ -1,0 +1,1 @@
+export { spawnCollect } from './spawnCollect';
