@@ -11105,7 +11105,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
   const _normalized = cached(() => normalizeDef(def));
   const generateFastpass = (shape) => {
     const doc = new Doc(["shape", "payload", "ctx"]);
-    const normalized2 = _normalized.value;
+    const normalized = _normalized.value;
     const parseStr = (key) => {
       const k = esc(key);
       return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
@@ -11113,11 +11113,11 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     doc.write(`const input = payload.value;`);
     const ids = /* @__PURE__ */ Object.create(null);
     let counter = 0;
-    for (const key of normalized2.keys) {
+    for (const key of normalized.keys) {
       ids[key] = `key_${counter++}`;
     }
     doc.write(`const newResult = {};`);
-    for (const key of normalized2.keys) {
+    for (const key of normalized.keys) {
       const id = ids[key];
       const k = esc(key);
       const schema = shape[key];
@@ -22493,23 +22493,23 @@ function fromJSONSchema(schema, params) {
   if (typeof schema === "boolean") {
     return schema ? z.any() : z.never();
   }
-  let normalized2;
+  let normalized;
   try {
-    normalized2 = JSON.parse(JSON.stringify(schema));
+    normalized = JSON.parse(JSON.stringify(schema));
   } catch {
     throw new Error("fromJSONSchema input is not valid JSON (possibly cyclic); use $defs/$ref for recursive schemas");
   }
-  const version2 = detectVersion(normalized2, params?.defaultTarget);
-  const defs = normalized2.$defs || normalized2.definitions || {};
+  const version2 = detectVersion(normalized, params?.defaultTarget);
+  const defs = normalized.$defs || normalized.definitions || {};
   const ctx = {
     version: version2,
     defs,
     refs: /* @__PURE__ */ new Map(),
     processing: /* @__PURE__ */ new Set(),
-    rootSchema: normalized2,
+    rootSchema: normalized,
     registry: params?.registry ?? globalRegistry
   };
-  return convertSchema(normalized2, ctx);
+  return convertSchema(normalized, ctx);
 }
 
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/coerce.js
@@ -36117,16 +36117,16 @@ function tokenizeAstro(source, id, options) {
       `Astro source exceeds the maximum tokenizable length of ${MAX_SOURCE_LENGTH.toLocaleString()} characters (got ${source.length.toLocaleString()}). Refusing to process to prevent potential regex performance issues on malformed input.`
     );
   }
-  const normalized2 = source.replace(/\r\n/g, "\n");
+  const normalized = source.replace(/\r\n/g, "\n");
   const { ignoreCase } = options;
   const allTokens = [];
-  let templateSource = normalized2;
+  let templateSource = normalized;
   const frontmatterRegex = /^---\n([\s\S]*?)\n?---(?:\n|$)/;
-  const frontmatterMatch = frontmatterRegex.exec(normalized2);
+  const frontmatterMatch = frontmatterRegex.exec(normalized);
   if (frontmatterMatch) {
     const innerContent = frontmatterMatch[1] ?? "";
     if (innerContent.trim().length > 0) {
-      const lineOffset = countNewlines2(normalized2.substring(0, frontmatterMatch.index + "---\n".length));
+      const lineOffset = countNewlines2(normalized.substring(0, frontmatterMatch.index + "---\n".length));
       const blockTokens = tokenize2(innerContent, "typescript");
       for (const token of blockTokens) {
         if (token.loc) {
@@ -36138,11 +36138,11 @@ function tokenizeAstro(source, id, options) {
     }
     const frontmatterFull = frontmatterMatch[0];
     const frontmatterNewlines = countNewlines2(frontmatterFull);
-    templateSource = "\n".repeat(frontmatterNewlines) + normalized2.slice(frontmatterFull.length);
+    templateSource = "\n".repeat(frontmatterNewlines) + normalized.slice(frontmatterFull.length);
   }
   const blockRegex = /<(script|style)(\s[^>]*)?>[\s\S]*?<\/\1>/gi;
   let match;
-  while ((match = blockRegex.exec(normalized2)) !== null) {
+  while ((match = blockRegex.exec(normalized)) !== null) {
     const [fullMatch, tagName, attrsRaw] = match;
     if (!tagName) continue;
     const attrs = attrsRaw ?? "";
@@ -36153,9 +36153,9 @@ function tokenizeAstro(source, id, options) {
     const closeTagStart = fullMatch.lastIndexOf("</");
     if (closeTagStart <= openTagEnd) continue;
     const innerContent = fullMatch.substring(openTagEnd, closeTagStart);
-    const lineOffset = countNewlines2(normalized2.substring(0, match.index));
+    const lineOffset = countNewlines2(normalized.substring(0, match.index));
     const contentAbsStart = match.index + openTagEnd;
-    const lastNlBeforeContent = normalized2.lastIndexOf("\n", contentAbsStart - 1);
+    const lastNlBeforeContent = normalized.lastIndexOf("\n", contentAbsStart - 1);
     const colOffset = contentAbsStart - lastNlBeforeContent - 1;
     const blockTokens = tokenize2(innerContent, resolvedFormat);
     for (const token of blockTokens) {
@@ -36201,7 +36201,7 @@ function tokenizeAstro(source, id, options) {
       return token;
     });
   }
-  return createTokensMaps(id, normalized2, processedTokens, options);
+  return createTokensMaps(id, normalized, processedTokens, options);
 }
 var MAX_SOURCE_LENGTH2 = 5e6;
 function countNewlines3(s) {
@@ -36236,8 +36236,8 @@ function tokenizeSvelte(source, id, options) {
   if (source.length > MAX_SOURCE_LENGTH2) {
     return [];
   }
-  const normalized2 = source.replace(/\r\n/g, "\n");
-  if (normalized2.length === 0) {
+  const normalized = source.replace(/\r\n/g, "\n");
+  if (normalized.length === 0) {
     return [];
   }
   const { ignoreCase } = options;
@@ -36246,7 +36246,7 @@ function tokenizeSvelte(source, id, options) {
   const blocks = [];
   let match;
   const blockPositions = [];
-  while ((match = blockRegex.exec(normalized2)) !== null) {
+  while ((match = blockRegex.exec(normalized)) !== null) {
     const [fullMatch, tagName, attrsRaw] = match;
     if (!tagName) continue;
     const tag = tagName.toLowerCase();
@@ -36275,10 +36275,10 @@ function tokenizeSvelte(source, id, options) {
       record: record2
     });
   }
-  let sanitizedSource = normalized2;
+  let sanitizedSource = normalized;
   for (let i = blockPositions.length - 1; i >= 0; i--) {
     const bp = blockPositions[i];
-    const inner = normalized2.slice(bp.record.contentStart, bp.record.contentEnd);
+    const inner = normalized.slice(bp.record.contentStart, bp.record.contentEnd);
     const blanked = inner.replace(/[^\n]/g, " ");
     sanitizedSource = sanitizedSource.slice(0, bp.record.contentStart) + blanked + sanitizedSource.slice(bp.record.contentEnd);
   }
@@ -36288,9 +36288,9 @@ function tokenizeSvelte(source, id, options) {
   }
   for (const block of blocks) {
     const resolvedFormat = resolveBlockFormat2(block.tagType, block.lang);
-    const blockStartLine = countNewlines3(normalized2.slice(0, block.contentStart)) + 1;
+    const blockStartLine = countNewlines3(normalized.slice(0, block.contentStart)) + 1;
     const lineOffset = blockStartLine - 1;
-    const lastNlBefore = normalized2.lastIndexOf("\n", block.contentStart - 1);
+    const lastNlBefore = normalized.lastIndexOf("\n", block.contentStart - 1);
     const colOffset = block.contentStart - (lastNlBefore + 1);
     const blockTokens = tokenize2(block.blockContent, resolvedFormat).filter((token) => token.length > 0);
     for (const token of blockTokens) {
@@ -36320,7 +36320,7 @@ function tokenizeSvelte(source, id, options) {
       return token;
     });
   }
-  return createTokensMaps(id, normalized2, processedTokens, options);
+  return createTokensMaps(id, normalized, processedTokens, options);
 }
 function tokenizeWithPrism(code, language) {
   const prismLang = language in FORMATS && FORMATS[language]?.parent ? FORMATS[language]?.parent : language;
@@ -36385,12 +36385,12 @@ var SYNONYM_MAP = /* @__PURE__ */ new Map([
   ["golang", "go"]
 ]);
 function resolveFormat(lang) {
-  const normalized2 = lang.toLowerCase();
-  const tier1 = EXT_TO_FORMAT.get(normalized2);
+  const normalized = lang.toLowerCase();
+  const tier1 = EXT_TO_FORMAT.get(normalized);
   if (tier1) return tier1;
-  const synonym = SYNONYM_MAP.get(normalized2);
+  const synonym = SYNONYM_MAP.get(normalized);
   if (synonym) return synonym;
-  if (normalized2 in FORMATS) return normalized2;
+  if (normalized in FORMATS) return normalized;
   return null;
 }
 function blankRanges(source, ranges) {
@@ -36419,16 +36419,16 @@ function countNewlines4(s) {
   return count;
 }
 function tokenizeMarkdown(source, id, options) {
-  const normalized2 = source.replace(/\r\n/g, "\n");
+  const normalized = source.replace(/\r\n/g, "\n");
   const { ignoreCase } = options;
   const allTokens = [];
   const ranges = [];
   const frontMatterRegex = /^---[ \t]*\n([\s\S]*?)\n(---|\.\.\.)[ \t]*(?:\n|$)/;
-  const frontMatterMatch = frontMatterRegex.exec(normalized2);
+  const frontMatterMatch = frontMatterRegex.exec(normalized);
   if (frontMatterMatch) {
     const innerContent = frontMatterMatch[1] ?? "";
     if (innerContent.trim().length > 0) {
-      const lineOffset = countNewlines4(normalized2.substring(0, frontMatterMatch.index + "---\n".length));
+      const lineOffset = countNewlines4(normalized.substring(0, frontMatterMatch.index + "---\n".length));
       for (const token of tokenizeWithPrism(innerContent, "yaml")) {
         if (token.length > 0) {
           if (token.loc) {
@@ -36441,7 +36441,7 @@ function tokenizeMarkdown(source, id, options) {
     }
     ranges.push({ start: frontMatterMatch.index, end: frontMatterMatch.index + frontMatterMatch[0].length });
   }
-  const lines = normalized2.split("\n");
+  const lines = normalized.split("\n");
   const lineStartPositions = [];
   let pos = 0;
   for (const line of lines) {
@@ -36490,10 +36490,10 @@ function tokenizeMarkdown(source, id, options) {
     }
     const rangeStart = lineStartPositions[i];
     const closingLineEnd = lineStartPositions[closeLineIndex] + lines[closeLineIndex].length + 1;
-    ranges.push({ start: rangeStart, end: Math.min(closingLineEnd, normalized2.length) });
+    ranges.push({ start: rangeStart, end: Math.min(closingLineEnd, normalized.length) });
     i = closeLineIndex + 1;
   }
-  const sanitized = blankRanges(normalized2, ranges);
+  const sanitized = blankRanges(normalized, ranges);
   for (const token of tokenizeWithPrism(sanitized, "markdown")) {
     if (token.format === "markdown" && token.length > 0) allTokens.push(token);
   }
@@ -36510,7 +36510,7 @@ function tokenizeMarkdown(source, id, options) {
       return token;
     });
   }
-  return createTokensMaps(id, normalized2, processedTokens, options);
+  return createTokensMaps(id, normalized, processedTokens, options);
 }
 var punctuation2 = {
   // eslint-disable-next-line @typescript-eslint/camelcase
@@ -37074,8 +37074,6 @@ import { readFile as readFile15 } from "node:fs/promises";
 import { basename as basename5, dirname as dirname5, join as join22 } from "node:path";
 var folderCensusCap = 20;
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
-var nameOf2 = (path) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
-var normalized = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 var dotPrefixes = (name) => name.split(".").map((_, index, segments) => segments.slice(0, index + 1).join("."));
 var firstToken = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/)[0]?.toLowerCase() ?? "";
 var scanStructure = async ({ cwd, files }) => {
@@ -37087,7 +37085,7 @@ var scanStructure = async ({ cwd, files }) => {
     filesPerDir.set(dir, [...filesPerDir.get(dir) ?? [], file2]);
     if (basename5(dir) === "utils") {
       const group = utilsVerbGroups.get(dir) ?? /* @__PURE__ */ new Map();
-      const verb = firstToken(nameOf2(file2));
+      const verb = firstToken(nameOf(file2));
       group.set(verb, [...group.get(verb) ?? [], file2]);
       utilsVerbGroups.set(dir, group);
     }
@@ -37121,13 +37119,13 @@ var scanStructure = async ({ cwd, files }) => {
       });
     }
     const primary = exports[0];
-    if (primary && exports.length === 1 && !dotPrefixes(nameOf2(file2)).some((candidate) => normalized(candidate) === normalized(primary.name))) {
+    if (primary && exports.length === 1 && !dotPrefixes(nameOf(file2)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
       findings.push({
         detector: ScanDetector.Structure,
         severity: ScanSeverity.Advisory,
         cluster: `filename-mismatch:${file2}`,
         files: [{ path: file2 }],
-        detail: `file '${nameOf2(file2)}' exports '${primary.name}' \u2014 the filename should match the export`
+        detail: `file '${nameOf(file2)}' exports '${primary.name}' \u2014 the filename should match the export`
       });
     }
   }
