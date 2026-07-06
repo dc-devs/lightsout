@@ -39365,20 +39365,17 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   return { friction, report, failure, rateLimited };
 };
 
-// packages/engine/src/planWorkspaceDir.ts
+// packages/engine/src/plan/runPlanExplore.ts
+import { appendFile as appendFile7, mkdir as mkdir12, writeFile as writeFile12 } from "node:fs/promises";
+import { join as join39 } from "node:path";
+
+// packages/engine/src/plan/planWorkspaceDir.ts
 import { join as join37 } from "node:path";
 var planWorkspaceDir = ({ cwd, name }) => join37(cwd, ".lightsout", "plans", name);
 
-// packages/engine/src/resolvePlansDir.ts
-import { isAbsolute as isAbsolute8, join as join38 } from "node:path";
-var resolvePlansDir = ({ cwd, flag, config: config2 }) => {
-  const dir = flag ?? config2?.plansDir ?? ".claude/plans";
-  return isAbsolute8(dir) ? dir : join38(cwd, dir);
-};
-
-// packages/engine/src/verifyFacts.ts
+// packages/engine/src/plan/verifyFacts.ts
 import { readFile as readFile27, stat as stat3 } from "node:fs/promises";
-import { join as join39 } from "node:path";
+import { join as join38 } from "node:path";
 var scriptKeysOf = (raw) => {
   try {
     const parsed = JSON.parse(raw);
@@ -39391,7 +39388,7 @@ var verifyFacts = async ({ cwd, report }) => {
   const paths = report.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists4 = await stat3(join39(cwd, path)).then(
+    const exists4 = await stat3(join38(cwd, path)).then(
       () => true,
       () => false
     );
@@ -39405,7 +39402,7 @@ var verifyFacts = async ({ cwd, report }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join39(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join39(cwd, pkg, "package.json"))];
+    const manifestPaths = [join38(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join38(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
       const raw = await readFile27(manifestPath, "utf8").catch(() => void 0);
@@ -39433,29 +39430,87 @@ var verifyFacts = async ({ cwd, report }) => {
   };
 };
 
-// packages/engine/src/readPlanFacts.ts
-import { readFile as readFile28 } from "node:fs/promises";
-import { join as join40 } from "node:path";
-var readPlanFacts = async ({ cwd, name }) => {
-  const factsPath = join40(planWorkspaceDir({ cwd, name }), "facts.json");
-  const raw = await readFile28(factsPath, "utf8").catch(() => {
-    throw new Error(`no facts found for plan ${name} at ${factsPath} \u2014 run: lightsout plan explore`);
-  });
-  return PlanFacts.parse(JSON.parse(raw));
+// packages/engine/src/plan/runPlanExplore.ts
+var defaultExploreTimeoutMs = 30 * 60 * 1e3;
+var runPlanExplore = async ({
+  cwd,
+  driver,
+  request,
+  name,
+  areas,
+  model,
+  permissionMode,
+  timeoutMs = defaultExploreTimeoutMs,
+  onProgress
+}) => {
+  const progress = onProgress ?? (() => void 0);
+  const workspaceDir = planWorkspaceDir({ cwd, name });
+  await mkdir12(workspaceDir, { recursive: true });
+  const targetAreas = areas && areas.length > 0 ? areas : [request];
+  progress(`plan explore ${name}: ${targetAreas.length} explorer(s)`);
+  const results = await Promise.all(
+    targetAreas.map(async (area, index) => {
+      const outcome = await invokeAgentWithContract({
+        driver,
+        cwd,
+        invocation: buildPlanExploreInvocation({ request, area }),
+        contract: ExploreReport,
+        model,
+        permissionMode,
+        timeoutMs,
+        onEvent: (event) => {
+          void appendFile7(join39(workspaceDir, `explore-${index}-stream.jsonl`), `${JSON.stringify(event)}
+`, "utf8").catch(() => void 0);
+        },
+        onRejectedOutput: async ({ text, attempt }) => {
+          await writeFile12(join39(workspaceDir, `explore-${index}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        }
+      });
+      return { area, ...outcome };
+    })
+  );
+  if (results.some((result) => result.rateLimited)) {
+    return {
+      status: "paused-rate-limit",
+      workspaceDir,
+      error: `rate limit reached \u2014 re-run: lightsout plan explore "${request}" --name ${name}`
+    };
+  }
+  const succeeded = results.filter((result) => result.report);
+  const failed = results.filter((result) => !result.report);
+  if (succeeded.length === 0) {
+    return {
+      status: "failed",
+      workspaceDir,
+      error: `all ${targetAreas.length} explorer(s) failed: ${failed.map((result) => result.failure).join("; ")}`
+    };
+  }
+  for (const result of failed) {
+    progress(`plan explore \xB7 area '${result.area}' failed: ${result.failure} \u2014 re-run explore for it if the plan needs it`);
+  }
+  const mergedAreas = succeeded.flatMap((result) => result.report?.areas ?? []);
+  const verification = await verifyFacts({ cwd, report: { areas: mergedAreas } });
+  const facts = {
+    request,
+    areas: mergedAreas,
+    verification,
+    verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  const factsPath = join39(workspaceDir, "facts.json");
+  await writeFile12(factsPath, `${JSON.stringify(facts, void 0, "	")}
+`, "utf8");
+  const missingPart = verification.missingPaths.length > 0 ? `, ${verification.missingPaths.length} missing: ${verification.missingPaths.join(", ")}` : "";
+  progress(
+    `plan explore \xB7 ${verification.pathsChecked} path(s) verified${missingPart}; ${verification.scriptsChecked} script(s) checked, ${verification.missingScripts.length} missing`
+  );
+  return { status: "complete", facts, factsPath, workspaceDir, error: void 0 };
 };
 
-// packages/engine/src/readDecisions.ts
-import { readFile as readFile29 } from "node:fs/promises";
-import { join as join41 } from "node:path";
-var readDecisions = async ({ cwd, name }) => {
-  const decisionsPath = join41(planWorkspaceDir({ cwd, name }), "decisions.json");
-  const raw = await readFile29(decisionsPath, "utf8").catch(() => {
-    throw new Error(`no decisions found for plan ${name} at ${decisionsPath} \u2014 author decisions.json before drafting`);
-  });
-  return DecisionsRecord.parse(JSON.parse(raw));
-};
+// packages/engine/src/plan/runPlanDraft.ts
+import { appendFile as appendFile8, mkdir as mkdir13, stat as stat5, writeFile as writeFile13 } from "node:fs/promises";
+import { isAbsolute as isAbsolute8, join as join43 } from "node:path";
 
-// packages/engine/src/estimatePlanScope.ts
+// packages/engine/src/plan/estimatePlanScope.ts
 var phasedThreshold = 40;
 var estimatePlanScope = ({ facts }) => {
   const paths = /* @__PURE__ */ new Set();
@@ -39470,11 +39525,11 @@ var estimatePlanScope = ({ facts }) => {
   return paths.size > phasedThreshold ? PlanVariant.Overview : PlanVariant.Single;
 };
 
-// packages/engine/src/lintPlanStructure.ts
-import { readFile as readFile30, stat as stat4 } from "node:fs/promises";
-import { basename as basename7, join as join42 } from "node:path";
+// packages/engine/src/plan/lintPlanStructure.ts
+import { readFile as readFile28, stat as stat4 } from "node:fs/promises";
+import { basename as basename7, join as join40 } from "node:path";
 
-// packages/engine/src/planCreatePaths.ts
+// packages/engine/src/plan/planCreatePaths.ts
 var pathFromLine = (line) => {
   for (const match of line.matchAll(/`([^`]+)`/g)) {
     const token = match[1].trim().split(/\s+/)[0];
@@ -39503,7 +39558,7 @@ var planCreatePaths = ({ planText }) => {
   return paths;
 };
 
-// packages/engine/src/lintPlanStructure.ts
+// packages/engine/src/plan/lintPlanStructure.ts
 var scopeGuardrail = 50;
 var requiredSections = {
   implementable: ["Prerequisites", "Scope Boundaries", "Verification", "What Next Plan Expects"],
@@ -39632,7 +39687,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const packagesDir = config2?.packagesDir ?? "packages";
   const configCommands = new Set(Object.values(config2?.scripts ?? {}).filter((value) => typeof value === "string"));
   for (const planPath of planPaths) {
-    const content = await readFile30(planPath, "utf8").catch(() => void 0);
+    const content = await readFile28(planPath, "utf8").catch(() => void 0);
     if (content === void 0) {
       findings.push({
         check: StructuralCheck.SectionsPresent,
@@ -39654,7 +39709,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       }
     }
     for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-      if (!await pathExists(join42(cwd, path))) {
+      if (!await pathExists(join40(cwd, path))) {
         findings.push({
           check: StructuralCheck.PathExists,
           issue: `referenced path does not exist: ${path}`,
@@ -39664,7 +39719,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       }
     }
     for (const path of plan.createPaths) {
-      if (await pathExists(join42(cwd, path))) {
+      if (await pathExists(join40(cwd, path))) {
         findings.push({
           check: StructuralCheck.PathExists,
           issue: `Files to Create path already exists: ${path}`,
@@ -39682,10 +39737,10 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
         }
       }
     }
-    const manifestPaths = [join42(cwd, "package.json"), ...[...packageDirs].map((dir) => join42(cwd, packagesDir, dir, "package.json"))];
+    const manifestPaths = [join40(cwd, "package.json"), ...[...packageDirs].map((dir) => join40(cwd, packagesDir, dir, "package.json"))];
     const availableScripts = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile30(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile28(manifestPath, "utf8").catch(() => void 0);
       if (!raw) {
         continue;
       }
@@ -39748,87 +39803,29 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   return findings;
 };
 
-// packages/engine/src/runPlanExplore.ts
-import { appendFile as appendFile7, mkdir as mkdir12, writeFile as writeFile12 } from "node:fs/promises";
-import { join as join43 } from "node:path";
-var defaultExploreTimeoutMs = 30 * 60 * 1e3;
-var runPlanExplore = async ({
-  cwd,
-  driver,
-  request,
-  name,
-  areas,
-  model,
-  permissionMode,
-  timeoutMs = defaultExploreTimeoutMs,
-  onProgress
-}) => {
-  const progress = onProgress ?? (() => void 0);
-  const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir12(workspaceDir, { recursive: true });
-  const targetAreas = areas && areas.length > 0 ? areas : [request];
-  progress(`plan explore ${name}: ${targetAreas.length} explorer(s)`);
-  const results = await Promise.all(
-    targetAreas.map(async (area, index) => {
-      const outcome = await invokeAgentWithContract({
-        driver,
-        cwd,
-        invocation: buildPlanExploreInvocation({ request, area }),
-        contract: ExploreReport,
-        model,
-        permissionMode,
-        timeoutMs,
-        onEvent: (event) => {
-          void appendFile7(join43(workspaceDir, `explore-${index}-stream.jsonl`), `${JSON.stringify(event)}
-`, "utf8").catch(() => void 0);
-        },
-        onRejectedOutput: async ({ text, attempt }) => {
-          await writeFile12(join43(workspaceDir, `explore-${index}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
-        }
-      });
-      return { area, ...outcome };
-    })
-  );
-  if (results.some((result) => result.rateLimited)) {
-    return {
-      status: "paused-rate-limit",
-      workspaceDir,
-      error: `rate limit reached \u2014 re-run: lightsout plan explore "${request}" --name ${name}`
-    };
-  }
-  const succeeded = results.filter((result) => result.report);
-  const failed = results.filter((result) => !result.report);
-  if (succeeded.length === 0) {
-    return {
-      status: "failed",
-      workspaceDir,
-      error: `all ${targetAreas.length} explorer(s) failed: ${failed.map((result) => result.failure).join("; ")}`
-    };
-  }
-  for (const result of failed) {
-    progress(`plan explore \xB7 area '${result.area}' failed: ${result.failure} \u2014 re-run explore for it if the plan needs it`);
-  }
-  const mergedAreas = succeeded.flatMap((result) => result.report?.areas ?? []);
-  const verification = await verifyFacts({ cwd, report: { areas: mergedAreas } });
-  const facts = {
-    request,
-    areas: mergedAreas,
-    verification,
-    verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  const factsPath = join43(workspaceDir, "facts.json");
-  await writeFile12(factsPath, `${JSON.stringify(facts, void 0, "	")}
-`, "utf8");
-  const missingPart = verification.missingPaths.length > 0 ? `, ${verification.missingPaths.length} missing: ${verification.missingPaths.join(", ")}` : "";
-  progress(
-    `plan explore \xB7 ${verification.pathsChecked} path(s) verified${missingPart}; ${verification.scriptsChecked} script(s) checked, ${verification.missingScripts.length} missing`
-  );
-  return { status: "complete", facts, factsPath, workspaceDir, error: void 0 };
+// packages/engine/src/plan/readDecisions.ts
+import { readFile as readFile29 } from "node:fs/promises";
+import { join as join41 } from "node:path";
+var readDecisions = async ({ cwd, name }) => {
+  const decisionsPath = join41(planWorkspaceDir({ cwd, name }), "decisions.json");
+  const raw = await readFile29(decisionsPath, "utf8").catch(() => {
+    throw new Error(`no decisions found for plan ${name} at ${decisionsPath} \u2014 author decisions.json before drafting`);
+  });
+  return DecisionsRecord.parse(JSON.parse(raw));
 };
 
-// packages/engine/src/runPlanDraft.ts
-import { appendFile as appendFile8, mkdir as mkdir13, stat as stat5, writeFile as writeFile13 } from "node:fs/promises";
-import { isAbsolute as isAbsolute9, join as join44 } from "node:path";
+// packages/engine/src/plan/readPlanFacts.ts
+import { readFile as readFile30 } from "node:fs/promises";
+import { join as join42 } from "node:path";
+var readPlanFacts = async ({ cwd, name }) => {
+  const factsPath = join42(planWorkspaceDir({ cwd, name }), "facts.json");
+  const raw = await readFile30(factsPath, "utf8").catch(() => {
+    throw new Error(`no facts found for plan ${name} at ${factsPath} \u2014 run: lightsout plan explore`);
+  });
+  return PlanFacts.parse(JSON.parse(raw));
+};
+
+// packages/engine/src/plan/runPlanDraft.ts
 var defaultDraftTimeoutMs = 30 * 60 * 1e3;
 var maxDraftAttempts = 5;
 var exists = (path) => stat5(path).then(
@@ -39854,8 +39851,8 @@ var runPlanDraft = async ({
   const decisions = await readDecisions({ cwd, name });
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const variant = scope ?? estimatePlanScope({ facts });
-  const outputs = variant === PlanVariant.Single ? [{ path: join44(plansDir, `${name}.md`), variant: PlanVariant.Single }] : [{ path: join44(plansDir, name, "overview.md"), variant: PlanVariant.Overview }];
-  await mkdir13(variant === PlanVariant.Single ? plansDir : join44(plansDir, name), { recursive: true });
+  const outputs = variant === PlanVariant.Single ? [{ path: join43(plansDir, `${name}.md`), variant: PlanVariant.Single }] : [{ path: join43(plansDir, name, "overview.md"), variant: PlanVariant.Overview }];
+  await mkdir13(variant === PlanVariant.Single ? plansDir : join43(plansDir, name), { recursive: true });
   progress(`plan draft ${name}: variant ${variant} (${scope ? "scope flag" : "estimated"})`);
   let findings = [];
   let planPaths = [];
@@ -39871,11 +39868,11 @@ var runPlanDraft = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile8(join44(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile8(join43(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
-        await writeFile13(join44(workspaceDir, `draft-rejected-${attempt}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile13(join43(workspaceDir, `draft-rejected-${attempt}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (rateLimited) {
@@ -39892,7 +39889,7 @@ var runPlanDraft = async ({
     if (report.status === PlanDraftStatus.Error) {
       return { status: "facts-error", workspaceDir, discrepancies: report.discrepancies };
     }
-    planPaths = report.filesWritten.map((file2) => isAbsolute9(file2.path) ? file2.path : join44(cwd, file2.path));
+    planPaths = report.filesWritten.map((file2) => isAbsolute8(file2.path) ? file2.path : join43(cwd, file2.path));
     const missing = [];
     for (const path of planPaths) {
       if (!await exists(path)) {
@@ -39919,11 +39916,11 @@ var runPlanDraft = async ({
   return { status: "complete", workspaceDir, planPaths, variant, report: lastReport };
 };
 
-// packages/engine/src/runPlanGrade.ts
+// packages/engine/src/plan/runPlanGrade.ts
 import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile32, readdir as readdir8, stat as stat6, writeFile as writeFile14 } from "node:fs/promises";
-import { basename as basename8, join as join45 } from "node:path";
+import { basename as basename8, join as join44 } from "node:path";
 
-// packages/engine/src/detectPriorArtCandidates.ts
+// packages/engine/src/plan/detectPriorArtCandidates.ts
 import { readFile as readFile31 } from "node:fs/promises";
 var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   const planned = [];
@@ -39965,7 +39962,7 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   return candidates;
 };
 
-// packages/engine/src/runPlanGrade.ts
+// packages/engine/src/plan/runPlanGrade.ts
 var defaultGradeTimeoutMs = 30 * 60 * 1e3;
 var exists2 = (path) => stat6(path).then(
   () => true,
@@ -39985,8 +39982,8 @@ var runPlanGrade = async ({
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
   await mkdir14(workspaceDir, { recursive: true });
-  const singlePath = join45(plansDir, `${name}.md`);
-  const phaseDir = join45(plansDir, name);
+  const singlePath = join44(plansDir, `${name}.md`);
+  const phaseDir = join44(plansDir, name);
   let overviewPath;
   let overviewText;
   const phases = [];
@@ -39995,7 +39992,7 @@ var runPlanGrade = async ({
   } else {
     const entries = (await readdir8(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
-      const path = join45(phaseDir, entry);
+      const path = join44(phaseDir, entry);
       const text = await readFile32(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -40033,11 +40030,11 @@ var runPlanGrade = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile9(join45(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile9(join44(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile14(join45(workspaceDir, `grade-rejected-${basename8(phase.path)}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile14(join44(workspaceDir, `grade-rejected-${basename8(phase.path)}-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (rateLimited) {
@@ -40062,16 +40059,16 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join45(workspaceDir, "grade.json");
+  const gradePath = join44(workspaceDir, "grade.json");
   await writeFile14(gradePath, `${JSON.stringify(report, void 0, "	")}
 `, "utf8");
   progress(`plan grade ${name}: ${grade} (${structuralFindings.length} structural, ${gaps.length} gap(s))`);
   return { status: "complete", workspaceDir, grade: report, gradePath };
 };
 
-// packages/engine/src/runPlanDedup.ts
+// packages/engine/src/plan/runPlanDedup.ts
 import { appendFile as appendFile10, mkdir as mkdir15, readFile as readFile33, readdir as readdir9, stat as stat7, writeFile as writeFile15 } from "node:fs/promises";
-import { join as join46 } from "node:path";
+import { join as join45 } from "node:path";
 var defaultDedupTimeoutMs = 30 * 60 * 1e3;
 var exists3 = (path) => stat7(path).then(
   () => true,
@@ -40091,8 +40088,8 @@ var runPlanDedup = async ({
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
   await mkdir15(workspaceDir, { recursive: true });
-  const singlePath = join46(plansDir, `${name}.md`);
-  const phaseDir = join46(plansDir, name);
+  const singlePath = join45(plansDir, `${name}.md`);
+  const phaseDir = join45(plansDir, name);
   let overviewPath;
   let overviewText;
   const planFiles = [];
@@ -40101,7 +40098,7 @@ var runPlanDedup = async ({
   } else {
     const entries = (await readdir9(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
-      const path = join46(phaseDir, entry);
+      const path = join45(phaseDir, entry);
       const text = await readFile33(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -40123,7 +40120,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join46(workspaceDir, "dedup.json");
+    const dedupPath2 = join45(workspaceDir, "dedup.json");
     await writeFile15(dedupPath2, `${JSON.stringify(dedup2, void 0, "	")}
 `, "utf8");
     return { dedup: dedup2, dedupPath: dedupPath2 };
@@ -40144,11 +40141,11 @@ var runPlanDedup = async ({
     permissionMode,
     timeoutMs,
     onEvent: (event) => {
-      void appendFile10(join46(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
+      void appendFile10(join45(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
     },
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile15(join46(workspaceDir, `dedup-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile15(join45(workspaceDir, `dedup-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   if (rateLimited) {
@@ -40181,6 +40178,13 @@ var runPlanDedup = async ({
   const { dedup, dedupPath } = await writeReport(findings);
   progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);
   return { status: "complete", workspaceDir, dedup, dedupPath };
+};
+
+// packages/engine/src/plan/resolvePlansDir.ts
+import { isAbsolute as isAbsolute9, join as join46 } from "node:path";
+var resolvePlansDir = ({ cwd, flag, config: config2 }) => {
+  const dir = flag ?? config2?.plansDir ?? ".claude/plans";
+  return isAbsolute9(dir) ? dir : join46(cwd, dir);
 };
 
 // packages/cli/src/index.ts

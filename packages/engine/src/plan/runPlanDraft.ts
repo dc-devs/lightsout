@@ -4,9 +4,9 @@ import { PlanDraftReport, PlanDraftStatus, PlanVariant, type StructuralFinding }
 import { buildPlanWriterInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { estimatePlanScope } from './estimatePlanScope';
-import { invokeAgentWithContract } from './invoke';
+import { invokeAgentWithContract } from '../invoke';
 import { lintPlanStructure } from './lintPlanStructure';
-import { loadConfig } from './common/utils/loadConfig';
+import { loadConfig } from '../common/utils/loadConfig';
 import { planWorkspaceDir } from './planWorkspaceDir';
 import { readDecisions } from './readDecisions';
 import { readPlanFacts } from './readPlanFacts';

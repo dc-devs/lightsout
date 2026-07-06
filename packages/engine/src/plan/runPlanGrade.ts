@@ -4,9 +4,9 @@ import { GapCheckReport, GradeReport, PlanGrade, type PlanGap, type StructuralFi
 import { buildPlanGapCheckInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
-import { invokeAgentWithContract } from './invoke';
+import { invokeAgentWithContract } from '../invoke';
 import { lintPlanStructure } from './lintPlanStructure';
-import { loadConfig } from './common/utils/loadConfig';
+import { loadConfig } from '../common/utils/loadConfig';
 import { planWorkspaceDir } from './planWorkspaceDir';
 
 const defaultGradeTimeoutMs = 30 * 60 * 1000;

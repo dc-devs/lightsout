@@ -4,8 +4,8 @@ import { DedupJudgment, DedupReport, type DedupFinding } from '@lightsout/contra
 import { buildPlanDedupInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
-import { invokeAgentWithContract } from './invoke';
-import { loadConfig } from './common/utils/loadConfig';
+import { invokeAgentWithContract } from '../invoke';
+import { loadConfig } from '../common/utils/loadConfig';
 import { planWorkspaceDir } from './planWorkspaceDir';
 
 const defaultDedupTimeoutMs = 30 * 60 * 1000;
