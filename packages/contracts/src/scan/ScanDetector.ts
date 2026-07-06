@@ -11,6 +11,12 @@ export const ScanDetector = {
 	Structure: 'structure',
 	/** Exports nothing else references (outside barrels/tests). */
 	DeadExport: 'dead-export',
+	/** A file deep-imported across a module boundary instead of through its barrel. */
+	ModuleBoundary: 'module-boundary',
+	/** Module-internal shared code (under a module's common/) leaking to an outside importer. */
+	Placement: 'placement',
+	/** Barrel violations: `export *`, or a re-export no outside file consumes. */
+	BarrelHygiene: 'barrel-hygiene',
 } as const;
 
 export type ScanDetector = (typeof ScanDetector)[keyof typeof ScanDetector];
