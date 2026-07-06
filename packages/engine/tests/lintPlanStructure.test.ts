@@ -259,3 +259,71 @@ test('lintPlanStructure: a clean plan returns no findings', async () => {
 
 	assert.deepEqual(findings, [], `clean plan should have no findings, got: ${JSON.stringify(findings)}`);
 });
+
+/** A minimal plan whose only lint-relevant content is one verification command. */
+const verificationPlan = ({ command }: { command: string }) => `# Plan
+
+## Prerequisites
+
+- None
+
+## Files to Modify
+
+### \`src/index.js\`
+
+Change something.
+
+## Scope Boundaries
+
+**Do NOT:** wander.
+
+## Verification
+
+- \`${command}\` — gates green
+
+## What Next Plan Expects
+
+None.
+`;
+
+test('lintPlanStructure: `pnpm --filter <pkg> run <script>` resolves the script, not the `run` token', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'true' } }));
+
+	const path = writePlan({ cwd, name: 'filter-run.md', body: verificationPlan({ command: 'pnpm --filter consumer run check' }) });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+
+	assert.ok(
+		!findings.some((finding) => finding.check === StructuralCheck.ScriptExists),
+		`existing script behind --filter … run must not be flagged, got: ${JSON.stringify(findings)}`,
+	);
+});
+
+test('lintPlanStructure: `pnpm -F <pkg> <script>` resolves the script, not the flag', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'true' } }));
+
+	const path = writePlan({ cwd, name: 'short-filter.md', body: verificationPlan({ command: 'pnpm -F consumer check' }) });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+
+	assert.ok(
+		!findings.some((finding) => finding.check === StructuralCheck.ScriptExists),
+		`existing script behind -F must not be flagged, got: ${JSON.stringify(findings)}`,
+	);
+});
+
+test('lintPlanStructure: a genuinely missing script behind --filter … run is still flagged', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'true' } }));
+
+	const path = writePlan({ cwd, name: 'filter-run-missing.md', body: verificationPlan({ command: 'pnpm --filter consumer run nope' }) });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+
+	assert.ok(
+		findings.some((finding) => finding.check === StructuralCheck.ScriptExists && finding.issue.includes("'nope'")),
+		`missing script must be flagged by name, got: ${JSON.stringify(findings)}`,
+	);
+});

@@ -1,6 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { StructuralCheck, type LightsoutConfig, type StructuralFinding } from '@lightsout/contracts';
+import { extractRunScriptName } from '../common/utils/extractRunScriptName';
 import { planCreatePaths } from './planCreatePaths';
 
 interface Params {
@@ -143,25 +144,31 @@ const commandsFromVerification = (sectionLines: string[] | undefined): string[] 
 
 /** The package-script name a verification command invokes, or undefined for a raw command with no package-manager prefix. */
 const scriptNameOf = (command: string): string | undefined => {
+	// Any `… run <script>` form (pnpm/npm/yarn/turbo, with or without filter
+	// flags) resolves through the same parser the doctor and scoped gates use,
+	// so the three can never disagree about which script a command invokes.
+	const runScript = extractRunScriptName({ command });
+
+	if (runScript !== undefined) {
+		return runScript;
+	}
+
 	const tokens = command.split(/\s+/);
 
 	if (tokens[0] === 'pnpm') {
-		if (tokens[1] === '--filter') {
-			return tokens[3];
+		// Bare-script form (`pnpm check`, `pnpm --filter x check`, `pnpm -F x
+		// check`): the script is the first token past the flags. `--filter`/`-F`
+		// consume their selector argument; `--filter=<sel>` is a single token.
+		let index = 1;
+
+		while (tokens[index]?.startsWith('-')) {
+			index += tokens[index] === '--filter' || tokens[index] === '-F' ? 2 : 1;
 		}
 
-		if (tokens[1] === 'run') {
-			return tokens[2];
-		}
-
-		return tokens[1];
+		return tokens[index];
 	}
 
-	if ((tokens[0] === 'npm' || tokens[0] === 'yarn') && tokens[1] === 'run') {
-		return tokens[2];
-	}
-
-	if (tokens[0] === 'yarn') {
+	if (tokens[0] === 'yarn' && tokens[1] !== undefined && !tokens[1].startsWith('-')) {
 		return tokens[1];
 	}
 

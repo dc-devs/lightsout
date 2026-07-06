@@ -39479,20 +39479,19 @@ var commandsFromVerification = (sectionLines) => {
   return commands2;
 };
 var scriptNameOf = (command) => {
+  const runScript = extractRunScriptName({ command });
+  if (runScript !== void 0) {
+    return runScript;
+  }
   const tokens2 = command.split(/\s+/);
   if (tokens2[0] === "pnpm") {
-    if (tokens2[1] === "--filter") {
-      return tokens2[3];
+    let index = 1;
+    while (tokens2[index]?.startsWith("-")) {
+      index += tokens2[index] === "--filter" || tokens2[index] === "-F" ? 2 : 1;
     }
-    if (tokens2[1] === "run") {
-      return tokens2[2];
-    }
-    return tokens2[1];
+    return tokens2[index];
   }
-  if ((tokens2[0] === "npm" || tokens2[0] === "yarn") && tokens2[1] === "run") {
-    return tokens2[2];
-  }
-  if (tokens2[0] === "yarn") {
+  if (tokens2[0] === "yarn" && tokens2[1] !== void 0 && !tokens2[1].startsWith("-")) {
     return tokens2[1];
   }
   return void 0;
