@@ -42,6 +42,7 @@ Tests target **module boundaries** — a module's public API — not every file 
 ## Test Files
 
 - Unit tests are **co-located** with their source file: `src/auth/AuthService.ts` → `src/auth/AuthService.unit.test.ts`.
+- **Shared test helpers, mocks, and fixtures live outside `src/`** in the package's test-support directories (`tests/helpers/`, `test/mocks/`, `test/fixtures/`, co-located `__mocks__/`); only test files themselves co-locate. Test-support code under `src/` would read as production source — to scanners and humans alike.
 - First import: `import { expect, describe, test, jest } from '@jest/globals';` — but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.
 - The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** — scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).
 
