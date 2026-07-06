@@ -1,6 +1,7 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ExploreReport, PathVerification } from '@lightsout/contracts';
+import { pathExists } from './common/utils/pathExists';
 
 interface Params {
 	cwd: string;
@@ -29,10 +30,7 @@ export const verifyFacts = async ({ cwd, report }: Params): Promise<PathVerifica
 	const missingPaths: string[] = [];
 
 	for (const path of paths) {
-		const exists = await stat(join(cwd, path)).then(
-			() => true,
-			() => false,
-		);
+		const exists = await pathExists({ path: join(cwd, path) });
 
 		if (!exists) {
 			missingPaths.push(path);

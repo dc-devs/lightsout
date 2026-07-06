@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { GapCheckReport, GradeReport, PlanGrade, type PlanGap, type StructuralFinding } from '@lightsout/contracts';
 import { buildPlanGapCheckInvocation } from '@lightsout/agents';
@@ -7,6 +7,7 @@ import { detectPriorArtCandidates } from './detectPriorArtCandidates';
 import { invokeAgentWithContract } from '../invoke';
 import { lintPlanStructure } from './lintPlanStructure';
 import { loadConfig } from '../common/utils/loadConfig';
+import { pathExists } from './common/utils/pathExists';
 import { planWorkspaceDir } from './planWorkspaceDir';
 
 const defaultGradeTimeoutMs = 30 * 60 * 1000;
@@ -25,12 +26,6 @@ interface Params {
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
 }
-
-const exists = (path: string) =>
-	stat(path).then(
-		() => true,
-		() => false,
-	);
 
 /** A phase to gap-check: its path and text. The overview is passed as context, never graded standalone. */
 interface Phase {
@@ -72,7 +67,7 @@ export const runPlanGrade = async ({
 	let overviewText: string | undefined;
 	const phases: Phase[] = [];
 
-	if (await exists(singlePath)) {
+	if (await pathExists({ path: singlePath })) {
 		phases.push({ path: singlePath, text: await readFile(singlePath, 'utf8') });
 	} else {
 		const entries = (await readdir(phaseDir).catch(() => [] as string[])).filter((entry) => entry.endsWith('.md')).sort();

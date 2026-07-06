@@ -1,4 +1,4 @@
-import { appendFile, mkdir, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { PlanDraftReport, PlanDraftStatus, PlanVariant, type StructuralFinding } from '@lightsout/contracts';
 import { buildPlanWriterInvocation } from '@lightsout/agents';
@@ -7,6 +7,7 @@ import { estimatePlanScope } from './estimatePlanScope';
 import { invokeAgentWithContract } from '../invoke';
 import { lintPlanStructure } from './lintPlanStructure';
 import { loadConfig } from '../common/utils/loadConfig';
+import { pathExists } from './common/utils/pathExists';
 import { planWorkspaceDir } from './planWorkspaceDir';
 import { readDecisions } from './readDecisions';
 import { readPlanFacts } from './readPlanFacts';
@@ -30,12 +31,6 @@ interface Params {
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
 }
-
-const exists = (path: string) =>
-	stat(path).then(
-		() => true,
-		() => false,
-	);
 
 /**
  * Draft a structurally clean plan: a plan-writer agent authors the file(s) to
@@ -130,7 +125,7 @@ export const runPlanDraft = async ({
 		const missing: string[] = [];
 
 		for (const path of planPaths) {
-			if (!(await exists(path))) {
+			if (!(await pathExists({ path }))) {
 				missing.push(path);
 			}
 		}

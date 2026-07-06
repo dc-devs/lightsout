@@ -39435,8 +39435,17 @@ import { join as join38 } from "node:path";
 var planWorkspaceDir = ({ cwd, name }) => join38(cwd, ".lightsout", "plans", name);
 
 // packages/engine/src/plan/verifyFacts.ts
-import { readFile as readFile28, stat as stat3 } from "node:fs/promises";
+import { readFile as readFile28 } from "node:fs/promises";
 import { join as join39 } from "node:path";
+
+// packages/engine/src/plan/common/utils/pathExists.ts
+import { stat as stat3 } from "node:fs/promises";
+var pathExists = ({ path }) => stat3(path).then(
+  () => true,
+  () => false
+);
+
+// packages/engine/src/plan/verifyFacts.ts
 var scriptKeysOf = (raw) => {
   try {
     const parsed = JSON.parse(raw);
@@ -39449,11 +39458,8 @@ var verifyFacts = async ({ cwd, report }) => {
   const paths = report.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists4 = await stat3(join39(cwd, path)).then(
-      () => true,
-      () => false
-    );
-    if (!exists4) {
+    const exists = await pathExists({ path: join39(cwd, path) });
+    if (!exists) {
       missingPaths.push(path);
     }
   }
@@ -39568,7 +39574,7 @@ var runPlanExplore = async ({
 };
 
 // packages/engine/src/plan/runPlanDraft.ts
-import { appendFile as appendFile8, mkdir as mkdir13, stat as stat5, writeFile as writeFile13 } from "node:fs/promises";
+import { appendFile as appendFile8, mkdir as mkdir13, writeFile as writeFile13 } from "node:fs/promises";
 import { isAbsolute as isAbsolute8, join as join44 } from "node:path";
 
 // packages/engine/src/plan/estimatePlanScope.ts
@@ -39587,7 +39593,7 @@ var estimatePlanScope = ({ facts }) => {
 };
 
 // packages/engine/src/plan/lintPlanStructure.ts
-import { readFile as readFile29, stat as stat4 } from "node:fs/promises";
+import { readFile as readFile29 } from "node:fs/promises";
 import { basename as basename8, join as join41 } from "node:path";
 
 // packages/engine/src/plan/planCreatePaths.ts
@@ -39737,10 +39743,6 @@ var parsePlan = ({ content, base }) => {
     lines
   };
 };
-var pathExists = (path) => stat4(path).then(
-  () => true,
-  () => false
-);
 var isSourceFile = (path) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const findings = [];
@@ -39769,7 +39771,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       }
     }
     for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-      if (!await pathExists(join41(cwd, path))) {
+      if (!await pathExists({ path: join41(cwd, path) })) {
         findings.push({
           check: StructuralCheck.PathExists,
           issue: `referenced path does not exist: ${path}`,
@@ -39779,7 +39781,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       }
     }
     for (const path of plan.createPaths) {
-      if (await pathExists(join41(cwd, path))) {
+      if (await pathExists({ path: join41(cwd, path) })) {
         findings.push({
           check: StructuralCheck.PathExists,
           issue: `Files to Create path already exists: ${path}`,
@@ -39888,10 +39890,6 @@ var readPlanFacts = async ({ cwd, name }) => {
 // packages/engine/src/plan/runPlanDraft.ts
 var defaultDraftTimeoutMs = 30 * 60 * 1e3;
 var maxDraftAttempts = 5;
-var exists = (path) => stat5(path).then(
-  () => true,
-  () => false
-);
 var runPlanDraft = async ({
   cwd,
   driver,
@@ -39952,7 +39950,7 @@ var runPlanDraft = async ({
     planPaths = report.filesWritten.map((file2) => isAbsolute8(file2.path) ? file2.path : join44(cwd, file2.path));
     const missing = [];
     for (const path of planPaths) {
-      if (!await exists(path)) {
+      if (!await pathExists({ path })) {
         missing.push(path);
       }
     }
@@ -39977,7 +39975,7 @@ var runPlanDraft = async ({
 };
 
 // packages/engine/src/plan/runPlanGrade.ts
-import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile33, readdir as readdir8, stat as stat6, writeFile as writeFile14 } from "node:fs/promises";
+import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile33, readdir as readdir8, writeFile as writeFile14 } from "node:fs/promises";
 import { basename as basename9, join as join45 } from "node:path";
 
 // packages/engine/src/plan/detectPriorArtCandidates.ts
@@ -40024,10 +40022,6 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
 
 // packages/engine/src/plan/runPlanGrade.ts
 var defaultGradeTimeoutMs = 30 * 60 * 1e3;
-var exists2 = (path) => stat6(path).then(
-  () => true,
-  () => false
-);
 var runPlanGrade = async ({
   cwd,
   driver,
@@ -40047,7 +40041,7 @@ var runPlanGrade = async ({
   let overviewPath;
   let overviewText;
   const phases = [];
-  if (await exists2(singlePath)) {
+  if (await pathExists({ path: singlePath })) {
     phases.push({ path: singlePath, text: await readFile33(singlePath, "utf8") });
   } else {
     const entries = (await readdir8(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
@@ -40127,13 +40121,9 @@ var runPlanGrade = async ({
 };
 
 // packages/engine/src/plan/runPlanDedup.ts
-import { appendFile as appendFile10, mkdir as mkdir15, readFile as readFile34, readdir as readdir9, stat as stat7, writeFile as writeFile15 } from "node:fs/promises";
+import { appendFile as appendFile10, mkdir as mkdir15, readFile as readFile34, readdir as readdir9, writeFile as writeFile15 } from "node:fs/promises";
 import { join as join46 } from "node:path";
 var defaultDedupTimeoutMs = 30 * 60 * 1e3;
-var exists3 = (path) => stat7(path).then(
-  () => true,
-  () => false
-);
 var runPlanDedup = async ({
   cwd,
   driver,
@@ -40153,7 +40143,7 @@ var runPlanDedup = async ({
   let overviewPath;
   let overviewText;
   const planFiles = [];
-  if (await exists3(singlePath)) {
+  if (await pathExists({ path: singlePath })) {
     planFiles.push({ path: singlePath, text: await readFile34(singlePath, "utf8") });
   } else {
     const entries = (await readdir9(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();

@@ -1,8 +1,9 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { StructuralCheck, type LightsoutConfig, type StructuralFinding } from '@lightsout/contracts';
 import { extractRunScriptName } from '../common/utils/extractRunScriptName';
 import { isTestFile } from '../common/utils/isTestFile';
+import { pathExists } from './common/utils/pathExists';
 import { planCreatePaths } from './planCreatePaths';
 
 interface Params {
@@ -198,12 +199,6 @@ const parsePlan = ({ content, base }: { content: string; base: string }): Parsed
 	};
 };
 
-const pathExists = (path: string) =>
-	stat(path).then(
-		() => true,
-		() => false,
-	);
-
 const isSourceFile = (path: string) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 
 /**
@@ -255,7 +250,7 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 
 		// PathExists — modify/mirror paths must exist; create paths must not.
 		for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-			if (!(await pathExists(join(cwd, path)))) {
+			if (!(await pathExists({ path: join(cwd, path) }))) {
 				findings.push({
 					check: StructuralCheck.PathExists,
 					issue: `referenced path does not exist: ${path}`,
@@ -266,7 +261,7 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 		}
 
 		for (const path of plan.createPaths) {
-			if (await pathExists(join(cwd, path))) {
+			if (await pathExists({ path: join(cwd, path) })) {
 				findings.push({
 					check: StructuralCheck.PathExists,
 					issue: `Files to Create path already exists: ${path}`,

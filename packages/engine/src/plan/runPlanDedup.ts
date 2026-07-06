@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DedupJudgment, DedupReport, type DedupFinding } from '@lightsout/contracts';
 import { buildPlanDedupInvocation } from '@lightsout/agents';
@@ -6,6 +6,7 @@ import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
 import { invokeAgentWithContract } from '../invoke';
 import { loadConfig } from '../common/utils/loadConfig';
+import { pathExists } from './common/utils/pathExists';
 import { planWorkspaceDir } from './planWorkspaceDir';
 
 const defaultDedupTimeoutMs = 30 * 60 * 1000;
@@ -24,12 +25,6 @@ interface Params {
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
 }
-
-const exists = (path: string) =>
-	stat(path).then(
-		() => true,
-		() => false,
-	);
 
 /** A plan file to judge: its path and text. The overview is passed as context, never judged standalone. */
 interface PlanFile {
@@ -72,7 +67,7 @@ export const runPlanDedup = async ({
 	let overviewText: string | undefined;
 	const planFiles: PlanFile[] = [];
 
-	if (await exists(singlePath)) {
+	if (await pathExists({ path: singlePath })) {
 		planFiles.push({ path: singlePath, text: await readFile(singlePath, 'utf8') });
 	} else {
 		const entries = (await readdir(phaseDir).catch(() => [] as string[])).filter((entry) => entry.endsWith('.md')).sort();
