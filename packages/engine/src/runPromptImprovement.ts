@@ -4,7 +4,7 @@ import { buildPromptImproverInvocation } from '@lightsout/agents';
 import { WorkReport } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
-import { readFriction } from './readFriction';
+import { readFriction } from './runState';
 
 const improverTimeoutMs = 20 * 60_000;
 const promptsDir = 'packages/agents/prompts';

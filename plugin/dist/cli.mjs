@@ -23578,17 +23578,191 @@ var getDriver = ({ name }) => {
   throw new Error(`unknown driver: ${name} (available: claude-code, codex)`);
 };
 
-// packages/engine/src/acquireRunLock.ts
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+// packages/engine/src/runState/createRun.ts
+import { randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
 
-// packages/engine/src/getRunLockPath.ts
+// packages/engine/src/runState/getRunDir.ts
 import { join as join2 } from "node:path";
-var getRunLockPath = ({ cwd }) => {
-  return join2(cwd, ".lightsout", "lock.json");
+var getRunDir = ({ cwd, runId }) => {
+  return join2(cwd, ".lightsout", "runs", runId);
 };
 
-// packages/engine/src/isPidAlive.ts
+// packages/engine/src/runState/writeRunManifest.ts
+import { rename, writeFile } from "node:fs/promises";
+import { join as join3 } from "node:path";
+var writeRunManifest = async ({ cwd, manifest }) => {
+  const stamped = { ...manifest, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
+  const manifestPath = join3(getRunDir({ cwd, runId: manifest.runId }), "manifest.json");
+  const tmpPath = `${manifestPath}.tmp`;
+  await writeFile(tmpPath, `${JSON.stringify(stamped, null, "	")}
+`, "utf8");
+  await rename(tmpPath, manifestPath);
+  return stamped;
+};
+
+// packages/engine/src/runState/createRun.ts
+var createRun = async ({ cwd, runId, plan, overview, driver, config: config2, baselineDirtyFiles }) => {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const manifest = {
+    runId: runId ?? randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+    plan,
+    overview,
+    driver,
+    config: config2,
+    status: RunStatus.Pending,
+    currentStep: null,
+    steps: [],
+    changedFiles: [],
+    packages: [],
+    baselineDirtyFiles: baselineDirtyFiles ?? []
+  };
+  await mkdir(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });
+  return writeRunManifest({ cwd, manifest });
+};
+
+// packages/engine/src/runState/readRunManifest.ts
+import { readFile as readFile2 } from "node:fs/promises";
+import { join as join4 } from "node:path";
+var readRunManifest = async ({ cwd, runId }) => {
+  const raw = await readFile2(join4(getRunDir({ cwd, runId }), "manifest.json"), "utf8");
+  return RunManifest.parse(JSON.parse(raw));
+};
+
+// packages/engine/src/runState/appendAgentLog.ts
+import { appendFile, mkdir as mkdir2 } from "node:fs/promises";
+import { join as join5 } from "node:path";
+var appendAgentLog = async ({ cwd, runId, record: record2 }) => {
+  const dir = getRunDir({ cwd, runId });
+  await mkdir2(dir, { recursive: true });
+  await appendFile(join5(dir, "agents.jsonl"), `${JSON.stringify(record2)}
+`, "utf8");
+};
+
+// packages/engine/src/runState/appendCommandLog.ts
+import { appendFile as appendFile2, mkdir as mkdir3 } from "node:fs/promises";
+import { join as join6 } from "node:path";
+var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
+  const dir = getRunDir({ cwd, runId });
+  await mkdir3(dir, { recursive: true });
+  await appendFile2(join6(dir, "commands.jsonl"), `${JSON.stringify(record2)}
+`, "utf8");
+};
+
+// packages/engine/src/runState/appendFriction.ts
+import { appendFile as appendFile3, mkdir as mkdir4 } from "node:fs/promises";
+import { join as join7 } from "node:path";
+var appendFriction = async ({ cwd, runId, step, friction }) => {
+  if (friction.length === 0) {
+    return;
+  }
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
+  await mkdir4(join7(cwd, ".lightsout"), { recursive: true });
+  await appendFile3(join7(cwd, ".lightsout", "friction.jsonl"), `${lines}
+`, "utf8");
+};
+
+// packages/engine/src/runState/readFriction.ts
+import { readFile as readFile3 } from "node:fs/promises";
+import { join as join8 } from "node:path";
+var readFriction = async ({ cwd }) => {
+  const raw = await readFile3(join8(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
+  return raw.split("\n").filter(Boolean).flatMap((line) => {
+    try {
+      const parsed = FrictionRecord.safeParse(JSON.parse(line));
+      return parsed.success ? [parsed.data] : [];
+    } catch {
+      return [];
+    }
+  });
+};
+
+// packages/engine/src/runState/summarizeRun.ts
+import { readdir, readFile as readFile4 } from "node:fs/promises";
+import { join as join9 } from "node:path";
+var LedgerRecord = external_exports.object({
+  step: external_exports.string(),
+  outputTokens: external_exports.number(),
+  costUsd: external_exports.number()
+});
+var CommandRecord = external_exports.object({
+  durationMs: external_exports.number().optional(),
+  rerun: external_exports.literal(true).optional(),
+  skipped: external_exports.literal(true).optional()
+});
+var readJsonlRecords = async ({ path, schema }) => {
+  const raw = await readFile4(path, "utf8").catch(() => "");
+  return raw.split("\n").filter(Boolean).flatMap((line) => {
+    try {
+      const parsed = schema.safeParse(JSON.parse(line));
+      return parsed.success ? [parsed.data] : [];
+    } catch {
+      return [];
+    }
+  });
+};
+var summarizeRun = async ({ cwd, manifest }) => {
+  const runDir = getRunDir({ cwd, runId: manifest.runId });
+  const ledger = await readJsonlRecords({ path: join9(runDir, "agents.jsonl"), schema: LedgerRecord });
+  const commands = await readJsonlRecords({ path: join9(runDir, "commands.jsonl"), schema: CommandRecord });
+  const agentFiles = await readdir(join9(runDir, "agents")).catch(() => []);
+  const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
+  const perStepUsage = /* @__PURE__ */ new Map();
+  for (const record2 of ledger) {
+    const step = record2.step.endsWith("-supervisor") ? record2.step.slice(0, -"-supervisor".length) : record2.step;
+    const totals = perStepUsage.get(step) ?? { invocations: 0, outputTokens: 0, costUsd: 0 };
+    totals.invocations += 1;
+    totals.outputTokens += record2.outputTokens;
+    totals.costUsd += record2.costUsd;
+    perStepUsage.set(step, totals);
+  }
+  const frictionByArea = /* @__PURE__ */ new Map();
+  for (const entry of friction) {
+    frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
+  }
+  const { usage: usage2 } = manifest;
+  const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
+  return {
+    wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
+    /** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
+    activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
+    gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
+    usage: usage2,
+    /** Share of all input the model read from cache — the run's cost-efficiency dial. */
+    cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
+    steps: manifest.steps.map((step) => ({
+      id: step.id,
+      status: step.status,
+      attempts: step.attempts,
+      durationMs: step.durationMs,
+      changedFiles: step.changedFiles,
+      ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
+    })),
+    gates: {
+      commands: commands.filter((command) => !command.skipped).length,
+      reruns: commands.filter((command) => command.rerun).length,
+      skipped: commands.filter((command) => command.skipped).length
+    },
+    /** Final messages that failed their contract and cost a re-emit retry. */
+    rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
+    frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count }))
+  };
+};
+
+// packages/engine/src/runState/acquireRunLock.ts
+import { mkdir as mkdir5, unlink, writeFile as writeFile2 } from "node:fs/promises";
+import { dirname } from "node:path";
+
+// packages/engine/src/runState/getRunLockPath.ts
+import { join as join10 } from "node:path";
+var getRunLockPath = ({ cwd }) => {
+  return join10(cwd, ".lightsout", "lock.json");
+};
+
+// packages/engine/src/runState/isPidAlive.ts
 var isPidAlive = ({ pid }) => {
   try {
     process.kill(pid, 0);
@@ -23598,10 +23772,10 @@ var isPidAlive = ({ pid }) => {
   }
 };
 
-// packages/engine/src/readRunLock.ts
-import { readFile as readFile2 } from "node:fs/promises";
+// packages/engine/src/runState/readRunLock.ts
+import { readFile as readFile5 } from "node:fs/promises";
 var readRunLock = async ({ cwd }) => {
-  const raw = await readFile2(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
+  const raw = await readFile5(getRunLockPath({ cwd }), "utf8").catch(() => void 0);
   if (raw === void 0) {
     return void 0;
   }
@@ -23612,20 +23786,20 @@ var readRunLock = async ({ cwd }) => {
   }
 };
 
-// packages/engine/src/RunLockError.ts
+// packages/engine/src/runState/RunLockError.ts
 var RunLockError = class extends Error {
 };
 
-// packages/engine/src/acquireRunLock.ts
+// packages/engine/src/runState/acquireRunLock.ts
 var acquireRunLock = async ({ cwd, runId }) => {
   const lockPath = getRunLockPath({ cwd });
   const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, "	")}
 `;
-  await mkdir(dirname(lockPath), { recursive: true });
+  await mkdir5(dirname(lockPath), { recursive: true });
   let stalePid;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      await writeFile(lockPath, payload, { flag: "wx" });
+      await writeFile2(lockPath, payload, { flag: "wx" });
       return { stalePid };
     } catch (error51) {
       if (error51.code !== "EEXIST") {
@@ -23644,7 +23818,7 @@ var acquireRunLock = async ({ cwd, runId }) => {
   throw new RunLockError("could not acquire .lightsout/lock.json \u2014 another process keeps taking the lock");
 };
 
-// packages/engine/src/releaseRunLock.ts
+// packages/engine/src/runState/releaseRunLock.ts
 import { unlink as unlink2 } from "node:fs/promises";
 var releaseRunLock = async ({ cwd, runId }) => {
   const holder = await readRunLock({ cwd });
@@ -23652,59 +23826,6 @@ var releaseRunLock = async ({ cwd, runId }) => {
     return;
   }
   await unlink2(getRunLockPath({ cwd })).catch(() => void 0);
-};
-
-// packages/engine/src/createRun.ts
-import { randomUUID } from "node:crypto";
-import { mkdir as mkdir2 } from "node:fs/promises";
-
-// packages/engine/src/getRunDir.ts
-import { join as join3 } from "node:path";
-var getRunDir = ({ cwd, runId }) => {
-  return join3(cwd, ".lightsout", "runs", runId);
-};
-
-// packages/engine/src/writeRunManifest.ts
-import { rename, writeFile as writeFile2 } from "node:fs/promises";
-import { join as join4 } from "node:path";
-var writeRunManifest = async ({ cwd, manifest }) => {
-  const stamped = { ...manifest, updatedAt: (/* @__PURE__ */ new Date()).toISOString() };
-  const manifestPath = join4(getRunDir({ cwd, runId: manifest.runId }), "manifest.json");
-  const tmpPath = `${manifestPath}.tmp`;
-  await writeFile2(tmpPath, `${JSON.stringify(stamped, null, "	")}
-`, "utf8");
-  await rename(tmpPath, manifestPath);
-  return stamped;
-};
-
-// packages/engine/src/createRun.ts
-var createRun = async ({ cwd, runId, plan, overview, driver, config: config2, baselineDirtyFiles }) => {
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const manifest = {
-    runId: runId ?? randomUUID(),
-    createdAt: now,
-    updatedAt: now,
-    plan,
-    overview,
-    driver,
-    config: config2,
-    status: RunStatus.Pending,
-    currentStep: null,
-    steps: [],
-    changedFiles: [],
-    packages: [],
-    baselineDirtyFiles: baselineDirtyFiles ?? []
-  };
-  await mkdir2(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });
-  return writeRunManifest({ cwd, manifest });
-};
-
-// packages/engine/src/readRunManifest.ts
-import { readFile as readFile3 } from "node:fs/promises";
-import { join as join5 } from "node:path";
-var readRunManifest = async ({ cwd, runId }) => {
-  const raw = await readFile3(join5(getRunDir({ cwd, runId }), "manifest.json"), "utf8");
-  return RunManifest.parse(JSON.parse(raw));
 };
 
 // packages/engine/src/common/utils/runCommand.ts
@@ -23736,11 +23857,11 @@ var runCommand = ({ command, cwd, timeoutMs }) => {
 };
 
 // packages/engine/src/common/utils/loadConfig.ts
-import { readFile as readFile4 } from "node:fs/promises";
-import { join as join6 } from "node:path";
+import { readFile as readFile6 } from "node:fs/promises";
+import { join as join11 } from "node:path";
 var loadConfig = async ({ cwd }) => {
-  const configPath = join6(cwd, "lightsout.config.json");
-  const raw = await readFile4(configPath, "utf8").catch(() => {
+  const configPath = join11(cwd, "lightsout.config.json");
+  const raw = await readFile6(configPath, "utf8").catch(() => {
     throw new Error(`lightsout.config.json not found at ${configPath}`);
   });
   return LightsoutConfig.parse(JSON.parse(raw));
@@ -23869,15 +23990,15 @@ var readPlanPackages = ({ planContent }) => {
 };
 
 // packages/engine/src/common/utils/resolvePackageManifest.ts
-import { readFile as readFile5 } from "node:fs/promises";
-import { join as join7 } from "node:path";
+import { readFile as readFile7 } from "node:fs/promises";
+import { join as join12 } from "node:path";
 var PackageManifest = external_exports.object({
   name: external_exports.string().min(1),
   scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
 var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
-  const manifestPath = join7(cwd, packagesDir, packageDir, "package.json");
-  const raw = await readFile5(manifestPath, "utf8").catch(() => {
+  const manifestPath = join12(cwd, packagesDir, packageDir, "package.json");
+  const raw = await readFile7(manifestPath, "utf8").catch(() => {
     throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
   });
   const parsed = PackageManifest.safeParse(JSON.parse(raw));
@@ -23897,8 +24018,8 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
 
 // packages/engine/src/runImplementPipeline.ts
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile14, writeFile as writeFile4 } from "node:fs/promises";
-import { join as join21 } from "node:path";
+import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
+import { join as join23 } from "node:path";
 
 // packages/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan provided in your task message,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is provided in your task message, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
@@ -24339,40 +24460,6 @@ ${standards}`);
   };
 };
 
-// packages/engine/src/appendAgentLog.ts
-import { appendFile, mkdir as mkdir3 } from "node:fs/promises";
-import { join as join8 } from "node:path";
-var appendAgentLog = async ({ cwd, runId, record: record2 }) => {
-  const dir = getRunDir({ cwd, runId });
-  await mkdir3(dir, { recursive: true });
-  await appendFile(join8(dir, "agents.jsonl"), `${JSON.stringify(record2)}
-`, "utf8");
-};
-
-// packages/engine/src/appendCommandLog.ts
-import { appendFile as appendFile2, mkdir as mkdir4 } from "node:fs/promises";
-import { join as join9 } from "node:path";
-var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
-  const dir = getRunDir({ cwd, runId });
-  await mkdir4(dir, { recursive: true });
-  await appendFile2(join9(dir, "commands.jsonl"), `${JSON.stringify(record2)}
-`, "utf8");
-};
-
-// packages/engine/src/appendFriction.ts
-import { appendFile as appendFile3, mkdir as mkdir5 } from "node:fs/promises";
-import { join as join10 } from "node:path";
-var appendFriction = async ({ cwd, runId, step, friction }) => {
-  if (friction.length === 0) {
-    return;
-  }
-  const at = (/* @__PURE__ */ new Date()).toISOString();
-  const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir5(join10(cwd, ".lightsout"), { recursive: true });
-  await appendFile3(join10(cwd, ".lightsout", "friction.jsonl"), `${lines}
-`, "utf8");
-};
-
 // packages/engine/src/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
   const sorted = [...files].sort();
@@ -24384,8 +24471,8 @@ var chunkFileGroup = ({ files, max }) => {
 };
 
 // packages/engine/src/collectImportEdges.ts
-import { readFile as readFile6 } from "node:fs/promises";
-import { join as join11, posix } from "node:path";
+import { readFile as readFile8 } from "node:fs/promises";
+import { join as join13, posix } from "node:path";
 var stripExtension = (path) => path.replace(/\.(m|c)?[jt]sx?$/i, "");
 var collectImportEdges = async ({ cwd, files, compiler }) => {
   const byStripped = /* @__PURE__ */ new Map();
@@ -24412,7 +24499,7 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   };
   const edges = [];
   for (const from of files) {
-    const content = await readFile6(join11(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile8(join13(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
@@ -24530,15 +24617,15 @@ var isInertSourceFile = ({ path, content, compiler }) => {
 // packages/engine/src/common/utils/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join as join12, resolve } from "node:path";
+import { join as join14, resolve } from "node:path";
 var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   const root = resolve(cwd);
   let packageNames = [];
   try {
-    packageNames = readdirSync(join12(root, packagesDir)).filter((name) => !name.startsWith("."));
+    packageNames = readdirSync(join14(root, packagesDir)).filter((name) => !name.startsWith("."));
   } catch {
   }
-  const manifests = [join12(root, "package.json"), ...packageNames.map((name) => join12(root, packagesDir, name, "package.json"))];
+  const manifests = [join14(root, "package.json"), ...packageNames.map((name) => join14(root, packagesDir, name, "package.json"))];
   for (const manifest of manifests) {
     try {
       return createRequire(manifest)("typescript");
@@ -24550,8 +24637,8 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
 };
 
 // packages/engine/src/detectStandardsChannels.ts
-import { readFile as readFile7 } from "node:fs/promises";
-import { join as join13 } from "node:path";
+import { readFile as readFile9 } from "node:fs/promises";
+import { join as join15 } from "node:path";
 var Manifest = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
@@ -24562,11 +24649,11 @@ var channelSignals = {
   tanstack: ["@tanstack/react-start", "@tanstack/start"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join13(cwd, packagesDir, name, "package.json")) : [join13(cwd, "package.json")];
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join15(cwd, packagesDir, name, "package.json")) : [join15(cwd, "package.json")];
   const dependencies = /* @__PURE__ */ new Set();
   for (const path of manifestPaths) {
     try {
-      const parsed = Manifest.parse(JSON.parse(await readFile7(path, "utf8")));
+      const parsed = Manifest.parse(JSON.parse(await readFile9(path, "utf8")));
       for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
         for (const name of Object.keys(record2 ?? {})) {
           dependencies.add(name);
@@ -24579,8 +24666,8 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
 };
 
 // packages/engine/src/readStandards.ts
-import { readFile as readFile8 } from "node:fs/promises";
-import { join as join14 } from "node:path";
+import { readFile as readFile10 } from "node:fs/promises";
+import { join as join16 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing \u2192 the concept is primitives; its files belong in `common/<type>/`. Hides internals \u2192 it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules \u2014 shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
@@ -24730,8 +24817,8 @@ var readStandards = async ({ cwd, paths, channels = [] }) => {
       if (bundled) {
         return [bundled.base, ...channels.map((channel) => bundled[channel])].filter(Boolean).join("\n\n");
       }
-      const raw = await readFile8(join14(cwd, path), "utf8").catch(() => {
-        throw new Error(`standards file not found: ${join14(cwd, path)}`);
+      const raw = await readFile10(join16(cwd, path), "utf8").catch(() => {
+        throw new Error(`standards file not found: ${join16(cwd, path)}`);
       });
       return `<!-- ${path} -->
 ${raw}`;
@@ -24901,26 +24988,26 @@ ${generated.stderr}`;
 };
 
 // packages/engine/src/runScan.ts
-import { mkdir as mkdir6, readFile as readFile13, writeFile as writeFile3 } from "node:fs/promises";
-import { join as join20 } from "node:path";
+import { mkdir as mkdir6, readFile as readFile15, writeFile as writeFile3 } from "node:fs/promises";
+import { join as join22 } from "node:path";
 
 // packages/engine/src/common/utils/isTestFile.ts
 var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
 
 // packages/engine/src/common/utils/listSourceFiles.ts
-import { readdir } from "node:fs/promises";
-import { join as join15, relative } from "node:path";
+import { readdir as readdir2 } from "node:fs/promises";
+import { join as join17, relative } from "node:path";
 var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
   const files = [];
   const walk = async (dir) => {
-    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    const entries = await readdir2(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
       if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
         continue;
       }
-      const path = join15(dir, entry.name);
+      const path = join17(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(path);
         continue;
@@ -24941,8 +25028,8 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
 
 // packages/engine/src/scanAstFindings.ts
 import { createHash } from "node:crypto";
-import { readFile as readFile9 } from "node:fs/promises";
-import { basename, join as join16 } from "node:path";
+import { readFile as readFile11 } from "node:fs/promises";
+import { basename, join as join18 } from "node:path";
 var minBodyTokens = 40;
 var defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
 var fileLineCap = ({ file: file2, caps }) => file2.endsWith(".tsx") ? caps.tsxFile : caps.file;
@@ -24983,7 +25070,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
     return "(anonymous)";
   };
   for (const file2 of files) {
-    const text = await readFile9(join16(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile11(join18(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -25051,8 +25138,8 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
 };
 
 // packages/engine/src/scanClones.ts
-import { readFile as readFile10 } from "node:fs/promises";
-import { join as join17 } from "node:path";
+import { readFile as readFile12 } from "node:fs/promises";
+import { join as join19 } from "node:path";
 
 // node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
 var import_index = __toESM(require_eventemitter3(), 1);
@@ -36776,7 +36863,7 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
   const findings = [];
   for (const file2 of files) {
-    const text = await readFile10(join17(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile12(join19(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -36800,14 +36887,14 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
 };
 
 // packages/engine/src/scanDeadExports.ts
-import { readFile as readFile11 } from "node:fs/promises";
-import { basename as basename2, join as join18 } from "node:path";
+import { readFile as readFile13 } from "node:fs/promises";
+import { basename as basename2, join as join20 } from "node:path";
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   const findings = [];
   const contents = /* @__PURE__ */ new Map();
   for (const file2 of /* @__PURE__ */ new Set([...files, ...referenceFiles ?? []])) {
-    contents.set(file2, await readFile11(join18(cwd, file2), "utf8").catch(() => "") ?? "");
+    contents.set(file2, await readFile13(join20(cwd, file2), "utf8").catch(() => "") ?? "");
   }
   const scope = new Set(files);
   const declarations = [];
@@ -36927,8 +37014,8 @@ var scanFilenameDuplicates = ({ files }) => {
 };
 
 // packages/engine/src/scanStructure.ts
-import { readFile as readFile12 } from "node:fs/promises";
-import { basename as basename4, dirname as dirname3, join as join19 } from "node:path";
+import { readFile as readFile14 } from "node:fs/promises";
+import { basename as basename4, dirname as dirname3, join as join21 } from "node:path";
 var folderCensusCap = 20;
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var nameOf2 = (path) => basename4(path).replace(/\.(m|c)?[jt]sx?$/, "");
@@ -36951,7 +37038,7 @@ var scanStructure = async ({ cwd, files }) => {
     if (basename4(file2).startsWith("index.")) {
       continue;
     }
-    const text = await readFile12(join19(cwd, file2), "utf8").catch(() => "");
+    const text = await readFile14(join21(cwd, file2), "utf8").catch(() => "");
     const exports = [];
     for (const line of text.split("\n")) {
       const match = line.match(exportPattern2);
@@ -37078,10 +37165,10 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
       `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`
     );
   }
-  const dir = join20(cwd, ".lightsout");
+  const dir = join22(cwd, ".lightsout");
   await mkdir6(dir, { recursive: true });
-  const baselinePath = join20(cwd, "lightsout.scan-baseline.json");
-  const baselineRaw = await readFile13(baselinePath, "utf8").catch(() => void 0);
+  const baselinePath = join22(cwd, "lightsout.scan-baseline.json");
+  const baselineRaw = await readFile15(baselinePath, "utf8").catch(() => void 0);
   let baselineJson;
   try {
     baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
@@ -37117,7 +37204,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
     notes.push("lightsout.scan-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
   }
   if (persist) {
-    await writeFile3(join20(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
+    await writeFile3(join22(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
   }
   return { findings: reported, notes };
@@ -37221,20 +37308,20 @@ var executePipeline = async ({
     return stopped;
   };
   const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile14(join21(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const planContent = await readFile16(join23(cwd, manifest.plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `plan file not found: ${join21(cwd, manifest.plan)}`
+      error: `plan file not found: ${join23(cwd, manifest.plan)}`
     });
   }
-  const overviewContent = manifest.overview ? await readFile14(join21(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
+  const overviewContent = manifest.overview ? await readFile16(join23(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
   if (manifest.overview && overviewContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `overview file not found: ${join21(cwd, manifest.overview)}`
+      error: `overview file not found: ${join23(cwd, manifest.overview)}`
     });
   }
   const packagesDir = config2.packagesDir ?? "packages";
@@ -37288,8 +37375,8 @@ var executePipeline = async ({
   let transcriptCount = 0;
   const agentEventSink = (step) => {
     transcriptCount += 1;
-    const dir = join21(getRunDir({ cwd, runId: manifest.runId }), "agents");
-    const path = join21(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    const dir = join23(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const path = join23(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
     let tail = mkdir7(dir, { recursive: true });
     return (event) => {
       tail = tail.then(() => appendFile4(path, `${JSON.stringify(event)}
@@ -37299,10 +37386,10 @@ var executePipeline = async ({
   let rejectedCount = 0;
   const persistRejected = (step) => async ({ text, attempt, validationError }) => {
     rejectedCount += 1;
-    const dir = join21(getRunDir({ cwd, runId: manifest.runId }), "agents");
+    const dir = join23(getRunDir({ cwd, runId: manifest.runId }), "agents");
     const name = `rejected-${String(rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
     await mkdir7(dir, { recursive: true });
-    await writeFile4(join21(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+    await writeFile4(join23(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
 # validation: ${validationError}
 
 ${text}`, "utf8");
@@ -37520,7 +37607,7 @@ ${error51}`
     const targets = [];
     const inert = [];
     for (const file2 of candidates) {
-      const content = await readFile14(join21(cwd, file2), "utf8").catch(() => void 0);
+      const content = await readFile16(join23(cwd, file2), "utf8").catch(() => void 0);
       if (content !== void 0 && isInertSourceFile({ path: file2, content, compiler })) {
         inert.push(file2);
       } else {
@@ -37848,95 +37935,6 @@ var runImplementPipeline = async (params) => {
   } finally {
     await releaseRunLock({ cwd, runId });
   }
-};
-
-// packages/engine/src/summarizeRun.ts
-import { readdir as readdir2, readFile as readFile16 } from "node:fs/promises";
-import { join as join23 } from "node:path";
-
-// packages/engine/src/readFriction.ts
-import { readFile as readFile15 } from "node:fs/promises";
-import { join as join22 } from "node:path";
-var readFriction = async ({ cwd }) => {
-  const raw = await readFile15(join22(cwd, ".lightsout", "friction.jsonl"), "utf8").catch(() => "");
-  return raw.split("\n").filter(Boolean).flatMap((line) => {
-    try {
-      const parsed = FrictionRecord.safeParse(JSON.parse(line));
-      return parsed.success ? [parsed.data] : [];
-    } catch {
-      return [];
-    }
-  });
-};
-
-// packages/engine/src/summarizeRun.ts
-var LedgerRecord = external_exports.object({
-  step: external_exports.string(),
-  outputTokens: external_exports.number(),
-  costUsd: external_exports.number()
-});
-var CommandRecord = external_exports.object({
-  durationMs: external_exports.number().optional(),
-  rerun: external_exports.literal(true).optional(),
-  skipped: external_exports.literal(true).optional()
-});
-var readJsonlRecords = async ({ path, schema }) => {
-  const raw = await readFile16(path, "utf8").catch(() => "");
-  return raw.split("\n").filter(Boolean).flatMap((line) => {
-    try {
-      const parsed = schema.safeParse(JSON.parse(line));
-      return parsed.success ? [parsed.data] : [];
-    } catch {
-      return [];
-    }
-  });
-};
-var summarizeRun = async ({ cwd, manifest }) => {
-  const runDir = getRunDir({ cwd, runId: manifest.runId });
-  const ledger = await readJsonlRecords({ path: join23(runDir, "agents.jsonl"), schema: LedgerRecord });
-  const commands = await readJsonlRecords({ path: join23(runDir, "commands.jsonl"), schema: CommandRecord });
-  const agentFiles = await readdir2(join23(runDir, "agents")).catch(() => []);
-  const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
-  const perStepUsage = /* @__PURE__ */ new Map();
-  for (const record2 of ledger) {
-    const step = record2.step.endsWith("-supervisor") ? record2.step.slice(0, -"-supervisor".length) : record2.step;
-    const totals = perStepUsage.get(step) ?? { invocations: 0, outputTokens: 0, costUsd: 0 };
-    totals.invocations += 1;
-    totals.outputTokens += record2.outputTokens;
-    totals.costUsd += record2.costUsd;
-    perStepUsage.set(step, totals);
-  }
-  const frictionByArea = /* @__PURE__ */ new Map();
-  for (const entry of friction) {
-    frictionByArea.set(entry.area, (frictionByArea.get(entry.area) ?? 0) + 1);
-  }
-  const { usage: usage2 } = manifest;
-  const readableInput = usage2 ? usage2.cacheReadTokens + usage2.cacheCreationTokens + usage2.inputTokens : 0;
-  return {
-    wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
-    /** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
-    activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
-    gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
-    usage: usage2,
-    /** Share of all input the model read from cache — the run's cost-efficiency dial. */
-    cacheReadShare: usage2 && readableInput > 0 ? usage2.cacheReadTokens / readableInput : void 0,
-    steps: manifest.steps.map((step) => ({
-      id: step.id,
-      status: step.status,
-      attempts: step.attempts,
-      durationMs: step.durationMs,
-      changedFiles: step.changedFiles,
-      ...perStepUsage.get(step.id) ?? { invocations: 0, outputTokens: 0, costUsd: 0 }
-    })),
-    gates: {
-      commands: commands.filter((command) => !command.skipped).length,
-      reruns: commands.filter((command) => command.rerun).length,
-      skipped: commands.filter((command) => command.skipped).length
-    },
-    /** Final messages that failed their contract and cost a re-emit retry. */
-    rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
-    frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count }))
-  };
 };
 
 // packages/engine/src/runDoctor.ts

@@ -1,5 +1,5 @@
 import type { LightsoutConfig } from '@lightsout/contracts';
-import { appendCommandLog } from './appendCommandLog';
+import { appendCommandLog } from './runState';
 import { extractRunScriptName } from './common/utils/extractRunScriptName';
 import { resolvePackageManifest } from './common/utils/resolvePackageManifest';
 import { runCommand } from './common/utils/runCommand';
