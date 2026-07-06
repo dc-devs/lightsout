@@ -12,14 +12,14 @@ Use a `common/` folder pattern for shared code — it keeps related code local, 
 
 | Folder | Contents |
 | ----------- | ---------------------------------------- |
-| `utils/` | Stateless pure functions (`formatDate()`) |
+| `utils/` | Stateless functions — pure or IO-performing (`formatDate()`, `loadConfig()`) |
 | `types/` | Type-level declarations (`CopyResult`) |
 | `constants/` | Value and named constants (`defaultConfig`, `Action`) |
 | `services/` | Stateful classes with methods (`ApiClient`) |
 
 ## What Lives in `common/` — the Barrel-Omission Test
 
-`common/` holds shared **file-modules only**: single-file primitives (a pure function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.
+`common/` holds shared **file-modules only**: single-file primitives (a stateless function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.
 
 A shared concept must leave `common/` and become a module — a sibling of the features that use it — the moment it has private internals. The mechanical test: **write the concept's would-be barrel. Does it omit anything?**
 
@@ -61,7 +61,7 @@ Folders match what they hold, in that name's own casing:
 
 ## Domain Folders
 
-A pure function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) — `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.
+A stateless function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) — `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.
 
 A domain folder is **not** a module — by the barrel-omission test it hides nothing: every file in it is public, and its `index.ts` is convenience, not a boundary. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.
 

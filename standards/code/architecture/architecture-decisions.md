@@ -21,6 +21,7 @@ A **module** is a unit of code with a public API and private internals. TypeScri
 1. Cross-module imports go through the module's `index.ts` **only** — never reach into another module's internals
 2. Inside a module, deep imports between its files are correct
 3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)
+4. Test imports obey the same boundary: a test OUTSIDE a module imports its `index.ts`, never its internals — including in repos that keep tests in a separate directory. (A boundary test living beside its file is inside the module; its deep import is correct.)
 
 The rule is recursive — a graduated component folder inside a feature folder is a module within a module.
 
