@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { extractRunScriptName } from '../src/common/utils/extractRunScriptName';
 import { loadConfig } from '../src/index';
-import { runGates } from '../src/pipeline/runGates';
+import { runGates } from '../src/pipeline';
 import { gateLogCommand } from './helpers/gateLogCommand';
 import { readGateLog } from './helpers/readGateLog';
 
