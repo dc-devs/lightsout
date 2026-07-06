@@ -11,6 +11,7 @@ import { scanClones } from './scanClones';
 import { scanDeadExports } from './scanDeadExports';
 import { scanFilenameDuplicates } from './scanFilenameDuplicates';
 import { scanModuleBoundaries } from './scanModuleBoundaries';
+import { scanPlacement } from './scanPlacement';
 import { scanStructure } from './scanStructure';
 
 const ScanBaseline = z.object({
@@ -107,6 +108,8 @@ export const runScan = async ({ cwd, path, all = false, writeBaseline = false, p
 		progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
 		findings.push(...(await scanModuleBoundaries({ cwd, files: allFiles, compiler })));
 		progress(`module boundaries: done`);
+		findings.push(...(await scanPlacement({ cwd, files: allFiles, compiler })));
+		progress(`placement: done`);
 	} else {
 		notes.push('tier 2 (ast) + function-size audit + architecture detectors skipped — no typescript resolvable from the target repo');
 	}

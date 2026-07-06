@@ -36976,9 +36976,54 @@ var scanModuleBoundaries = async ({ cwd, files, compiler }) => {
   return findings;
 };
 
+// packages/engine/src/scan/scanPlacement.ts
+import { dirname as dirname4 } from "node:path";
+var commonOwner = (path) => {
+  const segments = path.split("/");
+  const index = segments.lastIndexOf("common");
+  return index <= 0 ? void 0 : segments.slice(0, index).join("/");
+};
+var lowestCommonAncestor = (paths) => {
+  const split = paths.map((path) => path.split("/"));
+  const shared = [];
+  for (let index = 0; ; index += 1) {
+    const segment = split[0]?.[index];
+    if (segment === void 0 || !split.every((parts) => parts[index] === segment)) {
+      break;
+    }
+    shared.push(segment);
+  }
+  return shared.join("/");
+};
+var scanPlacement = async ({ cwd, files, compiler }) => {
+  const edges = await collectImportEdges({ cwd, files, compiler });
+  const consumersByFile = /* @__PURE__ */ new Map();
+  for (const { from, to } of edges) {
+    const owner = commonOwner(to);
+    if (owner === void 0 || owner.split("/").pop() === "src" || from.startsWith(`${owner}/`)) {
+      continue;
+    }
+    consumersByFile.set(to, (consumersByFile.get(to) ?? /* @__PURE__ */ new Set()).add(from));
+  }
+  const findings = [];
+  for (const [file2, consumerSet] of consumersByFile) {
+    const consumers = [...consumerSet].sort();
+    const owner = commonOwner(file2) ?? "";
+    const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname4(consumer))]);
+    findings.push({
+      detector: ScanDetector.Placement,
+      severity: ScanSeverity.Finding,
+      cluster: `placement:${file2}`,
+      files: [{ path: file2 }, ...consumers.map((path) => ({ path }))],
+      detail: `'${file2}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(", ")} \u2014 promote to the lowest common ancestor common/ (${lca}/common/)`
+    });
+  }
+  return findings;
+};
+
 // packages/engine/src/scan/scanStructure.ts
 import { readFile as readFile14 } from "node:fs/promises";
-import { basename as basename5, dirname as dirname4, join as join21 } from "node:path";
+import { basename as basename5, dirname as dirname5, join as join21 } from "node:path";
 var folderCensusCap = 20;
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var nameOf2 = (path) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
@@ -36990,7 +37035,7 @@ var scanStructure = async ({ cwd, files }) => {
   const filesPerDir = /* @__PURE__ */ new Map();
   const utilsVerbGroups = /* @__PURE__ */ new Map();
   for (const file2 of files) {
-    const dir = dirname4(file2);
+    const dir = dirname5(file2);
     filesPerDir.set(dir, [...filesPerDir.get(dir) ?? [], file2]);
     if (basename5(dir) === "utils") {
       const group = utilsVerbGroups.get(dir) ?? /* @__PURE__ */ new Map();
@@ -37117,6 +37162,8 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
     progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
     findings.push(...await scanModuleBoundaries({ cwd, files: allFiles, compiler }));
     progress(`module boundaries: done`);
+    findings.push(...await scanPlacement({ cwd, files: allFiles, compiler }));
+    progress(`placement: done`);
   } else {
     notes.push("tier 2 (ast) + function-size audit + architecture detectors skipped \u2014 no typescript resolvable from the target repo");
   }
