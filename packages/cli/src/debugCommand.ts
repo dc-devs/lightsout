@@ -1,6 +1,4 @@
-import { join } from 'node:path';
-import { getDriver } from '@lightsout/drivers';
-import { loadConfig, resolveConnectionsSource, runDebug } from '@lightsout/engine';
+import { runDebug } from '@lightsout/engine';
 import { getPositionals } from './common/args/getPositionals';
 import { getStringFlag } from './common/args/getStringFlag';
 import { usage } from './common/constants/usage';
@@ -9,6 +7,8 @@ import { dim } from './common/terminal/dim';
 import { green } from './common/terminal/green';
 import { yellow } from './common/terminal/yellow';
 import type { CommandContext } from './common/types/CommandContext';
+import { resolveCommandConnections } from './common/utils/resolveCommandConnections';
+import { resolveConfigAndDriver } from './common/utils/resolveConfigAndDriver';
 
 const renderHops = ({ hops }: { hops: Awaited<ReturnType<typeof runDebug>>['state']['hops'] }) => {
 	for (const [index, hop] of hops.entries()) {
@@ -38,18 +38,10 @@ export const debugCommand = async ({ flags, rest, cwd }: CommandContext): Promis
 		process.exit(1);
 	}
 
-	const config = await loadConfig({ cwd }).catch(() => undefined);
-	const driver = getDriver({ name: config?.driver ?? 'claude-code' });
+	const { config, driver } = await resolveConfigAndDriver({ cwd });
 
 	try {
-		const connections = await resolveConnectionsSource({
-			cwd,
-			source: getStringFlag({ flags, name: 'connections' }) ?? config?.traverse?.connections ?? '.lightsout/connections',
-		});
-
-		if (connections.remote) {
-			console.log(dim(`map: ${connections.repo} → ${connections.dir}`));
-		}
+		const { connections } = await resolveCommandConnections({ cwd, flags, config });
 
 		const result = await runDebug({
 			cwd,

@@ -1,12 +1,12 @@
-import { getDriver } from '@lightsout/drivers';
-import { loadConfig, runPlanExplore } from '@lightsout/engine';
+import { runPlanExplore } from '@lightsout/engine';
 import { getPositionals } from '../common/args/getPositionals';
 import { getStringFlag } from '../common/args/getStringFlag';
 import { usage } from '../common/constants/usage';
 import { bold } from '../common/terminal/bold';
 import { yellow } from '../common/terminal/yellow';
-import { createProgressPrinter } from '../common/utils/createProgressPrinter';
 import type { CommandContext } from '../common/types/CommandContext';
+import { createProgressPrinter } from '../common/utils/createProgressPrinter';
+import { resolveConfigAndDriver } from '../common/utils/resolveConfigAndDriver';
 
 export const planExploreCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
 	const name = getStringFlag({ flags, name: 'name' });
@@ -24,10 +24,7 @@ export const planExploreCommand = async ({ flags, rest, cwd }: CommandContext): 
 		process.exit(1);
 	}
 
-	// Planning can run before a lightsout.config.json exists — fall back
-	// to the default driver and harness defaults.
-	const config = await loadConfig({ cwd }).catch(() => undefined);
-	const driver = getDriver({ name: config?.driver ?? 'claude-code' });
+	const { config, driver } = await resolveConfigAndDriver({ cwd });
 
 	const result = await runPlanExplore({
 		cwd,

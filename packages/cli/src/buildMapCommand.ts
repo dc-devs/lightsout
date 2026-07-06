@@ -1,8 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EdgeInventory, MapJoin } from '@lightsout/contracts';
-import { getDriver } from '@lightsout/drivers';
-import { authorConnectionDocs, loadConfig, resolveConnectionsSource, runBuildMap } from '@lightsout/engine';
+import { authorConnectionDocs, runBuildMap } from '@lightsout/engine';
 import { getPositionals } from './common/args/getPositionals';
 import { getStringFlag } from './common/args/getStringFlag';
 import { usage } from './common/constants/usage';
@@ -11,6 +10,8 @@ import { dim } from './common/terminal/dim';
 import { green } from './common/terminal/green';
 import { yellow } from './common/terminal/yellow';
 import type { CommandContext } from './common/types/CommandContext';
+import { resolveCommandConnections } from './common/utils/resolveCommandConnections';
+import { resolveConfigAndDriver } from './common/utils/resolveConfigAndDriver';
 
 const renderJoin = ({ joined }: { joined: NonNullable<Awaited<ReturnType<typeof runBuildMap>>['join']> }) => {
 	for (const edge of joined.matched) {
@@ -45,15 +46,10 @@ const renderJoin = ({ joined }: { joined: NonNullable<Awaited<ReturnType<typeof 
 
 export const buildMapCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
 	const authorRunId = getStringFlag({ flags, name: 'author' });
-	const config = await loadConfig({ cwd }).catch(() => undefined);
-	const connectionsSource = getStringFlag({ flags, name: 'connections' }) ?? config?.traverse?.connections ?? '.lightsout/connections';
+	const { config, driver } = await resolveConfigAndDriver({ cwd });
 
 	try {
-		const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
-
-		if (connections.remote) {
-			console.log(dim(`map: ${connections.repo} → ${connections.dir}`));
-		}
+		const { source: connectionsSource, connections } = await resolveCommandConnections({ cwd, flags, config });
 
 		if (authorRunId) {
 			// Post-review author step: the user has culled join.json by hand.
@@ -93,7 +89,6 @@ export const buildMapCommand = async ({ flags, rest, cwd }: CommandContext): Pro
 			process.exit(1);
 		}
 
-		const driver = getDriver({ name: config?.driver ?? 'claude-code' });
 		const result = await runBuildMap({
 			cwd,
 			driver,

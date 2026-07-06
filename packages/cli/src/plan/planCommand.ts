@@ -1,9 +1,9 @@
-import { getDriver } from '@lightsout/drivers';
-import { loadConfig, resolvePlansDir } from '@lightsout/engine';
+import { resolvePlansDir } from '@lightsout/engine';
 import { getPositionals } from '../common/args/getPositionals';
 import { getStringFlag } from '../common/args/getStringFlag';
 import { usage } from '../common/constants/usage';
 import type { CommandContext } from '../common/types/CommandContext';
+import { resolveConfigAndDriver } from '../common/utils/resolveConfigAndDriver';
 import { loadPlanningStandards } from './loadPlanningStandards';
 import { planDedupCommand } from './planDedupCommand';
 import { planDraftCommand } from './planDraftCommand';
@@ -26,8 +26,7 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 			process.exit(1);
 		}
 
-		const config = await loadConfig({ cwd }).catch(() => undefined);
-		const driver = getDriver({ name: config?.driver ?? 'claude-code' });
+		const { config, driver } = await resolveConfigAndDriver({ cwd });
 		const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: 'plans' }), config });
 		const standards = await loadPlanningStandards({ cwd, config });
 

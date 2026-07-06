@@ -1,4 +1,4 @@
-import { draftConnectionDocs, loadConfig, resolveConnectionsSource, verifyConnectionAnchors } from '@lightsout/engine';
+import { draftConnectionDocs, loadConfig, verifyConnectionAnchors } from '@lightsout/engine';
 import { getPositionals } from './common/args/getPositionals';
 import { getStringFlag } from './common/args/getStringFlag';
 import { usage } from './common/constants/usage';
@@ -7,18 +7,14 @@ import { green } from './common/terminal/green';
 import { red } from './common/terminal/red';
 import { yellow } from './common/terminal/yellow';
 import type { CommandContext } from './common/types/CommandContext';
+import { resolveCommandConnections } from './common/utils/resolveCommandConnections';
 
 export const mapConnectionCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
 	const subcommand = getPositionals({ args: rest })[0];
 	const mapConfig = await loadConfig({ cwd }).catch(() => undefined);
-	const connectionsSource = getStringFlag({ flags, name: 'connections' }) ?? mapConfig?.traverse?.connections ?? '.lightsout/connections';
 
 	try {
-		const connections = await resolveConnectionsSource({ cwd, source: connectionsSource });
-
-		if (connections.remote) {
-			console.log(dim(`map: ${connections.repo} → ${connections.dir}`));
-		}
+		const { connections } = await resolveCommandConnections({ cwd, flags, config: mapConfig });
 
 		if (subcommand === 'verify') {
 			const docIds = getPositionals({ args: rest }).slice(1);
