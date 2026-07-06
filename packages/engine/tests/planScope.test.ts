@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { LightsoutConfig } from '@lightsout/contracts';
-import { readPlanPackages } from '../src/pipeline/readPlanPackages';
-import { scanPlanPackagePaths } from '../src/pipeline/scanPlanPackagePaths';
+import { readPlanPackages, scanPlanPackagePaths } from '../src/pipeline';
 
 test('readPlanPackages parses the block-list form', () => {
 	const plan = '---\npackages:\n  - backend-api\n  - "shared"\n---\n# Plan\n';

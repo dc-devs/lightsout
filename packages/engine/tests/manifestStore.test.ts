@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { test } from 'node:test';
 import { createRun, getRunDir, readRunManifest, writeRunManifest } from '../src/index';
-import { readStandards } from '../src/standards/readStandards';
+import { readStandards } from '../src/standards';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';
 
 test('manifest write → read round trip', async () => {
