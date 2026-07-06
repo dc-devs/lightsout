@@ -501,6 +501,43 @@ const executePipeline = async ({
 		};
 	};
 
+	// The aftermath of a fix invocation, shared by both verify retry paths (the
+	// cheap-retry loop and the supervisor retry-with-guidance branch): a park
+	// check, friction append, report merge into the record, and a re-gate. On
+	// rate-limit it signals the caller to park with its own (unmutated) record;
+	// otherwise it returns the advanced record and the fresh gate error.
+	const applyFix = async ({
+		id,
+		fix,
+		record,
+		coverage,
+	}: {
+		id: string;
+		fix: Awaited<ReturnType<typeof invokeRole>>;
+		record: StepRecord;
+		coverage?: boolean;
+	}) => {
+		if (fix.rateLimited) {
+			return { rateLimited: true as const };
+		}
+
+		if (fix.report) {
+			await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
+		}
+
+		let next = record;
+
+		if (fix.report?.status === WorkReportStatus.Complete) {
+			next = withStepFiles({ record, reports: [fix.report] });
+
+			await setStep({ record: { ...next, report: fix.report }, patch: await collectChanged([fix.report]) });
+		}
+
+		const error = await gates({ coverage });
+
+		return { rateLimited: false as const, record: next, error };
+	};
+
 	const verifyStep = ({
 		id,
 		coverage,
@@ -527,22 +564,14 @@ const executePipeline = async ({
 				progress(`step ${id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
 				const fix = await invokeRole(buildFix(error), id);
+				const applied = await applyFix({ id, fix, record, coverage });
 
-				if (fix.rateLimited) {
+				if (applied.rateLimited) {
 					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
 				}
 
-				if (fix.report) {
-					await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
-				}
-
-				if (fix.report?.status === WorkReportStatus.Complete) {
-					record = withStepFiles({ record, reports: [fix.report] });
-
-					await setStep({ record: { ...record, report: fix.report }, patch: await collectChanged([fix.report]) });
-				}
-
-				error = await gates({ coverage });
+				record = applied.record;
+				error = applied.error;
 			}
 
 			// Exception path: mechanical retries exhausted — bring in judgment.
@@ -580,22 +609,14 @@ const executePipeline = async ({
 						buildFix(`${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`),
 						id,
 					);
+					const applied = await applyFix({ id, fix, record, coverage });
 
-					if (fix.rateLimited) {
+					if (applied.rateLimited) {
 						return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
 					}
 
-					if (fix.report) {
-						await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
-					}
-
-					if (fix.report?.status === WorkReportStatus.Complete) {
-						record = withStepFiles({ record, reports: [fix.report] });
-
-						await setStep({ record: { ...record, report: fix.report }, patch: await collectChanged([fix.report]) });
-					}
-
-					error = await gates({ coverage });
+					record = applied.record;
+					error = applied.error;
 				}
 
 				if (error) {

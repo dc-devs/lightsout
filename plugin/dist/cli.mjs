@@ -37547,6 +37547,26 @@ ${text}`, "utf8");
       return void 0;
     };
   };
+  const applyFix = async ({
+    id,
+    fix,
+    record: record2,
+    coverage
+  }) => {
+    if (fix.rateLimited) {
+      return { rateLimited: true };
+    }
+    if (fix.report) {
+      await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
+    }
+    let next = record2;
+    if (fix.report?.status === WorkReportStatus.Complete) {
+      next = withStepFiles({ record: record2, reports: [fix.report] });
+      await setStep({ record: { ...next, report: fix.report }, patch: await collectChanged([fix.report]) });
+    }
+    const error51 = await gates({ coverage });
+    return { rateLimited: false, record: next, error: error51 };
+  };
   const verifyStep = ({
     id,
     coverage,
@@ -37562,17 +37582,12 @@ ${text}`, "utf8");
         await setStep({ record: record2 });
         progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
         const fix = await invokeRole(buildFix(error51), id);
-        if (fix.rateLimited) {
+        const applied = await applyFix({ id, fix, record: record2, coverage });
+        if (applied.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
         }
-        if (fix.report) {
-          await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
-        }
-        if (fix.report?.status === WorkReportStatus.Complete) {
-          record2 = withStepFiles({ record: record2, reports: [fix.report] });
-          await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
-        }
-        error51 = await gates({ coverage });
+        record2 = applied.record;
+        error51 = applied.error;
       }
       if (error51) {
         progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor (ceiling ${supervisorTimeoutMs / 6e4}m)`);
@@ -37607,17 +37622,12 @@ ${verdict.report.diagnosis}
 ${verdict.report.guidance}`),
             id
           );
-          if (fix.rateLimited) {
+          const applied = await applyFix({ id, fix, record: record2, coverage });
+          if (applied.rateLimited) {
             return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
           }
-          if (fix.report) {
-            await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
-          }
-          if (fix.report?.status === WorkReportStatus.Complete) {
-            record2 = withStepFiles({ record: record2, reports: [fix.report] });
-            await setStep({ record: { ...record2, report: fix.report }, patch: await collectChanged([fix.report]) });
-          }
-          error51 = await gates({ coverage });
+          record2 = applied.record;
+          error51 = applied.error;
         }
         if (error51) {
           const diagnosis = verdict.report ? `
