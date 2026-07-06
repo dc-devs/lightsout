@@ -38157,13 +38157,13 @@ ${notIgnored.join("\n")}`
   return checks.sort((a, b) => severityRank[a.status] - severityRank[b.status]);
 };
 
-// packages/engine/src/runTraverse.ts
+// packages/engine/src/traverse/runTraverse.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
 import { appendFile as appendFile5, mkdir as mkdir8, readFile as readFile20, writeFile as writeFile5 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join as join28 } from "node:path";
 
-// packages/engine/src/ensureNodeWorkspace.ts
+// packages/engine/src/traverse/ensureNodeWorkspace.ts
 import { rm as rm2, stat as stat2 } from "node:fs/promises";
 import { basename as basename5, join as join25 } from "node:path";
 var cloneTimeoutMs = 3e5;
@@ -38198,7 +38198,7 @@ var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false, ful
   return operation;
 };
 
-// packages/engine/src/matchExitToEdge.ts
+// packages/engine/src/traverse/matchExitToEdge.ts
 var normalized2 = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 var matchExitToEdge = ({ exit, node, edges }) => {
   const target = normalized2(exit.target);
@@ -38219,7 +38219,7 @@ var matchExitToEdge = ({ exit, node, edges }) => {
   return matches;
 };
 
-// packages/engine/src/readConnectionMap.ts
+// packages/engine/src/traverse/readConnectionMap.ts
 var import_yaml = __toESM(require_dist(), 1);
 import { readdir as readdir4, readFile as readFile18 } from "node:fs/promises";
 import { join as join26 } from "node:path";
@@ -38244,7 +38244,7 @@ var readConnectionMap = async ({ connectionsDir }) => {
   return edges;
 };
 
-// packages/engine/src/readNodeRegistry.ts
+// packages/engine/src/traverse/readNodeRegistry.ts
 var import_yaml2 = __toESM(require_dist(), 1);
 import { readFile as readFile19 } from "node:fs/promises";
 import { join as join27 } from "node:path";
@@ -38276,7 +38276,7 @@ var readNodeRegistry = async ({ connectionsDir }) => {
   );
 };
 
-// packages/engine/src/runTraverse.ts
+// packages/engine/src/traverse/runTraverse.ts
 var defaultBudget = 12;
 var defaultHopTimeoutMs = 30 * 60 * 1e3;
 var runTraverse = async ({
@@ -38448,13 +38448,13 @@ var runTraverse = async ({
   return { status, state, runId, runDir, error: void 0 };
 };
 
-// packages/engine/src/runDebug.ts
+// packages/engine/src/traverse/runDebug.ts
 import { randomUUID as randomUUID4 } from "node:crypto";
 import { appendFile as appendFile6, mkdir as mkdir9, readFile as readFile21, writeFile as writeFile6 } from "node:fs/promises";
 import { homedir as homedir2 } from "node:os";
 import { isAbsolute as isAbsolute3, join as join29 } from "node:path";
 
-// packages/engine/src/findConnectingDoc.ts
+// packages/engine/src/traverse/findConnectingDoc.ts
 var normalized3 = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 var findConnectingDoc = ({ lead, node, edges }) => {
   const target = normalized3(lead.target);
@@ -38485,7 +38485,7 @@ var findConnectingDoc = ({ lead, node, edges }) => {
   return [...plain, ...transportResults];
 };
 
-// packages/engine/src/resolveSeedNode.ts
+// packages/engine/src/traverse/resolveSeedNode.ts
 import { realpathSync } from "node:fs";
 import { basename as basename6, isAbsolute as isAbsolute2, relative as relative2 } from "node:path";
 var realOf = (value) => {
@@ -38553,7 +38553,7 @@ var resolveSeedNode = async ({ cwd, registry: registry3, edges, start }) => {
   };
 };
 
-// packages/engine/src/runDebug.ts
+// packages/engine/src/traverse/runDebug.ts
 var defaultBudget2 = 12;
 var defaultHopTimeoutMs2 = 30 * 60 * 1e3;
 var runDebug = async ({
@@ -38744,13 +38744,77 @@ var runDebug = async ({
   return { status, state, runId, runDir, error: void 0 };
 };
 
-// packages/engine/src/runBuildMap.ts
-import { randomUUID as randomUUID5 } from "node:crypto";
-import { mkdir as mkdir10, readdir as readdir5, readFile as readFile22, writeFile as writeFile7 } from "node:fs/promises";
+// packages/engine/src/traverse/patchConnectionDoc.ts
+var import_yaml3 = __toESM(require_dist(), 1);
+import { readFile as readFile22, writeFile as writeFile7 } from "node:fs/promises";
+var frontmatterPattern2 = /^---\n([\s\S]*?)\n---/;
+var patchConnectionDoc = async ({ path, patch }) => {
+  const text = await readFile22(path, "utf8");
+  const match = text.match(frontmatterPattern2);
+  if (!match?.[1]) {
+    throw new Error(`${path} has no frontmatter to patch`);
+  }
+  const raw = (0, import_yaml3.parse)(match[1]);
+  patch(raw);
+  await writeFile7(path, text.replace(frontmatterPattern2, `---
+${(0, import_yaml3.stringify)(raw).trimEnd()}
+---`), "utf8");
+};
+
+// packages/engine/src/traverse/parseConnectionsSource.ts
+var parseConnectionsSource = ({ source }) => {
+  const looksGit = /^(git@|ssh:\/\/|https?:\/\/)/.test(source) || /\.git(\/|$)/.test(source);
+  if (!looksGit) {
+    return { kind: "local", path: source };
+  }
+  const dotGit = source.indexOf(".git/");
+  if (dotGit !== -1) {
+    return { kind: "git", repo: source.slice(0, dotGit + 4), subpath: source.slice(dotGit + 5) || void 0 };
+  }
+  if (source.endsWith(".git")) {
+    return { kind: "git", repo: source, subpath: void 0 };
+  }
+  const protocolEnd = source.includes("://") ? source.indexOf("://") + 3 : 0;
+  const doubleSlash = source.indexOf("//", protocolEnd);
+  if (doubleSlash !== -1) {
+    return { kind: "git", repo: source.slice(0, doubleSlash), subpath: source.slice(doubleSlash + 2) || void 0 };
+  }
+  if (source.startsWith("git@")) {
+    const colon = source.indexOf(":");
+    const segments2 = source.slice(colon + 1).split("/");
+    return {
+      kind: "git",
+      repo: `${source.slice(0, colon + 1)}${segments2.slice(0, 2).join("/")}`,
+      subpath: segments2.slice(2).join("/") || void 0
+    };
+  }
+  const segments = source.slice(protocolEnd).split("/");
+  return {
+    kind: "git",
+    repo: `${source.slice(0, protocolEnd)}${segments.slice(0, 3).join("/")}`,
+    subpath: segments.slice(3).join("/") || void 0
+  };
+};
+
+// packages/engine/src/traverse/resolveConnectionsSource.ts
 import { homedir as homedir3 } from "node:os";
 import { isAbsolute as isAbsolute4, join as join30 } from "node:path";
+var resolveConnectionsSource = async ({ cwd, source, workspaceDir = join30(homedir3(), ".lightsout", "traverse-repos") }) => {
+  const parsed = parseConnectionsSource({ source });
+  if (parsed.kind === "local") {
+    return { dir: isAbsolute4(parsed.path) ? parsed.path : join30(cwd, parsed.path), remote: false, repo: void 0 };
+  }
+  const repoDir = await ensureNodeWorkspace({ repo: parsed.repo, workspaceDir, forceRefresh: true });
+  return { dir: parsed.subpath ? join30(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
+};
 
-// packages/engine/src/joinInventories.ts
+// packages/engine/src/traverse/runBuildMap.ts
+import { randomUUID as randomUUID5 } from "node:crypto";
+import { mkdir as mkdir10, readdir as readdir5, readFile as readFile23, writeFile as writeFile8 } from "node:fs/promises";
+import { homedir as homedir4 } from "node:os";
+import { isAbsolute as isAbsolute5, join as join31 } from "node:path";
+
+// packages/engine/src/traverse/joinInventories.ts
 var sortOps = (ops) => [...ops].sort((x, y) => x.name.localeCompare(y.name));
 var dedupeByLowerName = (ops) => {
   const byLower = /* @__PURE__ */ new Map();
@@ -38886,7 +38950,7 @@ var joinInventories = ({ inventories, edges }) => {
   };
 };
 
-// packages/engine/src/runBuildMap.ts
+// packages/engine/src/traverse/runBuildMap.ts
 var scanConcurrency = 5;
 var defaultScanTimeoutMs = 30 * 60 * 1e3;
 var gitTimeoutMs3 = 6e4;
@@ -38896,14 +38960,14 @@ var runBuildMap = async ({
   nodes,
   connectionsDir,
   rescan = false,
-  workspaceDir = join30(homedir3(), ".lightsout", "traverse-repos"),
+  workspaceDir = join31(homedir4(), ".lightsout", "traverse-repos"),
   model,
   permissionMode,
   timeoutMs = defaultScanTimeoutMs,
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute4(connectionsDir) ? connectionsDir : join30(cwd, connectionsDir);
+  const mapDir = isAbsolute5(connectionsDir) ? connectionsDir : join31(cwd, connectionsDir);
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const targets = nodes === "all" ? [...registry3.keys()] : nodes;
   for (const node of targets) {
@@ -38911,14 +38975,14 @@ var runBuildMap = async ({
       throw new Error(`node '${node}' is not in repos.yaml \u2014 register it first. Known nodes: ${[...registry3.keys()].join(", ")}`);
     }
   }
-  const inventoriesDir = join30(cwd, ".lightsout", "traverse", "inventories");
+  const inventoriesDir = join31(cwd, ".lightsout", "traverse", "inventories");
   const runId = `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/:/g, "-")}-${randomUUID5().slice(0, 8)}`;
-  const runDir = join30(cwd, ".lightsout", "traverse", "map-runs", runId);
+  const runDir = join31(cwd, ".lightsout", "traverse", "map-runs", runId);
   await mkdir10(inventoriesDir, { recursive: true });
   await mkdir10(runDir, { recursive: true });
   await mkdir10(workspaceDir, { recursive: true });
   const savedInventory = async (node) => {
-    const raw = await readFile22(join30(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
+    const raw = await readFile23(join31(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
     if (raw === void 0) {
       return void 0;
     }
@@ -38974,7 +39038,7 @@ var runBuildMap = async ({
       permissionMode,
       timeoutMs,
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile7(join30(runDir, `scan-${node}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile8(join31(runDir, `scan-${node}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (usage2) {
@@ -38990,7 +39054,7 @@ var runBuildMap = async ({
       return;
     }
     const stamped = { ...report, scannerVersion: scanEdgesVersion };
-    await writeFile7(join30(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, void 0, "	")}
+    await writeFile8(join31(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, void 0, "	")}
 `, "utf8");
     scanned.push(node);
     progress(`scan ${node}: ${report.edges.length} edge sighting(s), ${report.gaps.length} gap(s) \u2014 inventory saved`);
@@ -39021,7 +39085,7 @@ var runBuildMap = async ({
   }
   const edges = await readConnectionMap({ connectionsDir: mapDir }).catch(() => /* @__PURE__ */ new Map());
   const joined = MapJoin.parse(joinInventories({ inventories: pooled, edges }));
-  await writeFile7(join30(runDir, "join.json"), `${JSON.stringify(joined, void 0, "	")}
+  await writeFile8(join31(runDir, "join.json"), `${JSON.stringify(joined, void 0, "	")}
 `, "utf8");
   progress(
     `join: ${joined.matched.length} new edge(s), ${joined.confirmed.length} confirmed, ${joined.drifted.length} drifted, ${joined.orphansOut.length}/${joined.orphansIn.length} orphan(s) out/in, ${joined.noise.length} noise`
@@ -39029,38 +39093,21 @@ var runBuildMap = async ({
   return { status: "complete", runId, runDir, join: joined, scanned, reused, error: void 0 };
 };
 
-// packages/engine/src/authorConnectionDocs.ts
+// packages/engine/src/traverse/authorConnectionDocs.ts
 var import_yaml5 = __toESM(require_dist(), 1);
 import { writeFile as writeFile10 } from "node:fs/promises";
-import { join as join32 } from "node:path";
+import { join as join33 } from "node:path";
 
-// packages/engine/src/patchConnectionDoc.ts
-var import_yaml3 = __toESM(require_dist(), 1);
-import { readFile as readFile23, writeFile as writeFile8 } from "node:fs/promises";
-var frontmatterPattern2 = /^---\n([\s\S]*?)\n---/;
-var patchConnectionDoc = async ({ path, patch }) => {
-  const text = await readFile23(path, "utf8");
-  const match = text.match(frontmatterPattern2);
-  if (!match?.[1]) {
-    throw new Error(`${path} has no frontmatter to patch`);
-  }
-  const raw = (0, import_yaml3.parse)(match[1]);
-  patch(raw);
-  await writeFile8(path, text.replace(frontmatterPattern2, `---
-${(0, import_yaml3.stringify)(raw).trimEnd()}
----`), "utf8");
-};
-
-// packages/engine/src/regenerateConnectionIndex.ts
+// packages/engine/src/traverse/regenerateConnectionIndex.ts
 var import_yaml4 = __toESM(require_dist(), 1);
 import { readdir as readdir6, readFile as readFile24, writeFile as writeFile9 } from "node:fs/promises";
-import { join as join31 } from "node:path";
+import { join as join32 } from "node:path";
 var frontmatterPattern3 = /^---\n([\s\S]*?)\n---/;
 var regenerateConnectionIndex = async ({ connectionsDir }) => {
   const entries = await readdir6(connectionsDir);
   const rows = [];
   for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md").sort()) {
-    const text = await readFile24(join31(connectionsDir, name), "utf8");
+    const text = await readFile24(join32(connectionsDir, name), "utf8");
     const frontmatter = text.match(frontmatterPattern3)?.[1];
     const parsed = frontmatter ? ConnectionDoc.safeParse((0, import_yaml4.parse)(frontmatter)) : void 0;
     if (!parsed?.success) {
@@ -39079,11 +39126,11 @@ var regenerateConnectionIndex = async ({ connectionsDir }) => {
     ...rows,
     ""
   ].join("\n");
-  await writeFile9(join31(connectionsDir, "INDEX.md"), index, "utf8");
+  await writeFile9(join32(connectionsDir, "INDEX.md"), index, "utf8");
   return { edgeCount: rows.length };
 };
 
-// packages/engine/src/authorConnectionDocs.ts
+// packages/engine/src/traverse/authorConnectionDocs.ts
 var slugOf = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
 var renderOperations = (operations, drift) => {
   const groups = /* @__PURE__ */ new Map();
@@ -39130,7 +39177,7 @@ var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNod
       `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`,
       ...edge.operations.length > 0 || edge.operationDrift.callerOnly.length > 0 ? ["", ...renderOperations(edge.operations, edge.operationDrift)] : []
     ];
-    await writeFile10(join32(connectionsDir, `${id}.md`), `---
+    await writeFile10(join33(connectionsDir, `${id}.md`), `---
 ${frontmatter}
 ---
 
@@ -39140,7 +39187,7 @@ ${body.join("\n")}
   }
   for (const entry of reviewedJoin.confirmed) {
     await patchConnectionDoc({
-      path: join32(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      path: join33(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         const from = raw["from"];
         const to = raw["to"];
@@ -39153,7 +39200,7 @@ ${body.join("\n")}
   }
   for (const entry of reviewedJoin.drifted) {
     await patchConnectionDoc({
-      path: join32(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      path: join33(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         raw[`${entry.side}-anchor`] = { path: entry.foundAt.split(":")[0], pattern: entry.pattern };
       }
@@ -39163,21 +39210,62 @@ ${body.join("\n")}
   return { authored, confirmed: reviewedJoin.confirmed.length, repaired: reviewedJoin.drifted.length, edgeCount };
 };
 
-// packages/engine/src/verifyConnectionAnchors.ts
-import { readFile as readFile25 } from "node:fs/promises";
-import { homedir as homedir4 } from "node:os";
-import { isAbsolute as isAbsolute5, join as join33 } from "node:path";
+// packages/engine/src/traverse/draftConnectionDocs.ts
+import { mkdir as mkdir11, readFile as readFile25, writeFile as writeFile11 } from "node:fs/promises";
+import { isAbsolute as isAbsolute6, join as join34 } from "node:path";
+var slugOf2 = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
+var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
+  const mapDir = isAbsolute6(connectionsDir) ? connectionsDir : join34(cwd, connectionsDir);
+  const tracePath = join34(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
+  const raw = await readFile25(tracePath, "utf8").catch(() => {
+    throw new Error(`no trace found for run ${traverseRunId} at ${tracePath}`);
+  });
+  const state = TraceState.parse(JSON.parse(raw));
+  const draftsDir = join34(mapDir, "drafts");
+  const drafted = [];
+  await mkdir11(draftsDir, { recursive: true });
+  for (const gap of state.gaps) {
+    if (!gap.exit) {
+      continue;
+    }
+    const id = `${gap.node}--UNKNOWN--${slugOf2(gap.exit.target)}`;
+    const content = [
+      "---",
+      `from: ${gap.node}`,
+      "to: UNKNOWN # <- fill in the receiving node, then move this file up into the connections dir",
+      `type: ${gap.exit.kind}`,
+      "from-anchor:",
+      `  path: ${gap.exit.at.split(":")[0]}`,
+      `  pattern: "${gap.exit.target.replace(/"/g, '\\"')}" # <- replace with the greppable code fragment at the emit site`,
+      "additional-context: []",
+      "---",
+      "",
+      "# Summary",
+      "",
+      `DRAFT from traverse run ${traverseRunId}: ${gap.node} emits ${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at}, carrying ${gap.exit.carries}. Receiver unknown \u2014 ${gap.detail}`
+    ].join("\n");
+    await writeFile11(join34(draftsDir, `${id}.md`), `${content}
+`, "utf8");
+    drafted.push(id);
+  }
+  return { drafted, draftsDir };
+};
+
+// packages/engine/src/traverse/verifyConnectionAnchors.ts
+import { readFile as readFile26 } from "node:fs/promises";
+import { homedir as homedir5 } from "node:os";
+import { isAbsolute as isAbsolute7, join as join35 } from "node:path";
 var gitTimeoutMs4 = 6e4;
 var verifyConnectionAnchors = async ({
   cwd,
   connectionsDir,
   docIds,
   repair = false,
-  workspaceDir = join33(homedir4(), ".lightsout", "traverse-repos"),
+  workspaceDir = join35(homedir5(), ".lightsout", "traverse-repos"),
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute5(connectionsDir) ? connectionsDir : join33(cwd, connectionsDir);
+  const mapDir = isAbsolute7(connectionsDir) ? connectionsDir : join35(cwd, connectionsDir);
   const edges = await readConnectionMap({ connectionsDir: mapDir });
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const targets = docIds ?? [...edges.keys()];
@@ -39213,12 +39301,12 @@ var verifyConnectionAnchors = async ({
         continue;
       }
       const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir, forceRefresh: true });
-      const fileText = await readFile25(join33(workspace, anchor2.path), "utf8").catch(() => void 0);
+      const fileText = await readFile26(join35(workspace, anchor2.path), "utf8").catch(() => void 0);
       if (fileText?.includes(anchor2.pattern)) {
         results.push({ doc: id, side, node, status: "ok" });
         if (repair && head) {
           await patchConnectionDoc({
-            path: join33(mapDir, `${id}.md`),
+            path: join35(mapDir, `${id}.md`),
             patch: (raw) => {
               raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head };
             }
@@ -39237,7 +39325,7 @@ var verifyConnectionAnchors = async ({
         results.push({ doc: id, side, node, status: "drifted", foundAt });
         if (repair) {
           await patchConnectionDoc({
-            path: join33(mapDir, `${id}.md`),
+            path: join35(mapDir, `${id}.md`),
             patch: (raw) => {
               raw[`${side}-anchor`] = { path: foundAt.split(":")[0], pattern: anchor2.pattern };
               raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head ?? null };
@@ -39251,94 +39339,6 @@ var verifyConnectionAnchors = async ({
     progress(`verify ${id}: ${results.filter((entry) => entry.doc === id).map((entry) => `${entry.side} ${entry.status}`).join(", ")}`);
   }
   return results;
-};
-
-// packages/engine/src/parseConnectionsSource.ts
-var parseConnectionsSource = ({ source }) => {
-  const looksGit = /^(git@|ssh:\/\/|https?:\/\/)/.test(source) || /\.git(\/|$)/.test(source);
-  if (!looksGit) {
-    return { kind: "local", path: source };
-  }
-  const dotGit = source.indexOf(".git/");
-  if (dotGit !== -1) {
-    return { kind: "git", repo: source.slice(0, dotGit + 4), subpath: source.slice(dotGit + 5) || void 0 };
-  }
-  if (source.endsWith(".git")) {
-    return { kind: "git", repo: source, subpath: void 0 };
-  }
-  const protocolEnd = source.includes("://") ? source.indexOf("://") + 3 : 0;
-  const doubleSlash = source.indexOf("//", protocolEnd);
-  if (doubleSlash !== -1) {
-    return { kind: "git", repo: source.slice(0, doubleSlash), subpath: source.slice(doubleSlash + 2) || void 0 };
-  }
-  if (source.startsWith("git@")) {
-    const colon = source.indexOf(":");
-    const segments2 = source.slice(colon + 1).split("/");
-    return {
-      kind: "git",
-      repo: `${source.slice(0, colon + 1)}${segments2.slice(0, 2).join("/")}`,
-      subpath: segments2.slice(2).join("/") || void 0
-    };
-  }
-  const segments = source.slice(protocolEnd).split("/");
-  return {
-    kind: "git",
-    repo: `${source.slice(0, protocolEnd)}${segments.slice(0, 3).join("/")}`,
-    subpath: segments.slice(3).join("/") || void 0
-  };
-};
-
-// packages/engine/src/resolveConnectionsSource.ts
-import { homedir as homedir5 } from "node:os";
-import { isAbsolute as isAbsolute6, join as join34 } from "node:path";
-var resolveConnectionsSource = async ({ cwd, source, workspaceDir = join34(homedir5(), ".lightsout", "traverse-repos") }) => {
-  const parsed = parseConnectionsSource({ source });
-  if (parsed.kind === "local") {
-    return { dir: isAbsolute6(parsed.path) ? parsed.path : join34(cwd, parsed.path), remote: false, repo: void 0 };
-  }
-  const repoDir = await ensureNodeWorkspace({ repo: parsed.repo, workspaceDir, forceRefresh: true });
-  return { dir: parsed.subpath ? join34(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
-};
-
-// packages/engine/src/draftConnectionDocs.ts
-import { mkdir as mkdir11, readFile as readFile26, writeFile as writeFile11 } from "node:fs/promises";
-import { isAbsolute as isAbsolute7, join as join35 } from "node:path";
-var slugOf2 = (key) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
-var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
-  const mapDir = isAbsolute7(connectionsDir) ? connectionsDir : join35(cwd, connectionsDir);
-  const tracePath = join35(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
-  const raw = await readFile26(tracePath, "utf8").catch(() => {
-    throw new Error(`no trace found for run ${traverseRunId} at ${tracePath}`);
-  });
-  const state = TraceState.parse(JSON.parse(raw));
-  const draftsDir = join35(mapDir, "drafts");
-  const drafted = [];
-  await mkdir11(draftsDir, { recursive: true });
-  for (const gap of state.gaps) {
-    if (!gap.exit) {
-      continue;
-    }
-    const id = `${gap.node}--UNKNOWN--${slugOf2(gap.exit.target)}`;
-    const content = [
-      "---",
-      `from: ${gap.node}`,
-      "to: UNKNOWN # <- fill in the receiving node, then move this file up into the connections dir",
-      `type: ${gap.exit.kind}`,
-      "from-anchor:",
-      `  path: ${gap.exit.at.split(":")[0]}`,
-      `  pattern: "${gap.exit.target.replace(/"/g, '\\"')}" # <- replace with the greppable code fragment at the emit site`,
-      "additional-context: []",
-      "---",
-      "",
-      "# Summary",
-      "",
-      `DRAFT from traverse run ${traverseRunId}: ${gap.node} emits ${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at}, carrying ${gap.exit.carries}. Receiver unknown \u2014 ${gap.detail}`
-    ].join("\n");
-    await writeFile11(join35(draftsDir, `${id}.md`), `${content}
-`, "utf8");
-    drafted.push(id);
-  }
-  return { drafted, draftsDir };
 };
 
 // packages/engine/src/runPromptImprovement.ts

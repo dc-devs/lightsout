@@ -1,7 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { basename, isAbsolute, relative } from 'node:path';
 import type { ConnectionDoc } from '@lightsout/contracts';
-import { runCommand } from './common/utils/runCommand';
+import { runCommand } from '../common/utils/runCommand';
 
 /** Resolve symlinks so a repos.yaml path and `git rev-parse` (which reports the realpath, e.g. /private/var vs /var) compare equal; a non-path (git URL) or missing dir falls through unchanged. */
 const realOf = (value: string) => {

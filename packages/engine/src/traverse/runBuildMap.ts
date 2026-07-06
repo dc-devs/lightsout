@@ -6,11 +6,11 @@ import { EdgeInventory, MapJoin } from '@lightsout/contracts';
 import { buildScanEdgesInvocation, scanEdgesVersion } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
-import { invokeAgentWithContract } from './invoke';
+import { invokeAgentWithContract } from '../invoke';
 import { joinInventories } from './joinInventories';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';
-import { runCommand } from './common/utils/runCommand';
+import { runCommand } from '../common/utils/runCommand';
 
 const scanConcurrency = 5;
 const defaultScanTimeoutMs = 30 * 60 * 1000;
