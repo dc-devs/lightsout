@@ -37,6 +37,7 @@ Tests target **module boundaries** — a module's public API — not every file 
 - If an internal branch cannot be reached through any boundary input, it is **dead code** — flag it for deletion. Do not write a direct test to cover it.
 - If covering an internal through the boundary is impractical (combinatorial inputs), that is the promotion signal: the internal has earned its own module and direct tests. Flag it in the report — do not silently create a dedicated test file.
 - Existing dedicated test files on internals are migration debt: leave them in place and do not extend them — new coverage goes through the boundary. Flag them in the report as migration candidates.
+- A test deep-importing a module internal (a module-boundary scan finding on a test file) is resolved by THIS section's rules, never by a bare import rewrite: barrel-exported target → import through the barrel; internal target → convert the coverage to drive the module's boundary, or — when that is impractical — treat it as the promotion signal above and export the file deliberately.
 
 ## Test Files
 
