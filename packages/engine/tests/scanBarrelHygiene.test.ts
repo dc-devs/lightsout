@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { scanBarrelHygiene } from '../src/scan/scanBarrelHygiene';
+import { runScan } from '../src/scan';
 
 const setup = (files: Record<string, string>) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-barrel-'));
@@ -34,14 +34,9 @@ test('scanBarrelHygiene flags export * and module barrel entries no outside file
 		'src/index.ts': "export * from './m';\n",
 	};
 	const dir = setup(files);
-	const list = Object.keys(files);
 
-	const findings = await scanBarrelHygiene({ cwd: dir, files: list, referenceFiles: list });
-
-	assert.ok(
-		findings.every((finding) => finding.detector === 'barrel-hygiene'),
-		'every finding is a barrel-hygiene finding',
-	);
+	const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
+	const findings = allFindings.filter((finding) => finding.detector === 'barrel-hygiene');
 
 	const star = findings.filter((finding) => finding.cluster.startsWith('barrel-star:'));
 	assert.deepEqual(star.map((finding) => finding.cluster), ['barrel-star:src/m/index.ts'], 'export * flagged, root barrel excluded');

@@ -2,11 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { scanModuleBoundaries } from '../src/scan/scanModuleBoundaries';
-
-const ts = createRequire(import.meta.url)('typescript') as typeof import('typescript');
+import { runScan } from '../src/scan';
 
 const setup = (files: Record<string, string>) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-boundary-'));
@@ -16,10 +13,17 @@ const setup = (files: Record<string, string>) => {
 		writeFileSync(join(dir, rel), content);
 	}
 
+	// The boundary detector needs import resolution — hand the fixture our TS.
 	mkdirSync(join(dir, 'node_modules'), { recursive: true });
 	symlinkSync(join(process.cwd(), 'node_modules/typescript'), join(dir, 'node_modules/typescript'), 'dir');
 
 	return dir;
+};
+
+const boundaryFindings = async (dir: string) => {
+	const { findings } = await runScan({ cwd: dir, persist: false });
+
+	return findings.filter((finding) => finding.detector === 'module-boundary');
 };
 
 test('scanModuleBoundaries flags deep imports across a module boundary, allowing barrel / domain / common / same-module', async () => {
@@ -42,12 +46,12 @@ test('scanModuleBoundaries flags deep imports across a module boundary, allowing
 	};
 	const dir = setup(files);
 
-	const findings = await scanModuleBoundaries({ cwd: dir, files: Object.keys(files), compiler: ts });
+	const findings = await boundaryFindings(dir);
 	const clusters = findings.map((finding) => finding.cluster);
 
 	assert.ok(
-		findings.every((finding) => finding.detector === 'module-boundary' && finding.severity === 'finding'),
-		'every finding is a module-boundary finding',
+		findings.every((finding) => finding.severity === 'finding'),
+		'every module-boundary finding carries the finding severity',
 	);
 	assert.deepEqual(clusters.sort(), ['boundary:src/b/b.ts'], 'only the deep cross-boundary import flags');
 
@@ -70,7 +74,7 @@ test('scanModuleBoundaries picks the OUTERMOST crossed module for nested modules
 	};
 	const dir = setup(files);
 
-	const findings = await scanModuleBoundaries({ cwd: dir, files: Object.keys(files), compiler: ts });
+	const findings = await boundaryFindings(dir);
 	const byCluster = (cluster: string) => findings.find((finding) => finding.cluster === cluster);
 
 	assert.ok(byCluster('boundary:src/ext/ext.ts')?.detail.includes("module 'src/outer'"), 'outsider crosses the OUTERMOST module first');

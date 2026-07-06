@@ -1,15 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { scanAstFindings } from '../src/scan/scanAstFindings';
-
-// Runtime require, mirroring resolveConsumerTypescript: a static import would
-// make esbuild inline the whole CJS compiler into the ESM test bundle, where
-// its __filename probes crash.
-const ts = createRequire(import.meta.url)('typescript') as typeof import('typescript');
+import { runScan } from '../src/scan';
 
 const setupRepo = (files: Record<string, string>) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-ast-'));
@@ -17,6 +11,11 @@ const setupRepo = (files: Record<string, string>) => {
 	for (const [name, content] of Object.entries(files)) {
 		writeFileSync(join(dir, name), content);
 	}
+
+	// The AST tier borrows the consumer's TypeScript — hand the fixture ours,
+	// or runScan degrades the ast-duplicate detector to a skip.
+	mkdirSync(join(dir, 'node_modules'), { recursive: true });
+	symlinkSync(join(process.cwd(), 'node_modules/typescript'), join(dir, 'node_modules/typescript'), 'dir');
 
 	return dir;
 };
@@ -43,7 +42,7 @@ test('ast-duplicate: wrappers binding DIFFERENT use* hooks are not duplicates; i
 		'copyB.ts': wrapper({ name: 'BetaButton', hook: 'useSharedThing' }).replace(/mutation/g, 'beta'),
 	});
 
-	const findings = await scanAstFindings({ cwd: dir, files: ['github.ts', 'linear.ts', 'copyA.ts', 'copyB.ts'], compiler: ts });
+	const { findings } = await runScan({ cwd: dir, persist: false });
 	const duplicates = findings.filter((finding) => finding.detector === 'ast-duplicate');
 
 	assert.equal(duplicates.length, 1, `expected exactly the same-hook pair flagged, got: ${JSON.stringify(duplicates)}`);

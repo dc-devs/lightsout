@@ -2,11 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { scanPlacement } from '../src/scan/scanPlacement';
-
-const ts = createRequire(import.meta.url)('typescript') as typeof import('typescript');
+import { runScan } from '../src/scan';
 
 const setup = (files: Record<string, string>) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-placement-'));
@@ -16,6 +13,7 @@ const setup = (files: Record<string, string>) => {
 		writeFileSync(join(dir, rel), content);
 	}
 
+	// The placement detector needs import resolution — hand the fixture our TS.
 	mkdirSync(join(dir, 'node_modules'), { recursive: true });
 	symlinkSync(join(process.cwd(), 'node_modules/typescript'), join(dir, 'node_modules/typescript'), 'dir');
 
@@ -36,11 +34,12 @@ test('scanPlacement flags a module-internal common file leaking to outside impor
 	};
 	const dir = setup(files);
 
-	const findings = await scanPlacement({ cwd: dir, files: Object.keys(files), compiler: ts });
+	const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
+	const findings = allFindings.filter((finding) => finding.detector === 'placement');
 
 	assert.ok(
-		findings.every((finding) => finding.detector === 'placement' && finding.severity === 'finding'),
-		'every finding is a placement finding',
+		findings.every((finding) => finding.severity === 'finding'),
+		'every placement finding carries the finding severity',
 	);
 	assert.deepEqual(findings.map((finding) => finding.cluster).sort(), ['placement:src/pay/common/utils/round.ts'], 'only the leaked module-internal common file');
 
