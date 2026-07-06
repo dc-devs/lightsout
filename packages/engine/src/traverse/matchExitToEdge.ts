@@ -1,6 +1,5 @@
 import type { ConnectionDoc, HopReport } from '@lightsout/contracts';
-
-const normalized = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+import { collapseCasing } from '../common/naming/collapseCasing';
 
 interface Params {
 	exit: HopReport['exits'][number];
@@ -17,7 +16,7 @@ interface Params {
  * is ambiguity reported as a gap — never a guess (prototype decision T7).
  */
 export const matchExitToEdge = ({ exit, node, edges }: Params) => {
-	const target = normalized(exit.target);
+	const target = collapseCasing(exit.target);
 
 	if (!target) {
 		return [];
@@ -31,7 +30,7 @@ export const matchExitToEdge = ({ exit, node, edges }: Params) => {
 		}
 
 		const label = id.split('--')[2] ?? '';
-		const keys = [label, doc.fromAnchor?.pattern ?? '', doc.toAnchor?.pattern ?? ''].map(normalized).filter(Boolean);
+		const keys = [label, doc.fromAnchor?.pattern ?? '', doc.toAnchor?.pattern ?? ''].map(collapseCasing).filter(Boolean);
 
 		if (keys.some((key) => key.includes(target) || target.includes(key))) {
 			matches.push(id);

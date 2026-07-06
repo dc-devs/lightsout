@@ -2,10 +2,9 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { stringify } from 'yaml';
 import type { EdgeOperation, MapJoin } from '@lightsout/contracts';
+import { slugOf } from './common/utils/slugOf';
 import { patchConnectionDoc } from './patchConnectionDoc';
 import { regenerateConnectionIndex } from './regenerateConnectionIndex';
-
-const slugOf = (key: string) => key.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'edge';
 
 /**
  * A multiplexed edge's operations, rendered as generated evidence — the
@@ -66,7 +65,7 @@ export const authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin,
 	const authored: string[] = [];
 
 	for (const edge of reviewedJoin.matched) {
-		const id = `${edge.from}--${edge.to}--${slugOf(edge.matchKey)}`;
+		const id = `${edge.from}--${edge.to}--${slugOf({ key: edge.matchKey })}`;
 		const frontmatter = stringify({
 			from: edge.from,
 			to: edge.to,

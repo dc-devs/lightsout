@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
+import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { patchConnectionDoc } from './patchConnectionDoc';
 import { readConnectionMap } from './readConnectionMap';
@@ -43,7 +43,7 @@ export const verifyConnectionAnchors = async ({
 	connectionsDir,
 	docIds,
 	repair = false,
-	workspaceDir = join(homedir(), '.lightsout', 'traverse-repos'),
+	workspaceDir = defaultWorkspaceDir,
 	onProgress,
 }: Params) => {
 	const progress = onProgress ?? (() => undefined);

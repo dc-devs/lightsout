@@ -1,7 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { parse, stringify } from 'yaml';
-
-const frontmatterPattern = /^---\n([\s\S]*?)\n---/;
+import { frontmatterPattern } from './common/constants/frontmatterPattern';
 
 interface Params {
 	path: string;

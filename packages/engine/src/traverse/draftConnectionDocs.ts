@@ -1,8 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { TraceState } from '@lightsout/contracts';
-
-const slugOf = (key: string) => key.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'edge';
+import { slugOf } from './common/utils/slugOf';
 
 interface Params {
 	cwd: string;
@@ -36,7 +35,7 @@ export const draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }
 			continue;
 		}
 
-		const id = `${gap.node}--UNKNOWN--${slugOf(gap.exit.target)}`;
+		const id = `${gap.node}--UNKNOWN--${slugOf({ key: gap.exit.target })}`;
 		const content = [
 			'---',
 			`from: ${gap.node}`,

@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { DebugHopReport, DebugTraceState } from '@lightsout/contracts';
 import { buildDebugHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
+import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
+import { mintRunId } from './common/utils/mintRunId';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { findConnectingDoc } from './findConnectingDoc';
 import { invokeAgentWithContract } from '../invoke';
@@ -56,7 +56,7 @@ export const runDebug = async ({
 	at,
 	suspectCommit,
 	budget,
-	workspaceDir = join(homedir(), '.lightsout', 'traverse-repos'),
+	workspaceDir = defaultWorkspaceDir,
 	resumeRunId,
 	model,
 	permissionMode,
@@ -68,7 +68,7 @@ export const runDebug = async ({
 	const edges = await readConnectionMap({ connectionsDir: mapDir });
 	const registry = await readNodeRegistry({ connectionsDir: mapDir });
 
-	const runId = resumeRunId ?? `${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}-${randomUUID().slice(0, 8)}`;
+	const runId = resumeRunId ?? mintRunId();
 	const runDir = join(cwd, '.lightsout', 'debug', runId);
 	const tracePath = join(runDir, 'trace.json');
 

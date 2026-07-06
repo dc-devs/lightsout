@@ -1,6 +1,5 @@
 import type { ConnectionDoc, DebugHopReport } from '@lightsout/contracts';
-
-const normalized = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+import { collapseCasing } from '../common/naming/collapseCasing';
 
 interface Params {
 	/** A debug lead: the crossing the hop agent saw in the current node's code (verdict = points-elsewhere). */
@@ -31,7 +30,7 @@ interface Params {
  * special-casing.
  */
 export const findConnectingDoc = ({ lead, node, edges }: Params) => {
-	const target = normalized(lead.target);
+	const target = collapseCasing(lead.target);
 
 	if (!target) {
 		return [];
@@ -51,12 +50,12 @@ export const findConnectingDoc = ({ lead, node, edges }: Params) => {
 
 		if (doc.operations.length > 0) {
 			// Multiplexed transport: the lead names an operation, the edge is the channel.
-			transports.push({ hit: hit(id, doc), opMatch: doc.operations.some((op) => op.name !== '' && target.includes(normalized(op.name))) });
+			transports.push({ hit: hit(id, doc), opMatch: doc.operations.some((op) => op.name !== '' && target.includes(collapseCasing(op.name))) });
 			continue;
 		}
 
 		const label = id.split('--')[2] ?? '';
-		const keys = [label, doc.fromAnchor?.pattern ?? '', doc.toAnchor?.pattern ?? ''].map(normalized).filter(Boolean);
+		const keys = [label, doc.fromAnchor?.pattern ?? '', doc.toAnchor?.pattern ?? ''].map(collapseCasing).filter(Boolean);
 
 		if (keys.some((key) => key.includes(target) || target.includes(key))) {
 			plain.push(hit(id, doc));

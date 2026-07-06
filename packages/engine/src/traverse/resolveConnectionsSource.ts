@@ -1,5 +1,5 @@
-import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
+import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { parseConnectionsSource } from './parseConnectionsSource';
 
@@ -18,7 +18,7 @@ interface Params {
  * by hand. Writes (author, repair, drafts) land in that clone — the caller
  * announces where, so the user commits/PRs from there.
  */
-export const resolveConnectionsSource = async ({ cwd, source, workspaceDir = join(homedir(), '.lightsout', 'traverse-repos') }: Params) => {
+export const resolveConnectionsSource = async ({ cwd, source, workspaceDir = defaultWorkspaceDir }: Params) => {
 	const parsed = parseConnectionsSource({ source });
 
 	if (parsed.kind === 'local') {

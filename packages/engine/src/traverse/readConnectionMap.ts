@@ -2,8 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { ConnectionDoc } from '@lightsout/contracts';
-
-const frontmatterPattern = /^---\n([\s\S]*?)\n---/;
+import { frontmatterPattern } from './common/constants/frontmatterPattern';
 
 interface Params {
 	/** Directory of connection docs (one `<from>--<to>--<label>.md` per edge). */

@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { EdgeInventory, MapJoin } from '@lightsout/contracts';
 import { buildScanEdgesInvocation, scanEdgesVersion } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
+import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
+import { mintRunId } from './common/utils/mintRunId';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { invokeAgentWithContract } from '../invoke';
 import { joinInventories } from './joinInventories';
@@ -46,7 +46,7 @@ export const runBuildMap = async ({
 	nodes,
 	connectionsDir,
 	rescan = false,
-	workspaceDir = join(homedir(), '.lightsout', 'traverse-repos'),
+	workspaceDir = defaultWorkspaceDir,
 	model,
 	permissionMode,
 	timeoutMs = defaultScanTimeoutMs,
@@ -67,7 +67,7 @@ export const runBuildMap = async ({
 	// Full timestamp to the second (colons → dashes for the filesystem) so a
 	// lexicographic sort of map-runs/ IS chronological — the newest run is
 	// always last. The short hash only guards same-second collisions.
-	const runId = `${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}-${randomUUID().slice(0, 8)}`;
+	const runId = mintRunId();
 	const runDir = join(cwd, '.lightsout', 'traverse', 'map-runs', runId);
 
 	await mkdir(inventoriesDir, { recursive: true });
