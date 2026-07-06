@@ -20,8 +20,8 @@ interface Params {
  * dead?", by whole-word reference counting exactly like scanDeadExports
  * (short names skipped, conservative by construction). Package-root barrels
  * are excluded from both checks (their consumers are other packages, invisible
- * to path resolution). Runs in the compiler-gated block with the other
- * architecture detectors.
+ * to path resolution). Text-based throughout — needs no compiler, so unlike
+ * the other architecture detectors it runs even in JS-only repos.
  */
 export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params): Promise<ScanFinding[]> => {
 	const modules = await mapFolderModules({ cwd, files });

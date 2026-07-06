@@ -37212,11 +37212,11 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
     progress(`module boundaries: done`);
     findings.push(...await scanPlacement({ cwd, files: allFiles, compiler }));
     progress(`placement: done`);
-    findings.push(...await scanBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles }));
-    progress(`barrel hygiene: done`);
   } else {
-    notes.push("tier 2 (ast) + function-size audit + architecture detectors skipped \u2014 no typescript resolvable from the target repo");
+    notes.push("tier 2 (ast) + function-size audit + module-boundary/placement detectors skipped \u2014 no typescript resolvable from the target repo");
   }
+  findings.push(...await scanBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles }));
+  progress(`barrel hygiene: done`);
   findings.push(...await scanStructure({ cwd, files: source }));
   progress(`structure: done`);
   findings.push(...await scanDeadExports({ cwd, files: allFiles, referenceFiles: repoFiles }));

@@ -111,11 +111,15 @@ export const runScan = async ({ cwd, path, all = false, writeBaseline = false, p
 		progress(`module boundaries: done`);
 		findings.push(...(await scanPlacement({ cwd, files: allFiles, compiler })));
 		progress(`placement: done`);
-		findings.push(...(await scanBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles })));
-		progress(`barrel hygiene: done`);
 	} else {
-		notes.push('tier 2 (ast) + function-size audit + architecture detectors skipped — no typescript resolvable from the target repo');
+		notes.push('tier 2 (ast) + function-size audit + module-boundary/placement detectors skipped — no typescript resolvable from the target repo');
 	}
+
+	// Barrel hygiene is text-based (barrel parsing + whole-word reference
+	// counting, like dead exports) — no import resolution, so JS-only repos
+	// keep it even when the compiler-gated detectors degrade.
+	findings.push(...(await scanBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles })));
+	progress(`barrel hygiene: done`);
 
 	findings.push(...(await scanStructure({ cwd, files: source })));
 	progress(`structure: done`);
