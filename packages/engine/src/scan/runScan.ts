@@ -9,6 +9,7 @@ import { resolveConsumerTypescript } from '../common/utils/resolveConsumerTypesc
 import { scanAstFindings } from './scanAstFindings';
 import { scanClones } from './scanClones';
 import { scanDeadExports } from './scanDeadExports';
+import { scanBarrelHygiene } from './scanBarrelHygiene';
 import { scanFilenameDuplicates } from './scanFilenameDuplicates';
 import { scanModuleBoundaries } from './scanModuleBoundaries';
 import { scanPlacement } from './scanPlacement';
@@ -110,6 +111,8 @@ export const runScan = async ({ cwd, path, all = false, writeBaseline = false, p
 		progress(`module boundaries: done`);
 		findings.push(...(await scanPlacement({ cwd, files: allFiles, compiler })));
 		progress(`placement: done`);
+		findings.push(...(await scanBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles })));
+		progress(`barrel hygiene: done`);
 	} else {
 		notes.push('tier 2 (ast) + function-size audit + architecture detectors skipped — no typescript resolvable from the target repo');
 	}
