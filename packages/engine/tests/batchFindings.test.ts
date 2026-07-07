@@ -59,3 +59,23 @@ test('batchFindings: advisories attach to batches whose files overlap, never for
 	assert.equal(batches.find((batch) => batch.folder === 'src')?.advisories.length, 1);
 	assert.equal(batches.find((batch) => batch.folder === 'lib')?.advisories.length, 0);
 });
+
+test('batchFindings: a finding spanning folders gets a dedicated cross batch with every side in scope', () => {
+	const batches = batchFindings({
+		findings: [
+			finding({ detector: 'clone', path: 'packages/api/src/a.ts', cluster: 'clone:a' }),
+			{
+				...finding({ detector: 'clone', path: 'packages/api/src/b.ts', cluster: 'clone:x' }),
+				files: [{ path: 'packages/api/src/b.ts' }, { path: 'packages/web/src/c.ts' }],
+			},
+		],
+		advisories: [],
+		packagesDir: 'packages',
+	});
+
+	const cross = batches.find((batch) => batch.folder === '(cross)');
+
+	assert.ok(cross, 'multi-folder finding forms its own (cross) batch');
+	assert.deepEqual(cross?.findings.map((entry) => entry.cluster), ['clone:x']);
+	assert.equal(batches.at(-1)?.folder, '(cross)', 'cross batches run after single-folder batches of the same detector');
+});
