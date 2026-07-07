@@ -24,6 +24,8 @@ document and use another style (`beforeEach` + shared `let`, nested
 
 Tests target **module boundaries** — a module's public API — not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.
 
+**"Public" means reachable through a barrel (`index.ts`), not "has the `export` keyword"** — under one-export-per-file, everything carries `export`; the barrel is the line. The whole doctrine in one sentence: *test what's in the barrels; nothing else gets a test file.* And it holds in both directions — **direct tests are never an exception, they are a promotion**: if a helper's cases deserve direct tests (combinatorial inputs, a contract meaningful to callers who've never seen this module), the helper deserves the barrel first. Reluctance to export it is evidence its cases aren't a contract — cover it through the boundary, or ask whether the uncoverable branches are dead code.
+
 **Classify every source file before writing tests:**
 
 | Classification | Definition | Test file? |

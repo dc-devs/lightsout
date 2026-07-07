@@ -7994,6 +7994,8 @@ usage:
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
+  lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--data <field>] [--cwd <path>]
   lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
   lightsout debug "<symptoms>" [--start <node>] [--at <file:line>] [--suspect <hash>] [--connections <dir>] [--budget <n>] [--cwd <path>]
@@ -8011,8 +8013,8 @@ usage:
 `;
 
 // packages/cli/src/buildMapCommand.ts
-import { readFile as readFile35, readdir as readdir10 } from "node:fs/promises";
-import { join as join50 } from "node:path";
+import { readFile as readFile36, readdir as readdir10 } from "node:fs/promises";
+import { join as join52 } from "node:path";
 
 // packages/contracts/src/run/RunStatus.ts
 var RunStatus = {
@@ -8022,6 +8024,8 @@ var RunStatus = {
   Failed: "failed",
   /** Hit the harness rate-limit wall — a first-class pausable state, not an error. Resumes when the window resets. */
   PausedRateLimit: "paused-rate-limit",
+  /** Stopped at a caller-set budget ceiling (e.g. refactor --max-batches) — pausable, resume to continue. */
+  PausedBudget: "paused-budget",
   /** Supervisor determined a human decision is required. */
   Escalated: "escalated"
 };
@@ -22698,6 +22702,8 @@ var RunManifest = external_exports.object({
   updatedAt: external_exports.string(),
   /** Path to the plan file the run implements, relative to the target repo. */
   plan: external_exports.string(),
+  /** Which pipeline owns this run ('implement' | 'refactor'). Absent on pre-discriminator manifests → implement. */
+  pipeline: external_exports.string().optional(),
   /** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
   overview: external_exports.string().optional(),
   /** Driver name the run was started with (a resumed run must reuse it). */
@@ -23421,6 +23427,44 @@ var DedupReport = external_exports.object({
   reviewedAt: external_exports.string()
 });
 
+// packages/contracts/src/refactor/RefactorBatch.ts
+var RefactorBatch = external_exports.object({
+  /** Manifest step id: `batch-NN:<detector>:<folder>`. */
+  id: external_exports.string(),
+  detector: external_exports.string(),
+  /** Grouping folder: `<packagesDir>/<package>` when under it, else the top path segment, else '(root)'. */
+  folder: external_exports.string(),
+  /** Finding-severity work — must-address, re-checked after the agent reports. */
+  findings: external_exports.array(ScanFinding),
+  /** Judgment-carrying advisories whose files overlap this batch — context, never blocking. */
+  advisories: external_exports.array(ScanFinding)
+});
+
+// packages/contracts/src/refactor/RefactorWorklist.ts
+var RefactorWorklist = external_exports.object({
+  at: external_exports.string(),
+  /** Scan scope subpath, '.' for the whole repo. */
+  path: external_exports.string(),
+  /** Whether baselined findings were included (burn-down mode). */
+  all: external_exports.boolean(),
+  batches: external_exports.array(RefactorBatch)
+});
+
+// packages/contracts/src/refactor/BatchOutcome.ts
+var BatchOutcome = {
+  Resolved: "resolved",
+  Declined: "declined"
+};
+
+// packages/contracts/src/refactor/BatchReport.ts
+var BatchReport = external_exports.object({
+  outcome: external_exports.enum(BatchOutcome),
+  /** Cluster ids still present after the batch (empty when resolved). */
+  remainingClusters: external_exports.array(external_exports.string()),
+  /** The executing agent's account of why findings were declined, from its friction entries. */
+  rationale: external_exports.array(external_exports.string())
+});
+
 // packages/engine/src/runState/createRun.ts
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
@@ -23445,13 +23489,14 @@ var writeRunManifest = async ({ cwd, manifest }) => {
 };
 
 // packages/engine/src/runState/createRun.ts
-var createRun = async ({ cwd, runId, plan, overview, driver, config: config2, baselineDirtyFiles }) => {
+var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: config2, baselineDirtyFiles }) => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const manifest = {
     runId: runId ?? randomUUID(),
     createdAt: now,
     updatedAt: now,
     plan,
+    pipeline,
     overview,
     driver,
     config: config2,
@@ -23474,42 +23519,32 @@ var readRunManifest = async ({ cwd, runId }) => {
   return RunManifest.parse(JSON.parse(raw));
 };
 
-// packages/engine/src/runState/appendAgentLog.ts
+// packages/engine/src/runState/appendCommandLog.ts
 import { appendFile, mkdir as mkdir2 } from "node:fs/promises";
 import { join as join4 } from "node:path";
-var appendAgentLog = async ({ cwd, runId, record: record2 }) => {
-  const dir = getRunDir({ cwd, runId });
-  await mkdir2(dir, { recursive: true });
-  await appendFile(join4(dir, "agents.jsonl"), `${JSON.stringify(record2)}
-`, "utf8");
-};
-
-// packages/engine/src/runState/appendCommandLog.ts
-import { appendFile as appendFile2, mkdir as mkdir3 } from "node:fs/promises";
-import { join as join5 } from "node:path";
 var appendCommandLog = async ({ cwd, runId, record: record2 }) => {
   const dir = getRunDir({ cwd, runId });
-  await mkdir3(dir, { recursive: true });
-  await appendFile2(join5(dir, "commands.jsonl"), `${JSON.stringify(record2)}
+  await mkdir2(dir, { recursive: true });
+  await appendFile(join4(dir, "commands.jsonl"), `${JSON.stringify(record2)}
 `, "utf8");
 };
 
 // packages/engine/src/runState/appendFriction.ts
-import { appendFile as appendFile3, mkdir as mkdir4 } from "node:fs/promises";
-import { join as join6 } from "node:path";
+import { appendFile as appendFile2, mkdir as mkdir3 } from "node:fs/promises";
+import { join as join5 } from "node:path";
 var appendFriction = async ({ cwd, runId, step, friction }) => {
   if (friction.length === 0) {
     return;
   }
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join("\n");
-  await mkdir4(join6(cwd, ".lightsout"), { recursive: true });
-  await appendFile3(join6(cwd, ".lightsout", "friction.jsonl"), `${lines}
+  await mkdir3(join5(cwd, ".lightsout"), { recursive: true });
+  await appendFile2(join5(cwd, ".lightsout", "friction.jsonl"), `${lines}
 `, "utf8");
 };
 
 // packages/engine/src/runState/readFriction.ts
-import { join as join7 } from "node:path";
+import { join as join6 } from "node:path";
 
 // packages/engine/src/runState/common/utils/readJsonlRecords.ts
 import { readFile as readFile2 } from "node:fs/promises";
@@ -23526,11 +23561,11 @@ var readJsonlRecords = async ({ path, schema }) => {
 };
 
 // packages/engine/src/runState/readFriction.ts
-var readFriction = async ({ cwd }) => readJsonlRecords({ path: join7(cwd, ".lightsout", "friction.jsonl"), schema: FrictionRecord });
+var readFriction = async ({ cwd }) => readJsonlRecords({ path: join6(cwd, ".lightsout", "friction.jsonl"), schema: FrictionRecord });
 
 // packages/engine/src/runState/summarizeRun.ts
 import { readdir } from "node:fs/promises";
-import { join as join8 } from "node:path";
+import { join as join7 } from "node:path";
 var LedgerRecord = external_exports.object({
   step: external_exports.string(),
   outputTokens: external_exports.number(),
@@ -23543,9 +23578,9 @@ var CommandRecord = external_exports.object({
 });
 var summarizeRun = async ({ cwd, manifest }) => {
   const runDir = getRunDir({ cwd, runId: manifest.runId });
-  const ledger = await readJsonlRecords({ path: join8(runDir, "agents.jsonl"), schema: LedgerRecord });
-  const commands2 = await readJsonlRecords({ path: join8(runDir, "commands.jsonl"), schema: CommandRecord });
-  const agentFiles = await readdir(join8(runDir, "agents")).catch(() => []);
+  const ledger = await readJsonlRecords({ path: join7(runDir, "agents.jsonl"), schema: LedgerRecord });
+  const commands2 = await readJsonlRecords({ path: join7(runDir, "commands.jsonl"), schema: CommandRecord });
+  const agentFiles = await readdir(join7(runDir, "agents")).catch(() => []);
   const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
   const perStepUsage = /* @__PURE__ */ new Map();
   for (const record2 of ledger) {
@@ -23590,13 +23625,13 @@ var summarizeRun = async ({ cwd, manifest }) => {
 };
 
 // packages/engine/src/runState/acquireRunLock.ts
-import { mkdir as mkdir5, unlink, writeFile as writeFile2 } from "node:fs/promises";
+import { mkdir as mkdir4, unlink, writeFile as writeFile2 } from "node:fs/promises";
 import { dirname } from "node:path";
 
 // packages/engine/src/runState/getRunLockPath.ts
-import { join as join9 } from "node:path";
+import { join as join8 } from "node:path";
 var getRunLockPath = ({ cwd }) => {
-  return join9(cwd, ".lightsout", "lock.json");
+  return join8(cwd, ".lightsout", "lock.json");
 };
 
 // packages/engine/src/runState/isPidAlive.ts
@@ -23632,7 +23667,7 @@ var acquireRunLock = async ({ cwd, runId }) => {
   const lockPath = getRunLockPath({ cwd });
   const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, "	")}
 `;
-  await mkdir5(dirname(lockPath), { recursive: true });
+  await mkdir4(dirname(lockPath), { recursive: true });
   let stalePid;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
@@ -23664,6 +23699,62 @@ var releaseRunLock = async ({ cwd, runId }) => {
   }
   await unlink2(getRunLockPath({ cwd })).catch(() => void 0);
 };
+
+// packages/engine/src/runState/writeManifestWithUsage.ts
+var writeManifestWithUsage = async ({ cwd, manifest, patch, usageTotals }) => {
+  const usage2 = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
+  return writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage: usage2 } });
+};
+
+// packages/engine/src/runState/appendAgentLog.ts
+import { appendFile as appendFile3, mkdir as mkdir5 } from "node:fs/promises";
+import { join as join9 } from "node:path";
+var appendAgentLog = async ({ cwd, runId, record: record2 }) => {
+  const dir = getRunDir({ cwd, runId });
+  await mkdir5(dir, { recursive: true });
+  await appendFile3(join9(dir, "agents.jsonl"), `${JSON.stringify(record2)}
+`, "utf8");
+};
+
+// packages/engine/src/runState/recordAgentUsage.ts
+var recordAgentUsage = async ({ cwd, runId, step, model, totals, usage: usage2 }) => {
+  if (!usage2) {
+    return;
+  }
+  totals.invocations += 1;
+  totals.inputTokens += usage2.inputTokens;
+  totals.outputTokens += usage2.outputTokens;
+  totals.cacheReadTokens += usage2.cacheReadTokens;
+  totals.cacheCreationTokens += usage2.cacheCreationTokens;
+  totals.costUsd += usage2.costUsd;
+  await appendAgentLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, model, ...usage2 } });
+};
+
+// packages/engine/src/runState/withRunLock.ts
+import { randomUUID as randomUUID2 } from "node:crypto";
+var withRunLock = async ({ params, run }) => {
+  const runId = params.existing?.runId ?? randomUUID2();
+  const lock = await acquireRunLock({ cwd: params.cwd, runId });
+  if (lock.stalePid !== void 0) {
+    params.onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
+  }
+  try {
+    return await run({ ...params, runId });
+  } finally {
+    await releaseRunLock({ cwd: params.cwd, runId });
+  }
+};
+
+// packages/engine/src/runState/seedUsageTotals.ts
+var seedUsageTotals = ({ usage: usage2 }) => ({
+  invocations: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  costUsd: 0,
+  ...usage2
+});
 
 // packages/engine/src/common/utils/runCommand.ts
 import { spawn } from "node:child_process";
@@ -24298,7 +24389,6 @@ var readGitChangedFiles = async ({ cwd }) => {
 };
 
 // packages/engine/src/pipeline/runImplementPipeline.ts
-import { randomUUID as randomUUID2 } from "node:crypto";
 import { appendFile as appendFile4, mkdir as mkdir7, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join24 } from "node:path";
 
@@ -24397,6 +24487,17 @@ var isInertSourceFile = ({ path, content, compiler }) => {
 
 // packages/engine/src/common/utils/isTestFile.ts
 var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
+
+// packages/engine/src/common/utils/packageOf.ts
+var packageOf = ({ file: file2, packagesDir }) => {
+  const prefix = `${packagesDir}/`;
+  if (!file2.startsWith(prefix)) {
+    return void 0;
+  }
+  const rest = file2.slice(prefix.length);
+  const separator = rest.indexOf("/");
+  return separator > 0 ? rest.slice(0, separator) : void 0;
+};
 
 // packages/engine/src/common/utils/resolveConsumerTypescript.ts
 import { readdirSync } from "node:fs";
@@ -24570,7 +24671,7 @@ var unit_test_examples_default = "# Unit Test Examples\n\nBoth examples follow [
 var unit_testing_react_components_default = "# Unit Testing Components & Hooks\n\nComponent tests follow the same [Arrange-Act-Assert with setup factories](./unit-testing.md#test-structure--arrange-act-assert-with-setup-factories) structure as every other test. All mock rules from [unit-testing.md](./unit-testing.md#mocks) apply \u2014 typed `jest.fn` generics, typed factory wrappers, no mocking constant modules.\n\n## Framework Basics\n\n- Import from `@testing-library/react` (React) or `@testing-library/preact` (Preact) \u2014 check the package's `package.json`; the API is identical.\n- Component test files use `.unit.test.tsx` (JSX requires `.tsx`), co-located with the component.\n- **Framework route/page files never get co-located unit tests** \u2014 they are thin wiring (guards, layout, a screen render) verified through e2e tests and the screen component's own tests.\n- Interactions use `userEvent` **when the package depends on `@testing-library/user-event`** (check its `package.json`); otherwise use `fireEvent` from the testing-library package. Never add the dependency yourself \u2014 that is the repo owner's decision, surfaced by `lightsout doctor`.\n\n## The Render Pattern\n\nRender inside the `setup()` factory; query and assert in the `test`. For a component, `render()` *is* the act, but by convention it lives in the arrange factory \u2014 the one accepted exception to \"the act lives in the `test`\". Query from `screen` \u2014 never destructure queries from `render()`.\n\n```typescript\nimport { expect, describe, test, jest } from '@jest/globals';\nimport { render, screen } from '@testing-library/preact';\nimport userEvent from '@testing-library/user-event';\nimport { NotificationBanner } from './NotificationBanner';\n\n// Mocked Imports\n// -------------------------\nconst mockUseAppStore = jest.fn<(selector: (state: unknown) => unknown) => unknown>();\n\njest.mock('@store/appStore', () => ({\n	useAppStore: (selector: (state: unknown) => unknown) => mockUseAppStore(selector),\n}));\n// -------------------------\n\nconst setupNotificationBanner = ({ isVisible = true }: { isVisible?: boolean } = {}) => {\n	const onDismiss = jest.fn<() => void>();\n	mockUseAppStore.mockReturnValue(isVisible);\n	render(<NotificationBanner onDismiss={onDismiss} />);\n\n	return { onDismiss };\n};\n\ndescribe('NotificationBanner', () => {\n	test('does not render the banner when not visible', () => {\n		setupNotificationBanner({ isVisible: false });\n\n		const banner = screen.queryByRole('alert');\n\n		expect(banner).not.toBeInTheDocument();\n	});\n\n	test('renders the notification message when visible', () => {\n		setupNotificationBanner({ isVisible: true });\n\n		const message = screen.getByText('Action required');\n\n		expect(message).toBeInTheDocument();\n	});\n\n	test('calls the dismiss handler when the dismiss button is clicked', async () => {\n		const { onDismiss } = setupNotificationBanner({ isVisible: true });\n		const user = userEvent.setup();\n\n		const dismissButton = screen.getByRole('button', { name: /dismiss/i });\n		await user.click(dismissButton);\n\n		expect(onDismiss).toHaveBeenCalledTimes(1);\n	});\n});\n```\n\n## Query Priority\n\n1. **`getByRole`** \u2014 mirrors how users and assistive technology find elements\n2. **`getByLabelText`** \u2014 labeled form inputs\n3. **`getByText`** \u2014 visible text\n4. **`getByTestId`** \u2014 last resort (requires adding `data-testid` to source)\n\nUse `query*` variants to assert an element is **not** rendered (they return `null` instead of throwing). Use `findBy*`/`waitFor` for elements that appear after an async update \u2014 a synchronous `getBy*` throws before the DOM settles.\n\n## Mocking Component Dependencies\n\n**Hooks** mock like utility functions \u2014 and the wrapper must forward parameters with matching types when the hook takes any (see [Mock Typing Rules](./unit-testing.md#mock-typing-rules)):\n\n```typescript\nconst mockUseProjects = jest.fn<(params: { workspaceId: number }) => { data: Project[] }>();\n\njest.mock('@/features/projects/hooks/useProjects', () => ({\n	useProjects: (params: { workspaceId: number }) => mockUseProjects(params),\n}));\n```\n\n**Zustand-style stores**: `mockUseAppStore.mockReturnValue(value)` works only when the component calls the store **once**. When it reads multiple slices, run the real selectors against a mock state instead:\n\n```typescript\nconst setupFeaturePanel = ({ isActive = true, label = 'Panel' }: { isActive?: boolean; label?: string } = {}) => {\n	mockUseAppStore.mockImplementation((selector) => selector({ isActive, label }));\n	render(<FeaturePanel />);\n};\n```\n\n**Child components**: mock a child **only if it is itself a boundary** (its own module, or imported from another feature). Render **real** internal children (under this module's own `common/`) so they are covered through this boundary's tests \u2014 mocking an internal child leaves it with no coverage at all. When you do mock a boundary child, keep it minimal: just enough to verify props and conditional rendering.\n\n## Testing User Interactions\n\n`userEvent` is async \u2014 create the user in the test and `await` the interaction. The query that locates the interaction target groups with the act (the `userEvent` call), not with arrange:\n\n```typescript\ntest('calls the dismiss handler when the dismiss button is clicked', async () => {\n	const { onDismiss } = setupBanner();\n	const user = userEvent.setup();\n\n	const dismissButton = screen.getByRole('button', { name: /dismiss/i });\n	await user.click(dismissButton);\n\n	expect(onDismiss).toHaveBeenCalledTimes(1);\n});\n```\n\nWhen the package lacks `@testing-library/user-event`, use `fireEvent` instead \u2014 synchronous, no setup object: `fireEvent.click(dismissButton);`. The same grouping rule applies: the target query groups with the act.\n\n## Testing Hooks in Isolation\n\nMock the framework's hook primitives with synchronous shims so the hook body executes without a render cycle; capture effect callbacks so tests can invoke them:\n\n```typescript\n// Mocked Imports\n// -------------------------\nlet mockEffectCallback: (() => undefined | (() => void)) | undefined;\n\njest.mock('preact/hooks', () => ({\n	useEffect: (cb: () => undefined | (() => void)) => {\n		mockEffectCallback = cb;\n	},\n	useCallback: <T>(cb: T) => cb,\n	useMemo: (factory: () => unknown) => factory(),\n}));\n// -------------------------\n\nconst setupEscapeKey = ({ isActive = true }: { isActive?: boolean } = {}) => {\n	mockEffectCallback = undefined;\n	const addEventListenerSpy = jest.spyOn(document, 'addEventListener');\n	const onEscape = jest.fn<() => void>();\n	useEscapeKey({ isActive, onEscape });\n\n	return { addEventListenerSpy, onEscape };\n};\n\ndescribe('useEscapeKey', () => {\n	test('adds a keydown event listener', () => {\n		const { addEventListenerSpy } = setupEscapeKey({ isActive: true });\n\n		mockEffectCallback!();\n\n		expect(addEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));\n	});\n});\n```\n\nOnly mock the hook primitives the hook under test actually uses.\n";
 
 // standards/tests/unit/jest/unit-testing.md
-var unit_testing_default = "# Unit Testing\n\n## Precedence in Repos with Older Tests\n\nThese standards describe the target style for tests you WRITE, not a mandate\nto renovate tests that exist. When the repo's existing tests predate this\ndocument and use another style (`beforeEach` + shared `let`, nested\n`describe` pyramids):\n\n- **Extending an existing test file** \u2192 match that file's local style. One\n  file, one style \u2014 never mix a second convention into a file.\n- **Creating a new test file** \u2192 this document wins, even when your mirror\n  target uses the older style. Mirror the target's coverage, not its\n  structure.\n- Never rewrite passing legacy tests to match this document during a\n  feature task \u2014 that is deliberate cleanup work with its own review, not a\n  side effect.\n- Applying this precedence is **normal operation, not friction** \u2014 do not\n  record a friction entry per legacy-style file you encounter. Record ONE\n  friction entry only when the rule itself failed you: the conflict was not\n  stylistic, or it was genuinely ambiguous which case applied.\n\n## Module Boundary Testing\n\nTests target **module boundaries** \u2014 a module's public API \u2014 not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.\n\n**Classify every source file before writing tests:**\n\n| Classification | Definition | Test file? |\n|---|---|---|\n| **Boundary** | A module's public surface: shared leaf modules under a root-layer `common/` (e.g., `src/common/utils/`, `src/app/common/`); a feature's public exports (hooks, components, top-level operation files); framework files (`.service.ts`, `.resolver.ts`, `.controller.ts`, guards, job services); a graduated folder's main file (`HttpClient/HttpClient.ts`) | \u2705 Co-located `*.unit.test.ts` |\n| **Internal** | A file under a *module's* `common/` \u2014 i.e., a `common/` whose parent folder is a feature, route, screen, component, or class folder (not a root layer like `src/`) | \u274C No dedicated test file \u2014 covered through the owning module's boundary tests |\n\n**Rules:**\n\n- Coverage is still measured per source file: an internal must reach 100% lines/branches/functions, achieved by driving the boundary's inputs.\n- If an internal branch cannot be reached through any boundary input, it is **dead code** \u2014 flag it for deletion. Do not write a direct test to cover it.\n- If covering an internal through the boundary is impractical (combinatorial inputs), that is the promotion signal: the internal has earned its own module and direct tests. Flag it in the report \u2014 do not silently create a dedicated test file.\n- Existing dedicated test files on internals are migration debt: leave them in place and do not extend them \u2014 new coverage goes through the boundary. Flag them in the report as migration candidates.\n- A test deep-importing a module internal (a module-boundary scan finding on a test file) is resolved by THIS section's rules, never by a bare import rewrite: barrel-exported target \u2192 import through the barrel; internal target \u2192 convert the coverage to drive the module's boundary, or \u2014 when that is impractical \u2014 treat it as the promotion signal above and export the file deliberately.\n\n## Test Files\n\n- Unit tests are **co-located** with their source file: `src/auth/AuthService.ts` \u2192 `src/auth/AuthService.unit.test.ts`.\n- **Shared test helpers, mocks, and fixtures live outside `src/`** in the package's test-support directories (`tests/helpers/`, `test/mocks/`, `test/fixtures/`, co-located `__mocks__/`); only test files themselves co-locate. Test-support code under `src/` would read as production source \u2014 to scanners and humans alike.\n- First import: `import { expect, describe, test, jest } from '@jest/globals';` \u2014 but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.\n- The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** \u2014 scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).\n\n## Files That Must NOT Have Dedicated Tests\n\nDo **not** create test files for source files with no runtime logic \u2014 they are covered when consumed:\n\n- **Pure constants** \u2014 only literal values, no computation or side effects\n- **Enums with no computed members** / string-union types\n- **Type-only files** \u2014 only `type`/`interface` declarations\n- **Barrel / re-export files** (`index.ts`)\n\nA file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths \u2014 not the static value.\n\n## Test Structure \u2014 Arrange-Act-Assert with Setup Factories\n\nEvery test follows **Arrange-Act-Assert**, with arrangement extracted into a named `setup()` factory. The test body stays small: call setup, act, assert.\n\n```typescript\ndescribe('getAvatarUrl', () => {\n	test('returns the profile avatar when one exists', () => {\n		const { userProfile, appSettings } = setupAvatar({ profile: 'p.png' });\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBe('p.png');\n	});\n});\n```\n\n**Rules:**\n\n- **Arrange in a `setup()` factory.** The factory wires mocks and builds fixtures, then returns the locals the test needs as `const`s. Do **not** hold the subject under test in a shared `let` reassigned across `beforeEach` blocks \u2014 that is mutable test state.\n- **Act and assert live in the `test`**, not in `beforeEach`. (Component tests are the one accepted exception: `render()` lives in the `setup()` factory by convention \u2014 see the component testing doc.)\n- **One `setup()` and one act per test.** Two setups or two acts means two tests. Multiple `expect`s are fine only when they assert one behavior's result.\n- **No nested method calls in the act.** Assign each call's result to a named `const`. Two exceptions: (1) the error case, where the act sits inside the matcher: `expect(() => parse(bad)).toThrow()`; (2) assertion-matcher composition (`toEqual(expect.objectContaining(...))`).\n- **Blank line between arrange, act, and assert** \u2014 and no `// arrange` / `// act` / `// assert` captions; the spacing already shows the structure.\n- **Test behavior, not internals.** Assert the observable output a consumer sees. (Asserting an injected repository was called with the right args IS behavior \u2014 the persistence call is the unit's observable side effect at its boundary.)\n- When asserting multiple properties of one result, prefer a single `expect`. For a **partial** match use `toEqual(expect.objectContaining({ ... }))` \u2014 not `toStrictEqual`: with an asymmetric matcher argument, Jest only runs the matcher and the strict extra-property checks never fire, so `toStrictEqual` there is identical to `toEqual` but misleadingly implies strictness. Reserve `toStrictEqual` for whole-object assertions with a concrete expected object.\n- Cover all code paths \u2014 branches, error handling, boundary conditions. Each test exercises a unique code path; don't add tests that only vary input without varying behavior.\n- **Reaching defensive branches:** when a branch guards against input the type system forbids (a `default` arm, an early return on an impossible discriminant), a test may force the invalid input with `as unknown as T` \u2014 the one blessed double cast, and it lives only in test files, never in source.\n- Use `test.each` when multiple inputs exercise the **same code path** with different outputs; different code paths get separate tests.\n\n### Assertions Pin Contracts\n\n- **Assert with literals \u2014 never import a constant from the module under test into its own assertions.** A test comparing `x` to `x` is a tautology that passes even when the value is wrong; the literal in the test is the independent second statement of the contract. (Duplication between a source constant and its test literal is contract-pinning, not a DRY violation.) Constants from *other* modules \u2014 shared enums the codebase already defines \u2014 are fine as inputs.\n- **Pin machine-facing values strictly, human-facing copy loosely.** Error codes, event names, and API fields get exact assertions; UI copy and log messages get `stringContaining`/regex or no assertion at all \u2014 wording changes shouldn't fail contract tests.\n- **Construct the subject under test directly; stub only unowned boundaries** (network, filesystem, other modules' services). Don't mock what you own and could simply instantiate.\n- **Prefer behavior assertions over property echoes** \u2014 assert what the unit *does* (output, side effect at its boundary), not that a value passed in reappears unchanged.\n\n### Setup Factories\n\n```typescript\nconst setupAvatar = ({\n	profile = null,\n	gravatar = null,\n}: { profile?: string | null; gravatar?: string | null } = {}) => {\n	mockGetAvatarFromProfile.mockReturnValue(profile);\n	mockGetAvatarFromGravatar.mockReturnValue(gravatar);\n\n	const userProfile = new UserProfile({ profileData: { email: 'user@example.com' } });\n	const appSettings = new AppSettings({ defaultPreferences: {} });\n\n	return { userProfile, appSettings };\n};\n```\n\n- **One factory configures any number of mocks** \u2014 a single factory call is the whole arrangement; variants come from parameters.\n- **A single explicit override is allowed** for the one variable a test varies (`setupAvatar()` then one `mockReturnValue` line).\n- **Cap factory sprawl.** A substantially different arrangement gets a second named factory (`setupEmployee`), not an over-parameterized mega-factory.\n\n## Mocks\n\n- Place mock declarations and `jest.mock()` blocks after the imports, marked with a `// Mocked Imports` header and `// -------------------------` separators between groups (mirror any existing test file's formatting).\n- **Mock variables must be prefixed `mock`** \u2014 Jest hoists `jest.mock()` calls to the top of the file, and only `mock`-prefixed variables are accessible inside the factory.\n- Set mock return values inside the `setup()` factory \u2014 never in a `beforeEach`.\n- **Do NOT mock modules that only export plain constants** \u2014 import the real module; mocking it blocks coverage and adds no isolation. Mock a constant module only if it has import-time side effects or the test needs a *different* value (prefer `jest.replaceProperty` or injection).\n- Scope strategy: inline mocks for one file; a co-located `__mocks__/` folder when multiple tests in the area share a mock; `test/mocks/` (with `test/fixtures/`, `test/utils/`) for codebase-wide utilities.\n\n### Mock Typing Rules\n\nEvery `jest.fn()` **must** be fully typed to the real function's signature \u2014 read the source first.\n\n```typescript\n// \u2705 generic matches the real signature (async: include the Promise wrapper)\nconst mockGetProfile = jest.fn<(params: { userId: string }) => Profile | null>();\n\n// \u2705 factory wrapper uses typed parameters \u2014 never (...args: unknown[]) (causes TS2556)\njest.mock('@/utils/get-profile', () => ({\n	getProfile: (params: { userId: string }) => mockGetProfile(params),\n}));\n```\n\nUsing `() => mockFn()` for a function that takes parameters silently discards arguments \u2014 the spy records zero-arg calls and `toHaveBeenCalledWith` fails. Some existing files use `(...args: unknown[])` \u2014 that is legacy debt; new tests always type the wrapper.\n\n**Framework-generic results are exempt.** These typing rules pin *your* contracts, not the framework's. When a stub must satisfy a framework's heavily generic result type (TanStack's `UseMutationResult` / `UseQueryResult` and kin), stub only the fields the unit under test reads and cast loosely (`as Record<string, unknown>`, or `as unknown as UseMutationResult<\u2026>` where the full type is demanded) \u2014 reproducing the framework's generics in a stub adds noise, not safety.\n\n### `jest.spyOn` vs `jest.mock`\n\n- Prefer **`jest.spyOn`** for a single method on an object you already hold (an injected service/repository), leaving the rest intact.\n- Prefer **`jest.mock`** for a standalone exported function from another module.\n\n### Async\n\nConfigure with `mockResolvedValue` / `mockRejectedValue` in the setup factory; `await` the act in the test; assert rejections with `await expect(...).rejects.toThrow(...)` \u2014 the one place the act sits inside the assertion.\n\n### Import-Time Side Effects\n\n- Use **`jest.isolateModules`** when the module acts at import time (reads `document.currentScript`, checks globals): each call gets a fresh module instance, so per-test state changes take effect on the next require inside the isolate block.\n- Branches unreachable in the default `jsdom` environment (e.g., SSR guards on `typeof window`) get a **separate test file** with a `/** @jest-environment node */` docblock, named to distinguish it (`autoInitInBrowser.ssr.unit.test.ts`).\n\n## Mock Cleanup\n\nMock cleanup is handled by **Jest config, not per-test code**. Set these in the package's Jest config:\n\n```javascript\n// jest.config.js / jest.config.ts\n{\n	clearMocks: true,    // clear call tracking (calls, instances, results) before each test\n	restoreMocks: true,  // restore jest.spyOn originals before each test\n}\n```\n\nWith these set, every mock starts each test with clean call tracking and its `setup()` factory wires the return value fresh. Do **not** add manual `mockClear()` calls or a cleanup `beforeEach` \u2014 the config does it.\n\n- **`clearMocks: true`** \u2014 clears `calls`, `instances`, `contexts`, and `results` before each test (equivalent to `jest.clearAllMocks()`). It does **not** clear `mockReturnValue` / `mockImplementation` \u2014 that is `resetMocks`. Because every test re-sets its return values in `setup()`, `clearMocks` is sufficient and avoids wiping implementations; reach for `resetMocks` only if a package genuinely needs return values auto-cleared.\n- **`restoreMocks: true`** \u2014 additionally restores the original implementation of every `jest.spyOn` before each test (it does not affect standalone `jest.fn()` return values).\n\n**If the package's Jest config lacks these: do NOT add them.** `clearMocks` changes behavior for **every existing test in the package** \u2014 any test relying on a mock set once at module scope or in `beforeAll` will break (live example: adding it to a real package broke 22 import-time-construction tests). A repo-wide behavior change is a human's decision, not a test task's side effect. Instead:\n\n- Build **fresh `jest.fn()` mocks inside each `setup()` factory call** (and construct a fresh subject per call), so call tracking cannot accumulate across tests without any config or hooks.\n- For module-level mocks that must persist (a `jest.mock` factory), reset them at the top of `setup()` (`.mockReset()` + re-wire), or assert only with `toHaveBeenCalledWith` \u2014 positive assertions are unaffected by accumulated calls; avoid `not.toHaveBeenCalled` on shared mocks.\n- Record the missing config as friction (`area: \"environment\"`) so the repo owner can adopt it deliberately.\n";
+var unit_testing_default = "# Unit Testing\n\n## Precedence in Repos with Older Tests\n\nThese standards describe the target style for tests you WRITE, not a mandate\nto renovate tests that exist. When the repo's existing tests predate this\ndocument and use another style (`beforeEach` + shared `let`, nested\n`describe` pyramids):\n\n- **Extending an existing test file** \u2192 match that file's local style. One\n  file, one style \u2014 never mix a second convention into a file.\n- **Creating a new test file** \u2192 this document wins, even when your mirror\n  target uses the older style. Mirror the target's coverage, not its\n  structure.\n- Never rewrite passing legacy tests to match this document during a\n  feature task \u2014 that is deliberate cleanup work with its own review, not a\n  side effect.\n- Applying this precedence is **normal operation, not friction** \u2014 do not\n  record a friction entry per legacy-style file you encounter. Record ONE\n  friction entry only when the rule itself failed you: the conflict was not\n  stylistic, or it was genuinely ambiguous which case applied.\n\n## Module Boundary Testing\n\nTests target **module boundaries** \u2014 a module's public API \u2014 not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.\n\n**\"Public\" means reachable through a barrel (`index.ts`), not \"has the `export` keyword\"** \u2014 under one-export-per-file, everything carries `export`; the barrel is the line. The whole doctrine in one sentence: *test what's in the barrels; nothing else gets a test file.* And it holds in both directions \u2014 **direct tests are never an exception, they are a promotion**: if a helper's cases deserve direct tests (combinatorial inputs, a contract meaningful to callers who've never seen this module), the helper deserves the barrel first. Reluctance to export it is evidence its cases aren't a contract \u2014 cover it through the boundary, or ask whether the uncoverable branches are dead code.\n\n**Classify every source file before writing tests:**\n\n| Classification | Definition | Test file? |\n|---|---|---|\n| **Boundary** | A module's public surface: shared leaf modules under a root-layer `common/` (e.g., `src/common/utils/`, `src/app/common/`); a feature's public exports (hooks, components, top-level operation files); framework files (`.service.ts`, `.resolver.ts`, `.controller.ts`, guards, job services); a graduated folder's main file (`HttpClient/HttpClient.ts`) | \u2705 Co-located `*.unit.test.ts` |\n| **Internal** | A file under a *module's* `common/` \u2014 i.e., a `common/` whose parent folder is a feature, route, screen, component, or class folder (not a root layer like `src/`) | \u274C No dedicated test file \u2014 covered through the owning module's boundary tests |\n\n**Rules:**\n\n- Coverage is still measured per source file: an internal must reach 100% lines/branches/functions, achieved by driving the boundary's inputs.\n- If an internal branch cannot be reached through any boundary input, it is **dead code** \u2014 flag it for deletion. Do not write a direct test to cover it.\n- If covering an internal through the boundary is impractical (combinatorial inputs), that is the promotion signal: the internal has earned its own module and direct tests. Flag it in the report \u2014 do not silently create a dedicated test file.\n- Existing dedicated test files on internals are migration debt: leave them in place and do not extend them \u2014 new coverage goes through the boundary. Flag them in the report as migration candidates.\n- A test deep-importing a module internal (a module-boundary scan finding on a test file) is resolved by THIS section's rules, never by a bare import rewrite: barrel-exported target \u2192 import through the barrel; internal target \u2192 convert the coverage to drive the module's boundary, or \u2014 when that is impractical \u2014 treat it as the promotion signal above and export the file deliberately.\n\n## Test Files\n\n- Unit tests are **co-located** with their source file: `src/auth/AuthService.ts` \u2192 `src/auth/AuthService.unit.test.ts`.\n- **Shared test helpers, mocks, and fixtures live outside `src/`** in the package's test-support directories (`tests/helpers/`, `test/mocks/`, `test/fixtures/`, co-located `__mocks__/`); only test files themselves co-locate. Test-support code under `src/` would read as production source \u2014 to scanners and humans alike.\n- First import: `import { expect, describe, test, jest } from '@jest/globals';` \u2014 but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.\n- The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** \u2014 scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).\n\n## Files That Must NOT Have Dedicated Tests\n\nDo **not** create test files for source files with no runtime logic \u2014 they are covered when consumed:\n\n- **Pure constants** \u2014 only literal values, no computation or side effects\n- **Enums with no computed members** / string-union types\n- **Type-only files** \u2014 only `type`/`interface` declarations\n- **Barrel / re-export files** (`index.ts`)\n\nA file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths \u2014 not the static value.\n\n## Test Structure \u2014 Arrange-Act-Assert with Setup Factories\n\nEvery test follows **Arrange-Act-Assert**, with arrangement extracted into a named `setup()` factory. The test body stays small: call setup, act, assert.\n\n```typescript\ndescribe('getAvatarUrl', () => {\n	test('returns the profile avatar when one exists', () => {\n		const { userProfile, appSettings } = setupAvatar({ profile: 'p.png' });\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBe('p.png');\n	});\n});\n```\n\n**Rules:**\n\n- **Arrange in a `setup()` factory.** The factory wires mocks and builds fixtures, then returns the locals the test needs as `const`s. Do **not** hold the subject under test in a shared `let` reassigned across `beforeEach` blocks \u2014 that is mutable test state.\n- **Act and assert live in the `test`**, not in `beforeEach`. (Component tests are the one accepted exception: `render()` lives in the `setup()` factory by convention \u2014 see the component testing doc.)\n- **One `setup()` and one act per test.** Two setups or two acts means two tests. Multiple `expect`s are fine only when they assert one behavior's result.\n- **No nested method calls in the act.** Assign each call's result to a named `const`. Two exceptions: (1) the error case, where the act sits inside the matcher: `expect(() => parse(bad)).toThrow()`; (2) assertion-matcher composition (`toEqual(expect.objectContaining(...))`).\n- **Blank line between arrange, act, and assert** \u2014 and no `// arrange` / `// act` / `// assert` captions; the spacing already shows the structure.\n- **Test behavior, not internals.** Assert the observable output a consumer sees. (Asserting an injected repository was called with the right args IS behavior \u2014 the persistence call is the unit's observable side effect at its boundary.)\n- When asserting multiple properties of one result, prefer a single `expect`. For a **partial** match use `toEqual(expect.objectContaining({ ... }))` \u2014 not `toStrictEqual`: with an asymmetric matcher argument, Jest only runs the matcher and the strict extra-property checks never fire, so `toStrictEqual` there is identical to `toEqual` but misleadingly implies strictness. Reserve `toStrictEqual` for whole-object assertions with a concrete expected object.\n- Cover all code paths \u2014 branches, error handling, boundary conditions. Each test exercises a unique code path; don't add tests that only vary input without varying behavior.\n- **Reaching defensive branches:** when a branch guards against input the type system forbids (a `default` arm, an early return on an impossible discriminant), a test may force the invalid input with `as unknown as T` \u2014 the one blessed double cast, and it lives only in test files, never in source.\n- Use `test.each` when multiple inputs exercise the **same code path** with different outputs; different code paths get separate tests.\n\n### Assertions Pin Contracts\n\n- **Assert with literals \u2014 never import a constant from the module under test into its own assertions.** A test comparing `x` to `x` is a tautology that passes even when the value is wrong; the literal in the test is the independent second statement of the contract. (Duplication between a source constant and its test literal is contract-pinning, not a DRY violation.) Constants from *other* modules \u2014 shared enums the codebase already defines \u2014 are fine as inputs.\n- **Pin machine-facing values strictly, human-facing copy loosely.** Error codes, event names, and API fields get exact assertions; UI copy and log messages get `stringContaining`/regex or no assertion at all \u2014 wording changes shouldn't fail contract tests.\n- **Construct the subject under test directly; stub only unowned boundaries** (network, filesystem, other modules' services). Don't mock what you own and could simply instantiate.\n- **Prefer behavior assertions over property echoes** \u2014 assert what the unit *does* (output, side effect at its boundary), not that a value passed in reappears unchanged.\n\n### Setup Factories\n\n```typescript\nconst setupAvatar = ({\n	profile = null,\n	gravatar = null,\n}: { profile?: string | null; gravatar?: string | null } = {}) => {\n	mockGetAvatarFromProfile.mockReturnValue(profile);\n	mockGetAvatarFromGravatar.mockReturnValue(gravatar);\n\n	const userProfile = new UserProfile({ profileData: { email: 'user@example.com' } });\n	const appSettings = new AppSettings({ defaultPreferences: {} });\n\n	return { userProfile, appSettings };\n};\n```\n\n- **One factory configures any number of mocks** \u2014 a single factory call is the whole arrangement; variants come from parameters.\n- **A single explicit override is allowed** for the one variable a test varies (`setupAvatar()` then one `mockReturnValue` line).\n- **Cap factory sprawl.** A substantially different arrangement gets a second named factory (`setupEmployee`), not an over-parameterized mega-factory.\n\n## Mocks\n\n- Place mock declarations and `jest.mock()` blocks after the imports, marked with a `// Mocked Imports` header and `// -------------------------` separators between groups (mirror any existing test file's formatting).\n- **Mock variables must be prefixed `mock`** \u2014 Jest hoists `jest.mock()` calls to the top of the file, and only `mock`-prefixed variables are accessible inside the factory.\n- Set mock return values inside the `setup()` factory \u2014 never in a `beforeEach`.\n- **Do NOT mock modules that only export plain constants** \u2014 import the real module; mocking it blocks coverage and adds no isolation. Mock a constant module only if it has import-time side effects or the test needs a *different* value (prefer `jest.replaceProperty` or injection).\n- Scope strategy: inline mocks for one file; a co-located `__mocks__/` folder when multiple tests in the area share a mock; `test/mocks/` (with `test/fixtures/`, `test/utils/`) for codebase-wide utilities.\n\n### Mock Typing Rules\n\nEvery `jest.fn()` **must** be fully typed to the real function's signature \u2014 read the source first.\n\n```typescript\n// \u2705 generic matches the real signature (async: include the Promise wrapper)\nconst mockGetProfile = jest.fn<(params: { userId: string }) => Profile | null>();\n\n// \u2705 factory wrapper uses typed parameters \u2014 never (...args: unknown[]) (causes TS2556)\njest.mock('@/utils/get-profile', () => ({\n	getProfile: (params: { userId: string }) => mockGetProfile(params),\n}));\n```\n\nUsing `() => mockFn()` for a function that takes parameters silently discards arguments \u2014 the spy records zero-arg calls and `toHaveBeenCalledWith` fails. Some existing files use `(...args: unknown[])` \u2014 that is legacy debt; new tests always type the wrapper.\n\n**Framework-generic results are exempt.** These typing rules pin *your* contracts, not the framework's. When a stub must satisfy a framework's heavily generic result type (TanStack's `UseMutationResult` / `UseQueryResult` and kin), stub only the fields the unit under test reads and cast loosely (`as Record<string, unknown>`, or `as unknown as UseMutationResult<\u2026>` where the full type is demanded) \u2014 reproducing the framework's generics in a stub adds noise, not safety.\n\n### `jest.spyOn` vs `jest.mock`\n\n- Prefer **`jest.spyOn`** for a single method on an object you already hold (an injected service/repository), leaving the rest intact.\n- Prefer **`jest.mock`** for a standalone exported function from another module.\n\n### Async\n\nConfigure with `mockResolvedValue` / `mockRejectedValue` in the setup factory; `await` the act in the test; assert rejections with `await expect(...).rejects.toThrow(...)` \u2014 the one place the act sits inside the assertion.\n\n### Import-Time Side Effects\n\n- Use **`jest.isolateModules`** when the module acts at import time (reads `document.currentScript`, checks globals): each call gets a fresh module instance, so per-test state changes take effect on the next require inside the isolate block.\n- Branches unreachable in the default `jsdom` environment (e.g., SSR guards on `typeof window`) get a **separate test file** with a `/** @jest-environment node */` docblock, named to distinguish it (`autoInitInBrowser.ssr.unit.test.ts`).\n\n## Mock Cleanup\n\nMock cleanup is handled by **Jest config, not per-test code**. Set these in the package's Jest config:\n\n```javascript\n// jest.config.js / jest.config.ts\n{\n	clearMocks: true,    // clear call tracking (calls, instances, results) before each test\n	restoreMocks: true,  // restore jest.spyOn originals before each test\n}\n```\n\nWith these set, every mock starts each test with clean call tracking and its `setup()` factory wires the return value fresh. Do **not** add manual `mockClear()` calls or a cleanup `beforeEach` \u2014 the config does it.\n\n- **`clearMocks: true`** \u2014 clears `calls`, `instances`, `contexts`, and `results` before each test (equivalent to `jest.clearAllMocks()`). It does **not** clear `mockReturnValue` / `mockImplementation` \u2014 that is `resetMocks`. Because every test re-sets its return values in `setup()`, `clearMocks` is sufficient and avoids wiping implementations; reach for `resetMocks` only if a package genuinely needs return values auto-cleared.\n- **`restoreMocks: true`** \u2014 additionally restores the original implementation of every `jest.spyOn` before each test (it does not affect standalone `jest.fn()` return values).\n\n**If the package's Jest config lacks these: do NOT add them.** `clearMocks` changes behavior for **every existing test in the package** \u2014 any test relying on a mock set once at module scope or in `beforeAll` will break (live example: adding it to a real package broke 22 import-time-construction tests). A repo-wide behavior change is a human's decision, not a test task's side effect. Instead:\n\n- Build **fresh `jest.fn()` mocks inside each `setup()` factory call** (and construct a fresh subject per call), so call tracking cannot accumulate across tests without any config or hooks.\n- For module-level mocks that must persist (a `jest.mock` factory), reset them at the top of `setup()` (`.mockReset()` + re-wire), or assert only with `toHaveBeenCalledWith` \u2014 positive assertions are unaffected by accumulated calls; avoid `not.toHaveBeenCalled` on shared mocks.\n- Record the missing config as friction (`area: \"environment\"`) so the repo owner can adopt it deliberately.\n";
 
 // packages/engine/src/standards/defaultTestStandards.ts
 var defaultTestStandards = {
@@ -37313,40 +37414,21 @@ var executePipeline = async ({
     cwd,
     runId,
     plan: planPath ?? "",
+    pipeline: "implement",
     overview: overviewPath,
     driver: driver.name,
     config: config2,
     baselineDirtyFiles: await readGitChangedFiles({ cwd })
   });
-  const usageTotals = {
-    invocations: 0,
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheCreationTokens: 0,
-    costUsd: 0,
-    ...manifest.usage
-  };
+  const usageTotals = seedUsageTotals({ usage: manifest.usage });
   const update = async (patch) => {
-    const usage2 = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
-    manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage: usage2 } });
+    manifest = await writeManifestWithUsage({ cwd, manifest, patch, usageTotals });
   };
-  const recordAgentUsage = async ({ step, usage: usage2 }) => {
-    if (!usage2) {
-      return;
+  const recordInvocationUsage = async ({ step, usage: usage2 }) => {
+    await recordAgentUsage({ cwd, runId: manifest.runId, step, model: config2.model, totals: usageTotals, usage: usage2 });
+    if (usage2) {
+      progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
     }
-    usageTotals.invocations += 1;
-    usageTotals.inputTokens += usage2.inputTokens;
-    usageTotals.outputTokens += usage2.outputTokens;
-    usageTotals.cacheReadTokens += usage2.cacheReadTokens;
-    usageTotals.cacheCreationTokens += usage2.cacheCreationTokens;
-    usageTotals.costUsd += usage2.costUsd;
-    await appendAgentLog({
-      cwd,
-      runId: manifest.runId,
-      record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, model: config2.model, ...usage2 }
-    });
-    progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
   };
   const stepTimers = /* @__PURE__ */ new Map();
   const setStep = async ({ record: record2, patch }) => {
@@ -37463,18 +37545,10 @@ ${text}`, "utf8");
       onEvent: agentEventSink(step),
       onRejectedOutput: persistRejected(step)
     });
-    await recordAgentUsage({ step, usage: outcome.usage });
+    await recordInvocationUsage({ step, usage: outcome.usage });
     return outcome;
   };
-  const packageOf = (file2) => {
-    const prefix = `${packagesDir}/`;
-    if (!file2.startsWith(prefix)) {
-      return void 0;
-    }
-    const rest = file2.slice(prefix.length);
-    const separator = rest.indexOf("/");
-    return separator > 0 ? rest.slice(0, separator) : void 0;
-  };
+  const packageDirOf = (file2) => packageOf({ file: file2, packagesDir });
   const isGeneratedFile = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
   const gitPrefix = await readGitPrefix({ cwd });
   const consumerRelative = (file2) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
@@ -37485,12 +37559,12 @@ ${text}`, "utf8");
     const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative(file2.path))).filter((file2) => !isGeneratedFile(file2));
     const changedFiles = [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
     const fromFiles = changedFiles.flatMap((file2) => {
-      const packageDir = packageOf(file2);
+      const packageDir = packageDirOf(file2);
       return packageDir ? [packageDir] : [];
     });
     return { changedFiles, packages: [.../* @__PURE__ */ new Set([...manifest.packages, ...fromFiles])] };
   };
-  const hasRootChanges = () => manifest.changedFiles.some((file2) => packageOf(file2) === void 0);
+  const hasRootChanges = () => manifest.changedFiles.some((file2) => packageDirOf(file2) === void 0);
   const gates = ({ coverage }) => runGates({
     cwd,
     config: config2,
@@ -37602,7 +37676,7 @@ ${text}`, "utf8");
           onEvent: agentEventSink(`${id}-supervisor`),
           onRejectedOutput: persistRejected(`${id}-supervisor`)
         });
-        await recordAgentUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+        await recordInvocationUsage({ step: `${id}-supervisor`, usage: verdict.usage });
         if (verdict.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
         }
@@ -37685,7 +37759,7 @@ ${error51}`
     }
     const byPackage = /* @__PURE__ */ new Map();
     for (const file2 of targets) {
-      const key = packageOf(file2) ?? "";
+      const key = packageDirOf(file2) ?? "";
       byPackage.set(key, [...byPackage.get(key) ?? [], file2]);
     }
     const groups = [];
@@ -37986,19 +38060,7 @@ ${error51}` });
   const passed = { ok: true, manifest };
   return passed;
 };
-var runImplementPipeline = async (params) => {
-  const { cwd, existing, onProgress } = params;
-  const runId = existing?.runId ?? randomUUID2();
-  const lock = await acquireRunLock({ cwd, runId });
-  if (lock.stalePid !== void 0) {
-    onProgress?.(`stale run lock from dead pid ${lock.stalePid} \u2014 taking over`);
-  }
-  try {
-    return await executePipeline({ ...params, runId });
-  } finally {
-    await releaseRunLock({ cwd, runId });
-  }
-};
+var runImplementPipeline = (params) => withRunLock({ params, run: executePipeline });
 
 // packages/engine/src/runDoctor.ts
 import { readdir as readdir3, readFile as readFile17, stat } from "node:fs/promises";
@@ -40241,6 +40303,448 @@ var resolvePlansDir = ({ cwd, flag, config: config2 }) => {
   return isAbsolute9(dir) ? dir : join48(cwd, dir);
 };
 
+// packages/engine/src/refactor/countByDetector.ts
+var countByDetector = ({ findings }) => {
+  const counts = {};
+  for (const finding of findings) {
+    counts[finding.detector] = (counts[finding.detector] ?? 0) + 1;
+  }
+  return counts;
+};
+
+// packages/engine/src/refactor/initializeRun.ts
+import { readFile as readFile34, writeFile as writeFile16 } from "node:fs/promises";
+import { join as join49 } from "node:path";
+
+// packages/engine/src/refactor/batchFindings.ts
+var detectorPriority = [
+  "module-boundary",
+  "structure",
+  "size",
+  "barrel-hygiene",
+  "placement",
+  "ast-duplicate",
+  "clone",
+  "filename-duplicate"
+];
+var maxBatchFindings = 12;
+var priorityOf = (detector) => {
+  const index = detectorPriority.indexOf(detector);
+  return index === -1 ? detectorPriority.length : index;
+};
+var batchFindings = ({ findings, advisories, packagesDir }) => {
+  const folderOf = (finding) => {
+    const path = finding.files[0]?.path ?? "";
+    const segments = path.split("/");
+    if (segments[0] === packagesDir && segments.length > 2 && segments[1]) {
+      return `${packagesDir}/${segments[1]}`;
+    }
+    return segments.length > 1 && segments[0] ? segments[0] : "(root)";
+  };
+  const groups = /* @__PURE__ */ new Map();
+  for (const finding of findings) {
+    const folder = folderOf(finding);
+    const key = `${finding.detector}\0${folder}`;
+    const group = groups.get(key) ?? { detector: finding.detector, folder, findings: [] };
+    group.findings.push(finding);
+    groups.set(key, group);
+  }
+  const ordered = [...groups.values()].sort(
+    (a, b) => priorityOf(a.detector) - priorityOf(b.detector) || a.detector.localeCompare(b.detector) || a.folder.localeCompare(b.folder)
+  );
+  const batches = [];
+  for (const group of ordered) {
+    const sorted = [...group.findings].sort((a, b) => a.cluster.localeCompare(b.cluster));
+    for (let start = 0; start < sorted.length; start += maxBatchFindings) {
+      const chunk = sorted.slice(start, start + maxBatchFindings);
+      const chunkFiles = new Set(chunk.flatMap((finding) => finding.files.map((file2) => file2.path)));
+      const number4 = String(batches.length + 1).padStart(2, "0");
+      batches.push({
+        id: `batch-${number4}:${group.detector}:${group.folder}`,
+        detector: group.detector,
+        folder: group.folder,
+        findings: chunk,
+        advisories: advisories.filter((advisory) => advisory.files.some((file2) => chunkFiles.has(file2.path)))
+      });
+    }
+  }
+  return batches;
+};
+
+// packages/engine/src/refactor/buildWorklist.ts
+var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
+  const { findings } = await runScan({ cwd, path, all, persist: false });
+  return {
+    at: (/* @__PURE__ */ new Date()).toISOString(),
+    path: path ?? ".",
+    all,
+    batches: batchFindings({
+      findings: findings.filter((finding) => finding.severity === ScanSeverity.Finding),
+      // Size advisories only — the executor prompt frames advisories as the
+      // size caps' judgment items; other advisory detectors (dead-export)
+      // must not ride in as if they were work (in-pipeline precedent:
+      // selectScanFindings).
+      advisories: findings.filter((finding) => finding.severity === ScanSeverity.Advisory && finding.detector === ScanDetector.Size),
+      packagesDir: config2.packagesDir ?? "packages"
+    })
+  };
+};
+
+// packages/engine/src/refactor/initializeRun.ts
+var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, existing }) => {
+  if (existing) {
+    if ((existing.pipeline ?? "implement") !== "refactor") {
+      throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
+    }
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile34(join49(cwd, existing.plan), "utf8"))) };
+  }
+  const dirty = await readGitChangedFiles({ cwd });
+  if (dirty === void 0) {
+    throw new Error("refactor requires a git worktree \u2014 without git, changes cannot be attributed or reviewed as one diff.");
+  }
+  if (dirty.length > 0) {
+    throw new Error(`refactor requires a clean tree \u2014 commit or stash first. Dirty:
+${dirty.map((file2) => `  ${file2}`).join("\n")}`);
+  }
+  const worklist = await buildWorklist({ cwd, config: config2, path, all });
+  const worklistPath = join49(".lightsout", "runs", runId, "worklist.json");
+  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2 });
+  await writeFile16(join49(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+`, "utf8");
+  return { manifest, worklist };
+};
+
+// packages/engine/src/refactor/seedResumeState.ts
+var seedResumeState = ({ manifest, batches }) => {
+  const stepById = new Map(manifest.steps.map((step) => [step.id, step]));
+  const declined = [];
+  let declineStreak = 0;
+  for (const batch of batches) {
+    const step = stepById.get(batch.id);
+    if (step?.status !== RunStatus.Passed) {
+      break;
+    }
+    const parsed = BatchReport.safeParse(step.report);
+    if (parsed.success && parsed.data.outcome === BatchOutcome.Declined) {
+      declined.push({ batchId: batch.id, remainingClusters: parsed.data.remainingClusters, rationale: parsed.data.rationale });
+      declineStreak += 1;
+    } else {
+      declineStreak = 0;
+    }
+  }
+  return { declined, declineStreak };
+};
+
+// packages/engine/src/refactor/runBatch.ts
+import { appendFile as appendFile11, mkdir as mkdir16, writeFile as writeFile17 } from "node:fs/promises";
+import { join as join50 } from "node:path";
+
+// packages/engine/src/refactor/collectBatchChanges.ts
+var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
+  const attributed = new Set(attributedFiles);
+  const isGenerated = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated(file2));
+  return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
+};
+
+// packages/engine/src/refactor/matchRemainingFindings.ts
+var pathKey = (finding) => [...new Set(finding.files.map((file2) => file2.path))].sort().join("\0");
+var matchRemainingFindings = ({ frozen, live }) => {
+  const liveClusters = new Set(live.map((finding) => finding.cluster));
+  const liveClonePathKeys = new Set(live.filter((finding) => finding.cluster.startsWith("clone:")).map(pathKey));
+  return frozen.filter(
+    (finding) => finding.cluster.startsWith("clone:") ? liveClonePathKeys.has(pathKey(finding)) : liveClusters.has(finding.cluster)
+  ).map((finding) => finding.cluster);
+};
+
+// packages/engine/src/refactor/runBatchGates.ts
+var runBatchGates = async ({ cwd, config: config2, runId, step, onProgress }) => {
+  const changed = await readGitChangedFiles({ cwd }) ?? [];
+  const packagesDir = config2.packagesDir ?? "packages";
+  const touched = [
+    ...new Set(
+      changed.flatMap((file2) => {
+        const name = packageOf({ file: file2, packagesDir });
+        return name === void 0 ? [] : [name];
+      })
+    )
+  ];
+  return runGates({
+    cwd,
+    config: config2,
+    coverage: true,
+    packages: touched,
+    includeRoot: changed.some((file2) => packageOf({ file: file2, packagesDir }) === void 0),
+    runId,
+    step,
+    onProgress
+  });
+};
+
+// packages/engine/src/refactor/runBatch.ts
+var maxCheapFixRetries2 = 2;
+var standaloneBanner = "Standalone refactor run \u2014 there is no feature plan. The scan findings below are the entire work-list; nothing else about the repo is being changed.";
+var runBatch = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  batch,
+  scanPath,
+  scanAll,
+  standards,
+  testStandards,
+  agentTimeoutMs,
+  attributedFiles,
+  onProgress,
+  recordUsage
+}) => {
+  const agentsDir = join50(getRunDir({ cwd, runId }), "agents");
+  const rationale = [];
+  const reportedFiles = /* @__PURE__ */ new Set();
+  let invocationCount = 0;
+  const invoke = async ({ label, invocation }) => {
+    invocationCount += 1;
+    const streamPath = join50(agentsDir, `stream-${batch.id.replace(/[:/]/g, "_")}-${invocationCount}.jsonl`);
+    await mkdir16(agentsDir, { recursive: true });
+    const outcome = await invokeAgentWithContract({
+      driver,
+      cwd,
+      invocation,
+      contract: WorkReport,
+      model: config2.model,
+      permissionMode: config2.permissionMode ?? "acceptEdits",
+      timeoutMs: agentTimeoutMs,
+      allowedCommands: config2.agentCommands,
+      onEvent: (event) => {
+        void appendFile11(streamPath, `${JSON.stringify(event)}
+`, "utf8").catch(() => void 0);
+      },
+      onRejectedOutput: async ({ text, attempt }) => {
+        await writeFile17(join50(agentsDir, `rejected-${batch.id.replace(/[:/]/g, "_")}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(
+          () => void 0
+        );
+      }
+    });
+    await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
+    for (const file2 of outcome.report?.changedFiles ?? []) {
+      reportedFiles.add(file2.path);
+    }
+    if (outcome.report?.friction && outcome.report.friction.length > 0) {
+      await appendFriction({ cwd, runId, step: batch.id, friction: outcome.report.friction });
+      rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
+    }
+    return outcome;
+  };
+  const gates = () => runBatchGates({ cwd, config: config2, runId, step: batch.id, onProgress });
+  const remainingClusters = async ({ frozen }) => {
+    const { findings } = await runScan({ cwd, path: scanPath, all: scanAll, persist: false });
+    return matchRemainingFindings({ frozen, live: findings });
+  };
+  const batchChangedFiles = () => collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles });
+  if ((await remainingClusters({ frozen: batch.findings })).length === 0) {
+    onProgress(`${batch.id}: clusters already resolved by earlier work \u2014 no agent spent`);
+    return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: [] };
+  }
+  let workFindings = batch.findings;
+  for (let pass = 1; pass <= 2; pass += 1) {
+    const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
+    const { report, failure, rateLimited } = await invoke({
+      label: pass === 1 ? "" : "requeue",
+      invocation: buildRefactorExecutorInvocation({
+        planContent: standaloneBanner,
+        changedFiles: files,
+        standards,
+        scanFindings: workFindings,
+        scanAdvisories: batch.advisories
+      })
+    });
+    if (rateLimited) {
+      return { kind: "parked" };
+    }
+    if (!report) {
+      return { kind: "failed", error: `${batch.id}: ${failure ?? "unknown failure"}` };
+    }
+    if (report.status !== WorkReportStatus.Complete) {
+      const kind = report.status === WorkReportStatus.Failed ? "failed" : "escalated";
+      return { kind, error: `${batch.id}: ${report.status} \u2014 ${report.failures.join("; ")}` };
+    }
+    let gateError = await gates();
+    for (let retry = 1; gateError && retry <= maxCheapFixRetries2; retry += 1) {
+      onProgress(`${batch.id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries2}`);
+      const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
+      const fix = await invoke({
+        label: `fix-${retry}`,
+        invocation: coverageRed ? buildUnitTestWriterInvocation({
+          planContent: standaloneBanner,
+          changedFiles: files,
+          standards: testStandards,
+          errorContext: gateError
+        }) : buildRefactorExecutorInvocation({
+          planContent: standaloneBanner,
+          changedFiles: files,
+          standards,
+          scanFindings: workFindings,
+          scanAdvisories: batch.advisories,
+          errorContext: gateError
+        })
+      });
+      if (fix.rateLimited) {
+        return { kind: "parked" };
+      }
+      gateError = await gates();
+    }
+    if (gateError) {
+      return { kind: "escalated", error: `${batch.id}: gates still red after ${maxCheapFixRetries2} fix attempt(s).
+
+${gateError}` };
+    }
+    const remaining = await remainingClusters({ frozen: workFindings });
+    if (remaining.length === 0) {
+      return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+    }
+    if (report.changedFiles.length === 0 || pass === 2) {
+      return {
+        kind: "done",
+        report: { outcome: BatchOutcome.Declined, remainingClusters: remaining, rationale },
+        changedFiles: await batchChangedFiles()
+      };
+    }
+    onProgress(`${batch.id}: ${remaining.length} cluster(s) persist after a changing pass \u2014 one requeue`);
+    workFindings = workFindings.filter((finding) => remaining.includes(finding.cluster));
+  }
+  return { kind: "failed", error: `${batch.id}: batch loop exited without a terminal condition` };
+};
+
+// packages/engine/src/refactor/runRefactorPipeline.ts
+var defaultAgentTimeoutMinutes2 = 60;
+var maxConsecutiveDeclines = 3;
+var executeRefactor = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  path,
+  all,
+  maxBatches,
+  existing,
+  onProgress
+}) => {
+  const progress = onProgress ?? (() => void 0);
+  const initialized = await initializeRun({ cwd, runId, driver, config: config2, path, all, existing });
+  const { worklist } = initialized;
+  let { manifest } = initialized;
+  const usageTotals = seedUsageTotals({ usage: manifest.usage });
+  const update = async (patch) => {
+    manifest = await writeManifestWithUsage({ cwd, manifest, patch, usageTotals });
+  };
+  const recordUsage = ({ step, usage: usage2 }) => recordAgentUsage({ cwd, runId: manifest.runId, step, model: config2.model, totals: usageTotals, usage: usage2 });
+  const setStep = async ({ record: record2, patch }) => {
+    const steps = manifest.steps.some((step) => step.id === record2.id) ? manifest.steps.map((step) => step.id === record2.id ? record2 : step) : [...manifest.steps, record2];
+    await update({ ...patch, currentStep: record2.id, steps });
+  };
+  const seeded = seedResumeState({ manifest, batches: worklist.batches });
+  const declined = seeded.declined;
+  const before = countByDetector({ findings: worklist.batches.flatMap((batch) => batch.findings) });
+  const stop = async ({ record: record2, status, error: error51 }) => {
+    await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
+    progress(`refactor run stopped at ${record2.id} \u2014 ${status}`);
+    return { ok: false, manifest, error: error51, declined, before, after: before };
+  };
+  await update({ status: RunStatus.Running });
+  if (worklist.batches.length === 0) {
+    await update({ status: RunStatus.Passed, currentStep: null });
+    progress("refactor: no findings in scope \u2014 nothing to do");
+    return { ok: true, manifest, declined, before, after: before };
+  }
+  if (!manifest.steps.some((step) => step.id === "pre-flight" && step.status === RunStatus.Passed)) {
+    const record2 = {
+      id: "pre-flight",
+      status: RunStatus.Running,
+      attempts: (manifest.steps.find((step) => step.id === "pre-flight")?.attempts ?? 0) + 1
+    };
+    await setStep({ record: record2 });
+    progress("pre-flight \u2014 full gates before any batch");
+    const gateError = await runGates({ cwd, config: config2, coverage: true, runId: manifest.runId, step: "pre-flight", onProgress });
+    if (gateError) {
+      return stop({ record: record2, status: RunStatus.Failed, error: `Codebase is not green before refactoring \u2014 fix this first.
+${gateError}` });
+    }
+    await setStep({ record: { ...record2, status: RunStatus.Passed } });
+  }
+  const standardsPaths = config2.standards === false ? [] : config2.standards ?? ["lightsout:code-defaults"];
+  const testStandardsPaths = config2.testStandards === false ? [] : config2.testStandards ?? ["lightsout:test-defaults"];
+  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2.packagesDir ?? "packages", packages: [] });
+  const standards = await readStandards({ cwd, paths: standardsPaths, channels });
+  const testStandards = await readStandards({ cwd, paths: testStandardsPaths, channels });
+  const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes2) * 6e4;
+  let declineStreak = seeded.declineStreak;
+  let processed = 0;
+  for (const batch of worklist.batches) {
+    const prior = manifest.steps.find((step) => step.id === batch.id);
+    if (prior?.status === RunStatus.Passed) {
+      continue;
+    }
+    if (maxBatches !== void 0 && processed >= maxBatches) {
+      await update({ status: RunStatus.PausedBudget, currentStep: null });
+      progress(`budget ceiling (${maxBatches} batch(es)) reached \u2014 resume with: lightsout refactor --run ${manifest.runId}`);
+      return { ok: false, manifest, error: `paused at --max-batches ${maxBatches} \u2014 resume with: lightsout refactor --run ${manifest.runId}`, declined, before, after: before };
+    }
+    const record2 = { id: batch.id, status: RunStatus.Running, attempts: (prior?.attempts ?? 0) + 1 };
+    await setStep({ record: record2 });
+    progress(`${batch.id} \u2014 ${batch.findings.length} finding(s)`);
+    const outcome = await runBatch({
+      cwd,
+      runId: manifest.runId,
+      driver,
+      config: config2,
+      batch,
+      scanPath: worklist.path === "." ? void 0 : worklist.path,
+      scanAll: worklist.all,
+      standards,
+      testStandards,
+      agentTimeoutMs,
+      attributedFiles: manifest.changedFiles,
+      onProgress: progress,
+      recordUsage
+    });
+    processed += 1;
+    if (outcome.kind === "parked") {
+      return stop({
+        record: record2,
+        status: RunStatus.PausedRateLimit,
+        error: `run parked: harness rate limit reached \u2014 resume with \`lightsout refactor --run ${manifest.runId}\` when the window resets.`
+      });
+    }
+    if (outcome.kind === "failed" || outcome.kind === "escalated") {
+      return stop({ record: record2, status: outcome.kind === "failed" ? RunStatus.Failed : RunStatus.Escalated, error: outcome.error });
+    }
+    const report = BatchReport.parse(outcome.report);
+    await setStep({
+      record: { ...record2, status: RunStatus.Passed, report, changedFiles: outcome.changedFiles },
+      patch: { changedFiles: [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...outcome.changedFiles])] }
+    });
+    if (report.outcome === BatchOutcome.Declined) {
+      declined.push({ batchId: batch.id, remainingClusters: report.remainingClusters, rationale: report.rationale });
+      declineStreak += 1;
+      progress(`${batch.id}: declined (${report.remainingClusters.length} cluster(s) persist)`);
+      if (declineStreak >= maxConsecutiveDeclines) {
+        const error51 = `${maxConsecutiveDeclines} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or a detector bug), not worth further agent spend.`;
+        await update({ status: RunStatus.Escalated, currentStep: null });
+        progress(`refactor run stopped after ${batch.id} \u2014 ${RunStatus.Escalated}`);
+        return { ok: false, manifest, error: error51, declined, before, after: before };
+      }
+      continue;
+    }
+    declineStreak = 0;
+    progress(`${batch.id}: resolved`);
+  }
+  const finalScan = await runScan({ cwd, path: worklist.path === "." ? void 0 : worklist.path, all: worklist.all, persist: false });
+  await update({ status: RunStatus.Passed, currentStep: null });
+  return { ok: true, manifest, declined, before, after: countByDetector({ findings: finalScan.findings.filter((finding) => finding.severity === ScanSeverity.Finding) }) };
+};
+var runRefactorPipeline = (params) => withRunLock({ params, run: executeRefactor });
+
 // packages/cli/src/common/args/getPositionals.ts
 var getPositionals = ({ args }) => {
   const positionals = [];
@@ -40430,9 +40934,9 @@ ${stderr}`),
 };
 
 // packages/drivers/src/createCodexDriver.ts
-import { mkdtemp, readFile as readFile34, rm as rm2 } from "node:fs/promises";
+import { mkdtemp, readFile as readFile35, rm as rm2 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join49 } from "node:path";
+import { join as join51 } from "node:path";
 var rateLimitPattern2 = /usage limit|rate limit|limit reached|quota/i;
 var sandboxArgs = ({ permissionMode }) => {
   if (permissionMode === "plan") {
@@ -40448,8 +40952,8 @@ var createCodexDriver = () => {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp(join49(tmpdir(), "lightsout-codex-"));
-      const outFile = join49(outDir, "last-message.txt");
+      const outDir = await mkdtemp(join51(tmpdir(), "lightsout-codex-"));
+      const outFile = join51(outDir, "last-message.txt");
       const args = [
         "exec",
         "--skip-git-repo-check",
@@ -40477,7 +40981,7 @@ ${prompt}` : prompt;
           stdinText: fullPrompt,
           timeoutMs
         });
-        const text = await readFile34(outFile, "utf8").catch(() => "");
+        const text = await readFile35(outFile, "utf8").catch(() => "");
         const errored = exitCode !== 0 || text === "";
         return {
           text: text || stdout || stderr,
@@ -40542,12 +41046,12 @@ var buildMapCommand = async ({ flags, rest, cwd }) => {
   try {
     const { source: connectionsSource, connections } = await resolveCommandConnections({ cwd, flags, config: config2 });
     if (authorRunId) {
-      const joinPath = join50(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
-      const reviewed = MapJoin.parse(JSON.parse(await readFile35(joinPath, "utf8")));
-      const inventoriesDir = join50(cwd, ".lightsout/traverse/inventories");
+      const joinPath = join52(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+      const reviewed = MapJoin.parse(JSON.parse(await readFile36(joinPath, "utf8")));
+      const inventoriesDir = join52(cwd, ".lightsout/traverse/inventories");
       const shaByNode = /* @__PURE__ */ new Map();
       for (const name of (await readdir10(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile35(join50(inventoriesDir, name), "utf8")));
+        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile36(join52(inventoriesDir, name), "utf8")));
         if (inventory.success) {
           shaByNode.set(inventory.data.node, inventory.data.scannedSha);
         }
@@ -41251,6 +41755,10 @@ var resumeCommand = async ({ flags, cwd }) => {
     process.exit(1);
   }
   const manifest = await readRunManifest({ cwd, runId });
+  if ((manifest.pipeline ?? "implement") !== "implement") {
+    console.error(`run ${runId} belongs to the ${manifest.pipeline} pipeline \u2014 resume it with: lightsout refactor --run ${runId}`);
+    process.exit(1);
+  }
   if (manifest.status === RunStatus.Passed) {
     console.error(`run ${runId} already passed \u2014 nothing to resume`);
     process.exit(1);
@@ -41268,6 +41776,86 @@ var resumeCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
+  process.exit(result.ok ? 0 : 1);
+};
+
+// packages/cli/src/refactorCommand.ts
+var refactorCommand = async ({ flags, cwd }) => {
+  const resumeRunId = getStringFlag({ flags, name: "run" });
+  const maxBatchesFlag = getStringFlag({ flags, name: "max-batches" });
+  const config2 = await loadConfig({ cwd });
+  const driver = getDriver({ name: config2.driver ?? "claude-code" });
+  const maxBatches = maxBatchesFlag === void 0 ? void 0 : Number.parseInt(maxBatchesFlag, 10);
+  if (maxBatches !== void 0 && (!Number.isFinite(maxBatches) || maxBatches < 1)) {
+    console.error(`--max-batches must be a positive integer, got '${maxBatchesFlag}'`);
+    process.exit(1);
+  }
+  let existing;
+  try {
+    existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : void 0;
+  } catch {
+    console.error(`no run found for --run ${resumeRunId}`);
+    process.exit(1);
+  }
+  console.log(`lightsout: refactor ${resumeRunId ? `resuming run ${resumeRunId}` : "starting run"}`);
+  let result;
+  try {
+    result = await runRefactorPipeline({
+      cwd,
+      driver,
+      config: config2,
+      path: getStringFlag({ flags, name: "path" }),
+      all: flags.get("all") === true,
+      maxBatches,
+      existing,
+      onProgress: createProgressPrinter()
+    });
+  } catch (error51) {
+    if (error51 instanceof RunLockError) {
+      console.error(`
+${error51.message}`);
+      process.exit(1);
+    }
+    console.error(`
+${error51 instanceof Error ? error51.message : String(error51)}`);
+    process.exit(1);
+  }
+  const { manifest, declined, before, after } = result;
+  const batchSteps = manifest.steps.filter((step) => step.id.startsWith("batch-"));
+  const statusLabel = result.ok && declined.length > 0 ? `${manifest.status.toUpperCase()} \xB7 ${declined.length} declined` : manifest.status.toUpperCase();
+  console.log(`
+${bold(`refactor ${manifest.runId.slice(0, 8)}`)} \u2014 ${statusLabel}`);
+  for (const step of batchSteps) {
+    const decline = declined.find((entry) => entry.batchId === step.id);
+    const icon = step.status !== RunStatus.Passed ? red("\u2717") : decline ? yellow("\u292B") : green("\u2713");
+    const label = decline ? `declined (${decline.remainingClusters.length} cluster(s) persist)` : step.status === RunStatus.Passed ? "resolved" : step.status;
+    console.log(`${icon} ${step.id.padEnd(48)}${label}${step.changedFiles?.length ? dim(` \xB7 ${step.changedFiles.length} file(s)`) : ""}`);
+  }
+  for (const entry of declined) {
+    console.log(`
+${yellow("declined")} ${entry.batchId}`);
+    for (const line of entry.rationale) {
+      console.log(dim(`  ${line}`));
+    }
+    console.log(dim(`  review each cluster \u2014 fix by hand, or accept it as debt: lightsout scan --baseline`));
+  }
+  const detectors = [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].sort();
+  if (detectors.length > 0) {
+    console.log(`
+burn-down (findings before \u2192 after):`);
+    for (const detector of detectors) {
+      console.log(`  ${detector.padEnd(20)}${before[detector] ?? 0} \u2192 ${after[detector] ?? 0}`);
+    }
+  }
+  if (manifest.changedFiles.length > 0) {
+    console.log(`
+${manifest.changedFiles.length} file(s) changed in the working tree \u2014 review and commit; the engine never commits.`);
+  }
+  console.log(`evidence: .lightsout/runs/${manifest.runId}/`);
+  if (!result.ok && result.error) {
+    console.error(`
+${result.error}`);
+  }
   process.exit(result.ok ? 0 : 1);
 };
 
@@ -41306,9 +41894,9 @@ ${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} 
 
 // packages/cli/src/statusCommand.ts
 import { readdir as readdir11 } from "node:fs/promises";
-import { join as join51 } from "node:path";
+import { join as join53 } from "node:path";
 var statusCommand = async ({ cwd }) => {
-  const runsDir = join51(cwd, ".lightsout", "runs");
+  const runsDir = join53(cwd, ".lightsout", "runs");
   const runIds = await readdir11(runsDir).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");
@@ -41404,6 +41992,7 @@ var commands = {
   status: statusCommand,
   doctor: doctorCommand,
   scan: scanCommand,
+  refactor: refactorCommand,
   traverse: traverseCommand,
   debug: debugCommand,
   "build-map": buildMapCommand,
