@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { StructuralCheck } from '@lightsout/contracts';
-import { lintPlanStructure } from '../src/index';
+import { lintPlanStructure } from '../src/plan';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';
 
 /** Write a plan file into the repo and return its absolute path. */

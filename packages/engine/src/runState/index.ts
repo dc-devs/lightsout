@@ -9,7 +9,6 @@ export { summarizeRun } from './summarizeRun';
 export { acquireRunLock } from './acquireRunLock';
 export { releaseRunLock } from './releaseRunLock';
 export { readRunLock } from './readRunLock';
-export { getRunLockPath } from './getRunLockPath';
 export { isPidAlive } from './isPidAlive';
 export { RunLockError } from './RunLockError';
 export { writeManifestWithUsage } from './writeManifestWithUsage';

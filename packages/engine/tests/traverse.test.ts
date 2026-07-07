@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
-import { matchExitToEdge, readConnectionMap, runTraverse } from '../src/index';
+import { runTraverse } from '../src/index';
+import { matchExitToEdge, readConnectionMap } from '../src/traverse';
 
 const hopReport = (overrides: Record<string, unknown>) =>
 	JSON.stringify({

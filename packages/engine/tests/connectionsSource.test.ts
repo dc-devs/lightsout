@@ -4,7 +4,8 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { parseConnectionsSource, resolveConnectionsSource } from '../src/index';
+import { resolveConnectionsSource } from '../src/index';
+import { parseConnectionsSource } from '../src/traverse';
 
 test('parseConnectionsSource: local paths, git URLs, and every subpath form', () => {
 	assert.deepEqual(parseConnectionsSource({ source: '.lightsout/connections' }), { kind: 'local', path: '.lightsout/connections' });

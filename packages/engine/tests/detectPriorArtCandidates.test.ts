@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { detectPriorArtCandidates } from '../src/index';
+import { detectPriorArtCandidates } from '../src/plan';
 
 /** A temp repo with the given existing source files and a plan whose Files-to-Create lists the given paths. */
 const setup = ({ existing, creates }: { existing: string[]; creates: string[] }) => {

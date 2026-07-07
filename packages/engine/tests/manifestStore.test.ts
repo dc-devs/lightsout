@@ -3,7 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { test } from 'node:test';
-import { createRun, getRunDir, readRunManifest, writeRunManifest } from '../src/index';
+import { readRunManifest } from '../src/index';
+import { createRun, getRunDir, writeRunManifest } from '../src/runState';
 import { readStandards } from '../src/standards';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ScanFinding } from '@lightsout/contracts';
-import { matchRemainingFindings } from '../src/index';
+import { matchRemainingFindings } from '../src/refactor';
 
 const finding = ({ detector, cluster, paths }: { detector: ScanFinding['detector']; cluster: string; paths: string[] }): ScanFinding => ({
 	detector,

@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { ConnectionDoc } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { findConnectingDoc, resolveSeedNode, runDebug } from '../src/index';
+import { runDebug } from '../src/index';
+import { findConnectingDoc, resolveSeedNode } from '../src/traverse';
 
 const setupNodeRepo = ({ name, files }: { name: string; files: Record<string, string> }) => {
 	const dir = mkdtempSync(join(tmpdir(), `lightsout-dbg-${name}-`));

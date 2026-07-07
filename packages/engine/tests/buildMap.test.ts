@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { EdgeInventory } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { authorConnectionDocs, joinInventories, readConnectionMap, runBuildMap } from '../src/index';
+import { authorConnectionDocs, runBuildMap } from '../src/index';
+import { joinInventories, readConnectionMap } from '../src/traverse';
 
 const inventoryEdge = (overrides: Record<string, unknown>) => ({
 	direction: 'out',

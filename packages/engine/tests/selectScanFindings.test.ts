@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ScanFinding } from '@lightsout/contracts';
-import { selectScanFindings } from '../src/index';
+import { selectScanFindings } from '../src/scan';
 
 const finding = (overrides: Partial<ScanFinding>): ScanFinding => ({
 	detector: 'structure',

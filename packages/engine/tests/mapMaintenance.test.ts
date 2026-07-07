@@ -4,7 +4,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { draftConnectionDocs, readConnectionMap, verifyConnectionAnchors } from '../src/index';
+import { draftConnectionDocs, verifyConnectionAnchors } from '../src/index';
+import { readConnectionMap } from '../src/traverse';
 
 const commit = (dir: string) => {
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm change', { cwd: dir });

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { collapseCasing, nameKey, nameOf } from '../src/index';
+import { collapseCasing } from '../src/common/naming/collapseCasing';
+import { nameKey } from '../src/common/naming/nameKey';
+import { nameOf } from '../src/common/naming/nameOf';
 
 test('nameKey: synonym verbs collapse to one key', () => {
 	assert.equal(nameKey({ name: 'fetchUserData' }), nameKey({ name: 'getUserData' }));

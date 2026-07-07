@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { ExploreArea } from '@lightsout/contracts';
-import { verifyFacts } from '../src/index';
+import { verifyFacts } from '../src/plan';
 
 /** A full ExploreArea with per-test overrides. */
 const area = (overrides: Partial<ExploreArea>): ExploreArea => ({

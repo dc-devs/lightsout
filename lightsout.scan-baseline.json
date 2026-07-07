@@ -1,5 +1,5 @@
 {
-	"at": "2026-07-07T13:29:41.732Z",
+	"at": "2026-07-07T14:08:29.900Z",
 	"path": ".",
 	"clusters": [
 		"clone:packages/cli/src/plan/planDedupCommand.ts:24",
@@ -37,19 +37,6 @@
 		"domain:packages/cli/src/common/utils:resolve",
 		"domain:packages/engine/src/common/utils:resolve",
 		"domain:packages/engine/src/plan/common/utils:path",
-		"census:packages/engine/src/traverse",
-		"dead:packages/cli/src/buildMapCommand.ts",
-		"dead:packages/cli/src/debugCommand.ts",
-		"dead:packages/cli/src/doctorCommand.ts",
-		"dead:packages/cli/src/frictionCommand.ts",
-		"dead:packages/cli/src/implementCommand.ts",
-		"dead:packages/cli/src/improveCommand.ts",
-		"dead:packages/cli/src/mapConnectionCommand.ts",
-		"dead:packages/cli/src/plan/planCommand.ts",
-		"dead:packages/cli/src/refactorCommand.ts",
-		"dead:packages/cli/src/resumeCommand.ts",
-		"dead:packages/cli/src/scanCommand.ts",
-		"dead:packages/cli/src/statusCommand.ts",
-		"dead:packages/cli/src/traverseCommand.ts"
+		"census:packages/engine/src/traverse"
 	]
 }
