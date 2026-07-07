@@ -63,7 +63,7 @@ Folders match what they hold, in that name's own casing:
 
 A stateless function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) — `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.
 
-A domain folder is **not** a module — by the barrel-omission test it hides nothing: every file in it is public, and its `index.ts` is convenience, not a boundary. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.
+A domain folder is **not** a module — by the barrel-omission test it hides nothing: every file in it is public, it carries **no `index.ts`** (no barrels under `common/`; see module-api.md), and imports target its files directly. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.
 
 ## Example
 
