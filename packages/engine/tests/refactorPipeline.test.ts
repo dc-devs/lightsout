@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { RunManifest } from '@lightsout/contracts';
@@ -378,4 +378,116 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 
 	assert.equal(resumed.ok, true, resumed.error);
 	assert.ok(prompts[0]?.includes('alpha/multi.ts:12'), `the advisory in the prompt cites the LIVE line (12), not the frozen one (2) — got:\n${prompts[0]?.split('\n').filter((line) => line.includes('[size]')).join('\n')}`);
+});
+
+// v1.2 — supervisor consult on the red-gate exception path. The fixture's
+// check gate fails while broken.flag exists; the executor's "fix" plants the
+// flag, cheap fixes shrug, and only the supervisor-guided invocation removes it.
+const supervisorFixture = () => {
+	const dir = setupConsumerRepo({ scripts: { check: 'test ! -f broken.flag' } });
+
+	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	commitAll(dir);
+
+	return dir;
+};
+
+/** A stub whose executor resolves the finding but breaks the gate; cheap fixes are no-ops. */
+const gateBreakingInvoke = ({ dir, prompts, onSupervisor }: { dir: string; prompts: string[]; onSupervisor: () => { text: string; exitCode: number; rateLimited?: boolean } }): Driver['invoke'] => {
+	let executorCalls = 0;
+
+	return async ({ prompt }) => {
+		prompts.push(prompt);
+
+		if (prompt.includes('# Failing step')) {
+			return onSupervisor();
+		}
+
+		if (prompt.includes('# Supervisor guidance')) {
+			rmSync(join(dir, 'broken.flag'));
+
+			return { text: report(), exitCode: 0 };
+		}
+
+		executorCalls += 1;
+
+		if (executorCalls === 1) {
+			writeFileSync(join(dir, 'src/multi.ts'), 'export const alpha = 1;\n');
+			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
+			writeFileSync(join(dir, 'broken.flag'), 'red\n');
+
+			return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }, { path: 'src/beta.ts', summary: 'split' }] }), exitCode: 0 };
+		}
+
+		return { text: report(), exitCode: 0 };
+	};
+};
+
+test('refactor: supervisor guidance rescues a red-gated batch', async () => {
+	const dir = supervisorFixture();
+	const prompts: string[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: gateBreakingInvoke({
+			dir,
+			prompts,
+			onSupervisor: () => ({
+				text: JSON.stringify({ decision: 'retry', diagnosis: 'broken.flag trips the check gate', guidance: 'delete broken.flag' }),
+				exitCode: 0,
+				usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0.01 },
+			}),
+		}),
+	};
+
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+
+	assert.equal(result.ok, true, `the guided retry must rescue the batch: ${result.error}`);
+	assert.equal(result.after['structure'] ?? 0, 0, 'the finding burned down');
+
+	const guided = prompts.find((prompt) => prompt.includes('# Supervisor guidance'));
+
+	assert.ok(guided?.includes('broken.flag trips the check gate'), 'the diagnosis rides the guided retry');
+	assert.ok(guided?.includes('delete broken.flag'), 'the guidance rides the guided retry');
+
+	const ledger = readFileSync(join(dir, '.lightsout/runs', result.manifest.runId, 'agents.jsonl'), 'utf8');
+
+	assert.ok(ledger.includes(':supervisor'), 'the consult is on the usage ledger');
+});
+
+test('refactor: a supervisor escalate verdict ends the run with the diagnosis attached', async () => {
+	const dir = supervisorFixture();
+	const driver: Driver = {
+		name: 'stub',
+		invoke: gateBreakingInvoke({
+			dir,
+			prompts: [],
+			onSupervisor: () => ({
+				text: JSON.stringify({ decision: 'escalate', diagnosis: 'the gate red is a real defect a human must rule on' }),
+				exitCode: 0,
+			}),
+		}),
+	};
+
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+
+	assert.equal(result.ok, false);
+	assert.equal(result.manifest.status, 'escalated');
+	assert.match(result.error ?? '', /a human must rule on/, 'the diagnosis is the escalation evidence');
+});
+
+test('refactor: a rate-limited supervisor parks the run, not fails it', async () => {
+	const dir = supervisorFixture();
+	const driver: Driver = {
+		name: 'stub',
+		invoke: gateBreakingInvoke({
+			dir,
+			prompts: [],
+			onSupervisor: () => ({ text: 'usage limit reached', exitCode: 1, rateLimited: true }),
+		}),
+	};
+
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+
+	assert.equal(result.ok, false);
+	assert.equal(result.manifest.status, 'paused-rate-limit', 'rate-limit exhaustion is a pausable state, never an error');
 });

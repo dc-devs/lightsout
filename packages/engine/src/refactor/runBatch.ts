@@ -1,4 +1,4 @@
-import { buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '@lightsout/agents';
+import { buildRefactorExecutorInvocation } from '@lightsout/agents';
 import {
 	BatchOutcome,
 	ScanDetector,
@@ -12,10 +12,12 @@ import {
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { runScan } from '../scan';
+import { buildBatchFixInvocation } from './buildBatchFixInvocation';
 import { collectBatchChanges } from './collectBatchChanges';
 import { invokeBatchAgent } from './invokeBatchAgent';
 import { matchRemainingFindings } from './matchRemainingFindings';
 import { runBatchGates } from './runBatchGates';
+import { superviseBatch } from './superviseBatch';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =
@@ -120,6 +122,9 @@ export const runBatch = async ({
 
 	for (let pass = 1; pass <= 2; pass += 1) {
 		const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file) => file.path)))];
+
+		const buildFixInvocation = ({ gateError, guidance }: { gateError: string; guidance?: string }) =>
+			buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, scanFindings: workFindings, scanAdvisories: liveAdvisories, gateError, guidance });
 		const { report, failure, rateLimited } = await invoke({
 			label: pass === 1 ? '' : 'requeue',
 			invocation: buildRefactorExecutorInvocation({
@@ -173,28 +178,7 @@ export const runBatch = async ({
 		for (let retry = 1; gateError && retry <= maxCheapFixRetries; retry += 1) {
 			onProgress(`${batch.id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
-			// Coverage routes to the test writer only when coverage is the ONLY
-			// red kind — mixed failures fix the source first (the coverage red
-			// may be downstream of the source break).
-			const coverageRed = gateError.includes('test-coverage failed') && !/(check|test-unit|build|generate|format) failed/.test(gateError);
-			const fix = await invoke({
-				label: `fix-${retry}`,
-				invocation: coverageRed
-					? buildUnitTestWriterInvocation({
-							planContent: standaloneBanner,
-							changedFiles: files,
-							standards: testStandards,
-							errorContext: gateError,
-						})
-					: buildRefactorExecutorInvocation({
-							planContent: standaloneBanner,
-							changedFiles: files,
-							standards,
-							scanFindings: workFindings,
-							scanAdvisories: liveAdvisories,
-							errorContext: gateError,
-						}),
-			});
+			const fix = await invoke({ label: `fix-${retry}`, invocation: buildFixInvocation({ gateError }) });
 
 			if (fix.rateLimited) {
 				return { kind: 'parked' };
@@ -203,8 +187,31 @@ export const runBatch = async ({
 			gateError = await gates();
 		}
 
+		// Exception path: mechanical retries exhausted — bring in judgment.
 		if (gateError) {
-			return { kind: 'escalated', error: `${batch.id}: gates still red after ${maxCheapFixRetries} fix attempt(s).\n\n${gateError}` };
+			const supervised = await superviseBatch({
+				cwd,
+				runId,
+				driver,
+				config,
+				batchId: batch.id,
+				planContent: standaloneBanner,
+				gateError,
+				attempts: invocationCount,
+				maxCheapFixRetries,
+				onProgress,
+				recordUsage,
+				invokeGuidedFix: ({ guidance }) => invoke({ label: 'supervised-fix', invocation: buildFixInvocation({ gateError, guidance }) }),
+				gates,
+			});
+
+			if (supervised.kind === 'parked') {
+				return { kind: 'parked' };
+			}
+
+			if (supervised.kind === 'escalated') {
+				return { kind: 'escalated', error: supervised.error };
+			}
 		}
 
 		const remaining = await remainingClusters({ frozen: workFindings });

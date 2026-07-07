@@ -8014,7 +8014,7 @@ usage:
 
 // packages/cli/src/buildMapCommand.ts
 import { readFile as readFile37, readdir as readdir11 } from "node:fs/promises";
-import { join as join59 } from "node:path";
+import { join as join60 } from "node:path";
 
 // packages/contracts/src/run/RunStatus.ts
 var RunStatus = {
@@ -37700,12 +37700,26 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
   };
 };
 
-// packages/engine/src/pipeline/steps/verifyStep.ts
-var maxCheapFixRetries = 2;
+// packages/engine/src/common/utils/consultSupervisor.ts
 var defaultSupervisorTimeoutMinutes = 15;
 var supervisorPermissionMode = "plan";
+var consultSupervisor = async ({ driver, cwd, config: config2, planContent, stepId, errorOutput, attempts, onEvent, onRejectedOutput }) => {
+  return invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation: buildSupervisorInvocation({ planContent, stepId, errorOutput, attempts }),
+    contract: SupervisorVerdict,
+    model: config2.model,
+    permissionMode: supervisorPermissionMode,
+    timeoutMs: (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4,
+    onEvent,
+    onRejectedOutput
+  });
+};
+
+// packages/engine/src/pipeline/steps/verifyStep.ts
+var maxCheapFixRetries = 2;
 var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
-  const supervisorTimeoutMs = (run.config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
   const applyFix = async ({ fix, record: record2 }) => {
     if (fix.rateLimited) {
       return { rateLimited: true };
@@ -37746,15 +37760,15 @@ var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
       error51 = result.error;
     }
     if (error51) {
-      run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor (ceiling ${supervisorTimeoutMs / 6e4}m)`);
-      const verdict = await invokeAgentWithContract({
+      run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor`);
+      const verdict = await consultSupervisor({
         driver: run.driver,
         cwd: run.cwd,
-        invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error51, attempts: record2.attempts }),
-        contract: SupervisorVerdict,
-        model: run.config.model,
-        permissionMode: supervisorPermissionMode,
-        timeoutMs: supervisorTimeoutMs,
+        config: run.config,
+        planContent,
+        stepId: id,
+        errorOutput: error51,
+        attempts: record2.attempts,
         onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
         onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
       });
@@ -40703,6 +40717,15 @@ var seedResumeState = ({ manifest, batches }) => {
   return { declined, declineStreak };
 };
 
+// packages/engine/src/refactor/buildBatchFixInvocation.ts
+var buildBatchFixInvocation = ({ planContent, files, standards, testStandards, scanFindings, scanAdvisories, gateError, guidance }) => {
+  const errorContext = guidance ? `${gateError}
+
+${guidance}` : gateError;
+  const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
+  return coverageRed ? buildUnitTestWriterInvocation({ planContent, changedFiles: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, scanFindings, scanAdvisories, errorContext });
+};
+
 // packages/engine/src/refactor/collectBatchChanges.ts
 var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
   const attributed = new Set(attributedFiles);
@@ -40794,6 +40817,78 @@ var runBatchGates = async ({ cwd, config: config2, runId, step, onProgress }) =>
   });
 };
 
+// packages/engine/src/refactor/superviseBatch.ts
+import { appendFile as appendFile10, mkdir as mkdir16, writeFile as writeFile18 } from "node:fs/promises";
+import { join as join58 } from "node:path";
+var superviseBatch = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  batchId,
+  planContent,
+  gateError,
+  attempts,
+  maxCheapFixRetries: maxCheapFixRetries3,
+  onProgress,
+  recordUsage,
+  invokeGuidedFix,
+  gates: gates2
+}) => {
+  onProgress(`${batchId}: gates red after ${maxCheapFixRetries3} cheap fix attempt(s) \u2014 consulting supervisor`);
+  const agentsDir = join58(getRunDir({ cwd, runId }), "agents");
+  const slug = batchId.replace(/[:/]/g, "_");
+  await mkdir16(agentsDir, { recursive: true });
+  const verdict = await consultSupervisor({
+    driver,
+    cwd,
+    config: config2,
+    planContent,
+    stepId: batchId,
+    errorOutput: gateError,
+    attempts,
+    onEvent: (event) => {
+      void appendFile10(join58(agentsDir, `stream-${slug}-supervisor.jsonl`), `${JSON.stringify(event)}
+`, "utf8").catch(() => void 0);
+    },
+    onRejectedOutput: async ({ text, attempt }) => {
+      await writeFile18(join58(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+    }
+  });
+  await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
+  if (verdict.rateLimited) {
+    return { kind: "parked" };
+  }
+  if (verdict.report) {
+    onProgress(`${batchId}: supervisor verdict \u2014 ${verdict.report.decision}`);
+  }
+  let remainingError = gateError;
+  if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
+    const fix = await invokeGuidedFix({
+      guidance: `# Supervisor diagnosis
+${verdict.report.diagnosis}
+
+# Supervisor guidance
+${verdict.report.guidance}`
+    });
+    if (fix.rateLimited) {
+      return { kind: "parked" };
+    }
+    remainingError = await gates2();
+  }
+  if (remainingError) {
+    const diagnosis = verdict.report ? `
+supervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : "";
+    return {
+      kind: "escalated",
+      error: `${batchId}: gates still red after ${maxCheapFixRetries3} fix attempt(s) and a supervisor consult.${diagnosis}
+
+${remainingError}`
+    };
+  }
+  return { kind: "green" };
+};
+
 // packages/engine/src/refactor/runBatch.ts
 var maxCheapFixRetries2 = 2;
 var standaloneBanner = "Standalone refactor run \u2014 there is no feature plan. The scan findings below are the entire work-list; nothing else about the repo is being changed.";
@@ -40838,6 +40933,7 @@ var runBatch = async ({
   let workFindings = batch.findings;
   for (let pass = 1; pass <= 2; pass += 1) {
     const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
+    const buildFixInvocation = ({ gateError: gateError2, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, scanFindings: workFindings, scanAdvisories: liveAdvisories, gateError: gateError2, guidance });
     const { report, failure, rateLimited } = await invoke({
       label: pass === 1 ? "" : "requeue",
       invocation: buildRefactorExecutorInvocation({
@@ -40874,32 +40970,34 @@ var runBatch = async ({
     let gateError = await gates2();
     for (let retry = 1; gateError && retry <= maxCheapFixRetries2; retry += 1) {
       onProgress(`${batch.id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries2}`);
-      const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
-      const fix = await invoke({
-        label: `fix-${retry}`,
-        invocation: coverageRed ? buildUnitTestWriterInvocation({
-          planContent: standaloneBanner,
-          changedFiles: files,
-          standards: testStandards,
-          errorContext: gateError
-        }) : buildRefactorExecutorInvocation({
-          planContent: standaloneBanner,
-          changedFiles: files,
-          standards,
-          scanFindings: workFindings,
-          scanAdvisories: liveAdvisories,
-          errorContext: gateError
-        })
-      });
+      const fix = await invoke({ label: `fix-${retry}`, invocation: buildFixInvocation({ gateError }) });
       if (fix.rateLimited) {
         return { kind: "parked" };
       }
       gateError = await gates2();
     }
     if (gateError) {
-      return { kind: "escalated", error: `${batch.id}: gates still red after ${maxCheapFixRetries2} fix attempt(s).
-
-${gateError}` };
+      const supervised = await superviseBatch({
+        cwd,
+        runId,
+        driver,
+        config: config2,
+        batchId: batch.id,
+        planContent: standaloneBanner,
+        gateError,
+        attempts: invocationCount,
+        maxCheapFixRetries: maxCheapFixRetries2,
+        onProgress,
+        recordUsage,
+        invokeGuidedFix: ({ guidance }) => invoke({ label: "supervised-fix", invocation: buildFixInvocation({ gateError, guidance }) }),
+        gates: gates2
+      });
+      if (supervised.kind === "parked") {
+        return { kind: "parked" };
+      }
+      if (supervised.kind === "escalated") {
+        return { kind: "escalated", error: supervised.error };
+      }
     }
     const remaining = await remainingClusters({ frozen: workFindings });
     if (remaining.length === 0) {
@@ -41238,7 +41336,7 @@ ${stderr}`),
 // packages/drivers/src/createCodexDriver.ts
 import { mkdtemp, readFile as readFile36, rm as rm2 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join58 } from "node:path";
+import { join as join59 } from "node:path";
 var rateLimitPattern2 = /usage limit|rate limit|limit reached|quota/i;
 var sandboxArgs = ({ permissionMode }) => {
   if (permissionMode === "plan") {
@@ -41254,8 +41352,8 @@ var createCodexDriver = () => {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp(join58(tmpdir(), "lightsout-codex-"));
-      const outFile = join58(outDir, "last-message.txt");
+      const outDir = await mkdtemp(join59(tmpdir(), "lightsout-codex-"));
+      const outFile = join59(outDir, "last-message.txt");
       const args = [
         "exec",
         "--skip-git-repo-check",
@@ -41348,12 +41446,12 @@ var buildMapCommand = async ({ flags, rest, cwd }) => {
   try {
     const { source: connectionsSource, connections } = await resolveCommandConnections({ cwd, flags, config: config2 });
     if (authorRunId) {
-      const joinPath = join59(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+      const joinPath = join60(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
       const reviewed = MapJoin.parse(JSON.parse(await readFile37(joinPath, "utf8")));
-      const inventoriesDir = join59(cwd, ".lightsout/traverse/inventories");
+      const inventoriesDir = join60(cwd, ".lightsout/traverse/inventories");
       const shaByNode = /* @__PURE__ */ new Map();
       for (const name of (await readdir11(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile37(join59(inventoriesDir, name), "utf8")));
+        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile37(join60(inventoriesDir, name), "utf8")));
         if (inventory.success) {
           shaByNode.set(inventory.data.node, inventory.data.scannedSha);
         }
@@ -42199,9 +42297,9 @@ ${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} 
 
 // packages/cli/src/statusCommand.ts
 import { readdir as readdir12 } from "node:fs/promises";
-import { join as join60 } from "node:path";
+import { join as join61 } from "node:path";
 var statusCommand = async ({ cwd }) => {
-  const runsDir = join60(cwd, ".lightsout", "runs");
+  const runsDir = join61(cwd, ".lightsout", "runs");
   const runIds = await readdir12(runsDir).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");

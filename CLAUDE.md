@@ -18,8 +18,9 @@ resumable manifests, supervisor) that spawns the user's own installed harness
   (module-boundary/placement/barrel-hygiene, barrel-omission test as code) +
   `lightsout refactor` — standalone findings burn-down pipeline: frozen
   worklist, detector×area batches, gate-kind fix routing, declines as
-  first-class outcomes, park/resume). FeedbackDrop is consumer #1 via its own
-  `lightsout.config.json`.
+  first-class outcomes, park/resume; v1.2: supervisor consult on red-gated
+  batches via shared `consultSupervisor`). FeedbackDrop is consumer #1 via
+  its own `lightsout.config.json`.
 
 ## Commands
 
