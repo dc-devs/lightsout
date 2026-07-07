@@ -3,10 +3,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
-import { loadConfig, runImplementPipeline } from '../index';
-import { report } from '../../tests/helpers/report';
-import { roleOf } from '../../tests/helpers/roleOf';
-import { setupConsumerRepo } from '../../tests/helpers/setupConsumerRepo';
+import { loadConfig, runImplementPipeline } from '../../index';
+import { report } from '../../../tests/helpers/report';
+import { roleOf } from '../../../tests/helpers/roleOf';
+import { setupConsumerRepo } from '../../../tests/helpers/setupConsumerRepo';
 
 test('write-tests fan-out: files under __tests__/ are test files, never writer targets', async () => {
 	const dir = setupConsumerRepo();

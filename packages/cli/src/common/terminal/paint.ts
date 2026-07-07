@@ -8,4 +8,4 @@ interface Params {
 export const paint =
 	({ code }: Params): ((text: string) => string) =>
 	(text: string) =>
-		process.stdout.isTTY ? `\\u001b[${code}m${text}\\u001b[0m` : text;
+		process.stdout.isTTY ? `\u001b[${code}m${text}\u001b[0m` : text;

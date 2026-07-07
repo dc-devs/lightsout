@@ -4,8 +4,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { chunkFileGroup, groupConnectedFiles } from './index';
-import { collectImportEdges } from '../common/utils/collectImportEdges';
+import { collectImportEdges } from './collectImportEdges';
 
 // Runtime require, mirroring resolveConsumerTypescript: a static import would
 // make esbuild inline the whole CJS compiler into the ESM test bundle, where
@@ -44,26 +43,4 @@ test('collectImportEdges: relative paths, barrel index targets, unique alias suf
 		'src/a/deep/helper.ts -> src/shared/index.ts', // relative ../.. resolving to /index barrel
 		// NOT: react (external, single segment), NOT: '@x/lib/dupe/thing' (suffix matches two changed files — ambiguous)
 	]);
-});
-
-test('groupConnectedFiles: chains merge, isolates stand alone, output is deterministic', () => {
-	const files = ['c.ts', 'a.ts', 'b.ts', 'lonely.ts'];
-	const edges = [
-		{ from: 'a.ts', to: 'b.ts' },
-		{ from: 'c.ts', to: 'b.ts' },
-		{ from: 'a.ts', to: 'not-in-set.ts' },
-	];
-
-	assert.deepEqual(groupConnectedFiles({ files, edges }), [['a.ts', 'b.ts', 'c.ts'], ['lonely.ts']]);
-});
-
-test('chunkFileGroup: splits above max into sorted slices', () => {
-	const files = Array.from({ length: 13 }, (_, index) => `src/${String(index).padStart(2, '0')}.ts`);
-
-	const chunks = chunkFileGroup({ files: [...files].reverse(), max: 12 });
-
-	assert.equal(chunks.length, 2);
-	assert.deepEqual(chunks[0], files.slice(0, 12));
-	assert.deepEqual(chunks[1], files.slice(12));
-	assert.deepEqual(chunkFileGroup({ files, max: 12 })[0]?.length, 12);
 });

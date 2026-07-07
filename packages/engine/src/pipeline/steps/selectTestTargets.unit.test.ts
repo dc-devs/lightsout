@@ -3,11 +3,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
-import { loadConfig, runImplementPipeline } from '../index';
-import { linkTypescript } from '../../tests/helpers/linkTypescript';
-import { report } from '../../tests/helpers/report';
-import { roleOf } from '../../tests/helpers/roleOf';
-import { setupConsumerRepo } from '../../tests/helpers/setupConsumerRepo';
+import { loadConfig, runImplementPipeline } from '../../index';
+import { linkTypescript } from '../../../tests/helpers/linkTypescript';
+import { report } from '../../../tests/helpers/report';
+import { roleOf } from '../../../tests/helpers/roleOf';
+import { setupConsumerRepo } from '../../../tests/helpers/setupConsumerRepo';
 
 // The write-tests fan-out is the boundary the inert-file classifier lives
 // behind: a source file provably free of executable statements (a barrel, a
