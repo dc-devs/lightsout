@@ -24488,9 +24488,6 @@ var isInertSourceFile = ({ path, content, compiler }) => {
   );
 };
 
-// packages/engine/src/common/utils/isTestFile.ts
-var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
-
 // packages/engine/src/common/utils/packageOf.ts
 var packageOf = ({ file: file2, packagesDir }) => {
   const prefix = `${packagesDir}/`;
@@ -24763,6 +24760,7 @@ var PipelineRun = class {
   config;
   /** Ceiling for working-role invocations, config-resolved once. */
   agentTimeoutMs;
+  /** Public: the supervisor consult invokes with its own contract/timeouts, outside invokeRole. */
   driver;
   onProgress;
   manifest;
@@ -24869,12 +24867,23 @@ ${text}`, "utf8");
   }
 };
 
-// packages/engine/src/pipeline/scanPlanPackagePaths.ts
-var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
-  const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
-  const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name) => Boolean(name));
-  return found.length > 0 ? [...new Set(found)] : void 0;
+// packages/engine/src/pipeline/common/utils/consumerRelative.ts
+var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
+
+// packages/engine/src/pipeline/common/utils/collectChanged.ts
+var collectChanged = async ({ run, gitPrefix, reports }) => {
+  const isGeneratedFile = (file2) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const packagesDir = run.config.packagesDir ?? "packages";
+  const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
+    (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
+  );
+  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile(file2));
+  const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
+  const fromFiles = changedFiles.flatMap((file2) => {
+    const packageDir = packageOf({ file: file2, packagesDir });
+    return packageDir ? [packageDir] : [];
+  });
+  return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
 };
 
 // packages/engine/src/common/utils/extractRunScriptName.ts
@@ -25056,6 +25065,180 @@ ${generated.stderr}`;
   }
   const errors = results.filter((result) => Boolean(result));
   return errors.length > 0 ? errors.join("\n\n") : void 0;
+};
+
+// packages/engine/src/pipeline/common/utils/gates.ts
+var gates = ({ run, coverage }) => {
+  const packagesDir = run.config.packagesDir ?? "packages";
+  const hasRootChanges = run.current().changedFiles.some((file2) => packageOf({ file: file2, packagesDir }) === void 0);
+  return runGates({
+    cwd: run.cwd,
+    config: run.config,
+    coverage,
+    packages: run.current().packages,
+    includeRoot: hasRootChanges,
+    runId: run.current().runId,
+    step: run.current().currentStep ?? void 0,
+    onProgress: (message) => run.progress(message)
+  });
+};
+
+// packages/engine/src/common/utils/isTestFile.ts
+var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
+
+// packages/engine/src/pipeline/common/utils/sourceFiles.ts
+var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
+var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
+
+// packages/engine/src/pipeline/common/utils/withStepFiles.ts
+var withStepFiles = ({ record: record2, reports, gitPrefix }) => ({
+  ...record2,
+  changedFiles: [
+    .../* @__PURE__ */ new Set([
+      ...record2.changedFiles ?? [],
+      ...reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path })))
+    ])
+  ]
+});
+
+// packages/engine/src/pipeline/steps/verifyStep.ts
+var maxCheapFixRetries = 2;
+var defaultSupervisorTimeoutMinutes = 15;
+var supervisorPermissionMode = "plan";
+var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
+  const supervisorTimeoutMs = (run.config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
+  const applyFix = async ({ fix, record: record2 }) => {
+    if (fix.rateLimited) {
+      return { rateLimited: true };
+    }
+    if (fix.report) {
+      await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: fix.report.friction ?? [] });
+    }
+    let next = record2;
+    if (fix.report?.status === WorkReportStatus.Complete) {
+      next = withStepFiles({ record: record2, reports: [fix.report], gitPrefix });
+      await run.setStep({ record: { ...next, report: fix.report }, patch: await collectChanged({ run, gitPrefix, reports: [fix.report] }) });
+    }
+    const error51 = await gates({ run, coverage });
+    return { rateLimited: false, record: next, error: error51 };
+  };
+  return async () => {
+    let record2 = run.nextRecord({ id });
+    await run.setStep({ record: record2 });
+    run.progress(`step ${id} \u2014 attempt ${record2.attempts}`);
+    let error51 = await gates({ run, coverage });
+    for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
+      record2 = { ...record2, attempts: record2.attempts + 1 };
+      await run.setStep({ record: record2 });
+      run.progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
+      const fix = await run.invokeRole({ invocation: buildFix(error51), step: id });
+      const applied = await applyFix({ fix, record: record2 });
+      if (applied.rateLimited) {
+        return run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+      }
+      record2 = applied.record;
+      error51 = applied.error;
+    }
+    if (error51) {
+      run.progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor (ceiling ${supervisorTimeoutMs / 6e4}m)`);
+      const verdict = await invokeAgentWithContract({
+        driver: run.driver,
+        cwd: run.cwd,
+        invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error51, attempts: record2.attempts }),
+        contract: SupervisorVerdict,
+        model: run.config.model,
+        permissionMode: supervisorPermissionMode,
+        timeoutMs: supervisorTimeoutMs,
+        onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
+        onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
+      });
+      await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+      if (verdict.rateLimited) {
+        return run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+      }
+      if (verdict.report) {
+        run.progress(`step ${id}: supervisor verdict \u2014 ${verdict.report.decision}`);
+      }
+      if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
+        record2 = { ...record2, attempts: record2.attempts + 1 };
+        await run.setStep({ record: record2 });
+        const fix = await run.invokeRole({
+          invocation: buildFix(`${error51}
+
+# Supervisor diagnosis
+${verdict.report.diagnosis}
+
+# Supervisor guidance
+${verdict.report.guidance}`),
+          step: id
+        });
+        const applied = await applyFix({ fix, record: record2 });
+        if (applied.rateLimited) {
+          return run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+        }
+        record2 = applied.record;
+        error51 = applied.error;
+      }
+      if (error51) {
+        const diagnosis = verdict.report ? `
+supervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : "";
+        return run.stop({ record: record2, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}
+
+${error51}` });
+      }
+    }
+    await run.setStep({ record: { ...record2, status: RunStatus.Passed } });
+    run.progress(`step ${id} passed`);
+    return void 0;
+  };
+};
+
+// packages/engine/src/pipeline/steps/workStep.ts
+var workStep = ({ run, gitPrefix, id, build, requireChanges }) => {
+  return async () => {
+    const record2 = run.nextRecord({ id });
+    await run.setStep({ record: record2 });
+    run.progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${run.agentTimeoutMs / 6e4}m)`);
+    const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
+    if (rateLimited) {
+      return run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+    }
+    if (!report) {
+      return run.stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
+    }
+    run.progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
+    if (report.status !== WorkReportStatus.Complete) {
+      const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+      return run.stop({
+        record: { ...record2, report },
+        status,
+        error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
+      });
+    }
+    const changed = await collectChanged({ run, gitPrefix, reports: [report] });
+    if (requireChanges && changed.changedFiles.length === 0) {
+      return run.stop({
+        record: { ...record2, report },
+        status: RunStatus.Failed,
+        error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
+      });
+    }
+    await run.setStep({
+      record: withStepFiles({ record: { ...record2, status: RunStatus.Passed, report }, reports: [report], gitPrefix }),
+      patch: changed
+    });
+    run.progress(`step ${id} passed`);
+    return void 0;
+  };
+};
+
+// packages/engine/src/pipeline/scanPlanPackagePaths.ts
+var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
+  const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, "g");
+  const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name) => Boolean(name));
+  return found.length > 0 ? [...new Set(found)] : void 0;
 };
 
 // packages/engine/src/scan/runScan.ts
@@ -37508,14 +37691,10 @@ var selectScanFindings = ({ findings, changedFiles }) => {
 };
 
 // packages/engine/src/pipeline/runImplementPipeline.ts
-var defaultSupervisorTimeoutMinutes = 15;
 var formatTimeoutMs = 10 * 6e4;
-var maxCheapFixRetries = 2;
 var maxRefactorPasses = 3;
 var testWriterConcurrency = 5;
 var maxWriterGroupFiles = 12;
-var supervisorPermissionMode = "plan";
-var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
 var executePipeline = async ({
   cwd,
   runId,
@@ -37607,180 +37786,17 @@ var executePipeline = async ({
       error: error51 instanceof Error ? error51.message : String(error51)
     });
   }
-  const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
   const packageDirOf = (file2) => packageOf({ file: file2, packagesDir });
-  const isGeneratedFile = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
   const gitPrefix = await readGitPrefix({ cwd });
-  const consumerRelative = (file2) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
-  const collectChanged = async (reports) => {
-    const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter(
-      (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
-    );
-    const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative(file2.path))).filter((file2) => !isGeneratedFile(file2));
-    const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
-    const fromFiles = changedFiles.flatMap((file2) => {
-      const packageDir = packageDirOf(file2);
-      return packageDir ? [packageDir] : [];
-    });
-    return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
-  };
-  const hasRootChanges = () => run.current().changedFiles.some((file2) => packageDirOf(file2) === void 0);
-  const gates = ({ coverage }) => runGates({
-    cwd,
-    config: config2,
-    coverage,
-    packages: run.current().packages,
-    includeRoot: hasRootChanges(),
-    runId: run.current().runId,
-    step: run.current().currentStep ?? void 0,
-    onProgress
-  });
-  const sourceFiles = () => run.current().changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
-  const withStepFiles = ({ record: record2, reports }) => ({
-    ...record2,
-    changedFiles: [
-      .../* @__PURE__ */ new Set([...record2.changedFiles ?? [], ...reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative(file2.path)))])
-    ]
-  });
-  const workStep = ({
-    id,
-    build,
-    requireChanges
-  }) => {
-    return async () => {
-      const record2 = nextRecord({ id });
-      await setStep({ record: record2 });
-      progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${run.agentTimeoutMs / 6e4}m)`);
-      const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
-      if (rateLimited) {
-        return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-      }
-      if (!report) {
-        return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
-      }
-      progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
-      await appendFriction({ cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
-      if (report.status !== WorkReportStatus.Complete) {
-        const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
-        return stop({
-          record: { ...record2, report },
-          status,
-          error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
-        });
-      }
-      const changed = await collectChanged([report]);
-      if (requireChanges && changed.changedFiles.length === 0) {
-        return stop({
-          record: { ...record2, report },
-          status: RunStatus.Failed,
-          error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
-        });
-      }
-      await setStep({ record: withStepFiles({ record: { ...record2, status: RunStatus.Passed, report }, reports: [report] }), patch: changed });
-      progress(`step ${id} passed`);
-      return void 0;
-    };
-  };
-  const applyFix = async ({
-    id,
-    fix,
-    record: record2,
-    coverage
-  }) => {
-    if (fix.rateLimited) {
-      return { rateLimited: true };
-    }
-    if (fix.report) {
-      await appendFriction({ cwd, runId: run.current().runId, step: id, friction: fix.report.friction ?? [] });
-    }
-    let next = record2;
-    if (fix.report?.status === WorkReportStatus.Complete) {
-      next = withStepFiles({ record: record2, reports: [fix.report] });
-      await setStep({ record: { ...next, report: fix.report }, patch: await collectChanged([fix.report]) });
-    }
-    const error51 = await gates({ coverage });
-    return { rateLimited: false, record: next, error: error51 };
-  };
-  const verifyStep = ({
-    id,
-    coverage,
-    buildFix
-  }) => {
-    return async () => {
-      let record2 = nextRecord({ id });
-      await setStep({ record: record2 });
-      progress(`step ${id} \u2014 attempt ${record2.attempts}`);
-      let error51 = await gates({ coverage });
-      for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
-        record2 = { ...record2, attempts: record2.attempts + 1 };
-        await setStep({ record: record2 });
-        progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
-        const fix = await run.invokeRole({ invocation: buildFix(error51), step: id });
-        const applied = await applyFix({ id, fix, record: record2, coverage });
-        if (applied.rateLimited) {
-          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-        }
-        record2 = applied.record;
-        error51 = applied.error;
-      }
-      if (error51) {
-        progress(`step ${id}: mechanical retries exhausted \u2014 consulting supervisor (ceiling ${supervisorTimeoutMs / 6e4}m)`);
-        const verdict = await invokeAgentWithContract({
-          driver,
-          cwd,
-          invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error51, attempts: record2.attempts }),
-          contract: SupervisorVerdict,
-          model: config2.model,
-          permissionMode: supervisorPermissionMode,
-          timeoutMs: supervisorTimeoutMs,
-          onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
-          onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
-        });
-        await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
-        if (verdict.rateLimited) {
-          return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-        }
-        if (verdict.report) {
-          progress(`step ${id}: supervisor verdict \u2014 ${verdict.report.decision}`);
-        }
-        if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
-          record2 = { ...record2, attempts: record2.attempts + 1 };
-          await setStep({ record: record2 });
-          const fix = await run.invokeRole({
-            invocation: buildFix(`${error51}
-
-# Supervisor diagnosis
-${verdict.report.diagnosis}
-
-# Supervisor guidance
-${verdict.report.guidance}`),
-            step: id
-          });
-          const applied = await applyFix({ id, fix, record: record2, coverage });
-          if (applied.rateLimited) {
-            return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
-          }
-          record2 = applied.record;
-          error51 = applied.error;
-        }
-        if (error51) {
-          const diagnosis = verdict.report ? `
-supervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : "";
-          return stop({ record: record2, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}
-
-${error51}` });
-        }
-      }
-      await setStep({ record: { ...record2, status: RunStatus.Passed } });
-      progress(`step ${id} passed`);
-      return void 0;
-    };
-  };
+  const collectChanged2 = (reports) => collectChanged({ run, gitPrefix, reports });
+  const withStepFiles2 = ({ record: record2, reports }) => withStepFiles({ record: record2, reports, gitPrefix });
+  const gates2 = ({ coverage }) => gates({ run, coverage });
+  const sourceFiles2 = () => sourceFiles({ run });
   const cleanSlateStep = async () => {
     const record2 = nextRecord({ id: "clean-slate" });
     await setStep({ record: record2 });
     progress(`step clean-slate \u2014 attempt ${record2.attempts}`);
-    const error51 = await gates({ coverage: true });
+    const error51 = await gates2({ coverage: true });
     if (error51) {
       return stop({
         record: record2,
@@ -37839,7 +37855,7 @@ ${error51}`
     let record2 = nextRecord({ id: "write-tests" });
     await setStep({ record: record2 });
     const compiler = resolveConsumerTypescript({ cwd, packagesDir });
-    const { targets, inert } = await selectTestTargets({ candidates: sourceFiles(), compiler });
+    const { targets, inert } = await selectTestTargets({ candidates: sourceFiles2(), compiler });
     if (inert.length > 0) {
       progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(", ")}`);
     }
@@ -37878,8 +37894,8 @@ ${error51}`
         }
       }
     }
-    record2 = withStepFiles({ record: record2, reports });
-    await setStep({ record: { ...record2, report: { reports } }, patch: await collectChanged(reports) });
+    record2 = withStepFiles2({ record: record2, reports });
+    await setStep({ record: { ...record2, report: { reports } }, patch: await collectChanged2(reports) });
     if (parked) {
       return stop({ record: { ...record2, report: { reports } }, status: RunStatus.PausedRateLimit, error: parkMessage() });
     }
@@ -37897,7 +37913,7 @@ ${failures.join("\n")}`
   };
   const scanWorkList = async () => {
     const { findings } = await runScan({ cwd, persist: false });
-    return selectScanFindings({ findings, changedFiles: sourceFiles() });
+    return selectScanFindings({ findings, changedFiles: sourceFiles2() });
   };
   const describePersistingFindings = ({ gating, report, passes }) => {
     const findingLines = gating.map((finding) => {
@@ -37929,7 +37945,7 @@ ${failures.join("\n")}`
       const { report, failure, rateLimited } = await run.invokeRole({
         invocation: buildRefactorExecutorInvocation({
           planContent,
-          changedFiles: sourceFiles(),
+          changedFiles: sourceFiles2(),
           standards,
           scanFindings: scan.workList,
           scanAdvisories: scan.advisories
@@ -37947,8 +37963,8 @@ ${failures.join("\n")}`
         const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
         return stop({ record: { ...record2, report }, status, error: `refactor: ${report.status} \u2014 ${report.failures.join("; ")}` });
       }
-      record2 = withStepFiles({ record: record2, reports: [report] });
-      await setStep({ record: { ...record2, report }, patch: await collectChanged([report]) });
+      record2 = withStepFiles2({ record: record2, reports: [report] });
+      await setStep({ record: { ...record2, report }, patch: await collectChanged2([report]) });
       lastReport = report;
       if (report.changedFiles.length === 0) {
         if (scan.gating.length === 0) {
@@ -38032,7 +38048,7 @@ ${result.stdout}
 ${result.stderr}`
         });
       }
-      const error51 = await gates({ coverage: true });
+      const error51 = await gates2({ coverage: true });
       if (error51) {
         return stop({ record: record2, status: RunStatus.Failed, error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
 ${error51}` });
@@ -38045,15 +38061,18 @@ ${error51}` });
   const refactorSteps = skipRefactor ? [] : [
     {
       id: "refactor",
-      skip: () => sourceFiles().length === 0 ? "no changed source files to review" : void 0,
+      skip: () => sourceFiles2().length === 0 ? "no changed source files to review" : void 0,
       run: refactorStep
     },
     {
       id: "verify-refactor",
       run: verifyStep({
+        run,
+        gitPrefix,
+        planContent,
         id: "verify-refactor",
         coverage: true,
-        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, errorContext })
+        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles2(), standards, errorContext })
       })
     }
   ];
@@ -38062,6 +38081,8 @@ ${error51}` });
     {
       id: "implement",
       run: workStep({
+        run,
+        gitPrefix,
         id: "implement",
         requireChanges: true,
         build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config2.agentCommands })
@@ -38070,6 +38091,9 @@ ${error51}` });
     {
       id: "verify-implement",
       run: verifyStep({
+        run,
+        gitPrefix,
+        planContent,
         id: "verify-implement",
         buildFix: (errorContext) => buildFeatureExecutorInvocation({
           planContent,
@@ -38083,15 +38107,18 @@ ${error51}` });
     },
     {
       id: "write-tests",
-      skip: () => sourceFiles().length === 0 ? "no eligible source files" : void 0,
+      skip: () => sourceFiles2().length === 0 ? "no eligible source files" : void 0,
       run: writeTestsStep
     },
     {
       id: "verify-tests",
       run: verifyStep({
+        run,
+        gitPrefix,
+        planContent,
         id: "verify-tests",
         coverage: true,
-        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards, errorContext })
+        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles2(), standards: testStandards, errorContext })
       })
     },
     ...refactorSteps,
@@ -40728,7 +40755,7 @@ var runBatch = async ({
     invocationCount += 1;
     return invokeBatchAgent({ cwd, runId, driver, config: config2, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, recordUsage });
   };
-  const gates = () => runBatchGates({ cwd, config: config2, runId, step: batch.id, onProgress });
+  const gates2 = () => runBatchGates({ cwd, config: config2, runId, step: batch.id, onProgress });
   const scanLive = () => runScan({ cwd, path: scanPath, all: scanAll, persist: false });
   const remainingClusters = async ({ frozen }) => {
     const { findings } = await scanLive();
@@ -40761,7 +40788,7 @@ var runBatch = async ({
       return { kind: "parked" };
     }
     if (!report) {
-      if ((await remainingClusters({ frozen: workFindings })).length === 0 && !await gates()) {
+      if ((await remainingClusters({ frozen: workFindings })).length === 0 && !await gates2()) {
         rationale.push(`[other] salvaged: agent invocation failed (${failure ?? "unknown"}) but the clusters are resolved and gates are green`);
         onProgress(`${batch.id}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
         return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
@@ -40780,7 +40807,7 @@ var runBatch = async ({
       const kind = report.status === WorkReportStatus.Failed ? "failed" : "escalated";
       return { kind, error: `${batch.id}: ${report.status} \u2014 ${report.failures.join("; ")}` };
     }
-    let gateError = await gates();
+    let gateError = await gates2();
     for (let retry = 1; gateError && retry <= maxCheapFixRetries2; retry += 1) {
       onProgress(`${batch.id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries2}`);
       const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
@@ -40803,7 +40830,7 @@ var runBatch = async ({
       if (fix.rateLimited) {
         return { kind: "parked" };
       }
-      gateError = await gates();
+      gateError = await gates2();
     }
     if (gateError) {
       return { kind: "escalated", error: `${batch.id}: gates still red after ${maxCheapFixRetries2} fix attempt(s).

@@ -47,7 +47,8 @@ export class PipelineRun {
 	readonly config: LightsoutConfig;
 	/** Ceiling for working-role invocations, config-resolved once. */
 	readonly agentTimeoutMs: number;
-	private readonly driver: Driver;
+	/** Public: the supervisor consult invokes with its own contract/timeouts, outside invokeRole. */
+	readonly driver: Driver;
 	private readonly onProgress?: (message: string) => void;
 	private manifest: RunManifest;
 	private readonly usageTotals: RunUsage;

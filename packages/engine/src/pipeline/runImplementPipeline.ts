@@ -3,22 +3,18 @@ import { join } from 'node:path';
 import {
 	buildFeatureExecutorInvocation,
 	buildRefactorExecutorInvocation,
-	buildSupervisorInvocation,
 	buildUnitTestWriterInvocation,
 	formatFindingSite,
 } from '@lightsout/agents';
 import {
 	PackagesSource,
 	RunStatus,
-	SupervisorDecision,
-	SupervisorVerdict,
-	WorkReport,
 	WorkReportStatus,
-	type AgentUsage,
 	type LightsoutConfig,
 	type RunManifest,
 	type ScanFinding,
 	type StepRecord,
+	type WorkReport,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { appendCommandLog } from '../runState';
@@ -27,9 +23,7 @@ import { chunkFileGroup } from './chunkFileGroup';
 import { collectImportEdges } from '../common/utils/collectImportEdges';
 import { createRun } from '../runState';
 import { groupConnectedFiles } from './groupConnectedFiles';
-import { invokeAgentWithContract } from '../invoke';
 import { isInertSourceFile } from './isInertSourceFile';
-import { isTestFile } from '../common/utils/isTestFile';
 import { packageOf } from '../common/utils/packageOf';
 import { resolveConsumerTypescript } from '../common/utils/resolveConsumerTypescript';
 import { readGitChangedFiles } from '../common/git/readGitChangedFiles';
@@ -39,36 +33,24 @@ import { detectStandardsChannels } from '../standards';
 import { readStandards } from '../standards';
 import { withRunLock } from '../runState';
 import { PipelineRun } from './PipelineRun';
+import type { PipelineStep } from './PipelineStep';
+import { collectChanged as collectChangedFor } from './common/utils/collectChanged';
+import { gates as gatesFor } from './common/utils/gates';
+import { sourceFiles as sourceFilesFor } from './common/utils/sourceFiles';
+import { withStepFiles as withStepFilesFor } from './common/utils/withStepFiles';
+import { verifyStep } from './steps/verifyStep';
+import { workStep } from './steps/workStep';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
 import { runCommand } from '../common/utils/runCommand';
-import { runGates } from './runGates';
 import { runScan } from '../scan';
 import { selectScanFindings } from '../scan';
 import type { PipelineResult } from './PipelineResult';
 
-const defaultSupervisorTimeoutMinutes = 15;
 const formatTimeoutMs = 10 * 60_000;
-const maxCheapFixRetries = 2;
 const maxRefactorPasses = 3;
 const testWriterConcurrency = 5;
 /** Pathological guard: an import component above this splits into sorted chunks — no config knob until live evidence asks for one. */
 const maxWriterGroupFiles = 12;
-const supervisorPermissionMode = 'plan';
-
-/**
- * Only the JS/TS family earns agent turns (test writers, refactor review) —
- * every spawn costs a model call, so unknown file types default to zero
- * wasted turns. Allowlist: .js/.jsx/.ts/.tsx plus the m/c module variants.
- */
-const isTestableSourceFile = (path: string) => /\.(m|c)?[jt]sx?$/i.test(path);
-
-interface PipelineStep {
-	id: string;
-	/** Returns a skip reason when the step has nothing to do (recorded, counted as passed). */
-	skip?: () => string | undefined;
-	run: () => Promise<PipelineResult | undefined>;
-}
-
 interface Params {
 	cwd: string;
 	driver: Driver;
@@ -222,262 +204,20 @@ const executePipeline = async ({
 		});
 	}
 
-	const supervisorTimeoutMs = (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000;
 
 	/** This run's packagesDir bound onto the shared mapper. */
 	const packageDirOf = (file: string) => packageOf({ file, packagesDir });
 
-	/**
-	 * Merge the two sources of changed-file truth: what agents reported and
-	 * what git actually observed (minus the run's baseline dirt). Agents can
-	 * forget files; git cannot be sweet-talked. Also widens the package scope
-	 * to whatever the changed files reveal — declared scope is a starting
-	 * point, changed files are the truth; scope never shrinks.
-	 */
-	// Generated/derived files (configured prefixes) are like gate artifacts:
-	// real in the diff, but never attributed — their source is the change.
-	const isGeneratedFile = (file: string) => (config.generated ?? []).some((prefix) => file.startsWith(prefix));
-
 	// Agents in a consumer nested inside a larger git repo sometimes echo
-	// repo-ROOT-relative paths in their reports (observed live: the same file
-	// counted twice, doubling its test writers). Strip the git prefix so both
-	// changed-file truths speak consumer-relative paths.
+	// repo-ROOT-relative paths — computed once, threaded into every derivation
+	// that normalizes report paths.
 	const gitPrefix = await readGitPrefix({ cwd });
-	const consumerRelative = (file: string) => (gitPrefix && file.startsWith(gitPrefix) ? file.slice(gitPrefix.length) : file);
 
-	const collectChanged = async (reports: WorkReport[]) => {
-		const fromGit = ((await readGitChangedFiles({ cwd })) ?? []).filter(
-			(file) => !run.current().baselineDirtyFiles.includes(file) && !isGeneratedFile(file),
-		);
-		const fromReports = reports
-			.flatMap((report) => report.changedFiles.map((file) => consumerRelative(file.path)))
-			.filter((file) => !isGeneratedFile(file));
-		const changedFiles = [...new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
-		const fromFiles = changedFiles.flatMap((file) => {
-			const packageDir = packageDirOf(file);
-
-			return packageDir ? [packageDir] : [];
-		});
-
-		return { changedFiles, packages: [...new Set([...run.current().packages, ...fromFiles])] };
-	};
-
-	const hasRootChanges = () => run.current().changedFiles.some((file) => packageDirOf(file) === undefined);
-
-	const gates = ({ coverage }: { coverage?: boolean }) =>
-		runGates({
-			cwd,
-			config,
-			coverage,
-			packages: run.current().packages,
-			includeRoot: hasRootChanges(),
-			runId: run.current().runId,
-			step: run.current().currentStep ?? undefined,
-			onProgress,
-		});
-
-	const sourceFiles = () => run.current().changedFiles.filter((file) => !isTestFile(file) && isTestableSourceFile(file));
-
-	/** Merge report file paths into the step record's own attribution (per-step view of the run-wide `changedFiles`). */
-	const withStepFiles = ({ record, reports }: { record: StepRecord; reports: WorkReport[] }): StepRecord => ({
-		...record,
-		changedFiles: [
-			...new Set([...(record.changedFiles ?? []), ...reports.flatMap((report) => report.changedFiles.map((file) => consumerRelative(file.path)))]),
-		],
-	});
-
-	const workStep = ({
-		id,
-		build,
-		requireChanges,
-	}: {
-		id: string;
-		build: () => { systemPrompt: string; prompt: string };
-		/** Fail the run when the step completes without changing anything — a no-op "success" is a lie. */
-		requireChanges?: boolean;
-	}): PipelineStep['run'] => {
-		return async () => {
-			const record = nextRecord({ id });
-
-			await setStep({ record });
-			progress(`step ${id} — attempt ${record.attempts} · invoking agent (ceiling ${run.agentTimeoutMs / 60_000}m)`);
-
-			const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
-
-			if (rateLimited) {
-				return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
-			}
-
-			if (!report) {
-				return stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' });
-			}
-
-			progress(`step ${id}: agent report ${report.status} — ${report.changedFiles.length} changed file(s)`);
-
-			// Friction is captured regardless of outcome — a terminated run's
-			// confusion is exactly the signal the improvement loop needs.
-			await appendFriction({ cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
-
-			if (report.status !== WorkReportStatus.Complete) {
-				// Termination statuses need a human (plan defect, scope); a plain
-				// failed report is a failure. Both stop the run; only the state differs.
-				const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
-
-				return stop({
-					record: { ...record, report },
-					status,
-					error: `${id}: ${report.status} — ${report.failures.join('; ')}`,
-				});
-			}
-
-			const changed = await collectChanged([report]);
-
-			if (requireChanges && changed.changedFiles.length === 0) {
-				return stop({
-					record: { ...record, report },
-					status: RunStatus.Failed,
-					error: `${id}: agent reported complete but neither its report nor git shows a single changed file — nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`,
-				});
-			}
-
-			await setStep({ record: withStepFiles({ record: { ...record, status: RunStatus.Passed, report }, reports: [report] }), patch: changed });
-			progress(`step ${id} passed`);
-
-			return undefined;
-		};
-	};
-
-	// The aftermath of a fix invocation, shared by both verify retry paths (the
-	// cheap-retry loop and the supervisor retry-with-guidance branch): a park
-	// check, friction append, report merge into the record, and a re-gate. On
-	// rate-limit it signals the caller to park with its own (unmutated) record;
-	// otherwise it returns the advanced record and the fresh gate error.
-	const applyFix = async ({
-		id,
-		fix,
-		record,
-		coverage,
-	}: {
-		id: string;
-		fix: Awaited<ReturnType<PipelineRun['invokeRole']>>;
-		record: StepRecord;
-		coverage?: boolean;
-	}) => {
-		if (fix.rateLimited) {
-			return { rateLimited: true as const };
-		}
-
-		if (fix.report) {
-			await appendFriction({ cwd, runId: run.current().runId, step: id, friction: fix.report.friction ?? [] });
-		}
-
-		let next = record;
-
-		if (fix.report?.status === WorkReportStatus.Complete) {
-			next = withStepFiles({ record, reports: [fix.report] });
-
-			await setStep({ record: { ...next, report: fix.report }, patch: await collectChanged([fix.report]) });
-		}
-
-		const error = await gates({ coverage });
-
-		return { rateLimited: false as const, record: next, error };
-	};
-
-	const verifyStep = ({
-		id,
-		coverage,
-		buildFix,
-	}: {
-		id: string;
-		/** Run the coverage gate in this verify — only once tests for the new code exist. */
-		coverage?: boolean;
-		buildFix: (errorContext: string) => { systemPrompt: string; prompt: string };
-	}): PipelineStep['run'] => {
-		return async () => {
-			let record = nextRecord({ id });
-
-			await setStep({ record });
-			progress(`step ${id} — attempt ${record.attempts}`);
-
-			let error = await gates({ coverage });
-
-			// Cheap mechanical retries: hand the role the gate output and re-verify.
-			for (let retry = 1; error && retry <= maxCheapFixRetries; retry += 1) {
-				record = { ...record, attempts: record.attempts + 1 };
-
-				await setStep({ record });
-				progress(`step ${id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
-
-				const fix = await run.invokeRole({ invocation: buildFix(error), step: id });
-				const applied = await applyFix({ id, fix, record, coverage });
-
-				if (applied.rateLimited) {
-					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
-				}
-
-				record = applied.record;
-				error = applied.error;
-			}
-
-			// Exception path: mechanical retries exhausted — bring in judgment.
-			if (error) {
-				progress(`step ${id}: mechanical retries exhausted — consulting supervisor (ceiling ${supervisorTimeoutMs / 60_000}m)`);
-
-				const verdict = await invokeAgentWithContract({
-					driver,
-					cwd,
-					invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error, attempts: record.attempts }),
-					contract: SupervisorVerdict,
-					model: config.model,
-					permissionMode: supervisorPermissionMode,
-					timeoutMs: supervisorTimeoutMs,
-					onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
-					onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` }),
-				});
-
-				await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
-
-				if (verdict.rateLimited) {
-					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
-				}
-
-				if (verdict.report) {
-					progress(`step ${id}: supervisor verdict — ${verdict.report.decision}`);
-				}
-
-				if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
-					record = { ...record, attempts: record.attempts + 1 };
-
-					await setStep({ record });
-
-					const fix = await run.invokeRole({
-						invocation: buildFix(`${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`),
-						step: id,
-					});
-					const applied = await applyFix({ id, fix, record, coverage });
-
-					if (applied.rateLimited) {
-						return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
-					}
-
-					record = applied.record;
-					error = applied.error;
-				}
-
-				if (error) {
-					const diagnosis = verdict.report ? `\nsupervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : '';
-
-					return stop({ record, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}\n\n${error}` });
-				}
-			}
-
-			await setStep({ record: { ...record, status: RunStatus.Passed } });
-			progress(`step ${id} passed`);
-
-			return undefined;
-		};
-	};
+	// The shared derivations, bound to this run (their files own the logic).
+	const collectChanged = (reports: WorkReport[]) => collectChangedFor({ run, gitPrefix, reports });
+	const withStepFiles = ({ record, reports }: { record: StepRecord; reports: WorkReport[] }) => withStepFilesFor({ record, reports, gitPrefix });
+	const gates = ({ coverage }: { coverage?: boolean }) => gatesFor({ run, coverage });
+	const sourceFiles = () => sourceFilesFor({ run });
 
 	const cleanSlateStep: PipelineStep['run'] = async () => {
 		const record = nextRecord({ id: 'clean-slate' });
@@ -885,6 +625,9 @@ const executePipeline = async ({
 				{
 					id: 'verify-refactor',
 					run: verifyStep({
+						run,
+						gitPrefix,
+						planContent,
 						id: 'verify-refactor',
 						coverage: true,
 						buildFix: (errorContext) =>
@@ -898,6 +641,8 @@ const executePipeline = async ({
 		{
 			id: 'implement',
 			run: workStep({
+				run,
+				gitPrefix,
 				id: 'implement',
 				requireChanges: true,
 				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config.agentCommands }),
@@ -906,6 +651,9 @@ const executePipeline = async ({
 		{
 			id: 'verify-implement',
 			run: verifyStep({
+				run,
+				gitPrefix,
+				planContent,
 				id: 'verify-implement',
 				buildFix: (errorContext) =>
 					buildFeatureExecutorInvocation({
@@ -926,6 +674,9 @@ const executePipeline = async ({
 		{
 			id: 'verify-tests',
 			run: verifyStep({
+				run,
+				gitPrefix,
+				planContent,
 				id: 'verify-tests',
 				coverage: true,
 				buildFix: (errorContext) =>
