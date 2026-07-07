@@ -59,3 +59,7 @@ export { readStandards } from './standards';
 export { detectStandardsChannels } from './standards';
 export type { CommandResult } from './common/types/CommandResult';
 export type { PipelineResult } from './pipeline';
+export { runRefactorPipeline } from './refactor';
+export { batchFindings } from './refactor';
+export { matchRemainingFindings } from './refactor';
+export type { RefactorResult } from './refactor';
