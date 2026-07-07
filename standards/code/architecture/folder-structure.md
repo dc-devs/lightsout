@@ -70,7 +70,7 @@ A domain folder is **not** a module — by the barrel-omission test it hides not
 ```
 src/
 ├─ common/            # shared across ALL modules
-│  ├─ utils/          #   (index.ts + formatDate.ts)
+│  ├─ utils/          #   (formatDate.ts — no barrels under common/)
 │  ├─ types/
 │  ├─ services/
 │  ├─ formatting/     # domain folder: 2+ related pure functions
