@@ -1,9 +1,8 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '@lightsout/agents';
 import {
 	BatchOutcome,
-	WorkReport,
+	ScanDetector,
+	ScanSeverity,
 	WorkReportStatus,
 	type AgentUsage,
 	type BatchReport,
@@ -12,10 +11,9 @@ import {
 	type ScanFinding,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { invokeAgentWithContract } from '../invoke';
-import { appendFriction, getRunDir } from '../runState';
 import { runScan } from '../scan';
 import { collectBatchChanges } from './collectBatchChanges';
+import { invokeBatchAgent } from './invokeBatchAgent';
 import { matchRemainingFindings } from './matchRemainingFindings';
 import { runBatchGates } from './runBatchGates';
 
@@ -74,68 +72,47 @@ export const runBatch = async ({
 	onProgress,
 	recordUsage,
 }: Params): Promise<BatchStop> => {
-	const agentsDir = join(getRunDir({ cwd, runId }), 'agents');
 	const rationale: string[] = [];
 	const reportedFiles = new Set<string>();
 	let invocationCount = 0;
 
-	const invoke = async ({ label, invocation }: { label: string; invocation: { systemPrompt: string; prompt: string } }) => {
+	const invoke = ({ label, invocation }: { label: string; invocation: { systemPrompt: string; prompt: string } }) => {
 		invocationCount += 1;
 
-		const streamPath = join(agentsDir, `stream-${batch.id.replace(/[:/]/g, '_')}-${invocationCount}.jsonl`);
-
-		await mkdir(agentsDir, { recursive: true });
-
-		const outcome = await invokeAgentWithContract({
-			driver,
-			cwd,
-			invocation,
-			contract: WorkReport,
-			model: config.model,
-			permissionMode: config.permissionMode ?? 'acceptEdits',
-			timeoutMs: agentTimeoutMs,
-			allowedCommands: config.agentCommands,
-			onEvent: (event) => {
-				void appendFile(streamPath, `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-			},
-			onRejectedOutput: async ({ text, attempt }) => {
-				await writeFile(join(agentsDir, `rejected-${batch.id.replace(/[:/]/g, '_')}-${invocationCount}-${attempt}.txt`), text, 'utf8').catch(
-					() => undefined,
-				);
-			},
-		});
-
-		await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ''}`, usage: outcome.usage });
-
-		for (const file of outcome.report?.changedFiles ?? []) {
-			reportedFiles.add(file.path);
-		}
-
-		if (outcome.report?.friction && outcome.report.friction.length > 0) {
-			await appendFriction({ cwd, runId, step: batch.id, friction: outcome.report.friction });
-			rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
-		}
-
-		return outcome;
+		return invokeBatchAgent({ cwd, runId, driver, config, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, recordUsage });
 	};
 
 	const gates = () => runBatchGates({ cwd, config, runId, step: batch.id, onProgress });
 
+	const scanLive = () => runScan({ cwd, path: scanPath, all: scanAll, persist: false });
+
 	const remainingClusters = async ({ frozen }: { frozen: ScanFinding[] }) => {
-		const { findings } = await runScan({ cwd, path: scanPath, all: scanAll, persist: false });
+		const { findings } = await scanLive();
 
 		return matchRemainingFindings({ frozen, live: findings });
 	};
 
 	const batchChangedFiles = () => collectBatchChanges({ cwd, config, reportedFiles, attributedFiles });
 
-	// Earlier batches may have already eliminated these clusters (a shared
-	// file, a broad fix) — check before spending an agent on a stale batch.
-	if ((await remainingClusters({ frozen: batch.findings })).length === 0) {
+	// One live scan up front serves two purposes: the staleness check (earlier
+	// batches may have already eliminated these clusters — no agent spent) and
+	// FRESH advisories (frozen worklist advisories cite pre-run line numbers;
+	// live lesson from run 50d4ab35, where the agent flagged the drift).
+	const preScan = await scanLive();
+
+	if (matchRemainingFindings({ frozen: batch.findings, live: preScan.findings }).length === 0) {
 		onProgress(`${batch.id}: clusters already resolved by earlier work — no agent spent`);
 
 		return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: [] };
 	}
+
+	const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file) => file.path)));
+	const liveAdvisories = preScan.findings.filter(
+		(finding) =>
+			finding.severity === ScanSeverity.Advisory &&
+			finding.detector === ScanDetector.Size &&
+			finding.files.some((file) => batchFiles.has(file.path)),
+	);
 
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever clusters survived a pass that DID change the tree (a partial).
@@ -150,7 +127,7 @@ export const runBatch = async ({
 				changedFiles: files,
 				standards,
 				scanFindings: workFindings,
-				scanAdvisories: batch.advisories,
+				scanAdvisories: liveAdvisories,
 			}),
 		});
 
@@ -159,7 +136,29 @@ export const runBatch = async ({
 		}
 
 		if (!report) {
+			// Salvage check (live lesson: a laptop-sleep-killed agent had finished
+			// its edits but never reported): if the clusters are verifiably gone
+			// AND gates are green, the work is done — classify it, don't discard it.
+			if ((await remainingClusters({ frozen: workFindings })).length === 0 && !(await gates())) {
+				rationale.push(`[other] salvaged: agent invocation failed (${failure ?? 'unknown'}) but the clusters are resolved and gates are green`);
+				onProgress(`${batch.id}: invocation failed but work verified on disk — salvaged as resolved`);
+
+				return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+			}
+
 			return { kind: 'failed', error: `${batch.id}: ${failure ?? 'unknown failure'}` };
+		}
+
+		if (report.status === WorkReportStatus.TerminatedScope) {
+			// A scope refusal is judgment, not failure — record it as a decline
+			// and let the run continue; the human reviews it with the report.
+			rationale.push(...report.failures.map((entry) => `[scope] ${entry}`));
+
+			return {
+				kind: 'done',
+				report: { outcome: BatchOutcome.Declined, remainingClusters: await remainingClusters({ frozen: workFindings }), rationale },
+				changedFiles: await batchChangedFiles(),
+			};
 		}
 
 		if (report.status !== WorkReportStatus.Complete) {
@@ -192,7 +191,7 @@ export const runBatch = async ({
 							changedFiles: files,
 							standards,
 							scanFindings: workFindings,
-							scanAdvisories: batch.advisories,
+							scanAdvisories: liveAdvisories,
 							errorContext: gateError,
 						}),
 			});

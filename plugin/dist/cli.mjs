@@ -24561,7 +24561,7 @@ import { join as join12 } from "node:path";
 var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing \u2192 the concept is primitives; its files belong in `common/<type>/`. Hides internals \u2192 it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n4. Test imports obey the same boundary: a test OUTSIDE a module imports its `index.ts`, never its internals \u2014 including in repos that keep tests in a separate directory. (A boundary test living beside its file is inside the module; its deep import is correct.)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules \u2014 shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
 
 // standards/code/architecture/folder-structure.md
-var folder_structure_default = "# Folder Structure\n\nUse a `common/` folder pattern for shared code \u2014 it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder's `index.ts` is its public API; everything under its `common/` is internal.\n\n## Rules\n\n1. **Keep `common/` close to consumers** \u2014 the lowest level where all dependents can reach it\n2. **Promote when reused** \u2014 move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** \u2014 update imports when promoting; verify no cycles\n4. **`common/` is always typed, never flat** \u2014 every file lives under a type subfolder from the first file. The type vocabulary is a closed list: `utils/`, `types/`, `constants/`, `services/`, plus domain folders graduated per [Domain Folders](#domain-folders). Never invent a new type folder; never place a file directly in `common/`.\n5. **Graduate, don't pre-build** \u2014 a *concept* becomes a folder only when it needs private companions. This ceremony ban does not apply to `common/`'s type subfolders: that skeleton is always built, so placement is a no-decision.\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless functions \u2014 pure or IO-performing (`formatDate()`, `loadConfig()`) |\n| `types/` | Type-level declarations (`CopyResult`) |\n| `constants/` | Value and named constants (`defaultConfig`, `Action`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## What Lives in `common/` \u2014 the Barrel-Omission Test\n\n`common/` holds shared **file-modules only**: single-file primitives (a stateless function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.\n\nA shared concept must leave `common/` and become a module \u2014 a sibling of the features that use it \u2014 the moment it has private internals. The mechanical test: **write the concept's would-be barrel. Does it omit anything?**\n\n- Everything would be exported \u2192 it is a bag of primitives \u2192 its files go in `common/<type>/` (or a domain folder)\n- The barrel would hide something \u2192 it is a module with a boundary worth enforcing \u2192 module with its own `index.ts`\n\nThis keeps placement closed under growth: shared code is either a primitive (`common/`) or a module (a domain sibling) \u2014 there is no third place.\n\n## Top Level Is Domain Nouns\n\n`src/`'s top level names domains (`billing/`, `issues/`, `sync/`) \u2014 capabilities the product has. Infrastructure capabilities are domains too: `git/`, `config/`, `runState/` are valid module names. Navigation is by domain first, for humans and agents alike.\n\n**Banned module names \u2014 a closed list, not a judgment call.** A folder is never named for the *role* of the code it holds: `helpers/`, `utils/`\\*, `lib/`, `core/`, `misc/`, `shared/`, `services/`\\*, `controllers/`, `models/`, `hooks/`, `components/`, `types/`\\*, `constants/`\\* (\\* legal inside `common/` per its closed list). Where the package's framework doc mandates one of these names (NestJS layout, React feature `components/`, file-based routers), the framework doc wins \u2014 the same carve-out as folder casing below. The only privileged folder name at any level is `common/`.\n\n## Growing Without New Rules\n\nAt every level exactly three kinds of things exist: **modules**, **`common/`**, and **files**. Growth never invents a new kind of place \u2014 it is always one of two mechanical moves:\n\n- **Graduate** \u2014 a file needs private companions \u2192 it becomes a module ([the graduation rule](./architecture-decisions.md#modules--the-graduation-rule))\n- **Consolidate** \u2014 a level holds more than ~20 modules \u2192 group related sibling modules under a new parent domain module (recursive: a module within a module, each keeping its own barrel)\n\nConsolidation is the census remedy: when a level starts reading like a directory listing instead of a product description, the fix is a parent domain \u2014 never a technical-layer bucket.\n\n## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape \u2014 its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.\n\n## Per-Folder READMEs\n\nA folder gets a `README.md` only for a genuine invariant not derivable from these rules (e.g. \"everything here runs in the widget sandbox \u2014 no DOM globals\"). Never prose restating the structure.\n\n## Folder Naming\n\nFolders match what they hold, in that name's own casing:\n\n- **Category/container folders** \u2014 `camelCase` (`utils/`, `types/`, `formatting/`, `apiTokens/`)\n- **A folder graduated from a single named item** \u2014 that item's name and casing: class/component folders are `PascalCase` (`HttpClient/`, `IssuePanel/`)\n- **Resolve casing in order:** (1) established convention in the directory, (2) the package's framework doc (NestJS is `kebab-case` throughout; URL-mapped route segments are `kebab-case`), (3) the defaults above.\n\n## Domain Folders\n\nA stateless function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) \u2014 `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.\n\nA domain folder is **not** a module \u2014 by the barrel-omission test it hides nothing: every file in it is public, it carries **no `index.ts`** (no barrels under `common/`; see module-api.md), and imports target its files directly. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.\n\n## Example\n\n```\nsrc/\n\u251C\u2500 common/            # shared across ALL modules\n\u2502  \u251C\u2500 utils/          #   (index.ts + formatDate.ts)\n\u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 services/\n\u2502  \u251C\u2500 formatting/     # domain folder: 2+ related pure functions\n\u251C\u2500 featureA/\n\u2502  \u251C\u2500 common/         # shared within featureA only\n\u2502  \u2502  \u251C\u2500 utils/\n\u2502  \u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 featureA.ts\n\u2502  \u2514\u2500 index.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\n## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package \u2014 not duplicated per-package.\n\nA pure-contracts/shared package \u2014 one where everything is public by design \u2014\nis a `common/`-like space: its `src/` holds **domain folders**, not modules.\nThe barrel-omission test computes this per folder (a barrel that hides\nnothing \u2192 domain folder, no boundary), which is also how the scanner\nclassifies it.\n\n**Use `packages/shared/` when:** 2+ packages need it, it has zero framework dependencies, and it defines a contract both sides agree on (constants, error codes, pure predicates).\n\n**Don't when:** one package needs it (use its `common/`), it imports a framework (wrap the shared primitive locally), or it's an implementation detail (hooks, guards, resolvers).\n\n**Pattern \u2014 shared primitive + local wrapper:**\n\n```\npackages/shared/src/permissions/utils/hasPermission.ts        \u2190 pure function\npackages/frontend/src/common/permissions/useHasPermission.ts  \u2190 React hook wrapping it\npackages/api/src/auth/guards/                                 \u2190 NestJS guard using it\n```\n";
+var folder_structure_default = "# Folder Structure\n\nUse a `common/` folder pattern for shared code \u2014 it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder's `index.ts` is its public API; everything under its `common/` is internal.\n\n## Rules\n\n1. **Keep `common/` close to consumers** \u2014 the lowest level where all dependents can reach it\n2. **Promote when reused** \u2014 move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** \u2014 update imports when promoting; verify no cycles\n4. **`common/` is always typed, never flat** \u2014 every file lives under a type subfolder from the first file. The type vocabulary is a closed list: `utils/`, `types/`, `constants/`, `services/`, plus domain folders graduated per [Domain Folders](#domain-folders). Never invent a new type folder; never place a file directly in `common/`.\n5. **Graduate, don't pre-build** \u2014 a *concept* becomes a folder only when it needs private companions. This ceremony ban does not apply to `common/`'s type subfolders: that skeleton is always built, so placement is a no-decision.\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless functions \u2014 pure or IO-performing (`formatDate()`, `loadConfig()`) |\n| `types/` | Type-level declarations (`CopyResult`) |\n| `constants/` | Value and named constants (`defaultConfig`, `Action`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## What Lives in `common/` \u2014 the Barrel-Omission Test\n\n`common/` holds shared **file-modules only**: single-file primitives (a stateless function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.\n\nA shared concept must leave `common/` and become a module \u2014 a sibling of the features that use it \u2014 the moment it has private internals. The mechanical test: **write the concept's would-be barrel. Does it omit anything?**\n\n- Everything would be exported \u2192 it is a bag of primitives \u2192 its files go in `common/<type>/` (or a domain folder)\n- The barrel would hide something \u2192 it is a module with a boundary worth enforcing \u2192 module with its own `index.ts`\n\nThis keeps placement closed under growth: shared code is either a primitive (`common/`) or a module (a domain sibling) \u2014 there is no third place.\n\n## Top Level Is Domain Nouns\n\n`src/`'s top level names domains (`billing/`, `issues/`, `sync/`) \u2014 capabilities the product has. Infrastructure capabilities are domains too: `git/`, `config/`, `runState/` are valid module names. Navigation is by domain first, for humans and agents alike.\n\n**Banned module names \u2014 a closed list, not a judgment call.** A folder is never named for the *role* of the code it holds: `helpers/`, `utils/`\\*, `lib/`, `core/`, `misc/`, `shared/`, `services/`\\*, `controllers/`, `models/`, `hooks/`, `components/`, `types/`\\*, `constants/`\\* (\\* legal inside `common/` per its closed list). Where the package's framework doc mandates one of these names (NestJS layout, React feature `components/`, file-based routers), the framework doc wins \u2014 the same carve-out as folder casing below. The only privileged folder name at any level is `common/`.\n\n## Growing Without New Rules\n\nAt every level exactly three kinds of things exist: **modules**, **`common/`**, and **files**. Growth never invents a new kind of place \u2014 it is always one of two mechanical moves:\n\n- **Graduate** \u2014 a file needs private companions \u2192 it becomes a module ([the graduation rule](./architecture-decisions.md#modules--the-graduation-rule))\n- **Consolidate** \u2014 a level holds more than ~20 modules \u2192 group related sibling modules under a new parent domain module (recursive: a module within a module, each keeping its own barrel)\n\nConsolidation is the census remedy: when a level starts reading like a directory listing instead of a product description, the fix is a parent domain \u2014 never a technical-layer bucket.\n\n## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape \u2014 its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.\n\n## Per-Folder READMEs\n\nA folder gets a `README.md` only for a genuine invariant not derivable from these rules (e.g. \"everything here runs in the widget sandbox \u2014 no DOM globals\"). Never prose restating the structure.\n\n## Folder Naming\n\nFolders match what they hold, in that name's own casing:\n\n- **Category/container folders** \u2014 `camelCase` (`utils/`, `types/`, `formatting/`, `apiTokens/`)\n- **A folder graduated from a single named item** \u2014 that item's name and casing: class/component folders are `PascalCase` (`HttpClient/`, `IssuePanel/`)\n- **Resolve casing in order:** (1) established convention in the directory, (2) the package's framework doc (NestJS is `kebab-case` throughout; URL-mapped route segments are `kebab-case`), (3) the defaults above.\n\n## Domain Folders\n\nA stateless function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) \u2014 `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.\n\nA domain folder is **not** a module \u2014 by the barrel-omission test it hides nothing: every file in it is public, it carries **no `index.ts`** (no barrels under `common/`; see module-api.md), and imports target its files directly. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.\n\n## Example\n\n```\nsrc/\n\u251C\u2500 common/            # shared across ALL modules\n\u2502  \u251C\u2500 utils/          #   (formatDate.ts \u2014 no barrels under common/)\n\u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 services/\n\u2502  \u251C\u2500 formatting/     # domain folder: 2+ related pure functions\n\u251C\u2500 featureA/\n\u2502  \u251C\u2500 common/         # shared within featureA only\n\u2502  \u2502  \u251C\u2500 utils/\n\u2502  \u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 featureA.ts\n\u2502  \u2514\u2500 index.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\n## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package \u2014 not duplicated per-package.\n\nA pure-contracts/shared package \u2014 one where everything is public by design \u2014\nis a `common/`-like space: its `src/` holds **domain folders**, not modules.\nThe barrel-omission test computes this per folder (a barrel that hides\nnothing \u2192 domain folder, no boundary), which is also how the scanner\nclassifies it.\n\n**Use `packages/shared/` when:** 2+ packages need it, it has zero framework dependencies, and it defines a contract both sides agree on (constants, error codes, pure predicates).\n\n**Don't when:** one package needs it (use its `common/`), it imports a framework (wrap the shared primitive locally), or it's an implementation detail (hooks, guards, resolvers).\n\n**Pattern \u2014 shared primitive + local wrapper:**\n\n```\npackages/shared/src/permissions/utils/hasPermission.ts        \u2190 pure function\npackages/frontend/src/common/permissions/useHasPermission.ts  \u2190 React hook wrapping it\npackages/api/src/auth/guards/                                 \u2190 NestJS guard using it\n```\n";
 
 // standards/code/architecture/react/architecture-decisions.md
 var architecture_decisions_default2 = "# React Architecture\n\nArchitecture decisions for React packages.\n\n## Component File Structure\n\n**Default to single-file components.** Only create a folder when the component requires bundled utilities, types, or constants:\n\n```\ncomponents/\n\u251C\u2500\u2500 SimpleComponent.tsx              \u2705 Single file (default)\n\u251C\u2500\u2500 ComplexComponent/                \u2705 Folder for bundled logic\n\u2502   \u251C\u2500\u2500 common/\n\u2502   \u2502   \u2514\u2500\u2500 utils/\n\u2502   \u2502       \u251C\u2500\u2500 index.ts\n\u2502   \u2502       \u2514\u2500\u2500 helperFunction.ts\n\u2502   \u251C\u2500\u2500 ComplexComponent.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## Domain Folders\n\nDomain folders follow the shared rules in [folder-structure.md](../folder-structure.md#domain-folders). React-specific examples include JSX-producing functions grouped by domain:\n\n```\ncommon/\n\u251C\u2500\u2500 utils/                         # Ungrouped pure functions\n\u251C\u2500\u2500 stepConfigs/                   # \u2705 Domain folder \u2014 2+ related JSX config builders\n\u2502   \u251C\u2500\u2500 getDesignStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getInstallStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getStepContentConfig.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n\u251C\u2500\u2500 cellRenderers/                 # \u2705 Domain folder \u2014 2+ related JSX renderers\n\u2502   \u251C\u2500\u2500 renderStatusCell.tsx\n\u2502   \u251C\u2500\u2500 renderDateCell.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## File Naming Conventions\n\n| File type | Convention | Example |\n|-----------|------------|---------|\n| Components | `PascalCase.tsx` (or `PascalCase/` folder) | `IssueDetailContent.tsx`, `IssueDetail/` |\n| Hooks | `camelCase.ts` | `useIssues.ts`, `useUpdateIssue.ts` |\n| Utils | `camelCase.ts` | `buildOrderBy.ts`, `formatDate.ts` |\n| Named constants, interfaces | `PascalCase.ts` | `QueryKey.ts`, `FilterOption.ts` |\n| Constants | `camelCase.ts` | `emailRegex.ts`, `defaultPaginationPage.ts` |\n| Folders (domain) | `camelCase` | `hooks/`, `components/`, `queries/` |\n| Folders (component) | `PascalCase` | `IssueDetail/`, `IssueHeaderToolbar/` |\n";
@@ -40451,13 +40451,16 @@ var priorityOf = (detector) => {
   return index === -1 ? detectorPriority.length : index;
 };
 var batchFindings = ({ findings, advisories, packagesDir }) => {
-  const folderOf = (finding) => {
-    const path = finding.files[0]?.path ?? "";
+  const areaOf = (path) => {
     const segments = path.split("/");
     if (segments[0] === packagesDir && segments.length > 2 && segments[1]) {
       return `${packagesDir}/${segments[1]}`;
     }
     return segments.length > 1 && segments[0] ? segments[0] : "(root)";
+  };
+  const folderOf = (finding) => {
+    const areas = new Set(finding.files.map((file2) => areaOf(file2.path)));
+    return areas.size > 1 ? "(cross)" : [...areas][0] ?? "(root)";
   };
   const groups = /* @__PURE__ */ new Map();
   for (const finding of findings) {
@@ -40467,8 +40470,9 @@ var batchFindings = ({ findings, advisories, packagesDir }) => {
     group.findings.push(finding);
     groups.set(key, group);
   }
+  const crossLast = (folder) => folder === "(cross)" ? 1 : 0;
   const ordered = [...groups.values()].sort(
-    (a, b) => priorityOf(a.detector) - priorityOf(b.detector) || a.detector.localeCompare(b.detector) || a.folder.localeCompare(b.folder)
+    (a, b) => priorityOf(a.detector) - priorityOf(b.detector) || a.detector.localeCompare(b.detector) || crossLast(a.folder) - crossLast(b.folder) || a.folder.localeCompare(b.folder)
   );
   const batches = [];
   for (const group of ordered) {
@@ -40553,16 +40557,61 @@ var seedResumeState = ({ manifest, batches }) => {
   return { declined, declineStreak };
 };
 
-// packages/engine/src/refactor/runBatch.ts
-import { appendFile as appendFile10, mkdir as mkdir15, writeFile as writeFile17 } from "node:fs/promises";
-import { join as join53 } from "node:path";
-
 // packages/engine/src/refactor/collectBatchChanges.ts
 var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
   const attributed = new Set(attributedFiles);
   const isGenerated = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
   const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated(file2));
   return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
+};
+
+// packages/engine/src/refactor/invokeBatchAgent.ts
+import { appendFile as appendFile10, mkdir as mkdir15, writeFile as writeFile17 } from "node:fs/promises";
+import { join as join53 } from "node:path";
+var invokeBatchAgent = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  batch,
+  invocation,
+  label,
+  invocationCount,
+  agentTimeoutMs,
+  reportedFiles,
+  rationale,
+  recordUsage
+}) => {
+  const agentsDir = join53(getRunDir({ cwd, runId }), "agents");
+  const slug = batch.id.replace(/[:/]/g, "_");
+  const streamPath = join53(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  await mkdir15(agentsDir, { recursive: true });
+  const outcome = await invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation,
+    contract: WorkReport,
+    model: config2.model,
+    permissionMode: config2.permissionMode ?? "acceptEdits",
+    timeoutMs: agentTimeoutMs,
+    allowedCommands: config2.agentCommands,
+    onEvent: (event) => {
+      void appendFile10(streamPath, `${JSON.stringify(event)}
+`, "utf8").catch(() => void 0);
+    },
+    onRejectedOutput: async ({ text, attempt }) => {
+      await writeFile17(join53(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+    }
+  });
+  await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
+  for (const file2 of outcome.report?.changedFiles ?? []) {
+    reportedFiles.add(file2.path);
+  }
+  if (outcome.report?.friction && outcome.report.friction.length > 0) {
+    await appendFriction({ cwd, runId, step: batch.id, friction: outcome.report.friction });
+    rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
+  }
+  return outcome;
 };
 
 // packages/engine/src/refactor/matchRemainingFindings.ts
@@ -40617,53 +40666,29 @@ var runBatch = async ({
   onProgress,
   recordUsage
 }) => {
-  const agentsDir = join53(getRunDir({ cwd, runId }), "agents");
   const rationale = [];
   const reportedFiles = /* @__PURE__ */ new Set();
   let invocationCount = 0;
-  const invoke = async ({ label, invocation }) => {
+  const invoke = ({ label, invocation }) => {
     invocationCount += 1;
-    const streamPath = join53(agentsDir, `stream-${batch.id.replace(/[:/]/g, "_")}-${invocationCount}.jsonl`);
-    await mkdir15(agentsDir, { recursive: true });
-    const outcome = await invokeAgentWithContract({
-      driver,
-      cwd,
-      invocation,
-      contract: WorkReport,
-      model: config2.model,
-      permissionMode: config2.permissionMode ?? "acceptEdits",
-      timeoutMs: agentTimeoutMs,
-      allowedCommands: config2.agentCommands,
-      onEvent: (event) => {
-        void appendFile10(streamPath, `${JSON.stringify(event)}
-`, "utf8").catch(() => void 0);
-      },
-      onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile17(join53(agentsDir, `rejected-${batch.id.replace(/[:/]/g, "_")}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(
-          () => void 0
-        );
-      }
-    });
-    await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
-    for (const file2 of outcome.report?.changedFiles ?? []) {
-      reportedFiles.add(file2.path);
-    }
-    if (outcome.report?.friction && outcome.report.friction.length > 0) {
-      await appendFriction({ cwd, runId, step: batch.id, friction: outcome.report.friction });
-      rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
-    }
-    return outcome;
+    return invokeBatchAgent({ cwd, runId, driver, config: config2, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, recordUsage });
   };
   const gates = () => runBatchGates({ cwd, config: config2, runId, step: batch.id, onProgress });
+  const scanLive = () => runScan({ cwd, path: scanPath, all: scanAll, persist: false });
   const remainingClusters = async ({ frozen }) => {
-    const { findings } = await runScan({ cwd, path: scanPath, all: scanAll, persist: false });
+    const { findings } = await scanLive();
     return matchRemainingFindings({ frozen, live: findings });
   };
   const batchChangedFiles = () => collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles });
-  if ((await remainingClusters({ frozen: batch.findings })).length === 0) {
+  const preScan = await scanLive();
+  if (matchRemainingFindings({ frozen: batch.findings, live: preScan.findings }).length === 0) {
     onProgress(`${batch.id}: clusters already resolved by earlier work \u2014 no agent spent`);
     return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: [] };
   }
+  const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file2) => file2.path)));
+  const liveAdvisories = preScan.findings.filter(
+    (finding) => finding.severity === ScanSeverity.Advisory && finding.detector === ScanDetector.Size && finding.files.some((file2) => batchFiles.has(file2.path))
+  );
   let workFindings = batch.findings;
   for (let pass = 1; pass <= 2; pass += 1) {
     const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
@@ -40674,14 +40699,27 @@ var runBatch = async ({
         changedFiles: files,
         standards,
         scanFindings: workFindings,
-        scanAdvisories: batch.advisories
+        scanAdvisories: liveAdvisories
       })
     });
     if (rateLimited) {
       return { kind: "parked" };
     }
     if (!report) {
+      if ((await remainingClusters({ frozen: workFindings })).length === 0 && !await gates()) {
+        rationale.push(`[other] salvaged: agent invocation failed (${failure ?? "unknown"}) but the clusters are resolved and gates are green`);
+        onProgress(`${batch.id}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
+        return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+      }
       return { kind: "failed", error: `${batch.id}: ${failure ?? "unknown failure"}` };
+    }
+    if (report.status === WorkReportStatus.TerminatedScope) {
+      rationale.push(...report.failures.map((entry) => `[scope] ${entry}`));
+      return {
+        kind: "done",
+        report: { outcome: BatchOutcome.Declined, remainingClusters: await remainingClusters({ frozen: workFindings }), rationale },
+        changedFiles: await batchChangedFiles()
+      };
     }
     if (report.status !== WorkReportStatus.Complete) {
       const kind = report.status === WorkReportStatus.Failed ? "failed" : "escalated";
@@ -40703,7 +40741,7 @@ var runBatch = async ({
           changedFiles: files,
           standards,
           scanFindings: workFindings,
-          scanAdvisories: batch.advisories,
+          scanAdvisories: liveAdvisories,
           errorContext: gateError
         })
       });

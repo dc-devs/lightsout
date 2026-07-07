@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { RunManifest } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { loadConfig, readRunManifest, runRefactorPipeline } from '../src/index';
+import { linkTypescript } from './helpers/linkTypescript';
 import { report } from './helpers/report';
 import { setupConsumerRepo } from './helpers/setupConsumerRepo';
 
@@ -269,4 +270,112 @@ test('refactor: an implement-pipeline manifest is refused with a pointer to the 
 		runRefactorPipeline({ cwd: dir, driver: decliningDriver, config, existing: implementManifest }),
 		/belongs to the implement pipeline/,
 	);
+});
+
+test('refactor: terminated:scope is a decline that continues, not a run-ending escalation', async () => {
+	const dir = setupConsumerRepo();
+
+	for (const folder of ['alpha', 'beta']) {
+		mkdirSync(join(dir, folder), { recursive: true });
+		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
+	}
+
+	commitAll(dir);
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			if (invocation.prompt.includes('alpha/multi.ts')) {
+				return { text: report({ status: 'terminated:scope', failures: ['cannot be resolved in scope'] }), exitCode: 0 };
+			}
+
+			writeFileSync(join(dir, 'beta/multi.ts'), 'export const alpha = 1;\n');
+			writeFileSync(join(dir, 'beta/beta.ts'), 'export const beta = 2;\n');
+
+			return { text: report({ changedFiles: [{ path: 'beta/multi.ts', summary: 'split' }, { path: 'beta/beta.ts', summary: 'split' }] }), exitCode: 0 };
+		},
+	};
+
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+
+	assert.equal(result.ok, true, `a scope refusal must not end the run: ${result.error}`);
+	assert.equal(result.declined.length, 1, 'the scope refusal is recorded as a decline');
+	assert.ok(result.declined[0]?.rationale.some((line) => line.includes('cannot be resolved in scope')), 'the refusal reason rides the decline');
+	assert.equal(result.after['structure'] ?? 0, 1, 'the other batch still ran and resolved');
+});
+
+test('refactor: an invocation failure whose work is verifiably done is salvaged as resolved', async () => {
+	const dir = setupConsumerRepo();
+
+	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	commitAll(dir);
+
+	// The laptop-sleep shape: the agent fixes the finding on disk, then dies
+	// without ever producing a valid report (both contract attempts fail).
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			writeFileSync(join(dir, 'src/multi.ts'), 'export const alpha = 1;\n');
+			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
+
+			return { text: 'no json here — the process died mid-report', exitCode: 1 };
+		},
+	};
+
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+
+	assert.equal(result.ok, true, `verified work must be salvaged, not failed: ${result.error}`);
+	assert.equal(result.after['structure'] ?? 0, 0, 'the finding is gone');
+
+	const batch = result.manifest.steps.find((step) => step.id.startsWith('batch-'));
+
+	assert.ok(JSON.stringify(batch?.report).includes('salvaged'), 'the salvage is recorded honestly on the step');
+});
+
+test('refactor: advisories are recomputed at batch time, not served stale from the frozen worklist', async () => {
+	const dir = setupConsumerRepo();
+
+	linkTypescript({ dir });
+	mkdirSync(join(dir, 'alpha'), { recursive: true });
+
+	// The finding file ALSO carries a size advisory (an over-cap function), so
+	// the advisory rides the batch as context for the same file.
+	const bigFunction = `export const big = () => {\n${Array.from({ length: 85 }, (_, index) => `\tconst v${index} = ${index};`).join('\n')}\n\treturn v0;\n};\n`;
+
+	writeFileSync(join(dir, 'alpha/multi.ts'), `export const alpha = 1;\n${bigFunction}`);
+	commitAll(dir);
+
+	let calls = 0;
+	const prompts: string[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			calls += 1;
+
+			if (calls === 1) {
+				return { text: 'usage limit reached', exitCode: 1, rateLimited: true };
+			}
+
+			prompts.push(prompt);
+			writeFileSync(join(dir, 'alpha/multi.ts'), 'export const alpha = 1;\n');
+			writeFileSync(join(dir, 'alpha/beta.ts'), 'export const beta = 2;\n');
+
+			return { text: report({ changedFiles: [{ path: 'alpha/multi.ts', summary: 'split' }, { path: 'alpha/beta.ts', summary: 'split' }] }), exitCode: 0 };
+		},
+	};
+
+	const config = await loadConfig({ cwd: dir });
+	const parked = await runRefactorPipeline({ cwd: dir, driver, config });
+
+	assert.equal(parked.manifest.status, 'paused-rate-limit');
+
+	// Between park and resume, the advisory's location shifts — the frozen
+	// worklist now cites stale lines.
+	writeFileSync(join(dir, 'alpha/multi.ts'), `${'// shift\n'.repeat(10)}export const alpha = 1;\n${bigFunction}`);
+
+	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
+	const resumed = await runRefactorPipeline({ cwd: dir, driver, config, existing });
+
+	assert.equal(resumed.ok, true, resumed.error);
+	assert.ok(prompts[0]?.includes('alpha/multi.ts:12'), `the advisory in the prompt cites the LIVE line (12), not the frozen one (2) — got:\n${prompts[0]?.split('\n').filter((line) => line.includes('[size]')).join('\n')}`);
 });
