@@ -86,7 +86,11 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 
 	const detectors = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
 
-	if (detectors.length > 0) {
+	// A parked run takes no final scan — its `after` merely echoes `before`,
+	// and printing that as a burn-down reads as "nothing improved".
+	if (!result.ok) {
+		console.log(dim(`\nno burn-down until the run completes — resume to finish and measure`));
+	} else if (detectors.length > 0) {
 		console.log(`\nburn-down (findings before → after):`);
 
 		for (const detector of detectors) {

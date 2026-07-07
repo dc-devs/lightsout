@@ -41840,7 +41840,10 @@ ${yellow("declined")} ${entry.batchId}`);
     console.log(dim(`  review each cluster \u2014 fix by hand, or accept it as debt: lightsout scan --baseline`));
   }
   const detectors = [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].sort();
-  if (detectors.length > 0) {
+  if (!result.ok) {
+    console.log(dim(`
+no burn-down until the run completes \u2014 resume to finish and measure`));
+  } else if (detectors.length > 0) {
     console.log(`
 burn-down (findings before \u2192 after):`);
     for (const detector of detectors) {
