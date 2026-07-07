@@ -1,20 +1,9 @@
+import { pathFromLine } from './common/utils/pathFromLine';
+
 interface Params {
 	/** The full markdown text of one plan file. */
 	planText: string;
 }
-
-/** The first backtick-delimited token in a line shaped like a file path (has `/` and a `.ext`). */
-const pathFromLine = (line: string): string | undefined => {
-	for (const match of line.matchAll(/`([^`]+)`/g)) {
-		const token = match[1].trim().split(/\s+/)[0];
-
-		if (token.includes('/') && /\.[A-Za-z0-9]+$/.test(token)) {
-			return token;
-		}
-	}
-
-	return undefined;
-};
 
 /**
  * The repo-relative paths named by the `### <path>` subheadings under a plan's
@@ -39,7 +28,7 @@ export const planCreatePaths = ({ planText }: Params): string[] => {
 		}
 
 		if (inCreateSection && /^###\s+/.test(line)) {
-			const path = pathFromLine(line);
+			const path = pathFromLine({ line });
 
 			if (path) {
 				paths.push(path);

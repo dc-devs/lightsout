@@ -1,4 +1,5 @@
 import type { ParsedPlan } from './common/types/ParsedPlan';
+import { pathFromLine } from './common/utils/pathFromLine';
 import { planCreatePaths } from './planCreatePaths';
 
 /** Split a plan into its `##` sections (a `###` subheading stays inside its section). */
@@ -24,21 +25,14 @@ const parseSections = (lines: string[]): Map<string, string[]> => {
 	return sections;
 };
 
-/** The first backtick-delimited token in a line that is shaped like a file path (has `/` and a `.ext`). */
-const pathFromLine = (line: string): string | undefined => {
-	for (const match of line.matchAll(/`([^`]+)`/g)) {
-		const token = match[1].trim().split(/\s+/)[0];
-
-		if (token.includes('/') && /\.[A-Za-z0-9]+$/.test(token)) {
-			return token;
-		}
-	}
-
-	return undefined;
-};
-
-/** Paths from the `###` subheadings inside a Files section. */
-const pathsFromSubheadings = (sectionLines: string[] | undefined): string[] => {
+/** Paths from the leading code span of each line in a section that matches `lineMatches` (`###` subheadings or `-` bullets). */
+const pathsFromLines = ({
+	sectionLines,
+	lineMatches,
+}: {
+	sectionLines: string[] | undefined;
+	lineMatches: (line: string) => boolean;
+}) => {
 	if (!sectionLines) {
 		return [];
 	}
@@ -46,29 +40,8 @@ const pathsFromSubheadings = (sectionLines: string[] | undefined): string[] => {
 	const paths: string[] = [];
 
 	for (const line of sectionLines) {
-		if (/^###\s+/.test(line)) {
-			const path = pathFromLine(line);
-
-			if (path) {
-				paths.push(path);
-			}
-		}
-	}
-
-	return paths;
-};
-
-/** Paths from the leading code span of each `-` bullet in a section (Patterns to Mirror). */
-const pathsFromBullets = (sectionLines: string[] | undefined): string[] => {
-	if (!sectionLines) {
-		return [];
-	}
-
-	const paths: string[] = [];
-
-	for (const line of sectionLines) {
-		if (/^\s*-\s+/.test(line)) {
-			const path = pathFromLine(line);
+		if (lineMatches(line)) {
+			const path = pathFromLine({ line });
 
 			if (path) {
 				paths.push(path);
@@ -118,8 +91,8 @@ export const parsePlan = ({ content, base }: { content: string; base: string }):
 		variant,
 		sections,
 		createPaths: planCreatePaths({ planText: content }),
-		modifyPaths: pathsFromSubheadings(sections.get('Files to Modify')),
-		mirrorPaths: pathsFromBullets(sections.get('Patterns to Mirror')),
+		modifyPaths: pathsFromLines({ sectionLines: sections.get('Files to Modify'), lineMatches: (line) => /^###\s+/.test(line) }),
+		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),
 		verificationCommands: commandsFromVerification(sections.get('Verification')),
 		lines,
 	};
