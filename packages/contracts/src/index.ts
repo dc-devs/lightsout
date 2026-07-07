@@ -48,3 +48,7 @@ export { DedupVerdict } from './dedup/DedupVerdict';
 export { DedupJudgment } from './dedup/DedupJudgment';
 export { DedupFinding } from './dedup/DedupFinding';
 export { DedupReport } from './dedup/DedupReport';
+export { RefactorBatch } from './refactor/RefactorBatch';
+export { RefactorWorklist } from './refactor/RefactorWorklist';
+export { BatchOutcome } from './refactor/BatchOutcome';
+export { BatchReport } from './refactor/BatchReport';

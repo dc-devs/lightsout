@@ -17,6 +17,8 @@ export const RunManifest = z.object({
 	updatedAt: z.string(),
 	/** Path to the plan file the run implements, relative to the target repo. */
 	plan: z.string(),
+	/** Which pipeline owns this run ('implement' | 'refactor'). Absent on pre-discriminator manifests → implement. */
+	pipeline: z.string().optional(),
 	/** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
 	overview: z.string().optional(),
 	/** Driver name the run was started with (a resumed run must reuse it). */

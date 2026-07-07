@@ -5,6 +5,8 @@ export const RunStatus = {
 	Failed: 'failed',
 	/** Hit the harness rate-limit wall — a first-class pausable state, not an error. Resumes when the window resets. */
 	PausedRateLimit: 'paused-rate-limit',
+	/** Stopped at a caller-set budget ceiling (e.g. refactor --max-batches) — pausable, resume to continue. */
+	PausedBudget: 'paused-budget',
 	/** Supervisor determined a human decision is required. */
 	Escalated: 'escalated',
 } as const;
