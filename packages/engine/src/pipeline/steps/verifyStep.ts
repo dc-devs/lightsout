@@ -1,6 +1,5 @@
-import { buildSupervisorInvocation } from '@lightsout/agents';
-import { RunStatus, SupervisorDecision, SupervisorVerdict, WorkReportStatus, type StepRecord } from '@lightsout/contracts';
-import { invokeAgentWithContract } from '../../invoke';
+import { RunStatus, SupervisorDecision, WorkReportStatus, type StepRecord } from '@lightsout/contracts';
+import { consultSupervisor } from '../../common/utils/consultSupervisor';
 import { appendFriction } from '../../runState';
 import type { PipelineResult } from '../PipelineResult';
 import type { PipelineRun } from '../PipelineRun';
@@ -10,8 +9,6 @@ import { gates } from '../common/utils/gates';
 import { withStepFiles } from '../common/utils/withStepFiles';
 
 const maxCheapFixRetries = 2;
-const defaultSupervisorTimeoutMinutes = 15;
-const supervisorPermissionMode = 'plan';
 
 interface Params {
 	run: PipelineRun;
@@ -30,8 +27,6 @@ interface Params {
  * evidence when even guided retry stays red.
  */
 export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }: Params): PipelineStep['run'] => {
-	const supervisorTimeoutMs = (run.config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000;
-
 	// The aftermath of a fix invocation, shared by both retry paths (the
 	// cheap-retry loop and the supervisor retry-with-guidance branch): a park
 	// check, friction append, report merge into the record, and a re-gate. On
@@ -100,16 +95,16 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 
 		// Exception path: mechanical retries exhausted — bring in judgment.
 		if (error) {
-			run.progress(`step ${id}: mechanical retries exhausted — consulting supervisor (ceiling ${supervisorTimeoutMs / 60_000}m)`);
+			run.progress(`step ${id}: mechanical retries exhausted — consulting supervisor`);
 
-			const verdict = await invokeAgentWithContract({
+			const verdict = await consultSupervisor({
 				driver: run.driver,
 				cwd: run.cwd,
-				invocation: buildSupervisorInvocation({ planContent, stepId: id, errorOutput: error, attempts: record.attempts }),
-				contract: SupervisorVerdict,
-				model: run.config.model,
-				permissionMode: supervisorPermissionMode,
-				timeoutMs: supervisorTimeoutMs,
+				config: run.config,
+				planContent,
+				stepId: id,
+				errorOutput: error,
+				attempts: record.attempts,
 				onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
 				onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` }),
 			});
