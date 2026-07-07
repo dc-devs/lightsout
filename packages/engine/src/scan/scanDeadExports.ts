@@ -4,6 +4,11 @@ import { readFileContents } from './common/utils/readFileContents';
 import { isTestFile } from '../common/utils/isTestFile';
 
 const exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
+// An index file is a BARREL only if it exports; an entry index that only
+// imports-and-runs is an ordinary consumer (live false positive: every CLI
+// command read as "exported through a barrel but no module consumes it"
+// because the executable dispatcher index.ts was counted as a barrel).
+const isBarrel = ({ file, text }: { file: string; text: string }) => basename(file).startsWith('index.') && /^export\b/m.test(text);
 
 interface Params {
 	cwd: string;
@@ -57,7 +62,7 @@ export const scanDeadExports = async ({ cwd, files, referenceFiles }: Params) =>
 				continue;
 			}
 
-			if (basename(other).startsWith('index.')) {
+			if (isBarrel({ file: other, text })) {
 				referencedBy.barrel = true;
 			} else if (isTestFile(other)) {
 				referencedBy.test = true;

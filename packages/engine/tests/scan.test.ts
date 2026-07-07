@@ -219,6 +219,33 @@ test('scan degrades honestly without a resolvable typescript', async () => {
 	assert.ok(notes.some((note) => note.includes('typescript')), `honest skip note:\n${notes.join('\n')}`);
 });
 
+test('dead-export: an entry index (imports, no exports) is a consumer, not a barrel', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-scan-entry-'));
+
+	mkdirSync(join(dir, 'src/util'), { recursive: true });
+	writeFileSync(join(dir, 'package.json'), '{"name":"fixture-entry"}');
+
+	// Executable entry: imports and CALLS the export, exports nothing itself.
+	writeFileSync(join(dir, 'src/run.ts'), 'export const runEverything = () => 1;\n');
+	writeFileSync(join(dir, 'src/index.ts'), "import { runEverything } from './run';\nrunEverything();\n");
+
+	// True barrel-only export: re-exported, consumed by nothing.
+	writeFileSync(join(dir, 'src/util/helperThing.ts'), 'export const helperThing = () => 1;\n');
+	writeFileSync(join(dir, 'src/util/index.ts'), "export { helperThing } from './helperThing';\n");
+
+	const { findings } = await runScan({ cwd: dir });
+	const dead = findings.filter((finding) => finding.detector === 'dead-export');
+
+	assert.ok(
+		!dead.some((finding) => finding.detail.includes('runEverything')),
+		`an entry file's imports are consumption:\n${JSON.stringify(dead, undefined, 1)}`,
+	);
+	assert.ok(
+		dead.some((finding) => finding.detail.includes('helperThing') && finding.detail.includes('barrel')),
+		`a genuine barrel-only export still flags:\n${JSON.stringify(dead, undefined, 1)}`,
+	);
+});
+
 // Parallel adapters legitimately share their import lists — imports are
 // non-deduplicable by construction, so they must never count toward a clone.
 const importBlock = [

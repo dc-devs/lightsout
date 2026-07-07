@@ -37028,6 +37028,7 @@ var readFileContents = async ({ cwd, files }) => {
 
 // packages/engine/src/scan/scanDeadExports.ts
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
+var isBarrel = ({ file: file2, text }) => basename2(file2).startsWith("index.") && /^export\b/m.test(text);
 var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   const findings = [];
   const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles ?? []] });
@@ -37051,7 +37052,7 @@ var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
       if (other === file2 || !pattern.test(text)) {
         continue;
       }
-      if (basename2(other).startsWith("index.")) {
+      if (isBarrel({ file: other, text })) {
         referencedBy.barrel = true;
       } else if (isTestFile(other)) {
         referencedBy.test = true;
@@ -37124,7 +37125,7 @@ var readBarrelExports = ({
 };
 
 // packages/engine/src/scan/mapFolderModules.ts
-var isBarrel = (path) => /^index\.tsx?$/.test(basename3(path));
+var isBarrel2 = (path) => /^index\.tsx?$/.test(basename3(path));
 var isRootBarrelDir = (dir) => basename3(dir) === "src";
 var underCommon = (path) => path.split("/").includes("common");
 var mapFolderModules = async ({
@@ -37134,7 +37135,7 @@ var mapFolderModules = async ({
   const barrelDirs = /* @__PURE__ */ new Map();
   for (const file2 of files) {
     const dir = dirname3(file2);
-    if (isBarrel(file2) && !isRootBarrelDir(dir) && !underCommon(dir)) {
+    if (isBarrel2(file2) && !isRootBarrelDir(dir) && !underCommon(dir)) {
       barrelDirs.set(dir, file2);
     }
   }
@@ -37148,7 +37149,7 @@ var mapFolderModules = async ({
     const prefix = `${folder}/`;
     const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
     const ownFiles = files.filter((file2) => {
-      if (!file2.startsWith(prefix) || isBarrel(file2) || isTestFile(file2) || !/\.tsx?$/.test(file2)) {
+      if (!file2.startsWith(prefix) || isBarrel2(file2) || isTestFile(file2) || !/\.tsx?$/.test(file2)) {
         return false;
       }
       return !nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file2.startsWith(`${other}/`));
