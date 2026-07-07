@@ -3,6 +3,7 @@ import { appendFriction } from '../../runState';
 import type { PipelineRun } from '../PipelineRun';
 import type { PipelineStep } from '../PipelineStep';
 import { collectChanged } from '../common/utils/collectChanged';
+import { invokeRoleOrStop } from '../common/utils/invokeRoleOrStop';
 import { withStepFiles } from '../common/utils/withStepFiles';
 
 interface Params {
@@ -22,15 +23,13 @@ export const workStep = ({ run, gitPrefix, id, build, requireChanges }: Params):
 		await run.setStep({ record });
 		run.progress(`step ${id} — attempt ${record.attempts} · invoking agent (ceiling ${run.agentTimeoutMs / 60_000}m)`);
 
-		const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
+		const outcome = await invokeRoleOrStop({ run, record, invocation: build(), step: id });
 
-		if (rateLimited) {
-			return run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+		if ('stopped' in outcome) {
+			return outcome.stopped;
 		}
 
-		if (!report) {
-			return run.stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' });
-		}
+		const { report } = outcome;
 
 		run.progress(`step ${id}: agent report ${report.status} — ${report.changedFiles.length} changed file(s)`);
 

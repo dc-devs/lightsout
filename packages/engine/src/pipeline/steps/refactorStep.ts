@@ -4,6 +4,7 @@ import { appendFriction } from '../../runState';
 import type { PipelineRun } from '../PipelineRun';
 import type { PipelineStep } from '../PipelineStep';
 import { collectChanged } from '../common/utils/collectChanged';
+import { invokeRoleOrStop } from '../common/utils/invokeRoleOrStop';
 import { sourceFiles } from '../common/utils/sourceFiles';
 import { withStepFiles } from '../common/utils/withStepFiles';
 import { describePersistingFindings } from './describePersistingFindings';
@@ -49,7 +50,9 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 
 			run.progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 
-			const { report, failure, rateLimited } = await run.invokeRole({
+			const outcome = await invokeRoleOrStop({
+				run,
+				record,
 				invocation: buildRefactorExecutorInvocation({
 					planContent,
 					changedFiles: sourceFiles({ run }),
@@ -60,13 +63,11 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 				step: 'refactor',
 			});
 
-			if (rateLimited) {
-				return run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+			if ('stopped' in outcome) {
+				return outcome.stopped;
 			}
 
-			if (!report) {
-				return run.stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' });
-			}
+			const { report } = outcome;
 
 			await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: 'refactor', friction: report.friction ?? [] });
 

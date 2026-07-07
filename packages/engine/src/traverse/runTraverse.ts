@@ -1,16 +1,18 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
-import { HopReport } from '@lightsout/contracts';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { HopReport, type TraceState } from '@lightsout/contracts';
 import { buildTraverseHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
-import { mintRunId } from './common/utils/mintRunId';
+import { hopSinks } from './common/utils/hopSinks';
+import { readConnectionGraph } from './common/utils/readConnectionGraph';
+import { reportHopUsage } from './common/utils/reportHopUsage';
+import { resolveRunDir } from './common/utils/resolveRunDir';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { initTraverseState } from './initTraverseState';
 import { invokeAgentWithContract } from '../invoke';
 import { matchExitToEdge } from './matchExitToEdge';
-import { readConnectionMap } from './readConnectionMap';
-import { readNodeRegistry } from './readNodeRegistry';
+import { writeJsonFile } from '../common/utils/writeJsonFile';
 
 const defaultHopTimeoutMs = 30 * 60 * 1000;
 
@@ -60,25 +62,27 @@ export const runTraverse = async ({
 	onProgress,
 }: Params) => {
 	const progress = onProgress ?? (() => undefined);
-	const mapDir = isAbsolute(connectionsDir) ? connectionsDir : join(cwd, connectionsDir);
-	const edges = await readConnectionMap({ connectionsDir: mapDir });
-	const registry = await readNodeRegistry({ connectionsDir: mapDir });
+	const { edges, registry } = await readConnectionGraph({ cwd, connectionsDir });
 
-	// Full timestamp to the second (colons → dashes for the filesystem) so a
-	// lexicographic sort of the run dirs IS chronological. The short hash only
-	// guards same-second collisions.
-	const runId = resumeRunId ?? mintRunId();
-	const runDir = join(cwd, '.lightsout', 'traverse', runId);
-	const tracePath = join(runDir, 'trace.json');
+	const { runId, runDir, tracePath } = resolveRunDir({ cwd, kind: 'traverse', resumeRunId });
 
 	await mkdir(runDir, { recursive: true });
 	await mkdir(workspaceDir, { recursive: true });
 
 	const state = await initTraverseState({ resumeRunId, tracePath, edges, start, question, dataOfInterest, budget, runId, progress });
 
-	const writeTrace = async () => writeFile(tracePath, `${JSON.stringify(state, undefined, '\t')}\n`, 'utf8');
+	const writeTrace = async () => writeJsonFile({ path: tracePath, value: state });
 
 	await writeTrace();
+
+	// A hop that never completed (rate limit, or an absent report): re-enqueue
+	// the edge it never finished, persist, and stop with the reason for the human.
+	const bail = async ({ entry, status, error }: { entry: TraceState['frontier'][number]; status: 'paused-rate-limit' | 'failed'; error: string }) => {
+		state.frontier.unshift(entry);
+		await writeTrace();
+
+		return { status, state, runId, runDir, error };
+	};
 
 	const enqueue = ({ edge, reason }: { edge: string; reason: string }) => {
 		if (!state.visited.includes(edge) && !state.frontier.some((entry) => entry.edge === edge)) {
@@ -153,31 +157,17 @@ export const runTraverse = async ({
 			model,
 			permissionMode,
 			timeoutMs,
-			onEvent: (event) => {
-				void appendFile(join(runDir, `hop-${hopNumber}-stream.jsonl`), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-			},
-			onRejectedOutput: async ({ text, attempt }) => {
-				await writeFile(join(runDir, `hop-${hopNumber}-rejected-${attempt}.txt`), text, 'utf8').catch(() => undefined);
-			},
+			...hopSinks({ runDir, hopNumber }),
 		});
 
-		if (usage) {
-			progress(`hop ${state.budget.used + 1} usage: out ${usage.outputTokens} · cache-read ${usage.cacheReadTokens} · $${usage.costUsd.toFixed(2)}`);
-		}
+		reportHopUsage({ usage, hopNumber: state.budget.used + 1, progress });
 
 		if (rateLimited) {
-			// Re-enqueue the edge the hop never completed, then park.
-			state.frontier.unshift(next);
-			await writeTrace();
-
-			return { status: 'paused-rate-limit' as const, state, runId, runDir, error: `rate limit reached — resume with: lightsout traverse --run ${runId}` };
+			return bail({ entry: next, status: 'paused-rate-limit', error: `rate limit reached — resume with: lightsout traverse --run ${runId}` });
 		}
 
 		if (!report) {
-			state.frontier.unshift(next);
-			await writeTrace();
-
-			return { status: 'failed' as const, state, runId, runDir, error: `hop into ${node} failed: ${failure}` };
+			return bail({ entry: next, status: 'failed', error: `hop into ${node} failed: ${failure}` });
 		}
 
 		state.budget.used += 1;

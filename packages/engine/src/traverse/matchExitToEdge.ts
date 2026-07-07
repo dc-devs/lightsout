@@ -1,5 +1,6 @@
 import type { ConnectionDoc, HopReport } from '@lightsout/contracts';
 import { collapseCasing } from '../common/naming/collapseCasing';
+import { targetMatchesEdge } from './common/utils/targetMatchesEdge';
 
 interface Params {
 	exit: HopReport['exits'][number];
@@ -29,10 +30,7 @@ export const matchExitToEdge = ({ exit, node, edges }: Params) => {
 			continue;
 		}
 
-		const label = id.split('--')[2] ?? '';
-		const keys = [label, doc.fromAnchor?.pattern ?? '', doc.toAnchor?.pattern ?? ''].map(collapseCasing).filter(Boolean);
-
-		if (keys.some((key) => key.includes(target) || target.includes(key))) {
+		if (targetMatchesEdge({ id, doc, target })) {
 			matches.push(id);
 		}
 	}

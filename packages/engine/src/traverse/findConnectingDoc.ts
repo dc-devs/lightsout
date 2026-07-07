@@ -1,5 +1,6 @@
 import type { ConnectionDoc, DebugHopReport } from '@lightsout/contracts';
 import { collapseCasing } from '../common/naming/collapseCasing';
+import { targetMatchesEdge } from './common/utils/targetMatchesEdge';
 
 interface Params {
 	/** A debug lead: the crossing the hop agent saw in the current node's code (verdict = points-elsewhere). */
@@ -54,10 +55,7 @@ export const findConnectingDoc = ({ lead, node, edges }: Params) => {
 			continue;
 		}
 
-		const label = id.split('--')[2] ?? '';
-		const keys = [label, doc.fromAnchor?.pattern ?? '', doc.toAnchor?.pattern ?? ''].map(collapseCasing).filter(Boolean);
-
-		if (keys.some((key) => key.includes(target) || target.includes(key))) {
+		if (targetMatchesEdge({ id, doc, target })) {
 			plain.push(hit(id, doc));
 		}
 	}

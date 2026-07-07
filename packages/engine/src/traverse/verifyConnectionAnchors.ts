@@ -1,10 +1,9 @@
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { join } from 'node:path';
 import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
+import { readConnectionGraph } from './common/utils/readConnectionGraph';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { patchConnectionDoc } from './patchConnectionDoc';
-import { readConnectionMap } from './readConnectionMap';
-import { readNodeRegistry } from './readNodeRegistry';
 import { runCommand } from '../common/utils/runCommand';
 
 const gitTimeoutMs = 60_000;
@@ -47,9 +46,7 @@ export const verifyConnectionAnchors = async ({
 	onProgress,
 }: Params) => {
 	const progress = onProgress ?? (() => undefined);
-	const mapDir = isAbsolute(connectionsDir) ? connectionsDir : join(cwd, connectionsDir);
-	const edges = await readConnectionMap({ connectionsDir: mapDir });
-	const registry = await readNodeRegistry({ connectionsDir: mapDir });
+	const { mapDir, edges, registry } = await readConnectionGraph({ cwd, connectionsDir });
 	const targets = docIds ?? [...edges.keys()];
 	const results: AnchorResult[] = [];
 	const headByRepo = new Map<string, string | undefined>();

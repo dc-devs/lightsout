@@ -1,6 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
+import { readFileContents } from './common/utils/readFileContents';
 import { mapFolderModules } from './mapFolderModules';
 import { readBarrelExports } from './readBarrelExports';
 
@@ -25,11 +24,7 @@ interface Params {
  */
 export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params): Promise<ScanFinding[]> => {
 	const modules = await mapFolderModules({ cwd, files });
-	const contents = new Map<string, string>();
-
-	for (const file of new Set([...files, ...(referenceFiles ?? [])])) {
-		contents.set(file, (await readFile(join(cwd, file), 'utf8').catch(() => '')) ?? '');
-	}
+	const contents = await readFileContents({ cwd, files: [...files, ...(referenceFiles ?? [])] });
 
 	const findings: ScanFinding[] = [];
 

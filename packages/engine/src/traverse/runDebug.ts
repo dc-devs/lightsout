@@ -1,17 +1,18 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { mkdir } from 'node:fs/promises';
 import { DebugHopReport, type DebugTraceState } from '@lightsout/contracts';
 import { buildDebugHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
-import { mintRunId } from './common/utils/mintRunId';
+import { hopSinks } from './common/utils/hopSinks';
+import { readConnectionGraph } from './common/utils/readConnectionGraph';
+import { reportHopUsage } from './common/utils/reportHopUsage';
+import { resolveRunDir } from './common/utils/resolveRunDir';
 import { crossNonRepoNode } from './crossNonRepoNode';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { findConnectingDoc } from './findConnectingDoc';
 import { initDebugState } from './initDebugState';
 import { invokeAgentWithContract } from '../invoke';
-import { readConnectionMap } from './readConnectionMap';
-import { readNodeRegistry } from './readNodeRegistry';
+import { writeJsonFile } from '../common/utils/writeJsonFile';
 
 const defaultHopTimeoutMs = 30 * 60 * 1000;
 
@@ -64,22 +65,27 @@ export const runDebug = async ({
 	onProgress,
 }: Params) => {
 	const progress = onProgress ?? (() => undefined);
-	const mapDir = isAbsolute(connectionsDir) ? connectionsDir : join(cwd, connectionsDir);
-	const edges = await readConnectionMap({ connectionsDir: mapDir });
-	const registry = await readNodeRegistry({ connectionsDir: mapDir });
+	const { edges, registry } = await readConnectionGraph({ cwd, connectionsDir });
 
-	const runId = resumeRunId ?? mintRunId();
-	const runDir = join(cwd, '.lightsout', 'debug', runId);
-	const tracePath = join(runDir, 'trace.json');
+	const { runId, runDir, tracePath } = resolveRunDir({ cwd, kind: 'debug', resumeRunId });
 
 	await mkdir(runDir, { recursive: true });
 	await mkdir(workspaceDir, { recursive: true });
 
 	const state = await initDebugState({ resumeRunId, tracePath, cwd, registry, edges, start, symptoms, suspectCommit, budget, runId, progress });
 
-	const writeTrace = async () => writeFile(tracePath, `${JSON.stringify(state, undefined, '\t')}\n`, 'utf8');
+	const writeTrace = async () => writeJsonFile({ path: tracePath, value: state });
 
 	await writeTrace();
+
+	// A hop that never completed (rate limit, or an absent report): re-enqueue
+	// its frontier entry, persist, and stop with the reason for the human.
+	const bail = async ({ entry, status, error }: { entry: DebugTraceState['frontier'][number]; status: 'paused-rate-limit' | 'failed'; error: string }) => {
+		state.frontier.unshift(entry);
+		await writeTrace();
+
+		return { status, state, runId, runDir, error };
+	};
 
 	const enqueue = (entry: DebugTraceState['frontier'][number]) => {
 		const key = `${entry.node}+${entry.direction}`;
@@ -154,30 +160,17 @@ export const runDebug = async ({
 			model,
 			permissionMode,
 			timeoutMs,
-			onEvent: (event) => {
-				void appendFile(join(runDir, `hop-${hopNumber}-stream.jsonl`), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-			},
-			onRejectedOutput: async ({ text, attempt }) => {
-				await writeFile(join(runDir, `hop-${hopNumber}-rejected-${attempt}.txt`), text, 'utf8').catch(() => undefined);
-			},
+			...hopSinks({ runDir, hopNumber }),
 		});
 
-		if (usage) {
-			progress(`hop ${state.budget.used + 1} usage: out ${usage.outputTokens} · cache-read ${usage.cacheReadTokens} · $${usage.costUsd.toFixed(2)}`);
-		}
+		reportHopUsage({ usage, hopNumber: state.budget.used + 1, progress });
 
 		if (rateLimited) {
-			state.frontier.unshift(next);
-			await writeTrace();
-
-			return { status: 'paused-rate-limit' as const, state, runId, runDir, error: `rate limit reached — resume with: lightsout debug --run ${runId}` };
+			return bail({ entry: next, status: 'paused-rate-limit', error: `rate limit reached — resume with: lightsout debug --run ${runId}` });
 		}
 
 		if (!report) {
-			state.frontier.unshift(next);
-			await writeTrace();
-
-			return { status: 'failed' as const, state, runId, runDir, error: `debug hop into ${next.node} failed: ${failure}` };
+			return bail({ entry: next, status: 'failed', error: `debug hop into ${next.node} failed: ${failure}` });
 		}
 
 		state.budget.used += 1;

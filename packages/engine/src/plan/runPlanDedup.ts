@@ -1,13 +1,13 @@
-import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DedupJudgment, DedupReport, type DedupFinding } from '@lightsout/contracts';
 import { buildPlanDedupInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
+import { getPlanDetectionInputs } from './common/utils/getPlanDetectionInputs';
 import { invokeAgentWithContract } from '../invoke';
-import { loadConfig } from '../common/utils/loadConfig';
-import { pathExists } from './common/utils/pathExists';
 import { planWorkspaceDir } from './planWorkspaceDir';
+import { writeJsonFile } from '../common/utils/writeJsonFile';
 
 const defaultDedupTimeoutMs = 30 * 60 * 1000;
 
@@ -24,12 +24,6 @@ interface Params {
 	permissionMode?: string;
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
-}
-
-/** A plan file to judge: its path and text. The overview is passed as context, never judged standalone. */
-interface PlanFile {
-	path: string;
-	text: string;
 }
 
 /**
@@ -59,49 +53,20 @@ export const runPlanDedup = async ({
 
 	await mkdir(workspaceDir, { recursive: true });
 
-	// Resolve the deliverable: single file if present, else the phased directory.
-	const singlePath = join(plansDir, `${name}.md`);
-	const phaseDir = join(plansDir, name);
+	const inputs = await getPlanDetectionInputs({ cwd, name, plansDir });
 
-	let overviewPath: string | undefined;
-	let overviewText: string | undefined;
-	const planFiles: PlanFile[] = [];
-
-	if (await pathExists({ path: singlePath })) {
-		planFiles.push({ path: singlePath, text: await readFile(singlePath, 'utf8') });
-	} else {
-		const entries = (await readdir(phaseDir).catch(() => [] as string[])).filter((entry) => entry.endsWith('.md')).sort();
-
-		for (const entry of entries) {
-			const path = join(phaseDir, entry);
-			const text = await readFile(path, 'utf8');
-
-			if (entry === 'overview.md') {
-				overviewPath = path;
-				overviewText = text;
-			} else {
-				planFiles.push({ path, text });
-			}
-		}
+	if (inputs.error) {
+		return { status: 'failed' as const, workspaceDir, error: inputs.error };
 	}
 
-	if (planFiles.length === 0) {
-		return {
-			status: 'failed' as const,
-			workspaceDir,
-			error: `no plan found for '${name}' — expected ${singlePath} or ${phaseDir}/phase<N>-<slug>.md`,
-		};
-	}
-
-	const planPaths = [...(overviewPath ? [overviewPath] : []), ...planFiles.map((file) => file.path)];
-	const config = await loadConfig({ cwd }).catch(() => undefined);
+	const { overviewText, files: planFiles, planPaths, config } = inputs;
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths, config });
 
 	const writeReport = async (findings: DedupFinding[]) => {
 		const dedup: DedupReport = { planName: name, findings, reviewedAt: new Date().toISOString() };
 		const dedupPath = join(workspaceDir, 'dedup.json');
 
-		await writeFile(dedupPath, `${JSON.stringify(dedup, undefined, '\t')}\n`, 'utf8');
+		await writeJsonFile({ path: dedupPath, value: dedup });
 
 		return { dedup, dedupPath };
 	};

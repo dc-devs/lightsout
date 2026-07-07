@@ -2,6 +2,7 @@ import { buildSupervisorInvocation } from '@lightsout/agents';
 import { RunStatus, SupervisorDecision, SupervisorVerdict, WorkReportStatus, type StepRecord } from '@lightsout/contracts';
 import { invokeAgentWithContract } from '../../invoke';
 import { appendFriction } from '../../runState';
+import type { PipelineResult } from '../PipelineResult';
 import type { PipelineRun } from '../PipelineRun';
 import type { PipelineStep } from '../PipelineStep';
 import { collectChanged } from '../common/utils/collectChanged';
@@ -58,6 +59,20 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 		return { rateLimited: false as const, record: next, error };
 	};
 
+	// One fix attempt: invoke the role with the given error context, apply its
+	// aftermath, and surface either a park signal (already stopped) or the
+	// advanced record + fresh gate error. Shared by both retry paths.
+	const runFix = async ({ errorContext, record }: { errorContext: string; record: StepRecord }): Promise<{ parked: PipelineResult } | { record: StepRecord; error: string | undefined }> => {
+		const fix = await run.invokeRole({ invocation: buildFix(errorContext), step: id });
+		const applied = await applyFix({ fix, record });
+
+		if (applied.rateLimited) {
+			return { parked: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
+		}
+
+		return { record: applied.record, error: applied.error };
+	};
+
 	return async () => {
 		let record = run.nextRecord({ id });
 
@@ -73,15 +88,14 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 			await run.setStep({ record });
 			run.progress(`step ${id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
-			const fix = await run.invokeRole({ invocation: buildFix(error), step: id });
-			const applied = await applyFix({ fix, record });
+			const result = await runFix({ errorContext: error, record });
 
-			if (applied.rateLimited) {
-				return run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+			if ('parked' in result) {
+				return result.parked;
 			}
 
-			record = applied.record;
-			error = applied.error;
+			record = result.record;
+			error = result.error;
 		}
 
 		// Exception path: mechanical retries exhausted — bring in judgment.
@@ -115,18 +129,17 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 
 				await run.setStep({ record });
 
-				const fix = await run.invokeRole({
-					invocation: buildFix(`${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`),
-					step: id,
+				const result = await runFix({
+					errorContext: `${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`,
+					record,
 				});
-				const applied = await applyFix({ fix, record });
 
-				if (applied.rateLimited) {
-					return run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+				if ('parked' in result) {
+					return result.parked;
 				}
 
-				record = applied.record;
-				error = applied.error;
+				record = result.record;
+				error = result.error;
 			}
 
 			if (error) {

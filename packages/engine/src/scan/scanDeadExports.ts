@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
+import { readFileContents } from './common/utils/readFileContents';
 import { isTestFile } from '../common/utils/isTestFile';
 
 const exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
@@ -29,11 +29,7 @@ interface Params {
  */
 export const scanDeadExports = async ({ cwd, files, referenceFiles }: Params) => {
 	const findings: ScanFinding[] = [];
-	const contents = new Map<string, string>();
-
-	for (const file of new Set([...files, ...(referenceFiles ?? [])])) {
-		contents.set(file, (await readFile(join(cwd, file), 'utf8').catch(() => '')) ?? '');
-	}
+	const contents = await readFileContents({ cwd, files: [...files, ...(referenceFiles ?? [])] });
 
 	const scope = new Set(files);
 	const declarations: Array<{ name: string; file: string }> = [];

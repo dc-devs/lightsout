@@ -1,14 +1,14 @@
-import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { GapCheckReport, GradeReport, PlanGrade, type PlanGap, type StructuralFinding } from '@lightsout/contracts';
 import { buildPlanGapCheckInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
+import { getPlanDetectionInputs } from './common/utils/getPlanDetectionInputs';
 import { invokeAgentWithContract } from '../invoke';
 import { lintPlanStructure } from './lintPlanStructure';
-import { loadConfig } from '../common/utils/loadConfig';
-import { pathExists } from './common/utils/pathExists';
 import { planWorkspaceDir } from './planWorkspaceDir';
+import { writeJsonFile } from '../common/utils/writeJsonFile';
 
 const defaultGradeTimeoutMs = 30 * 60 * 1000;
 
@@ -25,12 +25,6 @@ interface Params {
 	permissionMode?: string;
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
-}
-
-/** A phase to gap-check: its path and text. The overview is passed as context, never graded standalone. */
-interface Phase {
-	path: string;
-	text: string;
 }
 
 /**
@@ -59,44 +53,16 @@ export const runPlanGrade = async ({
 
 	await mkdir(workspaceDir, { recursive: true });
 
-	// Resolve the deliverable: single file if present, else the phased directory.
-	const singlePath = join(plansDir, `${name}.md`);
-	const phaseDir = join(plansDir, name);
+	const inputs = await getPlanDetectionInputs({ cwd, name, plansDir });
 
-	let overviewPath: string | undefined;
-	let overviewText: string | undefined;
-	const phases: Phase[] = [];
-
-	if (await pathExists({ path: singlePath })) {
-		phases.push({ path: singlePath, text: await readFile(singlePath, 'utf8') });
-	} else {
-		const entries = (await readdir(phaseDir).catch(() => [] as string[])).filter((entry) => entry.endsWith('.md')).sort();
-
-		for (const entry of entries) {
-			const path = join(phaseDir, entry);
-			const text = await readFile(path, 'utf8');
-
-			if (entry === 'overview.md') {
-				overviewPath = path;
-				overviewText = text;
-			} else {
-				phases.push({ path, text });
-			}
-		}
+	if (inputs.error) {
+		return { status: 'failed' as const, workspaceDir, error: inputs.error };
 	}
 
-	if (phases.length === 0) {
-		return {
-			status: 'failed' as const,
-			workspaceDir,
-			error: `no plan found for '${name}' — expected ${singlePath} or ${phaseDir}/phase<N>-<slug>.md`,
-		};
-	}
+	const { overviewText, files: phases, planPaths, config } = inputs;
 
 	// Structural re-check covers every plan file, overview included (it has its
 	// own required-section set).
-	const planPaths = [...(overviewPath ? [overviewPath] : []), ...phases.map((phase) => phase.path)];
-	const config = await loadConfig({ cwd }).catch(() => undefined);
 	const structural = await lintPlanStructure({ cwd, planPaths, config });
 
 	// Cheap advisory backstop for the Dedup Review phase: if planned symbols still
@@ -158,7 +124,7 @@ export const runPlanGrade = async ({
 	};
 	const gradePath = join(workspaceDir, 'grade.json');
 
-	await writeFile(gradePath, `${JSON.stringify(report, undefined, '\t')}\n`, 'utf8');
+	await writeJsonFile({ path: gradePath, value: report });
 
 	progress(`plan grade ${name}: ${grade} (${structuralFindings.length} structural, ${gaps.length} gap(s))`);
 
