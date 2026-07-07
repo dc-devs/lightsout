@@ -25,9 +25,10 @@ resumable manifests, supervisor) that spawns the user's own installed harness
 ## Commands
 
 - `pnpm check` — typecheck (root tsc, all packages)
-- `pnpm test` — engine suite (`packages/engine/tests/`, node:test via esbuild
-  bundle, stub drivers only). Run it before any commit that touches engine
-  behavior.
+- `pnpm test` — full suite (test files co-located next to their source under
+  each package's `src/`; shared helpers stay in `packages/engine/tests/helpers/`;
+  node:test via esbuild bundle, stub drivers only). Run it before any commit
+  that touches engine behavior.
 - `pnpm bundle` — build `plugin/dist/cli.mjs`. The bundle is COMMITTED by
   design and MUST live inside `plugin/`: marketplace installs copy only the
   plugin source directory (verified against the ~/.claude/plugins/cache

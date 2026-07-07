@@ -1,4 +1,5 @@
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
+import { isTestFile } from '../common/utils/isTestFile';
 import { readFileContents } from './common/utils/readFileContents';
 import { mapFolderModules } from './mapFolderModules';
 import { readBarrelExports } from './readBarrelExports';
@@ -54,7 +55,11 @@ export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params):
 			}
 
 			const pattern = new RegExp(`\\b${name}\\b`);
-			const consumedOutside = [...contents].some(([file, text]) => !file.startsWith(prefix) && pattern.test(text));
+			// A test file is a CLIENT of the public surface wherever it sits —
+			// a co-located test inside the module still counts as consumption.
+			const consumedOutside = [...contents].some(
+				([file, text]) => (!file.startsWith(prefix) || (isTestFile(file) && file !== entry.barrelPath)) && pattern.test(text),
+			);
 
 			if (!consumedOutside) {
 				findings.push({

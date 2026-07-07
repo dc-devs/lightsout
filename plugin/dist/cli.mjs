@@ -37189,7 +37189,9 @@ var scanBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
         continue;
       }
       const pattern = new RegExp(`\\b${name}\\b`);
-      const consumedOutside = [...contents].some(([file2, text]) => !file2.startsWith(prefix) && pattern.test(text));
+      const consumedOutside = [...contents].some(
+        ([file2, text]) => (!file2.startsWith(prefix) || isTestFile(file2) && file2 !== entry.barrelPath) && pattern.test(text)
+      );
       if (!consumedOutside) {
         findings.push({
           detector: ScanDetector.BarrelHygiene,
