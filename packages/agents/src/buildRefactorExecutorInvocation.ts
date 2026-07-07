@@ -1,4 +1,5 @@
 import type { ScanFinding } from '@lightsout/contracts';
+import { formatFindingSite } from './formatFindingSite';
 import refactorExecutorPrompt from '../prompts/refactorExecutor.md';
 
 interface Params {
@@ -18,9 +19,7 @@ interface Params {
 /** Assemble the refactor-executor invocation deterministically. */
 export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }: Params) => {
 	const findingLine = (finding: ScanFinding) => {
-		const where = finding.files
-			.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
-			.join(' ↔ ');
+		const where = finding.files.map((file) => formatFindingSite({ file })).join(' ↔ ');
 
 		return `- [${finding.detector}] ${where} — ${finding.detail}`;
 	};

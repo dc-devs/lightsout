@@ -12,3 +12,4 @@ export { buildPlanExploreInvocation } from './buildPlanExploreInvocation';
 export { buildPlanWriterInvocation } from './buildPlanWriterInvocation';
 export { buildPlanGapCheckInvocation } from './buildPlanGapCheckInvocation';
 export { buildPlanDedupInvocation } from './buildPlanDedupInvocation';
+export { formatFindingSite } from './formatFindingSite';

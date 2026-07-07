@@ -5,6 +5,7 @@ import {
 	buildRefactorExecutorInvocation,
 	buildSupervisorInvocation,
 	buildUnitTestWriterInvocation,
+	formatFindingSite,
 } from '@lightsout/agents';
 import {
 	PackagesSource,
@@ -799,9 +800,7 @@ const executePipeline = async ({
 	// send the reader digging through friction.jsonl.
 	const describePersistingFindings = ({ gating, report, passes }: { gating: ScanFinding[]; report?: WorkReport; passes: number }) => {
 		const findingLines = gating.map((finding) => {
-			const where = finding.files
-				.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
-				.join(', ');
+			const where = finding.files.map((file) => formatFindingSite({ file })).join(', ');
 
 			return `- ${finding.cluster} — ${finding.detail}\n  at ${where}`;
 		});
