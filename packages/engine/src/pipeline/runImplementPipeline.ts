@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
@@ -21,8 +20,7 @@ import {
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { acquireRunLock } from '../runState';
-import { appendAgentLog } from '../runState';
+import { recordAgentUsage, seedUsageTotals } from '../runState';
 import { appendCommandLog } from '../runState';
 import { appendFriction } from '../runState';
 import { chunkFileGroup } from './chunkFileGroup';
@@ -33,19 +31,20 @@ import { getRunDir } from '../runState';
 import { invokeAgentWithContract } from '../invoke';
 import { isInertSourceFile } from './isInertSourceFile';
 import { isTestFile } from '../common/utils/isTestFile';
+import { packageOf } from '../common/utils/packageOf';
 import { resolveConsumerTypescript } from '../common/utils/resolveConsumerTypescript';
 import { readGitChangedFiles } from '../common/git/readGitChangedFiles';
 import { readGitPrefix } from '../common/git/readGitPrefix';
 import { readPlanPackages } from './readPlanPackages';
 import { detectStandardsChannels } from '../standards';
 import { readStandards } from '../standards';
-import { releaseRunLock } from '../runState';
+import { withRunLock } from '../runState';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
 import { runCommand } from '../common/utils/runCommand';
 import { runGates } from './runGates';
 import { runScan } from '../scan';
 import { selectScanFindings } from '../scan';
-import { writeRunManifest } from '../runState';
+import { writeManifestWithUsage } from '../runState';
 import type { PipelineResult } from './PipelineResult';
 
 const defaultAgentTimeoutMinutes = 60;
@@ -140,6 +139,7 @@ const executePipeline = async ({
 			cwd,
 			runId,
 			plan: planPath ?? '',
+			pipeline: 'implement',
 			overview: overviewPath,
 			driver: driver.name,
 			config,
@@ -147,43 +147,21 @@ const executePipeline = async ({
 		}));
 
 	// Run-wide usage aggregate, seeded from the manifest on resume so totals
-	// survive process boundaries. Mutated by recordAgentUsage (below) and
+	// survive process boundaries. Accumulated by the shared recorder and
 	// stamped into every manifest write. agents.jsonl holds the per-invocation
 	// ledger; this is just the sum.
-	const usageTotals = {
-		invocations: 0,
-		inputTokens: 0,
-		outputTokens: 0,
-		cacheReadTokens: 0,
-		cacheCreationTokens: 0,
-		costUsd: 0,
-		...manifest.usage,
-	};
+	const usageTotals = seedUsageTotals({ usage: manifest.usage });
 
 	const update = async (patch: Partial<RunManifest>) => {
-		const usage = usageTotals.invocations > 0 ? { ...usageTotals } : manifest.usage;
-
-		manifest = await writeRunManifest({ cwd, manifest: { ...manifest, ...patch, usage } });
+		manifest = await writeManifestWithUsage({ cwd, manifest, patch, usageTotals });
 	};
 
-	const recordAgentUsage = async ({ step, usage }: { step: string; usage?: AgentUsage }) => {
-		if (!usage) {
-			return;
+	const recordInvocationUsage = async ({ step, usage }: { step: string; usage?: AgentUsage }) => {
+		await recordAgentUsage({ cwd, runId: manifest.runId, step, model: config.model, totals: usageTotals, usage });
+
+		if (usage) {
+			progress(`  ${step} · usage: ${formatUsage(usage)}`);
 		}
-
-		usageTotals.invocations += 1;
-		usageTotals.inputTokens += usage.inputTokens;
-		usageTotals.outputTokens += usage.outputTokens;
-		usageTotals.cacheReadTokens += usage.cacheReadTokens;
-		usageTotals.cacheCreationTokens += usage.cacheCreationTokens;
-		usageTotals.costUsd += usage.costUsd;
-
-		await appendAgentLog({
-			cwd,
-			runId: manifest.runId,
-			record: { at: new Date().toISOString(), step, model: config.model, ...usage },
-		});
-		progress(`  ${step} · usage: ${formatUsage(usage)}`);
 	};
 
 	// Active time per step, accumulated across attempts and resumes: the
@@ -362,24 +340,13 @@ const executePipeline = async ({
 			onRejectedOutput: persistRejected(step),
 		});
 
-		await recordAgentUsage({ step, usage: outcome.usage });
+		await recordInvocationUsage({ step, usage: outcome.usage });
 
 		return outcome;
 	};
 
-	/** Map a changed file to its package directory, or undefined for root-group files. */
-	const packageOf = (file: string) => {
-		const prefix = `${packagesDir}/`;
-
-		if (!file.startsWith(prefix)) {
-			return undefined;
-		}
-
-		const rest = file.slice(prefix.length);
-		const separator = rest.indexOf('/');
-
-		return separator > 0 ? rest.slice(0, separator) : undefined;
-	};
+	/** This run's packagesDir bound onto the shared mapper. */
+	const packageDirOf = (file: string) => packageOf({ file, packagesDir });
 
 	/**
 	 * Merge the two sources of changed-file truth: what agents reported and
@@ -408,7 +375,7 @@ const executePipeline = async ({
 			.filter((file) => !isGeneratedFile(file));
 		const changedFiles = [...new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
 		const fromFiles = changedFiles.flatMap((file) => {
-			const packageDir = packageOf(file);
+			const packageDir = packageDirOf(file);
 
 			return packageDir ? [packageDir] : [];
 		});
@@ -416,7 +383,7 @@ const executePipeline = async ({
 		return { changedFiles, packages: [...new Set([...manifest.packages, ...fromFiles])] };
 	};
 
-	const hasRootChanges = () => manifest.changedFiles.some((file) => packageOf(file) === undefined);
+	const hasRootChanges = () => manifest.changedFiles.some((file) => packageDirOf(file) === undefined);
 
 	const gates = ({ coverage }: { coverage?: boolean }) =>
 		runGates({
@@ -590,7 +557,7 @@ const executePipeline = async ({
 					onRejectedOutput: persistRejected(`${id}-supervisor`),
 				});
 
-				await recordAgentUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+				await recordInvocationUsage({ step: `${id}-supervisor`, usage: verdict.usage });
 
 				if (verdict.rateLimited) {
 					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -713,7 +680,7 @@ const executePipeline = async ({
 		const byPackage = new Map<string, string[]>();
 
 		for (const file of targets) {
-			const key = packageOf(file) ?? '';
+			const key = packageDirOf(file) ?? '';
 
 			byPackage.set(key, [...(byPackage.get(key) ?? []), file]);
 		}
@@ -1127,25 +1094,9 @@ const executePipeline = async ({
 };
 
 /**
- * Public entry: take the repo's run lock, execute the pipeline, always
- * release. Acquisition happens before ANY disk write (the run id is minted
- * here so the lock can name it), so a conflicting start leaves no orphan run
- * directory — it throws RunLockError and nothing else happened. Every exit
- * path releases, including parks and escalations: the lock guards the
- * process, not the run, and `resume` re-acquires.
+ * Public entry: the shared run-lock lifecycle around the pipeline body —
+ * acquisition happens before ANY disk write, every exit path releases, and
+ * the refactor pipeline takes the same repo lock, so the two can never race
+ * one tree.
  */
-export const runImplementPipeline = async (params: Params): Promise<PipelineResult> => {
-	const { cwd, existing, onProgress } = params;
-	const runId = existing?.runId ?? randomUUID();
-	const lock = await acquireRunLock({ cwd, runId });
-
-	if (lock.stalePid !== undefined) {
-		onProgress?.(`stale run lock from dead pid ${lock.stalePid} — taking over`);
-	}
-
-	try {
-		return await executePipeline({ ...params, runId });
-	} finally {
-		await releaseRunLock({ cwd, runId });
-	}
-};
+export const runImplementPipeline = (params: Params): Promise<PipelineResult> => withRunLock({ params, run: executePipeline });

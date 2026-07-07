@@ -9,6 +9,8 @@ interface Params {
 	/** Pre-minted run id (the lock is taken under it before anything is written). Fresh UUID when omitted. */
 	runId?: string;
 	plan: string;
+	/** Owning pipeline, stamped for resume routing ('implement' | 'refactor'). */
+	pipeline?: string;
 	/** Optional overview plan path (high-level context for a phased plan). */
 	overview?: string;
 	driver: string;
@@ -19,13 +21,14 @@ interface Params {
 }
 
 /** Create a new run: fresh id, run directory, and initial manifest on disk. */
-export const createRun = async ({ cwd, runId, plan, overview, driver, config, baselineDirtyFiles }: Params) => {
+export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config, baselineDirtyFiles }: Params) => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
 		runId: runId ?? randomUUID(),
 		createdAt: now,
 		updatedAt: now,
 		plan,
+		pipeline,
 		overview,
 		driver,
 		config,
