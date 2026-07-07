@@ -8014,7 +8014,7 @@ usage:
 
 // packages/cli/src/buildMapCommand.ts
 import { readFile as readFile38, readdir as readdir12 } from "node:fs/promises";
-import { join as join55 } from "node:path";
+import { join as join56 } from "node:path";
 
 // packages/contracts/src/run/RunStatus.ts
 var RunStatus = {
@@ -24392,8 +24392,8 @@ var readGitChangedFiles = async ({ cwd }) => {
 };
 
 // packages/engine/src/pipeline/runImplementPipeline.ts
-import { appendFile as appendFile3, mkdir as mkdir6, readFile as readFile16, writeFile as writeFile4 } from "node:fs/promises";
-import { join as join23 } from "node:path";
+import { readFile as readFile16 } from "node:fs/promises";
+import { join as join24 } from "node:path";
 
 // packages/engine/src/pipeline/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
@@ -24744,6 +24744,131 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
   return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
 };
 
+// packages/engine/src/pipeline/PipelineRun.ts
+import { appendFile as appendFile3, mkdir as mkdir5, writeFile as writeFile3 } from "node:fs/promises";
+import { join as join14 } from "node:path";
+var defaultAgentTimeoutMinutes = 60;
+var defaultPermissionMode = "acceptEdits";
+var formatTokens = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
+var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
+var upsertStep = ({ steps, record: record2 }) => {
+  const existing = steps.findIndex((step) => step.id === record2.id);
+  if (existing === -1) {
+    return [...steps, record2];
+  }
+  return steps.map((step, index) => index === existing ? record2 : step);
+};
+var PipelineRun = class {
+  cwd;
+  config;
+  /** Ceiling for working-role invocations, config-resolved once. */
+  agentTimeoutMs;
+  driver;
+  onProgress;
+  manifest;
+  usageTotals;
+  // Active time per step, accumulated across attempts and resumes: the
+  // timer starts when nextRecord picks the step up (seeded with any prior
+  // durationMs), and every manifest write re-stamps the running total — so
+  // even a crashed run keeps the duration up to its last persisted moment.
+  stepTimers = /* @__PURE__ */ new Map();
+  transcriptCount = 0;
+  rejectedCount = 0;
+  constructor({ cwd, config: config2, driver, manifest, onProgress }) {
+    this.cwd = cwd;
+    this.config = config2;
+    this.driver = driver;
+    this.manifest = manifest;
+    this.onProgress = onProgress;
+    this.usageTotals = seedUsageTotals({ usage: manifest.usage });
+    this.agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
+  }
+  /** The live manifest — reread after any update/setStep, never cached by callers. */
+  current() {
+    return this.manifest;
+  }
+  progress(message) {
+    this.onProgress?.(message);
+  }
+  parkMessage() {
+    return `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${this.manifest.runId}\` when the window resets.`;
+  }
+  async update(patch) {
+    this.manifest = await writeManifestWithUsage({ cwd: this.cwd, manifest: this.manifest, patch, usageTotals: this.usageTotals });
+  }
+  async setStep({ record: record2, patch }) {
+    const timer = this.stepTimers.get(record2.id);
+    const timed = timer ? { ...record2, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record2;
+    await this.update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: this.manifest.steps, record: timed }) });
+  }
+  nextRecord({ id }) {
+    const prev = this.manifest.steps.find((step) => step.id === id);
+    this.stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
+    return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1, changedFiles: prev?.changedFiles };
+  }
+  async stop({ record: record2, status, error: error51 }) {
+    await this.setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
+    this.progress(`run stopped at ${record2.id} \u2014 ${status}`);
+    return { ok: false, manifest: this.manifest, error: error51 };
+  }
+  async recordUsage({ step, usage: usage2 }) {
+    await recordAgentUsage({ cwd: this.cwd, runId: this.manifest.runId, step, model: this.config.model, totals: this.usageTotals, usage: usage2 });
+    if (usage2) {
+      this.progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
+    }
+  }
+  // Every agent invocation's full event stream (tool calls, chat text, the
+  // final result) is teed to agents/stream-NN-<step>.jsonl — the chat as
+  // on-disk run evidence, tail-able live for anyone who wants the
+  // play-by-play. The progress stream stays quiet per event: a working
+  // agent fires tools every few seconds, and narrating each one drowned
+  // the terminal. Evidence only: outcomes never depend on it.
+  agentEventSink({ step }) {
+    this.transcriptCount += 1;
+    const dir = join14(getRunDir({ cwd: this.cwd, runId: this.manifest.runId }), "agents");
+    const path = join14(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    let tail = mkdir5(dir, { recursive: true });
+    return (event) => {
+      tail = tail.then(() => appendFile3(path, `${JSON.stringify(event)}
+`, "utf8")).catch(() => void 0);
+    };
+  }
+  // A final message that fails its contract is still evidence — persist it
+  // to the run dir before any retry, so a rejected report never has to be
+  // recovered from harness-internal session files again.
+  persistRejected({ step }) {
+    return async ({ text, attempt, validationError }) => {
+      this.rejectedCount += 1;
+      const dir = join14(getRunDir({ cwd: this.cwd, runId: this.manifest.runId }), "agents");
+      const name = `rejected-${String(this.rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
+      await mkdir5(dir, { recursive: true });
+      await writeFile3(join14(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+# validation: ${validationError}
+
+${text}`, "utf8");
+      this.progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to .lightsout/runs/${this.manifest.runId}/agents/${name}`);
+    };
+  }
+  async invokeRole({ invocation, step }) {
+    const outcome = await invokeAgentWithContract({
+      driver: this.driver,
+      cwd: this.cwd,
+      invocation,
+      contract: WorkReport,
+      model: this.config.model,
+      permissionMode: this.config.permissionMode ?? defaultPermissionMode,
+      timeoutMs: this.agentTimeoutMs,
+      // Harness-level allowance for all working roles; the binding grant
+      // is the prompt section, which only the executor's builder emits.
+      allowedCommands: this.config.agentCommands,
+      onEvent: this.agentEventSink({ step }),
+      onRejectedOutput: this.persistRejected({ step })
+    });
+    await this.recordUsage({ step, usage: outcome.usage });
+    return outcome;
+  }
+};
+
 // packages/engine/src/pipeline/scanPlanPackagePaths.ts
 var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
   const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -24764,13 +24889,13 @@ var extractRunScriptName = ({ command }) => {
 
 // packages/engine/src/common/utils/resolvePackageManifest.ts
 import { readFile as readFile8 } from "node:fs/promises";
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 var PackageManifest = external_exports.object({
   name: external_exports.string().min(1),
   scripts: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
 var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
-  const manifestPath = join14(cwd, packagesDir, packageDir, "package.json");
+  const manifestPath = join15(cwd, packagesDir, packageDir, "package.json");
   const raw = await readFile8(manifestPath, "utf8").catch(() => {
     throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);
   });
@@ -24934,12 +25059,12 @@ ${generated.stderr}`;
 };
 
 // packages/engine/src/scan/runScan.ts
-import { mkdir as mkdir5, readFile as readFile15, writeFile as writeFile3 } from "node:fs/promises";
-import { join as join22 } from "node:path";
+import { mkdir as mkdir6, readFile as readFile15, writeFile as writeFile4 } from "node:fs/promises";
+import { join as join23 } from "node:path";
 
 // packages/engine/src/common/utils/listSourceFiles.ts
 import { readdir as readdir2 } from "node:fs/promises";
-import { join as join15, relative } from "node:path";
+import { join as join16, relative } from "node:path";
 var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
@@ -24950,7 +25075,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
         continue;
       }
-      const path = join15(dir, entry.name);
+      const path = join16(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(path);
         continue;
@@ -24972,7 +25097,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
 // packages/engine/src/scan/scanAstFindings.ts
 import { createHash } from "node:crypto";
 import { readFile as readFile9 } from "node:fs/promises";
-import { basename, join as join16 } from "node:path";
+import { basename, join as join17 } from "node:path";
 var minBodyTokens = 40;
 var defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
 var fileLineCap = ({ file: file2, caps }) => file2.endsWith(".tsx") ? caps.tsxFile : caps.file;
@@ -25013,7 +25138,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
     return "(anonymous)";
   };
   for (const file2 of files) {
-    const text = await readFile9(join16(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile9(join17(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -25082,7 +25207,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
 
 // packages/engine/src/scan/scanClones.ts
 import { readFile as readFile10 } from "node:fs/promises";
-import { join as join17 } from "node:path";
+import { join as join18 } from "node:path";
 
 // node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
 var import_index = __toESM(require_eventemitter3(), 1);
@@ -36806,7 +36931,7 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
   const findings = [];
   for (const file2 of files) {
-    const text = await readFile10(join17(cwd, file2), "utf8").catch(() => void 0);
+    const text = await readFile10(join18(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -36831,13 +36956,13 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
 
 // packages/engine/src/scan/scanDeadExports.ts
 import { readFile as readFile11 } from "node:fs/promises";
-import { basename as basename2, join as join18 } from "node:path";
+import { basename as basename2, join as join19 } from "node:path";
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   const findings = [];
   const contents = /* @__PURE__ */ new Map();
   for (const file2 of /* @__PURE__ */ new Set([...files, ...referenceFiles ?? []])) {
-    contents.set(file2, await readFile11(join18(cwd, file2), "utf8").catch(() => "") ?? "");
+    contents.set(file2, await readFile11(join19(cwd, file2), "utf8").catch(() => "") ?? "");
   }
   const scope = new Set(files);
   const declarations = [];
@@ -36885,11 +37010,11 @@ var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
 
 // packages/engine/src/scan/scanBarrelHygiene.ts
 import { readFile as readFile13 } from "node:fs/promises";
-import { join as join20 } from "node:path";
+import { join as join21 } from "node:path";
 
 // packages/engine/src/scan/mapFolderModules.ts
 import { readFile as readFile12 } from "node:fs/promises";
-import { basename as basename3, dirname as dirname3, join as join19 } from "node:path";
+import { basename as basename3, dirname as dirname3, join as join20 } from "node:path";
 
 // packages/engine/src/scan/readBarrelExports.ts
 import { posix as posix2 } from "node:path";
@@ -36953,7 +37078,7 @@ var mapFolderModules = async ({
   const nestedModuleDirs = [...barrelDirs.keys()];
   const map2 = /* @__PURE__ */ new Map();
   for (const [folder, barrelPath] of barrelDirs) {
-    const text = await readFile12(join19(cwd, barrelPath), "utf8").catch(() => "");
+    const text = await readFile12(join20(cwd, barrelPath), "utf8").catch(() => "");
     const exportedTargets = new Set(
       readBarrelExports({ barrelPath, text, files }).map((entry) => entry.target).filter((target) => target !== void 0)
     );
@@ -36977,7 +37102,7 @@ var scanBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
   const modules = await mapFolderModules({ cwd, files });
   const contents = /* @__PURE__ */ new Map();
   for (const file2 of /* @__PURE__ */ new Set([...files, ...referenceFiles ?? []])) {
-    contents.set(file2, await readFile13(join20(cwd, file2), "utf8").catch(() => "") ?? "");
+    contents.set(file2, await readFile13(join21(cwd, file2), "utf8").catch(() => "") ?? "");
   }
   const findings = [];
   for (const [folder, entry] of modules) {
@@ -37171,7 +37296,7 @@ var scanPlacement = async ({ cwd, files, compiler }) => {
 
 // packages/engine/src/scan/scanStructure.ts
 import { readFile as readFile14 } from "node:fs/promises";
-import { basename as basename5, dirname as dirname5, join as join21 } from "node:path";
+import { basename as basename5, dirname as dirname5, join as join22 } from "node:path";
 var folderCensusCap = 20;
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var dotPrefixes = (name) => name.split(".").map((_, index, segments) => segments.slice(0, index + 1).join("."));
@@ -37192,7 +37317,7 @@ var scanStructure = async ({ cwd, files }) => {
     if (basename5(file2).startsWith("index.")) {
       continue;
     }
-    const text = await readFile14(join21(cwd, file2), "utf8").catch(() => "");
+    const text = await readFile14(join22(cwd, file2), "utf8").catch(() => "");
     const exports = [];
     for (const line of text.split("\n")) {
       const match = line.match(exportPattern2);
@@ -37325,9 +37450,9 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
       `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`
     );
   }
-  const dir = join22(cwd, ".lightsout");
-  await mkdir5(dir, { recursive: true });
-  const baselinePath = join22(cwd, "lightsout.scan-baseline.json");
+  const dir = join23(cwd, ".lightsout");
+  await mkdir6(dir, { recursive: true });
+  const baselinePath = join23(cwd, "lightsout.scan-baseline.json");
   const baselineRaw = await readFile15(baselinePath, "utf8").catch(() => void 0);
   let baselineJson;
   try {
@@ -37339,7 +37464,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
   let reported = findings;
   if (writeBaseline) {
     const clusters = [...new Set(findings.map((finding) => finding.cluster))];
-    await writeFile3(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", clusters }, void 0, "	")}
+    await writeFile4(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", clusters }, void 0, "	")}
 `, "utf8");
     notes.push(
       `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${clusters.length} cluster(s) accepted as existing debt \u2014 commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`
@@ -37364,7 +37489,7 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
     notes.push("lightsout.scan-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
   }
   if (persist) {
-    await writeFile3(join22(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
+    await writeFile4(join23(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
   }
   return { findings: reported, notes };
@@ -37383,25 +37508,14 @@ var selectScanFindings = ({ findings, changedFiles }) => {
 };
 
 // packages/engine/src/pipeline/runImplementPipeline.ts
-var defaultAgentTimeoutMinutes = 60;
 var defaultSupervisorTimeoutMinutes = 15;
 var formatTimeoutMs = 10 * 6e4;
 var maxCheapFixRetries = 2;
 var maxRefactorPasses = 3;
 var testWriterConcurrency = 5;
 var maxWriterGroupFiles = 12;
-var defaultPermissionMode = "acceptEdits";
 var supervisorPermissionMode = "plan";
-var formatTokens = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
-var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
 var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
-var upsertStep = ({ steps, record: record2 }) => {
-  const existing = steps.findIndex((step) => step.id === record2.id);
-  if (existing === -1) {
-    return [...steps, record2];
-  }
-  return steps.map((step, index) => index === existing ? record2 : step);
-};
 var executePipeline = async ({
   cwd,
   runId,
@@ -37414,58 +37528,46 @@ var executePipeline = async ({
   skipRefactor,
   onProgress
 }) => {
-  const progress = onProgress ?? (() => void 0);
-  let manifest = existing ?? await createRun({
+  const run = new PipelineRun({
     cwd,
-    runId,
-    plan: planPath ?? "",
-    pipeline: "implement",
-    overview: overviewPath,
-    driver: driver.name,
     config: config2,
-    baselineDirtyFiles: await readGitChangedFiles({ cwd })
+    driver,
+    onProgress,
+    manifest: existing ?? await createRun({
+      cwd,
+      runId,
+      plan: planPath ?? "",
+      pipeline: "implement",
+      overview: overviewPath,
+      driver: driver.name,
+      config: config2,
+      baselineDirtyFiles: await readGitChangedFiles({ cwd })
+    })
   });
-  const usageTotals = seedUsageTotals({ usage: manifest.usage });
-  const update = async (patch) => {
-    manifest = await writeManifestWithUsage({ cwd, manifest, patch, usageTotals });
-  };
-  const recordInvocationUsage = async ({ step, usage: usage2 }) => {
-    await recordAgentUsage({ cwd, runId: manifest.runId, step, model: config2.model, totals: usageTotals, usage: usage2 });
-    if (usage2) {
-      progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
-    }
-  };
-  const stepTimers = /* @__PURE__ */ new Map();
-  const setStep = async ({ record: record2, patch }) => {
-    const timer = stepTimers.get(record2.id);
-    const timed = timer ? { ...record2, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record2;
-    await update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: manifest.steps, record: timed }) });
-  };
-  const stop = async ({ record: record2, status, error: error51 }) => {
-    await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
-    progress(`run stopped at ${record2.id} \u2014 ${status}`);
-    const stopped = { ok: false, manifest, error: error51 };
-    return stopped;
-  };
-  const parkMessage = () => `run parked: harness rate limit reached \u2014 resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-  const planContent = await readFile16(join23(cwd, manifest.plan), "utf8").catch(() => void 0);
+  const progress = (message) => run.progress(message);
+  const setStep = run.setStep.bind(run);
+  const stop = run.stop.bind(run);
+  const nextRecord = run.nextRecord.bind(run);
+  const update = run.update.bind(run);
+  const parkMessage = () => run.parkMessage();
+  const planContent = await readFile16(join24(cwd, run.current().plan), "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `plan file not found: ${join23(cwd, manifest.plan)}`
+      error: `plan file not found: ${join24(cwd, run.current().plan)}`
     });
   }
-  const overviewContent = manifest.overview ? await readFile16(join23(cwd, manifest.overview), "utf8").catch(() => void 0) : void 0;
-  if (manifest.overview && overviewContent === void 0) {
+  const overviewContent = run.current().overview ? await readFile16(join24(cwd, run.current().overview ?? ""), "utf8").catch(() => void 0) : void 0;
+  if (run.current().overview && overviewContent === void 0) {
     return stop({
       record: { id: "clean-slate", status: RunStatus.Running, attempts: 0 },
       status: RunStatus.Failed,
-      error: `overview file not found: ${join23(cwd, manifest.overview)}`
+      error: `overview file not found: ${join24(cwd, run.current().overview ?? "")}`
     });
   }
   const packagesDir = config2.packagesDir ?? "packages";
-  if (config2.packageScripts && manifest.packages.length === 0) {
+  if (config2.packageScripts && run.current().packages.length === 0) {
     const fromFlag = packages;
     const fromFrontMatter = fromFlag ? void 0 : readPlanPackages({ planContent });
     const fromPlanPaths = fromFlag ?? fromFrontMatter ? void 0 : scanPlanPackagePaths({ planContent, packagesDir });
@@ -37482,12 +37584,12 @@ var executePipeline = async ({
       packagesSource: fromFlag ? PackagesSource.Flag : fromFrontMatter ? PackagesSource.FrontMatter : PackagesSource.PlanPaths
     });
   }
-  if (manifest.packages.length > 0) {
-    progress(`package scope: ${manifest.packages.join(", ")} (from ${manifest.packagesSource ?? "manifest"})`);
+  if (run.current().packages.length > 0) {
+    progress(`package scope: ${run.current().packages.join(", ")} (from ${run.current().packagesSource ?? "manifest"})`);
   }
   const standardsPaths = config2.standards === false ? [] : config2.standards ?? ["lightsout:code-defaults"];
   const testStandardsPaths = config2.testStandards === false ? [] : config2.testStandards ?? ["lightsout:test-defaults"];
-  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: manifest.packages });
+  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: run.current().packages });
   if (standardsPaths.length > 0 || testStandardsPaths.length > 0) {
     progress(
       `standards channels: base${channels.length > 0 ? ` + ${channels.join(" + ")}` : ""} (${config2.standardsChannels ? "configured" : "detected from package dependencies"})`
@@ -37505,82 +37607,35 @@ var executePipeline = async ({
       error: error51 instanceof Error ? error51.message : String(error51)
     });
   }
-  const nextRecord = ({ id }) => {
-    const prev = manifest.steps.find((step) => step.id === id);
-    stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
-    return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1, changedFiles: prev?.changedFiles };
-  };
-  const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
   const supervisorTimeoutMs = (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4;
-  let transcriptCount = 0;
-  const agentEventSink = (step) => {
-    transcriptCount += 1;
-    const dir = join23(getRunDir({ cwd, runId: manifest.runId }), "agents");
-    const path = join23(dir, `stream-${String(transcriptCount).padStart(2, "0")}-${step}.jsonl`);
-    let tail = mkdir6(dir, { recursive: true });
-    return (event) => {
-      tail = tail.then(() => appendFile3(path, `${JSON.stringify(event)}
-`, "utf8")).catch(() => void 0);
-    };
-  };
-  let rejectedCount = 0;
-  const persistRejected = (step) => async ({ text, attempt, validationError }) => {
-    rejectedCount += 1;
-    const dir = join23(getRunDir({ cwd, runId: manifest.runId }), "agents");
-    const name = `rejected-${String(rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
-    await mkdir6(dir, { recursive: true });
-    await writeFile4(join23(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
-# validation: ${validationError}
-
-${text}`, "utf8");
-    progress(`step ${step}: agent final message failed the report contract \u2014 raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
-  };
-  const invokeRole = async (invocation, step) => {
-    const outcome = await invokeAgentWithContract({
-      driver,
-      cwd,
-      invocation,
-      contract: WorkReport,
-      model: config2.model,
-      permissionMode: config2.permissionMode ?? defaultPermissionMode,
-      timeoutMs: agentTimeoutMs,
-      // Harness-level allowance for all working roles; the binding grant
-      // is the prompt section, which only the executor's builder emits.
-      allowedCommands: config2.agentCommands,
-      onEvent: agentEventSink(step),
-      onRejectedOutput: persistRejected(step)
-    });
-    await recordInvocationUsage({ step, usage: outcome.usage });
-    return outcome;
-  };
   const packageDirOf = (file2) => packageOf({ file: file2, packagesDir });
   const isGeneratedFile = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
   const gitPrefix = await readGitPrefix({ cwd });
   const consumerRelative = (file2) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
   const collectChanged = async (reports) => {
     const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter(
-      (file2) => !manifest.baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
+      (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
     );
     const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative(file2.path))).filter((file2) => !isGeneratedFile(file2));
-    const changedFiles = [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
+    const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
     const fromFiles = changedFiles.flatMap((file2) => {
       const packageDir = packageDirOf(file2);
       return packageDir ? [packageDir] : [];
     });
-    return { changedFiles, packages: [.../* @__PURE__ */ new Set([...manifest.packages, ...fromFiles])] };
+    return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
   };
-  const hasRootChanges = () => manifest.changedFiles.some((file2) => packageDirOf(file2) === void 0);
+  const hasRootChanges = () => run.current().changedFiles.some((file2) => packageDirOf(file2) === void 0);
   const gates = ({ coverage }) => runGates({
     cwd,
     config: config2,
     coverage,
-    packages: manifest.packages,
+    packages: run.current().packages,
     includeRoot: hasRootChanges(),
-    runId: manifest.runId,
-    step: manifest.currentStep ?? void 0,
+    runId: run.current().runId,
+    step: run.current().currentStep ?? void 0,
     onProgress
   });
-  const sourceFiles = () => manifest.changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
+  const sourceFiles = () => run.current().changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
   const withStepFiles = ({ record: record2, reports }) => ({
     ...record2,
     changedFiles: [
@@ -37595,8 +37650,8 @@ ${text}`, "utf8");
     return async () => {
       const record2 = nextRecord({ id });
       await setStep({ record: record2 });
-      progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${agentTimeoutMs / 6e4}m)`);
-      const { report, failure, rateLimited } = await invokeRole(build(), id);
+      progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${run.agentTimeoutMs / 6e4}m)`);
+      const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
       if (rateLimited) {
         return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
       }
@@ -37604,7 +37659,7 @@ ${text}`, "utf8");
         return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
       }
       progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
-      await appendFriction({ cwd, runId: manifest.runId, step: id, friction: report.friction ?? [] });
+      await appendFriction({ cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
       if (report.status !== WorkReportStatus.Complete) {
         const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
         return stop({
@@ -37636,7 +37691,7 @@ ${text}`, "utf8");
       return { rateLimited: true };
     }
     if (fix.report) {
-      await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
+      await appendFriction({ cwd, runId: run.current().runId, step: id, friction: fix.report.friction ?? [] });
     }
     let next = record2;
     if (fix.report?.status === WorkReportStatus.Complete) {
@@ -37660,7 +37715,7 @@ ${text}`, "utf8");
         record2 = { ...record2, attempts: record2.attempts + 1 };
         await setStep({ record: record2 });
         progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
-        const fix = await invokeRole(buildFix(error51), id);
+        const fix = await run.invokeRole({ invocation: buildFix(error51), step: id });
         const applied = await applyFix({ id, fix, record: record2, coverage });
         if (applied.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -37678,10 +37733,10 @@ ${text}`, "utf8");
           model: config2.model,
           permissionMode: supervisorPermissionMode,
           timeoutMs: supervisorTimeoutMs,
-          onEvent: agentEventSink(`${id}-supervisor`),
-          onRejectedOutput: persistRejected(`${id}-supervisor`)
+          onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
+          onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` })
         });
-        await recordInvocationUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+        await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
         if (verdict.rateLimited) {
           return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
         }
@@ -37691,16 +37746,16 @@ ${text}`, "utf8");
         if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
           record2 = { ...record2, attempts: record2.attempts + 1 };
           await setStep({ record: record2 });
-          const fix = await invokeRole(
-            buildFix(`${error51}
+          const fix = await run.invokeRole({
+            invocation: buildFix(`${error51}
 
 # Supervisor diagnosis
 ${verdict.report.diagnosis}
 
 # Supervisor guidance
 ${verdict.report.guidance}`),
-            id
-          );
+            step: id
+          });
           const applied = await applyFix({ id, fix, record: record2, coverage });
           if (applied.rateLimited) {
             return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -37737,7 +37792,7 @@ ${error51}`
     const gateArtifacts = await readGitChangedFiles({ cwd });
     await setStep({
       record: { ...record2, status: RunStatus.Passed },
-      patch: gateArtifacts ? { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...manifest.baselineDirtyFiles, ...gateArtifacts])] } : void 0
+      patch: gateArtifacts ? { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...gateArtifacts])] } : void 0
     });
     progress("step clean-slate passed");
     return void 0;
@@ -37749,7 +37804,7 @@ ${error51}`
     const targets = [];
     const inert = [];
     for (const file2 of candidates) {
-      const content = await readFile16(join23(cwd, file2), "utf8").catch(() => void 0);
+      const content = await readFile16(join24(cwd, file2), "utf8").catch(() => void 0);
       if (content !== void 0 && isInertSourceFile({ path: file2, content, compiler })) {
         inert.push(file2);
       } else {
@@ -37801,7 +37856,7 @@ ${error51}`
       const results = await Promise.all(
         batch.map(async (group) => ({
           group,
-          ...await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), "write-tests")
+          ...await run.invokeRole({ invocation: buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), step: "write-tests" })
         }))
       );
       for (const result of results) {
@@ -37814,7 +37869,7 @@ ${error51}`
           failures.push(`${label}: ${result.failure ?? "unknown failure"}`);
           continue;
         }
-        await appendFriction({ cwd, runId: manifest.runId, step: "write-tests", friction: result.report.friction ?? [] });
+        await appendFriction({ cwd, runId: run.current().runId, step: "write-tests", friction: result.report.friction ?? [] });
         reports.push(result.report);
         progress(`write-tests: ${label} \u2014 ${result.report.status}`);
         if (result.report.status !== WorkReportStatus.Complete) {
@@ -37871,23 +37926,23 @@ ${failures.join("\n")}`
         );
       }
       progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
-      const { report, failure, rateLimited } = await invokeRole(
-        buildRefactorExecutorInvocation({
+      const { report, failure, rateLimited } = await run.invokeRole({
+        invocation: buildRefactorExecutorInvocation({
           planContent,
           changedFiles: sourceFiles(),
           standards,
           scanFindings: scan.workList,
           scanAdvisories: scan.advisories
         }),
-        "refactor"
-      );
+        step: "refactor"
+      });
       if (rateLimited) {
         return stop({ record: record2, status: RunStatus.PausedRateLimit, error: parkMessage() });
       }
       if (!report) {
         return stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
       }
-      await appendFriction({ cwd, runId: manifest.runId, step: "refactor", friction: report.friction ?? [] });
+      await appendFriction({ cwd, runId: run.current().runId, step: "refactor", friction: report.friction ?? [] });
       if (report.status !== WorkReportStatus.Complete) {
         const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
         return stop({ record: { ...record2, report }, status, error: `refactor: ${report.status} \u2014 ${report.failures.join("; ")}` });
@@ -37955,7 +38010,7 @@ ${failures.join("\n")}`
       }
       await appendCommandLog({
         cwd,
-        runId: manifest.runId,
+        runId: run.current().runId,
         record: {
           at: (/* @__PURE__ */ new Date()).toISOString(),
           step: "format",
@@ -38021,7 +38076,7 @@ ${error51}` });
           overviewContent,
           standards,
           errorContext,
-          changedFiles: manifest.changedFiles,
+          changedFiles: run.current().changedFiles,
           allowedCommands: config2.agentCommands
         })
       })
@@ -38044,7 +38099,7 @@ ${error51}` });
   ];
   await update({ status: RunStatus.Running });
   for (const step of steps) {
-    const prior = manifest.steps.find((record2) => record2.id === step.id);
+    const prior = run.current().steps.find((record2) => record2.id === step.id);
     if (prior?.status === RunStatus.Passed) {
       continue;
     }
@@ -38062,21 +38117,21 @@ ${error51}` });
     }
   }
   await update({ status: RunStatus.Passed, currentStep: null });
-  const passed = { ok: true, manifest };
+  const passed = { ok: true, manifest: run.current() };
   return passed;
 };
 var runImplementPipeline = (params) => withRunLock({ params, run: executePipeline });
 
 // packages/engine/src/doctor/checkGenerated.ts
 import { stat } from "node:fs/promises";
-import { join as join24 } from "node:path";
+import { join as join25 } from "node:path";
 var checkGenerated = async ({ cwd, config: config2 }) => {
   if (!config2.generated) {
     return void 0;
   }
   const absent = [];
   for (const prefix of config2.generated) {
-    await stat(join24(cwd, prefix)).catch(() => absent.push(prefix));
+    await stat(join25(cwd, prefix)).catch(() => absent.push(prefix));
   }
   return absent.length === 0 ? { id: "generated", status: "pass", detail: `${config2.generated.length} generated path(s) exist` } : {
     id: "generated",
@@ -38140,14 +38195,14 @@ ${probed.stderr}`.trim().slice(0, 200)}`,
 
 // packages/engine/src/doctor/checkJestMocks.ts
 import { readdir as readdir3, readFile as readFile17 } from "node:fs/promises";
-import { join as join25 } from "node:path";
+import { join as join26 } from "node:path";
 var findJestConfigs = async ({ packageDir }) => {
   const rootEntries = await readdir3(packageDir).catch(() => []);
-  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join25(packageDir, name));
-  const testEntries = await readdir3(join25(packageDir, "test"), { recursive: true }).catch(() => []);
+  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join26(packageDir, name));
+  const testEntries = await readdir3(join26(packageDir, "test"), { recursive: true }).catch(() => []);
   return [
     ...found,
-    ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join25(packageDir, "test", name))
+    ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join26(packageDir, "test", name))
   ];
 };
 var checkJestMocks = async ({ cwd, packageDirs }) => {
@@ -38176,7 +38231,7 @@ var checkJestMocks = async ({ cwd, packageDirs }) => {
 
 // packages/engine/src/doctor/checkLintRules.ts
 import { readdir as readdir4, readFile as readFile18 } from "node:fs/promises";
-import { join as join26 } from "node:path";
+import { join as join27 } from "node:path";
 var checkLintRules = async ({ config: config2, packageDirs }) => {
   if (config2.standards === false) {
     return void 0;
@@ -38188,7 +38243,7 @@ var checkLintRules = async ({ config: config2, packageDirs }) => {
     const lintConfigs = entries.filter((name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name));
     for (const name of lintConfigs) {
       lintConfigCount += 1;
-      const text = await readFile18(join26(dir, name), "utf8").catch(() => "");
+      const text = await readFile18(join27(dir, name), "utf8").catch(() => "");
       const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
       const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
       if (unenforced.length > 0) {
@@ -38230,7 +38285,7 @@ var checkScriptBinaries = async ({ cwd, config: config2 }) => {
 
 // packages/engine/src/doctor/checkUserEvent.ts
 import { readFile as readFile19 } from "node:fs/promises";
-import { join as join27 } from "node:path";
+import { join as join28 } from "node:path";
 var packageDependencies = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
@@ -38238,7 +38293,7 @@ var packageDependencies = external_exports.object({
 var checkUserEvent = async ({ packageDirs }) => {
   const fireEventOnly = [];
   for (const { label, dir } of packageDirs) {
-    const raw = await readFile19(join27(dir, "package.json"), "utf8").catch(() => void 0);
+    const raw = await readFile19(join28(dir, "package.json"), "utf8").catch(() => void 0);
     let json2;
     try {
       json2 = raw === void 0 ? void 0 : JSON.parse(raw);
@@ -38267,7 +38322,7 @@ var checkUserEvent = async ({ packageDirs }) => {
 
 // packages/engine/src/doctor/resolvePackageDirs.ts
 import { readdir as readdir5 } from "node:fs/promises";
-import { join as join28 } from "node:path";
+import { join as join29 } from "node:path";
 var resolvePackageDirs = async ({
   cwd,
   config: config2,
@@ -38277,7 +38332,7 @@ var resolvePackageDirs = async ({
   if (!config2.packageScripts) {
     return { packageDirs };
   }
-  const entries = await readdir5(join28(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir5(join29(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
   const templates = Object.entries(config2.packageScripts).filter((pair) => typeof pair[1] === "string");
   const skips = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
@@ -38285,7 +38340,7 @@ var resolvePackageDirs = async ({
     if (!manifest) {
       continue;
     }
-    packageDirs.push({ label: entry.name, dir: join28(cwd, packagesDir, entry.name) });
+    packageDirs.push({ label: entry.name, dir: join29(cwd, packagesDir, entry.name) });
     const absent = templates.map(([kind, template]) => ({ kind, script: extractRunScriptName({ command: template }) })).filter(({ script }) => script !== void 0 && !Object.hasOwn(manifest.scripts, script));
     if (absent.length > 0) {
       skips.push(`${entry.name} (${absent.map(({ script }) => script).join(", ")})`);
@@ -38350,12 +38405,12 @@ var runDoctor = async ({ cwd, probeHarness }) => {
 
 // packages/engine/src/traverse/runTraverse.ts
 import { appendFile as appendFile4, mkdir as mkdir7, writeFile as writeFile5 } from "node:fs/promises";
-import { isAbsolute, join as join33 } from "node:path";
+import { isAbsolute, join as join34 } from "node:path";
 
 // packages/engine/src/traverse/common/constants/defaultWorkspaceDir.ts
 import { homedir } from "node:os";
-import { join as join29 } from "node:path";
-var defaultWorkspaceDir = join29(homedir(), ".lightsout", "traverse-repos");
+import { join as join30 } from "node:path";
+var defaultWorkspaceDir = join30(homedir(), ".lightsout", "traverse-repos");
 
 // packages/engine/src/traverse/common/utils/mintRunId.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
@@ -38363,12 +38418,12 @@ var mintRunId = () => `${(/* @__PURE__ */ new Date()).toISOString().slice(0, 19)
 
 // packages/engine/src/traverse/ensureNodeWorkspace.ts
 import { rm, stat as stat2 } from "node:fs/promises";
-import { basename as basename6, join as join30 } from "node:path";
+import { basename as basename6, join as join31 } from "node:path";
 var cloneTimeoutMs = 3e5;
 var refreshAfterMs = 24 * 60 * 60 * 1e3;
 var inFlight = /* @__PURE__ */ new Map();
 var ensure = async ({ repo, workspaceDir, forceRefresh, fullHistory, repoDir }) => {
-  const existing = await stat2(join30(repoDir, ".git")).catch(() => void 0);
+  const existing = await stat2(join31(repoDir, ".git")).catch(() => void 0);
   if (!existing) {
     await rm(repoDir, { recursive: true, force: true }).catch(() => void 0);
     const clone3 = await runCommand({ command: `git clone ${fullHistory ? "" : "--depth 1 "}'${repo}' '${repoDir}'`, cwd: workspaceDir, timeoutMs: cloneTimeoutMs });
@@ -38386,7 +38441,7 @@ ${clone3.stderr}`.trim().slice(0, 300)}`);
 };
 var ensureNodeWorkspace = async ({ repo, workspaceDir, forceRefresh = false, fullHistory = false }) => {
   const dirName = basename6(repo, ".git").replace(/[^A-Za-z0-9._-]/g, "-") || "repo";
-  const repoDir = join30(workspaceDir, dirName);
+  const repoDir = join31(workspaceDir, dirName);
   const running = inFlight.get(repoDir);
   if (running) {
     return running;
@@ -38466,7 +38521,7 @@ var matchExitToEdge = ({ exit, node, edges }) => {
 // packages/engine/src/traverse/readConnectionMap.ts
 var import_yaml = __toESM(require_dist(), 1);
 import { readdir as readdir6, readFile as readFile21 } from "node:fs/promises";
-import { join as join31 } from "node:path";
+import { join as join32 } from "node:path";
 
 // packages/engine/src/traverse/common/constants/frontmatterPattern.ts
 var frontmatterPattern = /^---\n([\s\S]*?)\n---/;
@@ -38478,7 +38533,7 @@ var readConnectionMap = async ({ connectionsDir }) => {
   });
   const edges = /* @__PURE__ */ new Map();
   for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md")) {
-    const text = await readFile21(join31(connectionsDir, name), "utf8");
+    const text = await readFile21(join32(connectionsDir, name), "utf8");
     const frontmatter = text.match(frontmatterPattern)?.[1];
     if (!frontmatter) {
       throw new Error(`connection doc ${name} has no frontmatter`);
@@ -38495,7 +38550,7 @@ var readConnectionMap = async ({ connectionsDir }) => {
 // packages/engine/src/traverse/readNodeRegistry.ts
 var import_yaml2 = __toESM(require_dist(), 1);
 import { readFile as readFile22 } from "node:fs/promises";
-import { join as join32 } from "node:path";
+import { join as join33 } from "node:path";
 var registry2 = external_exports.record(
   external_exports.string(),
   external_exports.union([
@@ -38508,7 +38563,7 @@ var registry2 = external_exports.record(
   ])
 );
 var readNodeRegistry = async ({ connectionsDir }) => {
-  const path = join32(connectionsDir, "repos.yaml");
+  const path = join33(connectionsDir, "repos.yaml");
   const raw = await readFile22(path, "utf8").catch(() => {
     throw new Error(`node registry not found: ${path}`);
   });
@@ -38542,12 +38597,12 @@ var runTraverse = async ({
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute(connectionsDir) ? connectionsDir : join33(cwd, connectionsDir);
+  const mapDir = isAbsolute(connectionsDir) ? connectionsDir : join34(cwd, connectionsDir);
   const edges = await readConnectionMap({ connectionsDir: mapDir });
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const runId = resumeRunId ?? mintRunId();
-  const runDir = join33(cwd, ".lightsout", "traverse", runId);
-  const tracePath = join33(runDir, "trace.json");
+  const runDir = join34(cwd, ".lightsout", "traverse", runId);
+  const tracePath = join34(runDir, "trace.json");
   await mkdir7(runDir, { recursive: true });
   await mkdir7(workspaceDir, { recursive: true });
   const state = await initTraverseState({ resumeRunId, tracePath, edges, start, question, dataOfInterest, budget, runId, progress });
@@ -38592,7 +38647,7 @@ var runTraverse = async ({
       continue;
     }
     const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir });
-    const contextDocs = doc.additionalContext.filter((entry) => entry.startsWith(`${node}:`)).map((entry) => join33(workspace, entry.slice(node.length + 1)));
+    const contextDocs = doc.additionalContext.filter((entry) => entry.startsWith(`${node}:`)).map((entry) => join34(workspace, entry.slice(node.length + 1)));
     progress(`hop ${state.budget.used + 1}/${state.budget.maxHops}: ${next.edge} \u2192 ${node} (${next.reason})`);
     const hopNumber = state.hops.length + 1;
     const { report, failure, rateLimited, usage: usage2 } = await invokeAgentWithContract({
@@ -38612,11 +38667,11 @@ var runTraverse = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile4(join33(runDir, `hop-${hopNumber}-stream.jsonl`), `${JSON.stringify(event)}
+        void appendFile4(join34(runDir, `hop-${hopNumber}-stream.jsonl`), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile5(join33(runDir, `hop-${hopNumber}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile5(join34(runDir, `hop-${hopNumber}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (usage2) {
@@ -38667,7 +38722,7 @@ var runTraverse = async ({
 
 // packages/engine/src/traverse/runDebug.ts
 import { appendFile as appendFile5, mkdir as mkdir8, writeFile as writeFile6 } from "node:fs/promises";
-import { isAbsolute as isAbsolute3, join as join34 } from "node:path";
+import { isAbsolute as isAbsolute3, join as join35 } from "node:path";
 
 // packages/engine/src/traverse/crossNonRepoNode.ts
 var crossNonRepoNode = ({ state, next, key, edges, enqueue, progress }) => {
@@ -38855,12 +38910,12 @@ var runDebug = async ({
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute3(connectionsDir) ? connectionsDir : join34(cwd, connectionsDir);
+  const mapDir = isAbsolute3(connectionsDir) ? connectionsDir : join35(cwd, connectionsDir);
   const edges = await readConnectionMap({ connectionsDir: mapDir });
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const runId = resumeRunId ?? mintRunId();
-  const runDir = join34(cwd, ".lightsout", "debug", runId);
-  const tracePath = join34(runDir, "trace.json");
+  const runDir = join35(cwd, ".lightsout", "debug", runId);
+  const tracePath = join35(runDir, "trace.json");
   await mkdir8(runDir, { recursive: true });
   await mkdir8(workspaceDir, { recursive: true });
   const state = await initDebugState({ resumeRunId, tracePath, cwd, registry: registry3, edges, start, symptoms, suspectCommit, budget, runId, progress });
@@ -38924,11 +38979,11 @@ var runDebug = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile5(join34(runDir, `hop-${hopNumber}-stream.jsonl`), `${JSON.stringify(event)}
+        void appendFile5(join35(runDir, `hop-${hopNumber}-stream.jsonl`), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile6(join34(runDir, `hop-${hopNumber}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile6(join35(runDir, `hop-${hopNumber}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (usage2) {
@@ -39035,19 +39090,19 @@ var parseConnectionsSource = ({ source }) => {
 };
 
 // packages/engine/src/traverse/resolveConnectionsSource.ts
-import { isAbsolute as isAbsolute4, join as join35 } from "node:path";
+import { isAbsolute as isAbsolute4, join as join36 } from "node:path";
 var resolveConnectionsSource = async ({ cwd, source, workspaceDir = defaultWorkspaceDir }) => {
   const parsed = parseConnectionsSource({ source });
   if (parsed.kind === "local") {
-    return { dir: isAbsolute4(parsed.path) ? parsed.path : join35(cwd, parsed.path), remote: false, repo: void 0 };
+    return { dir: isAbsolute4(parsed.path) ? parsed.path : join36(cwd, parsed.path), remote: false, repo: void 0 };
   }
   const repoDir = await ensureNodeWorkspace({ repo: parsed.repo, workspaceDir, forceRefresh: true });
-  return { dir: parsed.subpath ? join35(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
+  return { dir: parsed.subpath ? join36(repoDir, parsed.subpath) : repoDir, remote: true, repo: parsed.repo };
 };
 
 // packages/engine/src/traverse/runBuildMap.ts
 import { mkdir as mkdir9, readdir as readdir7, readFile as readFile25, writeFile as writeFile8 } from "node:fs/promises";
-import { isAbsolute as isAbsolute5, join as join36 } from "node:path";
+import { isAbsolute as isAbsolute5, join as join37 } from "node:path";
 
 // packages/engine/src/traverse/joinInventories.ts
 var sortOps = (ops) => [...ops].sort((x, y) => x.name.localeCompare(y.name));
@@ -39202,7 +39257,7 @@ var runBuildMap = async ({
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute5(connectionsDir) ? connectionsDir : join36(cwd, connectionsDir);
+  const mapDir = isAbsolute5(connectionsDir) ? connectionsDir : join37(cwd, connectionsDir);
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const targets = nodes === "all" ? [...registry3.keys()] : nodes;
   for (const node of targets) {
@@ -39210,14 +39265,14 @@ var runBuildMap = async ({
       throw new Error(`node '${node}' is not in repos.yaml \u2014 register it first. Known nodes: ${[...registry3.keys()].join(", ")}`);
     }
   }
-  const inventoriesDir = join36(cwd, ".lightsout", "traverse", "inventories");
+  const inventoriesDir = join37(cwd, ".lightsout", "traverse", "inventories");
   const runId = mintRunId();
-  const runDir = join36(cwd, ".lightsout", "traverse", "map-runs", runId);
+  const runDir = join37(cwd, ".lightsout", "traverse", "map-runs", runId);
   await mkdir9(inventoriesDir, { recursive: true });
   await mkdir9(runDir, { recursive: true });
   await mkdir9(workspaceDir, { recursive: true });
   const savedInventory = async (node) => {
-    const raw = await readFile25(join36(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
+    const raw = await readFile25(join37(inventoriesDir, `${node}.json`), "utf8").catch(() => void 0);
     if (raw === void 0) {
       return void 0;
     }
@@ -39273,7 +39328,7 @@ var runBuildMap = async ({
       permissionMode,
       timeoutMs,
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile8(join36(runDir, `scan-${node}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile8(join37(runDir, `scan-${node}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (usage2) {
@@ -39289,7 +39344,7 @@ var runBuildMap = async ({
       return;
     }
     const stamped = { ...report, scannerVersion: scanEdgesVersion };
-    await writeFile8(join36(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, void 0, "	")}
+    await writeFile8(join37(inventoriesDir, `${node}.json`), `${JSON.stringify(stamped, void 0, "	")}
 `, "utf8");
     scanned.push(node);
     progress(`scan ${node}: ${report.edges.length} edge sighting(s), ${report.gaps.length} gap(s) \u2014 inventory saved`);
@@ -39320,7 +39375,7 @@ var runBuildMap = async ({
   }
   const edges = await readConnectionMap({ connectionsDir: mapDir }).catch(() => /* @__PURE__ */ new Map());
   const joined = MapJoin.parse(joinInventories({ inventories: pooled, edges }));
-  await writeFile8(join36(runDir, "join.json"), `${JSON.stringify(joined, void 0, "	")}
+  await writeFile8(join37(runDir, "join.json"), `${JSON.stringify(joined, void 0, "	")}
 `, "utf8");
   progress(
     `join: ${joined.matched.length} new edge(s), ${joined.confirmed.length} confirmed, ${joined.drifted.length} drifted, ${joined.orphansOut.length}/${joined.orphansIn.length} orphan(s) out/in, ${joined.noise.length} noise`
@@ -39331,7 +39386,7 @@ var runBuildMap = async ({
 // packages/engine/src/traverse/authorConnectionDocs.ts
 var import_yaml5 = __toESM(require_dist(), 1);
 import { writeFile as writeFile10 } from "node:fs/promises";
-import { join as join38 } from "node:path";
+import { join as join39 } from "node:path";
 
 // packages/engine/src/traverse/common/utils/slugOf.ts
 var slugOf = ({ key }) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "edge";
@@ -39339,12 +39394,12 @@ var slugOf = ({ key }) => key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 // packages/engine/src/traverse/regenerateConnectionIndex.ts
 var import_yaml4 = __toESM(require_dist(), 1);
 import { readdir as readdir8, readFile as readFile26, writeFile as writeFile9 } from "node:fs/promises";
-import { join as join37 } from "node:path";
+import { join as join38 } from "node:path";
 var regenerateConnectionIndex = async ({ connectionsDir }) => {
   const entries = await readdir8(connectionsDir);
   const rows = [];
   for (const name of entries.filter((entry) => entry.endsWith(".md") && entry !== "README.md" && entry !== "INDEX.md").sort()) {
-    const text = await readFile26(join37(connectionsDir, name), "utf8");
+    const text = await readFile26(join38(connectionsDir, name), "utf8");
     const frontmatter = text.match(frontmatterPattern)?.[1];
     const parsed = frontmatter ? ConnectionDoc.safeParse((0, import_yaml4.parse)(frontmatter)) : void 0;
     if (!parsed?.success) {
@@ -39363,7 +39418,7 @@ var regenerateConnectionIndex = async ({ connectionsDir }) => {
     ...rows,
     ""
   ].join("\n");
-  await writeFile9(join37(connectionsDir, "INDEX.md"), index, "utf8");
+  await writeFile9(join38(connectionsDir, "INDEX.md"), index, "utf8");
   return { edgeCount: rows.length };
 };
 
@@ -39413,7 +39468,7 @@ var authorConnectionDocs = async ({ connectionsDir, join: reviewedJoin, shaByNod
       `${edge.from} \u2192 ${edge.to} via ${edge.matchKey}: ${edge.fromSighting.payload}`,
       ...edge.operations.length > 0 || edge.operationDrift.callerOnly.length > 0 ? ["", ...renderOperations(edge.operations, edge.operationDrift)] : []
     ];
-    await writeFile10(join38(connectionsDir, `${id}.md`), `---
+    await writeFile10(join39(connectionsDir, `${id}.md`), `---
 ${frontmatter}
 ---
 
@@ -39423,7 +39478,7 @@ ${body.join("\n")}
   }
   for (const entry of reviewedJoin.confirmed) {
     await patchConnectionDoc({
-      path: join38(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      path: join39(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         const from = raw["from"];
         const to = raw["to"];
@@ -39436,7 +39491,7 @@ ${body.join("\n")}
   }
   for (const entry of reviewedJoin.drifted) {
     await patchConnectionDoc({
-      path: join38(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
+      path: join39(connectionsDir, `${entry.doc}.md`.replace(/\.md\.md$/, ".md")),
       patch: (raw) => {
         raw[`${entry.side}-anchor`] = { path: entry.foundAt.split(":")[0], pattern: entry.pattern };
       }
@@ -39448,15 +39503,15 @@ ${body.join("\n")}
 
 // packages/engine/src/traverse/draftConnectionDocs.ts
 import { mkdir as mkdir10, readFile as readFile27, writeFile as writeFile11 } from "node:fs/promises";
-import { isAbsolute as isAbsolute6, join as join39 } from "node:path";
+import { isAbsolute as isAbsolute6, join as join40 } from "node:path";
 var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
-  const mapDir = isAbsolute6(connectionsDir) ? connectionsDir : join39(cwd, connectionsDir);
-  const tracePath = join39(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
+  const mapDir = isAbsolute6(connectionsDir) ? connectionsDir : join40(cwd, connectionsDir);
+  const tracePath = join40(cwd, ".lightsout", "traverse", traverseRunId, "trace.json");
   const raw = await readFile27(tracePath, "utf8").catch(() => {
     throw new Error(`no trace found for run ${traverseRunId} at ${tracePath}`);
   });
   const state = TraceState.parse(JSON.parse(raw));
-  const draftsDir = join39(mapDir, "drafts");
+  const draftsDir = join40(mapDir, "drafts");
   const drafted = [];
   await mkdir10(draftsDir, { recursive: true });
   for (const gap of state.gaps) {
@@ -39479,7 +39534,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
       "",
       `DRAFT from traverse run ${traverseRunId}: ${gap.node} emits ${gap.exit.kind} \u2192 ${gap.exit.target} at ${gap.exit.at}, carrying ${gap.exit.carries}. Receiver unknown \u2014 ${gap.detail}`
     ].join("\n");
-    await writeFile11(join39(draftsDir, `${id}.md`), `${content}
+    await writeFile11(join40(draftsDir, `${id}.md`), `${content}
 `, "utf8");
     drafted.push(id);
   }
@@ -39488,7 +39543,7 @@ var draftConnectionDocs = async ({ cwd, connectionsDir, traverseRunId }) => {
 
 // packages/engine/src/traverse/verifyConnectionAnchors.ts
 import { readFile as readFile28 } from "node:fs/promises";
-import { isAbsolute as isAbsolute7, join as join40 } from "node:path";
+import { isAbsolute as isAbsolute7, join as join41 } from "node:path";
 var gitTimeoutMs4 = 6e4;
 var verifyConnectionAnchors = async ({
   cwd,
@@ -39499,7 +39554,7 @@ var verifyConnectionAnchors = async ({
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const mapDir = isAbsolute7(connectionsDir) ? connectionsDir : join40(cwd, connectionsDir);
+  const mapDir = isAbsolute7(connectionsDir) ? connectionsDir : join41(cwd, connectionsDir);
   const edges = await readConnectionMap({ connectionsDir: mapDir });
   const registry3 = await readNodeRegistry({ connectionsDir: mapDir });
   const targets = docIds ?? [...edges.keys()];
@@ -39535,12 +39590,12 @@ var verifyConnectionAnchors = async ({
         continue;
       }
       const workspace = await ensureNodeWorkspace({ repo: source.repo, workspaceDir, forceRefresh: true });
-      const fileText = await readFile28(join40(workspace, anchor2.path), "utf8").catch(() => void 0);
+      const fileText = await readFile28(join41(workspace, anchor2.path), "utf8").catch(() => void 0);
       if (fileText?.includes(anchor2.pattern)) {
         results.push({ doc: id, side, node, status: "ok" });
         if (repair && head) {
           await patchConnectionDoc({
-            path: join40(mapDir, `${id}.md`),
+            path: join41(mapDir, `${id}.md`),
             patch: (raw) => {
               raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head };
             }
@@ -39559,7 +39614,7 @@ var verifyConnectionAnchors = async ({
         results.push({ doc: id, side, node, status: "drifted", foundAt });
         if (repair) {
           await patchConnectionDoc({
-            path: join40(mapDir, `${id}.md`),
+            path: join41(mapDir, `${id}.md`),
             patch: (raw) => {
               raw[`${side}-anchor`] = { path: foundAt.split(":")[0], pattern: anchor2.pattern };
               raw["last-verified-sha"] = { ...raw["last-verified-sha"], [node]: head ?? null };
@@ -39577,7 +39632,7 @@ var verifyConnectionAnchors = async ({
 
 // packages/engine/src/runPromptImprovement.ts
 import { readdir as readdir9 } from "node:fs/promises";
-import { join as join41 } from "node:path";
+import { join as join42 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "packages/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => {
@@ -39585,8 +39640,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   if (friction.length === 0) {
     return { friction, report: void 0, failure: void 0, rateLimited: false };
   }
-  const files = await readdir9(join41(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join41(promptsDir, file2));
+  const files = await readdir9(join42(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join42(promptsDir, file2));
   const { report, failure, rateLimited } = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -39601,15 +39656,15 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
 
 // packages/engine/src/plan/runPlanExplore.ts
 import { appendFile as appendFile6, mkdir as mkdir11, writeFile as writeFile12 } from "node:fs/promises";
-import { join as join44 } from "node:path";
+import { join as join45 } from "node:path";
 
 // packages/engine/src/plan/planWorkspaceDir.ts
-import { join as join42 } from "node:path";
-var planWorkspaceDir = ({ cwd, name }) => join42(cwd, ".lightsout", "plans", name);
+import { join as join43 } from "node:path";
+var planWorkspaceDir = ({ cwd, name }) => join43(cwd, ".lightsout", "plans", name);
 
 // packages/engine/src/plan/verifyFacts.ts
 import { readFile as readFile29 } from "node:fs/promises";
-import { join as join43 } from "node:path";
+import { join as join44 } from "node:path";
 
 // packages/engine/src/plan/common/utils/pathExists.ts
 import { stat as stat3 } from "node:fs/promises";
@@ -39631,7 +39686,7 @@ var verifyFacts = async ({ cwd, report }) => {
   const paths = report.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join43(cwd, path) });
+    const exists = await pathExists({ path: join44(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
@@ -39642,7 +39697,7 @@ var verifyFacts = async ({ cwd, report }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join43(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join43(cwd, pkg, "package.json"))];
+    const manifestPaths = [join44(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join44(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
       const raw = await readFile29(manifestPath, "utf8").catch(() => void 0);
@@ -39699,11 +39754,11 @@ var runPlanExplore = async ({
         permissionMode,
         timeoutMs,
         onEvent: (event) => {
-          void appendFile6(join44(workspaceDir, `explore-${index}-stream.jsonl`), `${JSON.stringify(event)}
+          void appendFile6(join45(workspaceDir, `explore-${index}-stream.jsonl`), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
         },
         onRejectedOutput: async ({ text, attempt }) => {
-          await writeFile12(join44(workspaceDir, `explore-${index}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+          await writeFile12(join45(workspaceDir, `explore-${index}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
         }
       });
       return { area, ...outcome };
@@ -39736,7 +39791,7 @@ var runPlanExplore = async ({
     verification,
     verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const factsPath = join44(workspaceDir, "facts.json");
+  const factsPath = join45(workspaceDir, "facts.json");
   await writeFile12(factsPath, `${JSON.stringify(facts, void 0, "	")}
 `, "utf8");
   const missingPart = verification.missingPaths.length > 0 ? `, ${verification.missingPaths.length} missing: ${verification.missingPaths.join(", ")}` : "";
@@ -39748,7 +39803,7 @@ var runPlanExplore = async ({
 
 // packages/engine/src/plan/runPlanDraft.ts
 import { appendFile as appendFile7, mkdir as mkdir12, writeFile as writeFile13 } from "node:fs/promises";
-import { isAbsolute as isAbsolute8, join as join48 } from "node:path";
+import { isAbsolute as isAbsolute8, join as join49 } from "node:path";
 
 // packages/engine/src/plan/estimatePlanScope.ts
 var phasedThreshold = 40;
@@ -39770,11 +39825,11 @@ import { readFile as readFile31 } from "node:fs/promises";
 import { basename as basename10 } from "node:path";
 
 // packages/engine/src/plan/checkPlanPaths.ts
-import { basename as basename8, join as join45 } from "node:path";
+import { basename as basename8, join as join46 } from "node:path";
 var checkPlanPaths = async ({ plan, cwd, planPath }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join45(cwd, path) })) {
+    if (!await pathExists({ path: join46(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `referenced path does not exist: ${path}`,
@@ -39784,7 +39839,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
     }
   }
   for (const path of plan.createPaths) {
-    if (await pathExists({ path: join45(cwd, path) })) {
+    if (await pathExists({ path: join46(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `Files to Create path already exists: ${path}`,
@@ -39798,7 +39853,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
 
 // packages/engine/src/plan/checkVerificationScripts.ts
 import { readFile as readFile30 } from "node:fs/promises";
-import { basename as basename9, join as join46 } from "node:path";
+import { basename as basename9, join as join47 } from "node:path";
 var scriptNameOf = (command) => {
   const runScript = extractRunScriptName({ command });
   if (runScript !== void 0) {
@@ -39828,7 +39883,7 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       }
     }
   }
-  const manifestPaths = [join46(cwd, "package.json"), ...[...packageDirs].map((dir) => join46(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join47(cwd, "package.json"), ...[...packageDirs].map((dir) => join47(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     const raw = await readFile30(manifestPath, "utf8").catch(() => void 0);
@@ -40040,9 +40095,9 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
 
 // packages/engine/src/plan/common/utils/readPlanWorkspaceFile.ts
 import { readFile as readFile32 } from "node:fs/promises";
-import { join as join47 } from "node:path";
+import { join as join48 } from "node:path";
 var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join47(planWorkspaceDir({ cwd, name }), fileName);
+  const filePath = join48(planWorkspaceDir({ cwd, name }), fileName);
   const raw = await readFile32(filePath, "utf8").catch(() => {
     throw new Error(notFound(filePath));
   });
@@ -40093,8 +40148,8 @@ var runPlanDraft = async ({
   const decisions = await readDecisions({ cwd, name });
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const variant = scope ?? estimatePlanScope({ facts });
-  const outputs = variant === PlanVariant.Single ? [{ path: join48(plansDir, `${name}.md`), variant: PlanVariant.Single }] : [{ path: join48(plansDir, name, "overview.md"), variant: PlanVariant.Overview }];
-  await mkdir12(variant === PlanVariant.Single ? plansDir : join48(plansDir, name), { recursive: true });
+  const outputs = variant === PlanVariant.Single ? [{ path: join49(plansDir, `${name}.md`), variant: PlanVariant.Single }] : [{ path: join49(plansDir, name, "overview.md"), variant: PlanVariant.Overview }];
+  await mkdir12(variant === PlanVariant.Single ? plansDir : join49(plansDir, name), { recursive: true });
   progress(`plan draft ${name}: variant ${variant} (${scope ? "scope flag" : "estimated"})`);
   let findings = [];
   let planPaths = [];
@@ -40110,11 +40165,11 @@ var runPlanDraft = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile7(join48(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile7(join49(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
-        await writeFile13(join48(workspaceDir, `draft-rejected-${attempt}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile13(join49(workspaceDir, `draft-rejected-${attempt}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (rateLimited) {
@@ -40131,7 +40186,7 @@ var runPlanDraft = async ({
     if (report.status === PlanDraftStatus.Error) {
       return { status: "facts-error", workspaceDir, discrepancies: report.discrepancies };
     }
-    planPaths = report.filesWritten.map((file2) => isAbsolute8(file2.path) ? file2.path : join48(cwd, file2.path));
+    planPaths = report.filesWritten.map((file2) => isAbsolute8(file2.path) ? file2.path : join49(cwd, file2.path));
     const missing = [];
     for (const path of planPaths) {
       if (!await pathExists({ path })) {
@@ -40160,7 +40215,7 @@ var runPlanDraft = async ({
 
 // packages/engine/src/plan/runPlanGrade.ts
 import { appendFile as appendFile8, mkdir as mkdir13, readFile as readFile34, readdir as readdir10, writeFile as writeFile14 } from "node:fs/promises";
-import { basename as basename11, join as join49 } from "node:path";
+import { basename as basename11, join as join50 } from "node:path";
 
 // packages/engine/src/plan/detectPriorArtCandidates.ts
 import { readFile as readFile33 } from "node:fs/promises";
@@ -40220,8 +40275,8 @@ var runPlanGrade = async ({
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
   await mkdir13(workspaceDir, { recursive: true });
-  const singlePath = join49(plansDir, `${name}.md`);
-  const phaseDir = join49(plansDir, name);
+  const singlePath = join50(plansDir, `${name}.md`);
+  const phaseDir = join50(plansDir, name);
   let overviewPath;
   let overviewText;
   const phases = [];
@@ -40230,7 +40285,7 @@ var runPlanGrade = async ({
   } else {
     const entries = (await readdir10(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
-      const path = join49(phaseDir, entry);
+      const path = join50(phaseDir, entry);
       const text = await readFile34(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -40268,11 +40323,11 @@ var runPlanGrade = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile8(join49(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile8(join50(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt }) => {
-        await writeFile14(join49(workspaceDir, `grade-rejected-${basename11(phase.path)}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile14(join50(workspaceDir, `grade-rejected-${basename11(phase.path)}-${attempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
     if (rateLimited) {
@@ -40297,7 +40352,7 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join49(workspaceDir, "grade.json");
+  const gradePath = join50(workspaceDir, "grade.json");
   await writeFile14(gradePath, `${JSON.stringify(report, void 0, "	")}
 `, "utf8");
   progress(`plan grade ${name}: ${grade} (${structuralFindings.length} structural, ${gaps.length} gap(s))`);
@@ -40306,7 +40361,7 @@ var runPlanGrade = async ({
 
 // packages/engine/src/plan/runPlanDedup.ts
 import { appendFile as appendFile9, mkdir as mkdir14, readFile as readFile35, readdir as readdir11, writeFile as writeFile15 } from "node:fs/promises";
-import { join as join50 } from "node:path";
+import { join as join51 } from "node:path";
 var defaultDedupTimeoutMs = 30 * 60 * 1e3;
 var runPlanDedup = async ({
   cwd,
@@ -40322,8 +40377,8 @@ var runPlanDedup = async ({
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
   await mkdir14(workspaceDir, { recursive: true });
-  const singlePath = join50(plansDir, `${name}.md`);
-  const phaseDir = join50(plansDir, name);
+  const singlePath = join51(plansDir, `${name}.md`);
+  const phaseDir = join51(plansDir, name);
   let overviewPath;
   let overviewText;
   const planFiles = [];
@@ -40332,7 +40387,7 @@ var runPlanDedup = async ({
   } else {
     const entries = (await readdir11(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
-      const path = join50(phaseDir, entry);
+      const path = join51(phaseDir, entry);
       const text = await readFile35(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -40354,7 +40409,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join50(workspaceDir, "dedup.json");
+    const dedupPath2 = join51(workspaceDir, "dedup.json");
     await writeFile15(dedupPath2, `${JSON.stringify(dedup2, void 0, "	")}
 `, "utf8");
     return { dedup: dedup2, dedupPath: dedupPath2 };
@@ -40375,11 +40430,11 @@ var runPlanDedup = async ({
     permissionMode,
     timeoutMs,
     onEvent: (event) => {
-      void appendFile9(join50(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
+      void appendFile9(join51(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
     },
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile15(join50(workspaceDir, `dedup-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile15(join51(workspaceDir, `dedup-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   if (rateLimited) {
@@ -40415,10 +40470,10 @@ var runPlanDedup = async ({
 };
 
 // packages/engine/src/plan/resolvePlansDir.ts
-import { isAbsolute as isAbsolute9, join as join51 } from "node:path";
+import { isAbsolute as isAbsolute9, join as join52 } from "node:path";
 var resolvePlansDir = ({ cwd, flag, config: config2 }) => {
   const dir = flag ?? config2?.plansDir ?? ".claude/plans";
-  return isAbsolute9(dir) ? dir : join51(cwd, dir);
+  return isAbsolute9(dir) ? dir : join52(cwd, dir);
 };
 
 // packages/engine/src/refactor/countByDetector.ts
@@ -40432,7 +40487,7 @@ var countByDetector = ({ findings }) => {
 
 // packages/engine/src/refactor/initializeRun.ts
 import { readFile as readFile36, writeFile as writeFile16 } from "node:fs/promises";
-import { join as join52 } from "node:path";
+import { join as join53 } from "node:path";
 
 // packages/engine/src/refactor/batchFindings.ts
 var detectorPriority = [
@@ -40518,7 +40573,7 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile36(join52(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile36(join53(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -40529,9 +40584,9 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
 ${dirty.map((file2) => `  ${file2}`).join("\n")}`);
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join52(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join53(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2 });
-  await writeFile16(join52(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile16(join53(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -40567,7 +40622,7 @@ var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attribut
 
 // packages/engine/src/refactor/invokeBatchAgent.ts
 import { appendFile as appendFile10, mkdir as mkdir15, writeFile as writeFile17 } from "node:fs/promises";
-import { join as join53 } from "node:path";
+import { join as join54 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -40582,9 +40637,9 @@ var invokeBatchAgent = async ({
   rationale,
   recordUsage
 }) => {
-  const agentsDir = join53(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join54(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join53(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join54(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir15(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -40600,7 +40655,7 @@ var invokeBatchAgent = async ({
 `, "utf8").catch(() => void 0);
     },
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile17(join53(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile17(join54(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
@@ -41092,7 +41147,7 @@ ${stderr}`),
 // packages/drivers/src/createCodexDriver.ts
 import { mkdtemp, readFile as readFile37, rm as rm2 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join54 } from "node:path";
+import { join as join55 } from "node:path";
 var rateLimitPattern2 = /usage limit|rate limit|limit reached|quota/i;
 var sandboxArgs = ({ permissionMode }) => {
   if (permissionMode === "plan") {
@@ -41108,8 +41163,8 @@ var createCodexDriver = () => {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp(join54(tmpdir(), "lightsout-codex-"));
-      const outFile = join54(outDir, "last-message.txt");
+      const outDir = await mkdtemp(join55(tmpdir(), "lightsout-codex-"));
+      const outFile = join55(outDir, "last-message.txt");
       const args = [
         "exec",
         "--skip-git-repo-check",
@@ -41202,12 +41257,12 @@ var buildMapCommand = async ({ flags, rest, cwd }) => {
   try {
     const { source: connectionsSource, connections } = await resolveCommandConnections({ cwd, flags, config: config2 });
     if (authorRunId) {
-      const joinPath = join55(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
+      const joinPath = join56(cwd, ".lightsout/traverse/map-runs", authorRunId, "join.json");
       const reviewed = MapJoin.parse(JSON.parse(await readFile38(joinPath, "utf8")));
-      const inventoriesDir = join55(cwd, ".lightsout/traverse/inventories");
+      const inventoriesDir = join56(cwd, ".lightsout/traverse/inventories");
       const shaByNode = /* @__PURE__ */ new Map();
       for (const name of (await readdir12(inventoriesDir).catch(() => [])).filter((entry) => entry.endsWith(".json"))) {
-        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile38(join55(inventoriesDir, name), "utf8")));
+        const inventory = EdgeInventory.safeParse(JSON.parse(await readFile38(join56(inventoriesDir, name), "utf8")));
         if (inventory.success) {
           shaByNode.set(inventory.data.node, inventory.data.scannedSha);
         }
@@ -42053,9 +42108,9 @@ ${findings.length} finding(s)${findings.length > 0 ? ` \xB7 ${breakdown}` : ""} 
 
 // packages/cli/src/statusCommand.ts
 import { readdir as readdir13 } from "node:fs/promises";
-import { join as join56 } from "node:path";
+import { join as join57 } from "node:path";
 var statusCommand = async ({ cwd }) => {
-  const runsDir = join56(cwd, ".lightsout", "runs");
+  const runsDir = join57(cwd, ".lightsout", "runs");
   const runIds = await readdir13(runsDir).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");

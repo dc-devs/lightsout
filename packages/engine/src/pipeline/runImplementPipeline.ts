@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
 	buildFeatureExecutorInvocation,
@@ -21,14 +21,12 @@ import {
 	type StepRecord,
 } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { recordAgentUsage, seedUsageTotals } from '../runState';
 import { appendCommandLog } from '../runState';
 import { appendFriction } from '../runState';
 import { chunkFileGroup } from './chunkFileGroup';
 import { collectImportEdges } from '../common/utils/collectImportEdges';
 import { createRun } from '../runState';
 import { groupConnectedFiles } from './groupConnectedFiles';
-import { getRunDir } from '../runState';
 import { invokeAgentWithContract } from '../invoke';
 import { isInertSourceFile } from './isInertSourceFile';
 import { isTestFile } from '../common/utils/isTestFile';
@@ -40,15 +38,14 @@ import { readPlanPackages } from './readPlanPackages';
 import { detectStandardsChannels } from '../standards';
 import { readStandards } from '../standards';
 import { withRunLock } from '../runState';
+import { PipelineRun } from './PipelineRun';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
 import { runCommand } from '../common/utils/runCommand';
 import { runGates } from './runGates';
 import { runScan } from '../scan';
 import { selectScanFindings } from '../scan';
-import { writeManifestWithUsage } from '../runState';
 import type { PipelineResult } from './PipelineResult';
 
-const defaultAgentTimeoutMinutes = 60;
 const defaultSupervisorTimeoutMinutes = 15;
 const formatTimeoutMs = 10 * 60_000;
 const maxCheapFixRetries = 2;
@@ -56,13 +53,7 @@ const maxRefactorPasses = 3;
 const testWriterConcurrency = 5;
 /** Pathological guard: an import component above this splits into sorted chunks — no config knob until live evidence asks for one. */
 const maxWriterGroupFiles = 12;
-const defaultPermissionMode = 'acceptEdits';
 const supervisorPermissionMode = 'plan';
-
-const formatTokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
-
-const formatUsage = (usage: AgentUsage) =>
-	`in ${formatTokens(usage.inputTokens)} · out ${formatTokens(usage.outputTokens)} · cache-read ${formatTokens(usage.cacheReadTokens)} · $${usage.costUsd.toFixed(2)}`;
 
 /**
  * Only the JS/TS family earns agent turns (test writers, refactor review) —
@@ -70,16 +61,6 @@ const formatUsage = (usage: AgentUsage) =>
  * wasted turns. Allowlist: .js/.jsx/.ts/.tsx plus the m/c module variants.
  */
 const isTestableSourceFile = (path: string) => /\.(m|c)?[jt]sx?$/i.test(path);
-
-const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord }) => {
-	const existing = steps.findIndex((step) => step.id === record.id);
-
-	if (existing === -1) {
-		return [...steps, record];
-	}
-
-	return steps.map((step, index) => (index === existing ? record : step));
-};
 
 interface PipelineStep {
 	id: string;
@@ -132,83 +113,50 @@ const executePipeline = async ({
 	skipRefactor,
 	onProgress,
 }: Params & { runId: string }): Promise<PipelineResult> => {
-	const progress = onProgress ?? (() => undefined);
+	const run = new PipelineRun({
+		cwd,
+		config,
+		driver,
+		onProgress,
+		manifest:
+			existing ??
+			(await createRun({
+				cwd,
+				runId,
+				plan: planPath ?? '',
+				pipeline: 'implement',
+				overview: overviewPath,
+				driver: driver.name,
+				config,
+				baselineDirtyFiles: await readGitChangedFiles({ cwd }),
+			})),
+	});
+	const progress = (message: string) => run.progress(message);
+	const setStep = run.setStep.bind(run);
+	const stop = run.stop.bind(run);
+	const nextRecord = run.nextRecord.bind(run);
+	const update = run.update.bind(run);
+	const parkMessage = () => run.parkMessage();
 
-	let manifest =
-		existing ??
-		(await createRun({
-			cwd,
-			runId,
-			plan: planPath ?? '',
-			pipeline: 'implement',
-			overview: overviewPath,
-			driver: driver.name,
-			config,
-			baselineDirtyFiles: await readGitChangedFiles({ cwd }),
-		}));
-
-	// Run-wide usage aggregate, seeded from the manifest on resume so totals
-	// survive process boundaries. Accumulated by the shared recorder and
-	// stamped into every manifest write. agents.jsonl holds the per-invocation
-	// ledger; this is just the sum.
-	const usageTotals = seedUsageTotals({ usage: manifest.usage });
-
-	const update = async (patch: Partial<RunManifest>) => {
-		manifest = await writeManifestWithUsage({ cwd, manifest, patch, usageTotals });
-	};
-
-	const recordInvocationUsage = async ({ step, usage }: { step: string; usage?: AgentUsage }) => {
-		await recordAgentUsage({ cwd, runId: manifest.runId, step, model: config.model, totals: usageTotals, usage });
-
-		if (usage) {
-			progress(`  ${step} · usage: ${formatUsage(usage)}`);
-		}
-	};
-
-	// Active time per step, accumulated across attempts and resumes: the
-	// timer starts when nextRecord picks the step up (seeded with any prior
-	// durationMs), and every manifest write re-stamps the running total — so
-	// even a crashed run keeps the duration up to its last persisted moment.
-	const stepTimers = new Map<string, { startedAt: number; baseMs: number }>();
-
-	const setStep = async ({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }) => {
-		const timer = stepTimers.get(record.id);
-		const timed = timer ? { ...record, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record;
-
-		await update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: manifest.steps, record: timed }) });
-	};
-
-	const stop = async ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }) => {
-		await setStep({ record: { ...record, status, error }, patch: { status } });
-		progress(`run stopped at ${record.id} — ${status}`);
-
-		const stopped: PipelineResult = { ok: false, manifest, error };
-
-		return stopped;
-	};
-
-	const parkMessage = () =>
-		`run parked: harness rate limit reached — resume with \`lightsout resume --run ${manifest.runId}\` when the window resets.`;
-
-	const planContent = await readFile(join(cwd, manifest.plan), 'utf8').catch(() => undefined);
+	const planContent = await readFile(join(cwd, run.current().plan), 'utf8').catch(() => undefined);
 
 	if (planContent === undefined) {
 		return stop({
 			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
 			status: RunStatus.Failed,
-			error: `plan file not found: ${join(cwd, manifest.plan)}`,
+			error: `plan file not found: ${join(cwd, run.current().plan)}`,
 		});
 	}
 
-	const overviewContent = manifest.overview
-		? await readFile(join(cwd, manifest.overview), 'utf8').catch(() => undefined)
+	const overviewContent = run.current().overview
+		? await readFile(join(cwd, run.current().overview ?? ''), 'utf8').catch(() => undefined)
 		: undefined;
 
-	if (manifest.overview && overviewContent === undefined) {
+	if (run.current().overview && overviewContent === undefined) {
 		return stop({
 			record: { id: 'clean-slate', status: RunStatus.Running, attempts: 0 },
 			status: RunStatus.Failed,
-			error: `overview file not found: ${join(cwd, manifest.overview)}`,
+			error: `overview file not found: ${join(cwd, run.current().overview ?? '')}`,
 		});
 	}
 
@@ -218,7 +166,7 @@ const executePipeline = async ({
 	// flag → plan front-matter → concrete package paths in the plan body (safe
 	// fallback: over-inclusion only runs extra gates, under-inclusion is
 	// caught by scope expansion) → hard error. Never inference beyond that.
-	if (config.packageScripts && manifest.packages.length === 0) {
+	if (config.packageScripts && run.current().packages.length === 0) {
 		const fromFlag = packages;
 		const fromFrontMatter = fromFlag ? undefined : readPlanPackages({ planContent });
 		const fromPlanPaths = (fromFlag ?? fromFrontMatter) ? undefined : scanPlanPackagePaths({ planContent, packagesDir });
@@ -238,8 +186,8 @@ const executePipeline = async ({
 		});
 	}
 
-	if (manifest.packages.length > 0) {
-		progress(`package scope: ${manifest.packages.join(', ')} (from ${manifest.packagesSource ?? 'manifest'})`);
+	if (run.current().packages.length > 0) {
+		progress(`package scope: ${run.current().packages.join(', ')} (from ${run.current().packagesSource ?? 'manifest'})`);
 	}
 
 	// Standards resolve AFTER scope: the bundled defaults are channelled —
@@ -252,7 +200,7 @@ const executePipeline = async ({
 	const standardsPaths = config.standards === false ? [] : (config.standards ?? ['lightsout:code-defaults']);
 	const testStandardsPaths = config.testStandards === false ? [] : (config.testStandards ?? ['lightsout:test-defaults']);
 	const channels =
-		config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir, packages: manifest.packages }));
+		config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir, packages: run.current().packages }));
 
 	if (standardsPaths.length > 0 || testStandardsPaths.length > 0) {
 		progress(
@@ -274,77 +222,7 @@ const executePipeline = async ({
 		});
 	}
 
-	const nextRecord = ({ id }: { id: string }): StepRecord => {
-		const prev = manifest.steps.find((step) => step.id === id);
-
-		stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
-
-		return { id, status: RunStatus.Running, attempts: (prev?.attempts ?? 0) + 1, changedFiles: prev?.changedFiles };
-	};
-
-	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
 	const supervisorTimeoutMs = (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000;
-
-	// Every agent invocation's full event stream (tool calls, chat text, the
-	// final result) is teed to agents/stream-NN-<step>.jsonl — the chat as
-	// on-disk run evidence, tail-able live for anyone who wants the
-	// play-by-play. The progress stream stays quiet per event: a working
-	// agent fires tools every few seconds, and narrating each one drowned
-	// the terminal. Evidence only: outcomes never depend on it.
-	let transcriptCount = 0;
-
-	const agentEventSink = (step: string) => {
-		transcriptCount += 1;
-
-		const dir = join(getRunDir({ cwd, runId: manifest.runId }), 'agents');
-		const path = join(dir, `stream-${String(transcriptCount).padStart(2, '0')}-${step}.jsonl`);
-		// Serialize appends so events land in arrival order even though the
-		// sink itself must return synchronously to the driver's read loop.
-		let tail: Promise<unknown> = mkdir(dir, { recursive: true });
-
-		return (event: unknown) => {
-			tail = tail.then(() => appendFile(path, `${JSON.stringify(event)}\n`, 'utf8')).catch(() => undefined);
-		};
-	};
-
-	// A final message that fails its contract is still evidence — persist it
-	// to the run dir before any retry, so a rejected report never has to be
-	// recovered from harness-internal session files again.
-	let rejectedCount = 0;
-
-	const persistRejected =
-		(step: string) =>
-		async ({ text, attempt, validationError }: { text: string; attempt: number; validationError: string }) => {
-			rejectedCount += 1;
-
-			const dir = join(getRunDir({ cwd, runId: manifest.runId }), 'agents');
-			const name = `rejected-${String(rejectedCount).padStart(2, '0')}-${step}-attempt${attempt}.txt`;
-
-			await mkdir(dir, { recursive: true });
-			await writeFile(join(dir, name), `# step: ${step} · invocation attempt ${attempt}\n# validation: ${validationError}\n\n${text}`, 'utf8');
-			progress(`step ${step}: agent final message failed the report contract — raw text saved to .lightsout/runs/${manifest.runId}/agents/${name}`);
-		};
-
-	const invokeRole = async (invocation: { systemPrompt: string; prompt: string }, step: string) => {
-		const outcome = await invokeAgentWithContract({
-			driver,
-			cwd,
-			invocation,
-			contract: WorkReport,
-			model: config.model,
-			permissionMode: config.permissionMode ?? defaultPermissionMode,
-			timeoutMs: agentTimeoutMs,
-			// Harness-level allowance for all working roles; the binding grant
-			// is the prompt section, which only the executor's builder emits.
-			allowedCommands: config.agentCommands,
-			onEvent: agentEventSink(step),
-			onRejectedOutput: persistRejected(step),
-		});
-
-		await recordInvocationUsage({ step, usage: outcome.usage });
-
-		return outcome;
-	};
 
 	/** This run's packagesDir bound onto the shared mapper. */
 	const packageDirOf = (file: string) => packageOf({ file, packagesDir });
@@ -369,36 +247,36 @@ const executePipeline = async ({
 
 	const collectChanged = async (reports: WorkReport[]) => {
 		const fromGit = ((await readGitChangedFiles({ cwd })) ?? []).filter(
-			(file) => !manifest.baselineDirtyFiles.includes(file) && !isGeneratedFile(file),
+			(file) => !run.current().baselineDirtyFiles.includes(file) && !isGeneratedFile(file),
 		);
 		const fromReports = reports
 			.flatMap((report) => report.changedFiles.map((file) => consumerRelative(file.path)))
 			.filter((file) => !isGeneratedFile(file));
-		const changedFiles = [...new Set([...manifest.changedFiles, ...fromReports, ...fromGit])];
+		const changedFiles = [...new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
 		const fromFiles = changedFiles.flatMap((file) => {
 			const packageDir = packageDirOf(file);
 
 			return packageDir ? [packageDir] : [];
 		});
 
-		return { changedFiles, packages: [...new Set([...manifest.packages, ...fromFiles])] };
+		return { changedFiles, packages: [...new Set([...run.current().packages, ...fromFiles])] };
 	};
 
-	const hasRootChanges = () => manifest.changedFiles.some((file) => packageDirOf(file) === undefined);
+	const hasRootChanges = () => run.current().changedFiles.some((file) => packageDirOf(file) === undefined);
 
 	const gates = ({ coverage }: { coverage?: boolean }) =>
 		runGates({
 			cwd,
 			config,
 			coverage,
-			packages: manifest.packages,
+			packages: run.current().packages,
 			includeRoot: hasRootChanges(),
-			runId: manifest.runId,
-			step: manifest.currentStep ?? undefined,
+			runId: run.current().runId,
+			step: run.current().currentStep ?? undefined,
 			onProgress,
 		});
 
-	const sourceFiles = () => manifest.changedFiles.filter((file) => !isTestFile(file) && isTestableSourceFile(file));
+	const sourceFiles = () => run.current().changedFiles.filter((file) => !isTestFile(file) && isTestableSourceFile(file));
 
 	/** Merge report file paths into the step record's own attribution (per-step view of the run-wide `changedFiles`). */
 	const withStepFiles = ({ record, reports }: { record: StepRecord; reports: WorkReport[] }): StepRecord => ({
@@ -422,9 +300,9 @@ const executePipeline = async ({
 			const record = nextRecord({ id });
 
 			await setStep({ record });
-			progress(`step ${id} — attempt ${record.attempts} · invoking agent (ceiling ${agentTimeoutMs / 60_000}m)`);
+			progress(`step ${id} — attempt ${record.attempts} · invoking agent (ceiling ${run.agentTimeoutMs / 60_000}m)`);
 
-			const { report, failure, rateLimited } = await invokeRole(build(), id);
+			const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
 
 			if (rateLimited) {
 				return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -438,7 +316,7 @@ const executePipeline = async ({
 
 			// Friction is captured regardless of outcome — a terminated run's
 			// confusion is exactly the signal the improvement loop needs.
-			await appendFriction({ cwd, runId: manifest.runId, step: id, friction: report.friction ?? [] });
+			await appendFriction({ cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
 
 			if (report.status !== WorkReportStatus.Complete) {
 				// Termination statuses need a human (plan defect, scope); a plain
@@ -481,7 +359,7 @@ const executePipeline = async ({
 		coverage,
 	}: {
 		id: string;
-		fix: Awaited<ReturnType<typeof invokeRole>>;
+		fix: Awaited<ReturnType<PipelineRun['invokeRole']>>;
 		record: StepRecord;
 		coverage?: boolean;
 	}) => {
@@ -490,7 +368,7 @@ const executePipeline = async ({
 		}
 
 		if (fix.report) {
-			await appendFriction({ cwd, runId: manifest.runId, step: id, friction: fix.report.friction ?? [] });
+			await appendFriction({ cwd, runId: run.current().runId, step: id, friction: fix.report.friction ?? [] });
 		}
 
 		let next = record;
@@ -531,7 +409,7 @@ const executePipeline = async ({
 				await setStep({ record });
 				progress(`step ${id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
 
-				const fix = await invokeRole(buildFix(error), id);
+				const fix = await run.invokeRole({ invocation: buildFix(error), step: id });
 				const applied = await applyFix({ id, fix, record, coverage });
 
 				if (applied.rateLimited) {
@@ -554,11 +432,11 @@ const executePipeline = async ({
 					model: config.model,
 					permissionMode: supervisorPermissionMode,
 					timeoutMs: supervisorTimeoutMs,
-					onEvent: agentEventSink(`${id}-supervisor`),
-					onRejectedOutput: persistRejected(`${id}-supervisor`),
+					onEvent: run.agentEventSink({ step: `${id}-supervisor` }),
+					onRejectedOutput: run.persistRejected({ step: `${id}-supervisor` }),
 				});
 
-				await recordInvocationUsage({ step: `${id}-supervisor`, usage: verdict.usage });
+				await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
 
 				if (verdict.rateLimited) {
 					return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -573,10 +451,10 @@ const executePipeline = async ({
 
 					await setStep({ record });
 
-					const fix = await invokeRole(
-						buildFix(`${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`),
-						id,
-					);
+					const fix = await run.invokeRole({
+						invocation: buildFix(`${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`),
+						step: id,
+					});
 					const applied = await applyFix({ id, fix, record, coverage });
 
 					if (applied.rateLimited) {
@@ -628,7 +506,7 @@ const executePipeline = async ({
 		await setStep({
 			record: { ...record, status: RunStatus.Passed },
 			patch: gateArtifacts
-				? { baselineDirtyFiles: [...new Set([...manifest.baselineDirtyFiles, ...gateArtifacts])] }
+				? { baselineDirtyFiles: [...new Set([...run.current().baselineDirtyFiles, ...gateArtifacts])] }
 				: undefined,
 		});
 		progress('step clean-slate passed');
@@ -733,7 +611,7 @@ const executePipeline = async ({
 			const results = await Promise.all(
 				batch.map(async (group) => ({
 					group,
-					...(await invokeRole(buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), 'write-tests')),
+					...(await run.invokeRole({ invocation: buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), step: 'write-tests' })),
 				})),
 			);
 
@@ -750,7 +628,7 @@ const executePipeline = async ({
 					continue;
 				}
 
-				await appendFriction({ cwd, runId: manifest.runId, step: 'write-tests', friction: result.report.friction ?? [] });
+				await appendFriction({ cwd, runId: run.current().runId, step: 'write-tests', friction: result.report.friction ?? [] });
 				reports.push(result.report);
 				progress(`write-tests: ${label} — ${result.report.status}`);
 
@@ -840,16 +718,16 @@ const executePipeline = async ({
 
 			progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 
-			const { report, failure, rateLimited } = await invokeRole(
-				buildRefactorExecutorInvocation({
+			const { report, failure, rateLimited } = await run.invokeRole({
+				invocation: buildRefactorExecutorInvocation({
 					planContent,
 					changedFiles: sourceFiles(),
 					standards,
 					scanFindings: scan.workList,
 					scanAdvisories: scan.advisories,
 				}),
-				'refactor',
-			);
+				step: 'refactor',
+			});
 
 			if (rateLimited) {
 				return stop({ record, status: RunStatus.PausedRateLimit, error: parkMessage() });
@@ -859,7 +737,7 @@ const executePipeline = async ({
 				return stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' });
 			}
 
-			await appendFriction({ cwd, runId: manifest.runId, step: 'refactor', friction: report.friction ?? [] });
+			await appendFriction({ cwd, runId: run.current().runId, step: 'refactor', friction: report.friction ?? [] });
 
 			if (report.status !== WorkReportStatus.Complete) {
 				const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
@@ -957,7 +835,7 @@ const executePipeline = async ({
 
 			await appendCommandLog({
 				cwd,
-				runId: manifest.runId,
+				runId: run.current().runId,
 				record: {
 					at: new Date().toISOString(),
 					step: 'format',
@@ -1035,7 +913,7 @@ const executePipeline = async ({
 						overviewContent,
 						standards,
 						errorContext,
-						changedFiles: manifest.changedFiles,
+						changedFiles: run.current().changedFiles,
 						allowedCommands: config.agentCommands,
 					}),
 			}),
@@ -1061,7 +939,7 @@ const executePipeline = async ({
 	await update({ status: RunStatus.Running });
 
 	for (const step of steps) {
-		const prior = manifest.steps.find((record) => record.id === step.id);
+		const prior = run.current().steps.find((record) => record.id === step.id);
 
 		if (prior?.status === RunStatus.Passed) {
 			continue;
@@ -1087,7 +965,7 @@ const executePipeline = async ({
 
 	await update({ status: RunStatus.Passed, currentStep: null });
 
-	const passed: PipelineResult = { ok: true, manifest };
+	const passed: PipelineResult = { ok: true, manifest: run.current() };
 
 	return passed;
 };
