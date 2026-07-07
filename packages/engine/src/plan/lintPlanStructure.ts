@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 import { StructuralCheck, type LightsoutConfig, type StructuralFinding } from '@lightsout/contracts';
-import { extractRunScriptName } from '../common/utils/extractRunScriptName';
 import { isTestFile } from '../common/utils/isTestFile';
-import { pathExists } from './common/utils/pathExists';
-import { planCreatePaths } from './planCreatePaths';
+import { checkPlanPaths } from './checkPlanPaths';
+import { checkVerificationScripts } from './checkVerificationScripts';
+import { parsePlan } from './parsePlan';
 
 interface Params {
 	cwd: string;
@@ -28,176 +28,6 @@ const placeholderPatterns: { label: string; re: RegExp }[] = [
 	{ label: 'TODO', re: /\bTODO\b/ },
 	{ label: 'unresolved {token}', re: /\{[A-Za-z][A-Za-z0-9_]*\}/ },
 ];
-
-/** A parsed plan file: its `##` sections plus the paths and scripts the checks key off. */
-interface ParsedPlan {
-	base: string;
-	title: string;
-	variant: 'implementable' | 'overview';
-	/** `## Section title` → the lines beneath it (up to the next `##`). */
-	sections: Map<string, string[]>;
-	createPaths: string[];
-	modifyPaths: string[];
-	mirrorPaths: string[];
-	verificationCommands: string[];
-	lines: string[];
-}
-
-/** Split a plan into its `##` sections (a `###` subheading stays inside its section). */
-const parseSections = (lines: string[]): Map<string, string[]> => {
-	const sections = new Map<string, string[]>();
-	let current: string | undefined;
-
-	for (const line of lines) {
-		const heading = /^##\s+(.+?)\s*$/.exec(line);
-
-		if (heading) {
-			current = heading[1];
-			sections.set(current, []);
-
-			continue;
-		}
-
-		if (current !== undefined) {
-			sections.get(current)?.push(line);
-		}
-	}
-
-	return sections;
-};
-
-/** The first backtick-delimited token in a line that is shaped like a file path (has `/` and a `.ext`). */
-const pathFromLine = (line: string): string | undefined => {
-	for (const match of line.matchAll(/`([^`]+)`/g)) {
-		const token = match[1].trim().split(/\s+/)[0];
-
-		if (token.includes('/') && /\.[A-Za-z0-9]+$/.test(token)) {
-			return token;
-		}
-	}
-
-	return undefined;
-};
-
-/** Paths from the `###` subheadings inside a Files section. */
-const pathsFromSubheadings = (sectionLines: string[] | undefined): string[] => {
-	if (!sectionLines) {
-		return [];
-	}
-
-	const paths: string[] = [];
-
-	for (const line of sectionLines) {
-		if (/^###\s+/.test(line)) {
-			const path = pathFromLine(line);
-
-			if (path) {
-				paths.push(path);
-			}
-		}
-	}
-
-	return paths;
-};
-
-/** Paths from the leading code span of each `-` bullet in a section (Patterns to Mirror). */
-const pathsFromBullets = (sectionLines: string[] | undefined): string[] => {
-	if (!sectionLines) {
-		return [];
-	}
-
-	const paths: string[] = [];
-
-	for (const line of sectionLines) {
-		if (/^\s*-\s+/.test(line)) {
-			const path = pathFromLine(line);
-
-			if (path) {
-				paths.push(path);
-			}
-		}
-	}
-
-	return paths;
-};
-
-/** The backtick-delimited command in each `-` bullet of the Verification section. */
-const commandsFromVerification = (sectionLines: string[] | undefined): string[] => {
-	if (!sectionLines) {
-		return [];
-	}
-
-	const commands: string[] = [];
-
-	for (const line of sectionLines) {
-		if (!/^\s*-\s+/.test(line)) {
-			continue;
-		}
-
-		const span = /`([^`]+)`/.exec(line);
-
-		if (span) {
-			commands.push(span[1].trim());
-		}
-	}
-
-	return commands;
-};
-
-/** The package-script name a verification command invokes, or undefined for a raw command with no package-manager prefix. */
-const scriptNameOf = (command: string): string | undefined => {
-	// Any `… run <script>` form (pnpm/npm/yarn/turbo, with or without filter
-	// flags) resolves through the same parser the doctor and scoped gates use,
-	// so the three can never disagree about which script a command invokes.
-	const runScript = extractRunScriptName({ command });
-
-	if (runScript !== undefined) {
-		return runScript;
-	}
-
-	const tokens = command.split(/\s+/);
-
-	if (tokens[0] === 'pnpm') {
-		// Bare-script form (`pnpm check`, `pnpm --filter x check`, `pnpm -F x
-		// check`): the script is the first token past the flags. `--filter`/`-F`
-		// consume their selector argument; `--filter=<sel>` is a single token.
-		let index = 1;
-
-		while (tokens[index]?.startsWith('-')) {
-			index += tokens[index] === '--filter' || tokens[index] === '-F' ? 2 : 1;
-		}
-
-		return tokens[index];
-	}
-
-	if (tokens[0] === 'yarn' && tokens[1] !== undefined && !tokens[1].startsWith('-')) {
-		return tokens[1];
-	}
-
-	return undefined;
-};
-
-const parsePlan = ({ content, base }: { content: string; base: string }): ParsedPlan => {
-	const lines = content.split('\n');
-	const sections = parseSections(lines);
-	const title = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, '').trim() ?? '';
-	const variant =
-		base === 'overview.md' || (sections.has('Phases') && sections.has('Cross-Phase Dependencies')) || /—\s*Overview\s*$/.test(title)
-			? 'overview'
-			: 'implementable';
-
-	return {
-		base,
-		title,
-		variant,
-		sections,
-		createPaths: planCreatePaths({ planText: content }),
-		modifyPaths: pathsFromSubheadings(sections.get('Files to Modify')),
-		mirrorPaths: pathsFromBullets(sections.get('Patterns to Mirror')),
-		verificationCommands: commandsFromVerification(sections.get('Verification')),
-		lines,
-	};
-};
 
 const isSourceFile = (path: string) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 
@@ -249,84 +79,10 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 		}
 
 		// PathExists — modify/mirror paths must exist; create paths must not.
-		for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-			if (!(await pathExists({ path: join(cwd, path) }))) {
-				findings.push({
-					check: StructuralCheck.PathExists,
-					issue: `referenced path does not exist: ${path}`,
-					location: `${basename(planPath)} → ${path}`,
-					fix: `correct the path or move it under Files to Create if it does not exist yet`,
-				});
-			}
-		}
-
-		for (const path of plan.createPaths) {
-			if (await pathExists({ path: join(cwd, path) })) {
-				findings.push({
-					check: StructuralCheck.PathExists,
-					issue: `Files to Create path already exists: ${path}`,
-					location: `${basename(planPath)} → ${path}`,
-					fix: `move it to Files to Modify, or choose a new path`,
-				});
-			}
-		}
+		findings.push(...(await checkPlanPaths({ plan, cwd, planPath })));
 
 		// ScriptExists — each verification command's package script resolves.
-		const packageDirs = new Set<string>();
-
-		for (const path of [...plan.createPaths, ...plan.modifyPaths, ...plan.mirrorPaths]) {
-			if (path.startsWith(`${packagesDir}/`)) {
-				const segment = path.slice(packagesDir.length + 1).split('/')[0];
-
-				if (segment) {
-					packageDirs.add(segment);
-				}
-			}
-		}
-
-		const manifestPaths = [join(cwd, 'package.json'), ...[...packageDirs].map((dir) => join(cwd, packagesDir, dir, 'package.json'))];
-		const availableScripts = new Set<string>();
-
-		for (const manifestPath of manifestPaths) {
-			const raw = await readFile(manifestPath, 'utf8').catch(() => undefined);
-
-			if (!raw) {
-				continue;
-			}
-
-			try {
-				const parsed = JSON.parse(raw) as { scripts?: Record<string, unknown> };
-
-				for (const key of Object.keys(parsed.scripts ?? {})) {
-					availableScripts.add(key);
-				}
-			} catch {
-				// unreadable manifest contributes no scripts
-			}
-		}
-
-		for (const command of plan.verificationCommands) {
-			if (configCommands.has(command)) {
-				continue;
-			}
-
-			const scriptName = scriptNameOf(command);
-
-			// A raw command with no package-manager prefix (e.g. `tsc --noEmit`) is
-			// not a package script — do not guess it into a finding.
-			if (scriptName === undefined) {
-				continue;
-			}
-
-			if (!availableScripts.has(scriptName)) {
-				findings.push({
-					check: StructuralCheck.ScriptExists,
-					issue: `verification command '${command}' references package script '${scriptName}' which is not in any target package.json`,
-					location: `${basename(planPath)} → Verification`,
-					fix: `use a script that exists, or add '${scriptName}' to the package.json`,
-				});
-			}
-		}
+		findings.push(...(await checkVerificationScripts({ plan, cwd, planPath, packagesDir, configCommands })));
 
 		// NoPlaceholders — no unresolved markers remain.
 		for (const { label, re } of placeholderPatterns) {
