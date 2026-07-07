@@ -1,7 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { DecisionsRecord } from '@lightsout/contracts';
-import { planWorkspaceDir } from './planWorkspaceDir';
+import { readPlanWorkspaceFile } from './common/utils/readPlanWorkspaceFile';
 
 interface Params {
 	cwd: string;
@@ -17,10 +15,11 @@ interface Params {
  * a bad plan.
  */
 export const readDecisions = async ({ cwd, name }: Params): Promise<DecisionsRecord> => {
-	const decisionsPath = join(planWorkspaceDir({ cwd, name }), 'decisions.json');
-	const raw = await readFile(decisionsPath, 'utf8').catch(() => {
-		throw new Error(`no decisions found for plan ${name} at ${decisionsPath} — author decisions.json before drafting`);
+	return readPlanWorkspaceFile({
+		cwd,
+		name,
+		fileName: 'decisions.json',
+		schema: DecisionsRecord,
+		notFound: (filePath) => `no decisions found for plan ${name} at ${filePath} — author decisions.json before drafting`,
 	});
-
-	return DecisionsRecord.parse(JSON.parse(raw));
 };

@@ -1,6 +1,4 @@
-import { appendFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { getRunDir } from './getRunDir';
+import { appendRunLog } from './common/utils/appendRunLog';
 
 interface Params {
 	cwd: string;
@@ -30,9 +28,6 @@ interface Params {
  * command is recorded, passing, failing or skipped — a green gate that
  * leaves no evidence is indistinguishable from a gate that never ran.
  */
-export const appendCommandLog = async ({ cwd, runId, record }: Params) => {
-	const dir = getRunDir({ cwd, runId });
-
-	await mkdir(dir, { recursive: true });
-	await appendFile(join(dir, 'commands.jsonl'), `${JSON.stringify(record)}\n`, 'utf8');
+export const appendCommandLog = async ({ cwd, runId, record }: Params): Promise<void> => {
+	await appendRunLog({ cwd, runId, fileName: 'commands.jsonl', record });
 };

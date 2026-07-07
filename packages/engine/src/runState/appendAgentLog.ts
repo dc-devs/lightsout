@@ -1,7 +1,5 @@
-import { appendFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { AgentUsage } from '@lightsout/contracts';
-import { getRunDir } from './getRunDir';
+import { appendRunLog } from './common/utils/appendRunLog';
 
 interface Params {
 	cwd: string;
@@ -20,9 +18,6 @@ interface Params {
  * per-invocation cost ledger beside `commands.jsonl`. Runs spend the user's
  * subscription; every spend leaves a line.
  */
-export const appendAgentLog = async ({ cwd, runId, record }: Params) => {
-	const dir = getRunDir({ cwd, runId });
-
-	await mkdir(dir, { recursive: true });
-	await appendFile(join(dir, 'agents.jsonl'), `${JSON.stringify(record)}\n`, 'utf8');
+export const appendAgentLog = async ({ cwd, runId, record }: Params): Promise<void> => {
+	await appendRunLog({ cwd, runId, fileName: 'agents.jsonl', record });
 };
