@@ -10,5 +10,5 @@ export { readDecisions } from './readDecisions';
 export { planWorkspaceDir } from './planWorkspaceDir';
 export { resolvePlansDir } from './resolvePlansDir';
 export { detectPriorArtCandidates } from './detectPriorArtCandidates';
-export type { PriorArtCandidate } from './detectPriorArtCandidates';
+export type { PriorArtCandidate } from './common/types/PriorArtCandidate';
 export { planCreatePaths } from './planCreatePaths';
