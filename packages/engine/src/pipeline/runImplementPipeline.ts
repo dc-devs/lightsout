@@ -1,23 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import {
-	buildFeatureExecutorInvocation,
-	buildRefactorExecutorInvocation,
-	buildUnitTestWriterInvocation,
-	formatFindingSite,
-} from '@lightsout/agents';
-import {
-	PackagesSource,
-	RunStatus,
-	WorkReportStatus,
-	type LightsoutConfig,
-	type RunManifest,
-	type ScanFinding,
-	type StepRecord,
-	type WorkReport,
-} from '@lightsout/contracts';
+import { PackagesSource, RunStatus, type LightsoutConfig, type RunManifest } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
-import { appendCommandLog } from '../runState';
 import { createRun } from '../runState';
 import { readGitChangedFiles } from '../common/git/readGitChangedFiles';
 import { readGitPrefix } from '../common/git/readGitPrefix';
@@ -27,20 +11,10 @@ import { readStandards } from '../standards';
 import { withRunLock } from '../runState';
 import { PipelineRun } from './PipelineRun';
 import type { PipelineStep } from './PipelineStep';
-import { collectChanged as collectChangedFor } from './common/utils/collectChanged';
-import { gates as gatesFor } from './common/utils/gates';
-import { sourceFiles as sourceFilesFor } from './common/utils/sourceFiles';
-import { withStepFiles as withStepFilesFor } from './common/utils/withStepFiles';
-import { refactorStep } from './steps/refactorStep';
-import { verifyStep } from './steps/verifyStep';
-import { writeTestsStep } from './steps/writeTestsStep';
-import { workStep } from './steps/workStep';
+import { buildSteps } from './steps/buildSteps';
 import { scanPlanPackagePaths } from './scanPlanPackagePaths';
-import { runCommand } from '../common/utils/runCommand';
 import type { PipelineResult } from './PipelineResult';
 
-const formatTimeoutMs = 10 * 60_000;
-const maxRefactorPasses = 3;
 const testWriterConcurrency = 5;
 /** Pathological guard: an import component above this splits into sorted chunks — no config knob until live evidence asks for one. */
 const maxWriterGroupFiles = 12;
@@ -203,185 +177,7 @@ const executePipeline = async ({
 	// that normalizes report paths.
 	const gitPrefix = await readGitPrefix({ cwd });
 
-	// The shared derivations, bound to this run (their files own the logic).
-	const collectChanged = (reports: WorkReport[]) => collectChangedFor({ run, gitPrefix, reports });
-	const withStepFiles = ({ record, reports }: { record: StepRecord; reports: WorkReport[] }) => withStepFilesFor({ record, reports, gitPrefix });
-	const gates = ({ coverage }: { coverage?: boolean }) => gatesFor({ run, coverage });
-	const sourceFiles = () => sourceFilesFor({ run });
-
-	const cleanSlateStep: PipelineStep['run'] = async () => {
-		const record = nextRecord({ id: 'clean-slate' });
-
-		await setStep({ record });
-		progress(`step clean-slate — attempt ${record.attempts}`);
-
-		// Coverage runs here too: verify-tests holds the same bar later, so a
-		// baseline that already misses it must be the consumer's problem, not
-		// the run's.
-		const error = await gates({ coverage: true });
-
-		if (error) {
-			return stop({
-				record,
-				status: RunStatus.Failed,
-				error: `Codebase is not green before implementation — fix this first.\n${error}`,
-			});
-		}
-
-		// Gate commands may produce artifacts (coverage output, logs). Fold
-		// anything that appeared during clean-slate into the baseline so it is
-		// never attributed to the run's agents.
-		const gateArtifacts = await readGitChangedFiles({ cwd });
-
-		await setStep({
-			record: { ...record, status: RunStatus.Passed },
-			patch: gateArtifacts
-				? { baselineDirtyFiles: [...new Set([...run.current().baselineDirtyFiles, ...gateArtifacts])] }
-				: undefined,
-		});
-		progress('step clean-slate passed');
-
-		return undefined;
-	};
-
-	const formatStep: PipelineStep = {
-		id: 'format',
-		skip: () => (config.scripts.format ? undefined : 'no format command configured'),
-		run: async () => {
-			const formatCommand = config.scripts.format;
-
-			if (!formatCommand) {
-				return undefined;
-			}
-
-			const record = nextRecord({ id: 'format' });
-
-			await setStep({ record });
-			progress('step format — running formatter');
-
-			const startedAt = Date.now();
-			let result;
-
-			try {
-				result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
-			} catch (error) {
-				// A formatter that times out or fails to spawn is a red step, not a crash.
-				result = { exitCode: -1, stdout: '', stderr: error instanceof Error ? error.message : String(error) };
-			}
-
-			await appendCommandLog({
-				cwd,
-				runId: run.current().runId,
-				record: {
-					at: new Date().toISOString(),
-					step: 'format',
-					group: 'root',
-					kind: 'format',
-					command: formatCommand,
-					exitCode: result.exitCode,
-					durationMs: Date.now() - startedAt,
-					...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-2000) }),
-				},
-			});
-
-			if (result.exitCode !== 0) {
-				return stop({
-					record,
-					status: RunStatus.Failed,
-					error: `format failed (exit ${result.exitCode}):\n${result.stdout}\n${result.stderr}`,
-				});
-			}
-
-			// A formatter should be behavior-preserving — verify anyway; a red
-			// gate here means the formatter and the checks disagree, which is a
-			// human's configuration problem, not an agent's.
-			const error = await gates({ coverage: true });
-
-			if (error) {
-				return stop({ record, status: RunStatus.Failed, error: `format: formatting broke verification — review the formatter/gate configuration.\n${error}` });
-			}
-
-			// No changed-file merge here: the formatter only rewrites files the
-			// run already tracks, and anything new it emits is artifact noise.
-			await setStep({ record: { ...record, status: RunStatus.Passed } });
-			progress('step format passed');
-
-			return undefined;
-		},
-	};
-
-	const refactorSteps: PipelineStep[] = skipRefactor
-		? []
-		: [
-				{
-					id: 'refactor',
-					skip: () => (sourceFiles().length === 0 ? 'no changed source files to review' : undefined),
-					run: refactorStep({ run, gitPrefix, planContent, standards }),
-				},
-				{
-					id: 'verify-refactor',
-					run: verifyStep({
-						run,
-						gitPrefix,
-						planContent,
-						id: 'verify-refactor',
-						coverage: true,
-						buildFix: (errorContext) =>
-							buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles(), standards, errorContext }),
-					}),
-				},
-			];
-
-	const steps: PipelineStep[] = [
-		{ id: 'clean-slate', run: cleanSlateStep },
-		{
-			id: 'implement',
-			run: workStep({
-				run,
-				gitPrefix,
-				id: 'implement',
-				requireChanges: true,
-				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config.agentCommands }),
-			}),
-		},
-		{
-			id: 'verify-implement',
-			run: verifyStep({
-				run,
-				gitPrefix,
-				planContent,
-				id: 'verify-implement',
-				buildFix: (errorContext) =>
-					buildFeatureExecutorInvocation({
-						planContent,
-						overviewContent,
-						standards,
-						errorContext,
-						changedFiles: run.current().changedFiles,
-						allowedCommands: config.agentCommands,
-					}),
-			}),
-		},
-		{
-			id: 'write-tests',
-			skip: () => (sourceFiles().length === 0 ? 'no eligible source files' : undefined),
-			run: writeTestsStep({ run, gitPrefix, planContent, testStandards }),
-		},
-		{
-			id: 'verify-tests',
-			run: verifyStep({
-				run,
-				gitPrefix,
-				planContent,
-				id: 'verify-tests',
-				coverage: true,
-				buildFix: (errorContext) =>
-					buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles(), standards: testStandards, errorContext }),
-			}),
-		},
-		...refactorSteps,
-		formatStep,
-	];
+	const steps = buildSteps({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor });
 
 	await update({ status: RunStatus.Running });
 

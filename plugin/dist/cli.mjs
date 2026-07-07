@@ -24741,6 +24741,13 @@ ${text}`, "utf8");
   }
 };
 
+// packages/engine/src/common/utils/isTestFile.ts
+var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
+
+// packages/engine/src/pipeline/common/utils/sourceFiles.ts
+var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
+var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
+
 // packages/engine/src/common/utils/packageOf.ts
 var packageOf = ({ file: file2, packagesDir }) => {
   const prefix = `${packagesDir}/`;
@@ -24750,25 +24757,6 @@ var packageOf = ({ file: file2, packagesDir }) => {
   const rest = file2.slice(prefix.length);
   const separator = rest.indexOf("/");
   return separator > 0 ? rest.slice(0, separator) : void 0;
-};
-
-// packages/engine/src/pipeline/common/utils/consumerRelative.ts
-var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
-
-// packages/engine/src/pipeline/common/utils/collectChanged.ts
-var collectChanged = async ({ run, gitPrefix, reports }) => {
-  const isGeneratedFile = (file2) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const packagesDir = run.config.packagesDir ?? "packages";
-  const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
-    (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
-  );
-  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile(file2));
-  const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
-  const fromFiles = changedFiles.flatMap((file2) => {
-    const packageDir = packageOf({ file: file2, packagesDir });
-    return packageDir ? [packageDir] : [];
-  });
-  return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
 };
 
 // packages/engine/src/common/utils/extractRunScriptName.ts
@@ -24968,12 +24956,104 @@ var gates = ({ run, coverage }) => {
   });
 };
 
-// packages/engine/src/common/utils/isTestFile.ts
-var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
+// packages/engine/src/pipeline/steps/cleanSlateStep.ts
+var cleanSlateStep = ({ run }) => {
+  return async () => {
+    const record2 = run.nextRecord({ id: "clean-slate" });
+    await run.setStep({ record: record2 });
+    run.progress(`step clean-slate \u2014 attempt ${record2.attempts}`);
+    const error51 = await gates({ run, coverage: true });
+    if (error51) {
+      return run.stop({
+        record: record2,
+        status: RunStatus.Failed,
+        error: `Codebase is not green before implementation \u2014 fix this first.
+${error51}`
+      });
+    }
+    const gateArtifacts = await readGitChangedFiles({ cwd: run.cwd });
+    await run.setStep({
+      record: { ...record2, status: RunStatus.Passed },
+      patch: gateArtifacts ? { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...gateArtifacts])] } : void 0
+    });
+    run.progress("step clean-slate passed");
+    return void 0;
+  };
+};
 
-// packages/engine/src/pipeline/common/utils/sourceFiles.ts
-var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
-var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
+// packages/engine/src/pipeline/steps/formatStep.ts
+var formatTimeoutMs = 10 * 6e4;
+var formatStep = ({ run }) => ({
+  id: "format",
+  skip: () => run.config.scripts.format ? void 0 : "no format command configured",
+  run: async () => {
+    const formatCommand = run.config.scripts.format;
+    if (!formatCommand) {
+      return void 0;
+    }
+    const record2 = run.nextRecord({ id: "format" });
+    await run.setStep({ record: record2 });
+    run.progress("step format \u2014 running formatter");
+    const startedAt = Date.now();
+    let result;
+    try {
+      result = await runCommand({ command: formatCommand, cwd: run.cwd, timeoutMs: formatTimeoutMs });
+    } catch (error52) {
+      result = { exitCode: -1, stdout: "", stderr: error52 instanceof Error ? error52.message : String(error52) };
+    }
+    await appendCommandLog({
+      cwd: run.cwd,
+      runId: run.current().runId,
+      record: {
+        at: (/* @__PURE__ */ new Date()).toISOString(),
+        step: "format",
+        group: "root",
+        kind: "format",
+        command: formatCommand,
+        exitCode: result.exitCode,
+        durationMs: Date.now() - startedAt,
+        ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
+${result.stderr}`.slice(-2e3) }
+      }
+    });
+    if (result.exitCode !== 0) {
+      return run.stop({
+        record: record2,
+        status: RunStatus.Failed,
+        error: `format failed (exit ${result.exitCode}):
+${result.stdout}
+${result.stderr}`
+      });
+    }
+    const error51 = await gates({ run, coverage: true });
+    if (error51) {
+      return run.stop({ record: record2, status: RunStatus.Failed, error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
+${error51}` });
+    }
+    await run.setStep({ record: { ...record2, status: RunStatus.Passed } });
+    run.progress("step format passed");
+    return void 0;
+  }
+});
+
+// packages/engine/src/pipeline/common/utils/consumerRelative.ts
+var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
+
+// packages/engine/src/pipeline/common/utils/collectChanged.ts
+var collectChanged = async ({ run, gitPrefix, reports }) => {
+  const isGeneratedFile = (file2) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const packagesDir = run.config.packagesDir ?? "packages";
+  const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
+    (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
+  );
+  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile(file2));
+  const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
+  const fromFiles = changedFiles.flatMap((file2) => {
+    const packageDir = packageOf({ file: file2, packagesDir });
+    return packageDir ? [packageDir] : [];
+  });
+  return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
+};
 
 // packages/engine/src/pipeline/common/utils/withStepFiles.ts
 var withStepFiles = ({ record: record2, reports, gitPrefix }) => ({
@@ -37697,6 +37777,46 @@ ${error51}` });
   };
 };
 
+// packages/engine/src/pipeline/steps/workStep.ts
+var workStep = ({ run, gitPrefix, id, build, requireChanges }) => {
+  return async () => {
+    const record2 = run.nextRecord({ id });
+    await run.setStep({ record: record2 });
+    run.progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${run.agentTimeoutMs / 6e4}m)`);
+    const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
+    if (rateLimited) {
+      return run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+    }
+    if (!report) {
+      return run.stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
+    }
+    run.progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
+    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
+    if (report.status !== WorkReportStatus.Complete) {
+      const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
+      return run.stop({
+        record: { ...record2, report },
+        status,
+        error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
+      });
+    }
+    const changed = await collectChanged({ run, gitPrefix, reports: [report] });
+    if (requireChanges && changed.changedFiles.length === 0) {
+      return run.stop({
+        record: { ...record2, report },
+        status: RunStatus.Failed,
+        error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
+      });
+    }
+    await run.setStep({
+      record: withStepFiles({ record: { ...record2, status: RunStatus.Passed, report }, reports: [report], gitPrefix }),
+      patch: changed
+    });
+    run.progress(`step ${id} passed`);
+    return void 0;
+  };
+};
+
 // packages/engine/src/pipeline/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
   const sorted = [...files].sort();
@@ -37859,44 +37979,74 @@ ${failures.join("\n")}`
   };
 };
 
-// packages/engine/src/pipeline/steps/workStep.ts
-var workStep = ({ run, gitPrefix, id, build, requireChanges }) => {
-  return async () => {
-    const record2 = run.nextRecord({ id });
-    await run.setStep({ record: record2 });
-    run.progress(`step ${id} \u2014 attempt ${record2.attempts} \xB7 invoking agent (ceiling ${run.agentTimeoutMs / 6e4}m)`);
-    const { report, failure, rateLimited } = await run.invokeRole({ invocation: build(), step: id });
-    if (rateLimited) {
-      return run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
+// packages/engine/src/pipeline/steps/buildSteps.ts
+var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }) => {
+  const refactorSteps = skipRefactor ? [] : [
+    {
+      id: "refactor",
+      skip: () => sourceFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
+      run: refactorStep({ run, gitPrefix, planContent, standards })
+    },
+    {
+      id: "verify-refactor",
+      run: verifyStep({
+        run,
+        gitPrefix,
+        planContent,
+        id: "verify-refactor",
+        coverage: true,
+        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles({ run }), standards, errorContext })
+      })
     }
-    if (!report) {
-      return run.stop({ record: record2, status: RunStatus.Failed, error: failure ?? "unknown failure" });
-    }
-    run.progress(`step ${id}: agent report ${report.status} \u2014 ${report.changedFiles.length} changed file(s)`);
-    await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
-    if (report.status !== WorkReportStatus.Complete) {
-      const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
-      return run.stop({
-        record: { ...record2, report },
-        status,
-        error: `${id}: ${report.status} \u2014 ${report.failures.join("; ")}`
-      });
-    }
-    const changed = await collectChanged({ run, gitPrefix, reports: [report] });
-    if (requireChanges && changed.changedFiles.length === 0) {
-      return run.stop({
-        record: { ...record2, report },
-        status: RunStatus.Failed,
-        error: `${id}: agent reported complete but neither its report nor git shows a single changed file \u2014 nothing was implemented, and a green verify on an unchanged codebase would be a misleading success.`
-      });
-    }
-    await run.setStep({
-      record: withStepFiles({ record: { ...record2, status: RunStatus.Passed, report }, reports: [report], gitPrefix }),
-      patch: changed
-    });
-    run.progress(`step ${id} passed`);
-    return void 0;
-  };
+  ];
+  return [
+    { id: "clean-slate", run: cleanSlateStep({ run }) },
+    {
+      id: "implement",
+      run: workStep({
+        run,
+        gitPrefix,
+        id: "implement",
+        requireChanges: true,
+        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config.agentCommands })
+      })
+    },
+    {
+      id: "verify-implement",
+      run: verifyStep({
+        run,
+        gitPrefix,
+        planContent,
+        id: "verify-implement",
+        buildFix: (errorContext) => buildFeatureExecutorInvocation({
+          planContent,
+          overviewContent,
+          standards,
+          errorContext,
+          changedFiles: run.current().changedFiles,
+          allowedCommands: run.config.agentCommands
+        })
+      })
+    },
+    {
+      id: "write-tests",
+      skip: () => sourceFiles({ run }).length === 0 ? "no eligible source files" : void 0,
+      run: writeTestsStep({ run, gitPrefix, planContent, testStandards })
+    },
+    {
+      id: "verify-tests",
+      run: verifyStep({
+        run,
+        gitPrefix,
+        planContent,
+        id: "verify-tests",
+        coverage: true,
+        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles({ run }), standards: testStandards, errorContext })
+      })
+    },
+    ...refactorSteps,
+    formatStep({ run })
+  ];
 };
 
 // packages/engine/src/pipeline/scanPlanPackagePaths.ts
@@ -37908,7 +38058,6 @@ var scanPlanPackagePaths = ({ planContent, packagesDir }) => {
 };
 
 // packages/engine/src/pipeline/runImplementPipeline.ts
-var formatTimeoutMs = 10 * 6e4;
 var executePipeline = async ({
   cwd,
   runId,
@@ -38001,149 +38150,7 @@ var executePipeline = async ({
     });
   }
   const gitPrefix = await readGitPrefix({ cwd });
-  const collectChanged2 = (reports) => collectChanged({ run, gitPrefix, reports });
-  const withStepFiles2 = ({ record: record2, reports }) => withStepFiles({ record: record2, reports, gitPrefix });
-  const gates2 = ({ coverage }) => gates({ run, coverage });
-  const sourceFiles2 = () => sourceFiles({ run });
-  const cleanSlateStep = async () => {
-    const record2 = nextRecord({ id: "clean-slate" });
-    await setStep({ record: record2 });
-    progress(`step clean-slate \u2014 attempt ${record2.attempts}`);
-    const error51 = await gates2({ coverage: true });
-    if (error51) {
-      return stop({
-        record: record2,
-        status: RunStatus.Failed,
-        error: `Codebase is not green before implementation \u2014 fix this first.
-${error51}`
-      });
-    }
-    const gateArtifacts = await readGitChangedFiles({ cwd });
-    await setStep({
-      record: { ...record2, status: RunStatus.Passed },
-      patch: gateArtifacts ? { baselineDirtyFiles: [.../* @__PURE__ */ new Set([...run.current().baselineDirtyFiles, ...gateArtifacts])] } : void 0
-    });
-    progress("step clean-slate passed");
-    return void 0;
-  };
-  const formatStep = {
-    id: "format",
-    skip: () => config2.scripts.format ? void 0 : "no format command configured",
-    run: async () => {
-      const formatCommand = config2.scripts.format;
-      if (!formatCommand) {
-        return void 0;
-      }
-      const record2 = nextRecord({ id: "format" });
-      await setStep({ record: record2 });
-      progress("step format \u2014 running formatter");
-      const startedAt = Date.now();
-      let result;
-      try {
-        result = await runCommand({ command: formatCommand, cwd, timeoutMs: formatTimeoutMs });
-      } catch (error52) {
-        result = { exitCode: -1, stdout: "", stderr: error52 instanceof Error ? error52.message : String(error52) };
-      }
-      await appendCommandLog({
-        cwd,
-        runId: run.current().runId,
-        record: {
-          at: (/* @__PURE__ */ new Date()).toISOString(),
-          step: "format",
-          group: "root",
-          kind: "format",
-          command: formatCommand,
-          exitCode: result.exitCode,
-          durationMs: Date.now() - startedAt,
-          ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
-${result.stderr}`.slice(-2e3) }
-        }
-      });
-      if (result.exitCode !== 0) {
-        return stop({
-          record: record2,
-          status: RunStatus.Failed,
-          error: `format failed (exit ${result.exitCode}):
-${result.stdout}
-${result.stderr}`
-        });
-      }
-      const error51 = await gates2({ coverage: true });
-      if (error51) {
-        return stop({ record: record2, status: RunStatus.Failed, error: `format: formatting broke verification \u2014 review the formatter/gate configuration.
-${error51}` });
-      }
-      await setStep({ record: { ...record2, status: RunStatus.Passed } });
-      progress("step format passed");
-      return void 0;
-    }
-  };
-  const refactorSteps = skipRefactor ? [] : [
-    {
-      id: "refactor",
-      skip: () => sourceFiles2().length === 0 ? "no changed source files to review" : void 0,
-      run: refactorStep({ run, gitPrefix, planContent, standards })
-    },
-    {
-      id: "verify-refactor",
-      run: verifyStep({
-        run,
-        gitPrefix,
-        planContent,
-        id: "verify-refactor",
-        coverage: true,
-        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles2(), standards, errorContext })
-      })
-    }
-  ];
-  const steps = [
-    { id: "clean-slate", run: cleanSlateStep },
-    {
-      id: "implement",
-      run: workStep({
-        run,
-        gitPrefix,
-        id: "implement",
-        requireChanges: true,
-        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: config2.agentCommands })
-      })
-    },
-    {
-      id: "verify-implement",
-      run: verifyStep({
-        run,
-        gitPrefix,
-        planContent,
-        id: "verify-implement",
-        buildFix: (errorContext) => buildFeatureExecutorInvocation({
-          planContent,
-          overviewContent,
-          standards,
-          errorContext,
-          changedFiles: run.current().changedFiles,
-          allowedCommands: config2.agentCommands
-        })
-      })
-    },
-    {
-      id: "write-tests",
-      skip: () => sourceFiles2().length === 0 ? "no eligible source files" : void 0,
-      run: writeTestsStep({ run, gitPrefix, planContent, testStandards })
-    },
-    {
-      id: "verify-tests",
-      run: verifyStep({
-        run,
-        gitPrefix,
-        planContent,
-        id: "verify-tests",
-        coverage: true,
-        buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles2(), standards: testStandards, errorContext })
-      })
-    },
-    ...refactorSteps,
-    formatStep
-  ];
+  const steps = buildSteps({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor });
   await update({ status: RunStatus.Running });
   for (const step of steps) {
     const prior = run.current().steps.find((record2) => record2.id === step.id);
