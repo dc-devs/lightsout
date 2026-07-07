@@ -17,5 +17,14 @@ node_modules/
 fixtures/*/.lightsout/runs/
 fixtures/*/.lightsout/friction.jsonl
 
+# own run state (this repo is its own lightsout consumer)
+.lightsout/runs/
+.lightsout/scan.json
+.lightsout/lock.json
+.lightsout/friction.jsonl
+
+# fdrop plugin hook artifacts
+.fdrop/
+
 # local-only personal notes — never committed
 .notes

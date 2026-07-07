@@ -1,0 +1,9 @@
+{
+	"scripts": {
+		"check": "pnpm check",
+		"testUnit": "pnpm test",
+		"testCoverage": false
+	},
+	"agentCommands": ["pnpm"],
+	"generated": ["plugin/dist/"]
+}
