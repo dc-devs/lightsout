@@ -14,7 +14,11 @@ resumable manifests, supervisor) that spawns the user's own installed harness
   drivers; v0.5: git-truth changed files, zero-change implement gate,
   parallel per-file test writers, refactor loop, coverage/build/format gates,
   `--overview` phased plans; v0.6: monorepo scoped gates via `packageScripts`
-  + plan front-matter scope). FeedbackDrop is consumer #1 via its own
+  + plan front-matter scope; v0.7: architecture scan detectors
+  (module-boundary/placement/barrel-hygiene, barrel-omission test as code) +
+  `lightsout refactor` — standalone findings burn-down pipeline: frozen
+  worklist, detector×area batches, gate-kind fix routing, declines as
+  first-class outcomes, park/resume). FeedbackDrop is consumer #1 via its own
   `lightsout.config.json`.
 
 ## Commands
