@@ -17,7 +17,7 @@ export { resolvePackageManifest } from './common/utils/resolvePackageManifest';
 export { scanPlanPackagePaths } from './pipeline';
 export { runImplementPipeline } from './pipeline';
 export { summarizeRun } from './runState';
-export { runDoctor } from './runDoctor';
+export { runDoctor } from './doctor';
 export { runScan } from './scan';
 export { selectScanFindings } from './scan';
 export { runTraverse } from './traverse';

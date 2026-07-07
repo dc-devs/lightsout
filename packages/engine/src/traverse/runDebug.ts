@@ -1,18 +1,18 @@
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import { DebugHopReport, DebugTraceState } from '@lightsout/contracts';
+import { DebugHopReport, type DebugTraceState } from '@lightsout/contracts';
 import { buildDebugHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
 import { mintRunId } from './common/utils/mintRunId';
+import { crossNonRepoNode } from './crossNonRepoNode';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
 import { findConnectingDoc } from './findConnectingDoc';
+import { initDebugState } from './initDebugState';
 import { invokeAgentWithContract } from '../invoke';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';
-import { resolveSeedNode } from './resolveSeedNode';
 
-const defaultBudget = 12;
 const defaultHopTimeoutMs = 30 * 60 * 1000;
 
 interface Params {
@@ -75,43 +75,7 @@ export const runDebug = async ({
 	await mkdir(runDir, { recursive: true });
 	await mkdir(workspaceDir, { recursive: true });
 
-	let state: DebugTraceState;
-
-	if (resumeRunId) {
-		const raw = await readFile(tracePath, 'utf8').catch(() => {
-			throw new Error(`no debug trace found for run ${resumeRunId} at ${tracePath}`);
-		});
-
-		state = DebugTraceState.parse(JSON.parse(raw));
-
-		if (state.budget.used >= state.budget.maxHops) {
-			state.budget.maxHops = state.budget.used + (budget ?? state.budget.maxHops);
-		}
-
-		progress(`resuming debug ${runId}: ${state.frontier.length} lead(s), ${state.budget.used}/${state.budget.maxHops} hops used`);
-	} else {
-		const seed = await resolveSeedNode({ cwd, registry, edges, start });
-
-		for (const note of seed.notes) {
-			progress(note);
-		}
-
-		const hypothesis = suspectCommit ? `${symptoms} (suspect commit ${suspectCommit})` : symptoms;
-
-		state = {
-			seed: { node: seed.node, workspace: seed.workspace },
-			symptoms,
-			hypothesis,
-			budget: { maxHops: budget ?? defaultBudget, used: 0 },
-			frontier: [{ node: seed.node, viaEdge: null, direction: 'seed', hypothesis, reason: seed.notes[0] ?? 'seed' }],
-			visited: [],
-			hops: [],
-			gaps: [],
-			drift: [],
-			resolution: null,
-		};
-		progress(`debug ${runId}: seeded at ${seed.node} · budget ${state.budget.maxHops} hops`);
-	}
+	const state = await initDebugState({ resumeRunId, tracePath, cwd, registry, edges, start, symptoms, suspectCommit, budget, runId, progress });
 
 	const writeTrace = async () => writeFile(tracePath, `${JSON.stringify(state, undefined, '\t')}\n`, 'utf8');
 
@@ -144,24 +108,7 @@ export const runDebug = async ({
 		// Non-repo node (AWS service, external system): no code to investigate —
 		// cross it mechanically and continue in the same direction.
 		if (!isSeed && !source) {
-			state.visited.push(key);
-			state.hops.push({ node: next.node, viaEdge: next.viaEdge, direction: next.direction, note: 'non-repo node — no code to investigate; crossed mechanically' });
-
-			for (const [id, doc] of edges) {
-				const onward = next.direction === 'downstream' ? doc.from === next.node : doc.to === next.node;
-
-				if (onward) {
-					enqueue({
-						node: next.direction === 'downstream' ? doc.to : doc.from,
-						viaEdge: id,
-						direction: next.direction,
-						hypothesis: next.hypothesis,
-						reason: `continues ${next.direction} of non-repo node ${next.node}`,
-					});
-				}
-			}
-
-			progress(`hop —: ${next.node} (non-repo node, crossed mechanically)`);
+			crossNonRepoNode({ state, next, key, edges, enqueue, progress });
 			await writeTrace();
 			continue;
 		}

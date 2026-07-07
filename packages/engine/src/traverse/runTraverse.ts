@@ -1,17 +1,17 @@
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import { HopReport, TraceState } from '@lightsout/contracts';
+import { HopReport } from '@lightsout/contracts';
 import { buildTraverseHopInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { defaultWorkspaceDir } from './common/constants/defaultWorkspaceDir';
 import { mintRunId } from './common/utils/mintRunId';
 import { ensureNodeWorkspace } from './ensureNodeWorkspace';
+import { initTraverseState } from './initTraverseState';
 import { invokeAgentWithContract } from '../invoke';
 import { matchExitToEdge } from './matchExitToEdge';
 import { readConnectionMap } from './readConnectionMap';
 import { readNodeRegistry } from './readNodeRegistry';
 
-const defaultBudget = 12;
 const defaultHopTimeoutMs = 30 * 60 * 1000;
 
 interface Params {
@@ -74,48 +74,7 @@ export const runTraverse = async ({
 	await mkdir(runDir, { recursive: true });
 	await mkdir(workspaceDir, { recursive: true });
 
-	let state: TraceState;
-
-	if (resumeRunId) {
-		const raw = await readFile(tracePath, 'utf8').catch(() => {
-			throw new Error(`no trace found for run ${resumeRunId} at ${tracePath}`);
-		});
-
-		state = TraceState.parse(JSON.parse(raw));
-
-		// A budget-exhausted run resumes with a fresh window (that's what
-		// resuming means for it); an explicit --budget sets the window size.
-		if (state.budget.used >= state.budget.maxHops) {
-			state.budget.maxHops = state.budget.used + (budget ?? state.budget.maxHops);
-		}
-
-		progress(`resuming run ${runId}: ${state.frontier.length} edge(s) on the frontier, ${state.budget.used}/${state.budget.maxHops} hops used`);
-	} else {
-		if (!start) {
-			throw new Error(`--start is required (an edge id or node name). Known edges: ${[...edges.keys()].join(', ') || 'none'}`);
-		}
-
-		const seeds = edges.has(start)
-			? [start]
-			: [...edges.entries()].filter(([, doc]) => doc.from === start).map(([id]) => id);
-
-		if (seeds.length === 0) {
-			throw new Error(`'${start}' is neither an edge id nor a node with outbound edges. Known edges: ${[...edges.keys()].join(', ') || 'none'}`);
-		}
-
-		state = {
-			question,
-			dataOfInterest: dataOfInterest ?? question,
-			budget: { maxHops: budget ?? defaultBudget, used: 0 },
-			frontier: seeds.map((edge) => ({ edge, reason: `seeded from --start ${start}` })),
-			visited: [],
-			hops: [],
-			gaps: [],
-			drift: [],
-			answer: null,
-		};
-		progress(`traverse ${runId}: seeded ${seeds.length} edge(s) from '${start}' · budget ${state.budget.maxHops} hops`);
-	}
+	const state = await initTraverseState({ resumeRunId, tracePath, edges, start, question, dataOfInterest, budget, runId, progress });
 
 	const writeTrace = async () => writeFile(tracePath, `${JSON.stringify(state, undefined, '\t')}\n`, 'utf8');
 
