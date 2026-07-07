@@ -14,7 +14,9 @@ const CLI = join(process.cwd(), '.test-dist', 'cli-under-test.mjs');
 // Byte-exact copy of the CLI's `usage` constant. console.error(usage) appends
 // one newline; the constant already ends in a newline, so error output ends
 // with two. Pinning this whole block is the point of characterization: if a
-// refactor changes it, this suite goes red and the refactor is wrong.
+// refactor changes it, this suite goes red and the refactor is wrong. (A
+// FEATURE adding a command updates this pin deliberately — updated 2026-07-06
+// for `refactor`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -23,6 +25,8 @@ usage:
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
+  lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout traverse "<question>" --start <edge-or-node> [--connections <dir>] [--budget <n>] [--data <field>] [--cwd <path>]
   lightsout traverse --run <id> [--cwd <path>]        (resume a parked/budget-exhausted traversal)
   lightsout debug "<symptoms>" [--start <node>] [--at <file:line>] [--suspect <hash>] [--connections <dir>] [--budget <n>] [--cwd <path>]

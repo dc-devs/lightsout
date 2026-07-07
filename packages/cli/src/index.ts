@@ -11,6 +11,7 @@ import { improveCommand } from './improveCommand';
 import { mapConnectionCommand } from './mapConnectionCommand';
 import { planCommand } from './plan';
 import { resumeCommand } from './resumeCommand';
+import { refactorCommand } from './refactorCommand';
 import { scanCommand } from './scanCommand';
 import { statusCommand } from './statusCommand';
 import { traverseCommand } from './traverseCommand';
@@ -21,6 +22,7 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	status: statusCommand,
 	doctor: doctorCommand,
 	scan: scanCommand,
+	refactor: refactorCommand,
 	traverse: traverseCommand,
 	debug: debugCommand,
 	'build-map': buildMapCommand,

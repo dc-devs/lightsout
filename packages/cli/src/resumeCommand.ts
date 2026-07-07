@@ -21,6 +21,11 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	const manifest = await readRunManifest({ cwd, runId });
 
+	if ((manifest.pipeline ?? 'implement') !== 'implement') {
+		console.error(`run ${runId} belongs to the ${manifest.pipeline} pipeline — resume it with: lightsout refactor --run ${runId}`);
+		process.exit(1);
+	}
+
 	if (manifest.status === RunStatus.Passed) {
 		console.error(`run ${runId} already passed — nothing to resume`);
 		process.exit(1);
