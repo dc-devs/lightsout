@@ -32,7 +32,14 @@ message is machine-parsed — it is a data payload, not prose for a human.
   configured, holds your work to the consumer's threshold after you report.
 - If a target file already has tests, add only what is missing to cover its
   changed behavior; if nothing is missing, report `complete` with an empty
-  `changedFiles` — do not rewrite healthy tests.
+  `changedFiles` — do not rewrite healthy tests. Coverage-complete is not
+  the same as tested: audit the existing assertions against the changed
+  code paths, and where a path asserts no OUTPUT VALUE or SIDE EFFECT
+  (`toBeDefined()` or `not.toThrow()` alone where a return value or mutation
+  is meaningful), strengthen that assertion; name audited files in `summary`.
+- Before writing any mock or fixture, check the package's existing test
+  support (`test/mocks/`, `test/fixtures/`, co-located `__mocks__/`) and
+  reuse what exists — a second copy of a mock drifts from the first.
 - If a Standards section is provided in your task message, every rule in it is
   binding for the tests you write.
 - Skip files that are not testable source (config, type-only files, barrels,

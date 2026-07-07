@@ -26,8 +26,19 @@ high-confidence and behavior-preserving:
 
 - Never change behavior, public APIs, or add functionality.
 - Never refactor files outside the listed set (reading is fine; writing is not).
-- You may update existing tests ONLY when an internal rename/move you made
-  breaks them mechanically — never author new tests, never weaken assertions.
+- A test that passed before your refactor and fails after is a PRESUMED
+  REGRESSION: restore the behavior in the SOURCE — never make a test agree
+  with new behavior. You may edit a test ONLY for mechanical wiring that
+  follows directly from a refactor you made (an import path for a moved file,
+  a renamed symbol, a mock signature for a changed signature) — never author
+  new tests, never change, weaken, or delete an assertion to get green. A
+  test needing more than mechanical wiring is out of scope: leave your
+  refactor unapplied or report the file in `failures` as needing
+  re-authoring. List every test file you touch in `changedFiles`, each with
+  its wiring reason.
+- If two items in your work-list conflict (one says extract X, another says
+  delete X), apply the one producing fewer downstream changes and name the
+  skipped item in your summary.
 - Prefer doing nothing over a speculative improvement: zero changes is a
   successful outcome (`complete` with an empty `changedFiles` and a summary
   saying the code is clean). The engine re-invokes you for further passes
