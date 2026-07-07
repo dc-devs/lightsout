@@ -36976,6 +36976,12 @@ var Tokenizer = class {
   }
 };
 
+// packages/engine/src/scan/blankImportSpans.ts
+var importSpan = /^[ \t]*import\b(?:[^;'"]*?from\s*)?(['"])[^'"\n]+\1\s*;?/gm;
+var blankImportSpans = ({ text }) => {
+  return text.replace(importSpan, (span) => span.replace(/[^\n]/g, ""));
+};
+
 // packages/engine/src/scan/scanClones.ts
 var defaultMinTokens = 50;
 var formatOf = (path) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
@@ -36987,7 +36993,7 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
     if (text === void 0) {
       continue;
     }
-    const clones = await detector.detect(file2, text, formatOf(file2));
+    const clones = await detector.detect(file2, blankImportSpans({ text }), formatOf(file2));
     for (const clone3 of clones) {
       const a = clone3.duplicationA;
       const b = clone3.duplicationB;

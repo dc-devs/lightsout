@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { Detector, MemoryStore } from '@jscpd/core';
 import { Tokenizer } from '@jscpd/tokenizer';
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@lightsout/contracts';
+import { blankImportSpans } from './blankImportSpans';
 
 const defaultMinTokens = 50;
 const formatOf = (path: string) => (/\.(m|c)?tsx?$/.test(path) ? 'typescript' : 'javascript');
@@ -32,7 +33,9 @@ export const scanClones = async ({ cwd, files, minTokens = defaultMinTokens }: P
 			continue;
 		}
 
-		const clones = await detector.detect(file, text, formatOf(file));
+		// Imports are non-deduplicable by construction — blank them (newline-
+		// preserving) so shared import lists never token-match as clones.
+		const clones = await detector.detect(file, blankImportSpans({ text }), formatOf(file));
 
 		for (const clone of clones) {
 			const a = clone.duplicationA;

@@ -218,3 +218,56 @@ test('scan degrades honestly without a resolvable typescript', async () => {
 
 	assert.ok(notes.some((note) => note.includes('typescript')), `honest skip note:\n${notes.join('\n')}`);
 });
+
+// Parallel adapters legitimately share their import lists — imports are
+// non-deduplicable by construction, so they must never count toward a clone.
+const importBlock = [
+	"import { readFile, writeFile, appendFile } from 'node:fs/promises';",
+	"import { join, resolve, dirname, basename } from 'node:path';",
+	"import { createHash, randomUUID } from 'node:crypto';",
+	"import type { RunManifest, RunStatus, StepRecord } from './contracts';",
+	"import { parseConfig } from './parseConfig';",
+	"import { loadPlan } from './loadPlan';",
+	"import { resolveScope } from './resolveScope';",
+	"import { buildSteps } from './buildSteps';",
+	"import './registerSideEffects';",
+	'import {',
+	'\talpha,',
+	'\tbeta,',
+	'\tgamma,',
+	"} from './greek';",
+].join('\n');
+const importBlockLines = importBlock.split('\n').length;
+
+test('clone detection ignores import spans but keeps real clones on their true lines', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-scan-imports-'));
+
+	mkdirSync(join(dir, 'src/a'), { recursive: true });
+	mkdirSync(join(dir, 'src/b'), { recursive: true });
+	writeFileSync(join(dir, 'package.json'), '{"name":"fixture-imports"}');
+
+	// Identical import blocks, unrelated bodies — must NOT clone.
+	writeFileSync(join(dir, 'src/a/importHeavyOne.ts'), `${importBlock}\nexport const importHeavyOne = () => parseConfig(loadPlan(alpha));\n`);
+	writeFileSync(join(dir, 'src/b/importHeavyTwo.ts'), `${importBlock}\nexport const importHeavyTwo = () => resolveScope(buildSteps(beta, gamma));\n`);
+
+	// Identical import blocks AND an identical body — the body must still be
+	// reported as a clone, on its real (post-import) line numbers.
+	writeFileSync(join(dir, 'src/a/offsetOne.ts'), `${importBlock}\nexport const offsetOne = ({ records }: { records: any[] }) => {${bigBody}};\n`);
+	writeFileSync(join(dir, 'src/b/offsetTwo.ts'), `${importBlock}\nexport const offsetTwo = ({ records }: { records: any[] }) => {${bigBody}};\n`);
+
+	const { findings } = await runScan({ cwd: dir });
+	const clones = findings.filter((finding) => finding.detector === 'clone');
+
+	assert.ok(
+		!clones.some((finding) => finding.files.some((file) => file.path.includes('importHeavy'))),
+		`shared import blocks reported as clones:\n${JSON.stringify(clones, undefined, 1)}`,
+	);
+
+	const offset = clones.filter((finding) => finding.files.every((file) => file.path.includes('offset')));
+
+	assert.ok(offset.length >= 1, `the duplicated body below the imports still clones:\n${JSON.stringify(clones, undefined, 1)}`);
+	assert.ok(
+		offset.every((finding) => finding.files.every((file) => (file.startLine ?? 0) > importBlockLines)),
+		`clone lines must point below the blanked imports:\n${JSON.stringify(offset, undefined, 1)}`,
+	);
+});
