@@ -12,6 +12,58 @@ import { selectTestTargets } from './selectTestTargets';
 
 const testWriterConcurrency = 5;
 
+const runWriterBatches = async ({
+	run,
+	groups,
+	planContent,
+	testStandards,
+}: {
+	run: PipelineRun;
+	groups: string[][];
+	planContent: string;
+	testStandards?: string;
+}) => {
+	const reports: WorkReport[] = [];
+	const failures: string[] = [];
+	let terminated = false;
+	let parked = false;
+
+	for (let start = 0; start < groups.length && !parked; start += testWriterConcurrency) {
+		const batch = groups.slice(start, start + testWriterConcurrency);
+		const results = await Promise.all(
+			batch.map(async (group) => ({
+				group,
+				...(await run.invokeRole({ invocation: buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), step: 'write-tests' })),
+			})),
+		);
+
+		for (const result of results) {
+			const label = result.group.join(', ');
+
+			if (result.rateLimited) {
+				parked = true;
+				continue;
+			}
+
+			if (!result.report) {
+				failures.push(`${label}: ${result.failure ?? 'unknown failure'}`);
+				continue;
+			}
+
+			await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: 'write-tests', friction: result.report.friction ?? [] });
+			reports.push(result.report);
+			run.progress(`write-tests: ${label} — ${result.report.status}`);
+
+			if (result.report.status !== WorkReportStatus.Complete) {
+				terminated = terminated || result.report.status !== WorkReportStatus.Failed;
+				failures.push(`${label}: ${result.report.status} — ${result.report.failures.join('; ')}`);
+			}
+		}
+	}
+
+	return { reports, failures, terminated, parked };
+};
+
 interface Params {
 	run: PipelineRun;
 	gitPrefix?: string;
@@ -27,7 +79,11 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 		await run.setStep({ record });
 
 		const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir: run.config.packagesDir ?? 'packages' });
-		const { targets, inert } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler });
+		const { targets, inert, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler });
+
+		if (deleted.length > 0) {
+			run.progress(`write-tests: ${deleted.length} deleted file(s) skipped (removed by the plan, nothing to cover): ${deleted.join(', ')}`);
+		}
 
 		if (inert.length > 0) {
 			run.progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(', ')}`);
@@ -38,43 +94,7 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 		run.progress(
 			`step write-tests — attempt ${record.attempts} · ${groups.length} group(s) across ${targets.length} file(s) (import-graph), up to ${testWriterConcurrency} writers in parallel`,
 		);
-		const reports: WorkReport[] = [];
-		const failures: string[] = [];
-		let terminated = false;
-		let parked = false;
-
-		for (let start = 0; start < groups.length && !parked; start += testWriterConcurrency) {
-			const batch = groups.slice(start, start + testWriterConcurrency);
-			const results = await Promise.all(
-				batch.map(async (group) => ({
-					group,
-					...(await run.invokeRole({ invocation: buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), step: 'write-tests' })),
-				})),
-			);
-
-			for (const result of results) {
-				const label = result.group.join(', ');
-
-				if (result.rateLimited) {
-					parked = true;
-					continue;
-				}
-
-				if (!result.report) {
-					failures.push(`${label}: ${result.failure ?? 'unknown failure'}`);
-					continue;
-				}
-
-				await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: 'write-tests', friction: result.report.friction ?? [] });
-				reports.push(result.report);
-				run.progress(`write-tests: ${label} — ${result.report.status}`);
-
-				if (result.report.status !== WorkReportStatus.Complete) {
-					terminated = terminated || result.report.status !== WorkReportStatus.Failed;
-					failures.push(`${label}: ${result.report.status} — ${result.report.failures.join('; ')}`);
-				}
-			}
-		}
+		const { reports, failures, terminated, parked } = await runWriterBatches({ run, groups, planContent, testStandards });
 
 		// Persist whatever progress the batches made before deciding the
 		// outcome — a parked or stopped run must still know what was touched.

@@ -103,13 +103,6 @@ export const LightsoutConfig = z.object({
 	 * docs only).
 	 */
 	standardsChannels: z.array(z.string()).optional(),
-	/** `lightsout traverse`/`build-map` settings. */
-	traverse: z
-		.object({
-			/** Where the connection map lives: a local dir, a git URL (`git@github.com:org/data-flow-map`), or a folder inside one (`git@github.com:org/repo/src/connections`). Central-first — the map is shared team knowledge. */
-			connections: z.string().optional(),
-		})
-		.optional(),
 	/** `lightsout scan` tuning — per-repo floors, not global guesses. */
 	scan: z
 		.object({

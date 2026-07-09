@@ -4,10 +4,6 @@ export { buildRefactorExecutorInvocation } from './buildRefactorExecutorInvocati
 export { buildSupervisorInvocation } from './buildSupervisorInvocation';
 export { buildReportReemitterInvocation } from './buildReportReemitterInvocation';
 export { buildPromptImproverInvocation } from './buildPromptImproverInvocation';
-export { buildTraverseHopInvocation } from './buildTraverseHopInvocation';
-export { buildDebugHopInvocation } from './buildDebugHopInvocation';
-export { buildScanEdgesInvocation } from './buildScanEdgesInvocation';
-export { scanEdgesVersion } from './scanEdgesVersion';
 export { buildPlanExploreInvocation } from './buildPlanExploreInvocation';
 export { buildPlanWriterInvocation } from './buildPlanWriterInvocation';
 export { buildPlanGapCheckInvocation } from './buildPlanGapCheckInvocation';

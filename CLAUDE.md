@@ -47,7 +47,7 @@ resumable manifests, supervisor) that spawns the user's own installed harness
   explicitly rejected — headless `claude -p` rides the Max subscription.)
 - The plugin skill carries no engine logic — never an orchestrator. No gates,
   retries, caps, state, or contract parsing in markdown, ever. A skill is either
-  pure-relay ignition (`/implement`, `/traverse`) or, for an interactive flow, an
+  pure-relay ignition (`/implement`, `/refactor`) or, for an interactive flow, an
   interactive conductor (`/plan` — conducts human dialogue, reads a subcommand's
   typed verdict); both hold zero deterministic decisions. The test is "is there
   any determinism in it," not "how thin is it."

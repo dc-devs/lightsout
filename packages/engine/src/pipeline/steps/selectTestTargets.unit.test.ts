@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Driver } from '@lightsout/drivers';
@@ -122,4 +122,70 @@ test('write-tests fan-out: every executable-code kind earns a writer; barrels an
 		progress.some((line) => line.includes('step write-tests') && line.includes(`${Object.keys(behavioralFiles).length} file(s)`)),
 		`fan-out count reflects the filtered set — got:\n${progress.join('\n')}`,
 	);
+});
+
+// A pure-removal plan lists deleted files in changed-file truth (git reports
+// removals, which legitimately widen scope). A deleted file has no source to
+// cover: routing it to a writer asks the agent to test a file that is gone,
+// which returns stale-references and escalates the run. The write-tests step
+// must skip deletions deterministically — never spawn a writer for them.
+test('write-tests fan-out: a deleted source file is skipped, never sent to a writer, and does not escalate the run', async () => {
+	const dir = setupConsumerRepo();
+
+	linkTypescript({ dir });
+
+	const writerTargets: string[] = [];
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'write-tests') {
+				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			// Implement: delete the committed source file (a pure removal, as a
+			// capability-removal plan does) and add one behavioral file.
+			rmSync(join(dir, 'src/index.js'));
+			writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number) => a + b;\n');
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/index.js', summary: 'removed' },
+						{ path: 'src/add.ts', summary: 'added' },
+					],
+				}),
+				exitCode: 0,
+			};
+		},
+	};
+
+	const progress: string[] = [];
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await loadConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	// The deletion no longer escalates — the run completes.
+	assert.equal(result.ok, true, result.error);
+
+	// The deleted file was narrated as skipped, naming it.
+	const deletedLine = progress.find((line) => line.includes('deleted file(s) skipped'));
+	assert.ok(deletedLine?.includes('src/index.js'), `deleted file narrated and named — got:\n${progress.join('\n')}`);
+
+	// Only the surviving behavioral file earned a writer; the deletion did not.
+	assert.deepEqual(writerTargets, ['src/add.ts'], `only the surviving file earned a writer — got:\n${writerTargets.join('\n')}`);
 });

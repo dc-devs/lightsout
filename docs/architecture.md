@@ -67,7 +67,7 @@ verification between steps, pluggable standards) and replaces the substrate.
    machinery is the engine's, and the moment it leaks into a skill there are two
    orchestrators again. What a skill *may* hold is the human interaction the
    engine structurally cannot. Two shapes, both zero-determinism: most skills are
-   **pure-relay ignition** (`/implement`, `/traverse`, `/build-map` — resolve the
+   **pure-relay ignition** (`/implement`, `/refactor` — resolve the
    bundle, invoke a subcommand, relay the result verbatim); a skill that drives
    an interactive flow may also be an **interactive conductor** (`/plan` —
    conduct Elicitation/Grill dialogue, author the session's inputs, read the
