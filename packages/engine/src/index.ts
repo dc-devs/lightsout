@@ -12,7 +12,7 @@ export { runDoctor } from './doctor';
 export { runScan } from './scan';
 export { runPromptImprovement } from './runPromptImprovement';
 export { resolvePlansDir } from './plan';
-export { runPlanExplore } from './plan';
+export { runPlanVerifyFacts } from './plan';
 export { runPlanDraft } from './plan';
 export { runPlanGrade } from './plan';
 export { runPlanDedup } from './plan';

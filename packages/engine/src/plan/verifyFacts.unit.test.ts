@@ -27,7 +27,8 @@ test('verifyFacts: present vs missing paths and scripts, counts correct', async 
 
 	const result = await verifyFacts({
 		cwd,
-		report: {
+		facts: {
+			request: 'x',
 			areas: [
 				area({
 					filesToModify: [
@@ -61,7 +62,8 @@ test('verifyFacts: a script found in an affected package is not a miss', async (
 
 	const result = await verifyFacts({
 		cwd,
-		report: {
+		facts: {
+			request: 'x',
 			areas: [area({ affectedPackages: ['packages/engine'], scripts: [{ key: 'test', command: 'node --test' }] })],
 		},
 	});
@@ -75,9 +77,67 @@ test('verifyFacts: never throws when no package.json exists — script is simply
 
 	const result = await verifyFacts({
 		cwd,
-		report: { areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
+		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
 	});
 
 	assert.deepEqual(result.missingScripts, ['check']);
 	assert.equal(result.pathsChecked, 0);
+});
+
+test('verifyFacts: an unparsable package.json contributes no script keys — the script is a miss', async () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-verify-badjson-'));
+
+	writeFileSync(join(cwd, 'package.json'), 'not json {');
+
+	const result = await verifyFacts({
+		cwd,
+		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
+	});
+
+	assert.deepEqual(result.missingScripts, ['check'], 'a manifest that fails to parse offers no keys');
+	assert.equal(result.scriptsChecked, 1);
+});
+
+test('verifyFacts: a scripts field that is not an object contributes no script keys', async () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-verify-scriptsnotobj-'));
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ scripts: 'not-an-object' }));
+
+	const result = await verifyFacts({
+		cwd,
+		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
+	});
+
+	assert.deepEqual(result.missingScripts, ['check'], 'a non-object scripts field offers no keys');
+	assert.equal(result.scriptsChecked, 1);
+});
+
+test('verifyFacts: a package.json without a scripts block contributes no script keys', async () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-verify-noscripts-'));
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer' }));
+
+	const result = await verifyFacts({
+		cwd,
+		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
+	});
+
+	assert.deepEqual(result.missingScripts, ['check'], 'no scripts block means no available keys');
+	assert.equal(result.scriptsChecked, 1);
+});
+
+test('verifyFacts: an area with no scripts checks paths only — zero scripts checked', async () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-verify-noscriptarea-'));
+
+	mkdirSync(join(cwd, 'src'), { recursive: true });
+	writeFileSync(join(cwd, 'src/present.ts'), '');
+
+	const result = await verifyFacts({
+		cwd,
+		facts: { request: 'x', areas: [area({ filesToModify: [{ path: 'src/present.ts', role: 'the file to change' }] })] },
+	});
+
+	assert.equal(result.scriptsChecked, 0);
+	assert.deepEqual(result.missingScripts, []);
+	assert.equal(result.pathsChecked, 1);
 });

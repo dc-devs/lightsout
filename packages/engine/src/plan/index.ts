@@ -1,4 +1,4 @@
-export { runPlanExplore } from './runPlanExplore';
+export { runPlanVerifyFacts } from './runPlanVerifyFacts';
 export { runPlanDraft } from './runPlanDraft';
 export { runPlanGrade } from './runPlanGrade';
 export { runPlanDedup } from './runPlanDedup';

@@ -8,7 +8,7 @@ usage:
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
-  lightsout plan explore "<request>" --name <n> [--areas <a,b>] [--cwd <path>]
+  lightsout plan verify-facts --name <n> [--cwd <path>]
   lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
   lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
   lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]

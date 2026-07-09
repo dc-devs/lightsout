@@ -663,7 +663,7 @@ usage:
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
-  lightsout plan explore "<request>" --name <n> [--areas <a,b>] [--cwd <path>]
+  lightsout plan verify-facts --name <n> [--cwd <path>]
   lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
   lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
   lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]
@@ -15637,8 +15637,9 @@ var ExploreArea = external_exports.object({
   namingConvention: external_exports.string()
 });
 
-// packages/contracts/src/plan/ExploreReport.ts
-var ExploreReport = external_exports.object({
+// packages/contracts/src/plan/AuthoredFacts.ts
+var AuthoredFacts = external_exports.object({
+  request: external_exports.string(),
   areas: external_exports.array(ExploreArea).default([])
 });
 
@@ -15689,6 +15690,19 @@ var PlanDraftReport = external_exports.object({
   ).default([]),
   decisionsApplied: external_exports.number(),
   assumptions: external_exports.array(external_exports.string()).default([]),
+  discrepancies: external_exports.array(external_exports.string()).default([])
+});
+
+// packages/contracts/src/plan/PlanFixStatus.ts
+var PlanFixStatus = {
+  Fixed: "fixed",
+  Error: "error"
+};
+
+// packages/contracts/src/plan/PlanFixReport.ts
+var PlanFixReport = external_exports.object({
+  status: external_exports.enum(PlanFixStatus),
+  filesEdited: external_exports.array(external_exports.string()).default([]),
   discrepancies: external_exports.array(external_exports.string()).default([])
 });
 
@@ -16598,33 +16612,17 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
   };
 };
 
-// packages/agents/prompts/planExplore.md
-var planExplore_default = '# Role: Plan Explore\n\nYou gather the codebase facts needed to plan ONE area of a feature. You work\nautonomously from the task message, and your final message is machine-parsed \u2014\nit is a data payload, not prose for a human.\n\nYour task message provides the overall feature request and the specific area to\nfocus on. Read the codebase to establish, for that area:\n\n- **Affected packages** \u2014 the packages/directories the change touches, as\n  repo-relative paths.\n- **Files to modify** \u2014 each an existing file that will change, with a one-line\n  role (what it does in this change).\n- **Patterns to mirror** \u2014 existing files the new code should imitate, each with\n  a one-line takeaway (what to copy from it: a style, a structure, a builder\n  shape).\n- **Integration points** \u2014 the real functions/types the new code wires into,\n  each with its actual signature and its `file:line` location.\n- **Scripts** \u2014 the relevant package.json script keys (e.g. the check and\n  test-unit commands) with their commands.\n- **Naming convention** \u2014 one line describing the naming the area follows.\n\n## Rules\n\n- **Report verified paths and concise facts, not file contents.** Every path\n  you name must exist; every signature must be real. The engine re-checks your\n  paths and scripts on disk, so a wrong path is caught \u2014 but a right one is what\n  makes the plan implementable without guessing.\n- **Read-only.** No writes, no state changes; shell commands are for inspection\n  only.\n- **Don\'t guess.** If you cannot establish a fact, omit it rather than invent\n  it. An empty list is honest; a fabricated path is not.\n- **One area.** Report only the area you were given; do not range across the\n  whole feature.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your actual message\nstarts with `{` and ends with `}`.\n\n```\n{\n	"areas": [{\n		"area": "<the area you focused on>",\n		"affectedPackages": ["<repo-relative package dir>"],\n		"filesToModify": [{ "path": "<repo-relative path>", "role": "<one line>" }],\n		"patternsToMirror": [{ "path": "<repo-relative path>", "takeaway": "<what to copy>" }],\n		"integrationPoints": [{ "name": "<symbol>", "signature": "<real signature>", "at": "<file:line>" }],\n		"scripts": [{ "key": "<package.json script key>", "command": "<command>" }],\n		"namingConvention": "<one line>"\n	}]\n}\n```\n';
-
-// packages/agents/src/buildPlanExploreInvocation.ts
-var buildPlanExploreInvocation = ({ request, area }) => {
-  const prompt = [
-    `# Explore input`,
-    [`- request: ${request}`, `- area to focus on: ${area}`].join("\n"),
-    "Remember: your entire final message must be exactly one JSON ExploreReport object \u2014 nothing else."
-  ].join("\n\n");
-  return {
-    systemPrompt: planExplore_default,
-    prompt
-  };
-};
-
 // packages/agents/src/buildPlanWriterInvocation.ts
 import { dirname as dirname2 } from "node:path";
 
 // packages/agents/prompts/planWriter.md
-var planWriter_default = '# Role: Plan Writer\n\nYou draft implementation plan file(s) that a fresh-context agent can implement\nwithout guessing. You work autonomously from the task message; you write the\nplan file(s) to disk and your final message is machine-parsed \u2014 one JSON report,\nnot prose for a human.\n\nYou deliberately receive **only** a decisions record and a verified facts list \u2014\nno planning conversation. If you cannot draft the plan from those inputs alone,\nthe inputs are incomplete: report what is missing and terminate. Do not fill\ngaps with guesses \u2014 a gap you paper over becomes a failure in the implementing\nagent.\n\n## Input\n\nThe task message provides:\n\n- **Feature request** \u2014 what is being built.\n- **Output files** \u2014 where to write each plan file (absolute paths) and which\n  template variant (`single`, `overview`, or `phase`) applies to each.\n- **Decisions record** \u2014 the design decisions (JSON), with chosen answers and\n  rationale.\n- **Verified facts** \u2014 codebase facts already verified on disk (JSON): affected\n  packages, files to modify, patterns to mirror, integration points, scripts,\n  naming conventions.\n- **Code standards** (optional) \u2014 supplemental conventions the plan\'s file\n  placements, naming, signatures, and patterns should conform to. Absence is\n  fine; this is not a hard gate.\n- **Structural findings to fix** (optional) \u2014 deterministic defects from a prior\n  draft of these same files. Re-author to resolve every one.\n\nThe plan template is inlined in your system prompt below. Follow the variant\nthat each output file names.\n\n## Workflow\n\n### 1. Validate inputs\n\nConfirm the message carries a feature request, output path(s) with variants, a\ndecisions record, and a facts list. If any is missing, report the error result\nbelow and terminate \u2014 write no files.\n\n### 2. Ground the facts\n\nBefore writing, read each `filesToModify` and `patternsToMirror` path and\nextract the real exported names, signatures, and integration points the plan\nwill reference. Do not transcribe signatures from the facts list without\nchecking them against the source. Verify each file you plan to create does\n**not** already exist. If a referenced path is missing, a script does not exist,\nor a stated integration point is not in the source, report the discrepancies and\nterminate.\n\n### 3. Prior art (dedup)\n\nBefore proposing any newly-created exported symbol, search the existing exports\n(glob/grep over the facts\' affected packages and the patterns to mirror). If a\nmatch exists, mirror or extend it rather than duplicating. Record the searches\nin the plan\'s `## Prior Art` section \u2014 one line per new symbol: the terms you\nsearched and that none matched, or the existing symbol it mirrors.\n\n### 4. Write the plan\n\nWrite each output file following its template variant exactly. While writing:\n\n- Resolve every detail from the decisions record, the facts, and the source\n  files you read in step 2. No `???`, `TBD`, `TODO`, or unresolved `{tokens}` \u2014\n  if a detail cannot be resolved from your inputs, that is a step 1/2 failure:\n  report and terminate.\n- Define methods and signatures for every service/module the plan creates.\n- Make the dependency graph explicit: imports/exports per created file,\n  cross-module wiring stated (exports match imports).\n- Make scope boundaries concrete \u2014 name the adjacent work the implementing agent\n  must NOT do.\n- For multi-phase plans, chain the contract: each phase\'s "What Next Plan\n  Expects" must list exactly what the next phase\'s Prerequisites claim.\n- Keep each plan (or phase) within 40 source files to create/modify.\n\n### 5. Self-review\n\nBefore reporting, check each written file against the grading criteria: every\nreferenced existing path verified; every created file listed with signatures and\nimports/exports; no placeholders; scope boundaries explicit; prerequisites\nstated; verification commands resolvable; "What Next Plan Expects" present; a\n`## Prior Art` line for every new symbol. If a "Code standards" section was\nprovided, confirm the plan\'s placements and naming conform to it.\n\n## Phased plans \u2014 hard naming rule\n\nWhen an output file\'s variant is `overview`, you author **one overview plus all\nphase files** into that file\'s directory:\n\n- The overview goes to `overview.md`.\n- Each phase goes to `phase<N>-<slug>.md` (e.g. `phase1-contracts.md`) in the\n  same directory, where `<N>` is the phase number and `<slug>` is a short kebab\n  name.\n\nThese names are **required**, not stylistic \u2014 `plan grade` rediscovers the files\nby glob and keys `overview.md` as context-only. Choose the phase breakdown and\nslugs yourself, and report **every** written path in `filesWritten`.\n\n## Report \u2014 your entire final message is one JSON object\n\nWrite the plan file(s) to disk at the given paths **first**, then emit exactly\none JSON `PlanDraftReport` object as your entire final message. Output ONLY the\nJSON \u2014 no fences, no surrounding text. Your message starts with `{` and ends\nwith `}`.\n\n```\n{\n	"status": "drafted",\n	"filesWritten": [\n		{ "path": "<absolute path written>", "variant": "single|overview|phase", "scope": "<phase slug, or \'single\'>" }\n	],\n	"decisionsApplied": <number>,\n	"assumptions": ["<any input you had to treat as an assumption>"],\n	"discrepancies": []\n}\n```\n\nIf inputs were invalid or facts failed verification, write **no** files and\nreport the error result \u2014 `status` is `"error"` and `discrepancies` lists what\nis wrong:\n\n```\n{\n	"status": "error",\n	"filesWritten": [],\n	"decisionsApplied": 0,\n	"assumptions": [],\n	"discrepancies": ["facts reference src/x.ts \u2014 does not exist on disk", "..."]\n}\n```\n\n## Operational rules\n\n- Do not ask clarifying questions \u2014 proceed immediately; unresolvable inputs are\n  reported via the error result, not asked about.\n- Write **only** the plan files at the provided output paths. Do not create or\n  modify source files, tests, or anything else.\n- Do not implement any part of the feature. Do not create commits or branches.\n- Respect all instructions in the project\'s CLAUDE.md files.\n';
+var planWriter_default = '# Role: Plan Writer\n\nYou draft implementation plan file(s) that a fresh-context agent can implement\nwithout guessing. You work autonomously from the task message; you write the\nplan file(s) to disk and your final message is machine-parsed \u2014 one JSON report,\nnot prose for a human.\n\nYou deliberately receive **only** a decisions record and a verified facts list \u2014\nno planning conversation. If you cannot draft the plan from those inputs alone,\nthe inputs are incomplete: report what is missing and terminate. Do not fill\ngaps with guesses \u2014 a gap you paper over becomes a failure in the implementing\nagent.\n\n## Input\n\nThe task message provides:\n\n- **Feature request** \u2014 what is being built.\n- **Output files** \u2014 where to write each plan file (absolute paths) and which\n  template variant (`single`, `overview`, or `phase`) applies to each.\n- **Decisions record** \u2014 the design decisions (JSON), with chosen answers and\n  rationale.\n- **Verified facts** \u2014 codebase facts already verified on disk (JSON): affected\n  packages, files to modify, patterns to mirror, integration points, scripts,\n  naming conventions.\n- **Code standards** (optional) \u2014 supplemental conventions the plan\'s file\n  placements, naming, signatures, and patterns should conform to. Absence is\n  fine; this is not a hard gate.\n\nThe plan template is inlined in your system prompt below. Follow the variant\nthat each output file names.\n\n## Workflow\n\n### 1. Validate inputs\n\nConfirm the message carries a feature request, output path(s) with variants, a\ndecisions record, and a facts list. If any is missing, report the error result\nbelow and terminate \u2014 write no files.\n\n### 2. Ground the facts\n\nBefore writing, read each `filesToModify` and `patternsToMirror` path and\nextract the real exported names, signatures, and integration points the plan\nwill reference. Do not transcribe signatures from the facts list without\nchecking them against the source. Verify each file you plan to create does\n**not** already exist. If a referenced path is missing, a script does not exist,\nor a stated integration point is not in the source, report the discrepancies and\nterminate.\n\n### 3. Prior art (dedup)\n\nBefore proposing any newly-created exported symbol, search the existing exports\n(glob/grep over the facts\' affected packages and the patterns to mirror). If a\nmatch exists, mirror or extend it rather than duplicating. Record the searches\nin the plan\'s `## Prior Art` section \u2014 one line per new symbol: the terms you\nsearched and that none matched, or the existing symbol it mirrors.\n\n### 4. Write the plan\n\nWrite each output file following its template variant exactly. While writing:\n\n- Resolve every detail from the decisions record, the facts, and the source\n  files you read in step 2. No `???`, `TBD`, `TODO`, or unresolved `{tokens}` \u2014\n  if a detail cannot be resolved from your inputs, that is a step 1/2 failure:\n  report and terminate.\n- Define methods and signatures for every service/module the plan creates.\n- Make the dependency graph explicit: imports/exports per created file,\n  cross-module wiring stated (exports match imports).\n- Make scope boundaries concrete \u2014 name the adjacent work the implementing agent\n  must NOT do.\n- For multi-phase plans, chain the contract: each phase\'s "What Next Plan\n  Expects" must list exactly what the next phase\'s Prerequisites claim.\n- Keep each plan (or phase) within 40 source files to create/modify.\n\n### 5. Self-review\n\nBefore reporting, check each written file against the grading criteria: every\nreferenced existing path verified; every created file listed with signatures and\nimports/exports; no placeholders; scope boundaries explicit; prerequisites\nstated; verification commands resolvable; "What Next Plan Expects" present; a\n`## Prior Art` line for every new symbol. If a "Code standards" section was\nprovided, confirm the plan\'s placements and naming conform to it.\n\n## Phased plans \u2014 hard naming rule\n\nWhen an output file\'s variant is `overview`, you author **one overview plus all\nphase files** into that file\'s directory:\n\n- The overview goes to `overview.md`.\n- Each phase goes to `phase<N>-<slug>.md` (e.g. `phase1-contracts.md`) in the\n  same directory, where `<N>` is the phase number and `<slug>` is a short kebab\n  name.\n\nThese names are **required**, not stylistic \u2014 `plan grade` rediscovers the files\nby glob and keys `overview.md` as context-only. Choose the phase breakdown and\nslugs yourself, and report **every** written path in `filesWritten`.\n\n## Report \u2014 your entire final message is one JSON object\n\nWrite the plan file(s) to disk at the given paths **first**, then emit exactly\none JSON `PlanDraftReport` object as your entire final message. Output ONLY the\nJSON \u2014 no fences, no surrounding text. Your message starts with `{` and ends\nwith `}`.\n\n```\n{\n	"status": "drafted",\n	"filesWritten": [\n		{ "path": "<absolute path written>", "variant": "single|overview|phase", "scope": "<phase slug, or \'single\'>" }\n	],\n	"decisionsApplied": <number>,\n	"assumptions": ["<any input you had to treat as an assumption>"],\n	"discrepancies": []\n}\n```\n\nIf inputs were invalid or facts failed verification, write **no** files and\nreport the error result \u2014 `status` is `"error"` and `discrepancies` lists what\nis wrong:\n\n```\n{\n	"status": "error",\n	"filesWritten": [],\n	"decisionsApplied": 0,\n	"assumptions": [],\n	"discrepancies": ["facts reference src/x.ts \u2014 does not exist on disk", "..."]\n}\n```\n\n## Operational rules\n\n- Do not ask clarifying questions \u2014 proceed immediately; unresolvable inputs are\n  reported via the error result, not asked about.\n- Write **only** the plan files at the provided output paths. Do not create or\n  modify source files, tests, or anything else.\n- Do not implement any part of the feature. Do not create commits or branches.\n- Respect all instructions in the project\'s CLAUDE.md files.\n';
 
 // packages/agents/prompts/planTemplate.md
 var planTemplate_default = '# Plan Template\n\nTemplates for plans consumed by `lightsout implement` and graded by the\ndeterministic structural lint (`plan grade`, structure) and the gap-check agent\n(`plan grade`, decisions). Three variants: **Single Plan** (standalone feature),\n**Overview Plan** (multi-phase context), and **Phase Plan** (one implementation\nscope under an overview).\n\n## Rules (all variants)\n\nThese mirror the structural-lint and gap-check rubrics \u2014 a plan violating them\nwill not reach A:\n\n- **No placeholders.** No `???`, `TBD`, `TODO`, or unresolved `{tokens}`. Every\n  open question must be resolved before the plan is written.\n- **Every referenced path verified.** Files listed under Files to Modify and\n  Patterns to Mirror must exist on disk at write time. Files to Create must not.\n- **Signatures, not vibes.** Services and modules define their methods and\n  signatures \u2014 never "create a service for X" without saying what it exposes.\n- **Explicit dependency graph.** Module definitions include imports/exports;\n  cross-module wiring is stated (exports match imports).\n- **Real script names.** Verification commands reference scripts that exist in\n  the target `package.json` (or the configured `scripts` overrides).\n- **Within executor scope.** Each plan (or each phase) stays within the\n  executor\'s 50-file guardrail \u2014 target 40 or fewer source files.\n- **Prior art recorded.** Every newly-created exported symbol is justified in a\n  `## Prior Art` section: the searches run against existing exports that prove it\n  is new, or the existing symbol it mirrors/extends.\n\n---\n\n## Single Plan\n\n```markdown\n# <Feature Name>\n\n## Context\n\n<1\u20132 paragraphs: what this feature does, why it is needed, and the relevant\ncurrent state of the codebase.>\n\n## Decision Log\n\nEvery meaningful decision and the road not taken, tagged with the phase that\nsurfaced it. Log a row only when an answer establishes or changes a decision or\nan edge-case handling \u2014 skip pure confirmations.\n\n| # | Source | Decision / Question | Options Considered | Choice | Rationale |\n|---|--------|---------------------|--------------------|--------|-----------|\n| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |\n\n<!-- Source is one of: Elicitation, Grill, Converge. If a decision was assumed\nrather than confirmed by the user, append "(assumption)" to the Choice cell. -->\n\n## Prerequisites\n\n- <required state before implementation begins, or "None">\n\n## Affected Packages\n\n- `<packagesDir>/<name>` \u2014 <why this package is touched>\n\n<!-- Single-package repos: state "Single-package repository." packagesDir is the\nrepo\'s package directory convention (default `packages`). -->\n\n## Files to Create\n\n### `<packagesDir>/<name>/src/path/to/file.ts`\n\n<Purpose. Key contents: exported functions/classes with full signatures,\nmethods, imports it needs, what it exports. Enough detail that a fresh-context\nagent writes the right code without guessing.>\n\n## Files to Modify\n\n### `<packagesDir>/<name>/src/path/to/existing.ts`\n\n<What changes and where: which function/section, what is added/removed/changed,\nand how it integrates with the created files.>\n\n## Patterns to Mirror\n\n- `<packagesDir>/<name>/src/path/to/analogous.ts` \u2014 <what to take from it:\n  structure, naming, error handling, etc.>\n\n## Prior Art\n\nOne line per newly-created exported symbol, recording the dedup search that\njustifies its newness:\n\n- `<symbol>` \u2014 searched <terms>, found none (new)\n- `<symbol>` \u2014 mirrors `<existing export>` (extends, does not duplicate)\n\n## Scope Boundaries\n\n**Do:**\n- <in-scope item>\n\n**Do NOT:**\n- <explicitly out-of-scope item \u2014 adjacent work the agent might be tempted to do>\n\n## Verification\n\n- `<resolved check command>` \u2014 types clean\n- `<resolved test-unit command>` \u2014 tests pass\n\n## What Next Plan Expects\n\n<For a standalone plan: "None \u2014 standalone plan." Otherwise: the exact state a\nfollow-up plan can rely on \u2014 files that exist, exports available, behavior\nguaranteed.>\n```\n\n---\n\n## Overview Plan\n\nThe overview carries context shared by all phases. It is **not implemented\ndirectly** \u2014 it is passed alongside each phase to `lightsout implement` and to\n`plan grade` as context.\n\n```markdown\n# <Feature Name> \u2014 Overview\n\n## Context\n\n<What this feature does, why, and the relevant current state.>\n\n## Decision Log\n\nCross-cutting decisions shared by all phases (phase-specific decisions live in\neach phase file). Log a row only when an answer establishes or changes a\ndecision or an edge-case handling \u2014 skip pure confirmations.\n\n| # | Source | Decision / Question | Options Considered | Choice | Rationale |\n|---|--------|---------------------|--------------------|--------|-----------|\n| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |\n\n<!-- Source is one of: Elicitation, Grill, Converge. -->\n\n## Architecture\n\n<How the pieces fit together across phases: data flow, module boundaries,\nshared types. A diagram or short prose map.>\n\n## Affected Packages\n\n- `<packagesDir>/<name>` \u2014 <role in this feature>\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1-<slug>.md` | <one-line scope> |\n| 2 | `phase2-<slug>.md` | <one-line scope> |\n\n## Cross-Phase Dependencies\n\n- Phase 2 depends on Phase 1\'s <export/file/behavior>.\n```\n\n---\n\n## Phase Plan\n\nIdentical to the Single Plan with these adjustments:\n\n- Title: `# <Feature Name> \u2014 Phase <N>: <Phase Name>`\n- **Prerequisites** states the prior phase\'s end state: "Phase <N-1> complete:\n  <files/exports that now exist>." Phase 1 states the pre-feature codebase state.\n- **Decision Log** may be omitted if fully covered by the overview \u2014 reference\n  it: "See overview." Phase-specific decisions (including Grill rows raised\n  against this phase) still go in this section.\n- **Prior Art** is still mandatory \u2014 one line per newly-created exported symbol.\n- **What Next Plan Expects** is mandatory and chains: it must list exactly what\n  the next phase\'s Prerequisites will claim. The final phase states "None \u2014\n  final phase."\n';
 
 // packages/agents/src/buildPlanWriterInvocation.ts
-var buildPlanWriterInvocation = ({ facts, decisions, outputs, standards, findings }) => {
+var buildPlanWriterInvocation = ({ facts, decisions, outputs, standards }) => {
   const outputLines = outputs.map((output) => `- ${output.path} \u2014 variant: ${output.variant}`);
   const sections = [
     `# Draft input`,
@@ -16660,17 +16658,6 @@ Apply these where they bear on the plan; they are guidance, not a hard gate:
 
 ${standards}`);
   }
-  if (findings && findings.length > 0) {
-    const lines = findings.map((finding) => `- [${finding.check}] ${finding.location} \u2014 ${finding.issue}
-  fix: ${finding.fix}`);
-    sections.push(
-      `## Structural findings to fix (prior draft)
-
-The deterministic structural lint flagged these in your last draft. Re-author the plan file(s) to resolve every one:
-
-${lines.join("\n")}`
-    );
-  }
   sections.push("Remember: write the plan file(s) to disk first, then your entire final message must be exactly one JSON PlanDraftReport object \u2014 nothing else.");
   return {
     systemPrompt: `${planWriter_default}
@@ -16680,6 +16667,39 @@ ${lines.join("\n")}`
 # Plan Template
 
 ${planTemplate_default}`,
+    prompt: sections.join("\n\n")
+  };
+};
+
+// packages/agents/prompts/planRepair.md
+var planRepair_default = '# Role: Plan Repairer\n\nYou fix an existing drafted plan in place. You do NOT re-author it. You work\nautonomously from the task message; you Edit the listed plan file(s) and your\nfinal message is machine-parsed \u2014 one JSON report, not prose for a human.\n\n## Input\n\nThe task message provides:\n\n- **Plan files to repair** \u2014 the absolute path(s) of the drafted plan file(s)\n  to Read and Edit in place.\n- **Structural findings to resolve** \u2014 the typed structural defects the\n  deterministic lint flagged, each with its exact `fix` string.\n- **Decisions record** (reference) \u2014 the design decisions (JSON), for\n  resolving content the findings require.\n- **Verified facts** (reference) \u2014 codebase facts already verified on disk\n  (JSON), for resolving content the findings require. An unresolved\n  placeholder marker resolves from the facts/decisions, never from a guess.\n\n## Workflow\n\n1. Read each listed plan file.\n2. For each finding, apply the smallest edit that resolves it \u2014 apply the\n   finding\'s `fix` string literally where it is concrete; where the fix\n   requires content (a placeholder to fill, a missing section to write),\n   resolve it from the facts/decisions record.\n3. Hard rule: **minimal edits resolving only the flagged findings \u2014 do not\n   restructure, re-order, re-word, or touch any content the findings do not\n   name.**\n4. If a finding cannot be resolved from the inputs, stop and report status\n   `error` with the reason per finding in `discrepancies` \u2014 never paper over\n   it.\n\n## Report \u2014 your entire final message is one JSON object\n\nEmit exactly one JSON `PlanFixReport` object as your entire final message.\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts\nwith `{` and ends with `}`.\n\n```\n{\n	"status": "fixed",\n	"filesEdited": ["<absolute path edited>"],\n	"discrepancies": []\n}\n```\n\nIf a finding cannot be resolved from the inputs, report the error result \u2014\n`status` is `"error"` and `discrepancies` states why, per finding:\n\n```\n{\n	"status": "error",\n	"filesEdited": [],\n	"discrepancies": ["<finding> \u2014 cannot be resolved because <reason>", "..."]\n}\n```\n\n## Operational rules\n\n- Edit **only** the listed plan files; never source files, tests, or anything\n  else.\n- Do not implement any part of the feature. Do not create commits or branches.\n- Do not ask clarifying questions \u2014 proceed immediately; unresolvable findings\n  are reported via the error result, not asked about.\n- Respect all instructions in the project\'s CLAUDE.md files.\n';
+
+// packages/agents/src/buildPlanRepairInvocation.ts
+var buildPlanRepairInvocation = ({ findings, planPaths, facts, decisions }) => {
+  const findingLines = findings.map((finding) => `- [${finding.check}] ${finding.location} \u2014 ${finding.issue}
+  fix: ${finding.fix}`);
+  const sections = [
+    `# Repair input`,
+    `## Plan files to repair (Edit in place)
+
+- ${planPaths.join("\n- ")}`,
+    `## Structural findings to resolve
+
+${findingLines.join("\n")}`,
+    `## Decisions record (reference)
+
+\`\`\`json
+${JSON.stringify(decisions, void 0, "	")}
+\`\`\``,
+    `## Verified facts (reference)
+
+\`\`\`json
+${JSON.stringify(facts, void 0, "	")}
+\`\`\``,
+    "Remember: minimal edits resolving only the flagged findings, then your entire final message must be exactly one JSON PlanFixReport object \u2014 nothing else."
+  ];
+  return {
+    systemPrompt: planRepair_default,
     prompt: sections.join("\n\n")
   };
 };
@@ -31366,17 +31386,28 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model }) => 
   return { friction, report, failure, rateLimited };
 };
 
-// packages/engine/src/plan/runPlanExplore.ts
-import { appendFile as appendFile6, mkdir as mkdir9, writeFile as writeFile8 } from "node:fs/promises";
-import { join as join36 } from "node:path";
+// packages/engine/src/plan/runPlanVerifyFacts.ts
+import { writeFile as writeFile8 } from "node:fs/promises";
+import { join as join37 } from "node:path";
 
 // packages/engine/src/plan/planWorkspaceDir.ts
 import { join as join34 } from "node:path";
 var planWorkspaceDir = ({ cwd, name }) => join34(cwd, ".lightsout", "plans", name);
 
-// packages/engine/src/plan/verifyFacts.ts
+// packages/engine/src/plan/common/utils/readPlanWorkspaceFile.ts
 import { readFile as readFile21 } from "node:fs/promises";
 import { join as join35 } from "node:path";
+var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
+  const filePath = join35(planWorkspaceDir({ cwd, name }), fileName);
+  const raw = await readFile21(filePath, "utf8").catch(() => {
+    throw new Error(notFound(filePath));
+  });
+  return schema.parse(JSON.parse(raw));
+};
+
+// packages/engine/src/plan/verifyFacts.ts
+import { readFile as readFile22 } from "node:fs/promises";
+import { join as join36 } from "node:path";
 
 // packages/engine/src/plan/common/utils/pathExists.ts
 import { stat as stat3 } from "node:fs/promises";
@@ -31394,25 +31425,25 @@ var scriptKeysOf = (raw) => {
     return /* @__PURE__ */ new Set();
   }
 };
-var verifyFacts = async ({ cwd, report }) => {
-  const paths = report.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
+var verifyFacts = async ({ cwd, facts }) => {
+  const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join35(cwd, path) });
+    const exists = await pathExists({ path: join36(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
   }
   const missingScripts = [];
   let scriptsChecked = 0;
-  for (const area of report.areas) {
+  for (const area of facts.areas) {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join35(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join35(cwd, pkg, "package.json"))];
+    const manifestPaths = [join36(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join36(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile21(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile22(manifestPath, "utf8").catch(() => void 0);
       if (raw) {
         for (const key of scriptKeysOf(raw)) {
           available.add(key);
@@ -31431,90 +31462,47 @@ var verifyFacts = async ({ cwd, report }) => {
     missingPaths,
     scriptsChecked,
     missingScripts,
-    // Explore returns only modify/mirror paths; create-path checking is a
-    // draft-phase concern. Defined here for Phase 2 reuse; empty for now.
+    // Authored facts carry only modify/mirror paths; create-path checking is
+    // a draft-phase concern. Defined here for Phase 2 reuse; empty for now.
     createPathsThatExist: []
   };
 };
 
-// packages/engine/src/plan/runPlanExplore.ts
-var defaultExploreTimeoutMs = 30 * 60 * 1e3;
-var runPlanExplore = async ({
-  cwd,
-  driver,
-  request,
-  name,
-  areas,
-  model,
-  permissionMode,
-  timeoutMs = defaultExploreTimeoutMs,
-  onProgress
-}) => {
+// packages/engine/src/plan/runPlanVerifyFacts.ts
+var runPlanVerifyFacts = async ({ cwd, name, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir9(workspaceDir, { recursive: true });
-  const targetAreas = areas && areas.length > 0 ? areas : [request];
-  progress(`plan explore ${name}: ${targetAreas.length} explorer(s)`);
-  const results = await Promise.all(
-    targetAreas.map(async (area, index) => {
-      const outcome = await invokeAgentWithContract({
-        driver,
-        cwd,
-        invocation: buildPlanExploreInvocation({ request, area }),
-        contract: ExploreReport,
-        model,
-        permissionMode,
-        timeoutMs,
-        onEvent: (event) => {
-          void appendFile6(join36(workspaceDir, `explore-${index}-stream.jsonl`), `${JSON.stringify(event)}
-`, "utf8").catch(() => void 0);
-        },
-        onRejectedOutput: async ({ text, attempt }) => {
-          await writeFile8(join36(workspaceDir, `explore-${index}-rejected-${attempt}.txt`), text, "utf8").catch(() => void 0);
-        }
-      });
-      return { area, ...outcome };
-    })
-  );
-  if (results.some((result) => result.rateLimited)) {
-    return {
-      status: "paused-rate-limit",
-      workspaceDir,
-      error: `rate limit reached \u2014 re-run: lightsout plan explore "${request}" --name ${name}`
-    };
+  const factsPath = join37(workspaceDir, "facts.json");
+  let authored;
+  try {
+    authored = await readPlanWorkspaceFile({
+      cwd,
+      name,
+      fileName: "facts.json",
+      schema: AuthoredFacts,
+      notFound: (filePath) => `no authored facts for plan ${name} at ${filePath} \u2014 author facts.json ({ request, areas }), then re-run: lightsout plan verify-facts --name ${name}`
+    });
+  } catch (error51) {
+    return { status: "failed", workspaceDir, error: error51 instanceof Error ? error51.message : String(error51) };
   }
-  const succeeded = results.filter((result) => result.report);
-  const failed = results.filter((result) => !result.report);
-  if (succeeded.length === 0) {
-    return {
-      status: "failed",
-      workspaceDir,
-      error: `all ${targetAreas.length} explorer(s) failed: ${failed.map((result) => result.failure).join("; ")}`
-    };
-  }
-  for (const result of failed) {
-    progress(`plan explore \xB7 area '${result.area}' failed: ${result.failure} \u2014 re-run explore for it if the plan needs it`);
-  }
-  const mergedAreas = succeeded.flatMap((result) => result.report?.areas ?? []);
-  const verification = await verifyFacts({ cwd, report: { areas: mergedAreas } });
+  const verification = await verifyFacts({ cwd, facts: authored });
   const facts = {
-    request,
-    areas: mergedAreas,
+    request: authored.request,
+    areas: authored.areas,
     verification,
     verifiedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const factsPath = join36(workspaceDir, "facts.json");
   await writeFile8(factsPath, `${JSON.stringify(facts, void 0, "	")}
 `, "utf8");
   const missingPart = verification.missingPaths.length > 0 ? `, ${verification.missingPaths.length} missing: ${verification.missingPaths.join(", ")}` : "";
   progress(
-    `plan explore \xB7 ${verification.pathsChecked} path(s) verified${missingPart}; ${verification.scriptsChecked} script(s) checked, ${verification.missingScripts.length} missing`
+    `plan verify-facts \xB7 ${verification.pathsChecked} path(s) verified${missingPart}; ${verification.scriptsChecked} script(s) checked, ${verification.missingScripts.length} missing`
   );
   return { status: "complete", facts, factsPath, workspaceDir, error: void 0 };
 };
 
 // packages/engine/src/plan/runPlanDraft.ts
-import { appendFile as appendFile7, mkdir as mkdir10, writeFile as writeFile9 } from "node:fs/promises";
+import { appendFile as appendFile6, mkdir as mkdir9, writeFile as writeFile9 } from "node:fs/promises";
 import { isAbsolute, join as join40 } from "node:path";
 
 // packages/engine/src/plan/estimatePlanScope.ts
@@ -31533,15 +31521,15 @@ var estimatePlanScope = ({ facts }) => {
 };
 
 // packages/engine/src/plan/lintPlanStructure.ts
-import { readFile as readFile23 } from "node:fs/promises";
+import { readFile as readFile24 } from "node:fs/promises";
 import { basename as basename8 } from "node:path";
 
 // packages/engine/src/plan/checkPlanPaths.ts
-import { basename as basename6, join as join37 } from "node:path";
+import { basename as basename6, join as join38 } from "node:path";
 var checkPlanPaths = async ({ plan, cwd, planPath }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join37(cwd, path) })) {
+    if (!await pathExists({ path: join38(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `referenced path does not exist: ${path}`,
@@ -31551,7 +31539,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
     }
   }
   for (const path of plan.createPaths) {
-    if (await pathExists({ path: join37(cwd, path) })) {
+    if (await pathExists({ path: join38(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `Files to Create path already exists: ${path}`,
@@ -31564,8 +31552,8 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
 };
 
 // packages/engine/src/plan/checkVerificationScripts.ts
-import { readFile as readFile22 } from "node:fs/promises";
-import { basename as basename7, join as join38 } from "node:path";
+import { readFile as readFile23 } from "node:fs/promises";
+import { basename as basename7, join as join39 } from "node:path";
 var scriptNameOf = (command) => {
   const runScript = extractRunScriptName({ command });
   if (runScript !== void 0) {
@@ -31595,10 +31583,10 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       }
     }
   }
-  const manifestPaths = [join38(cwd, "package.json"), ...[...packageDirs].map((dir) => join38(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join39(cwd, "package.json"), ...[...packageDirs].map((dir) => join39(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
-    const raw = await readFile22(manifestPath, "utf8").catch(() => void 0);
+    const raw = await readFile23(manifestPath, "utf8").catch(() => void 0);
     if (!raw) {
       continue;
     }
@@ -31748,7 +31736,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const packagesDir = config2?.packagesDir ?? "packages";
   const configCommands = new Set(Object.values(config2?.scripts ?? {}).filter((value) => typeof value === "string"));
   for (const planPath of planPaths) {
-    const content = await readFile23(planPath, "utf8").catch(() => void 0);
+    const content = await readFile24(planPath, "utf8").catch(() => void 0);
     if (content === void 0) {
       findings.push({
         check: StructuralCheck.SectionsPresent,
@@ -31805,17 +31793,6 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   return findings;
 };
 
-// packages/engine/src/plan/common/utils/readPlanWorkspaceFile.ts
-import { readFile as readFile24 } from "node:fs/promises";
-import { join as join39 } from "node:path";
-var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join39(planWorkspaceDir({ cwd, name }), fileName);
-  const raw = await readFile24(filePath, "utf8").catch(() => {
-    throw new Error(notFound(filePath));
-  });
-  return schema.parse(JSON.parse(raw));
-};
-
 // packages/engine/src/plan/readDecisions.ts
 var readDecisions = async ({ cwd, name }) => {
   return readPlanWorkspaceFile({
@@ -31834,13 +31811,13 @@ var readPlanFacts = async ({ cwd, name }) => {
     name,
     fileName: "facts.json",
     schema: PlanFacts,
-    notFound: (filePath) => `no facts found for plan ${name} at ${filePath} \u2014 run: lightsout plan explore`
+    notFound: (filePath) => `no facts found for plan ${name} at ${filePath} \u2014 author facts.json ({ request, areas }), then run: lightsout plan verify-facts --name ${name}`
   });
 };
 
 // packages/engine/src/plan/runPlanDraft.ts
 var defaultDraftTimeoutMs = 30 * 60 * 1e3;
-var maxDraftAttempts = 5;
+var maxRepairAttempts = 3;
 var runPlanDraft = async ({
   cwd,
   driver,
@@ -31855,78 +31832,106 @@ var runPlanDraft = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir10(workspaceDir, { recursive: true });
+  await mkdir9(workspaceDir, { recursive: true });
   const facts = await readPlanFacts({ cwd, name });
   const decisions = await readDecisions({ cwd, name });
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const variant = scope ?? estimatePlanScope({ facts });
   const outputs = variant === PlanVariant.Single ? [{ path: join40(plansDir, `${name}.md`), variant: PlanVariant.Single }] : [{ path: join40(plansDir, name, "overview.md"), variant: PlanVariant.Overview }];
-  await mkdir10(variant === PlanVariant.Single ? plansDir : join40(plansDir, name), { recursive: true });
+  await mkdir9(variant === PlanVariant.Single ? plansDir : join40(plansDir, name), { recursive: true });
   progress(`plan draft ${name}: variant ${variant} (${scope ? "scope flag" : "estimated"})`);
-  let findings = [];
-  let planPaths = [];
-  let lastReport;
-  for (let attempt = 1; attempt <= maxDraftAttempts; attempt += 1) {
-    progress(`plan draft ${name}: attempt ${attempt}/${maxDraftAttempts}`);
-    const { report, failure, rateLimited } = await invokeAgentWithContract({
+  const { report, failure, rateLimited } = await invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards }),
+    contract: PlanDraftReport,
+    model,
+    permissionMode,
+    timeoutMs,
+    onEvent: (event) => {
+      void appendFile6(join40(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
+`, "utf8").catch(() => void 0);
+    },
+    onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
+      await writeFile9(join40(workspaceDir, `draft-rejected-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
+    }
+  });
+  if (rateLimited) {
+    return {
+      status: "paused-rate-limit",
+      workspaceDir,
+      error: `rate limit reached \u2014 re-run: lightsout plan draft --name ${name}`
+    };
+  }
+  if (!report) {
+    return { status: "failed", workspaceDir, error: failure ?? "unknown failure" };
+  }
+  if (report.status === PlanDraftStatus.Error) {
+    return { status: "facts-error", workspaceDir, discrepancies: report.discrepancies };
+  }
+  const planPaths = report.filesWritten.map((file2) => isAbsolute(file2.path) ? file2.path : join40(cwd, file2.path));
+  const missing = [];
+  for (const path of planPaths) {
+    if (!await pathExists({ path })) {
+      missing.push(path);
+    }
+  }
+  if (planPaths.length === 0 || missing.length > 0) {
+    return {
+      status: "failed",
+      workspaceDir,
+      error: planPaths.length === 0 ? "plan-writer reported drafted but listed no files written" : `plan-writer reported files that were not written: ${missing.join(", ")}`
+    };
+  }
+  let findings = await lintPlanStructure({ cwd, planPaths, config: config2 });
+  for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {
+    progress(`plan draft ${name}: ${findings.length} structural finding(s) \u2014 repair ${repair}/${maxRepairAttempts}`);
+    const { report: fixReport, failure: fixFailure, rateLimited: fixRateLimited } = await invokeAgentWithContract({
       driver,
       cwd,
-      invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, findings: findings.length > 0 ? findings : void 0 }),
-      contract: PlanDraftReport,
+      invocation: buildPlanRepairInvocation({ findings, planPaths, facts, decisions }),
+      contract: PlanFixReport,
       model,
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile7(join40(workspaceDir, "draft-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile6(join40(workspaceDir, `repair-${repair}-stream.jsonl`), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
-        await writeFile9(join40(workspaceDir, `draft-rejected-${attempt}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
+        await writeFile9(join40(workspaceDir, `repair-rejected-${repair}-${reportAttempt}.txt`), text, "utf8").catch(() => void 0);
       }
     });
-    if (rateLimited) {
+    if (fixRateLimited) {
       return {
         status: "paused-rate-limit",
         workspaceDir,
         error: `rate limit reached \u2014 re-run: lightsout plan draft --name ${name}`
       };
     }
-    if (!report) {
-      return { status: "failed", workspaceDir, error: failure ?? "unknown failure" };
+    if (!fixReport) {
+      return { status: "failed", workspaceDir, error: fixFailure ?? "unknown failure" };
     }
-    lastReport = report;
-    if (report.status === PlanDraftStatus.Error) {
-      return { status: "facts-error", workspaceDir, discrepancies: report.discrepancies };
-    }
-    planPaths = report.filesWritten.map((file2) => isAbsolute(file2.path) ? file2.path : join40(cwd, file2.path));
-    const missing = [];
-    for (const path of planPaths) {
-      if (!await pathExists({ path })) {
-        missing.push(path);
+    const declined = fixReport.status === PlanFixStatus.Error;
+    if (declined) {
+      for (const discrepancy of fixReport.discrepancies) {
+        progress(`plan draft ${name}: repair declined \u2014 ${discrepancy}`);
       }
     }
-    if (planPaths.length === 0 || missing.length > 0) {
-      return {
-        status: "failed",
-        workspaceDir,
-        error: planPaths.length === 0 ? "plan-writer reported drafted but listed no files written" : `plan-writer reported files that were not written: ${missing.join(", ")}`
-      };
-    }
     findings = await lintPlanStructure({ cwd, planPaths, config: config2 });
-    if (findings.length === 0) {
-      progress(`plan draft ${name}: structurally clean (${planPaths.length} file(s))`);
+    if (declined) {
       break;
     }
-    progress(`plan draft ${name}: ${findings.length} structural finding(s) \u2014 re-drafting`);
   }
   if (findings.length > 0) {
     return { status: "structural-issues", workspaceDir, findings, planPaths };
   }
-  return { status: "complete", workspaceDir, planPaths, variant, report: lastReport };
+  progress(`plan draft ${name}: structurally clean (${planPaths.length} file(s))`);
+  return { status: "complete", workspaceDir, planPaths, variant, report };
 };
 
 // packages/engine/src/plan/runPlanGrade.ts
-import { appendFile as appendFile8, mkdir as mkdir11, writeFile as writeFile11 } from "node:fs/promises";
+import { appendFile as appendFile7, mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
 import { basename as basename9, join as join42 } from "node:path";
 
 // packages/engine/src/plan/detectPriorArtCandidates.ts
@@ -32035,7 +32040,7 @@ var runPlanGrade = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir11(workspaceDir, { recursive: true });
+  await mkdir10(workspaceDir, { recursive: true });
   const inputs = await getPlanDetectionInputs({ cwd, name, plansDir });
   if (inputs.error) {
     return { status: "failed", workspaceDir, error: inputs.error };
@@ -32060,7 +32065,7 @@ var runPlanGrade = async ({
       permissionMode,
       timeoutMs,
       onEvent: (event) => {
-        void appendFile8(join42(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
+        void appendFile7(join42(workspaceDir, "grade-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
       },
       onRejectedOutput: async ({ text, attempt }) => {
@@ -32096,7 +32101,7 @@ var runPlanGrade = async ({
 };
 
 // packages/engine/src/plan/runPlanDedup.ts
-import { appendFile as appendFile9, mkdir as mkdir12, writeFile as writeFile12 } from "node:fs/promises";
+import { appendFile as appendFile8, mkdir as mkdir11, writeFile as writeFile12 } from "node:fs/promises";
 import { join as join43 } from "node:path";
 var defaultDedupTimeoutMs = 30 * 60 * 1e3;
 var runPlanDedup = async ({
@@ -32112,7 +32117,7 @@ var runPlanDedup = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  await mkdir12(workspaceDir, { recursive: true });
+  await mkdir11(workspaceDir, { recursive: true });
   const inputs = await getPlanDetectionInputs({ cwd, name, plansDir });
   if (inputs.error) {
     return { status: "failed", workspaceDir, error: inputs.error };
@@ -32141,7 +32146,7 @@ var runPlanDedup = async ({
     permissionMode,
     timeoutMs,
     onEvent: (event) => {
-      void appendFile9(join43(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
+      void appendFile8(join43(workspaceDir, "dedup-stream.jsonl"), `${JSON.stringify(event)}
 `, "utf8").catch(() => void 0);
     },
     onRejectedOutput: async ({ text, attempt }) => {
@@ -32842,53 +32847,6 @@ ${bold(`plan draft ${name}`)} \u2014 ${result.variant}, structurally clean`);
   process.exit(0);
 };
 
-// packages/cli/src/plan/planExploreCommand.ts
-var planExploreCommand = async ({ flags, rest, cwd }) => {
-  const name = getStringFlag({ flags, name: "name" });
-  const request = getPositionals({ args: rest }).slice(1).join(" ");
-  const areasFlag = getStringFlag({ flags, name: "areas" });
-  const areas = areasFlag ? areasFlag.split(",").map((area) => area.trim()).filter(Boolean) : void 0;
-  if (!name || !request) {
-    console.error(usage);
-    process.exit(1);
-  }
-  const { config: config2, driver } = await resolveConfigAndDriver({ cwd });
-  const result = await runPlanExplore({
-    cwd,
-    driver,
-    request,
-    name,
-    areas,
-    model: config2?.model,
-    permissionMode: config2?.permissionMode,
-    onProgress: createProgressPrinter()
-  });
-  if (result.status === "paused-rate-limit") {
-    console.error(`
-${result.error}`);
-    process.exit(1);
-  }
-  if (result.status === "failed" || !result.facts) {
-    console.error(`
-${result.error ?? "plan explore failed"}`);
-    process.exit(1);
-  }
-  const { verification } = result.facts;
-  console.log(`
-${bold(`plan explore ${name}`)} \u2014 ${result.facts.areas.length} area(s), verified ${result.facts.verifiedAt}`);
-  console.log(`  paths:   ${verification.pathsChecked} checked \xB7 ${verification.missingPaths.length} missing`);
-  console.log(`  scripts: ${verification.scriptsChecked} checked \xB7 ${verification.missingScripts.length} missing`);
-  for (const missing of verification.missingPaths) {
-    console.log(`${yellow("\u26A0")} path not found: ${missing}`);
-  }
-  for (const missing of verification.missingScripts) {
-    console.log(`${yellow("\u26A0")} script not found: ${missing}`);
-  }
-  console.log(`
-facts: ${result.factsPath}`);
-  process.exit(0);
-};
-
 // packages/cli/src/plan/planGradeCommand.ts
 var planGradeCommand = async ({ cwd, driver, name, plansDir, standards, config: config2 }) => {
   const result = await runPlanGrade({
@@ -32923,11 +32881,40 @@ grade: ${result.gradePath}`);
   process.exit(0);
 };
 
+// packages/cli/src/plan/planVerifyFactsCommand.ts
+var planVerifyFactsCommand = async ({ flags, cwd }) => {
+  const name = getStringFlag({ flags, name: "name" });
+  if (!name) {
+    console.error(usage);
+    process.exit(1);
+  }
+  const result = await runPlanVerifyFacts({ cwd, name, onProgress: createProgressPrinter() });
+  if (result.status === "failed" || !result.facts) {
+    console.error(`
+${result.error ?? "plan verify-facts failed"}`);
+    process.exit(1);
+  }
+  const { verification } = result.facts;
+  console.log(`
+${bold(`plan verify-facts ${name}`)} \u2014 ${result.facts.areas.length} area(s), verified ${result.facts.verifiedAt}`);
+  console.log(`  paths:   ${verification.pathsChecked} checked \xB7 ${verification.missingPaths.length} missing`);
+  console.log(`  scripts: ${verification.scriptsChecked} checked \xB7 ${verification.missingScripts.length} missing`);
+  for (const missing of verification.missingPaths) {
+    console.log(`${yellow("\u26A0")} path not found: ${missing}`);
+  }
+  for (const missing of verification.missingScripts) {
+    console.log(`${yellow("\u26A0")} script not found: ${missing}`);
+  }
+  console.log(`
+facts: ${result.factsPath}`);
+  process.exit(0);
+};
+
 // packages/cli/src/plan/planCommand.ts
 var planCommand = async ({ flags, rest, cwd }) => {
   const subcommand = getPositionals({ args: rest })[0];
-  if (subcommand === "explore") {
-    await planExploreCommand({ flags, rest, cwd });
+  if (subcommand === "verify-facts") {
+    await planVerifyFactsCommand({ flags, rest, cwd });
     return;
   }
   if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {

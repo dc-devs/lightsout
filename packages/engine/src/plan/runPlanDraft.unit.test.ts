@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { PlanDraftReport } from '@lightsout/contracts';
@@ -71,43 +71,61 @@ None — standalone plan.
 /** Same skeleton but with a planted placeholder, so the structural lint flags it. */
 const dirtyPlan = () => cleanPlan().replace('A new module exporting', 'TBD — a new module exporting');
 
-/** The absolute path the draft prompt tells the writer to write to. */
+/** The absolute path the prompt names — the writer's output line and the repairer's plan-file bullet share the `- <path>` shape. */
 const outputPathFrom = (prompt: string) => /- (\S+\.md)/.exec(prompt)?.[1];
 
+/** The plan-writer's drafted report naming one written single-variant file. */
+const draftedReport = ({ path }: { path: string }) =>
+	JSON.stringify({
+		status: 'drafted',
+		filesWritten: [{ path, variant: 'single', scope: 'single' }],
+		decisionsApplied: 0,
+		assumptions: [],
+		discrepancies: [],
+	});
+
 /**
- * A plan-writer stub keyed off the draft marker. `bodies` is the sequence of
- * plan contents to write across successive attempts (the last is reused if the
- * loop runs longer). Writes the file to the path named in the prompt and returns
- * a valid PlanDraftReport, exactly like the real agent.
+ * A stub driver keyed off both invocation markers. A `# Draft input` prompt
+ * authors the next body to the output path and returns a PlanDraftReport; a
+ * `# Repair input` prompt rewrites the plan file listed in the prompt with the
+ * next body and returns a PlanFixReport — unless `repair` overrides it (the
+ * override does its own file edits and returns the report text). `bodies` is
+ * the sequence of plan contents across successive calls (the last is reused if
+ * the loop runs longer).
  */
-const draftDriver = ({ bodies, onCall }: { bodies: string[]; onCall?: () => void }): Driver => {
+const draftDriver = ({ bodies, onCall, repair }: { bodies: string[]; onCall?: (prompt: string) => void; repair?: ({ path }: { path: string }) => string }): Driver => {
 	let call = 0;
 
 	return {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
-			assert.ok(prompt.includes('# Draft input'), 'plan-writer invocation marker present');
-			onCall?.();
+			onCall?.(prompt);
 
 			const path = outputPathFrom(prompt);
 
-			assert.ok(path, 'output path parsed from the draft prompt');
+			assert.ok(path, 'plan path parsed from the prompt');
 
 			const body = bodies[Math.min(call, bodies.length - 1)];
 
 			call += 1;
+
+			if (prompt.includes('# Repair input')) {
+				if (repair) {
+					return { text: repair({ path }), exitCode: 0 };
+				}
+
+				writeFileSync(path, body);
+
+				return {
+					text: JSON.stringify({ status: 'fixed', filesEdited: [path], discrepancies: [] }),
+					exitCode: 0,
+				};
+			}
+
+			assert.ok(prompt.includes('# Draft input'), 'plan-writer invocation marker present');
 			writeFileSync(path, body);
 
-			return {
-				text: JSON.stringify({
-					status: 'drafted',
-					filesWritten: [{ path, variant: 'single', scope: 'single' }],
-					decisionsApplied: 0,
-					assumptions: [],
-					discrepancies: [],
-				}),
-				exitCode: 0,
-			};
+			return { text: draftedReport({ path }), exitCode: 0 };
 		},
 	};
 };
@@ -126,17 +144,96 @@ test('plan draft: writes plan.md and returns a valid PlanDraftReport', async () 
 	assert.doesNotThrow(() => PlanDraftReport.parse(result.report));
 });
 
-test('plan draft: a TBD then a clean draft proves the structural re-draft loop converges', async () => {
+test('plan draft: a TBD author then a clean repair proves the repair loop converges without re-authoring', async () => {
 	const cwd = setupConsumerRepo();
 
 	seedWorkspace({ cwd, name: 'converge' });
 
-	let calls = 0;
-	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onCall: () => (calls += 1) });
+	const prompts: string[] = [];
+	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onCall: (prompt) => prompts.push(prompt) });
 	const result = await runPlanDraft({ cwd, driver, name: 'converge', plansDir: join(cwd, '.claude', 'plans') });
 
 	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.equal(calls, 2, 'the dirty first draft forced exactly one re-draft');
+	assert.equal(prompts.length, 2, 'the dirty author forced exactly one repair');
+	assert.ok(prompts[0].includes('# Draft input'), 'attempt 1 authors');
+	assert.ok(!prompts[0].includes('Structural findings'), 'the author prompt carries no corrective findings section');
+	assert.ok(prompts[1].includes('# Repair input'), 'attempt 2 is a repair, never a re-author');
+});
+
+test('plan draft: repairs that never fix the finding exhaust the budget and return structural-issues', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'exhaust' });
+
+	let calls = 0;
+	const driver = draftDriver({ bodies: [dirtyPlan()], onCall: () => (calls += 1) });
+	const result = await runPlanDraft({ cwd, driver, name: 'exhaust', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'structural-issues');
+	assert.equal(calls, 4, '1 author + exactly 3 repairs');
+	assert.ok('findings' in result && result.findings.length > 0);
+	assert.ok('planPaths' in result && existsSync(result.planPaths[0]), 'the draft path survives intact for the session to fix');
+});
+
+test('plan draft: a repairer error stops the loop after one repair', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'declined' });
+
+	let calls = 0;
+	const driver = draftDriver({
+		bodies: [dirtyPlan()],
+		onCall: () => (calls += 1),
+		repair: () => JSON.stringify({ status: 'error', filesEdited: [], discrepancies: ['finding X unresolvable'] }),
+	});
+	const result = await runPlanDraft({ cwd, driver, name: 'declined', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'structural-issues');
+	assert.equal(calls, 2, 'no further repairs burned after the decline');
+});
+
+test('plan draft: a declined repair still re-lints, so partial fixes leave only true survivors', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'partial' });
+
+	// Two planted placeholders → two findings. The repair fixes TODO, declines TBD.
+	const twoFindingsPlan = cleanPlan().replace('A new module exporting', 'TBD TODO — a new module exporting');
+	const driver = draftDriver({
+		bodies: [twoFindingsPlan],
+		repair: ({ path }) => {
+			writeFileSync(path, readFileSync(path, 'utf8').replace('TODO ', ''));
+
+			return JSON.stringify({ status: 'error', filesEdited: [path], discrepancies: ["'TBD' unresolvable from the inputs"] });
+		},
+	});
+	const result = await runPlanDraft({ cwd, driver, name: 'partial', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'structural-issues');
+	assert.ok('findings' in result);
+	assert.equal(result.findings.length, 1, 'the surviving set comes from the post-repair lint, not the stale pre-repair list');
+	assert.match(result.findings[0].issue, /TBD/);
+});
+
+test('plan draft: a declined repair whose edits cleaned the plan returns complete — the lint decides, not the report', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'declined-clean' });
+
+	let calls = 0;
+	const driver = draftDriver({
+		bodies: [dirtyPlan()],
+		onCall: () => (calls += 1),
+		repair: ({ path }) => {
+			writeFileSync(path, cleanPlan());
+
+			return JSON.stringify({ status: 'error', filesEdited: [path], discrepancies: ['declared unresolvable, yet fixed'] });
+		},
+	});
+	const result = await runPlanDraft({ cwd, driver, name: 'declined-clean', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+	assert.equal(calls, 2, 'the decline still stops the loop after its re-lint');
 });
 
 test('plan draft: a report.status of error returns facts-error and writes no plan', async () => {
@@ -184,4 +281,138 @@ test('plan draft: a missing decisions.json makes readDecisions throw', async () 
 		runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-decisions', plansDir: join(cwd, '.claude', 'plans') }),
 		/no decisions found/,
 	);
+});
+
+test('plan draft: a missing facts.json rejects pointing at plan verify-facts', async () => {
+	const cwd = setupConsumerRepo();
+
+	// No workspace seeded at all — readPlanFacts must throw before any invocation.
+	await assert.rejects(
+		runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-facts', plansDir: join(cwd, '.claude', 'plans') }),
+		/no facts found[\s\S]*plan verify-facts --name no-facts/,
+	);
+});
+
+test('plan draft: a rate-limited author parks the run before any repair', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'parked-author' });
+
+	let calls = 0;
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			calls += 1;
+
+			return { text: '', exitCode: 1, rateLimited: true };
+		},
+	};
+	const result = await runPlanDraft({ cwd, driver, name: 'parked-author', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'paused-rate-limit');
+	assert.equal(calls, 1, 'no re-emit retry and no repair after a rate limit');
+	assert.ok('error' in result && /rate limit/.test(result.error), 'the error names the rate limit');
+});
+
+test('plan draft: a rate-limited repair parks the run with the draft intact', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'parked-repair' });
+
+	let calls = 0;
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			calls += 1;
+
+			if (prompt.includes('# Repair input')) {
+				return { text: '', exitCode: 1, rateLimited: true };
+			}
+
+			const path = outputPathFrom(prompt);
+
+			assert.ok(path, 'plan path parsed from the prompt');
+			writeFileSync(path, dirtyPlan());
+
+			return { text: draftedReport({ path }), exitCode: 0 };
+		},
+	};
+	const result = await runPlanDraft({ cwd, driver, name: 'parked-repair', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'paused-rate-limit');
+	assert.equal(calls, 2, 'the rate limit surfaced on the first repair');
+	assert.ok(existsSync(join(cwd, '.claude', 'plans', 'parked-repair.md')), 'the draft survives on disk for the re-run to overwrite');
+});
+
+test('plan draft: an author invocation failure returns failed with the driver error', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'author-spawn-fail' });
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			throw new Error('spawn failed');
+		},
+	};
+	const result = await runPlanDraft({ cwd, driver, name: 'author-spawn-fail', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'failed');
+	assert.ok('error' in result && /spawn failed/.test(result.error), 'the driver error reaches the caller');
+});
+
+test('plan draft: a repair invocation failure returns failed instead of looping', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'repair-spawn-fail' });
+
+	let calls = 0;
+	const driver = draftDriver({
+		bodies: [dirtyPlan()],
+		onCall: () => (calls += 1),
+		repair: () => {
+			throw new Error('spawn failed');
+		},
+	});
+	const result = await runPlanDraft({ cwd, driver, name: 'repair-spawn-fail', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'failed');
+	assert.equal(calls, 2, 'no further repairs burned after the failure');
+	assert.ok('error' in result && /spawn failed/.test(result.error), 'the driver error reaches the caller');
+});
+
+test('plan draft: a drafted report listing no files returns failed', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'no-files' });
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => ({
+			text: JSON.stringify({ status: 'drafted', filesWritten: [], decisionsApplied: 0, assumptions: [], discrepancies: [] }),
+			exitCode: 0,
+		}),
+	};
+	const result = await runPlanDraft({ cwd, driver, name: 'no-files', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'failed');
+	assert.ok('error' in result && /no files written/.test(result.error));
+});
+
+test('plan draft: a drafted report naming an unwritten file returns failed', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'ghost-file' });
+
+	const plansDir = join(cwd, '.claude', 'plans');
+	const ghostPath = join(plansDir, 'ghost-file.md');
+	const driver: Driver = {
+		name: 'stub',
+		// Reports the file as written without ever writing it.
+		invoke: async () => ({ text: draftedReport({ path: ghostPath }), exitCode: 0 }),
+	};
+	const result = await runPlanDraft({ cwd, driver, name: 'ghost-file', plansDir });
+
+	assert.equal(result.status, 'failed');
+	assert.ok('error' in result && /not written/.test(result.error) && result.error.includes(ghostPath), 'the error names the missing file');
 });

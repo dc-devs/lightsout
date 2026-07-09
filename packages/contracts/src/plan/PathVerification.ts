@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * The deterministic result of re-checking an `ExploreReport`'s claims on disk
+ * The deterministic result of re-checking the authored facts' claims on disk
  * — counts plus the miss lists. An agent claiming "path exists" is not
  * evidence; `stat`/package.json reads in code are. Verification results are
  * data, never thrown.

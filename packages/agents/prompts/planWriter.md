@@ -26,8 +26,6 @@ The task message provides:
 - **Code standards** (optional) — supplemental conventions the plan's file
   placements, naming, signatures, and patterns should conform to. Absence is
   fine; this is not a hard gate.
-- **Structural findings to fix** (optional) — deterministic defects from a prior
-  draft of these same files. Re-author to resolve every one.
 
 The plan template is inlined in your system prompt below. Follow the variant
 that each output file names.

@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ExploreReport, PathVerification } from '@lightsout/contracts';
+import type { AuthoredFacts, PathVerification } from '@lightsout/contracts';
 import { pathExists } from './common/utils/pathExists';
 
 interface Params {
 	cwd: string;
-	report: ExploreReport;
+	facts: AuthoredFacts;
 }
 
 const scriptKeysOf = (raw: string): Set<string> => {
@@ -19,14 +19,15 @@ const scriptKeysOf = (raw: string): Set<string> => {
 };
 
 /**
- * Deterministically re-check an explorer's claims on disk — no agent. Every
- * `filesToModify`/`patternsToMirror` path is `stat`ed; every area script key is
- * looked up in that area's affected packages' package.json plus the repo-root
- * package.json (a miss only when absent from all). An agent claiming a path
- * exists is not evidence; this is. Never throws — the result is data.
+ * Deterministically re-check the session-authored facts' claims on disk — no
+ * agent. Every `filesToModify`/`patternsToMirror` path is `stat`ed; every area
+ * script key is looked up in that area's affected packages' package.json plus
+ * the repo-root package.json (a miss only when absent from all). An agent
+ * claiming a path exists is not evidence; this is. Never throws — the result
+ * is data.
  */
-export const verifyFacts = async ({ cwd, report }: Params): Promise<PathVerification> => {
-	const paths = report.areas.flatMap((area) => [...area.filesToModify.map((file) => file.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
+export const verifyFacts = async ({ cwd, facts }: Params): Promise<PathVerification> => {
+	const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file) => file.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
 	const missingPaths: string[] = [];
 
 	for (const path of paths) {
@@ -40,7 +41,7 @@ export const verifyFacts = async ({ cwd, report }: Params): Promise<PathVerifica
 	const missingScripts: string[] = [];
 	let scriptsChecked = 0;
 
-	for (const area of report.areas) {
+	for (const area of facts.areas) {
 		if (area.scripts.length === 0) {
 			continue;
 		}
@@ -72,8 +73,8 @@ export const verifyFacts = async ({ cwd, report }: Params): Promise<PathVerifica
 		missingPaths,
 		scriptsChecked,
 		missingScripts,
-		// Explore returns only modify/mirror paths; create-path checking is a
-		// draft-phase concern. Defined here for Phase 2 reuse; empty for now.
+		// Authored facts carry only modify/mirror paths; create-path checking is
+		// a draft-phase concern. Defined here for Phase 2 reuse; empty for now.
 		createPathsThatExist: [],
 	};
 };

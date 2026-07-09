@@ -1,5 +1,5 @@
 import { dirname } from 'node:path';
-import type { DecisionsRecord, PlanFacts, PlanVariant, StructuralFinding } from '@lightsout/contracts';
+import type { DecisionsRecord, PlanFacts, PlanVariant } from '@lightsout/contracts';
 import planWriterPrompt from '../prompts/planWriter.md';
 import planTemplate from '../prompts/planTemplate.md';
 
@@ -10,18 +10,15 @@ interface Params {
 	outputs: { path: string; variant: PlanVariant }[];
 	/** Supplemental code standards, inlined verbatim. Absent = non-fatal. */
 	standards?: string;
-	/** Structural findings from a prior draft attempt, appended as corrective input. */
-	findings?: StructuralFinding[];
 }
 
 /**
  * Assemble the plan-writer invocation deterministically. The role prompt and the
  * plan template are stable, so they live in the system prompt (the template
  * appended as a labelled section); the request, decisions, facts, output paths,
- * and any supplemental standards / prior-draft findings are the per-invocation
- * prompt.
+ * and any supplemental standards are the per-invocation prompt.
  */
-export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards, findings }: Params) => {
+export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards }: Params): { systemPrompt: string; prompt: string } => {
 	const outputLines = outputs.map((output) => `- ${output.path} — variant: ${output.variant}`);
 	const sections = [
 		`# Draft input`,
@@ -45,14 +42,6 @@ export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards
 
 	if (standards) {
 		sections.push(`## Code standards (supplemental)\n\nApply these where they bear on the plan; they are guidance, not a hard gate:\n\n${standards}`);
-	}
-
-	if (findings && findings.length > 0) {
-		const lines = findings.map((finding) => `- [${finding.check}] ${finding.location} — ${finding.issue}\n  fix: ${finding.fix}`);
-
-		sections.push(
-			`## Structural findings to fix (prior draft)\n\nThe deterministic structural lint flagged these in your last draft. Re-author the plan file(s) to resolve every one:\n\n${lines.join('\n')}`,
-		);
 	}
 
 	sections.push('Remember: write the plan file(s) to disk first, then your entire final message must be exactly one JSON PlanDraftReport object — nothing else.');

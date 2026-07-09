@@ -4,8 +4,8 @@ export { buildRefactorExecutorInvocation } from './buildRefactorExecutorInvocati
 export { buildSupervisorInvocation } from './buildSupervisorInvocation';
 export { buildReportReemitterInvocation } from './buildReportReemitterInvocation';
 export { buildPromptImproverInvocation } from './buildPromptImproverInvocation';
-export { buildPlanExploreInvocation } from './buildPlanExploreInvocation';
 export { buildPlanWriterInvocation } from './buildPlanWriterInvocation';
+export { buildPlanRepairInvocation } from './buildPlanRepairInvocation';
 export { buildPlanGapCheckInvocation } from './buildPlanGapCheckInvocation';
 export { buildPlanDedupInvocation } from './buildPlanDedupInvocation';
 export { formatFindingSite } from './formatFindingSite';

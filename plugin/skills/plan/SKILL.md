@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Produce a rigorous, implementation-ready plan for a feature — one a fresh-context agent can implement without guessing. Explores the codebase, interviews you to drain what you know, drafts the plan, grills it for edge cases, and grades it to A. Use when the user wants to plan a feature, write an implementation plan, or get a plan graded before implementing. Input is a feature description or a rough-notes file path. Output feeds `/implement`.
-allowed-tools: Bash, Read, Write, Edit
+allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Task
 ---
 
 # lightsout: plan
@@ -22,19 +22,44 @@ not exist, stop and tell the user to reinstall the plugin or run `pnpm bundle`.
 **0. Name the plan.** Derive a kebab `<name>` from the request (e.g. "add a
 rate-limit banner" → `rate-limit-banner`).
 
-**1. Explore.** Run:
-```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan explore "<request>" --name <name>
+**1. Explore (in-context) + verify.** Explore the codebase yourself: read the
+files the request touches, follow the integration points, and note real
+signatures. For a feature spanning many packages/layers, optionally fan out
+read-only Explore subagents for breadth — either way YOU author the facts, and
+only from paths you actually confirmed by reading them. Author
+`.lightsout/plans/<name>/facts.json`. Write this **exact** shape (the engine
+hard-parses it):
+```json
+{
+  "request": "<the feature request>",
+  "areas": [
+    {
+      "area": "<what this area covers>",
+      "affectedPackages": ["<repo-relative package dir>"],
+      "filesToModify": [{ "path": "<repo-relative>", "role": "<one line>" }],
+      "patternsToMirror": [{ "path": "<repo-relative>", "takeaway": "<what to take>" }],
+      "integrationPoints": [{ "name": "<symbol>", "signature": "<real signature>", "at": "<file:line>" }],
+      "scripts": [{ "key": "<package.json script key>", "command": "<what it runs>" }],
+      "namingConvention": "<one line>"
+    }
+  ]
+}
 ```
-Add `--areas a,b,c` (one explorer per area) for a feature spanning multiple
-packages/layers. Relay the verification summary; note any missing paths for
-Elicitation.
+Then run:
+```sh
+node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan verify-facts --name <name>
+```
+It deterministically checks every claimed path/script on disk and stamps the
+verification into facts.json. Relay the summary; fix any genuinely wrong path
+in facts.json and re-run verify-facts, and carry remaining missing-path
+warnings into Elicitation.
 
 **2. Elicitation** — drain the user's *conscious* knowledge (interactive):
 - Batch related questions, ≤4 per turn, **recommended answer first**, resolve the
   decision tree branch by branch, reflect each answer back to converge on a
   shared understanding. Never ask what the codebase can answer — read it (or
-  re-run `plan explore`) instead.
+  re-explore in-context, update facts.json, and re-run `plan verify-facts`)
+  instead.
 - Continue until the user is **tapped out and aligned** — their bound, not yours.
 - Author `.lightsout/plans/<name>/decisions.json`. Write this **exact** shape
   (the engine hard-parses it; a wrong field name blocks drafting):
@@ -56,7 +81,8 @@ Elicitation.
 node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan draft --name <name>
 ```
 Pass `--scope single|phased` only to override the engine's estimate. On
-`facts error` → re-run `plan explore` with corrected scope, then re-draft. On
+`facts error` → re-explore in-context, correct facts.json, re-run
+`plan verify-facts`, then re-draft. On
 remaining `structural issue(s)` → relay them. On success → note the written
 `plan.md` path.
 

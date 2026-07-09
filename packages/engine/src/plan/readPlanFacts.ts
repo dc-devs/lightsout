@@ -17,6 +17,6 @@ export const readPlanFacts = async ({ cwd, name }: Params): Promise<PlanFacts> =
 		name,
 		fileName: 'facts.json',
 		schema: PlanFacts,
-		notFound: (filePath) => `no facts found for plan ${name} at ${filePath} — run: lightsout plan explore`,
+		notFound: (filePath) => `no facts found for plan ${name} at ${filePath} — author facts.json ({ request, areas }), then run: lightsout plan verify-facts --name ${name}`,
 	});
 };

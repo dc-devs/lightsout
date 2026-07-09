@@ -7,14 +7,15 @@ import { resolveConfigAndDriver } from '../common/utils/resolveConfigAndDriver';
 import { loadPlanningStandards } from './loadPlanningStandards';
 import { planDedupCommand } from './planDedupCommand';
 import { planDraftCommand } from './planDraftCommand';
-import { planExploreCommand } from './planExploreCommand';
 import { planGradeCommand } from './planGradeCommand';
+import { planVerifyFactsCommand } from './planVerifyFactsCommand';
 
 export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
 	const subcommand = getPositionals({ args: rest })[0];
 
-	if (subcommand === 'explore') {
-		await planExploreCommand({ flags, rest, cwd });
+	// verify-facts is deterministic — no agent, so no resolveConfigAndDriver.
+	if (subcommand === 'verify-facts') {
+		await planVerifyFactsCommand({ flags, rest, cwd });
 		return;
 	}
 
