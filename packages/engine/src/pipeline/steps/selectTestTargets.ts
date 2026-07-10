@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import { isInertSourceFile } from '../isInertSourceFile';
+import { isInertSourceFile } from '../../common/utils/isInertSourceFile';
 import type { PipelineRun } from '../PipelineRun';
 
 interface Params {

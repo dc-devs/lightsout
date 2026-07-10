@@ -19,7 +19,7 @@ interface Params {
  * export-default) counts as logic and keeps its writer; a false "has logic"
  * merely reproduces the old behavior.
  */
-export const isInertSourceFile = ({ path, content, compiler }: Params) => {
+export const isInertSourceFile = ({ path, content, compiler }: Params): boolean => {
 	const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
 	const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
 

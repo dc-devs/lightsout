@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 import { runScan } from '@lightsout/engine';
 import { getStringFlag } from './common/args/getStringFlag';
+import { printFinding } from './common/render/printFinding';
 import { dim } from './common/terminal/dim';
-import { yellow } from './common/terminal/yellow';
 import type { CommandContext } from './common/types/CommandContext';
 
 export const scanCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
@@ -18,16 +18,8 @@ export const scanCommand = async ({ flags, cwd }: CommandContext): Promise<void>
 
 	console.log('');
 
-	for (const [severity, list] of Object.entries(bySeverity)) {
-		for (const entry of list) {
-			const icon = severity === 'finding' ? yellow('⚠') : dim('ℹ');
-			const where = entry.files
-				.map((file) => `${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`)
-				.join(', ');
-
-			console.log(`${icon} ${entry.detector.padEnd(20)}${entry.detail}`);
-			console.log(dim(`  ${''.padEnd(20)}${where}`));
-		}
+	for (const entry of [...bySeverity.finding, ...bySeverity.advisory]) {
+		printFinding({ entry });
 	}
 
 	for (const note of notes) {

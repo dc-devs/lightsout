@@ -1,4 +1,4 @@
-import type { LightsoutConfig } from '@lightsout/contracts';
+import type { GateResult, LightsoutConfig } from '@lightsout/contracts';
 import { appendCommandLog } from '../runState';
 import { extractRunScriptName } from '../common/utils/extractRunScriptName';
 import { resolvePackageManifest } from '../common/utils/resolvePackageManifest';
@@ -31,6 +31,13 @@ interface Params {
 	runId?: string;
 	/** Pipeline step in flight, recorded in the command log. */
 	step?: string;
+	/**
+	 * Stop each group at its first red (default); false runs every gate in every
+	 * group and aggregates the failures — verify's complete-report mode.
+	 */
+	failFast?: boolean;
+	/** Structured sink — one entry per command execution or scoped skip. Feeds verify's evidence list; independent of the commands.jsonl log. */
+	onGateResult?: (result: GateResult) => void;
 	/** Live progress sink — one line per command result. Silent when omitted. */
 	onProgress?: (message: string) => void;
 }
@@ -46,7 +53,7 @@ interface Params {
  * across groups, labelled per package. Every command execution is logged to
  * the run's commands.jsonl.
  */
-export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step, onProgress }: Params) => {
+export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step, failFast, onGateResult, onProgress }: Params): Promise<string | undefined> => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
 		const startedAt = Date.now();
 		let result;
@@ -60,23 +67,24 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 
 		onProgress?.(`gate [${group}] ${kind}${rerun ? ' (re-run)' : ''}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`);
 
+		// The commands.jsonl record and the structured sink carry the same
+		// evidence — build it once. The record adds only the log-specific
+		// `at`/`step` on top.
+		const gateResult: GateResult = {
+			kind,
+			group,
+			command,
+			exitCode: result.exitCode,
+			durationMs: Date.now() - startedAt,
+			...(rerun ? { rerun: true } : {}),
+			...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
+		};
+
 		if (runId) {
-			await appendCommandLog({
-				cwd,
-				runId,
-				record: {
-					at: new Date().toISOString(),
-					step,
-					group,
-					kind,
-					command,
-					exitCode: result.exitCode,
-					durationMs: Date.now() - startedAt,
-					...(rerun ? { rerun: true } : {}),
-					...(result.exitCode === 0 ? {} : { outputTail: `${result.stdout}\n${result.stderr}`.slice(-outputTailChars) }),
-				},
-			});
+			await appendCommandLog({ cwd, runId, record: { at: new Date().toISOString(), step, ...gateResult } });
 		}
+
+		onGateResult?.(gateResult);
 
 		return result;
 	};
@@ -118,7 +126,7 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 	const scoped = config.packageScripts;
 
 	if (!scoped || !packages || packages.length === 0) {
-		return runGateSet({ commands: rootCommands, gate });
+		return runGateSet({ commands: rootCommands, gate, failFast });
 	}
 
 	const packagesDir = config.packagesDir ?? defaultPackagesDir;
@@ -164,6 +172,8 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 				});
 			}
 
+			onGateResult?.({ kind, group: packageDir, command: substitute(template), skipped: true, reason: `no "${scriptName}" script` });
+
 			return undefined;
 		};
 
@@ -172,6 +182,7 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 		return runGateSet({
 			label: packageDir,
 			gate,
+			failFast,
 			commands: {
 				check: await scopedCommand({ kind: 'check', template: scoped.check }),
 				// Coverage replaces the plain test run; only when coverage is
@@ -191,7 +202,7 @@ export const runGates = async ({ cwd, config, coverage, packages, includeRoot, r
 	const results = await Promise.all(packages.map(packageGate));
 
 	if (includeRoot) {
-		results.push(await runGateSet({ commands: rootCommands, gate, label: 'root' }));
+		results.push(await runGateSet({ commands: rootCommands, gate, label: 'root', failFast }));
 	}
 
 	const errors = results.filter((result): result is string => Boolean(result));

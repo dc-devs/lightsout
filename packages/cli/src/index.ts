@@ -11,6 +11,7 @@ import { resumeCommand } from './resumeCommand';
 import { refactorCommand } from './refactorCommand';
 import { scanCommand } from './scanCommand';
 import { statusCommand } from './statusCommand';
+import { verifyCommand } from './verifyCommand';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	implement: implementCommand,
@@ -18,6 +19,7 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	status: statusCommand,
 	doctor: doctorCommand,
 	scan: scanCommand,
+	verify: verifyCommand,
 	refactor: refactorCommand,
 	plan: planCommand,
 	friction: frictionCommand,
