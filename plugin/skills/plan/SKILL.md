@@ -55,12 +55,24 @@ in facts.json and re-run verify-facts, and carry remaining missing-path
 warnings into Elicitation.
 
 **2. Elicitation** — drain the user's *conscious* knowledge (interactive):
-- Batch related questions, ≤4 per turn, **recommended answer first**, resolve the
-  decision tree branch by branch, reflect each answer back to converge on a
-  shared understanding. Never ask what the codebase can answer — read it (or
-  re-explore in-context, update facts.json, and re-run `plan verify-facts`)
-  instead.
+- **Harvest the session first.** If the feature was discussed in this
+  conversation before the skill was invoked, record each decision the user
+  already made as a decisions row (`Source = "Elicitation"`) before asking
+  anything. Settled in-session means settled — never re-ask it.
+- Batch related questions, ≤4 per turn, resolve the decision tree branch by
+  branch, reflect each answer back to converge on a shared understanding.
+  Never ask what the codebase can answer — read it (or re-explore in-context,
+  update facts.json, and re-run `plan verify-facts`) instead.
+- **Question shape** (here and in Grill): plain language, no jargon. Lead with
+  context — what the question is about and why it matters — then your
+  recommended answer with the reasoning, then the alternative(s), so a
+  one-word reply can resolve it.
 - Continue until the user is **tapped out and aligned** — their bound, not yours.
+- **Alignment checkpoint.** Close by stating back, in plain words: the goal,
+  the design shape, and the kinds of implementation detail you will decide
+  yourself from here (best practice only). The user's explicit confirmation
+  licenses Grill's self-answer routing (step 4); without it, every grill
+  question escalates to the user.
 - Author `.lightsout/plans/<name>/decisions.json`. Write this **exact** shape
   (the engine hard-parses it; a wrong field name blocks drafting):
   ```json
@@ -88,11 +100,31 @@ remaining `structural issue(s)` → relay them. On success → note the written
 
 **4. Grill** — push past conscious knowledge against the *drafted* plan
 (interactive, unbounded):
-- Relentless, **one question at a time**, recommended answer first; explore the
-  codebase instead of asking whenever possible.
-- After each answer, **immediately fold it into `plan.md` via Edit** and append a
+- Relentless: generate the full stream of edge-case questions against the
+  draft — grilling intensity never drops. Routing decides who *answers* each
+  question, never whether it gets asked. Explore the codebase instead of
+  asking whenever possible.
+- **Route every question before surfacing it. Escalating to the user is the
+  default** — self-answer is the single exception, allowed only when ALL of
+  these hold: the user confirmed the alignment checkpoint (step 2); the answer
+  follows directly from the established goal, direction, and architecture; and
+  no defensible reading of the user's intent gives a different answer. Fail
+  any one → escalate. (Typical escalations: a genuine fork, anything that
+  could bend the plan's direction, a question with two defensible answers —
+  illustrative, never a filter.) **When in doubt, escalate.**
+- **Self-answered** → fold the answer into `plan.md` via Edit, append a
+  `Decision Log` row with `Source = Grill` and a rationale ending in
+  `(self-answered)`, and mirror it into `decisions.json` with
+  `"assumption": true`. Do not surface it live.
+- **Escalated** → **one question at a time**, in the step-2 question shape
+  (context → why it matters → recommendation → alternatives). After each
+  answer, **immediately fold it into `plan.md` via Edit** and append a
   `Decision Log` row with `Source = Grill`. Do not batch edits to the end.
-- Continue until **the user says stop** — do not self-terminate.
+- Continue until **the user says stop** — do not self-terminate. Self-answering
+  a question never counts as stopping.
+- **Assumption digest.** When the user stops, list every self-answered
+  question with its chosen answer. A veto re-opens that question as an
+  escalation — fold the corrected answer into `plan.md` before moving on.
 
 **5. Dedup Review** — resolve prior-art duplication (interactive). This is the
 last shaping of the plan; after it the plan is complete and Grade only verifies.
