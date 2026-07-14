@@ -16,7 +16,8 @@ const CLI = join(process.cwd(), '.test-dist', 'cli-under-test.mjs');
 // with two. Pinning this whole block is the point of characterization: if a
 // refactor changes it, this suite goes red and the refactor is wrong. (A
 // FEATURE adding a command updates this pin deliberately — updated 2026-07-09
-// for `plan verify-facts` replacing `plan explore`.)
+// for `plan verify-facts` replacing `plan explore`, 2026-07-14 for `plan
+// lint`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -30,6 +31,7 @@ usage:
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--cwd <path>]
   lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
+  lightsout plan lint --name <n> [--plans <dir>] [--cwd <path>]
   lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
   lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]
   lightsout friction [--cwd <path>]
@@ -238,6 +240,127 @@ test('cli: plan verify-facts with an unparsable facts.json reports the error and
 
 	assert.equal(stdout, '');
 	assert.notEqual(stderr, '');
+	assert.equal(code, 1);
+});
+
+// A structurally clean plan whose paths resolve against seedPlanLintFixture:
+// the modify/mirror path exists, the create path does not, and `true` is a raw
+// command (no package-manager prefix), so ScriptExists never fires and the
+// fixture needs no lightsout.config.json.
+const cleanPlanBody = `# Clean Plan
+
+## Context
+
+A tiny clean plan for the structural lint.
+
+## Prerequisites
+
+- None
+
+## Files to Create
+
+### \`src/new-thing.ts\`
+
+A new module exporting \`newThing\`.
+
+## Files to Modify
+
+### \`src/index.js\`
+
+Re-export \`newThing\`.
+
+## Patterns to Mirror
+
+- \`src/index.js\` — mirror its single-export shape.
+
+## Prior Art
+
+- \`newThing\` — searched newThing/new-thing, found none (new).
+
+## Scope Boundaries
+
+**Do:**
+- Add \`newThing\`.
+
+**Do NOT:**
+- Touch anything else.
+
+## Verification
+
+- \`true\` — types clean
+
+## What Next Plan Expects
+
+None — standalone plan.
+`;
+
+// A consumer repo with a committed plan deliverable and deliberately NO
+// lightsout.config.json: `plan lint` is deterministic and must route before
+// resolveConfigAndDriver, so it works where `verify` exits 2 for a missing
+// config. `plansDir` defaults to .claude/plans unless the caller relocates it.
+const seedPlanLintFixture = async ({ body, plansSubdir = join('.claude', 'plans') }: { body: string; plansSubdir?: string }) => {
+	const cwd = await freshCwd();
+	const plansDir = join(cwd, plansSubdir);
+
+	await mkdir(join(cwd, 'src'), { recursive: true });
+	await mkdir(plansDir, { recursive: true });
+	await writeFile(join(cwd, 'src', 'index.js'), 'export const one = 1;\n', 'utf8');
+	await writeFile(join(plansDir, 'demo.md'), body, 'utf8');
+
+	return { cwd, plansDir };
+};
+
+test('cli: plan lint without --name prints usage to stderr and exits 1', async () => {
+	const cwd = await freshCwd();
+
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--cwd', cwd] });
+
+	assert.equal(stdout, '');
+	assert.equal(stderr, usageErr);
+	assert.equal(code, 1);
+});
+
+test('cli: plan lint on a clean plan reports clean and exits 0', async () => {
+	const { cwd } = await seedPlanLintFixture({ body: cleanPlanBody });
+
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
+
+	assert.equal(stderr, '');
+	assert.match(stdout, /plan lint demo: 0 structural finding\(s\) across 1 file\(s\)/);
+	assert.match(stdout, /plan lint demo — clean \(1 file\(s\)\)/);
+	assert.ok(!stdout.includes('⚠'), 'a clean plan prints no finding lines');
+	assert.equal(code, 0);
+});
+
+test('cli: plan lint on a plan with a placeholder prints the finding and exits 1', async () => {
+	const { cwd } = await seedPlanLintFixture({ body: cleanPlanBody.replace('A new module exporting', 'TBD — a new module exporting') });
+
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
+
+	assert.equal(stderr, '');
+	assert.match(stdout, /plan lint demo — 1 structural finding\(s\) \(1 file\(s\)\)/);
+	assert.match(stdout, /⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present/);
+	assert.match(stdout, /fix: resolve 'TBD'/);
+	assert.equal(code, 1);
+});
+
+test('cli: plan lint reads the plan deliverable from --plans and exits 0 when clean', async () => {
+	const { cwd, plansDir } = await seedPlanLintFixture({ body: cleanPlanBody, plansSubdir: 'elsewhere' });
+
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--plans', plansDir, '--cwd', cwd] });
+
+	assert.equal(stderr, '');
+	assert.match(stdout, /plan lint demo — clean \(1 file\(s\)\)/);
+	assert.equal(code, 0);
+});
+
+test('cli: plan lint without a plan deliverable reports the error and exits 1', async () => {
+	const cwd = await freshCwd();
+
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'ghost', '--cwd', cwd] });
+
+	assert.equal(stdout, '');
+	assert.match(stderr, /no plan found for 'ghost'/);
 	assert.equal(code, 1);
 });
 

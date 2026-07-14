@@ -22,12 +22,46 @@ const requiredSections = {
 	overview: ['Phases', 'Cross-Phase Dependencies'],
 } as const;
 
-const placeholderPatterns: { label: string; re: RegExp }[] = [
+const placeholderPatterns: { label: string; re: RegExp; skipInFence?: boolean }[] = [
 	{ label: '???', re: /\?\?\?/ },
 	{ label: 'TBD', re: /\bTBD\b/ },
 	{ label: 'TODO', re: /\bTODO\b/ },
-	{ label: 'unresolved {token}', re: /\{[A-Za-z][A-Za-z0-9_]*\}/ },
+	{ label: 'unresolved {token}', re: /(?<!\$)\{[A-Za-z][A-Za-z0-9_]*\}/, skipInFence: true },
 ];
+
+/**
+ * First hit per placeholder label, at most one per file. Fence state is tracked
+ * so `skipInFence` patterns go quiet inside backtick code blocks — a plan that
+ * shows real code there legitimately writes destructuring and JSX braces. The
+ * marker patterns scan every line; prose and inline code spans keep full
+ * checking, so a brace-wrapped path segment is still caught.
+ */
+const scanPlaceholders = ({ lines }: { lines: string[] }) => {
+	const matches: { label: string; line: number }[] = [];
+	const reported = new Set<string>();
+	let inFence = false;
+
+	for (const [index, line] of lines.entries()) {
+		if (/^\s*```/.test(line)) {
+			inFence = !inFence;
+
+			continue;
+		}
+
+		for (const { label, re, skipInFence } of placeholderPatterns) {
+			if ((inFence && skipInFence) || reported.has(label)) {
+				continue;
+			}
+
+			if (re.test(line)) {
+				reported.add(label);
+				matches.push({ label, line: index + 1 });
+			}
+		}
+	}
+
+	return matches;
+};
 
 const isSourceFile = (path: string) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 
@@ -85,17 +119,13 @@ export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Pro
 		findings.push(...(await checkVerificationScripts({ plan, cwd, planPath, packagesDir, configCommands })));
 
 		// NoPlaceholders — no unresolved markers remain.
-		for (const { label, re } of placeholderPatterns) {
-			const index = plan.lines.findIndex((line) => re.test(line));
-
-			if (index !== -1) {
-				findings.push({
-					check: StructuralCheck.NoPlaceholders,
-					issue: `unresolved placeholder '${label}' present`,
-					location: `${basename(planPath)}:${index + 1}`,
-					fix: `resolve '${label}' — every open question must be decided before the plan is written`,
-				});
-			}
+		for (const { label, line } of scanPlaceholders({ lines: plan.lines })) {
+			findings.push({
+				check: StructuralCheck.NoPlaceholders,
+				issue: `unresolved placeholder '${label}' present`,
+				location: `${basename(planPath)}:${line}`,
+				fix: `resolve '${label}' — every open question must be decided before the plan is written`,
+			});
 		}
 
 		// ScopeWithinGuardrail — create/modify source-file count under the ceiling.

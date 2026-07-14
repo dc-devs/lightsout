@@ -19,7 +19,10 @@ resumable manifests, supervisor) that spawns the user's own installed harness
   `lightsout refactor` — standalone findings burn-down pipeline: frozen
   worklist, detector×area batches, gate-kind fix routing, declines as
   first-class outcomes, park/resume; v1.2: supervisor consult on red-gated
-  batches via shared `consultSupervisor`). FeedbackDrop is consumer #1 via
+  batches via shared `consultSupervisor`; plan-lint turnaround: fence-aware
+  placeholder lint (no false findings on template literals), deterministic
+  `plan lint` subcommand, plan-writer self-lint before reporting, repair-loop
+  no-progress early exit). FeedbackDrop is consumer #1 via
   its own `lightsout.config.json`.
 
 ## Commands

@@ -17,5 +17,6 @@ export { runPlanVerifyFacts } from './plan';
 export { runPlanDraft } from './plan';
 export { runPlanGrade } from './plan';
 export { runPlanDedup } from './plan';
+export { runPlanLint } from './plan';
 export { readStandards } from './standards';
 export { detectStandardsChannels } from './standards';

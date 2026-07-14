@@ -2,6 +2,7 @@ export { runPlanVerifyFacts } from './runPlanVerifyFacts';
 export { runPlanDraft } from './runPlanDraft';
 export { runPlanGrade } from './runPlanGrade';
 export { runPlanDedup } from './runPlanDedup';
+export { runPlanLint } from './runPlanLint';
 export { lintPlanStructure } from './lintPlanStructure';
 export { verifyFacts } from './verifyFacts';
 export { readDecisions } from './readDecisions';

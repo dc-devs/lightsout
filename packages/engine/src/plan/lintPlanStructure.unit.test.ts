@@ -260,6 +260,75 @@ test('lintPlanStructure: a clean plan returns no findings', async () => {
 	assert.deepEqual(findings, [], `clean plan should have no findings, got: ${JSON.stringify(findings)}`);
 });
 
+/** The clean plan with a snippet standing in for its Context prose. */
+const planWith = ({ snippet }: { snippet: string }) => cleanPlan().replace('A tiny clean plan for the structural lint.', snippet);
+
+/** The NoPlaceholders findings a plan built around `snippet` produces. */
+const placeholderFindings = async ({ name, snippet }: { name: string; snippet: string }) => {
+	const cwd = setupConsumerRepo();
+	const path = writePlan({ cwd, name, body: planWith({ snippet }) });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+
+	return findings.filter((finding) => finding.check === StructuralCheck.NoPlaceholders);
+};
+
+test('lintPlanStructure: a template-literal interpolation inside a fenced block is not a placeholder', async () => {
+	const findings = await placeholderFindings({
+		name: 'fenced-interpolation.md',
+		snippet: '```ts\nconst greeting = `hi ${userName}`;\n```',
+	});
+
+	assert.deepEqual(findings, [], `a fenced interpolation must not be flagged, got: ${JSON.stringify(findings)}`);
+});
+
+test('lintPlanStructure: a template-literal interpolation in prose is not a placeholder — the lookbehind covers it outside fences', async () => {
+	const findings = await placeholderFindings({
+		name: 'prose-interpolation.md',
+		snippet: 'The writer interpolates `hi ${userName}` into the greeting.',
+	});
+
+	assert.deepEqual(findings, [], `a prose interpolation must not be flagged, got: ${JSON.stringify(findings)}`);
+});
+
+test('lintPlanStructure: destructuring inside a fenced block is not a placeholder', async () => {
+	const findings = await placeholderFindings({
+		name: 'fenced-destructuring.md',
+		snippet: '```tsx\nconst {userName} = props;\n\nreturn <span>{userName}</span>;\n```',
+	});
+
+	assert.deepEqual(findings, [], `fenced code braces must not be flagged, got: ${JSON.stringify(findings)}`);
+});
+
+test('lintPlanStructure: a bare brace-token in prose is still flagged', async () => {
+	const findings = await placeholderFindings({ name: 'prose-token.md', snippet: 'Resolve the {token} before writing.' });
+
+	assert.equal(findings.length, 1, `the prose brace-token is flagged, got: ${JSON.stringify(findings)}`);
+});
+
+test('lintPlanStructure: a brace-token in an inline code span is still flagged — fences only, never spans', async () => {
+	const findings = await placeholderFindings({ name: 'span-token.md', snippet: 'Place it at `packages/{package}/src/thing.ts`.' });
+
+	assert.equal(findings.length, 1, `the inline-span brace-token is flagged, got: ${JSON.stringify(findings)}`);
+});
+
+test('lintPlanStructure: a TODO inside a fenced block is still flagged — fences suppress only the brace-token', async () => {
+	const findings = await placeholderFindings({ name: 'fenced-todo.md', snippet: '```ts\n// TODO: decide later\n```' });
+
+	assert.equal(findings.length, 1, `the fenced TODO is flagged, got: ${JSON.stringify(findings)}`);
+});
+
+test('lintPlanStructure: fence state resets per file — an unclosed fence never silences the next plan', async () => {
+	const cwd = setupConsumerRepo();
+	const unclosed = writePlan({ cwd, name: 'unclosed-fence.md', body: planWith({ snippet: '```ts\nconst {userName} = props;' }) });
+	const following = writePlan({ cwd, name: 'after-fence.md', body: planWith({ snippet: 'Resolve the {token} before writing.' }) });
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [unclosed, following] });
+	const placeholders = findings.filter((finding) => finding.check === StructuralCheck.NoPlaceholders);
+
+	assert.equal(placeholders.length, 1, `only the second plan's prose token is flagged, got: ${JSON.stringify(placeholders)}`);
+	assert.ok(placeholders[0].location.startsWith('after-fence.md:'), 'the finding is attributed to the second plan');
+});
+
 /** A minimal plan whose only lint-relevant content is one verification command. */
 const verificationPlan = ({ command }: { command: string }) => `# Plan
 

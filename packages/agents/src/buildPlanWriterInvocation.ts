@@ -10,6 +10,8 @@ interface Params {
 	outputs: { path: string; variant: PlanVariant }[];
 	/** Supplemental code standards, inlined verbatim. Absent = non-fatal. */
 	standards?: string;
+	/** Exact self-lint command the writer runs before reporting. Absent = prose self-review only. */
+	lintCommand?: string;
 }
 
 /**
@@ -18,7 +20,7 @@ interface Params {
  * appended as a labelled section); the request, decisions, facts, output paths,
  * and any supplemental standards are the per-invocation prompt.
  */
-export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards }: Params): { systemPrompt: string; prompt: string } => {
+export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards, lintCommand }: Params): { systemPrompt: string; prompt: string } => {
 	const outputLines = outputs.map((output) => `- ${output.path} — variant: ${output.variant}`);
 	const sections = [
 		`# Draft input`,
@@ -42,6 +44,14 @@ export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards
 
 	if (standards) {
 		sections.push(`## Code standards (supplemental)\n\nApply these where they bear on the plan; they are guidance, not a hard gate:\n\n${standards}`);
+	}
+
+	if (lintCommand) {
+		sections.push(
+			'## Self-lint\n\nAfter writing the plan file(s) and before reporting, run:\n\n`' +
+				lintCommand +
+				'`\n\nIt prints structural findings and exits 1 while any remain, 0 when clean. Fix each finding in the plan file(s) and re-run until it exits 0. If a re-run reports the identical findings twice, stop and report anyway. If the command itself cannot be executed (denied tool, sandbox), skip it — the checklist self-review still applies and the engine re-lints your output either way.',
+		);
 	}
 
 	sections.push('Remember: write the plan file(s) to disk first, then your entire final message must be exactly one JSON PlanDraftReport object — nothing else.');

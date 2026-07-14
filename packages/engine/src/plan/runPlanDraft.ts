@@ -40,6 +40,18 @@ type RunPlanDraftResult =
 	| { status: 'structural-issues'; workspaceDir: string; findings: StructuralFinding[]; planPaths: string[] };
 
 /**
+ * The finding set as a comparable multiset key. `location` is deliberately
+ * excluded: it carries a line number, and a repair edit earlier in the file
+ * shifts every later finding's line — a stuck finding that merely drifted would
+ * read as progress. `issue` already names the specifics.
+ */
+const findingSetKey = ({ findings }: { findings: StructuralFinding[] }) =>
+	findings
+		.map((finding) => [finding.check, finding.issue].join('|'))
+		.sort()
+		.join('\n');
+
+/**
  * Draft a structurally clean plan: a plan-writer agent authors the file(s) to
  * disk at the paths named in its prompt — once — then deterministic engine
  * code lints the structure. A lint failure is corrected by a small repair
@@ -87,14 +99,24 @@ export const runPlanDraft = async ({
 
 	progress(`plan draft ${name}: variant ${variant} (${scope ? 'scope flag' : 'estimated'})`);
 
+	// The writer self-lints in-session, where its context is already loaded — a
+	// repair spawn re-reads everything it already knew. `process.argv[1]` is the
+	// running CLI bundle, so the writer's subprocess resolves the identical
+	// engine. The consumer-controlled paths are quoted (they may contain spaces);
+	// the prefix stays unquoted in both the command and the grant, because the
+	// harness's allowed-tools rule is a literal prefix match.
+	const lintPrefix = `node ${process.argv[1]} plan lint`;
+	const lintCommand = `${lintPrefix} --name ${name} --plans "${plansDir}" --cwd "${cwd}"`;
+
 	const { report, failure, rateLimited } = await invokeAgentWithContract({
 		driver,
 		cwd,
-		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards }),
+		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand }),
 		contract: PlanDraftReport,
 		model,
 		permissionMode,
 		timeoutMs,
+		allowedCommands: [lintPrefix],
 		onEvent: (event) => {
 			void appendFile(join(workspaceDir, 'draft-stream.jsonl'), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
 		},
@@ -146,6 +168,8 @@ export const runPlanDraft = async ({
 	for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {
 		progress(`plan draft ${name}: ${findings.length} structural finding(s) — repair ${repair}/${maxRepairAttempts}`);
 
+		const beforeKey = findingSetKey({ findings });
+
 		const { report: fixReport, failure: fixFailure, rateLimited: fixRateLimited } = await invokeAgentWithContract({
 			driver,
 			cwd,
@@ -193,6 +217,17 @@ export const runPlanDraft = async ({
 		findings = await lintPlanStructure({ cwd, planPaths, config });
 
 		if (declined) {
+			break;
+		}
+
+		// Every repair round gets identical inputs, so a finding set that came
+		// back unchanged predicts an unchanged retry — spend the remaining
+		// attempts on nothing and the survivors still land in the session's lap.
+		// They return as structural-issues either way, and grade re-runs the same
+		// lint, so nothing is hidden by stopping early.
+		if (findings.length > 0 && findingSetKey({ findings }) === beforeKey) {
+			progress(`plan draft ${name}: repair ${repair} made no progress — stopping`);
+
 			break;
 		}
 	}

@@ -1,5 +1,6 @@
 import { resolvePlansDir } from '@lightsout/engine';
 import { getPositionals } from '../common/args/getPositionals';
+import { getRequiredFlag } from '../common/args/getRequiredFlag';
 import { getStringFlag } from '../common/args/getStringFlag';
 import { usage } from '../common/constants/usage';
 import type { CommandContext } from '../common/types/CommandContext';
@@ -8,6 +9,7 @@ import { loadPlanningStandards } from './loadPlanningStandards';
 import { planDedupCommand } from './planDedupCommand';
 import { planDraftCommand } from './planDraftCommand';
 import { planGradeCommand } from './planGradeCommand';
+import { planLintCommand } from './planLintCommand';
 import { planVerifyFactsCommand } from './planVerifyFactsCommand';
 
 export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
@@ -19,14 +21,14 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 		return;
 	}
 
+	// lint is deterministic — no agent, so no resolveConfigAndDriver.
+	if (subcommand === 'lint') {
+		await planLintCommand({ flags, rest, cwd });
+		return;
+	}
+
 	if (subcommand === 'draft' || subcommand === 'dedup' || subcommand === 'grade') {
-		const name = getStringFlag({ flags, name: 'name' });
-
-		if (!name) {
-			console.error(usage);
-			process.exit(1);
-		}
-
+		const name = getRequiredFlag({ flags, name: 'name' });
 		const { config, driver } = await resolveConfigAndDriver({ cwd });
 		const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: 'plans' }), config });
 		const standards = await loadPlanningStandards({ cwd, config });

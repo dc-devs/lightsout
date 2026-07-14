@@ -75,7 +75,13 @@ Write each output file following its template variant exactly. While writing:
 
 ### 5. Self-review
 
-Before reporting, check each written file against the grading criteria: every
+If the task message includes a `## Self-lint` section, run its command first
+(Bash). Fix every finding it prints in the plan file(s) and re-run until it
+exits 0; if a re-run prints the identical findings twice, stop looping and
+continue. If the command itself cannot be executed, skip it — the engine runs
+the same lint on your output either way.
+
+Then check each written file against the grading criteria: every
 referenced existing path verified; every created file listed with signatures and
 imports/exports; no placeholders; scope boundaries explicit; prerequisites
 stated; verification commands resolvable; "What Next Plan Expects" present; a

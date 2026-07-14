@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { PlanDraftReport } from '@lightsout/contracts';
-import type { Driver } from '@lightsout/drivers';
+import type { Driver, DriverInvocation } from '@lightsout/drivers';
 import { runPlanDraft } from '../index';
 import { setupConsumerRepo } from '../../tests/helpers/setupConsumerRepo';
 
@@ -68,8 +68,11 @@ Re-export \`newThing\`.
 None — standalone plan.
 `;
 
+/** The clean skeleton with the given placeholder markers planted — one lint finding per distinct marker. */
+const planWithMarkers = ({ markers }: { markers: string }) => cleanPlan().replace('A new module exporting', `${markers} — a new module exporting`);
+
 /** Same skeleton but with a planted placeholder, so the structural lint flags it. */
-const dirtyPlan = () => cleanPlan().replace('A new module exporting', 'TBD — a new module exporting');
+const dirtyPlan = () => planWithMarkers({ markers: 'TBD' });
 
 /** The absolute path the prompt names — the writer's output line and the repairer's plan-file bullet share the `- <path>` shape. */
 const outputPathFrom = (prompt: string) => /- (\S+\.md)/.exec(prompt)?.[1];
@@ -91,15 +94,29 @@ const draftedReport = ({ path }: { path: string }) =>
  * next body and returns a PlanFixReport — unless `repair` overrides it (the
  * override does its own file edits and returns the report text). `bodies` is
  * the sequence of plan contents across successive calls (the last is reused if
- * the loop runs longer).
+ * the loop runs longer). `onInvoke` sees the whole invocation, `onCall` only
+ * its prompt.
  */
-const draftDriver = ({ bodies, onCall, repair }: { bodies: string[]; onCall?: (prompt: string) => void; repair?: ({ path }: { path: string }) => string }): Driver => {
+const draftDriver = ({
+	bodies,
+	onCall,
+	onInvoke,
+	repair,
+}: {
+	bodies: string[];
+	onCall?: (prompt: string) => void;
+	onInvoke?: (invocation: DriverInvocation) => void;
+	repair?: ({ path }: { path: string }) => string;
+}): Driver => {
 	let call = 0;
 
 	return {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
+		invoke: async (invocation) => {
+			const { prompt } = invocation;
+
 			onCall?.(prompt);
+			onInvoke?.(invocation);
 
 			const path = outputPathFrom(prompt);
 
@@ -144,6 +161,50 @@ test('plan draft: writes plan.md and returns a valid PlanDraftReport', async () 
 	assert.doesNotThrow(() => PlanDraftReport.parse(result.report));
 });
 
+test('plan draft: the writer is handed the self-lint command and granted exactly the prefix it starts with', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'self-lint' });
+
+	const plansDir = join(cwd, '.claude', 'plans');
+	const invocations: DriverInvocation[] = [];
+	const driver = draftDriver({ bodies: [cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({ cwd, driver, name: 'self-lint', plansDir });
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+
+	const [writer] = invocations;
+
+	assert.equal(writer.allowedCommands?.length, 1, 'the writer carries exactly one command grant');
+
+	const prefix = writer.allowedCommands?.[0] ?? '';
+
+	assert.ok(prefix.endsWith(' plan lint'), `the grant is the plan-lint prefix, got: ${prefix}`);
+	assert.ok(!prefix.includes('"'), 'the granted prefix is unquoted — the harness matches it literally');
+	assert.ok(
+		writer.prompt.includes(`${prefix} --name self-lint --plans "${plansDir}" --cwd "${cwd}"`),
+		`the embedded command extends the granted prefix verbatim, consumer paths quoted, got: ${writer.prompt}`,
+	);
+});
+
+test('plan draft: the repair invocation gets no self-lint command and no command grant', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'repair-ungranted' });
+
+	const invocations: DriverInvocation[] = [];
+	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({ cwd, driver, name: 'repair-ungranted', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+
+	const repairInvocation = invocations.find((invocation) => invocation.prompt.includes('# Repair input'));
+
+	assert.ok(repairInvocation, 'the dirty author forced a repair');
+	assert.equal(repairInvocation.allowedCommands, undefined, 'the grant is scoped to the writer alone');
+	assert.ok(!repairInvocation.prompt.includes('plan lint'), 'the repairer is never told to self-lint');
+});
+
 test('plan draft: a TBD author then a clean repair proves the repair loop converges without re-authoring', async () => {
 	const cwd = setupConsumerRepo();
 
@@ -160,19 +221,61 @@ test('plan draft: a TBD author then a clean repair proves the repair loop conver
 	assert.ok(prompts[1].includes('# Repair input'), 'attempt 2 is a repair, never a re-author');
 });
 
-test('plan draft: repairs that never fix the finding exhaust the budget and return structural-issues', async () => {
+test('plan draft: repairs that shrink but never clear the findings exhaust the budget and return structural-issues', async () => {
 	const cwd = setupConsumerRepo();
 
 	seedWorkspace({ cwd, name: 'exhaust' });
 
 	let calls = 0;
-	const driver = draftDriver({ bodies: [dirtyPlan()], onCall: () => (calls += 1) });
+	// 3 → 2 → 1 → 1 findings: every round is real progress, so the loop runs to
+	// the cap instead of tripping the no-progress exit.
+	const driver = draftDriver({
+		bodies: [
+			planWithMarkers({ markers: 'TBD TODO ???' }),
+			planWithMarkers({ markers: 'TBD TODO' }),
+			planWithMarkers({ markers: 'TBD' }),
+			planWithMarkers({ markers: 'TBD' }),
+		],
+		onCall: () => (calls += 1),
+	});
 	const result = await runPlanDraft({ cwd, driver, name: 'exhaust', plansDir: join(cwd, '.claude', 'plans') });
 
 	assert.equal(result.status, 'structural-issues');
 	assert.equal(calls, 4, '1 author + exactly 3 repairs');
 	assert.ok('findings' in result && result.findings.length > 0);
 	assert.ok('planPaths' in result && existsSync(result.planPaths[0]), 'the draft path survives intact for the session to fix');
+});
+
+test('plan draft: a repair that leaves the finding set identical stops the loop instead of burning the budget', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'no-progress' });
+
+	let calls = 0;
+	const driver = draftDriver({ bodies: [dirtyPlan()], onCall: () => (calls += 1) });
+	const result = await runPlanDraft({ cwd, driver, name: 'no-progress', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'structural-issues');
+	assert.equal(calls, 2, '1 author + 1 repair — the identical re-linted set breaks before a second repair');
+	assert.ok('findings' in result && result.findings.length > 0, 'the survivors return for the session to fix');
+});
+
+test('plan draft: a surviving finding that merely drifted lines is not progress', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'drift' });
+
+	let calls = 0;
+	// The repair prepends prose, shifting the TBD's line number while its
+	// check + issue stay identical — location is deliberately out of the key.
+	const driver = draftDriver({
+		bodies: [dirtyPlan(), `Extra context prose that shifts every later line down.\n\n${dirtyPlan()}`],
+		onCall: () => (calls += 1),
+	});
+	const result = await runPlanDraft({ cwd, driver, name: 'drift', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'structural-issues');
+	assert.equal(calls, 2, 'line drift alone never buys another repair');
 });
 
 test('plan draft: a repairer error stops the loop after one repair', async () => {

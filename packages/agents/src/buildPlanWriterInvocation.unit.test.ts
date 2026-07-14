@@ -30,6 +30,7 @@ test('buildPlanWriterInvocation: single-variant prompt carries the request, outp
 	assert.ok(invocation.prompt.includes('one JSON PlanDraftReport object'), 'the report-contract reminder closes the prompt');
 	assert.ok(!invocation.prompt.includes('## Phased authoring'), 'no phased section without an overview output');
 	assert.ok(!invocation.prompt.includes('## Code standards'), 'no standards section when standards are absent');
+	assert.ok(!invocation.prompt.includes('## Self-lint'), 'no self-lint section without a lint command');
 });
 
 test('buildPlanWriterInvocation: author-only — no corrective findings surface anywhere in the invocation', () => {
@@ -46,6 +47,7 @@ test('buildPlanWriterInvocation: system prompt is the stable role prompt with th
 		decisions: { planName: 'other-plan', decisions: [] },
 		outputs: [{ path: '/elsewhere/overview.md', variant: 'overview' }],
 		standards: '## Tabs only',
+		lintCommand: 'node /elsewhere/cli.mjs plan lint --name other-plan',
 	});
 
 	assert.ok(first.systemPrompt.startsWith('# Role: Plan Writer'), 'the role prompt leads the system prompt');
@@ -68,6 +70,19 @@ test('buildPlanWriterInvocation: an overview output adds the phased-authoring se
 	assert.ok(invocation.prompt.includes('## Phased authoring'));
 	assert.ok(invocation.prompt.includes('`/repo/.lightsout/plans/foo/overview.md`'), 'the phased section names the overview path');
 	assert.ok(invocation.prompt.includes('`/repo/.lightsout/plans/foo`'), "the phase files are directed into the overview's directory");
+});
+
+test('buildPlanWriterInvocation: a lint command adds the self-lint section verbatim, before the report-contract reminder', () => {
+	const lintCommand = 'node /repo/plugin/dist/cli.mjs plan lint --name foo-endpoint --plans /repo/.claude/plans --cwd /repo';
+
+	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), lintCommand });
+
+	assert.ok(invocation.prompt.includes('## Self-lint'));
+	assert.ok(invocation.prompt.includes(`\`${lintCommand}\``), 'the exact command lands verbatim in a code span');
+	assert.ok(
+		invocation.prompt.indexOf('## Self-lint') < invocation.prompt.indexOf('one JSON PlanDraftReport object'),
+		'the self-lint step precedes the closing report-contract reminder',
+	);
 });
 
 test('buildPlanWriterInvocation: supplemental standards are inlined verbatim in their own section', () => {
