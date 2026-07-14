@@ -33029,6 +33029,16 @@ var getPositionals = ({ args }) => {
   return positionals;
 };
 
+// packages/cli/src/common/args/getRequiredFlag.ts
+var getRequiredFlag = ({ flags, name }) => {
+  const value = getStringFlag({ flags, name });
+  if (!value) {
+    console.error(usage);
+    process.exit(1);
+  }
+  return value;
+};
+
 // packages/cli/src/common/utils/resolveConfigAndDriver.ts
 var resolveConfigAndDriver = async ({ cwd }) => {
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
@@ -33162,13 +33172,15 @@ grade: ${result.gradePath}`);
   process.exit(0);
 };
 
+// packages/cli/src/common/render/printStructuralFinding.ts
+var printStructuralFinding = ({ finding }) => {
+  console.log(`${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
+  console.log(dim(`   fix: ${finding.fix}`));
+};
+
 // packages/cli/src/plan/planLintCommand.ts
 var planLintCommand = async ({ flags, cwd }) => {
-  const name = getStringFlag({ flags, name: "name" });
-  if (!name) {
-    console.error(usage);
-    process.exit(1);
-  }
+  const name = getRequiredFlag({ flags, name: "name" });
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: "plans" }), config: config2 });
   const result = await runPlanLint({ cwd, name, plansDir, onProgress: createProgressPrinter() });
@@ -33183,8 +33195,7 @@ ${result.error}`);
 ${bold(`plan lint ${name}`)} \u2014 ${findings.length === 0 ? green("clean") : red(`${findings.length} structural finding(s)`)} (${planPaths.length} file(s))`
   );
   for (const finding of findings) {
-    console.log(`${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
-    console.log(dim(`   fix: ${finding.fix}`));
+    printStructuralFinding({ finding });
   }
   process.exit(findings.length > 0 ? 1 : 0);
 };
@@ -33230,11 +33241,7 @@ var planCommand = async ({ flags, rest, cwd }) => {
     return;
   }
   if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {
-    const name = getStringFlag({ flags, name: "name" });
-    if (!name) {
-      console.error(usage);
-      process.exit(1);
-    }
+    const name = getRequiredFlag({ flags, name: "name" });
     const { config: config2, driver } = await resolveConfigAndDriver({ cwd });
     const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: "plans" }), config: config2 });
     const standards = await loadPlanningStandards({ cwd, config: config2 });
