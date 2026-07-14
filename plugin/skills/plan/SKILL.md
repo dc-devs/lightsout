@@ -17,6 +17,50 @@ here.** The one branch you make is reading the typed `passed` verdict from
 Resolve the engine bundle once: `${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs`. If it does
 not exist, stop and tell the user to reinstall the plugin or run `pnpm bundle`.
 
+## Question format
+
+Every question this skill puts to the user — Elicitation batches, Grill
+escalations, Dedup findings, Converge gaps — uses this labeled four-part
+shape, in this order:
+
+**Context:** what the question is about and why it matters, in everyday
+words. Write for someone who has not read the plan or the code — never
+assume they know the plan's internals.
+
+**Trade-offs:** what each answer wins and what it costs, plainly. When an
+option carries risk, say what goes wrong if it fails and what catches it.
+
+**Question:** the question itself, one sentence.
+
+**Recommendation:** the answer you recommend and the one-line why, so a
+one-word reply ("yes", "the second one") resolves it.
+
+**Presentation.** Each labeled part is its own short paragraph — bold label,
+blank line between parts. No bullet dashes on the labels; the blank lines
+are what keep the block readable.
+
+**Extra parts are welcome when needed.** If something the user must know
+fits none of the four labels (a safety note, a cost, a deadline effect),
+add another bold-labeled paragraph rather than forcing it in or leaving
+it out.
+
+**Plain language, always.** No jargon. Never use an internal name — a file,
+symbol, subcommand, or engine term — without saying what it means in
+everyday words. If the reader would need to open a file to answer, the
+question is not ready to ask.
+
+**Keep each part short.** Aim for 1–3 plain sentences per label. When a
+question outgrows that, treat it as a sign it is really two questions —
+split it.
+
+**At most 2 full-format questions per message.** Truly trivial yes/no items
+may share one combined block instead of getting a block each. Grill
+escalations are stricter: one question at a time, always.
+
+**The format applies regardless of medium.** When asking through an
+option-picker tool, the Context, Trade-offs, and Recommendation go in the
+question body — never squeezed into option labels.
+
 ## Steps
 
 **0. Name the plan.** Derive a kebab `<name>` from the request (e.g. "add a
@@ -59,14 +103,11 @@ warnings into Elicitation.
   conversation before the skill was invoked, record each decision the user
   already made as a decisions row (`Source = "Elicitation"`) before asking
   anything. Settled in-session means settled — never re-ask it.
-- Batch related questions, ≤4 per turn, resolve the decision tree branch by
-  branch, reflect each answer back to converge on a shared understanding.
-  Never ask what the codebase can answer — read it (or re-explore in-context,
-  update facts.json, and re-run `plan verify-facts`) instead.
-- **Question shape** (here and in Grill): plain language, no jargon. Lead with
-  context — what the question is about and why it matters — then your
-  recommended answer with the reasoning, then the alternative(s), so a
-  one-word reply can resolve it.
+- Ask in the Question format above — at most 2 full-format questions per
+  message. Resolve the decision tree branch by branch, reflect each answer
+  back to converge on a shared understanding. Never ask what the codebase can
+  answer — read it (or re-explore in-context, update facts.json, and re-run
+  `plan verify-facts`) instead.
 - Continue until the user is **tapped out and aligned** — their bound, not yours.
 - **Alignment checkpoint.** Close by stating back, in plain words: the goal,
   the design shape, and the kinds of implementation detail you will decide
@@ -116,9 +157,9 @@ remaining `structural issue(s)` → relay them. On success → note the written
   `Decision Log` row with `Source = Grill` and a rationale ending in
   `(self-answered)`, and mirror it into `decisions.json` with
   `"assumption": true`. Do not surface it live.
-- **Escalated** → **one question at a time**, in the step-2 question shape
-  (context → why it matters → recommendation → alternatives). After each
-  answer, **immediately fold it into `plan.md` via Edit** and append a
+- **Escalated** → **one question at a time**, in the Question format (one
+  full labeled block per message — never two). After each answer,
+  **immediately fold it into `plan.md` via Edit** and append a
   `Decision Log` row with `Source = Grill`. Do not batch edits to the end.
 - Continue until **the user says stop** — do not self-terminate. Self-answering
   a question never counts as stopping.
@@ -135,10 +176,14 @@ node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan dedup --name <name>
 Read `.lightsout/plans/<name>/dedup.json`. Detection and judgment are the
 subcommand's; you only conduct the review and apply the chosen edits.
 - `findings` empty → nothing to review; go to Grade.
-- `findings` present → for each finding show its `plannedSymbol`, `collidesWith`,
-  the judge's `recommendation`, and the resolution menu; get the user's choice
-  per finding **or** offer **auto-accept** (apply every `recommendation`, showing
-  a summary first). Apply each chosen resolution to `plan.md` via Edit:
+- `findings` present → surface each finding in the Question format (at most
+  2 per message): **Context** says in plain words what the plan wants to
+  build and what already exists that overlaps — never bare symbol names;
+  **Trade-offs** summarizes the resolution options; **Question** asks which
+  to pick; **Recommendation** is the judge's `recommendation` in plain
+  words. Get the user's choice per finding **or** offer **auto-accept**
+  (apply every `recommendation`, showing a summary first). Apply each chosen
+  resolution to `plan.md` via Edit:
   - **reuse** → drop the Files-to-Create entry; wire the plan's usage to the
     existing symbol.
   - **extend** → add a Files-to-Modify entry for the existing symbol.
@@ -155,8 +200,9 @@ node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
 ```
 Read `.lightsout/plans/<name>/grade.json`:
 - `"passed": true` → go to handoff.
-- `"passed": false` with `gaps` → surface them (batched, recommended-first).
-  Resolve each by **editing `plan.md` in place via Edit** (+ a `Decision Log` row,
+- `"passed": false` with `gaps` → surface each gap in the Question format
+  (at most 2 per message, recommended-first). Resolve each by
+  **editing `plan.md` in place via Edit** (+ a `Decision Log` row,
   `Source = Converge`; mirror the resolution into `decisions.json`). Then re-run
   `plan grade`. Repeat until `passed` or the user calls it. **Do NOT re-run
   `plan draft`** — a re-draft regenerates `plan.md` and would clobber the Grill
