@@ -102,6 +102,70 @@ test('plan verify-facts: narrates the missing paths in the summary line', async 
 	assert.match(messages.join('\n'), /1 missing: src\/does-not-exist\.ts/, 'the ghost path is named in the summary');
 });
 
+test('plan verify-facts: --notes freezes a copy of the notes file into the workspace', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc' } }));
+	writeFileSync(join(cwd, 'rough-notes.md'), '# Rough notes\n\nThe idea in the user words.\n');
+	seedFacts({ cwd, name: 'with-notes', content: authoredFacts() });
+
+	const result = await runPlanVerifyFacts({ cwd, name: 'with-notes', notesFile: 'rough-notes.md' });
+
+	assert.equal(result.status, 'complete', result.error);
+	assert.equal(
+		readFileSync(join(cwd, '.lightsout', 'plans', 'with-notes', 'notes.md'), 'utf8'),
+		'# Rough notes\n\nThe idea in the user words.\n',
+		'the snapshot equals the source content',
+	);
+});
+
+test('plan verify-facts: an existing notes.md snapshot is never overwritten', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc' } }));
+	writeFileSync(join(cwd, 'rough-notes.md'), 'newer notes that must not land\n');
+	seedFacts({ cwd, name: 'frozen', content: authoredFacts() });
+	writeFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'notes.md'), 'the original frozen notes\n');
+
+	const result = await runPlanVerifyFacts({ cwd, name: 'frozen', notesFile: 'rough-notes.md' });
+
+	assert.equal(result.status, 'complete', result.error);
+	assert.equal(
+		readFileSync(join(cwd, '.lightsout', 'plans', 'frozen', 'notes.md'), 'utf8'),
+		'the original frozen notes\n',
+		'the first copy wins — the snapshot is write-once',
+	);
+});
+
+test('plan verify-facts: a missing notes source fails and names the resolved path', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'tsc' } }));
+	seedFacts({ cwd, name: 'no-source', content: authoredFacts() });
+
+	const result = await runPlanVerifyFacts({ cwd, name: 'no-source', notesFile: 'ghost-notes.md' });
+
+	assert.equal(result.status, 'failed');
+	assert.ok('error' in result && (result.error ?? '').includes(join(cwd, 'ghost-notes.md')), `the error names the resolved source, got: ${result.error}`);
+	assert.ok(!existsSync(join(cwd, '.lightsout', 'plans', 'no-source', 'notes.md')), 'no notes.md written on failure');
+});
+
+test('plan verify-facts: the notes freeze even when the authored facts are missing', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'rough-notes.md'), 'notes that must freeze first\n');
+
+	const result = await runPlanVerifyFacts({ cwd, name: 'notes-first', notesFile: 'rough-notes.md' });
+
+	assert.equal(result.status, 'failed');
+	assert.ok('error' in result && /no authored facts/.test(result.error ?? ''), result.error);
+	assert.equal(
+		readFileSync(join(cwd, '.lightsout', 'plans', 'notes-first', 'notes.md'), 'utf8'),
+		'notes that must freeze first\n',
+		'the snapshot is the plan first artifact — it lands before the facts read',
+	);
+});
+
 test('plan verify-facts: re-running on a stamped file re-verifies and re-stamps', async () => {
 	const cwd = setupConsumerRepo();
 

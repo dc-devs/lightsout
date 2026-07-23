@@ -26,6 +26,10 @@ const cleanPlan = () => `# Clean Plan
 
 A tiny clean plan for the structural lint.
 
+## Global Constraints
+
+- None
+
 ## Prerequisites
 
 - None
@@ -213,6 +217,81 @@ Change it.
 	assert.ok(
 		findings.some((finding) => finding.check === StructuralCheck.SectionsPresent && finding.issue.includes('What Next Plan Expects')),
 		'the missing section is flagged',
+	);
+});
+
+test('lintPlanStructure: a missing "Global Constraints" section is flagged on an implementable plan', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writePlan({
+		cwd,
+		name: 'no-constraints.md',
+		body: `# Plan
+
+## Prerequisites
+
+- None
+
+## Files to Modify
+
+### \`src/index.js\`
+
+Change it.
+
+## Scope Boundaries
+
+**Do NOT:** wander.
+
+## Verification
+
+- \`true\` — types clean
+
+## What Next Plan Expects
+
+None.
+`,
+	});
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+
+	assert.ok(
+		findings.some((finding) => finding.check === StructuralCheck.SectionsPresent && finding.issue.includes('Global Constraints')),
+		'the missing section is flagged',
+	);
+});
+
+test('lintPlanStructure: a missing "Global Constraints" section is flagged on an overview plan', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writePlan({
+		cwd,
+		name: 'overview-no-constraints.md',
+		body: `# Plan — Overview
+
+## Context
+
+An overview without the constraints section.
+
+## Phases
+
+| # | File | Scope |
+|---|------|-------|
+| 1 | \`phase1-core.md\` | the core |
+
+## Cross-Phase Dependencies
+
+- None.
+`,
+	});
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+
+	assert.ok(
+		findings.some(
+			(finding) =>
+				finding.check === StructuralCheck.SectionsPresent &&
+				finding.issue.includes('Global Constraints') &&
+				finding.issue.includes('overview'),
+		),
+		'the missing section is flagged on the overview variant',
 	);
 });
 

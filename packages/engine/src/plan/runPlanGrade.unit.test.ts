@@ -20,6 +20,10 @@ const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: strin
 /** A structurally clean single plan whose paths resolve against setupConsumerRepo. */
 const cleanPlan = () => `# Graded Plan
 
+## Global Constraints
+
+- None
+
 ## Prerequisites
 
 - None

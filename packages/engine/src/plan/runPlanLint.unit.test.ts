@@ -23,6 +23,10 @@ const cleanPlan = () => `# Clean Plan
 
 A tiny clean plan for the structural lint.
 
+## Global Constraints
+
+- None
+
 ## Prerequisites
 
 - None

@@ -14,7 +14,8 @@ export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Pr
 		process.exit(1);
 	}
 
-	const result = await runPlanVerifyFacts({ cwd, name, onProgress: createProgressPrinter() });
+	const notesFile = getStringFlag({ flags, name: 'notes' });
+	const result = await runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() });
 
 	if (result.status === 'failed' || !result.facts) {
 		console.error(`\n${result.error ?? 'plan verify-facts failed'}`);

@@ -18,8 +18,8 @@ const scopeGuardrail = 50;
 
 /** Required sections by variant — the fixed heading set the template pins. */
 const requiredSections = {
-	implementable: ['Prerequisites', 'Scope Boundaries', 'Verification', 'What Next Plan Expects'],
-	overview: ['Phases', 'Cross-Phase Dependencies'],
+	implementable: ['Prerequisites', 'Global Constraints', 'Scope Boundaries', 'Verification', 'What Next Plan Expects'],
+	overview: ['Phases', 'Cross-Phase Dependencies', 'Global Constraints'],
 } as const;
 
 const placeholderPatterns: { label: string; re: RegExp; skipInFence?: boolean }[] = [

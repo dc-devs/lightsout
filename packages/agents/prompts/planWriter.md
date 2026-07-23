@@ -71,6 +71,11 @@ Write each output file following its template variant exactly. While writing:
   must NOT do.
 - For multi-phase plans, chain the contract: each phase's "What Next Plan
   Expects" must list exactly what the next phase's Prerequisites claim.
+- Author `## Global Constraints` from the decisions rows whose `question` begins
+  with the exact prefix `Global constraint:` (the same prefix the `/plan`
+  skill's collection bullet mandates) — one bullet per row, stating the row's
+  choice in plain words. With no such rows, the section's single bullet is
+  `None`.
 - Keep each plan (or phase) within 40 source files to create/modify.
 
 ### 5. Self-review
@@ -85,6 +90,7 @@ Then check each written file against the grading criteria: every
 referenced existing path verified; every created file listed with signatures and
 imports/exports; no placeholders; scope boundaries explicit; prerequisites
 stated; verification commands resolvable; "What Next Plan Expects" present; a
+`## Global Constraints` section present in every written file; a
 `## Prior Art` line for every new symbol. If a "Code standards" section was
 provided, confirm the plan's placements and naming conform to it.
 

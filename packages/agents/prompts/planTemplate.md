@@ -26,6 +26,10 @@ will not reach A:
 - **Prior art recorded.** Every newly-created exported symbol is justified in a
   `## Prior Art` section: the searches run against existing exports that prove it
   is new, or the existing symbol it mirrors/extends.
+- **Global constraints have a home.** Every variant carries a
+  `## Global Constraints` section for session-stated project-wide constraints;
+  `None` is valid content. Phases inherit the overview's — a phase may write
+  "See overview."
 
 ---
 
@@ -51,6 +55,13 @@ an edge-case handling — skip pure confirmations.
 
 <!-- Source is one of: Elicitation, Grill, Converge. If a decision was assumed
 rather than confirmed by the user, append "(assumption)" to the Choice cell. -->
+
+## Global Constraints
+
+Project-wide constraints the user stated for this work — rules every part of
+the implementation must respect. Write `None` when none were stated.
+
+- <constraint, or "None">
 
 ## Prerequisites
 
@@ -138,6 +149,13 @@ decision or an edge-case handling — skip pure confirmations.
 
 <!-- Source is one of: Elicitation, Grill, Converge. -->
 
+## Global Constraints
+
+Project-wide constraints the user stated for this work — rules every part of
+the implementation must respect. Write `None` when none were stated.
+
+- <constraint, or "None">
+
 ## Architecture
 
 <How the pieces fit together across phases: data flow, module boundaries,
@@ -171,6 +189,9 @@ Identical to the Single Plan with these adjustments:
 - **Decision Log** may be omitted if fully covered by the overview — reference
   it: "See overview." Phase-specific decisions (including Grill rows raised
   against this phase) still go in this section.
+- **Global Constraints** is required in every phase; when the overview's section
+  covers it, the content may be "See overview." Phase-specific constraints are
+  added as their own bullets.
 - **Prior Art** is still mandatory — one line per newly-created exported symbol.
 - **What Next Plan Expects** is mandatory and chains: it must list exactly what
   the next phase's Prerequisites will claim. The final phase states "None —

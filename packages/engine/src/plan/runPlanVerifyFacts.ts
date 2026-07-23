@@ -1,5 +1,5 @@
-import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { AuthoredFacts, type PlanFacts } from '@lightsout/contracts';
 import { planWorkspaceDir } from './planWorkspaceDir';
 import { readPlanWorkspaceFile } from './common/utils/readPlanWorkspaceFile';
@@ -9,8 +9,48 @@ interface Params {
 	cwd: string;
 	/** Kebab plan name — the workspace key. */
 	name: string;
+	/** Cwd-relative or absolute path to a rough-notes file to freeze into the workspace (write-once). */
+	notesFile?: string;
 	onProgress?: (message: string) => void;
 }
+
+/** Freeze a copy of the rough-notes file at `<workspaceDir>/notes.md` — write-once, an existing snapshot is never overwritten. */
+const snapshotNotes = async ({
+	cwd,
+	workspaceDir,
+	notesFile,
+	progress,
+}: {
+	cwd: string;
+	workspaceDir: string;
+	notesFile: string;
+	progress: (message: string) => void;
+}) => {
+	const source = resolve(cwd, notesFile);
+	const destination = join(workspaceDir, 'notes.md');
+
+	const alreadyFrozen = await access(destination).then(
+		() => true,
+		() => false,
+	);
+
+	if (alreadyFrozen) {
+		progress('plan verify-facts · notes.md already frozen — snapshot skipped');
+
+		return { error: undefined };
+	}
+
+	try {
+		await mkdir(workspaceDir, { recursive: true });
+		await copyFile(source, destination);
+	} catch {
+		return { error: `notes file not found: ${source}` };
+	}
+
+	progress(`plan verify-facts · notes frozen → ${destination}`);
+
+	return { error: undefined };
+};
 
 type RunPlanVerifyFactsResult =
 	| { status: 'complete'; facts: PlanFacts; factsPath: string; workspaceDir: string; error: undefined }
@@ -26,10 +66,20 @@ type RunPlanVerifyFactsResult =
  * unreadable or unparsable authored file fails. Idempotent — re-running
  * re-verifies and re-stamps.
  */
-export const runPlanVerifyFacts = async ({ cwd, name, onProgress }: Params): Promise<RunPlanVerifyFactsResult> => {
+export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: Params): Promise<RunPlanVerifyFactsResult> => {
 	const progress = onProgress ?? (() => undefined);
 	const workspaceDir = planWorkspaceDir({ cwd, name });
 	const factsPath = join(workspaceDir, 'facts.json');
+
+	// The snapshot runs before the facts read: the notes freeze even when the
+	// authored facts are missing or unparsable — notes.md is the plan's first artifact.
+	if (notesFile !== undefined) {
+		const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
+
+		if (snapshot.error !== undefined) {
+			return { status: 'failed' as const, workspaceDir, error: snapshot.error };
+		}
+	}
 
 	let authored: AuthoredFacts;
 

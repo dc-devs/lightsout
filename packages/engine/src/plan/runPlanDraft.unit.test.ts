@@ -27,6 +27,10 @@ const seedWorkspace = ({ cwd, name }: { cwd: string; name: string }) => {
 /** A structurally clean single plan whose paths resolve against setupConsumerRepo. */
 const cleanPlan = () => `# Drafted Plan
 
+## Global Constraints
+
+- None
+
 ## Prerequisites
 
 - None

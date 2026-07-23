@@ -17,7 +17,7 @@ const CLI = join(process.cwd(), '.test-dist', 'cli-under-test.mjs');
 // refactor changes it, this suite goes red and the refactor is wrong. (A
 // FEATURE adding a command updates this pin deliberately — updated 2026-07-09
 // for `plan verify-facts` replacing `plan explore`, 2026-07-14 for `plan
-// lint`.)
+// lint`, 2026-07-23 for the verify-facts `--notes` flag.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -29,7 +29,7 @@ usage:
   lightsout verify [--cwd <path>] [--base <ref>] [--skip-coverage]
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
-  lightsout plan verify-facts --name <n> [--cwd <path>]
+  lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
   lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
   lightsout plan lint --name <n> [--plans <dir>] [--cwd <path>]
   lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
@@ -253,6 +253,10 @@ const cleanPlanBody = `# Clean Plan
 
 A tiny clean plan for the structural lint.
 
+## Global Constraints
+
+- None
+
 ## Prerequisites
 
 - None
@@ -388,4 +392,20 @@ test('cli: plan verify-facts stamps facts.json, warns on misses, and exits 0', a
 		createPathsThatExist: [],
 	});
 	assert.ok(!Number.isNaN(Date.parse(stamped.verifiedAt)));
+});
+
+// The engine's snapshot behavior (write-once, freeze-before-facts, missing
+// source) is pinned in runPlanVerifyFacts.unit.test.ts; this test pins the CLI
+// seam only — `--notes` reaches the engine as a cwd-relative notesFile.
+test('cli: plan verify-facts --notes freezes the notes snapshot into the workspace and exits 0', async () => {
+	const { cwd } = await seedVerifyFactsFixture();
+	await writeFile(join(cwd, 'rough-notes.md'), '# Rough notes\n\nthe idea in plain words\n', 'utf8');
+
+	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--notes', 'rough-notes.md', '--cwd', cwd] });
+
+	assert.equal(code, 0);
+	assert.equal(stderr, '');
+	assert.match(stdout, /plan verify-facts · notes frozen → /);
+	const frozen = await readFile(join(cwd, '.lightsout', 'plans', 'demo', 'notes.md'), 'utf8');
+	assert.equal(frozen, '# Rough notes\n\nthe idea in plain words\n');
 });

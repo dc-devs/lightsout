@@ -25,7 +25,8 @@ shape, in this order:
 
 **Context:** what the question is about and why it matters, in everyday
 words. Write for someone who has not read the plan or the code — never
-assume they know the plan's internals.
+assume they know the plan's internals. State the problem the question
+decides — in everyday words — before naming any options.
 
 **Trade-offs:** what each answer wins and what it costs, plainly. When an
 option carries risk, say what goes wrong if it fails and what catches it.
@@ -49,6 +50,10 @@ symbol, subcommand, or engine term — without saying what it means in
 everyday words. If the reader would need to open a file to answer, the
 question is not ready to ask.
 
+**Option labels are everyday words.** Name each option by what it does
+("copy the file each run", "keep the first copy") — never invented
+shorthand, codenames, or bare letter labels the reader must decode.
+
 **Keep each part short.** Aim for 1–3 plain sentences per label. When a
 question outgrows that, treat it as a sign it is really two questions —
 split it.
@@ -64,7 +69,10 @@ question body — never squeezed into option labels.
 ## Steps
 
 **0. Name the plan.** Derive a kebab `<name>` from the request (e.g. "add a
-rate-limit banner" → `rate-limit-banner`).
+rate-limit banner" → `rate-limit-banner`). When the request is a rough-notes
+file path (given by the user, or a `/brainstorm` handoff), read it before
+anything else; when it already lives at `.lightsout/plans/<name>/notes.md`,
+take `<name>` from its folder instead of deriving a new one.
 
 **1. Explore (in-context) + verify.** Explore the codebase yourself: read the
 files the request touches, follow the integration points, and note real
@@ -91,14 +99,31 @@ hard-parses it):
 ```
 Then run:
 ```sh
-node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan verify-facts --name <name>
+node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan verify-facts --name <name> [--notes "<path>"]
 ```
+Pass `--notes` when the request came from a rough-notes file — the engine
+freezes a copy at `.lightsout/plans/<name>/notes.md` as the plan's first
+artifact. Write-once: an existing snapshot is never overwritten, so re-running
+verify-facts never clobbers it (a `/brainstorm`-authored notes.md is already
+home and is simply kept).
 It deterministically checks every claimed path/script on disk and stamps the
 verification into facts.json. Relay the summary; fix any genuinely wrong path
 in facts.json and re-run verify-facts, and carry remaining missing-path
 warnings into Elicitation.
 
 **2. Elicitation** — drain the user's *conscious* knowledge (interactive):
+- **Scope check first.** Before any detail question, judge the request's
+  size: one plan, one phased plan, or several independent plans. When it is a
+  genuine fork, ask in the Question format; when the request is several
+  independent plans, say so, agree which to plan now, and record the split as
+  a decisions row. This check aims the interview — the engine's `plan draft`
+  still makes the single-versus-phased estimate on its own.
+- **Collect global constraints.** Ask once, early, whether any project-wide
+  rules bind this work (for example "no new dependencies", "the public API
+  stays frozen"). Record each as its own decisions row whose `question`
+  begins exactly `Global constraint:` — the drafted plan's Global
+  Constraints section is built from these rows. None stated → no rows; the
+  section will read "None".
 - **Harvest the session first.** If the feature was discussed in this
   conversation before the skill was invoked, record each decision the user
   already made as a decisions row (`Source = "Elicitation"`) before asking
@@ -112,7 +137,7 @@ warnings into Elicitation.
 - **Alignment checkpoint.** Close by stating back, in plain words: the goal,
   the design shape, and the kinds of implementation detail you will decide
   yourself from here (best practice only). The user's explicit confirmation
-  licenses Grill's self-answer routing (step 4); without it, every grill
+  licenses Grill's self-answer routing (step 5); without it, every grill
   question escalates to the user.
 - Author `.lightsout/plans/<name>/decisions.json`. Write this **exact** shape
   (the engine hard-parses it; a wrong field name blocks drafting):
@@ -129,7 +154,17 @@ warnings into Elicitation.
   `options` is a string; `assumption` is a bool. Mark a choice made without user
   confirmation as an assumption.
 
-**3. Draft.** Run:
+**3. Approaches** — settle the design shape before drafting (interactive,
+conditional). Run this step when the design shape is not already settled by
+the session discussion or the Elicitation answers. When it is settled, say so
+in one line ("Design shape settled during Elicitation — skipping approaches")
+and move on — never skip silently. Present 2–3 genuinely different approaches
+in the Question format: Context states the design problem in everyday words,
+Trade-offs gives each approach's wins and costs, Question asks which to build,
+Recommendation names one with the one-line why. Record the chosen approach as
+a decisions row (`Source = "Elicitation"`) before drafting.
+
+**4. Draft.** Run:
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan draft --name <name>
 ```
@@ -139,7 +174,7 @@ Pass `--scope single|phased` only to override the engine's estimate. On
 remaining `structural issue(s)` → relay them. On success → note the written
 `plan.md` path.
 
-**4. Grill** — push past conscious knowledge against the *drafted* plan
+**5. Grill** — push past conscious knowledge against the *drafted* plan
 (interactive, unbounded):
 - Relentless: generate the full stream of edge-case questions against the
   draft — grilling intensity never drops. Routing decides who *answers* each
@@ -167,7 +202,7 @@ remaining `structural issue(s)` → relay them. On success → note the written
   question with its chosen answer. A veto re-opens that question as an
   escalation — fold the corrected answer into `plan.md` before moving on.
 
-**5. Dedup Review** — resolve prior-art duplication (interactive). This is the
+**6. Dedup Review** — resolve prior-art duplication (interactive). This is the
 last shaping of the plan; after it the plan is complete and Grade only verifies.
 Run:
 ```sh
@@ -194,7 +229,7 @@ subcommand's; you only conduct the review and apply the chosen edits.
   - **distinct** → record the justification in `## Prior Art`.
   Append a `Decision Log` row `Source = Dedup` for each resolution.
 
-**6. Grade + converge.** Run:
+**7. Grade + converge.** Run:
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
 ```
@@ -210,7 +245,7 @@ Read `.lightsout/plans/<name>/grade.json`:
 - `structural` findings present (rare) → apply each finding's exact `fix` to
   `plan.md` via Edit, then re-grade.
 
-**7. Handoff.** Relay the final grade and:
+**8. Handoff.** Relay the final grade and:
 ```
 Next: /implement --plan <plansDir>/<name>.md
 ```
