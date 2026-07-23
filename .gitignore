@@ -26,8 +26,6 @@ fixtures/*/.lightsout/friction.jsonl
 
 .claude/plans
 
-fixtures
-
 # fdrop plugin hook artifacts
 .fdrop/
 
