@@ -16,22 +16,27 @@ interface Params {
 	errorContext?: string;
 }
 
-/** Assemble the refactor-executor invocation deterministically. */
-export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }: Params) => {
-	const findingLine = (finding: ScanFinding) => {
-		const where = finding.files.map((file) => formatFindingSite({ file })).join(' ↔ ');
+/** Render one scanner finding as a markdown bullet with its formatted site(s). */
+const findingLine = (finding: ScanFinding) => {
+	const where = finding.files.map((file) => formatFindingSite({ file })).join(' ↔ ');
 
-		return `- [${finding.detector}] ${where} — ${finding.detail}`;
-	};
+	return `- [${finding.detector}] ${where} — ${finding.detail}`;
+};
 
-	const sections = [
-		`# Changed files to review\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`,
-		`# Plan (context for what these changes were for)\n\n${planContent}`,
-	];
+/**
+ * Assemble the refactor-executor invocation deterministically. The plan and
+ * standards are identical on every pass, so they ride the system prompt the
+ * harness caches through; the review list, scan findings, and any gate output
+ * grow between passes and stay in the user prompt.
+ */
+export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }: Params): { systemPrompt: string; prompt: string } => {
+	const roleSections = [refactorExecutorPrompt, `# Plan (context for what these changes were for)\n\n${planContent}`];
 
 	if (standards) {
-		sections.push(`# Standards\n\nThese rules are binding:\n\n${standards}`);
+		roleSections.push(`# Standards\n\nThese rules are binding:\n\n${standards}`);
 	}
+
+	const sections = [`# Changed files to review\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`];
 
 	if ((scanFindings && scanFindings.length > 0) || (scanAdvisories && scanAdvisories.length > 0)) {
 		const parts = ['# Scan findings (deterministic detectors)'];
@@ -60,7 +65,7 @@ export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, sta
 	sections.push('Remember: your entire final message must be exactly one JSON report object — nothing else.');
 
 	return {
-		systemPrompt: refactorExecutorPrompt,
+		systemPrompt: roleSections.join('\n\n---\n\n'),
 		prompt: sections.join('\n\n'),
 	};
 };

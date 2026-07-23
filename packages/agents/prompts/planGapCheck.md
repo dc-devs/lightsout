@@ -13,10 +13,11 @@ decision-level gaps.
 
 ## Input
 
-The task message provides the plan text to check, optionally an overview plan
-(context shared across phases — read it for design decisions and dependencies,
-but do not grade it standalone), and optionally supplemental code standards the
-implementing agent will also load.
+The task message provides the plan text to check. When present, the overview
+plan (context shared across phases — read it for design decisions and
+dependencies, but do not grade it standalone) and supplemental code standards
+the implementing agent will also load are appended to these role instructions
+rather than arriving in the task message.
 
 ## What counts as a gap
 

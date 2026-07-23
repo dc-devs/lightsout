@@ -10,20 +10,26 @@ interface Params {
 	errorContext?: string;
 }
 
-/** Assemble the unit-test-writer invocation deterministically. */
-export const buildUnitTestWriterInvocation = ({ planContent, changedFiles, standards, errorContext }: Params) => {
+/**
+ * Assemble the unit-test-writer invocation deterministically. The role prompt,
+ * the plan, and the test standards are identical across every writer spawned
+ * for a run, so they live in the system prompt — the harness's cache
+ * breakpoint sits after it, so the fan-out's spawns share one cached prefix.
+ * Only the per-writer target group and any verification failure vary, and
+ * those are the user prompt.
+ */
+export const buildUnitTestWriterInvocation = ({ planContent, changedFiles, standards, errorContext }: Params): { systemPrompt: string; prompt: string } => {
 	const groupNote =
 		changedFiles.length > 1
 			? '\n\nThese files changed together. Test each module through its public surface and cover internal files through the boundary that owns them — write no dedicated test for a file that is internal to another listed file, and create no test for any file outside this list.'
 			: '';
-	const sections = [
-		`# Changed files to cover\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}${groupNote}`,
-		`# Plan (context for intended behavior)\n\n${planContent}`,
-	];
+	const roleSections = [unitTestWriterPrompt, `# Plan (context for intended behavior)\n\n${planContent}`];
 
 	if (standards) {
-		sections.push(`# Standards\n\nThese rules are binding for the tests you write:\n\n${standards}`);
+		roleSections.push(`# Standards\n\nThese rules are binding for the tests you write:\n\n${standards}`);
 	}
+
+	const sections = [`# Changed files to cover\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}${groupNote}`];
 
 	if (errorContext) {
 		sections.push(
@@ -34,7 +40,7 @@ export const buildUnitTestWriterInvocation = ({ planContent, changedFiles, stand
 	sections.push('Remember: your entire final message must be exactly one JSON report object — nothing else.');
 
 	return {
-		systemPrompt: unitTestWriterPrompt,
+		systemPrompt: roleSections.join('\n\n---\n\n'),
 		prompt: sections.join('\n\n'),
 	};
 };

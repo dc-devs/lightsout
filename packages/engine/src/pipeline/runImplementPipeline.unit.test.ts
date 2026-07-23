@@ -40,14 +40,16 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	writeFileSync(join(dir, 'overview.md'), 'OVERVIEW-SENTINEL\n');
 
 	const prompts: Record<string, string[]> = {};
+	const systemPrompts: Record<string, string[]> = {};
 	let refactorPass = 0;
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
+		invoke: async ({ prompt, systemPrompt }) => {
 			const role = roleOf(prompt);
 
 			(prompts[role] ??= []).push(prompt);
+			(systemPrompts[role] ??= []).push(systemPrompt ?? '');
 
 			if (role === 'write-tests') {
 				const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
@@ -100,7 +102,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	});
 
 	assert.equal(result.ok, true, result.error);
-	assert.ok(prompts['implement']?.[0]?.includes('OVERVIEW-SENTINEL'), 'overview inlined into implement prompt');
+	assert.ok(systemPrompts['implement']?.[0]?.includes('OVERVIEW-SENTINEL'), 'overview inlined into the executor system prompt');
 	assert.ok(result.manifest.changedFiles.includes('src/helper.js'), 'git caught the unreported file');
 	assert.ok(!result.manifest.changedFiles.includes('scratch.txt'), 'baseline dirt excluded');
 	assert.ok(result.manifest.baselineDirtyFiles.includes('scratch.txt'), 'baseline recorded in manifest');
@@ -110,7 +112,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	);
 	assert.equal(prompts['write-tests']?.length, 2, 'one writer per JS/TS file — the .tf earned no writer');
 	assert.ok(
-		prompts['write-tests']?.every((prompt) => (prompt.split('# Plan')[0]?.match(/^- /gm) ?? []).length === 1),
+		prompts['write-tests']?.every((prompt) => (prompt.match(/^- /gm) ?? []).length === 1),
 		'each writer got exactly one file in its target list',
 	);
 	assert.ok(result.manifest.changedFiles.includes('src/infra.tf'), 'the .tf is still tracked as changed');
@@ -671,9 +673,10 @@ test('standards default on when unspecified; false switches them off explicitly'
 		let implementPrompt = '';
 		const driver: Driver = {
 			name: 'stub',
-			invoke: async ({ prompt }) => {
+			invoke: async ({ prompt, systemPrompt }) => {
 				if (roleOf(prompt) === 'implement') {
-					implementPrompt = prompt;
+					// Standards ride the system prompt — stable for the run, so cached.
+					implementPrompt = systemPrompt ?? '';
 
 					return { text: report({ status: 'failed', failures: ['stop early'] }), exitCode: 0 };
 				}
@@ -689,12 +692,12 @@ test('standards default on when unspecified; false switches them off explicitly'
 
 	const defaulted = await run({ config: {} });
 
-	assert.ok(defaulted.includes('# Standards'), 'unspecified → standards section present');
+	assert.ok(defaulted.includes('# Standards\n\nThese rules are binding'), 'unspecified → standards section present');
 	assert.ok(defaulted.includes('One Export Per File'), 'bundled defaults inlined');
 
 	const disabled = await run({ config: { standards: false, testStandards: false } });
 
-	assert.ok(!disabled.includes('# Standards'), 'false → no standards section');
+	assert.ok(!disabled.includes('# Standards\n\nThese rules are binding'), 'false → no standards section');
 });
 
 test('missing overview file fails the run before any agent spawns', async () => {

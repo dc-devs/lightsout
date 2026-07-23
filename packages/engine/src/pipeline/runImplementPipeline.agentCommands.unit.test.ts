@@ -13,14 +13,14 @@ const grant = 'pnpm --filter api run prisma:migrate:dev:name';
 test('agentCommands: grant section reaches the executor, driver gets allowedCommands, test writers stay ungranted', async () => {
 	const dir = setupConsumerRepo({ config: { agentCommands: [grant] } });
 
-	const invocations: { role: string; prompt: string; allowedCommands?: string[] }[] = [];
+	const invocations: { role: string; systemPrompt?: string; allowedCommands?: string[] }[] = [];
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, allowedCommands }) => {
+		invoke: async ({ prompt, systemPrompt, allowedCommands }) => {
 			const role = roleOf(prompt);
 
-			invocations.push({ role, prompt, allowedCommands });
+			invocations.push({ role, systemPrompt, allowedCommands });
 
 			if (role === 'write-tests') {
 				mkdirSync(join(dir, 'test'), { recursive: true });
@@ -47,23 +47,24 @@ test('agentCommands: grant section reaches the executor, driver gets allowedComm
 	const implement = invocations.find((invocation) => invocation.role === 'implement');
 	const writer = invocations.find((invocation) => invocation.role === 'write-tests');
 
-	assert.ok(implement?.prompt.includes('# Granted commands'), 'executor task carries the grant section');
-	assert.ok(implement?.prompt.includes(grant), 'grant lists the exact prefix');
+	// The grant is stable for the whole run, so it rides the cached system prompt.
+	assert.ok(implement?.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands'), 'executor role prompt carries the grant section');
+	assert.ok(implement?.systemPrompt?.includes(grant), 'grant lists the exact prefix');
 	assert.deepEqual(implement?.allowedCommands, [grant], 'driver receives allowedCommands for the executor');
-	assert.ok(!writer?.prompt.includes('# Granted commands'), 'test-writer task has no grant section');
+	assert.ok(!writer?.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands'), 'test-writer role prompt has no grant section');
 	assert.deepEqual(writer?.allowedCommands, [grant], 'harness-level allowance is uniform for working roles');
 });
 
 test('agentCommands absent: no grant section, no allowedCommands', async () => {
 	const dir = setupConsumerRepo();
 
-	let implementInvocation: { prompt: string; allowedCommands?: string[] } | undefined;
+	let implementInvocation: { systemPrompt?: string; allowedCommands?: string[] } | undefined;
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt, allowedCommands }) => {
+		invoke: async ({ prompt, systemPrompt, allowedCommands }) => {
 			if (roleOf(prompt) === 'implement') {
-				implementInvocation = { prompt, allowedCommands };
+				implementInvocation = { systemPrompt, allowedCommands };
 			}
 
 			return { text: 'no report', exitCode: 0 };
@@ -75,6 +76,6 @@ test('agentCommands absent: no grant section, no allowedCommands', async () => {
 	await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
 	assert.ok(implementInvocation, 'executor was invoked');
-	assert.ok(!implementInvocation.prompt.includes('# Granted commands'));
+	assert.ok(!implementInvocation.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands'));
 	assert.equal(implementInvocation.allowedCommands, undefined);
 });

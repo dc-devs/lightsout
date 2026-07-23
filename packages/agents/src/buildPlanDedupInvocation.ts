@@ -18,31 +18,38 @@ interface Params {
 }
 
 /** Render one detected collision as a markdown bullet with its colliding exports. */
-const renderCandidate = ({ plannedSymbol, collidesWith }: Candidate): string => {
+const renderCandidate = ({ plannedSymbol, collidesWith }: Candidate) => {
 	const collisions = collidesWith.map((collision) => `${collision.name} → ${collision.path}`).join('; ');
 
 	return `- \`${plannedSymbol}\` collides with: ${collisions}`;
 };
 
-/** Assemble one plan dedup-judge invocation deterministically. */
-export const buildPlanDedupInvocation = ({ planText, overviewText, candidates, standards }: Params) => {
-	const sections = [`# Dedup input`];
+/**
+ * Assemble one plan dedup-judge invocation deterministically. The overview and
+ * the standards are stable across a run's judgments, so they live in the system
+ * prompt the harness caches through; the plan text and detected collisions are
+ * the per-invocation prompt.
+ */
+export const buildPlanDedupInvocation = ({ planText, overviewText, candidates, standards }: Params): { systemPrompt: string; prompt: string } => {
+	const roleSections = [planDedupPrompt];
 
 	if (overviewText) {
-		sections.push(`## Overview (context only — do not judge standalone)\n\n${overviewText}`);
+		roleSections.push(`# Overview (context only — do not judge standalone)\n\n${overviewText}`);
 	}
-
-	sections.push(`## Plan to judge\n\n${planText}`);
-	sections.push(`## Detected name collisions\n\n${candidates.map(renderCandidate).join('\n')}`);
 
 	if (standards) {
-		sections.push(`## Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`);
+		roleSections.push(`# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`);
 	}
 
-	sections.push('Remember: your entire final message must be exactly one JSON DedupJudgment object — nothing else.');
+	const sections = [
+		`# Dedup input`,
+		`## Plan to judge\n\n${planText}`,
+		`## Detected name collisions\n\n${candidates.map(renderCandidate).join('\n')}`,
+		'Remember: your entire final message must be exactly one JSON DedupJudgment object — nothing else.',
+	];
 
 	return {
-		systemPrompt: planDedupPrompt,
+		systemPrompt: roleSections.join('\n\n---\n\n'),
 		prompt: sections.join('\n\n'),
 	};
 };

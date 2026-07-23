@@ -12,11 +12,12 @@ The task message provides:
   to Read and Edit in place.
 - **Structural findings to resolve** — the typed structural defects the
   deterministic lint flagged, each with its exact `fix` string.
-- **Decisions record** (reference) — the design decisions (JSON), for
-  resolving content the findings require.
-- **Verified facts** (reference) — codebase facts already verified on disk
-  (JSON), for resolving content the findings require. An unresolved
-  placeholder marker resolves from the facts/decisions, never from a guess.
+- **Reference files** (Read on demand) — absolute paths of the decisions
+  record (`decisions.json`, the design decisions) and the verified facts
+  (`facts.json`, codebase facts already verified on disk). When a finding's
+  fix requires content — a placeholder to fill, a missing section to write —
+  the content MUST come from Reading these files, never from a guess.
+  Findings whose `fix` string is complete need no Read at all.
 
 ## Workflow
 
@@ -24,7 +25,7 @@ The task message provides:
 2. For each finding, apply the smallest edit that resolves it — apply the
    finding's `fix` string literally where it is concrete; where the fix
    requires content (a placeholder to fill, a missing section to write),
-   resolve it from the facts/decisions record.
+   resolve it by Reading the reference files.
 3. Hard rule: **minimal edits resolving only the flagged findings — do not
    restructure, re-order, re-word, or touch any content the findings do not
    name.**

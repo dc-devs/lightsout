@@ -9,24 +9,31 @@ interface Params {
 	standards?: string;
 }
 
-/** Assemble one plan gap-check invocation deterministically. */
-export const buildPlanGapCheckInvocation = ({ planText, overviewText, standards }: Params) => {
-	const sections = [`# Gap-check input`];
+/**
+ * Assemble one plan gap-check invocation deterministically. A grade run spawns
+ * one checker per phase file with the same overview and standards, so those
+ * live in the system prompt (the harness caches through it) and only the plan
+ * text under check varies per spawn.
+ */
+export const buildPlanGapCheckInvocation = ({ planText, overviewText, standards }: Params): { systemPrompt: string; prompt: string } => {
+	const roleSections = [planGapCheckPrompt];
 
 	if (overviewText) {
-		sections.push(`## Overview (context only — do not grade standalone)\n\n${overviewText}`);
+		roleSections.push(`# Overview (context only — do not grade standalone)\n\n${overviewText}`);
 	}
-
-	sections.push(`## Plan to check\n\n${planText}`);
 
 	if (standards) {
-		sections.push(`## Code standards\n\nThe implementing agent loads these too — flag only where the plan contradicts them:\n\n${standards}`);
+		roleSections.push(`# Code standards\n\nThe implementing agent loads these too — flag only where the plan contradicts them:\n\n${standards}`);
 	}
 
-	sections.push('Remember: your entire final message must be exactly one JSON GapCheckReport object — nothing else.');
+	const sections = [
+		`# Gap-check input`,
+		`## Plan to check\n\n${planText}`,
+		'Remember: your entire final message must be exactly one JSON GapCheckReport object — nothing else.',
+	];
 
 	return {
-		systemPrompt: planGapCheckPrompt,
+		systemPrompt: roleSections.join('\n\n---\n\n'),
 		prompt: sections.join('\n\n'),
 	};
 };

@@ -13,11 +13,12 @@ duplicates the plan should not create as-is, and what to do about each.
 
 ## Input
 
-The task message provides the plan text, optionally an overview plan (shared
-context for a phased plan — read it, do not judge it standalone), a
-`## Detected name collisions` section (each: a planned new symbol and the
-existing exports it name-collides with, name → path), and optionally
-supplemental code standards.
+The task message provides the plan text and a `## Detected name collisions`
+section (each: a planned new symbol and the existing exports it name-collides
+with, name → path). When present, the overview plan (shared context for a
+phased plan — read it, do not judge it standalone) and supplemental code
+standards are appended to these role instructions rather than arriving in the
+task message.
 
 ## What to decide per detected collision
 

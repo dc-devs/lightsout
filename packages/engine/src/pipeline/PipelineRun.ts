@@ -153,7 +153,23 @@ export class PipelineRun {
 		};
 	}
 
-	async invokeRole({ invocation, step }: { invocation: { systemPrompt: string; prompt: string }; step: string }): Promise<Awaited<ReturnType<typeof invokeAgentWithContract<typeof WorkReport>>>> {
+	// onFirstEvent fires once, on the invocation's first streamed event — the
+	// moment the harness's response began, and so the moment a prompt-cache
+	// entry for this system prompt becomes readable by a concurrent spawn.
+	// Drivers with no event stream never fire it; callers must not depend on it
+	// for outcomes.
+	async invokeRole({
+		invocation,
+		step,
+		onFirstEvent,
+	}: {
+		invocation: { systemPrompt: string; prompt: string };
+		step: string;
+		onFirstEvent?: () => void;
+	}): Promise<Awaited<ReturnType<typeof invokeAgentWithContract<typeof WorkReport>>>> {
+		const sink = this.agentEventSink({ step });
+		let seenFirst = false;
+
 		const outcome = await invokeAgentWithContract({
 			driver: this.driver,
 			cwd: this.cwd,
@@ -165,7 +181,14 @@ export class PipelineRun {
 			// Harness-level allowance for all working roles; the binding grant
 			// is the prompt section, which only the executor's builder emits.
 			allowedCommands: this.config.agentCommands,
-			onEvent: this.agentEventSink({ step }),
+			onEvent: (event) => {
+				if (!seenFirst) {
+					seenFirst = true;
+					onFirstEvent?.();
+				}
+
+				sink(event);
+			},
 			onRejectedOutput: this.persistRejected({ step }),
 		});
 

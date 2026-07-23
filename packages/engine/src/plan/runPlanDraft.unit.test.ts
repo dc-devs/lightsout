@@ -205,6 +205,35 @@ test('plan draft: the repair invocation gets no self-lint command and no command
 	assert.ok(!repairInvocation.prompt.includes('plan lint'), 'the repairer is never told to self-lint');
 });
 
+test('plan draft: the repair invocation references the workspace facts/decisions by path, never inlined', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'repair-refs' });
+
+	const invocations: DriverInvocation[] = [];
+	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({ cwd, driver, name: 'repair-refs', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+
+	const repairInvocation = invocations.find((invocation) => invocation.prompt.includes('# Repair input'));
+
+	assert.ok(repairInvocation, 'the dirty author forced a repair');
+
+	const workspaceDir = join(cwd, '.lightsout', 'plans', 'repair-refs');
+
+	assert.ok(
+		repairInvocation.prompt.includes(`- Decisions record: ${join(workspaceDir, 'decisions.json')}`),
+		'the decisions reference is the workspace path',
+	);
+	assert.ok(
+		repairInvocation.prompt.includes(`- Verified facts: ${join(workspaceDir, 'facts.json')}`),
+		'the facts reference is the workspace path',
+	);
+	assert.ok(!repairInvocation.prompt.includes('do a thing'), 'the seeded facts content never rides the prompt');
+	assert.ok(!repairInvocation.prompt.includes('```json'), 'no fenced JSON reference block survives in the prompt');
+});
+
 test('plan draft: a TBD author then a clean repair proves the repair loop converges without re-authoring', async () => {
 	const cwd = setupConsumerRepo();
 

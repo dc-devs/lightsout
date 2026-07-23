@@ -57,10 +57,11 @@ test('pipeline injects channel docs for react packages and announces the detecti
 	const prompts: Record<string, string> = {};
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
+		invoke: async ({ prompt, systemPrompt }) => {
 			const role = roleOf(prompt);
 
-			prompts[role] = prompt;
+			// Standards ride the system prompt — capture both halves of the invocation.
+			prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
 
 			if (role === 'write-tests') {
 				writeFileSync(join(dir, 'packages/web/src/feature.unit.test.js'), '// stub\n');
@@ -108,10 +109,11 @@ test('standardsChannels config replaces detection', async () => {
 	const prompts: Record<string, string> = {};
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
+		invoke: async ({ prompt, systemPrompt }) => {
 			const role = roleOf(prompt);
 
-			prompts[role] = prompt;
+			// Standards ride the system prompt — capture both halves of the invocation.
+			prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
 
 			if (role === 'write-tests') {
 				writeFileSync(join(dir, 'packages/api/src/feature.unit.test.js'), '// stub\n');

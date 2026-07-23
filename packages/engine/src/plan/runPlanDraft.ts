@@ -173,7 +173,12 @@ export const runPlanDraft = async ({
 		const { report: fixReport, failure: fixFailure, rateLimited: fixRateLimited } = await invokeAgentWithContract({
 			driver,
 			cwd,
-			invocation: buildPlanRepairInvocation({ findings, planPaths, facts, decisions }),
+			invocation: buildPlanRepairInvocation({
+				findings,
+				planPaths,
+				decisionsPath: join(workspaceDir, 'decisions.json'),
+				factsPath: join(workspaceDir, 'facts.json'),
+			}),
 			contract: PlanFixReport,
 			model,
 			permissionMode,

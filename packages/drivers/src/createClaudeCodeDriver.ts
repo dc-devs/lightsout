@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { spawnCollect } from './common/utils/spawnCollect';
+import { writeSystemPromptFile } from './common/utils/writeSystemPromptFile';
 import type { Driver } from './common/types/Driver';
 
 /**
@@ -43,12 +44,12 @@ const parseEnvelope = ({ stdout }: { stdout: string }) => {
 const rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset/i;
 
 const buildArgs = ({
-	systemPrompt,
+	systemPromptPath,
 	model,
 	permissionMode,
 	allowedCommands,
 }: {
-	systemPrompt?: string;
+	systemPromptPath?: string;
 	model?: string;
 	permissionMode?: string;
 	allowedCommands?: string[];
@@ -56,12 +57,17 @@ const buildArgs = ({
 	// stream-json (which requires --verbose in print mode) instead of json:
 	// same final result payload, but every intermediate event — tool calls,
 	// token ticks — arrives live for transcripts and progress narration.
-	const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+	// The dynamic sections (git status and friends) move to the first user
+	// message, so the default system prompt stays byte-identical between
+	// steps — the cached prefix the engine's system-prompt layout depends on.
+	const args = ['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections'];
 
-	if (systemPrompt) {
+	if (systemPromptPath) {
 		// Append, never replace: keeps the harness's default agent behavior,
 		// mirroring how the Agent tool layers a role prompt onto a subagent.
-		args.push('--append-system-prompt', systemPrompt);
+		// The file variant, not the argv one: role + plan + standards can reach
+		// hundreds of kilobytes against a fixed argv ceiling.
+		args.push('--append-system-prompt-file', systemPromptPath);
 	}
 
 	if (model) {
@@ -87,8 +93,10 @@ const buildArgs = ({
  *
  * Spawns the user's own installed, logged-in `claude` binary — auth and
  * billing ride the user's existing session (e.g. a Max subscription), and the
- * engine never sees a credential. Flag surface and stream-json event shapes
- * verified against claude CLI 2.1.200.
+ * engine never sees a credential. Stream-json event shapes verified against
+ * claude CLI 2.1.200; `--append-system-prompt-file` and
+ * `--exclude-dynamic-system-prompt-sections` verified against claude CLI
+ * 2.1.218.
  */
 export const createClaudeCodeDriver = () => {
 	const driver: Driver = {
@@ -98,9 +106,13 @@ export const createClaudeCodeDriver = () => {
 
 			let resultEvent: z.infer<typeof ResultEvent> | undefined;
 
+			const systemPromptFile = systemPrompt ? await writeSystemPromptFile({ systemPrompt }) : undefined;
+
+			// The temp file outlives only the spawn — cleanup runs on the error
+			// path too, and never throws.
 			const { exitCode, stdout, stderr } = await spawnCollect({
 				command: 'claude',
-				args: buildArgs({ systemPrompt, model, permissionMode, allowedCommands }),
+				args: buildArgs({ systemPromptPath: systemPromptFile?.path, model, permissionMode, allowedCommands }),
 				cwd,
 				stdinText: prompt,
 				timeoutMs,
@@ -121,7 +133,7 @@ export const createClaudeCodeDriver = () => {
 
 					onEvent?.(event);
 				},
-			});
+			}).finally(() => systemPromptFile?.cleanup());
 
 			const envelope = resultEvent ?? parseEnvelope({ stdout });
 			const text = envelope?.result ?? stdout ?? '';

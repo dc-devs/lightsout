@@ -1,68 +1,14 @@
-import { buildUnitTestWriterInvocation } from '@lightsout/agents';
-import { RunStatus, WorkReportStatus, type WorkReport } from '@lightsout/contracts';
+import { RunStatus } from '@lightsout/contracts';
 import { resolveConsumerTypescript } from '../../common/utils/resolveConsumerTypescript';
-import { appendFriction } from '../../runState';
 import type { PipelineRun } from '../PipelineRun';
 import type { PipelineStep } from '../PipelineStep';
 import { collectChanged } from '../common/utils/collectChanged';
 import { sourceFiles } from '../common/utils/sourceFiles';
 import { withStepFiles } from '../common/utils/withStepFiles';
+import { testWriterConcurrency } from '../common/constants/testWriterConcurrency';
 import { groupTestTargets } from './groupTestTargets';
+import { runWriterBatches } from './runWriterBatches';
 import { selectTestTargets } from './selectTestTargets';
-
-const testWriterConcurrency = 5;
-
-const runWriterBatches = async ({
-	run,
-	groups,
-	planContent,
-	testStandards,
-}: {
-	run: PipelineRun;
-	groups: string[][];
-	planContent: string;
-	testStandards?: string;
-}) => {
-	const reports: WorkReport[] = [];
-	const failures: string[] = [];
-	let terminated = false;
-	let parked = false;
-
-	for (let start = 0; start < groups.length && !parked; start += testWriterConcurrency) {
-		const batch = groups.slice(start, start + testWriterConcurrency);
-		const results = await Promise.all(
-			batch.map(async (group) => ({
-				group,
-				...(await run.invokeRole({ invocation: buildUnitTestWriterInvocation({ planContent, changedFiles: group, standards: testStandards }), step: 'write-tests' })),
-			})),
-		);
-
-		for (const result of results) {
-			const label = result.group.join(', ');
-
-			if (result.rateLimited) {
-				parked = true;
-				continue;
-			}
-
-			if (!result.report) {
-				failures.push(`${label}: ${result.failure ?? 'unknown failure'}`);
-				continue;
-			}
-
-			await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: 'write-tests', friction: result.report.friction ?? [] });
-			reports.push(result.report);
-			run.progress(`write-tests: ${label} — ${result.report.status}`);
-
-			if (result.report.status !== WorkReportStatus.Complete) {
-				terminated = terminated || result.report.status !== WorkReportStatus.Failed;
-				failures.push(`${label}: ${result.report.status} — ${result.report.failures.join('; ')}`);
-			}
-		}
-	}
-
-	return { reports, failures, terminated, parked };
-};
 
 interface Params {
 	run: PipelineRun;
