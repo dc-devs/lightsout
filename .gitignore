@@ -28,6 +28,3 @@ fixtures/*/.lightsout/friction.jsonl
 
 # fdrop plugin hook artifacts
 .fdrop/
-
-# local-only personal notes — never committed
-.notes

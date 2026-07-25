@@ -1,0 +1,15 @@
+{
+	"at": "2026-07-10T13:48:30.907Z",
+	"basis": "dirty-tree",
+	"changedFiles": [],
+	"packages": [],
+	"includeRoot": false,
+	"gates": [],
+	"findings": [],
+	"missingTests": [],
+	"untestedChanges": [],
+	"notes": [
+		"nothing to verify — the dirty-tree basis is empty (a fresh commit empties the dirty tree; --base <ref> verifies committed work)"
+	],
+	"verdict": "clean"
+}
