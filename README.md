@@ -1,369 +1,146 @@
 # lightsout
 
-> Lights-out manufacturing: a factory so reliable it runs with the lights off.
+> Stop the slop. Settle the plan, then walk away. Your coding agent
+> implements, tests, and refactors autonomously — while deterministic gates
+> enforce your standards at every step: your tests, your lint, your style
+> guide, your coverage thresholds.
 
-**lightsout** is a deterministic engine for coding agents. It does not make
-your agent smarter — it makes your agent *accountable*: mechanical gates,
-typed contracts, resumable run state, and a supervisor for the exception path.
-Hand it a plan; it drives your own installed coding agent (Claude Code or
-Codex) through implement → test → refactor with real verification between
-every step, and leaves a truthful audit trail on disk.
+*Named for lights-out manufacturing—factories designed to run unattended.*
 
-**Status: pre-alpha.** Design and decision log: [docs/architecture.md](docs/architecture.md).
+**Status: pre-alpha.**
 
 ## Why
 
-Frontier models already write good code on the median run. What breaks
-unattended work is the *bad* run — and everything here exists for that run:
+AI coding agents are good at the task in front of them. They are less
+reliable at preserving the shape of the repository around it. With limited
+context, they miss existing helpers, duplicate logic, invent new
+conventions, and repeat whatever patterns they encounter — even bad ones.
+Each change works and passes its tests, but the codebase accumulates
+conflicting abstractions, scattered utilities, and multiple answers to the
+same problem — making the repo harder for both humans and agents to
+understand, change, and trust.
 
-- **Verification can't be sweet-talked.** Agents report; subprocesses decide.
-  Every gate is your own repo's commands and an exit code the model can't
-  influence. An agent claiming "tests pass" counts for nothing until the
-  engine has run them.
-- **Failures are honest and specific.** Agent output is validated against
-  typed contracts at every boundary. A failed run tells you exactly what's
-  missing and why — in one live run, the executor reported the precise
-  deliverable it couldn't produce and the exact command that would produce
-  it, which became config (`agentCommands`) instead of a mystery.
-- **Everything leaves evidence.** Every gate command lands in
-  `commands.jsonl` with exit code and duration; agent output that fails its
-  contract is persisted verbatim; the manifest snapshots the config that
-  produced the run. A green gate that left no trace is indistinguishable
-  from one that never ran — so no gate runs without a trace.
-- **Crashes, rate limits, and flakes are states, not disasters.** Run state
-  lives on disk, never in a context window: kill the process, hit your
-  subscription window, catch a flaky test-worker crash — `resume` re-enters
-  at the exact step. Red gates get one mechanical re-run before the verdict,
-  because one flaky failure is evidence of nothing.
-- **Changed-file truth is double-entry.** What agents report is merged with
-  what git actually observed; work an agent forgot to mention still gets
-  tests, review, and gates.
-- **Your harness, your subscription, zero credentials.** The engine drives
-  the coding-agent CLI you're already logged into. No API keys, no
-  third-party auth, nothing to leak.
-- **It improves from its own runs.** Agents report friction — where the
-  plan, prompts, standards, or environment fought them — and the aggregate
-  drives prompt and standards fixes. The first consumer's phase-one plan
-  surfaced five engine improvements before it shipped.
+## What lightsout does
 
-What lightsout deliberately is *not*: a smarter agent, a prompt library, or
-an orchestrator persona. Scaffolding that constrains the model depreciates
-with every model release; scaffolding that verifies it appreciates.
+- **Clean code is a first-class citizen.** Before writing anything new,
+  agents are directed to find existing code that already does the job.
+  Refactoring is built into every run.
+- **Your standards ride along at every step.** Style guide and architecture
+  rules are injected into plan, implement, test, and refactor — enforced,
+  not suggested.
+- **Deterministic gates between every step.** An agent can claim its code
+  passes tests, lint, and coverage. The engine never takes its word — after
+  every step it runs your commands itself, and a failure stops the run.
+- **Humans are in the loop where it matters.** Brainstorm, plan, and get
+  grilled on that plan until every decision is settled. Then hand the
+  mechanical part to the agent.
+- **Evidence, not claims.** Every gate command, agent conversation, and cost
+  lands on disk in the run's manifest. A green run can prove it.
 
-## How a run works
+## What a run looks like
 
 ```
-lightsout implement --plan plans/feature.md
+$ lightsout implement --plan plans/power.md
 
-  clean-slate gate      repo must be green before any agent runs
-  implement             feature-executor agent works from your plan
-  verify                your check + test commands; exit codes, not claims
-  write-tests           one test-writer agent per changed source file, 5 in parallel
-  verify                … + coverage gate
-  refactor              scan gate feeds deterministic findings on the changed files
-                        (baseline-suppressed) to the refactor agent; loops (≤3 passes)
-                        until a pass changes nothing AND the scanner is clean —
-                        surviving gating findings escalate
-  verify                … + coverage gate
-  format                your formatter runs once; gates re-verify after
+[+0:00] step clean-slate — attempt 1
+[+0:00] gate [root] check: exit 0            ← the repo must be green before any agent runs
+[+0:00] gate [root] testUnit: exit 0
+[+0:00] step implement — attempt 1 · invoking agent (ceiling 60m)
+[+0:32]   implement · usage: in 11 · out 1.6k · cache-read 159.1k · $0.28
+[+0:32] step implement: agent report complete — 2 changed file(s)
+                                             ← what the agent reports is merged with
+                                               what git actually saw change
+[+0:32] gate [root] check: exit 0            ← gates re-run after every step;
+[+0:32] gate [root] testUnit: exit 0           a red exit stops the run
+[+0:32] step write-tests — attempt 1 · 1 group(s), up to 5 writers in parallel
+[+0:59] write-tests: src/power.js — complete
+[+0:59] step refactor — pass 1/3             ← a scan feeds findings on the changed
+[+1:25] refactor pass 1: no changes — loop complete    files; loops until clean
 
-  → verified diff in your worktree + manifest in .lightsout/runs/<id>/
+run       5df09112 · PASSED
+wall      1m 25s
+tokens    in 111 · out 4.9k · cache-read 357.2k (88%)
+cost      $0.77 API-equivalent · 3 invocations
+
+│ step               │ tries │   time │ agents │  out │  cost │ files │
+│ ✓ implement        │     1 │    32s │      1 │ 1.6k │ $0.28 │     2 │
+│ ✓ write-tests      │     1 │    27s │      1 │ 1.7k │ $0.26 │     1 │
+│ ✓ refactor         │     1 │    26s │      1 │ 1.7k │ $0.23 │     0 │
+
+evidence  .lightsout/runs/5df09112…/          ← every gate command, agent conversation,
+                                               and cost, on disk
 ```
 
-Changed files flow step to step through the run manifest: after every work
-step the agent's typed report is merged with a git snapshot of the worktree
-(agents report what they changed; git reports what *actually* changed), and
-the merged list is what the next role receives. An implement step that
-changes nothing fails instead of passing vacuously. Only JS/TS-family files
-earn agent turns (test writers, refactor review) — everything else is still
-tracked and gated, but never costs a model call.
+## A plan a fresh agent can execute
 
-Every gate command the engine runs is logged to
-`.lightsout/runs/<id>/commands.jsonl` — step, group, command, exit code,
-duration, plus an output tail on failure — so passing gates leave evidence
-too. The CLI prints the fully resolved config at launch and streams progress
-live (steps, gate results, agent reports, elapsed time), and the manifest
-snapshots the config permanently so every run records which settings
-produced it.
+The test of a finished plan: an agent with zero conversation history —
+a fresh context window, nothing but the plan file — implements exactly
+what it outlines. No guessing, no filling gaps, no surprises in the PR.
 
-Agents are watchable while they work: each invocation's harness event
-stream — every tool call, every chat message, the final result — is teed to
-`.lightsout/runs/<id>/agents/stream-*.jsonl`, the full conversation as
-on-disk evidence. `tail -f` it when you want the live play-by-play; the
-terminal itself stays on the signal (steps, gates, usage) rather than
-echoing hundreds of tool calls. Watching is read-only by design:
-course-correction belongs to gates, the supervisor, and escalation — never
-to a human whispering mid-step.
+`/plan` gets you there by interviewing you until every decision an
+implementer would otherwise make alone is settled: goal, scope, files
+touched, design choices, project constraints. Then it grades the plan
+and won't call it ready until nothing is left open.
 
-Runs also account for what they spend: every agent invocation's token usage
-and cost land in the run's `agents.jsonl` with step provenance, each
-invocation is narrated as it completes (`implement · usage: in 12 · out
-41.2k · cache-read 890k · $0.85`), and the manifest carries the run-wide
-aggregate. Drivers that report no usage simply leave no ledger — the engine
-records what it can prove, never estimates.
+That is why implementation can run unattended.
 
-Every run ends with a report card computed from that evidence: wall time
-and gate time, token totals with the cache-read share (the cost-efficiency
-dial), API-equivalent cost, and a per-step table — tries, time, agent
-invocations, output tokens, cost, files changed — followed by gate flake
-re-runs, skipped gates, re-emitted reports, and friction counts by area.
-Ten runs in, this is the table that tells you which step earns its cost.
+## Quick start
 
-One run at a time per repo: `implement` and `resume` take a lock
-(`.lightsout/lock.json`) before touching anything, so a second concurrent
-invocation fails fast instead of fighting the first over the worktree. A lock
-left by a crashed process is detected by pid and stolen automatically, and
-`lightsout status` flags a `running` run with no live process behind it as
-crashed-but-resumable.
-
-Failures retry mechanically, then a read-only supervisor agent decides:
-retry with guidance, or escalate to you. Hitting your subscription's rate
-limit *parks* the run (`paused-rate-limit`) — `lightsout resume` continues it
-from the exact step it stopped at.
-
-## Prerequisites
-
-- Node 20+
-- A logged-in coding agent CLI: [Claude Code](https://code.claude.com)
-  (`claude`) and/or Codex (`codex`). **lightsout never handles credentials or
-  API keys** — it drives your installed CLI, and usage bills to the
-  subscription that CLI is already logged into.
-
-## Install
-
-No npm. The committed bundle in the repo is the tool:
-
-```sh
-git clone git@github.com:dc-devs/lightsout.git
-alias lightsout="node $(pwd)/lightsout/plugin/dist/cli.mjs"
-```
-
-## Quick start (bundled fixture)
-
-`fixtures/toy-calc` is a tiny consumer repo with one unimplemented plan:
-
-```sh
-cd lightsout/fixtures/toy-calc
-node ../../plugin/dist/cli.mjs implement --plan plans/power.md --cwd .
-```
-
-Watch the pipeline run (an agent implements `power`, another writes its tests,
-gates verify each stage), then inspect `src/`, `test/`, and
-`.lightsout/runs/<id>/manifest.json`. Reset the fixture with
-`git checkout -- fixtures/toy-calc` to run it again.
-
-## Use in your repo
-
-Add `lightsout.config.json` at the repo root:
-
-```json
-{
-	"scripts": {
-		"check": "pnpm typecheck",
-		"testUnit": "pnpm test",
-		"testCoverage": "pnpm test:coverage"
-	}
-}
-```
-
-That's a complete config: the engine's bundled JS/TS standards load by
-default (base docs always; React/TanStack docs join automatically when the
-run's packages use those frameworks). Add a `standards` array only to bring
-your own docs — include the token `lightsout:code-defaults` to stack the
-bundled ones alongside them.
-
-| Field | Required | Purpose |
-|---|---|---|
-| `scripts.check` | yes | Type/lint gate — full shell command, run per verify step |
-| `scripts.testUnit` | yes | Test gate — full shell command. Runs in gate sets without a coverage run (e.g. the post-implement verify, where new code has no tests yet). |
-| `scripts.testCoverage` | yes | Coverage gate — a full shell command (your command owns the threshold), or the literal `false` to opt out. On by default: silence is not accepted, skipping the strongest gate must be a decision. Runs at clean-slate and every verify after tests exist, and **replaces** `testUnit` in those gate sets — the command must run the unit tests (every mainstream runner's coverage mode does), so the same suites never run twice back-to-back. |
-| `scripts.generate` | no | Opt-in codegen (e.g. `prisma generate`), run once **before** every gate set — gates verify, generate mutates, and parallel package gates must never race a generator. Red exit fails the gate set. |
-| `scripts.build` | no | Opt-in build gate, run last in every verify step |
-| `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |
-| `generated` | no | Path prefixes of generated output (e.g. a Prisma client dir). Real files in your diff, but excluded from changed-file attribution — they never earn agent turns; the source that generates them is the change. |
-| `agentCommands` | no | Command prefixes the implementing agent may run (prefix match, arguments allowed) — for deliverables only a command can produce, e.g. `"pnpm --filter api run prisma:migrate:dev:name"`. Injected into the executor's task as an explicit grant list and relayed to the harness's allowed-tools mechanism. Agents may never verify with these — the engine runs all gates itself. |
-| `packageScripts` | no | Monorepo mode — see below |
-| `packagesDir` | no | Workspace packages directory for monorepo mode (default `packages`) |
-| `plansDir` | no | Where the planning phase writes the committed `plan.md` deliverable (default `.claude/plans`). Resolved flag (`--plans`) → config → default, then absolutized. Transient planning workspace state (`facts.json`, `decisions.json`, `grade.json`) always lives under gitignored `.lightsout/plans/<name>/`. |
-| `timeouts.agentMinutes` | no | Ceiling for working agents (executor, test writers, refactorer). Default 60. A hit ceiling is a recorded step failure the run resumes from — never a crash. |
-| `timeouts.supervisorMinutes` | no | Ceiling for the read-only supervisor. Default 15. |
-| `standards` | no | Standards for code-writing agents. **Unspecified = the engine's bundled JS/TS defaults load** (announced in the run header). `false` = explicitly none. An array = exactly these: repo-relative markdown files (missing = hard error) and/or the token `lightsout:code-defaults` to stack the bundled defaults with repo extras. |
-| `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
-| `standardsChannels` | no | Framework channels of the bundled defaults. The base docs always apply; React/Preact and TanStack docs ride along **only when the run's scoped packages actually depend on that framework** (detected from their `package.json` — announced in the run log). Set an array to replace detection (`[]` = base only). A terraform package never pays the React-docs token tax. |
-| `scan.minCloneTokens` | no | Tier-1 clone floor for `lightsout scan` (default 50) — raise for repos with a noisy short-clone tail |
-| `scan.size` | no | Line-cap overrides for the size detector — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; any subset, e.g. `{ "tsxFile": 350 }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. File caps gate runs; function/hook/component caps go to the refactor agent as judgment items (fix unless a documented exemption applies) and never block. |
-| `driver` | no | `claude-code` (default) or `codex` |
-| `model` | no | Model override passed through to the harness |
-| `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |
-
-Everything together — a maximal config (every optional field set):
-
-```json
-{
-	"driver": "claude-code",
-	"model": "opus",
-	"permissionMode": "acceptEdits",
-	"scripts": {
-		"check": "pnpm typecheck",
-		"testUnit": "pnpm test",
-		"testCoverage": "pnpm test:coverage",
-		"generate": "pnpm prisma:generate",
-		"build": "pnpm build",
-		"format": "pnpm format:write"
-	},
-	"timeouts": { "agentMinutes": 60, "supervisorMinutes": 15 },
-	"agentCommands": ["pnpm --filter api run prisma:migrate:dev:name"],
-	"generated": ["src/generated/", "src/schema.gql"],
-	"packagesDir": "packages",
-	"packageScripts": {
-		"check": "pnpm --filter {package} typecheck",
-		"testUnit": "pnpm --filter {package} test:unit",
-		"testCoverage": "pnpm --filter {package} test:coverage",
-		"build": "pnpm --filter {package} build"
-	},
-	"standards": ["lightsout:code-defaults", "docs/our-extra-rules.md"],
-	"testStandards": ["lightsout:test-defaults"],
-	"standardsChannels": ["react"],
-	"scan": {
-		"minCloneTokens": 70,
-		"size": { "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }
-	}
-}
-```
-
-### Monorepos
-
-Whole-repo gates on a monorepo mean an unrelated red package blocks every
-run, and the coverage bar applies to the entire repo. `packageScripts` fixes
-both: command templates that run once per affected package, in parallel, with
-`{package}` replaced by that package's `package.json` name:
-
-```json
-{
-	"packageScripts": {
-		"check": "pnpm --filter {package} typecheck",
-		"testUnit": "pnpm --filter {package} test:unit",
-		"testCoverage": "pnpm --filter {package} test:coverage"
-	}
-}
-```
-
-Every `packageScripts` command must contain `{package}` — one without it
-would run identically for every package and belongs in `scripts.*` instead
-(config validation rejects it).
-
-Not every package in scope has to define every script. When a template's
-`run <script>` names a script a package's `package.json` doesn't have, that
-gate is **skipped** for that package — announced live
-(`gate [infra-local] check: skipped (no "check" script)`) and recorded in
-`commands.jsonl` with `skipped: true`, so an infra or docs package pulled
-into scope never needs placeholder scripts. A package missing only the
-coverage script falls back to its plain test script. Templates the engine
-can't read a script name from (no `run` token) always execute.
-
-The run's **package scope** resolves through a four-tier chain, so
-`/implement plan.md` needs nothing extra:
-
-1. `--packages backend-api,shared` on the CLI — explicit override
-2. Plan front-matter — precise and authoritative when present:
-
-   ```markdown
-   ---
-   packages:
-     - backend-api
-   ---
-   # Plan: ...
-   ```
-
-3. **Derived from the plan body** — concrete `packages/<name>/` paths the
-   plan references become the scope (recorded in the manifest and the run
-   report as `plan-paths`, so a derived scope is never mistaken for a
-   declared one). This is why plans from tools that know nothing about
-   lightsout — plan mode output, hand-written plans — just work. Safe in
-   both directions: a package mentioned only as context merely runs extra
-   gates, and a missed one is caught by scope expansion below.
-4. Hard error — the plan names no packages at all, which usually means it's
-   too vague to implement anyway.
-
-After the implement step, changed files are the truth: the scope widens
-automatically when the agent touches a package the scope missed (never
-shrinks). Files outside `packagesDir` re-activate the whole-repo `scripts.*`
-as a "root group". Tip: use a dependents filter in the templates
-(`pnpm --filter ...{package}`) to also verify packages that depend on the
-changed ones — the blast radius lives in your template, not in the engine.
-
-Recommended `.gitignore` entries: commit the config and standards, not run
-state —
-
-```
-.lightsout/runs/
-.lightsout/friction.jsonl
-.lightsout/lock.json
-```
-
-Then: write a plan (a markdown file stating goal, files, and what's out of
-scope) and run it. The repo must be green first — the clean-slate gate refuses
-a broken baseline. For phased work, pass the high-level plan with
-`--overview` — it rides along as context while the phase plan stays
-authoritative for scope.
-
-## CLI
-
-| Command | Purpose |
-|---|---|
-| `lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]` | Run the pipeline on a plan (optionally with an overview plan as context and a package-scope override) |
-| `lightsout resume --run <id> [--cwd <path>]` | Continue a parked/failed/crashed run from its last incomplete step |
-| `lightsout status [--cwd <path>]` | List runs and their states |
-| `lightsout doctor [--cwd <path>]` | Read-only audit of the repo against every assumption the engine and standards make — config validity, harness binary, gitignored run state, scoped-gate script coverage, Jest mock-cleanup flags, generated paths, gate binaries. Each warn prints the exact fix; the doctor never edits anything (repo-wide changes like `clearMocks: true` are yours to apply and verify). Exit 1 only on a hard fail. |
-| `lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]` | Read-only structural detector suite: duplicate export names (synonym-aware; conversion opposites like `hexToRgb`/`rgbToHex` and component+route pairs are exempt), token-level clones (jscpd; floor tunable via config `scan.minCloneTokens`, default 50), functions with identical bodies after identifier normalization (uses the repo's own TypeScript — resolved from the root or any workspace package), size thresholds from the standards' numeric tables, one-export-per-file/structure lint (framework dot-suffixes like `.model`/`.dto` count as matching filenames), dead-export candidates. Test files are exempt from duplication tiers — assertion literals are contract-pinning, not copy-paste. `--baseline` writes `lightsout.scan-baseline.json` at the repo root — the explicit act of accepting the current findings as existing debt; **commit it** (it's the reviewable debt ledger, like `phpstan-baseline.neon`). With a baseline present, scans report only NEW findings; `--all` shows everything, `--baseline` again refreshes the ledger. Plain scans never write it. Typed findings persist to `.lightsout/scan.json` (the future remediation pipeline's work-list). Always exits 0 — it reports, gates decide. |
-| `lightsout plan verify-facts --name <n> [--cwd <path>]` | Planning phase, stage 1: the conducting session explores in-context and authors `.lightsout/plans/<n>/facts.json` (`{ request, areas }`); this subcommand — no agent — **deterministically verifies** every claimed path/script on disk and stamps the verification block into it. Usually driven by the `/plan` skill, not run by hand. |
-| `lightsout plan draft --name <n> [--scope single\|phased] [--plans <dir>] [--cwd <path>]` | Planning stage 2: a plan-writer agent authors `plan.md` from the verified facts + the session's `decisions.json`; a code structural-lint loop re-drafts until the plan is structurally clean. Writes to `plansDir` (committed plan output). |
-| `lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]` | Planning stage 3: read-only detector — deterministic structural re-check + a gap-check agent → `.lightsout/plans/<n>/grade.json` with a typed `passed` verdict (A only when structure is clean AND no decision-gaps remain). The `/plan` skill reads this to converge; the grade is advisory to `/implement`. |
-| `lightsout friction [--cwd <path>]` | Show accumulated friction reports from agents |
-| `lightsout improve --engine <lightsout-repo> [--cwd <path>]` | Run the self-improvement loop (below) |
-
-Exit code `0` = run passed. Non-zero with state `paused-rate-limit` or
-`escalated` in the output means the run is waiting for the rate window or for
-you — not broken.
-
-## The self-improvement loop
-
-Every agent reports *friction* — moments the plan, its instructions, the
-standards, or the environment fought it — and *decisions* — choices it had to
-make where the input was silent — even on successful runs. Both accumulate in
-`.lightsout/friction.jsonl` (a recurring decision means something upstream
-should have settled it). `lightsout improve` feeds the
-aggregate plus the agent prompt files to a maintainer agent that turns
-*systemic* patterns into minimal prompt edits in the engine's worktree.
-The loop proposes; a human reviews the diff and ships.
-
-## Claude Code plugin (experimental)
-
-The repo doubles as a plugin whose `/implement` skill is the ignition for the
-bundled engine (no logic in the skill — all of it lives in the engine):
+In Claude Code:
 
 ```
 /plugin marketplace add dc-devs/lightsout
 ```
 
-The plugin flow has not been exercised end-to-end yet — the CLI is the proven
-path today.
+Then, in the repo where you want to work:
+
+1. Add a `lightsout.config.json` with your three commands:
+
+   ```json
+   {
+   	"scripts": {
+   		"check": "pnpm typecheck",
+   		"testUnit": "pnpm test",
+   		"testCoverage": "pnpm test:coverage"
+   	}
+   }
+   ```
+
+2. `/brainstorm` an idea into a direction, `/plan` it until every decision
+   is settled, then:
+
+3. `/implement` — and walk away. The pipeline runs gated, unattended, and
+   leaves its evidence in `.lightsout/runs/<id>/`.
+
+Prefer a terminal? The CLI behind the skills works standalone — see
+[docs/cli.md](docs/cli.md).
+
+## How a run works
+
+Agents do the work. Gates decide if it stands. Git decides what actually
+changed. If something breaks, the run stops, says why, and can resume from
+the same step. Everything a run does is saved to disk.
+
+## What it is not
+
+Not a smarter agent, not a prompt library, not an orchestrator persona.
+Scaffolding that constrains the model depreciates with every model release;
+scaffolding that verifies it appreciates.
+
+## Going deeper
+
+- [docs/configuration.md](docs/configuration.md) — full config reference
+- [docs/monorepos.md](docs/monorepos.md) — scoped gates for workspaces
+- [docs/cli.md](docs/cli.md) — every CLI command
 
 ## Development
 
 ```sh
 pnpm install
 pnpm check    # typecheck all packages
-pnpm test     # engine test suite (node:test, stub drivers only — no agent calls, no network)
+pnpm test     # engine test suite (stub drivers only — no agent calls, no network)
 pnpm bundle   # rebuild plugin/dist/cli.mjs — the bundle is COMMITTED; rebuild + commit with any source change
 ```
-
-Tests live in `packages/engine/tests/`, are bundled by esbuild (the engine
-imports agent prompts as markdown text, which plain `node --test` cannot
-load), and run against real temp git repos with stubbed drivers.
-
-Conventions and settled decisions: [CLAUDE.md](CLAUDE.md) and the decision log
-in [docs/architecture.md](docs/architecture.md).
 
 ## License
 
