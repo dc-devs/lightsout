@@ -46,6 +46,3 @@ export { RefactorWorklist } from './refactor/RefactorWorklist';
 export { BatchOutcome } from './refactor/BatchOutcome';
 export { BatchReport } from './refactor/BatchReport';
 export { GateResult } from './gates/GateResult';
-export { VerifyBasis } from './verify/VerifyBasis';
-export { VerifyVerdict } from './verify/VerifyVerdict';
-export { VerifyReport } from './verify/VerifyReport';

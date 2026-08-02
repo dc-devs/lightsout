@@ -10,7 +10,6 @@ export type { PipelineResult } from './pipeline';
 export { runRefactorPipeline } from './refactor';
 export { runDoctor } from './doctor';
 export { runScan } from './scan';
-export { runVerify } from './verify';
 export { runPromptImprovement } from './runPromptImprovement';
 export { resolvePlansDir } from './plan';
 export { runPlanVerifyFacts } from './plan';

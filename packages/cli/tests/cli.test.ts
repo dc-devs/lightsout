@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,7 +17,8 @@ const CLI = join(process.cwd(), '.test-dist', 'cli-under-test.mjs');
 // refactor changes it, this suite goes red and the refactor is wrong. (A
 // FEATURE adding a command updates this pin deliberately — updated 2026-07-09
 // for `plan verify-facts` replacing `plan explore`, 2026-07-14 for `plan
-// lint`, 2026-07-23 for the verify-facts `--notes` flag.)
+// lint`, 2026-07-23 for the verify-facts `--notes` flag, 2026-08-01 for the
+// removal of `verify`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -26,7 +27,6 @@ usage:
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
-  lightsout verify [--cwd <path>] [--base <ref>] [--skip-coverage]
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
@@ -141,56 +141,12 @@ test('cli: friction in a fresh dir reports nothing recorded and exits 0', async 
 	assert.equal(code, 0);
 });
 
-test('cli: verify in a dir with no config reports the error and exits 2 (environment error)', async () => {
+test('cli: verify (removed command) prints usage to stderr and exits 1', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['verify', '--cwd', cwd] });
 
 	assert.equal(stdout, '');
-	assert.match(stderr, /lightsout\.config\.json not found/);
-	assert.equal(code, 2);
-});
-
-// A consumer repo with a valid config and git history so `verify` can read
-// git-truth changed files. `dirty` leaves a tracked file modified after the
-// initial commit, giving verify a non-empty basis (a clean tree verifies
-// vacuously via the empty-basis path). Mirrors the git init in
-// tests/helpers/setupConsumerRepo.
-const seedVerifyRepo = async ({ scripts = {}, dirty = false }: { scripts?: Record<string, string | false>; dirty?: boolean } = {}) => {
-	const cwd = await freshCwd();
-
-	await mkdir(join(cwd, 'src'), { recursive: true });
-	await writeFile(join(cwd, 'src', 'widget.ts'), 'export const widget = 1;\n', 'utf8');
-	await writeFile(join(cwd, 'lightsout.config.json'), JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false, ...scripts } }), 'utf8');
-	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd });
-
-	if (dirty) {
-		await writeFile(join(cwd, 'src', 'widget.ts'), 'export const widget = 2;\n', 'utf8');
-	}
-
-	return cwd;
-};
-
-test('cli: verify on a clean tree reports the empty basis, verdict clean, and exits 0', async () => {
-	const cwd = await seedVerifyRepo();
-
-	const { stdout, stderr, code } = await runCli({ args: ['verify', '--cwd', cwd] });
-
-	assert.equal(stderr, '');
-	assert.match(stdout, /verdict: clean · 0 finding\(s\) · 0 missing test\(s\) · 0 untested change\(s\) — report: \.lightsout\/verify\.json/);
-	assert.equal(code, 0);
-
-	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'verify.json'), 'utf8'));
-	assert.equal(report.verdict, 'clean');
-	assert.deepEqual(report.changedFiles, []);
-});
-
-test('cli: verify with a red gate renders the failure, verdict red, and exits 1', async () => {
-	const cwd = await seedVerifyRepo({ scripts: { check: 'false' }, dirty: true });
-
-	const { stdout, stderr, code } = await runCli({ args: ['verify', '--cwd', cwd] });
-
-	assert.equal(stderr, '');
-	assert.match(stdout, /verdict: red/);
+	assert.equal(stderr, usageErr);
 	assert.equal(code, 1);
 });
 
@@ -300,8 +256,8 @@ None — standalone plan.
 
 // A consumer repo with a committed plan deliverable and deliberately NO
 // lightsout.config.json: `plan lint` is deterministic and must route before
-// resolveConfigAndDriver, so it works where `verify` exits 2 for a missing
-// config. `plansDir` defaults to .claude/plans unless the caller relocates it.
+// resolveConfigAndDriver, so it works where a config-dependent command would
+// fail. `plansDir` defaults to .claude/plans unless the caller relocates it.
 const seedPlanLintFixture = async ({ body, plansSubdir = join('.claude', 'plans') }: { body: string; plansSubdir?: string }) => {
 	const cwd = await freshCwd();
 	const plansDir = join(cwd, plansSubdir);

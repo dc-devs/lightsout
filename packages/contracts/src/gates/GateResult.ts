@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 /**
  * One gate-command execution (or scoped skip) as runGates observed it —
- * evidence entries for VerifyReport.gates. A flake re-run appears as two
- * entries (the second with rerun: true); verdicts derive from runGates'
- * aggregate return, never by counting reds here.
+ * the evidence entries handed to its `onGateResult` callback. A flake re-run
+ * appears as two entries (the second with rerun: true); verdicts derive from
+ * runGates' aggregate return, never by counting reds here.
  */
 export const GateResult = z.object({
 	/** Gate kind: 'generate' | 'check' | 'testUnit' | 'testCoverage' | 'build'. */

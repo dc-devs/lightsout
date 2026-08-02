@@ -1,1 +1,0 @@
-export { runVerify } from './runVerify';
