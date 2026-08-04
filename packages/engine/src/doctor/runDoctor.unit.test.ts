@@ -50,6 +50,85 @@ test('doctor flags a broken harness binary with the probe output', async () => {
 	assert.match(checks.get('harness')?.detail ?? '', /ENOENT/);
 });
 
+test('doctor probes every harness binary the commands block references and names the broken one', async () => {
+	const dir = setupConsumerRepo({ git: false, config: { commands: { improve: { driver: 'codex' } } } });
+	const checks = byId(
+		await runDoctor({
+			cwd: dir,
+			probeHarness: async ({ binary }) =>
+				binary === 'claude' ? { exitCode: 0, stdout: '2.1.201 (Claude Code)\n', stderr: '' } : { exitCode: 1, stdout: '', stderr: `spawn ${binary} ENOENT` },
+		}),
+	);
+
+	assert.equal(checks.get('harness')?.status, 'fail', 'a per-command driver whose binary is broken fails the harness check even when the global binary is healthy');
+	assert.match(checks.get('harness')?.detail ?? '', /codex/);
+	assert.match(checks.get('harness')?.fix ?? '', /codex/, 'the fix names the broken binary');
+});
+
+test('doctor reports a harness binary whose probe throws as not runnable, with an install fix', async () => {
+	const dir = setupConsumerRepo({ git: false });
+	const checks = byId(
+		await runDoctor({
+			cwd: dir,
+			probeHarness: async () => {
+				throw new Error('spawn claude EACCES');
+			},
+		}),
+	);
+
+	assert.equal(checks.get('harness')?.status, 'fail');
+	assert.match(checks.get('harness')?.detail ?? '', /claude not runnable: spawn claude EACCES/);
+	assert.match(checks.get('harness')?.fix ?? '', /install/, 'a binary that cannot even spawn gets the install fix, not the repair fix');
+});
+
+test('doctor probes each referenced binary once, even when several commands name the same driver', async () => {
+	const dir = setupConsumerRepo({
+		git: false,
+		config: { commands: { implement: { driver: 'codex' }, refactor: { driver: 'codex' }, improve: { driver: 'claude-code' } } },
+	});
+	const probedBinaries: string[] = [];
+	const checks = byId(
+		await runDoctor({
+			cwd: dir,
+			probeHarness: async ({ binary }) => {
+				probedBinaries.push(binary);
+
+				return { exitCode: 0, stdout: '1.0.0\n', stderr: '' };
+			},
+		}),
+	);
+
+	assert.equal(checks.get('harness')?.status, 'pass');
+	assert.deepEqual([...probedBinaries].sort(), ['claude', 'codex'], 'duplicate driver references collapse to one probe per binary');
+});
+
+test('doctor probes an unknown driver name as its own binary name — getDriver, not doctor, owns rejecting it', async () => {
+	const dir = setupConsumerRepo({ git: false, config: { commands: { improve: { driver: 'my-harness' } } } });
+	const checks = byId(
+		await runDoctor({
+			cwd: dir,
+			probeHarness: async ({ binary }) => (binary === 'my-harness' ? { exitCode: 1, stdout: '', stderr: 'spawn my-harness ENOENT' } : passingProbe()),
+		}),
+	);
+
+	assert.equal(checks.get('harness')?.status, 'fail');
+	assert.match(checks.get('harness')?.detail ?? '', /my-harness/, 'a driver name with no binary mapping is probed under its own name');
+});
+
+test('doctor passes the harness check when every referenced binary probes green, naming each', async () => {
+	const dir = setupConsumerRepo({ git: false, config: { commands: { improve: { driver: 'codex' } } } });
+	const checks = byId(
+		await runDoctor({
+			cwd: dir,
+			probeHarness: async ({ binary }) => ({ exitCode: 0, stdout: `${binary === 'claude' ? '2.1.201 (Claude Code)' : '0.128.0'}\n`, stderr: '' }),
+		}),
+	);
+
+	assert.equal(checks.get('harness')?.status, 'pass');
+	assert.match(checks.get('harness')?.detail ?? '', /claude 2\.1\.201/);
+	assert.match(checks.get('harness')?.detail ?? '', /codex 0\.128\.0/);
+});
+
 test('doctor warns on missing gitignore entries, scriptless packages, jest configs without mock cleanup, and stale generated paths', async () => {
 	const dir = setupConsumerRepo({
 		config: {

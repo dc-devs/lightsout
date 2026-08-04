@@ -29,7 +29,7 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 
 	if (subcommand === 'draft' || subcommand === 'dedup' || subcommand === 'grade') {
 		const name = getRequiredFlag({ flags, name: 'name' });
-		const { config, driver } = await resolveConfigAndDriver({ cwd });
+		const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 		const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: 'plans' }), config });
 		const standards = await loadPlanningStandards({ cwd, config });
 

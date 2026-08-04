@@ -9,6 +9,7 @@ import { red } from './common/terminal/red';
 import { yellow } from './common/terminal/yellow';
 import type { CommandContext } from './common/types/CommandContext';
 import { createProgressPrinter } from './common/utils/createProgressPrinter';
+import { resolveCommandHarness } from './common/utils/resolveCommandHarness';
 
 export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const resumeRunId = getStringFlag({ flags, name: 'run' });
@@ -16,8 +17,10 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 
 	// Unlike scan, refactor MUTATES code — a missing config (no gates) is a
 	// hard error, never a fallback.
-	const config = await loadConfig({ cwd });
-	const driver = getDriver({ name: config.driver ?? 'claude-code' });
+	const loaded = await loadConfig({ cwd });
+	const { driverName, model } = resolveCommandHarness({ config: loaded, command: 'refactor' });
+	const driver = getDriver({ name: driverName });
+	const config = { ...loaded, driver: driverName, model };
 	const maxBatches = maxBatchesFlag === undefined ? undefined : Number.parseInt(maxBatchesFlag, 10);
 
 	if (maxBatches !== undefined && (!Number.isFinite(maxBatches) || maxBatches < 1)) {

@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+/** One command's harness override: driver and/or model, each falling back to the global field. */
+const commandHarness = z
+	.object({
+		/** Driver name for this command ('claude-code' or 'codex'). Falls back to the global `driver`. */
+		driver: z.string().optional(),
+		/** Model for this command's harness. The global `model` falls through only when this command resolves to the global driver. */
+		model: z.string().optional(),
+	})
+	.strict();
+
 /**
  * Consumer configuration (`lightsout.config.json` at the target repo root).
  * This is the only coupling point between the engine and a consumer — the
@@ -10,6 +20,23 @@ export const LightsoutConfig = z.object({
 	driver: z.string().optional(),
 	/** Model override passed through to the harness. */
 	model: z.string().optional(),
+	/**
+	 * Per-command harness selection (`plan` covers draft/dedup/grade; `resume`
+	 * always keeps the run manifest's recorded driver). Each entry overrides the
+	 * global `driver`/`model` for that command; unlisted commands use the
+	 * globals. Both objects are `.strict()` — unlike the rest of the config,
+	 * a typoed key here would silently disable an override the user believes
+	 * is active, so it fails parsing loudly instead.
+	 */
+	commands: z
+		.object({
+			implement: commandHarness.optional(),
+			refactor: commandHarness.optional(),
+			improve: commandHarness.optional(),
+			plan: commandHarness.optional(),
+		})
+		.strict()
+		.optional(),
 	/** Harness permission mode for agent invocations. Defaults to 'acceptEdits'. */
 	permissionMode: z.string().optional(),
 	/** Verification commands — the mechanical gates. Full shell commands. */

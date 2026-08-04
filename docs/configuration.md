@@ -44,6 +44,7 @@ alongside them.
 | `scan.size` | no | Line-cap overrides for the size detector — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; any subset, e.g. `{ "tsxFile": 350 }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. File caps gate runs; function/hook/component caps go to the refactor agent as judgment items (fix unless a documented exemption applies) and never block. |
 | `driver` | no | `claude-code` (default) or `codex` |
 | `model` | no | Model override passed through to the harness |
+| `commands` | no | Per-command harness overrides — optional `implement` / `refactor` / `improve` / `plan` entries (`plan` covers draft/dedup/grade), each with an optional `driver` and/or `model` for just that command. Unknown keys inside this block are a hard config error, never silently ignored. |
 | `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |
 
 ## Maximal example
@@ -54,6 +55,10 @@ Every optional field set:
 {
 	"driver": "claude-code",
 	"model": "opus",
+	"commands": {
+		"improve": { "driver": "codex", "model": "gpt-5.2" },
+		"plan": { "model": "haiku" }
+	},
 	"permissionMode": "acceptEdits",
 	"scripts": {
 		"check": "pnpm typecheck",
@@ -82,6 +87,15 @@ Every optional field set:
 	}
 }
 ```
+
+## Per-command resolution
+
+Each command resolves its harness in one pass: its `commands` entry wins, the
+global `driver`/`model` are the fallback, and `claude-code` is the final driver
+default. The global `model` falls through only to a command that resolves to
+the global driver — a model name is meaningful only to its own harness, so a
+per-command driver override never inherits the other harness's model. `resume`
+always keeps the run manifest's recorded driver, regardless of the config.
 
 ## Recommended .gitignore
 

@@ -350,6 +350,34 @@ test('cli: plan verify-facts stamps facts.json, warns on misses, and exits 0', a
 	assert.ok(!Number.isNaN(Date.parse(stamped.verifiedAt)));
 });
 
+// improve resolves its driver through the per-command config BEFORE the
+// friction check, and its config load is non-fatal — both paths exit at the
+// empty-friction early return, so no harness binary is ever spawned.
+test('cli: improve with no config and no friction reports nothing to improve and exits 0', async () => {
+	const cwd = await freshCwd();
+
+	const { stdout, stderr, code } = await runCli({ args: ['improve', '--engine', cwd, '--cwd', cwd] });
+
+	assert.equal(stdout, 'no friction recorded — nothing to improve from\n');
+	assert.equal(stderr, '');
+	assert.equal(code, 0);
+});
+
+test('cli: improve resolves a commands.improve driver override from the config and exits 0', async () => {
+	const cwd = await freshCwd();
+	await writeFile(
+		join(cwd, 'lightsout.config.json'),
+		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, commands: { improve: { driver: 'codex' } } }),
+		'utf8',
+	);
+
+	const { stdout, stderr, code } = await runCli({ args: ['improve', '--engine', cwd, '--cwd', cwd] });
+
+	assert.equal(stdout, 'no friction recorded — nothing to improve from\n');
+	assert.equal(stderr, '');
+	assert.equal(code, 0);
+});
+
 // The engine's snapshot behavior (write-once, freeze-before-facts, missing
 // source) is pinned in runPlanVerifyFacts.unit.test.ts; this test pins the CLI
 // seam only — `--notes` reaches the engine as a cwd-relative notesFile.

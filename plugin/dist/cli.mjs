@@ -15205,11 +15205,31 @@ function date4(params) {
 config(en_default());
 
 // packages/contracts/src/LightsoutConfig.ts
+var commandHarness = external_exports.object({
+  /** Driver name for this command ('claude-code' or 'codex'). Falls back to the global `driver`. */
+  driver: external_exports.string().optional(),
+  /** Model for this command's harness. The global `model` falls through only when this command resolves to the global driver. */
+  model: external_exports.string().optional()
+}).strict();
 var LightsoutConfig = external_exports.object({
   /** Driver name. Defaults to 'claude-code'. */
   driver: external_exports.string().optional(),
   /** Model override passed through to the harness. */
   model: external_exports.string().optional(),
+  /**
+   * Per-command harness selection (`plan` covers draft/dedup/grade; `resume`
+   * always keeps the run manifest's recorded driver). Each entry overrides the
+   * global `driver`/`model` for that command; unlisted commands use the
+   * globals. Both objects are `.strict()` — unlike the rest of the config,
+   * a typoed key here would silently disable an override the user believes
+   * is active, so it fails parsing loudly instead.
+   */
+  commands: external_exports.object({
+    implement: commandHarness.optional(),
+    refactor: commandHarness.optional(),
+    improve: commandHarness.optional(),
+    plan: commandHarness.optional()
+  }).strict().optional(),
   /** Harness permission mode for agent invocations. Defaults to 'acceptEdits'. */
   permissionMode: external_exports.string().optional(),
   /** Verification commands — the mechanical gates. Full shell commands. */
@@ -31211,26 +31231,43 @@ ${notIgnored.join("\n")}`
 
 // packages/engine/src/doctor/checkHarness.ts
 var driverBinaries = { "claude-code": "claude", codex: "codex" };
+var getReferencedDriverNames = ({ config: config2 }) => {
+  const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.driver);
+  const names = [config2.driver ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
+  return [...new Set(names)];
+};
 var checkHarness = async ({ cwd, config: config2, probeHarness }) => {
-  const binary = driverBinaries[config2.driver ?? "claude-code"] ?? config2.driver;
   const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
-  try {
-    const probed = await probe({ binary });
-    return probed.exitCode === 0 ? { id: "harness", status: "pass", detail: `${binary} ${probed.stdout.trim().split("\n")[0]} (login not probed \u2014 the first run verifies it)` } : {
-      id: "harness",
-      status: "fail",
-      detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
+  const binaries = [...new Set(getReferencedDriverNames({ config: config2 }).map((name) => driverBinaries[name] ?? name))];
+  const versions = [];
+  const failures = [];
+  for (const binary of binaries) {
+    try {
+      const probed = await probe({ binary });
+      if (probed.exitCode === 0) {
+        versions.push(`${binary} ${probed.stdout.trim().split("\n")[0]}`);
+      } else {
+        failures.push({
+          binary,
+          detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
 ${probed.stderr}`.trim().slice(0, 200)}`,
-      fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
-    };
-  } catch (error51) {
-    return {
-      id: "harness",
-      status: "fail",
-      detail: `${binary} not runnable: ${error51 instanceof Error ? error51.message : String(error51)}`,
-      fix: `install the ${binary} CLI and log in`
-    };
+          fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
+        });
+      }
+    } catch (error51) {
+      failures.push({
+        binary,
+        detail: `${binary} not runnable: ${error51 instanceof Error ? error51.message : String(error51)}`,
+        fix: `install the ${binary} CLI and log in`
+      });
+    }
   }
+  return failures.length === 0 ? { id: "harness", status: "pass", detail: `${versions.join(" \xB7 ")} (login not probed \u2014 the first run verifies it)` } : {
+    id: "harness",
+    status: "fail",
+    detail: failures.map((failure) => failure.detail).join("\n"),
+    fix: failures.map((failure) => failure.fix).join("\n")
+  };
 };
 
 // packages/engine/src/doctor/checkJestMocks.ts
@@ -32822,6 +32859,15 @@ var createProgressPrinter = () => {
   };
 };
 
+// packages/cli/src/common/utils/resolveCommandHarness.ts
+var resolveCommandHarness = ({ config: config2, command }) => {
+  const entry = config2?.commands?.[command];
+  const globalDriverName = config2?.driver ?? "claude-code";
+  const driverName = entry?.driver ?? globalDriverName;
+  const model = entry?.model ?? (driverName === globalDriverName ? config2?.model : void 0);
+  return { driverName, model };
+};
+
 // packages/cli/src/common/utils/runPipelineOrFailFast.ts
 var runPipelineOrFailFast = async (params) => {
   try {
@@ -32847,8 +32893,10 @@ var implementCommand = async ({ flags, cwd }) => {
     console.error(usage);
     process.exit(1);
   }
-  const config2 = await loadConfig({ cwd });
-  const driver = getDriver({ name: config2.driver ?? "claude-code" });
+  const loaded = await loadConfig({ cwd });
+  const { driverName, model } = resolveCommandHarness({ config: loaded, command: "implement" });
+  const driver = getDriver({ name: driverName });
+  const config2 = { ...loaded, driver: driverName, model };
   console.log(`lightsout: starting run`);
   console.log(`  plan: ${planPath}${overviewPath ? `
   overview: ${overviewPath}` : ""}${packages ? `
@@ -32868,6 +32916,15 @@ var implementCommand = async ({ flags, cwd }) => {
   process.exit(result.ok ? 0 : 1);
 };
 
+// packages/cli/src/common/utils/resolveConfigAndDriver.ts
+var resolveConfigAndDriver = async ({ cwd, command }) => {
+  const loaded = await loadConfig({ cwd }).catch(() => void 0);
+  const { driverName, model } = resolveCommandHarness({ config: loaded, command });
+  const driver = getDriver({ name: driverName });
+  const config2 = loaded ? { ...loaded, driver: driverName, model } : void 0;
+  return { config: config2, driver };
+};
+
 // packages/cli/src/improveCommand.ts
 var improveCommand = async ({ flags, cwd }) => {
   const engineCwd = getStringFlag({ flags, name: "engine" });
@@ -32875,8 +32932,8 @@ var improveCommand = async ({ flags, cwd }) => {
     console.error(usage);
     process.exit(1);
   }
-  const driver = getDriver({ name: "claude-code" });
-  const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver });
+  const { config: config2, driver } = await resolveConfigAndDriver({ cwd, command: "improve" });
+  const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config2?.model });
   if (result.friction.length === 0) {
     console.log("no friction recorded \u2014 nothing to improve from");
     process.exit(0);
@@ -32924,13 +32981,6 @@ var getRequiredFlag = ({ flags, name }) => {
     process.exit(1);
   }
   return value;
-};
-
-// packages/cli/src/common/utils/resolveConfigAndDriver.ts
-var resolveConfigAndDriver = async ({ cwd }) => {
-  const config2 = await loadConfig({ cwd }).catch(() => void 0);
-  const driver = getDriver({ name: config2?.driver ?? "claude-code" });
-  return { config: config2, driver };
 };
 
 // packages/cli/src/plan/loadPlanningStandards.ts
@@ -33130,7 +33180,7 @@ var planCommand = async ({ flags, rest, cwd }) => {
   }
   if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {
     const name = getRequiredFlag({ flags, name: "name" });
-    const { config: config2, driver } = await resolveConfigAndDriver({ cwd });
+    const { config: config2, driver } = await resolveConfigAndDriver({ cwd, command: "plan" });
     const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: "plans" }), config: config2 });
     const standards = await loadPlanningStandards({ cwd, config: config2 });
     if (subcommand === "draft") {
@@ -33165,8 +33215,10 @@ var resumeCommand = async ({ flags, cwd }) => {
     console.error(`run ${runId} already passed \u2014 nothing to resume`);
     process.exit(1);
   }
-  const config2 = await loadConfig({ cwd });
+  const loaded = await loadConfig({ cwd });
+  const resolved = resolveCommandHarness({ config: loaded, command: "implement" });
   const driver = getDriver({ name: manifest.driver });
+  const config2 = { ...loaded, driver: manifest.driver, model: resolved.driverName === manifest.driver ? resolved.model : void 0 };
   console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
   printRunHeader({ config: config2, driver, cwd });
   const result = await runPipelineOrFailFast({
@@ -33185,8 +33237,10 @@ var resumeCommand = async ({ flags, cwd }) => {
 var refactorCommand = async ({ flags, cwd }) => {
   const resumeRunId = getStringFlag({ flags, name: "run" });
   const maxBatchesFlag = getStringFlag({ flags, name: "max-batches" });
-  const config2 = await loadConfig({ cwd });
-  const driver = getDriver({ name: config2.driver ?? "claude-code" });
+  const loaded = await loadConfig({ cwd });
+  const { driverName, model } = resolveCommandHarness({ config: loaded, command: "refactor" });
+  const driver = getDriver({ name: driverName });
+  const config2 = { ...loaded, driver: driverName, model };
   const maxBatches = maxBatchesFlag === void 0 ? void 0 : Number.parseInt(maxBatchesFlag, 10);
   if (maxBatches !== void 0 && (!Number.isFinite(maxBatches) || maxBatches < 1)) {
     console.error(`--max-batches must be a positive integer, got '${maxBatchesFlag}'`);

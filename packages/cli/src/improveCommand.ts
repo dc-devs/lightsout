@@ -1,8 +1,8 @@
-import { getDriver } from '@lightsout/drivers';
 import { runPromptImprovement } from '@lightsout/engine';
 import { getStringFlag } from './common/args/getStringFlag';
 import { usage } from './common/constants/usage';
 import type { CommandContext } from './common/types/CommandContext';
+import { resolveConfigAndDriver } from './common/utils/resolveConfigAndDriver';
 
 export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const engineCwd = getStringFlag({ flags, name: 'engine' });
@@ -12,8 +12,8 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 		process.exit(1);
 	}
 
-	const driver = getDriver({ name: 'claude-code' });
-	const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver });
+	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
+	const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config?.model });
 
 	if (result.friction.length === 0) {
 		console.log('no friction recorded — nothing to improve from');

@@ -6,6 +6,7 @@ import { usage } from './common/constants/usage';
 import { printResult } from './common/render/printResult';
 import { printRunHeader } from './common/render/printRunHeader';
 import { createProgressPrinter } from './common/utils/createProgressPrinter';
+import { resolveCommandHarness } from './common/utils/resolveCommandHarness';
 import { runPipelineOrFailFast } from './common/utils/runPipelineOrFailFast';
 import type { CommandContext } from './common/types/CommandContext';
 
@@ -27,8 +28,10 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 		process.exit(1);
 	}
 
-	const config = await loadConfig({ cwd });
-	const driver = getDriver({ name: config.driver ?? 'claude-code' });
+	const loaded = await loadConfig({ cwd });
+	const { driverName, model } = resolveCommandHarness({ config: loaded, command: 'implement' });
+	const driver = getDriver({ name: driverName });
+	const config = { ...loaded, driver: driverName, model };
 
 	console.log(`lightsout: starting run`);
 	console.log(`  plan: ${planPath}${overviewPath ? `\n  overview: ${overviewPath}` : ''}${packages ? `\n  packages flag: ${packages.join(', ')}` : ''}`);
