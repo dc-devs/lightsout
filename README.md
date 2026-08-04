@@ -14,7 +14,7 @@ Named for lights-out manufacturing: factories designed to run unattended.
 
 Coding agents are smart. But without direction, they optimize for the task in front of them, not the long-term shape of the repository.
 
-They solve the immediate problem and move on. They miss an existing helper and write another one. They introduce a new pattern beside an established one. They copy whatever code is nearby, including the shortcuts and bad decisions already hiding in the repo.
+They solve the immediate problem and move on. They miss an existing helper and write another one. They introduce a new pattern beside an established one. They copy whatever patterns are nearby, including the shortcuts and bad decisions already hiding in the repo.
 
 Each change may work. The tests may pass. But over time, the repository accumulates duplicate logic, competing abstractions, inconsistent styles, and multiple ways to solve the same problem.
 
