@@ -1,0 +1,52 @@
+import { resolvePlansDir } from '@/plan';
+import { getPositionals } from '@/cli/common/args/getPositionals';
+import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
+import { getStringFlag } from '@/cli/common/args/getStringFlag';
+import { usage } from '@/cli/common/constants/usage';
+import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
+import { loadPlanningStandards } from '@/cli/plan/loadPlanningStandards';
+import { planDedupCommand } from '@/cli/plan/planDedupCommand';
+import { planDraftCommand } from '@/cli/plan/planDraftCommand';
+import { planGradeCommand } from '@/cli/plan/planGradeCommand';
+import { planLintCommand } from '@/cli/plan/planLintCommand';
+import { planVerifyFactsCommand } from '@/cli/plan/planVerifyFactsCommand';
+
+export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
+	const subcommand = getPositionals({ args: rest })[0];
+
+	// verify-facts is deterministic — no agent, so no resolveConfigAndDriver.
+	if (subcommand === 'verify-facts') {
+		await planVerifyFactsCommand({ flags, rest, cwd });
+		return;
+	}
+
+	// lint is deterministic — no agent, so no resolveConfigAndDriver.
+	if (subcommand === 'lint') {
+		await planLintCommand({ flags, rest, cwd });
+		return;
+	}
+
+	if (subcommand === 'draft' || subcommand === 'dedup' || subcommand === 'grade') {
+		const name = getRequiredFlag({ flags, name: 'name' });
+		const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
+		const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: 'plans' }), config });
+		const standards = await loadPlanningStandards({ cwd, config });
+
+		if (subcommand === 'draft') {
+			await planDraftCommand({ cwd, driver, name, plansDir, standards, config, flags });
+			return;
+		}
+
+		if (subcommand === 'dedup') {
+			await planDedupCommand({ cwd, driver, name, plansDir, standards, config });
+			return;
+		}
+
+		await planGradeCommand({ cwd, driver, name, plansDir, standards, config });
+		return;
+	}
+
+	console.error(usage);
+	process.exit(1);
+};

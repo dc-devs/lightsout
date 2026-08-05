@@ -8,7 +8,11 @@
 		"skipLibCheck": true,
 		"isolatedModules": true,
 		"forceConsistentCasingInFileNames": true,
-		"types": ["node"]
+		"types": ["node"],
+		"paths": {
+			"@/*": ["./src/*"],
+			"@tests/*": ["./tests/*"]
+		}
 	},
-	"include": ["packages/*/src/**/*.ts", "packages/*/tests/**/*.ts"]
+	"include": ["src/**/*.ts", "tests/**/*.ts"]
 }

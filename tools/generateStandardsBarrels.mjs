@@ -15,7 +15,7 @@ const channelOf = (file) => (file.includes('tanstack') ? 'tanstack' : file.inclu
 
 const build = ({ tree, exportName }) => {
 	const files = execSync(`find standards/${tree} -name '*.md' | sort`).toString().trim().split('\n').filter(Boolean);
-	const imports = files.map((file, index) => `import doc${index} from '../../../../${file}';`).join('\n');
+	const imports = files.map((file, index) => `import doc${index} from '../../${file}';`).join('\n');
 	const channels = new Map();
 
 	files.forEach((file, index) => {
@@ -47,7 +47,7 @@ ${channelEntries}
 };
 `;
 
-	writeFileSync(`packages/engine/src/standards/${exportName}.ts`, content);
+	writeFileSync(`src/standards/${exportName}.ts`, content);
 	console.log(`${exportName}.ts: ${files.length} docs across channels [${[...channels.keys()].join(', ')}]`);
 };
 
