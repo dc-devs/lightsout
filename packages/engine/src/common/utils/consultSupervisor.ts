@@ -1,10 +1,10 @@
 import { buildSupervisorInvocation } from '@lightsout/agents';
-import { SupervisorVerdict, type LightsoutConfig } from '@lightsout/contracts';
+import { Permissions, SupervisorVerdict, type LightsoutConfig } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { invokeAgentWithContract } from '../../invoke';
 
 const defaultSupervisorTimeoutMinutes = 15;
-const supervisorPermissionMode = 'plan';
+const supervisorPermissions = Permissions.ReadOnly;
 
 interface Params {
 	driver: Driver;
@@ -33,7 +33,8 @@ export const consultSupervisor = async ({ driver, cwd, config, planContent, step
 		invocation: buildSupervisorInvocation({ planContent, stepId, errorOutput, attempts }),
 		contract: SupervisorVerdict,
 		model: config.model,
-		permissionMode: supervisorPermissionMode,
+		effort: config.effort,
+		permissions: supervisorPermissions,
 		timeoutMs: (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000,
 		onEvent,
 		onRejectedOutput,

@@ -367,7 +367,7 @@ test('cli: improve resolves a commands.improve driver override from the config a
 	const cwd = await freshCwd();
 	await writeFile(
 		join(cwd, 'lightsout.config.json'),
-		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, commands: { improve: { driver: 'codex' } } }),
+		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, commands: { improve: { harness: 'codex' } } }),
 		'utf8',
 	);
 
@@ -376,6 +376,52 @@ test('cli: improve resolves a commands.improve driver override from the config a
 	assert.equal(stdout, 'no friction recorded — nothing to improve from\n');
 	assert.equal(stderr, '');
 	assert.equal(code, 0);
+});
+
+// A parked implement run plus a config naming a DIFFERENT harness. resume
+// reconstructs its driver from the manifest's recorded harness, never from the
+// config — and getDriver rejects an unknown name before any pipeline work, so
+// the rule is observable here without spawning a harness binary.
+const seedResumeFixture = async ({ manifestHarness, configHarness }: { manifestHarness: string; configHarness: string }) => {
+	const cwd = await freshCwd();
+	const runId = 'resume-harness-fixture';
+	const runDir = join(cwd, '.lightsout', 'runs', runId);
+	const now = new Date().toISOString();
+
+	await mkdir(runDir, { recursive: true });
+	await writeFile(
+		join(cwd, 'lightsout.config.json'),
+		JSON.stringify({ harness: configHarness, scripts: { check: 'true', testUnit: 'true', testCoverage: false } }),
+		'utf8',
+	);
+	await writeFile(
+		join(runDir, 'manifest.json'),
+		JSON.stringify({
+			runId,
+			createdAt: now,
+			updatedAt: now,
+			plan: 'plans/demo.md',
+			harness: manifestHarness,
+			status: 'failed',
+			currentStep: null,
+			steps: [],
+			changedFiles: [],
+		}),
+		'utf8',
+	);
+
+	return { cwd, runId };
+};
+
+test('cli: resume reconstructs the driver from the manifest harness, never the config harness', async () => {
+	const { cwd, runId } = await seedResumeFixture({ manifestHarness: 'retired-harness', configHarness: 'codex' });
+
+	const { stdout, stderr, code } = await runCli({ args: ['resume', '--run', runId, '--cwd', cwd] });
+
+	assert.equal(stdout, '', 'the failure lands before the run header is printed');
+	assert.match(stderr, /unknown driver: retired-harness/);
+	assert.ok(!stderr.includes('unknown driver: codex'), "the config's harness is never what resume reconstructs");
+	assert.equal(code, 1);
 });
 
 // The engine's snapshot behavior (write-once, freeze-before-facts, missing

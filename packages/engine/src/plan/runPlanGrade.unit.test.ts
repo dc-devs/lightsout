@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { GradeReport } from '@lightsout/contracts';
-import type { Driver } from '@lightsout/drivers';
+import { Effort, GradeReport, Permissions } from '@lightsout/contracts';
+import type { Driver, DriverInvocation } from '@lightsout/drivers';
 import { runPlanGrade } from '../index';
 import { setupConsumerRepo } from '../../tests/helpers/setupConsumerRepo';
 
@@ -65,11 +65,16 @@ Re-export \`newThing\`.
 None — standalone plan.
 `;
 
-/** A gap-check stub keyed off the gap-check marker, returning a fixed gap set. */
-const gapDriver = (gaps: unknown[]): Driver => ({
+/**
+ * A gap-check stub keyed off the gap-check marker, returning a fixed gap set.
+ * `onInvoke` sees the whole invocation the driver was handed.
+ */
+const gapDriver = (gaps: unknown[], onInvoke?: (invocation: DriverInvocation) => void): Driver => ({
 	name: 'stub',
-	invoke: async ({ prompt }) => {
-		assert.ok(prompt.includes('# Gap-check input'), 'gap-check invocation marker present');
+	invoke: async (invocation) => {
+		onInvoke?.(invocation);
+
+		assert.ok(invocation.prompt.includes('# Gap-check input'), 'gap-check invocation marker present');
 
 		return { text: JSON.stringify({ gaps }), exitCode: 0 };
 	},
@@ -119,4 +124,40 @@ test('plan grade: a structural defect gates independently of the gap agent', asy
 	assert.ok('grade' in result);
 	assert.ok(result.grade.structural.length > 0, 'structural finding present despite an empty gap set');
 	assert.equal(result.grade.passed, false);
+});
+
+test('plan grade: the resolved model, effort and permissions reach the gap-check driver', async () => {
+	const cwd = setupConsumerRepo();
+	const plansDir = writePlan({ cwd, name: 'threaded', body: cleanPlan() });
+	const invocations: DriverInvocation[] = [];
+	const driver = gapDriver([], (invocation) => invocations.push(invocation));
+	const result = await runPlanGrade({
+		cwd,
+		driver,
+		name: 'threaded',
+		plansDir,
+		model: 'gpt-5.2',
+		effort: Effort.High,
+		permissions: Permissions.FullAccess,
+	});
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+	assert.deepEqual(
+		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
+		[{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access' }],
+	);
+});
+
+test('plan grade: an omitted effort and permissions stay absent so the harness default stands', async () => {
+	const cwd = setupConsumerRepo();
+	const plansDir = writePlan({ cwd, name: 'defaulted', body: cleanPlan() });
+	const invocations: DriverInvocation[] = [];
+	const driver = gapDriver([], (invocation) => invocations.push(invocation));
+	const result = await runPlanGrade({ cwd, driver, name: 'defaulted', plansDir });
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+	assert.deepEqual(
+		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
+		[{ model: undefined, effort: undefined, permissions: undefined }],
+	);
 });

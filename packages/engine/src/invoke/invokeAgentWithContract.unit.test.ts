@@ -2,14 +2,27 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import type { Driver } from '@lightsout/drivers';
-import { WorkReport } from '@lightsout/contracts';
+import type { Driver, DriverInvocation } from '@lightsout/drivers';
+import { Effort, Permissions, WorkReport } from '@lightsout/contracts';
 import { invokeAgentWithContract } from './invokeAgentWithContract';
 import { loadConfig, runImplementPipeline } from '../index';
 import { report } from '../../tests/helpers/report';
 import { setupConsumerRepo } from '../../tests/helpers/setupConsumerRepo';
 
 const roleInvocation = { systemPrompt: 'ROLE-SYSTEM-PROMPT', prompt: 'ROLE-PROMPT' };
+
+/**
+ * A driver that records every invocation it is handed and answers with the
+ * given texts in order (the last is reused once they run out).
+ */
+const capturingDriver = ({ invocations, texts }: { invocations: DriverInvocation[]; texts: string[] }): Driver => ({
+	name: 'stub',
+	invoke: async (invocation) => {
+		invocations.push(invocation);
+
+		return { text: texts[Math.min(invocations.length - 1, texts.length - 1)], exitCode: 0 };
+	},
+});
 
 test('contract mismatch retries with a cheap re-emit invocation, not the full role prompt', async () => {
 	const prompts: string[] = [];
@@ -71,6 +84,83 @@ test('two contract mismatches fail the invocation and report both rejections', a
 	assert.equal(parsed, undefined);
 	assert.match(failure ?? '', /did not match contract/);
 	assert.deepEqual(rejections, [1, 2]);
+});
+
+test('the resolved model, effort and permissions reach the driver verbatim', async () => {
+	const invocations: DriverInvocation[] = [];
+	const driver = capturingDriver({ invocations, texts: [report()] });
+
+	const { failure } = await invokeAgentWithContract({
+		driver,
+		cwd: '/repo',
+		invocation: roleInvocation,
+		contract: WorkReport,
+		model: 'gpt-5.2',
+		effort: Effort.High,
+		permissions: Permissions.FullAccess,
+		allowedCommands: ['pnpm test'],
+		timeoutMs: 1234,
+	});
+
+	assert.equal(failure, undefined);
+	assert.deepEqual(
+		invocations.map(({ model, effort, permissions, allowedCommands, cwd, timeoutMs }) => ({ model, effort, permissions, allowedCommands, cwd, timeoutMs })),
+		[{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access', allowedCommands: ['pnpm test'], cwd: '/repo', timeoutMs: 1234 }],
+	);
+});
+
+test('the read-only level is relayed untranslated — the driver, not this chokepoint, maps it to a harness flag', async () => {
+	const invocations: DriverInvocation[] = [];
+	const driver = capturingDriver({ invocations, texts: [report()] });
+
+	const { failure } = await invokeAgentWithContract({
+		driver,
+		cwd: '.',
+		invocation: roleInvocation,
+		contract: WorkReport,
+		permissions: Permissions.ReadOnly,
+	});
+
+	assert.equal(failure, undefined);
+	assert.equal(invocations[0].permissions, 'read-only');
+});
+
+test('an unset model, effort or permissions reaches the driver undefined — no default is invented here', async () => {
+	const invocations: DriverInvocation[] = [];
+	const driver = capturingDriver({ invocations, texts: [report()] });
+
+	const { report: parsed } = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
+
+	assert.ok(parsed);
+	assert.deepEqual(
+		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
+		[{ model: undefined, effort: undefined, permissions: undefined }],
+	);
+});
+
+test('the re-emit retry runs at the same model, effort and permissions as the first attempt', async () => {
+	const invocations: DriverInvocation[] = [];
+	const driver = capturingDriver({ invocations, texts: ['no report in this prose', report({ summary: 're-emitted' })] });
+
+	const { report: parsed } = await invokeAgentWithContract({
+		driver,
+		cwd: '.',
+		invocation: roleInvocation,
+		contract: WorkReport,
+		model: 'sonnet',
+		effort: Effort.Low,
+		permissions: Permissions.Write,
+	});
+
+	assert.equal(parsed?.summary, 're-emitted');
+	assert.deepEqual(
+		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
+		[
+			{ model: 'sonnet', effort: 'low', permissions: 'write' },
+			{ model: 'sonnet', effort: 'low', permissions: 'write' },
+		],
+		'a retry must not silently downgrade the effort or capability level',
+	);
 });
 
 test('pipeline persists rejected agent output to the run dir as evidence', async () => {

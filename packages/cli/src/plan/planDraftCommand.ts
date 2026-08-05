@@ -31,7 +31,8 @@ export const planDraftCommand = async ({ cwd, driver, name, plansDir, standards,
 		scope,
 		standards,
 		model: config?.model,
-		permissionMode: config?.permissionMode,
+		effort: config?.effort,
+		permissions: config?.permissions,
 		onProgress: createProgressPrinter(),
 	});
 

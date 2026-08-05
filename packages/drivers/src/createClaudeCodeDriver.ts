@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { buildClaudeCodeArgs } from './buildClaudeCodeArgs';
 import { spawnCollect } from './common/utils/spawnCollect';
 import { writeSystemPromptFile } from './common/utils/writeSystemPromptFile';
 import type { Driver } from './common/types/Driver';
@@ -43,51 +44,6 @@ const parseEnvelope = ({ stdout }: { stdout: string }) => {
  */
 const rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset/i;
 
-const buildArgs = ({
-	systemPromptPath,
-	model,
-	permissionMode,
-	allowedCommands,
-}: {
-	systemPromptPath?: string;
-	model?: string;
-	permissionMode?: string;
-	allowedCommands?: string[];
-}) => {
-	// stream-json (which requires --verbose in print mode) instead of json:
-	// same final result payload, but every intermediate event — tool calls,
-	// token ticks — arrives live for transcripts and progress narration.
-	// The dynamic sections (git status and friends) move to the first user
-	// message, so the default system prompt stays byte-identical between
-	// steps — the cached prefix the engine's system-prompt layout depends on.
-	const args = ['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections'];
-
-	if (systemPromptPath) {
-		// Append, never replace: keeps the harness's default agent behavior,
-		// mirroring how the Agent tool layers a role prompt onto a subagent.
-		// The file variant, not the argv one: role + plan + standards can reach
-		// hundreds of kilobytes against a fixed argv ceiling.
-		args.push('--append-system-prompt-file', systemPromptPath);
-	}
-
-	if (model) {
-		args.push('--model', model);
-	}
-
-	if (permissionMode) {
-		args.push('--permission-mode', permissionMode);
-	}
-
-	if (allowedCommands && allowedCommands.length > 0) {
-		// `Bash(<prefix>:*)` is the CLI's prefix-match permission rule;
-		// --allowedTools is variadic, one rule per granted prefix. Additive
-		// only — user settings that already allow more stay in charge.
-		args.push('--allowedTools', ...allowedCommands.map((prefix) => `Bash(${prefix}:*)`));
-	}
-
-	return args;
-};
-
 /**
  * Driver for the Claude Code CLI in headless mode (`claude -p`).
  *
@@ -96,13 +52,13 @@ const buildArgs = ({
  * engine never sees a credential. Stream-json event shapes verified against
  * claude CLI 2.1.200; `--append-system-prompt-file` and
  * `--exclude-dynamic-system-prompt-sections` verified against claude CLI
- * 2.1.218.
+ * 2.1.218; `--effort` verified against claude CLI 2.1.221.
  */
 export const createClaudeCodeDriver = () => {
 	const driver: Driver = {
 		name: 'claude-code',
 		invoke: async (invocation) => {
-			const { prompt, systemPrompt, model, permissionMode, allowedCommands, cwd, timeoutMs, onEvent } = invocation;
+			const { prompt, systemPrompt, model, effort, permissions, allowedCommands, cwd, timeoutMs, onEvent } = invocation;
 
 			let resultEvent: z.infer<typeof ResultEvent> | undefined;
 
@@ -112,7 +68,7 @@ export const createClaudeCodeDriver = () => {
 			// path too, and never throws.
 			const { exitCode, stdout, stderr } = await spawnCollect({
 				command: 'claude',
-				args: buildArgs({ systemPromptPath: systemPromptFile?.path, model, permissionMode, allowedCommands }),
+				args: buildClaudeCodeArgs({ systemPromptPath: systemPromptFile?.path, model, effort, permissions, allowedCommands }),
 				cwd,
 				stdinText: prompt,
 				timeoutMs,

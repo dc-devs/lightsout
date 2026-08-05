@@ -1,13 +1,12 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { RunStatus, WorkReport, type AgentUsage, type LightsoutConfig, type RunManifest, type RunUsage, type StepRecord } from '@lightsout/contracts';
+import { Permissions, RunStatus, WorkReport, type AgentUsage, type LightsoutConfig, type RunManifest, type RunUsage, type StepRecord } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { invokeAgentWithContract } from '../invoke';
 import { getRunDir, recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '../runState';
 import type { PipelineResult } from './PipelineResult';
 
 const defaultAgentTimeoutMinutes = 60;
-const defaultPermissionMode = 'acceptEdits';
 
 const formatTokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
 
@@ -110,7 +109,7 @@ export class PipelineRun {
 	}
 
 	async recordUsage({ step, usage }: { step: string; usage?: AgentUsage }): Promise<void> {
-		await recordAgentUsage({ cwd: this.cwd, runId: this.manifest.runId, step, model: this.config.model, totals: this.usageTotals, usage });
+		await recordAgentUsage({ cwd: this.cwd, runId: this.manifest.runId, step, model: this.config.model, effort: this.config.effort, totals: this.usageTotals, usage });
 
 		if (usage) {
 			this.progress(`  ${step} · usage: ${formatUsage(usage)}`);
@@ -176,7 +175,8 @@ export class PipelineRun {
 			invocation,
 			contract: WorkReport,
 			model: this.config.model,
-			permissionMode: this.config.permissionMode ?? defaultPermissionMode,
+			effort: this.config.effort,
+			permissions: this.config.permissions ?? Permissions.Write,
 			timeoutMs: this.agentTimeoutMs,
 			// Harness-level allowance for all working roles; the binding grant
 			// is the prompt section, which only the executor's builder emits.

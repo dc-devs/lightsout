@@ -6,8 +6,8 @@ import type { DoctorCheck } from './common/types/DoctorCheck';
 const driverBinaries: Record<string, string> = { 'claude-code': 'claude', codex: 'codex' };
 
 const getReferencedDriverNames = ({ config }: { config: LightsoutConfig }) => {
-	const entryDrivers = Object.values(config.commands ?? {}).map((entry) => entry?.driver);
-	const names = [config.driver ?? 'claude-code', ...entryDrivers].filter((name): name is string => typeof name === 'string');
+	const entryDrivers = Object.values(config.commands ?? {}).map((entry) => entry?.harness);
+	const names = [config.harness ?? 'claude-code', ...entryDrivers].filter((name): name is string => typeof name === 'string');
 
 	return [...new Set(names)];
 };
@@ -19,7 +19,7 @@ interface Params {
 	probeHarness?: (params: { binary: string }) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 }
 
-/** Probe every harness binary the config references — the global driver plus per-command overrides. A fail means some command has no harness to shell. */
+/** Probe every harness binary the config references — the global `harness` plus per-command overrides. A fail means some command has no harness to shell. */
 export const checkHarness = async ({ cwd, config, probeHarness }: Params): Promise<DoctorCheck> => {
 	const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
 	const binaries = [...new Set(getReferencedDriverNames({ config }).map((name) => driverBinaries[name] ?? name))];

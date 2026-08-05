@@ -21,8 +21,8 @@ export const RunManifest = z.object({
 	pipeline: z.string().optional(),
 	/** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
 	overview: z.string().optional(),
-	/** Driver name the run was started with (a resumed run must reuse it). */
-	driver: z.string(),
+	/** Harness the run was started with (a resumed run must reuse it). */
+	harness: z.string(),
 	/**
 	 * Snapshot of the resolved config at run creation — the permanent record
 	 * of which settings produced this run. Resume EXECUTES with the current

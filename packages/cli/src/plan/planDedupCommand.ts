@@ -24,7 +24,8 @@ export const planDedupCommand = async ({ cwd, driver, name, plansDir, standards,
 		plansDir,
 		standards,
 		model: config?.model,
-		permissionMode: config?.permissionMode,
+		effort: config?.effort,
+		permissions: config?.permissions,
 		onProgress: createProgressPrinter(),
 	});
 

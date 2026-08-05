@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { DedupReport } from '@lightsout/contracts';
-import type { Driver } from '@lightsout/drivers';
+import { DedupReport, Effort, Permissions } from '@lightsout/contracts';
+import type { Driver, DriverInvocation } from '@lightsout/drivers';
 import { runPlanDedup } from '../index';
 
 /** A temp repo with the given existing source files and a single-file plan at <plansDir>/<name>.md. */
@@ -39,6 +39,16 @@ const judgeDriver = (verdicts: unknown[], calls: { count: number }): Driver => (
 		assert.ok(prompt.includes('## Detected name collisions'), 'detected-collisions section present');
 
 		return { text: JSON.stringify({ verdicts }), exitCode: 0 };
+	},
+});
+
+/** A dedup-judge stub that records every invocation it is handed, judging nothing a duplicate. */
+const recordingJudgeDriver = (invocations: DriverInvocation[]): Driver => ({
+	name: 'stub',
+	invoke: async (invocation) => {
+		invocations.push(invocation);
+
+		return { text: JSON.stringify({ verdicts: [] }), exitCode: 0 };
 	},
 });
 
@@ -89,4 +99,36 @@ test('plan dedup: no candidates → empty report and no agent call', async () =>
 	const dedupPath = join(cwd, '.lightsout', 'plans', name, 'dedup.json');
 
 	assert.ok(existsSync(dedupPath), 'dedup.json still written on the no-op path');
+});
+
+test('plan dedup: the resolved model, effort and permissions reach the harness', async () => {
+	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const invocations: DriverInvocation[] = [];
+	const result = await runPlanDedup({
+		cwd,
+		driver: recordingJudgeDriver(invocations),
+		name,
+		plansDir,
+		model: 'gpt-5.2',
+		effort: Effort.XHigh,
+		permissions: Permissions.FullAccess,
+	});
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+	assert.deepEqual(
+		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
+		[{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'full-access' }],
+	);
+});
+
+test('plan dedup: an unset effort or permissions is forwarded absent — this role invents no default', async () => {
+	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const invocations: DriverInvocation[] = [];
+	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations), name, plansDir });
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+	assert.deepEqual(
+		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
+		[{ model: undefined, effort: undefined, permissions: undefined }],
+	);
 });

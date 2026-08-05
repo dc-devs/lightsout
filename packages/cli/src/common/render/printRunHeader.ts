@@ -1,4 +1,4 @@
-import type { LightsoutConfig } from '@lightsout/contracts';
+import { Permissions, type LightsoutConfig } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 
 interface Params {
@@ -26,7 +26,7 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 	console.log(`  standards: ${describeStandards({ value: config.standards, token: 'lightsout:code-defaults' })}`);
 	console.log(`  test standards: ${describeStandards({ value: config.testStandards, token: 'lightsout:test-defaults' })}`);
 	console.log(
-		`  driver: ${driver.name} · model: ${config.model ?? 'harness default'} · permissions: ${config.permissionMode ?? 'acceptEdits'}`,
+		`  harness: ${driver.name} · model: ${config.model ?? 'harness default'} · effort: ${config.effort ?? 'harness default'} · permissions: ${config.permissions ?? Permissions.Write}`,
 	);
 	console.log(`  timeouts: agent ${config.timeouts?.agentMinutes ?? 60}m · supervisor ${config.timeouts?.supervisorMinutes ?? 15}m`);
 	console.log(`  gates (root): check=[${config.scripts.check}] testUnit=[${config.scripts.testUnit}] coverage=[${coverage}]`);

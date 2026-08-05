@@ -13,6 +13,8 @@ export { FrictionKind } from './friction/FrictionKind';
 export { FrictionEntry } from './friction/FrictionEntry';
 export { FrictionRecord } from './friction/FrictionRecord';
 export { LightsoutConfig } from './LightsoutConfig';
+export { Effort } from './Effort';
+export { Permissions } from './Permissions';
 export { PackagesSource } from './run/PackagesSource';
 export { ScanDetector } from './scan/ScanDetector';
 export { ScanSeverity } from './scan/ScanSeverity';

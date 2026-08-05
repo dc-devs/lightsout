@@ -34,10 +34,16 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	const loaded = await loadConfig({ cwd });
 	const resolved = resolveCommandHarness({ config: loaded, command: 'implement' });
-	const driver = getDriver({ name: manifest.driver });
-	// Resume truth is the manifest's recorded driver, never the config (decision 6);
-	// the implement entry's model applies only when it targets that same harness.
-	const config = { ...loaded, driver: manifest.driver, model: resolved.driverName === manifest.driver ? resolved.model : undefined };
+	const driver = getDriver({ name: manifest.harness });
+	// Resume truth is the manifest's recorded harness, never the config (decision 6);
+	// the implement entry's model applies only when it targets that same harness,
+	// while effort applies unconditionally because it is harness-neutral.
+	const config = {
+		...loaded,
+		harness: manifest.harness,
+		model: resolved.driverName === manifest.harness ? resolved.model : undefined,
+		effort: resolved.effort,
+	};
 
 	console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
 	printRunHeader({ config, driver, cwd });

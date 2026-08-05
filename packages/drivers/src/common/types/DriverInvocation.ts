@@ -1,3 +1,5 @@
+import type { Effort, Permissions } from '@lightsout/contracts';
+
 export interface DriverInvocation {
 	/** Full user-message prompt, assembled deterministically by the engine (plan, standards, task). */
 	prompt: string;
@@ -5,10 +7,17 @@ export interface DriverInvocation {
 	systemPrompt?: string;
 	/** Model override, passed through to the harness. Omit to use the harness default. */
 	model?: string;
+	/** Reasoning effort, mapped to the harness's own effort flag. Omit to take the harness default. */
+	effort?: Effort;
 	/** Working directory of the target repository. */
 	cwd: string;
-	/** Harness permission mode (e.g. 'acceptEdits'). Headless runs cannot prompt a human — the engine must pre-declare policy per role. */
-	permissionMode?: string;
+	/**
+	 * Harness-neutral capability level, translated by each driver. Headless runs
+	 * cannot prompt a human — the engine must pre-declare policy per role.
+	 * `read-only` is engine-selected for the supervisor; config offers only
+	 * `write` and `full-access`.
+	 */
+	permissions?: Permissions;
 	/**
 	 * Consumer-granted shell command prefixes (config `agentCommands`), mapped
 	 * to the harness's allowed-tools mechanism. Additive only: it can open

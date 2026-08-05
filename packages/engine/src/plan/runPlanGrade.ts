@@ -1,13 +1,12 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { appendFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { GapCheckReport, GradeReport, PlanGrade, type PlanGap, type StructuralFinding } from '@lightsout/contracts';
+import { GapCheckReport, GradeReport, PlanGrade, type Effort, type Permissions, type PlanGap } from '@lightsout/contracts';
 import { buildPlanGapCheckInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
-import { getPlanDetectionInputs } from './common/utils/getPlanDetectionInputs';
+import { getPlanDetectionPass } from './common/utils/getPlanDetectionPass';
 import { invokeAgentWithContract } from '../invoke';
 import { lintPlanStructure } from './lintPlanStructure';
-import { planWorkspaceDir } from './planWorkspaceDir';
 import { writeJsonFile } from '../common/utils/writeJsonFile';
 
 const defaultGradeTimeoutMs = 30 * 60 * 1000;
@@ -22,7 +21,8 @@ interface Params {
 	/** Supplemental code standards, threaded into the gap-check so standards-conflict can fire. */
 	standards?: string;
 	model?: string;
-	permissionMode?: string;
+	effort?: Effort;
+	permissions?: Permissions;
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
 }
@@ -44,22 +44,17 @@ export const runPlanGrade = async ({
 	plansDir,
 	standards,
 	model,
-	permissionMode,
+	effort,
+	permissions,
 	timeoutMs = defaultGradeTimeoutMs,
 	onProgress,
 }: Params) => {
 	const progress = onProgress ?? (() => undefined);
-	const workspaceDir = planWorkspaceDir({ cwd, name });
+	const { workspaceDir, overviewText, files: phases, planPaths, config, error } = await getPlanDetectionPass({ cwd, name, plansDir });
 
-	await mkdir(workspaceDir, { recursive: true });
-
-	const inputs = await getPlanDetectionInputs({ cwd, name, plansDir });
-
-	if (inputs.error) {
-		return { status: 'failed' as const, workspaceDir, error: inputs.error };
+	if (error) {
+		return { status: 'failed' as const, workspaceDir, error };
 	}
-
-	const { overviewText, files: phases, planPaths, config } = inputs;
 
 	// Structural re-check covers every plan file, overview included (it has its
 	// own required-section set).
@@ -87,7 +82,8 @@ export const runPlanGrade = async ({
 			invocation: buildPlanGapCheckInvocation({ planText: phase.text, overviewText, standards }),
 			contract: GapCheckReport,
 			model,
-			permissionMode,
+			effort,
+			permissions,
 			timeoutMs,
 			onEvent: (event) => {
 				void appendFile(join(workspaceDir, 'grade-stream.jsonl'), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
@@ -112,12 +108,11 @@ export const runPlanGrade = async ({
 		gaps.push(...report.gaps);
 	}
 
-	const structuralFindings: StructuralFinding[] = structural;
-	const grade = structuralFindings.length === 0 && gaps.length === 0 ? PlanGrade.A : PlanGrade.BelowA;
+	const grade = structural.length === 0 && gaps.length === 0 ? PlanGrade.A : PlanGrade.BelowA;
 	const report: GradeReport = {
 		planName: name,
 		grade,
-		structural: structuralFindings,
+		structural,
 		gaps,
 		passed: grade === PlanGrade.A,
 		gradedAt: new Date().toISOString(),
@@ -126,7 +121,7 @@ export const runPlanGrade = async ({
 
 	await writeJsonFile({ path: gradePath, value: report });
 
-	progress(`plan grade ${name}: ${grade} (${structuralFindings.length} structural, ${gaps.length} gap(s))`);
+	progress(`plan grade ${name}: ${grade} (${structural.length} structural, ${gaps.length} gap(s))`);
 
 	return { status: 'complete' as const, workspaceDir, grade: report, gradePath };
 };

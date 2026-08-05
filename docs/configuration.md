@@ -1,107 +1,263 @@
 # Configuration
 
-All configuration lives in one file at the repo root: `lightsout.config.json`.
+Lightsout is configured from a single file at the root of your repository:
 
-The minimal, complete config:
+```text
+lightsout.config.json
+```
+
+## Minimal setup
+
+To run lightsout, define the commands it should use to verify the work:
 
 ```json
 {
-	"scripts": {
-		"check": "pnpm typecheck",
-		"testUnit": "pnpm test",
-		"testCoverage": "pnpm test:coverage"
-	}
+  "scripts": {
+    "check": "pnpm check",
+    "testUnit": "pnpm test:unit",
+    "testCoverage": "pnpm test:unit:coverage"
+  }
 }
 ```
 
-That's enough: the engine's bundled JS/TS standards load by default (base
-docs always; React/TanStack docs join automatically when the run's packages
-use those frameworks). Add a `standards` array only to bring your own docs —
-include the token `lightsout:code-defaults` to stack the bundled ones
-alongside them.
+## Common configurations
+
+### Use lightsout’s code standards
+
+The minimal configuration uses lightsout’s bundled JavaScript and TypeScript standards. Framework-specific standards are added automatically when supported frameworks are detected.
+
+```json
+{
+  "scripts": {
+    "check": "pnpm check",
+    "testUnit": "pnpm test:unit",
+    "testCoverage": "pnpm test:unit:coverage"
+  }
+}
+```
+
+### Extend lightsout’s code standards
+
+Keep the bundled defaults and add rules specific to your repository:
+
+```json
+{
+  "standards": [
+    "lightsout:code-defaults",
+    "docs/architecture.md",
+    "docs/code-standards.md"
+  ],
+  "testStandards": ["lightsout:test-defaults", "docs/test-standards.md"],
+  "scripts": {
+    "check": "pnpm check",
+    "testUnit": "pnpm test:unit",
+    "testCoverage": "pnpm test:unit:coverage"
+  }
+}
+```
+
+### Configure a monorepo
+
+Use `packageScripts` to run gates only for packages affected by the current change. The `{package}` placeholder is replaced with each package name.
+
+```json
+{
+  "packagesDir": "packages",
+  "packageScripts": {
+    "check": "pnpm --filter {package} check",
+    "testUnit": "pnpm --filter {package} test:unit",
+    "testCoverage": "pnpm --filter {package} test:unit:coverage",
+    "build": "pnpm --filter {package} build"
+  },
+  "scripts": {
+    "check": "pnpm check",
+    "testUnit": "pnpm test:unit",
+    "testCoverage": "pnpm test:unit:coverage"
+  }
+}
+```
+
+See [Monorepos](docs/monorepos.md) for package detection and gate-resolution details.
+
+## How verification works
+
+Lightsout does not ask an agent whether its work is correct. It runs your commands directly and uses their exit codes to decide whether the pipeline can continue.
+
+At every verification stage, commands run in this order:
+
+1. `generate`, when configured
+2. `check`
+3. `testUnit`
+4. `testCoverage`
+5. `build`, when configured
+
+If any command fails, the stage fails and the pipeline stops. The agent cannot override, reinterpret, or talk its way past a failing gate.
+
+The `format` command is different: it runs once at the end of the pipeline, after the implementation and verification stages are complete.
+
+This separation keeps responsibilities clear:
+
+- Agents write and refactor the code.
+- Your standards define how the code should be written.
+- Your gate commands decide whether the work passes.
+
+These commands become the deterministic gates between pipeline stages. Lightsout runs them directly rather than asking an agent to verify its own work.
+
+This is the smallest complete configuration. Everything else is optional.
+
+## Adding your standards
+
+Lightsout loads its bundled JavaScript and TypeScript standards by default. The base standards always apply, while framework-specific standards for React and TanStack are added automatically when those frameworks are detected in the packages involved in the run.
+
+To replace the bundled standards with your own, add a `standards` array:
+
+```json
+{
+  "standards": ["docs/code-standards.md", "docs/architecture.md"],
+  "scripts": {
+    "check": "pnpm check",
+    "testUnit": "pnpm test:unit",
+    "testCoverage": "pnpm test:unit:coverage"
+  }
+}
+```
+
+To keep the Lightsout standards and add your own rules alongside them, include `lightsout:code-defaults`:
+
+```json
+{
+  "standards": ["lightsout:code-defaults", "docs/our-extra-rules.md"],
+  "testStandards": ["lightsout:test-defaults", "docs/test-standards.md"],
+  "scripts": {
+    "check": "pnpm check",
+    "testUnit": "pnpm test:unit",
+    "testCoverage": "pnpm test:unit:coverage"
+  }
+}
+```
+
+Each entry is a path relative to the root of your repository. An entry may also be a folder, in which case every Markdown file under it is loaded, including files in subfolders, in sorted path order. A folder that contains no Markdown files fails the run, exactly like a file that does not exist.
+
+Set `standards` or `testStandards` to `false` to disable that category entirely.
 
 ## Field reference
 
-| Field | Required | Purpose |
-|---|---|---|
-| `scripts.check` | yes | Type/lint gate — full shell command, run per verify step |
-| `scripts.testUnit` | yes | Test gate — full shell command. Runs in gate sets without a coverage run (e.g. the post-implement verify, where new code has no tests yet). |
-| `scripts.testCoverage` | yes | Coverage gate — a full shell command (your command owns the threshold), or the literal `false` to opt out. On by default: silence is not accepted, skipping the strongest gate must be a decision. Runs at clean-slate and every verify after tests exist, and **replaces** `testUnit` in those gate sets — the command must run the unit tests (every mainstream runner's coverage mode does), so the same suites never run twice back-to-back. |
-| `scripts.generate` | no | Opt-in codegen (e.g. `prisma generate`), run once **before** every gate set — gates verify, generate mutates, and parallel package gates must never race a generator. Red exit fails the gate set. |
-| `scripts.build` | no | Opt-in build gate, run last in every verify step |
-| `scripts.format` | no | Opt-in formatter, run once at the very end of the pipeline; gates re-verify afterwards |
-| `generated` | no | Path prefixes of generated output (e.g. a Prisma client dir). Real files in your diff, but excluded from changed-file attribution — they never earn agent turns; the source that generates them is the change. |
-| `agentCommands` | no | Command prefixes the implementing agent may run (prefix match, arguments allowed) — for deliverables only a command can produce, e.g. `"pnpm --filter api run prisma:migrate:dev:name"`. Injected into the executor's task as an explicit grant list and relayed to the harness's allowed-tools mechanism. Agents may never verify with these — the engine runs all gates itself. |
-| `packageScripts` | no | Monorepo mode — see [monorepos.md](monorepos.md) |
-| `packagesDir` | no | Workspace packages directory for monorepo mode (default `packages`) |
-| `plansDir` | no | Where the planning phase writes the committed `plan.md` deliverable (default `.claude/plans`). Resolved flag (`--plans`) → config → default, then absolutized. Transient planning workspace state (`facts.json`, `decisions.json`, `grade.json`) always lives under gitignored `.lightsout/plans/<name>/`. |
-| `timeouts.agentMinutes` | no | Ceiling for working agents (executor, test writers, refactorer). Default 60. A hit ceiling is a recorded step failure the run resumes from — never a crash. |
-| `timeouts.supervisorMinutes` | no | Ceiling for the read-only supervisor. Default 15. |
-| `standards` | no | Standards for code-writing agents. **Unspecified = the engine's bundled JS/TS defaults load** (announced in the run header). `false` = explicitly none. An array = exactly these: repo-relative markdown files (missing = hard error) and/or the token `lightsout:code-defaults` to stack the bundled defaults with repo extras. |
-| `testStandards` | no | Same, for the test-writer agent (token: `lightsout:test-defaults`) |
-| `standardsChannels` | no | Framework channels of the bundled defaults. The base docs always apply; React/Preact and TanStack docs ride along **only when the run's scoped packages actually depend on that framework** (detected from their `package.json` — announced in the run log). Set an array to replace detection (`[]` = base only). A terraform package never pays the React-docs token tax. |
-| `scan.minCloneTokens` | no | Tier-1 clone floor for `lightsout scan` (default 50) — raise for repos with a noisy short-clone tail |
-| `scan.size` | no | Line-cap overrides for the size detector — defaults `{ "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }`; any subset, e.g. `{ "tsxFile": 350 }`. The same numbers appear in the standards docs, so agents are told the caps the scanner enforces. File caps gate runs; function/hook/component caps go to the refactor agent as judgment items (fix unless a documented exemption applies) and never block. |
-| `driver` | no | `claude-code` (default) or `codex` |
-| `model` | no | Model override passed through to the harness |
-| `commands` | no | Per-command harness overrides — optional `implement` / `refactor` / `improve` / `plan` entries (`plan` covers draft/dedup/grade), each with an optional `driver` and/or `model` for just that command. Unknown keys inside this block are a hard config error, never silently ignored. |
-| `permissionMode` | no | Harness permission mode for agents (default `acceptEdits`) |
+| Field                        | Required | What it controls                                                                                                                                                                                                                                                                          |
+| ---------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts.check`              |      yes | The type-check and lint gate. Provide the full shell command lightsout should run at every verification stage.                                                                                                                                                                            |
+| `scripts.testUnit`           |      yes | The unit-test gate. Provide the full shell command required to pass.                                                                                                                                                                                                                      |
+| `scripts.testCoverage`       |      yes | The coverage gate. Provide a shell command, or set it to `false` to opt out. Skipping the strongest gate must be an explicit decision, not an accident.                                                                                                                                   |
+| `scripts.generate`           |       no | An opt-in code-generation command, such as `prisma generate`. Runs once before each set of gates.                                                                                                                                                                                         |
+| `scripts.build`              |       no | An opt-in build gate. Runs last during every verification stage.                                                                                                                                                                                                                          |
+| `scripts.format`             |       no | An opt-in formatting command. Runs once at the end of the pipeline.                                                                                                                                                                                                                       |
+| `harness`                    |       no | The default harness used to run agents. Supported values are `claude-code` and `codex`. Defaults to `claude-code`.                                                                                                                                                                        |
+| `model`                      |       no | A model override passed through to the selected harness.                                                                                                                                                                                                                                  |
+| `effort`                     |       no | The reasoning effort passed to the selected harness. One of `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, each harness uses its own default.                                                                                                                                   |
+| `commands`                   |       no | Per-command harness overrides for `plan`, `implement`, `refactor`, and `improve`. Each entry may define its own `harness`, `model`, `effort`, or any combination. A global `model` is not inherited by a command that selects a different harness; a global `effort` is, because the five levels mean the same thing everywhere. Unknown command keys are rejected rather than silently ignored. |
+| `permissions`                |       no | The capability level granted to agent invocations: `write` (agents may edit files and run commands inside the workspace) or `full-access` (the harness's sandbox is bypassed entirely). Defaults to `write`. The read-only level used by the supervisor is chosen by the engine and is not settable. |
+| `timeouts.agentMinutes`      |       no | The maximum runtime for a working agent, in minutes. Defaults to `60`. Reaching the limit creates a resumable step failure rather than crashing the run.                                                                                                                                  |
+| `timeouts.supervisorMinutes` |       no | The maximum runtime for the read-only supervisor, in minutes. Defaults to `15`.                                                                                                                                                                                                           |
+| `agentCommands`              |       no | Command prefixes that implementation agents are allowed to run when producing deliverables that cannot be created another way. These commands are never used for verification; lightsout runs all gates itself.                                                                           |
+| `generated`                  |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                   |
+| `packageScripts`             |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](docs/monorepos.md).                                                                                                                    |
+| `packagesDir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                           |
+| `plansDir`                   |       no | The directory where `/plan` writes the committed `plan.md`. Defaults to `.claude/plans`.                                                                                                                                                                                                  |
+| `standards`                  |       no | Standards injected into code-writing agents. When omitted, the bundled JavaScript and TypeScript standards are used. Set to `false` to disable code standards, or provide an array of Markdown files or folders — a folder loads every `.md` file under it, recursively, in sorted path order. Include `lightsout:code-defaults` to keep the bundled standards alongside your own. |
+| `testStandards`              |       no | Standards injected into the test-writing agent. The behavior matches `standards`. Use `lightsout:test-defaults` to include the bundled test standards alongside your own.                                                                                                                 |
+| `standardsChannels`          |       no | Controls which framework-specific bundled standards are loaded, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base standards.                                    |
+| `scan.minCloneTokens`        |       no | The minimum clone size reported by `lightsout scan`. Defaults to `50` tokens.                                                                                                                                                                                                             |
+| `scan.size`                  |       no | Overrides the line limits used by the size detector. Defaults are `file: 250`, `tsxFile: 300`, `function: 80`, `hook: 160`, and `component: 200`.                                                                                                                                         |
 
-## Maximal example
+### Harness-neutral keys
 
-Every optional field set:
+Two rules govern the keys above, and this surface depends on both:
 
-```json
+- A key with a neutral name must mean the same thing on every harness. A capability only one harness has never gets a neutral key, because a key that reads as portable but silently does nothing is a failure you cannot see. If such a capability is ever needed, it goes under an explicitly harness-scoped block.
+- `permissions` expresses intent, not identical enforcement. On Claude Code the commands granted through `agentCommands` are enforced by the harness itself. On Codex the workspace-write sandbox already permits commands, so the grant list the engine injects into the agent's prompt is what binds.
+
+## Complete example
+
+The following example shows how the optional configuration fields fit together:
+
+```jsonc
 {
-	"driver": "claude-code",
-	"model": "opus",
-	"commands": {
-		"improve": { "driver": "codex", "model": "gpt-5.2" },
-		"plan": { "model": "haiku" }
-	},
-	"permissionMode": "acceptEdits",
-	"scripts": {
-		"check": "pnpm typecheck",
-		"testUnit": "pnpm test",
-		"testCoverage": "pnpm test:coverage",
-		"generate": "pnpm prisma:generate",
-		"build": "pnpm build",
-		"format": "pnpm format:write"
-	},
-	"timeouts": { "agentMinutes": 60, "supervisorMinutes": 15 },
-	"agentCommands": ["pnpm --filter api run prisma:migrate:dev:name"],
-	"generated": ["src/generated/", "src/schema.gql"],
-	"packagesDir": "packages",
-	"packageScripts": {
-		"check": "pnpm --filter {package} typecheck",
-		"testUnit": "pnpm --filter {package} test:unit",
-		"testCoverage": "pnpm --filter {package} test:coverage",
-		"build": "pnpm --filter {package} build"
-	},
-	"standards": ["lightsout:code-defaults", "docs/our-extra-rules.md"],
-	"testStandards": ["lightsout:test-defaults"],
-	"standardsChannels": ["react"],
-	"scan": {
-		"minCloneTokens": 70,
-		"size": { "file": 250, "tsxFile": 300, "function": 80, "hook": 160, "component": 200 }
-	}
+  // Default harness, model, effort, and permissions
+  "harness": "claude-code",
+  "model": "opus",
+  "effort": "high",
+  "permissions": "full-access",
+
+  // Per-command harness overrides
+  "commands": {
+    "plan": {
+      "harness": "claude-code",
+      "model": "claude-opus-5",
+      "effort": "max",
+    },
+    "implement": {
+      "harness": "claude-code",
+      "model": "claude-sonnet-5",
+    },
+  },
+
+  // Code and test standards
+  "standards": ["standards/code", "docs/our-extra-rules.md"],
+  "testStandards": ["standards/tests"],
+  "standardsChannels": ["base"],
+
+  // Repository-wide gates
+  "scripts": {
+    "check": "pnpm check",
+    "testUnit": "pnpm test:unit",
+    "testCoverage": "pnpm test:unit:coverage",
+    "generate": "pnpm prisma:generate",
+    "build": "pnpm build",
+    "format": "pnpm format:write",
+  },
+
+  // Per-package gates for monorepos
+  "packagesDir": "packages",
+  "packageScripts": {
+    "check": "pnpm --filter {package} check",
+    "testUnit": "pnpm --filter {package} test:unit",
+    "testCoverage": "pnpm --filter {package} test:unit:coverage",
+    "build": "pnpm --filter {package} build",
+  },
+
+  // Where completed plans are written
+  "plansDir": ".claude/plans",
+
+  // Commands implementation agents may run
+  "agentCommands": ["pnpm --filter api run prisma:migrate:dev:name"],
+
+  // Generated files excluded from changed-file attribution
+  "generated": ["src/generated/", "src/schema.gql"],
+
+  // Agent and supervisor limits
+  "timeouts": {
+    "agentMinutes": 60,
+    "supervisorMinutes": 15,
+  },
+
+  // Duplication and file-size detection
+  "scan": {
+    "minCloneTokens": 70,
+    "size": {
+      "file": 250,
+      "tsxFile": 300,
+      "function": 80,
+      "hook": 160,
+      "component": 200,
+    },
+  },
 }
 ```
 
-## Per-command resolution
+## Recommended `.gitignore`
 
-Each command resolves its harness in one pass: its `commands` entry wins, the
-global `driver`/`model` are the fallback, and `claude-code` is the final driver
-default. The global `model` falls through only to a command that resolves to
-the global driver — a model name is meaningful only to its own harness, so a
-per-command driver override never inherits the other harness's model. `resume`
-always keeps the run manifest's recorded driver, regardless of the config.
+Commit your configuration and standards. Ignore the state produced by individual runs:
 
-## Recommended .gitignore
-
-Commit the config and standards, not run state:
-
-```
+```gitignore
 .lightsout/runs/
 .lightsout/friction.jsonl
 .lightsout/lock.json

@@ -1,62 +1,49 @@
 # Monorepos
 
-Whole-repo gates on a monorepo mean an unrelated red package blocks every
-run, and the coverage bar applies to the entire repo. `packageScripts` fixes
-both: command templates that run once per affected package, in parallel, with
-`{package}` replaced by that package's `package.json` name:
+Whole-repository gates can make monorepo runs slower and less reliable. An unrelated broken package can block the pipeline, while coverage is measured across code that the current change never touched.
+
+`packageScripts` lets lightsout gate only the packages affected by a run. Each command template runs once per affected package, in parallel, with `{package}` replaced by the package’s `package.json` name:
 
 ```json
 {
-	"packageScripts": {
-		"check": "pnpm --filter {package} typecheck",
-		"testUnit": "pnpm --filter {package} test:unit",
-		"testCoverage": "pnpm --filter {package} test:coverage"
-	}
+  "packageScripts": {
+    "check": "pnpm --filter {package} check",
+    "testUnit": "pnpm --filter {package} test:unit",
+    "testCoverage": "pnpm --filter {package} test:coverage"
+  }
 }
 ```
 
-Every `packageScripts` command must contain `{package}` — one without it
-would run identically for every package and belongs in `scripts.*` instead
-(config validation rejects it).
+Every template must include `{package}`. Commands that should run identically across the entire repository belong under `scripts` instead.
 
-Not every package in scope has to define every script. When a template's
-`run <script>` names a script a package's `package.json` doesn't have, that
-gate is **skipped** for that package — announced live
-(`gate [infra-local] check: skipped (no "check" script)`) and recorded in
-`commands.jsonl` with `skipped: true`, so an infra or docs package pulled
-into scope never needs placeholder scripts. A package missing only the
-coverage script falls back to its plain test script. Templates the engine
-can't read a script name from (no `run` token) always execute.
+If your workspace packages do not live in `packages/`, set `packagesDir`:
 
-## Package scope
+```json
+{
+  "packagesDir": "apps"
+}
+```
 
-The run's **package scope** resolves through a four-tier chain, so
-`/implement plan.md` needs nothing extra:
+## How package gates work
 
-1. `--packages backend-api,shared` on the CLI — explicit override
-2. Plan front-matter — precise and authoritative when present:
+**Affected packages are detected automatically.** Lightsout determines package scope from the finished plan and the files agents actually change. To set the scope explicitly, pass `--packages`:
 
-   ```markdown
-   ---
-   packages:
-     - backend-api
-   ---
-   # Plan: ...
-   ```
+```text
+/implement plan.md --packages backend-api,shared
+```
 
-3. **Derived from the plan body** — concrete `packages/<name>/` paths the
-   plan references become the scope (recorded in the manifest and the run
-   report as `plan-paths`, so a derived scope is never mistaken for a
-   declared one). This is why plans from tools that know nothing about
-   lightsout — plan mode output, hand-written plans — just work. Safe in
-   both directions: a package mentioned only as context merely runs extra
-   gates, and a missed one is caught by scope expansion below.
-4. Hard error — the plan names no packages at all, which usually means it's
-   too vague to implement anyway.
+**Packages only run the gates they support.** If a package does not define the script referenced by a template, that gate is skipped for the package and recorded in the run log. Documentation and infrastructure packages do not need placeholder scripts.
 
-After the implement step, changed files are the truth: the scope widens
-automatically when the agent touches a package the scope missed (never
-shrinks). Files outside `packagesDir` re-activate the whole-repo `scripts.*`
-as a "root group". Tip: use a dependents filter in the templates
-(`pnpm --filter ...{package}`) to also verify packages that depend on the
-changed ones — the blast radius lives in your template, not in the engine.
+**Changes outside the packages directory still get verified.** When a run changes files outside `packagesDir`, lightsout also runs the repository-wide commands configured under `scripts`.
+
+**Dependent packages can be included.** Use your package manager’s dependent-package filtering syntax when you want changes to a shared package to also verify its consumers. With pnpm, for example:
+
+```json
+{
+  "packageScripts": {
+    "check": "pnpm --filter ...{package} check",
+    "testUnit": "pnpm --filter ...{package} test:unit",
+    "testCoverage": "pnpm --filter ...{package} test:coverage"
+  }
+}
+```

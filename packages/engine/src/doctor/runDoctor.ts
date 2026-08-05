@@ -49,7 +49,7 @@ export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCh
 	checks.push({
 		id: 'config',
 		status: 'pass',
-		detail: `lightsout.config.json valid · driver ${config.driver ?? 'claude-code'}${config.packageScripts ? ` · monorepo (${packagesDir}/)` : ''}`,
+		detail: `lightsout.config.json valid · harness ${config.harness ?? 'claude-code'}${config.packageScripts ? ` · monorepo (${packagesDir}/)` : ''}`,
 	});
 
 	checks.push(await checkHarness({ cwd, config, probeHarness }));

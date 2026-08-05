@@ -92,7 +92,7 @@ test('summarizeRun tolerates a run dir with no ledger, no commands, no friction'
 			createdAt: '2026-07-03T00:00:00.000Z',
 			updatedAt: '2026-07-03T00:10:00.000Z',
 			plan: 'plan.md',
-			driver: 'stub',
+			harness: 'stub',
 			status: 'failed',
 			currentStep: null,
 			steps: [{ id: 'clean-slate', status: 'failed', attempts: 1 }],

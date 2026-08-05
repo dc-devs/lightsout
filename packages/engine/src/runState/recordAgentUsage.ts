@@ -1,4 +1,4 @@
-import type { AgentUsage, RunUsage } from '@lightsout/contracts';
+import type { AgentUsage, Effort, RunUsage } from '@lightsout/contracts';
 import { appendAgentLog } from './appendAgentLog';
 
 interface Params {
@@ -8,6 +8,8 @@ interface Params {
 	step: string;
 	/** Model override in force, if any. */
 	model?: string;
+	/** Resolved effort in force — the harness default when absent. */
+	effort?: Effort;
 	/** The run's mutable usage aggregate — accumulated in place. */
 	totals: RunUsage;
 	usage?: AgentUsage;
@@ -18,7 +20,7 @@ interface Params {
  * append the per-invocation line to agents.jsonl. Runs spend the user's
  * subscription — every spend leaves a line, in every pipeline, identically.
  */
-export const recordAgentUsage = async ({ cwd, runId, step, model, totals, usage }: Params): Promise<void> => {
+export const recordAgentUsage = async ({ cwd, runId, step, model, effort, totals, usage }: Params): Promise<void> => {
 	if (!usage) {
 		return;
 	}
@@ -30,5 +32,5 @@ export const recordAgentUsage = async ({ cwd, runId, step, model, totals, usage 
 	totals.cacheCreationTokens += usage.cacheCreationTokens;
 	totals.costUsd += usage.costUsd;
 
-	await appendAgentLog({ cwd, runId, record: { at: new Date().toISOString(), step, model, ...usage } });
+	await appendAgentLog({ cwd, runId, record: { at: new Date().toISOString(), step, model, effort, ...usage } });
 };

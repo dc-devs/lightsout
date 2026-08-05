@@ -1,6 +1,6 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { WorkReport, type AgentUsage, type LightsoutConfig, type RefactorBatch } from '@lightsout/contracts';
+import { Permissions, WorkReport, type AgentUsage, type LightsoutConfig, type RefactorBatch } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { invokeAgentWithContract } from '../invoke';
 import { appendFriction, getRunDir } from '../runState';
@@ -55,7 +55,8 @@ export const invokeBatchAgent = async ({
 		invocation,
 		contract: WorkReport,
 		model: config.model,
-		permissionMode: config.permissionMode ?? 'acceptEdits',
+		effort: config.effort,
+		permissions: config.permissions ?? Permissions.Write,
 		timeoutMs: agentTimeoutMs,
 		allowedCommands: config.agentCommands,
 		onEvent: (event) => {

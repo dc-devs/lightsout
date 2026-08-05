@@ -71,7 +71,7 @@ const executeRefactor = async ({
 	};
 
 	const recordUsage = ({ step, usage }: { step: string; usage?: AgentUsage }) =>
-		recordAgentUsage({ cwd, runId: manifest.runId, step, model: config.model, totals: usageTotals, usage });
+		recordAgentUsage({ cwd, runId: manifest.runId, step, model: config.model, effort: config.effort, totals: usageTotals, usage });
 
 	const setStep = async ({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }) => {
 		const steps = manifest.steps.some((step) => step.id === record.id)

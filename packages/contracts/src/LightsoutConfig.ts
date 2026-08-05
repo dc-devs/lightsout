@@ -1,12 +1,16 @@
 import { z } from 'zod';
+import { Effort } from './Effort';
+import { Permissions } from './Permissions';
 
-/** One command's harness override: driver and/or model, each falling back to the global field. */
+/** One command's harness override: harness, model, and/or effort, each falling back to the global field. */
 const commandHarness = z
 	.object({
-		/** Driver name for this command ('claude-code' or 'codex'). Falls back to the global `driver`. */
-		driver: z.string().optional(),
-		/** Model for this command's harness. The global `model` falls through only when this command resolves to the global driver. */
+		/** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
+		harness: z.string().optional(),
+		/** Model for this command's harness. The global `model` falls through only when this command resolves to the global harness. */
 		model: z.string().optional(),
+		/** Reasoning effort for this command. Falls back to the global `effort` regardless of which harness the command selects — the five levels mean the same thing everywhere. */
+		effort: z.enum(Effort).optional(),
 	})
 	.strict();
 
@@ -16,15 +20,27 @@ const commandHarness = z
  * engine never knows a consumer by name.
  */
 export const LightsoutConfig = z.object({
-	/** Driver name. Defaults to 'claude-code'. */
-	driver: z.string().optional(),
+	/** Harness name. Defaults to 'claude-code'. */
+	harness: z.string().optional(),
 	/** Model override passed through to the harness. */
 	model: z.string().optional(),
+	/** Reasoning effort passed through to the harness. Omit to take each harness's own default. */
+	effort: z.enum(Effort).optional(),
+	/**
+	 * Harness-neutral capability level for agent invocations. Defaults to
+	 * 'write'. `read-only` is engine-selected for the supervisor and is
+	 * deliberately not settable — it would make a writing role write nothing.
+	 */
+	permissions: z.enum([Permissions.Write, Permissions.FullAccess]).optional(),
+	/** Removed — renamed to `harness`. Declared only so a stale key fails loudly instead of being silently stripped. */
+	driver: z.never('`driver` was renamed to `harness`').optional(),
+	/** Removed — replaced by `permissions`. Same reason. */
+	permissionMode: z.never('`permissionMode` was replaced by `permissions` (`write` or `full-access`)').optional(),
 	/**
 	 * Per-command harness selection (`plan` covers draft/dedup/grade; `resume`
-	 * always keeps the run manifest's recorded driver). Each entry overrides the
-	 * global `driver`/`model` for that command; unlisted commands use the
-	 * globals. Both objects are `.strict()` — unlike the rest of the config,
+	 * always keeps the run manifest's recorded harness). Each entry overrides the
+	 * global `harness`/`model`/`effort` for that command; unlisted commands use
+	 * the globals. Both objects are `.strict()` — unlike the rest of the config,
 	 * a typoed key here would silently disable an override the user believes
 	 * is active, so it fails parsing loudly instead.
 	 */
@@ -37,8 +53,6 @@ export const LightsoutConfig = z.object({
 		})
 		.strict()
 		.optional(),
-	/** Harness permission mode for agent invocations. Defaults to 'acceptEdits'. */
-	permissionMode: z.string().optional(),
 	/** Verification commands — the mechanical gates. Full shell commands. */
 	scripts: z.object({
 		check: z.string(),
@@ -117,8 +131,10 @@ export const LightsoutConfig = z.object({
 	 * Standards for code-writing roles (executor, refactorer). Unspecified =
 	 * the engine's bundled JS/TS defaults load (announced in the run header);
 	 * `false` = explicitly none; an array = exactly these, where each entry
-	 * is a repo-relative markdown file (missing = hard error) or the token
-	 * `lightsout:code-defaults` to stack the bundled defaults with extras.
+	 * is a repo-relative markdown file, a repo-relative folder (every `.md`
+	 * under it, recursively, in sorted path order), or the token
+	 * `lightsout:code-defaults` to stack the bundled defaults with extras. A
+	 * missing entry — or a folder holding no markdown — is a hard error.
 	 */
 	standards: z.union([z.array(z.string()), z.literal(false)]).optional(),
 	/** Same, for the test-writer role (token: `lightsout:test-defaults`). */

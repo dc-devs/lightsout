@@ -13,7 +13,7 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 	}
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
-	const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config?.model });
+	const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config?.model, effort: config?.effort });
 
 	if (result.friction.length === 0) {
 		console.log('no friction recorded — nothing to improve from');

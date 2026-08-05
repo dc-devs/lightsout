@@ -1,27 +1,12 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { buildCodexArgs } from './buildCodexArgs';
 import { spawnCollect } from './common/utils/spawnCollect';
 import type { Driver } from './common/types/Driver';
 
 /** Same error-path-only heuristic as the claude-code driver. */
 const rateLimitPattern = /usage limit|rate limit|limit reached|quota/i;
-
-/**
- * Map the engine's permission modes onto codex sandbox policies. Codex exec
- * never prompts, so the sandbox flag is the whole permission story.
- */
-const sandboxArgs = ({ permissionMode }: { permissionMode?: string }) => {
-	if (permissionMode === 'plan') {
-		return ['--sandbox', 'read-only'];
-	}
-
-	if (permissionMode === 'bypassPermissions') {
-		return ['--dangerously-bypass-approvals-and-sandbox'];
-	}
-
-	return ['--sandbox', 'workspace-write'];
-};
 
 /**
  * Driver for the Codex CLI in non-interactive mode (`codex exec`).
@@ -31,7 +16,8 @@ const sandboxArgs = ({ permissionMode }: { permissionMode?: string }) => {
  * credential. Codex has no system-prompt channel, so the role instructions
  * ride at the top of the task text. The final message is read from
  * `--output-last-message` rather than parsed out of the event stream. Flag
- * surface verified against codex-cli 0.128.0.
+ * surface verified against codex-cli 0.146.0. The approval policy is pinned to
+ * `never` by the driver, so it is never a setting.
  */
 export const createCodexDriver = () => {
 	const driver: Driver = {
@@ -40,24 +26,11 @@ export const createCodexDriver = () => {
 			// allowedCommands is deliberately unused: codex's workspace-write
 			// sandbox already permits commands, so the grant that binds is the
 			// prompt-level list the engine injects into the invocation.
-			const { prompt, systemPrompt, model, permissionMode, cwd, timeoutMs } = invocation;
+			const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs } = invocation;
 
 			const outDir = await mkdtemp(join(tmpdir(), 'lightsout-codex-'));
 			const outFile = join(outDir, 'last-message.txt');
-
-			const args = [
-				'exec',
-				'--skip-git-repo-check',
-				'--color',
-				'never',
-				'--output-last-message',
-				outFile,
-				...sandboxArgs({ permissionMode }),
-			];
-
-			if (model) {
-				args.push('--model', model);
-			}
+			const args = buildCodexArgs({ outFile, model, effort, permissions });
 
 			const fullPrompt = systemPrompt ? `# Role instructions\n\n${systemPrompt}\n\n# Task\n\n${prompt}` : prompt;
 

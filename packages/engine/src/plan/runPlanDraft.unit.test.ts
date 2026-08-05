@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { PlanDraftReport } from '@lightsout/contracts';
+import { Effort, PlanDraftReport, Permissions } from '@lightsout/contracts';
 import type { Driver, DriverInvocation } from '@lightsout/drivers';
 import { runPlanDraft } from '../index';
 import { setupConsumerRepo } from '../../tests/helpers/setupConsumerRepo';
@@ -236,6 +236,50 @@ test('plan draft: the repair invocation references the workspace facts/decisions
 	);
 	assert.ok(!repairInvocation.prompt.includes('do a thing'), 'the seeded facts content never rides the prompt');
 	assert.ok(!repairInvocation.prompt.includes('```json'), 'no fenced JSON reference block survives in the prompt');
+});
+
+test('plan draft: the resolved effort and permissions ride the writer and every repair invocation', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'effort-threaded' });
+
+	const invocations: DriverInvocation[] = [];
+	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({
+		cwd,
+		driver,
+		name: 'effort-threaded',
+		plansDir: join(cwd, '.claude', 'plans'),
+		effort: Effort.High,
+		permissions: Permissions.FullAccess,
+	});
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+	assert.deepEqual(
+		invocations.map(({ prompt, effort, permissions }) => ({ role: prompt.includes('# Repair input') ? 'repair' : 'writer', effort, permissions })),
+		[
+			{ role: 'writer', effort: 'high', permissions: 'full-access' },
+			{ role: 'repair', effort: 'high', permissions: 'full-access' },
+		],
+		'a repair must run at the same effort and capability level the writer got',
+	);
+});
+
+test('plan draft: an unset effort and permissions reach the driver undefined — no default is invented here', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'no-effort' });
+
+	const invocations: DriverInvocation[] = [];
+	const driver = draftDriver({ bodies: [cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({ cwd, driver, name: 'no-effort', plansDir: join(cwd, '.claude', 'plans') });
+
+	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
+	assert.deepEqual(
+		invocations.map(({ effort, permissions }) => ({ effort, permissions })),
+		[{ effort: undefined, permissions: undefined }],
+		'the caller resolves the level; this role never substitutes one of its own',
+	);
 });
 
 test('plan draft: a TBD author then a clean repair proves the repair loop converges without re-authoring', async () => {

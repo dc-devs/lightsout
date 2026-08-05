@@ -257,7 +257,7 @@ test('refactor: an implement-pipeline manifest is refused with a pointer to the 
 		updatedAt: new Date().toISOString(),
 		plan: 'plan.md',
 		pipeline: 'implement',
-		driver: 'stub',
+		harness: 'stub',
 		status: 'failed',
 		currentStep: null,
 		steps: [],

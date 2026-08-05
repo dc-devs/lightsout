@@ -1,12 +1,11 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { appendFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { DedupJudgment, DedupReport, type DedupFinding } from '@lightsout/contracts';
+import { DedupJudgment, DedupReport, type DedupFinding, type Effort, type Permissions } from '@lightsout/contracts';
 import { buildPlanDedupInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { detectPriorArtCandidates } from './detectPriorArtCandidates';
-import { getPlanDetectionInputs } from './common/utils/getPlanDetectionInputs';
+import { getPlanDetectionPass } from './common/utils/getPlanDetectionPass';
 import { invokeAgentWithContract } from '../invoke';
-import { planWorkspaceDir } from './planWorkspaceDir';
 import { writeJsonFile } from '../common/utils/writeJsonFile';
 
 const defaultDedupTimeoutMs = 30 * 60 * 1000;
@@ -21,7 +20,8 @@ interface Params {
 	/** Supplemental code standards, threaded into the judge so extract/reuse recs can honor them. */
 	standards?: string;
 	model?: string;
-	permissionMode?: string;
+	effort?: Effort;
+	permissions?: Permissions;
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
 }
@@ -44,22 +44,18 @@ export const runPlanDedup = async ({
 	plansDir,
 	standards,
 	model,
-	permissionMode,
+	effort,
+	permissions,
 	timeoutMs = defaultDedupTimeoutMs,
 	onProgress,
 }: Params) => {
 	const progress = onProgress ?? (() => undefined);
-	const workspaceDir = planWorkspaceDir({ cwd, name });
+	const { workspaceDir, overviewText, files: planFiles, planPaths, config, error } = await getPlanDetectionPass({ cwd, name, plansDir });
 
-	await mkdir(workspaceDir, { recursive: true });
-
-	const inputs = await getPlanDetectionInputs({ cwd, name, plansDir });
-
-	if (inputs.error) {
-		return { status: 'failed' as const, workspaceDir, error: inputs.error };
+	if (error) {
+		return { status: 'failed' as const, workspaceDir, error };
 	}
 
-	const { overviewText, files: planFiles, planPaths, config } = inputs;
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths, config });
 
 	const writeReport = async (findings: DedupFinding[]) => {
@@ -89,7 +85,8 @@ export const runPlanDedup = async ({
 		invocation: buildPlanDedupInvocation({ planText, overviewText, candidates, standards }),
 		contract: DedupJudgment,
 		model,
-		permissionMode,
+		effort,
+		permissions,
 		timeoutMs,
 		onEvent: (event) => {
 			void appendFile(join(workspaceDir, 'dedup-stream.jsonl'), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);

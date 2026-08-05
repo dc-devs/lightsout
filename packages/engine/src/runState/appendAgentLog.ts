@@ -1,4 +1,4 @@
-import type { AgentUsage } from '@lightsout/contracts';
+import type { AgentUsage, Effort } from '@lightsout/contracts';
 import { appendRunLog } from './common/utils/appendRunLog';
 
 interface Params {
@@ -10,6 +10,8 @@ interface Params {
 		step: string;
 		/** Model override in force, if any — harness default otherwise. */
 		model?: string;
+		/** Resolved effort in force, if any — harness default otherwise. */
+		effort?: Effort;
 	};
 }
 

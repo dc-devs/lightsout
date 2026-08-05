@@ -1,9 +1,32 @@
 import type { z } from 'zod';
 import { buildReportReemitterInvocation } from '@lightsout/agents';
+import type { AgentUsage, Effort, Permissions } from '@lightsout/contracts';
 import type { Driver } from '@lightsout/drivers';
 import { extractJsonReport } from './extractJsonReport';
 
 const maxReportAttempts = 2;
+
+/**
+ * Usage summed across every attempt — a re-emit retry costs tokens too, and the
+ * caller accounts per role invocation, not per process spawn. Stays `undefined`
+ * until some attempt reports usage, so a harness that reports nothing is
+ * recorded as nothing rather than as zero.
+ */
+const sumUsage = ({ total, attempt }: { total?: AgentUsage; attempt?: AgentUsage }) => {
+	if (!attempt) {
+		return total;
+	}
+
+	const base = total ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
+
+	return {
+		inputTokens: base.inputTokens + attempt.inputTokens,
+		outputTokens: base.outputTokens + attempt.outputTokens,
+		cacheReadTokens: base.cacheReadTokens + attempt.cacheReadTokens,
+		cacheCreationTokens: base.cacheCreationTokens + attempt.cacheCreationTokens,
+		costUsd: base.costUsd + attempt.costUsd,
+	};
+};
 
 interface Params<Contract extends z.ZodType> {
 	driver: Driver;
@@ -11,7 +34,8 @@ interface Params<Contract extends z.ZodType> {
 	invocation: { systemPrompt: string; prompt: string };
 	contract: Contract;
 	model?: string;
-	permissionMode?: string;
+	effort?: Effort;
+	permissions?: Permissions;
 	timeoutMs?: number;
 	/** Consumer-granted command prefixes, relayed to the driver's allowed-tools mechanism. */
 	allowedCommands?: string[];
@@ -37,7 +61,8 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	invocation,
 	contract,
 	model,
-	permissionMode,
+	effort,
+	permissions,
 	timeoutMs,
 	allowedCommands,
 	onEvent,
@@ -45,23 +70,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 }: Params<Contract>) => {
 	let lastFailure = 'no attempts made';
 	let rejected: { rejectedText: string; validationError: string } | undefined;
-
-	// Summed across every attempt — a re-emit retry costs tokens too, and the
-	// caller accounts per role invocation, not per process spawn.
-	let usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; costUsd: number } | undefined;
-
-	const addUsage = (attempt: NonNullable<typeof usage> | undefined) => {
-		if (!attempt) {
-			return;
-		}
-
-		usage = usage ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 };
-		usage.inputTokens += attempt.inputTokens;
-		usage.outputTokens += attempt.outputTokens;
-		usage.cacheReadTokens += attempt.cacheReadTokens;
-		usage.cacheCreationTokens += attempt.cacheCreationTokens;
-		usage.costUsd += attempt.costUsd;
-	};
+	let usage: AgentUsage | undefined;
 
 	for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
 		const active = rejected
@@ -75,7 +84,8 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 				prompt: active.prompt,
 				systemPrompt: active.systemPrompt,
 				model,
-				permissionMode,
+				effort,
+				permissions,
 				allowedCommands,
 				cwd,
 				timeoutMs,
@@ -91,7 +101,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 			return { report: undefined, failure: `agent invocation failed: ${message}`, rateLimited: false, usage };
 		}
 
-		addUsage(result.usage);
+		usage = sumUsage({ total: usage, attempt: result.usage });
 
 		if (result.rateLimited) {
 			return { report: undefined, failure: 'harness rate limit reached', rateLimited: true, usage };

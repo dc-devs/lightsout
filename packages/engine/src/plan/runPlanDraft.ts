@@ -1,19 +1,18 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import { PlanDraftReport, PlanDraftStatus, PlanFixReport, PlanFixStatus, PlanVariant, type StructuralFinding } from '@lightsout/contracts';
-import { buildPlanRepairInvocation, buildPlanWriterInvocation } from '@lightsout/agents';
+import { PlanDraftReport, PlanDraftStatus, PlanVariant, type Effort, type Permissions, type StructuralFinding } from '@lightsout/contracts';
+import { buildPlanWriterInvocation } from '@lightsout/agents';
 import type { Driver } from '@lightsout/drivers';
 import { estimatePlanScope } from './estimatePlanScope';
 import { invokeAgentWithContract } from '../invoke';
-import { lintPlanStructure } from './lintPlanStructure';
 import { loadConfig } from '../common/utils/loadConfig';
 import { pathExists } from './common/utils/pathExists';
 import { planWorkspaceDir } from './planWorkspaceDir';
 import { readDecisions } from './readDecisions';
 import { readPlanFacts } from './readPlanFacts';
+import { repairPlanStructure } from './repairPlanStructure';
 
 const defaultDraftTimeoutMs = 30 * 60 * 1000;
-const maxRepairAttempts = 3;
 
 interface Params {
 	cwd: string;
@@ -27,7 +26,8 @@ interface Params {
 	/** Supplemental code standards, threaded into the plan-writer invocation. */
 	standards?: string;
 	model?: string;
-	permissionMode?: string;
+	effort?: Effort;
+	permissions?: Permissions;
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
 }
@@ -40,24 +40,9 @@ type RunPlanDraftResult =
 	| { status: 'structural-issues'; workspaceDir: string; findings: StructuralFinding[]; planPaths: string[] };
 
 /**
- * The finding set as a comparable multiset key. `location` is deliberately
- * excluded: it carries a line number, and a repair edit earlier in the file
- * shifts every later finding's line — a stuck finding that merely drifted would
- * read as progress. `issue` already names the specifics.
- */
-const findingSetKey = ({ findings }: { findings: StructuralFinding[] }) =>
-	findings
-		.map((finding) => [finding.check, finding.issue].join('|'))
-		.sort()
-		.join('\n');
-
-/**
  * Draft a structurally clean plan: a plan-writer agent authors the file(s) to
- * disk at the paths named in its prompt — once — then deterministic engine
- * code lints the structure. A lint failure is corrected by a small repair
- * invocation that Edits the draft in place against the typed findings (the
- * `invokeAgentWithContract` re-emit philosophy applied at the lint level),
- * re-linting after each, capped at 3 repairs; survivors return as
+ * disk at the paths named in its prompt — once — then `repairPlanStructure`
+ * lints the structure and converges any failures; survivors return as
  * `structural-issues` with the draft path intact. The engine owns the *path*
  * (told to the agent) and *verifies* the write; the agent owns the content. A
  * phased plan is a single spawn that authors `overview.md` plus every
@@ -74,7 +59,8 @@ export const runPlanDraft = async ({
 	scope,
 	standards,
 	model,
-	permissionMode,
+	effort,
+	permissions,
 	timeoutMs = defaultDraftTimeoutMs,
 	onProgress,
 }: Params): Promise<RunPlanDraftResult> => {
@@ -114,7 +100,8 @@ export const runPlanDraft = async ({
 		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand }),
 		contract: PlanDraftReport,
 		model,
-		permissionMode,
+		effort,
+		permissions,
 		timeoutMs,
 		allowedCommands: [lintPrefix],
 		onEvent: (event) => {
@@ -163,82 +150,18 @@ export const runPlanDraft = async ({
 		};
 	}
 
-	let findings = await lintPlanStructure({ cwd, planPaths, config });
+	const repaired = await repairPlanStructure({ cwd, driver, name, planPaths, workspaceDir, config, model, effort, permissions, timeoutMs, progress });
 
-	for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {
-		progress(`plan draft ${name}: ${findings.length} structural finding(s) — repair ${repair}/${maxRepairAttempts}`);
-
-		const beforeKey = findingSetKey({ findings });
-
-		const { report: fixReport, failure: fixFailure, rateLimited: fixRateLimited } = await invokeAgentWithContract({
-			driver,
-			cwd,
-			invocation: buildPlanRepairInvocation({
-				findings,
-				planPaths,
-				decisionsPath: join(workspaceDir, 'decisions.json'),
-				factsPath: join(workspaceDir, 'facts.json'),
-			}),
-			contract: PlanFixReport,
-			model,
-			permissionMode,
-			timeoutMs,
-			onEvent: (event) => {
-				void appendFile(join(workspaceDir, `repair-${repair}-stream.jsonl`), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-			},
-			onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
-				await writeFile(join(workspaceDir, `repair-rejected-${repair}-${reportAttempt}.txt`), text, 'utf8').catch(() => undefined);
-			},
-		});
-
-		if (fixRateLimited) {
-			return {
-				status: 'paused-rate-limit' as const,
-				workspaceDir,
-				error: `rate limit reached — re-run: lightsout plan draft --name ${name}`,
-			};
-		}
-
-		if (!fixReport) {
-			return { status: 'failed' as const, workspaceDir, error: fixFailure ?? 'unknown failure' };
-		}
-
-		// The repairer found a finding unresolvable from its inputs — narrate the
-		// declines, then fall through to the re-lint below and stop: it may have
-		// fixed other findings before declining, so the surviving set must come
-		// from the lint, never from the stale pre-repair list. The survivors
-		// return to the session, which fixes them via conductor Edit (the
-		// Grade-step pattern).
-		const declined = fixReport.status === PlanFixStatus.Error;
-
-		if (declined) {
-			for (const discrepancy of fixReport.discrepancies) {
-				progress(`plan draft ${name}: repair declined — ${discrepancy}`);
-			}
-		}
-
-		// A repaired file the agent deleted or broke re-surfaces here — the lint
-		// reports an unreadable plan file as a finding.
-		findings = await lintPlanStructure({ cwd, planPaths, config });
-
-		if (declined) {
-			break;
-		}
-
-		// Every repair round gets identical inputs, so a finding set that came
-		// back unchanged predicts an unchanged retry — spend the remaining
-		// attempts on nothing and the survivors still land in the session's lap.
-		// They return as structural-issues either way, and grade re-runs the same
-		// lint, so nothing is hidden by stopping early.
-		if (findings.length > 0 && findingSetKey({ findings }) === beforeKey) {
-			progress(`plan draft ${name}: repair ${repair} made no progress — stopping`);
-
-			break;
-		}
+	if (repaired.status === 'paused-rate-limit') {
+		return { status: 'paused-rate-limit' as const, workspaceDir, error: repaired.error };
 	}
 
-	if (findings.length > 0) {
-		return { status: 'structural-issues' as const, workspaceDir, findings, planPaths };
+	if (repaired.status === 'failed') {
+		return { status: 'failed' as const, workspaceDir, error: repaired.error };
+	}
+
+	if (repaired.findings.length > 0) {
+		return { status: 'structural-issues' as const, workspaceDir, findings: repaired.findings, planPaths };
 	}
 
 	progress(`plan draft ${name}: structurally clean (${planPaths.length} file(s))`);

@@ -4,6 +4,7 @@ import type { Driver } from '@lightsout/drivers';
 import { bold } from '../common/terminal/bold';
 import { dim } from '../common/terminal/dim';
 import { green } from '../common/terminal/green';
+import { printStructuralFinding } from '../common/render/printStructuralFinding';
 import { red } from '../common/terminal/red';
 import { yellow } from '../common/terminal/yellow';
 import { createProgressPrinter } from '../common/utils/createProgressPrinter';
@@ -25,7 +26,8 @@ export const planGradeCommand = async ({ cwd, driver, name, plansDir, standards,
 		plansDir,
 		standards,
 		model: config?.model,
-		permissionMode: config?.permissionMode,
+		effort: config?.effort,
+		permissions: config?.permissions,
 		onProgress: createProgressPrinter(),
 	});
 
@@ -40,8 +42,7 @@ export const planGradeCommand = async ({ cwd, driver, name, plansDir, standards,
 	console.log(`  structural: ${grade.structural.length} · gaps: ${grade.gaps.length}`);
 
 	for (const finding of grade.structural) {
-		console.log(`${yellow('⚠')} [${finding.check}] ${finding.location} — ${finding.issue}`);
-		console.log(dim(`   fix: ${finding.fix}`));
+		printStructuralFinding({ finding });
 	}
 
 	for (const gap of grade.gaps) {

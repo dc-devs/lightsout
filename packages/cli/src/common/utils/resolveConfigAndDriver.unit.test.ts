@@ -15,7 +15,7 @@ const setupConsumerDir = ({ config }: { config?: Record<string, unknown> } = {})
 	return { cwd };
 };
 
-test('resolveConfigAndDriver: no config file is non-fatal — claude-code driver, no config', async () => {
+test('resolveConfigAndDriver: only a genuinely absent config file is non-fatal — claude-code driver, no config', async () => {
 	const { cwd } = setupConsumerDir();
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
@@ -24,34 +24,63 @@ test('resolveConfigAndDriver: no config file is non-fatal — claude-code driver
 	assert.equal(driver.name, 'claude-code');
 });
 
-test('resolveConfigAndDriver: global driver and model land in the effective config and the driver', async () => {
-	const { cwd } = setupConsumerDir({ config: { driver: 'codex', model: 'gpt-5.2', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+test('resolveConfigAndDriver: global harness and model land in the effective config and the driver', async () => {
+	const { cwd } = setupConsumerDir({ config: { harness: 'codex', model: 'gpt-5.2', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 
 	assert.equal(driver.name, 'codex');
-	assert.deepEqual(config, { driver: 'codex', model: 'gpt-5.2', scripts: { check: 'c', testUnit: 't', testCoverage: false } });
+	assert.deepEqual(config, { harness: 'codex', model: 'gpt-5.2', effort: undefined, scripts: { check: 'c', testUnit: 't', testCoverage: false } });
 });
 
-test('resolveConfigAndDriver: a per-command driver override drops the global model from the effective config (decision 7)', async () => {
-	const { cwd } = setupConsumerDir({ config: { model: 'opus', commands: { improve: { driver: 'codex' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+test('resolveConfigAndDriver: a per-command harness override drops the global model from the effective config (decision 7)', async () => {
+	const { cwd } = setupConsumerDir({ config: { model: 'opus', commands: { improve: { harness: 'codex' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
 
 	assert.equal(driver.name, 'codex');
 	assert.deepEqual(config, {
-		driver: 'codex',
+		harness: 'codex',
 		model: undefined,
-		commands: { improve: { driver: 'codex' } },
+		effort: undefined,
+		commands: { improve: { harness: 'codex' } },
 		scripts: { check: 'c', testUnit: 't', testCoverage: false },
 	});
 });
 
-test('resolveConfigAndDriver: an invalid config (typoed commands key) is non-fatal and falls back to claude-code', async () => {
+test('resolveConfigAndDriver: a global effort lands in the effective config', async () => {
+	const { cwd } = setupConsumerDir({ config: { effort: 'high', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+
+	const { config } = await resolveConfigAndDriver({ cwd, command: 'plan' });
+
+	assert.deepEqual(config, { harness: 'claude-code', model: undefined, effort: 'high', scripts: { check: 'c', testUnit: 't', testCoverage: false } });
+});
+
+test('resolveConfigAndDriver: a per-command effort overrides the global in the effective config', async () => {
+	const { cwd } = setupConsumerDir({ config: { effort: 'low', commands: { plan: { effort: 'max' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+
+	const { config } = await resolveConfigAndDriver({ cwd, command: 'plan' });
+
+	assert.deepEqual(config, {
+		harness: 'claude-code',
+		model: undefined,
+		effort: 'max',
+		commands: { plan: { effort: 'max' } },
+		scripts: { check: 'c', testUnit: 't', testCoverage: false },
+	});
+});
+
+test('resolveConfigAndDriver: a present-but-invalid config (typoed commands key) is a hard error', async () => {
 	const { cwd } = setupConsumerDir({ config: { commands: { implment: {} }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
 
-	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'implement' });
+	await assert.rejects(
+		resolveConfigAndDriver({ cwd, command: 'implement' }),
+		'continuing would silently discard every setting in the file and run with defaults (decision 26)',
+	);
+});
 
-	assert.equal(config, undefined);
-	assert.equal(driver.name, 'claude-code');
+test('resolveConfigAndDriver: a stale top-level driver key rejects with a message naming harness', async () => {
+	const { cwd } = setupConsumerDir({ config: { driver: 'codex', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+
+	await assert.rejects(resolveConfigAndDriver({ cwd, command: 'plan' }), /renamed to `harness`/);
 });

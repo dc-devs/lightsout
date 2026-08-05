@@ -13,6 +13,7 @@ interface Params {
 	pipeline?: string;
 	/** Optional overview plan path (high-level context for a phased plan). */
 	overview?: string;
+	/** The driver name the run was started with, persisted as the manifest's `harness` field. */
 	driver: string;
 	/** Resolved config, snapshotted into the manifest as the run's permanent settings record. */
 	config?: LightsoutConfig;
@@ -30,7 +31,7 @@ export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, 
 		plan,
 		pipeline,
 		overview,
-		driver,
+		harness: driver,
 		config,
 		status: RunStatus.Pending,
 		currentStep: null,
