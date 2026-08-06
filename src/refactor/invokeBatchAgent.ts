@@ -1,5 +1,6 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { createEventFileSink } from '@/common/utils/createEventFileSink';
 import { Permissions, WorkReport, type AgentUsage, type LightsoutConfig, type RefactorBatch } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
@@ -59,9 +60,7 @@ export const invokeBatchAgent = async ({
 		permissions: config.permissions ?? Permissions.Write,
 		timeoutMs: agentTimeoutMs,
 		allowedCommands: config.agentCommands,
-		onEvent: (event) => {
-			void appendFile(streamPath, `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-		},
+		onEvent: createEventFileSink({ path: streamPath }),
 		onRejectedOutput: async ({ text, attempt }) => {
 			await writeFile(join(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, 'utf8').catch(() => undefined);
 		},

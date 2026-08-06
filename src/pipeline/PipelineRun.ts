@@ -1,6 +1,7 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Permissions, RunStatus, WorkReport, type AgentUsage, type LightsoutConfig, type RunManifest, type RunUsage, type StepRecord } from '@/contracts';
+import { createEventFileSink } from '@/common/utils/createEventFileSink';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
 import { getRunDir, recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '@/runState';
@@ -127,13 +128,8 @@ export class PipelineRun {
 
 		const dir = join(getRunDir({ cwd: this.cwd, runId: this.manifest.runId }), 'agents');
 		const path = join(dir, `stream-${String(this.transcriptCount).padStart(2, '0')}-${step}.jsonl`);
-		// Serialize appends so events land in arrival order even though the
-		// sink itself must return synchronously to the driver's read loop.
-		let tail: Promise<unknown> = mkdir(dir, { recursive: true });
 
-		return (event: unknown) => {
-			tail = tail.then(() => appendFile(path, `${JSON.stringify(event)}\n`, 'utf8')).catch(() => undefined);
-		};
+		return createEventFileSink({ path, ready: mkdir(dir, { recursive: true }) });
 	}
 
 	// A final message that fails its contract is still evidence — persist it

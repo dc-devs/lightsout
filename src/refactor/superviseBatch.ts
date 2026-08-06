@@ -1,8 +1,9 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SupervisorDecision, type AgentUsage, type LightsoutConfig } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { consultSupervisor } from '@/common/utils/consultSupervisor';
+import { createEventFileSink } from '@/common/utils/createEventFileSink';
 import { getRunDir } from '@/runState';
 
 /** The supervisor consult's terminal condition, mapped by the batch loop. */
@@ -66,9 +67,7 @@ export const superviseBatch = async ({
 		stepId: batchId,
 		errorOutput: gateError,
 		attempts,
-		onEvent: (event) => {
-			void appendFile(join(agentsDir, `stream-${slug}-supervisor.jsonl`), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-		},
+		onEvent: createEventFileSink({ path: join(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
 		onRejectedOutput: async ({ text, attempt }) => {
 			await writeFile(join(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, 'utf8').catch(() => undefined);
 		},
