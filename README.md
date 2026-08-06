@@ -6,8 +6,6 @@ Lightsout takes a finished plan and runs it through a gated software factory. Yo
 
 **Humans make the decisions. Agents execute them. Your commands decide when the work is done.**
 
-Named for lights-out manufacturing: factories designed to run unattended.
-
 **Status: pre-alpha.**
 
 ## Why
@@ -91,6 +89,9 @@ Once the direction is settled, it saves the design and hands it to `/plan`. For 
 Turn the design into an executable spec. `/plan` explores the codebase, searches for existing helpers and similar implementations, and works through the scope, architecture, files touched, constraints, edge cases, abstractions, and acceptance criteria.
 
 The plan is graded and revised until nothing is left for the implementation agent to guess, invent, or decide on its own.
+
+[![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
+
 
 ```text
 /plan .lightsout/plans/rate-limiting/notes.md

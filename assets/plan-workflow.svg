@@ -1,0 +1,243 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2375" height="1610" viewBox="0 0 2375 1610" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<defs>
+<radialGradient id="bg" cx="50%" cy="0%" r="120%"><stop offset="0%" stop-color="#0d1524"/><stop offset="55%" stop-color="#070a12"/><stop offset="100%" stop-color="#04060b"/></radialGradient>
+<linearGradient id="title" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#e9f6ff"/><stop offset="100%" stop-color="#cdb8ff"/></linearGradient>
+<linearGradient id="rail" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#35d6e8" stop-opacity="0"/><stop offset="18%" stop-color="#35d6e8" stop-opacity="0.85"/><stop offset="82%" stop-color="#b06bf5" stop-opacity="0.85"/><stop offset="100%" stop-color="#b06bf5" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge0" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#35d6e8" stop-opacity="0.85"/><stop offset="100%" stop-color="#49c5ea" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule0" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#35d6e8" stop-opacity="0.95"/><stop offset="100%" stop-color="#35d6e8" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#47c7ea" stop-opacity="0.85"/><stop offset="100%" stop-color="#5ab6ec" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#47c7ea" stop-opacity="0.95"/><stop offset="100%" stop-color="#47c7ea" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#58b7ec" stop-opacity="0.85"/><stop offset="100%" stop-color="#6ca6ee" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#58b7ec" stop-opacity="0.95"/><stop offset="100%" stop-color="#58b7ec" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6aa8ee" stop-opacity="0.85"/><stop offset="100%" stop-color="#7d97f0" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule3" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#6aa8ee" stop-opacity="0.95"/><stop offset="100%" stop-color="#6aa8ee" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7b99ef" stop-opacity="0.85"/><stop offset="100%" stop-color="#8f88f2" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule4" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#7b99ef" stop-opacity="0.95"/><stop offset="100%" stop-color="#7b99ef" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8d8af1" stop-opacity="0.85"/><stop offset="100%" stop-color="#a178f3" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule5" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#8d8af1" stop-opacity="0.95"/><stop offset="100%" stop-color="#8d8af1" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#9e7af3" stop-opacity="0.85"/><stop offset="100%" stop-color="#b06bf5" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule6" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#9e7af3" stop-opacity="0.95"/><stop offset="100%" stop-color="#9e7af3" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge7" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#b06bf5" stop-opacity="0.85"/><stop offset="100%" stop-color="#b06bf5" stop-opacity="0.35"/></linearGradient>
+<linearGradient id="rule7" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#b06bf5" stop-opacity="0.95"/><stop offset="100%" stop-color="#b06bf5" stop-opacity="0"/></linearGradient>
+<filter id="lift" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.1" fill="#5b7bb0" fill-opacity="0.16"/></pattern>
+</defs>
+<rect width="2375" height="1610" fill="url(#bg)"/>
+<rect x="0" y="0" width="260" height="180" fill="url(#dots)"/>
+<rect x="2115" y="1430" width="260" height="180" fill="url(#dots)"/>
+<text x="1187.5" y="106" text-anchor="middle" font-size="62" font-weight="700" letter-spacing="-0.5" fill="url(#title)">How /plan turns a request into an implementation-ready spec</text>
+<text x="1187.5" y="152" text-anchor="middle" font-size="25" fill="#c3d3e8">Final spec and every decision recorded before any code is written.</text>
+<rect x="857.5" y="180" width="660" height="2" fill="url(#rail)"/>
+<g><line x1="599" y1="510.5" x2="637" y2="510.5" stroke="#3ecee9" stroke-opacity="0.55" stroke-width="2"/><path d="M633,504.5 L645,510.5 L633,516.5" fill="none" stroke="#3ecee9" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1164" y1="510.5" x2="1202" y2="510.5" stroke="#4fbfeb" stroke-opacity="0.55" stroke-width="2"/><path d="M1198,504.5 L1210,510.5 L1198,516.5" fill="none" stroke="#4fbfeb" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1729" y1="510.5" x2="1767" y2="510.5" stroke="#61b0ed" stroke-opacity="0.55" stroke-width="2"/><path d="M1763,504.5 L1775,510.5 L1763,516.5" fill="none" stroke="#61b0ed" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M2293,510.5 H2341 Q2355,510.5 2355,524.5 V812.0 Q2355,826.0 2341,826.0 H34 Q20,826.0 20,840.0 V1127.5 Q20,1141.5 34,1141.5 H76" fill="none" stroke="#72a0ee" stroke-opacity="0.4" stroke-width="1.6" stroke-dasharray="6 7"/>
+<path d="M74,1135.5 L86,1141.5 L74,1147.5" fill="none" stroke="#72a0ee" stroke-opacity="0.8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<g><line x1="599" y1="1141.5" x2="637" y2="1141.5" stroke="#8491f0" stroke-opacity="0.55" stroke-width="2"/><path d="M633,1135.5 L645,1141.5 L633,1147.5" fill="none" stroke="#8491f0" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1164" y1="1141.5" x2="1202" y2="1141.5" stroke="#9682f2" stroke-opacity="0.55" stroke-width="2"/><path d="M1198,1135.5 L1210,1141.5 L1198,1147.5" fill="none" stroke="#9682f2" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1729" y1="1141.5" x2="1767" y2="1141.5" stroke="#a773f4" stroke-opacity="0.55" stroke-width="2"/><path d="M1763,1135.5 L1775,1141.5 L1763,1147.5" fill="none" stroke="#a773f4" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(90,236)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge0)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#35d6e8" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#35d6e8" fill-opacity="0.12" stroke="#35d6e8" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#35d6e8">1</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#b06bf5" fill-opacity="0.10" stroke="#b06bf5" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#b06bf5" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">CREATE THE PLAN WORKSPACE</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule0)"/>
+<circle cx="34" cy="159" r="3.4" fill="#35d6e8" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">Start from a direct request or existing</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd"><tspan font-family="Menlo, SF Mono, monospace" fill="#cdf0fa">/brainstorm</tspan> notes</text>
+<circle cx="34" cy="222" r="3.4" fill="#35d6e8" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">Create a name for the plan</text>
+<circle cx="34" cy="257" r="3.4" fill="#35d6e8" fill-opacity="0.9"/>
+<text x="50" y="262" font-size="19" font-weight="500" fill="#f0f5fd">Preserve any existing notes as the plan’s</text>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">starting context</text>
+<text x="28" y="324" font-size="16.5" font-style="italic" fill="#c2d1e6">Gives the plan a stable home without making</text>
+<text x="28" y="349" font-size="16.5" font-style="italic" fill="#c2d1e6"><tspan font-family="Menlo, SF Mono, monospace" fill="#cdf0fa">/brainstorm</tspan> a prerequisite</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#35d6e8" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#35d6e8" fill-opacity="1">SAVED WHEN NOTES EXIST</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">.lightsout/plans/&lt;name&gt;/notes.md</text>
+</g>
+<g transform="translate(655,236)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge1)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#47c7ea" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#47c7ea" fill-opacity="0.12" stroke="#47c7ea" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#47c7ea">2</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#b06bf5" fill-opacity="0.10" stroke="#b06bf5" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#b06bf5" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">RECORD THE FACTS</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule1)"/>
+<circle cx="34" cy="159" r="3.4" fill="#47c7ea" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">Inspect the code and files relevant to the</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd">plan request</text>
+<circle cx="34" cy="222" r="3.4" fill="#47c7ea" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">Record the repository facts the plan will</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#f0f5fd">rely on</text>
+<circle cx="34" cy="285" r="3.4" fill="#47c7ea" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">Verify every referenced file and path before</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#f0f5fd">moving forward</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#c2d1e6">Ensures the plan reflects the repository’s current</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#c2d1e6">state, not assumptions</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#47c7ea" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#47c7ea" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">.lightsout/plans/&lt;name&gt;/facts.json</text>
+</g>
+<g transform="translate(1220,236)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge2)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#58b7ec" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#58b7ec" fill-opacity="0.12" stroke="#58b7ec" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#58b7ec">3</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#35d6e8" fill-opacity="0.10" stroke="#35d6e8" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#35d6e8" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">you decide</text>
+<text x="28" y="112" font-size="22.4" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">SETTLE THE SCOPE AND CONSTRAINTS</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule2)"/>
+<circle cx="34" cy="159" r="3.4" fill="#58b7ec" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">Decide whether the request needs one plan or</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd">multiple phases</text>
+<circle cx="34" cy="222" r="3.4" fill="#58b7ec" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">Record the requirements and constraints the</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#f0f5fd">plan must follow</text>
+<circle cx="34" cy="285" r="3.4" fill="#58b7ec" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">Planning agent asks questions until you are</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#f0f5fd">both aligned</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#c2d1e6">Prevents scope and project constraints from being</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#c2d1e6">decided during implementation</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#58b7ec" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#58b7ec" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">.lightsout/plans/&lt;name&gt;/decisions.json</text>
+</g>
+<g transform="translate(1785,236)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge3)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#6aa8ee" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#6aa8ee" fill-opacity="0.12" stroke="#6aa8ee" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#6aa8ee">4</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#35d6e8" fill-opacity="0.10" stroke="#35d6e8" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#35d6e8" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">you decide</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">CHOOSE THE APPROACH</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule3)"/>
+<circle cx="34" cy="159" r="3.4" fill="#6aa8ee" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">Planning agent presents 2–3 distinct options</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd">with trade-offs</text>
+<circle cx="34" cy="222" r="3.4" fill="#6aa8ee" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">You choose the approach the plan will follow</text>
+<circle cx="34" cy="257" r="3.4" fill="#6aa8ee" fill-opacity="0.9"/>
+<text x="50" y="262" font-size="19" font-weight="500" fill="#f0f5fd">Skip this step only when the approach is</text>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">already settled</text>
+<text x="28" y="324" font-size="16.5" font-style="italic" fill="#c2d1e6">Ensures the design is chosen before implementation</text>
+<text x="28" y="349" font-size="16.5" font-style="italic" fill="#c2d1e6">begins</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#6aa8ee" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#6aa8ee" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">decisions.json — chosen approach</text>
+</g>
+<g transform="translate(90,867)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge4)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#7b99ef" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#7b99ef" fill-opacity="0.12" stroke="#7b99ef" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#7b99ef">5</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#b06bf5" fill-opacity="0.10" stroke="#b06bf5" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#b06bf5" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="24.7" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">WRITE THE IMPLEMENTATION PLAN</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule4)"/>
+<circle cx="34" cy="159" r="3.4" fill="#7b99ef" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">Turn the verified facts and decisions into a</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd">complete plan</text>
+<circle cx="34" cy="222" r="3.4" fill="#7b99ef" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">Validate the plan’s structure and revise it</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#f0f5fd">until it passes</text>
+<circle cx="34" cy="285" r="3.4" fill="#7b99ef" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">Use one plan or split larger work into clear</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#f0f5fd">phases</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#c2d1e6">Creates the specification the implementation agent</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#c2d1e6">will follow</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#7b99ef" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#7b99ef" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">&lt;plans&gt;/&lt;name&gt;.md</text>
+<text x="28" y="497" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#c6d5e8">or &lt;name&gt;/overview.md + phase-*.md</text>
+<text x="28" y="521" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#c6d5e8">failed drafts are retained for review</text>
+</g>
+<g transform="translate(655,867)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge5)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#8d8af1" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#8d8af1" fill-opacity="0.12" stroke="#8d8af1" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#8d8af1">6</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#35d6e8" fill-opacity="0.10" stroke="#35d6e8" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#35d6e8" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">you decide</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">STRESS-TEST THE PLAN</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule5)"/>
+<circle cx="34" cy="159" r="3.4" fill="#8d8af1" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">The planning agent questions you about edge</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd">cases and unresolved choices</text>
+<circle cx="34" cy="222" r="3.4" fill="#8d8af1" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">You answer every decision that could change</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#f0f5fd">implementation</text>
+<circle cx="34" cy="285" r="3.4" fill="#8d8af1" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">Every answer is added to the plan</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#f0f5fd">immediately</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#c2d1e6">Prevents the implementation agent from filling gaps</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#c2d1e6">on its own</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#8d8af1" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#8d8af1" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">plan edits + Decision Log entries</text>
+<text x="28" y="497" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">decisions.json — assumptions flagged</text>
+</g>
+<g transform="translate(1220,867)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge6)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#9e7af3" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#9e7af3" fill-opacity="0.12" stroke="#9e7af3" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#9e7af3">7</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#35d6e8" fill-opacity="0.10" stroke="#35d6e8" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#35d6e8" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">you decide</text>
+<text x="28" y="112" font-size="23.1" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">CATCH DUPLICATION BEFORE CODING</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule6)"/>
+<circle cx="34" cy="159" r="3.4" fill="#9e7af3" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">The planning agent searches for existing</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd">code related to the plan request</text>
+<circle cx="34" cy="222" r="3.4" fill="#9e7af3" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">Decide whether to reuse, extend, extract,</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#f0f5fd">defer, or keep the code separate</text>
+<circle cx="34" cy="285" r="3.4" fill="#9e7af3" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">Update the plan before implementation begins</text>
+<text x="28" y="324" font-size="16.5" font-style="italic" fill="#c2d1e6">Prevents duplicate logic and competing abstractions</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#9e7af3" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#9e7af3" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">.lightsout/plans/&lt;name&gt;/dedup.json</text>
+<text x="28" y="497" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">plan edits + Prior Art section</text>
+</g>
+<g transform="translate(1785,867)">
+<rect x="0" y="0" width="500" height="549" rx="20" fill="#0a0f1a" fill-opacity="0.92" stroke="url(#edge7)" stroke-width="1.5"/>
+<rect x="0" y="0" width="500" height="549" rx="20" fill="none" stroke="#b06bf5" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#b06bf5" fill-opacity="0.12" stroke="#b06bf5" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#b06bf5">8</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#b06bf5" fill-opacity="0.10" stroke="#b06bf5" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#b06bf5" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#eef4fb" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#f1f5fb">GET THE PLAN TO AN A GRADE</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule7)"/>
+<circle cx="34" cy="159" r="3.4" fill="#b06bf5" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#f0f5fd">The engine grades the plan and identifies</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#f0f5fd">every gap</text>
+<circle cx="34" cy="222" r="3.4" fill="#b06bf5" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#f0f5fd">The planning agent updates the plan to</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#f0f5fd">address each finding</text>
+<circle cx="34" cy="285" r="3.4" fill="#b06bf5" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#f0f5fd">Re-grade until it earns an A with no</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#f0f5fd">unresolved gaps</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#c2d1e6">Proves the plan is complete enough for an</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#c2d1e6">implementation agent with no prior context</text>
+<line x1="28" y1="423" x2="472" y2="423" stroke="#b06bf5" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#b06bf5" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#f6faff">.lightsout/plans/&lt;name&gt;/grade.json</text>
+</g>
+<g filter="url(#lift)"><rect x="514.0" y="1504" width="1347" height="76" rx="38.0" fill="#0a0f1a" stroke="url(#rail)" stroke-width="1.6"/></g>
+<circle cx="566.0" cy="1542.0" r="11" fill="none" stroke="#35d6e8" stroke-width="1.8"/>
+<path d="M560.0,1542.0 l4.5,5 l8-9.5" fill="none" stroke="#35d6e8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="596.0" y="1551.0" font-size="26" font-weight="600" fill="#f1f5fb">The implementation-ready spec can now be handed to /implement in a fresh context window.</text>
+</svg>

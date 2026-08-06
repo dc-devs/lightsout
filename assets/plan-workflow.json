@@ -1,0 +1,109 @@
+{
+  "title": "How /plan turns a request into an implementation-ready spec",
+  "subtitle": "Final spec and every decision recorded before any code is written.",
+  "columns": 4,
+  "savedLabel": "SAVED TO DISK",
+  "theme": { "from": "#35d6e8", "to": "#b06bf5" },
+  "banner": "The implementation-ready spec can now be handed to /implement in a fresh context window.",
+  "cards": [
+    {
+      "title": "CREATE THE PLAN WORKSPACE",
+      "tag": { "label": "the engine", "tone": "to" },
+      "bullets": [
+        "Start from a direct request or existing `/brainstorm` notes",
+        "Create a name for the plan",
+        "Preserve any existing notes as the plan’s starting context"
+      ],
+      "note": "Gives the plan a stable home without making `/brainstorm` a prerequisite",
+      "savedLabel": "SAVED WHEN NOTES EXIST",
+      "saved": [".lightsout/plans/<name>/notes.md"]
+    },
+    {
+      "title": "RECORD THE FACTS",
+      "tag": { "label": "the engine", "tone": "to" },
+      "bullets": [
+        "Inspect the code and files relevant to the plan request",
+        "Record the repository facts the plan will rely on",
+        "Verify every referenced file and path before moving forward"
+      ],
+      "note": "Ensures the plan reflects the repository’s current state, not assumptions",
+      "saved": [".lightsout/plans/<name>/facts.json"]
+    },
+    {
+      "title": "SETTLE THE SCOPE AND CONSTRAINTS",
+      "tag": { "label": "you decide", "tone": "from" },
+      "bullets": [
+        "Decide whether the request needs one plan or multiple phases",
+        "Record the requirements and constraints the plan must follow",
+        "Planning agent asks questions until you are both aligned"
+      ],
+      "note": "Prevents scope and project constraints from being decided during implementation",
+      "saved": [".lightsout/plans/<name>/decisions.json"]
+    },
+    {
+      "title": "CHOOSE THE APPROACH",
+      "tag": { "label": "you decide", "tone": "from" },
+      "bullets": [
+        "Planning agent presents 2–3 distinct options with trade-offs",
+        "You choose the approach the plan will follow",
+        "Skip this step only when the approach is already settled"
+      ],
+      "note": "Ensures the design is chosen before implementation begins",
+      "saved": ["decisions.json — chosen approach"]
+    },
+    {
+      "title": "WRITE THE IMPLEMENTATION PLAN",
+      "tag": { "label": "the engine", "tone": "to" },
+      "bullets": [
+        "Turn the verified facts and decisions into a complete plan",
+        "Validate the plan’s structure and revise it until it passes",
+        "Use one plan or split larger work into clear phases"
+      ],
+      "note": "Creates the specification the implementation agent will follow",
+      "saved": [
+        "<plans>/<name>.md",
+        "or <name>/overview.md + phase-*.md",
+        "failed drafts are retained for review"
+      ]
+    },
+    {
+      "title": "STRESS-TEST THE PLAN",
+      "tag": { "label": "you decide", "tone": "from" },
+      "bullets": [
+        "The planning agent questions you about edge cases and unresolved choices",
+        "You answer every decision that could change implementation",
+        "Every answer is added to the plan immediately"
+      ],
+      "note": "Prevents the implementation agent from filling gaps on its own",
+      "saved": [
+        "plan edits + Decision Log entries",
+        "decisions.json — assumptions flagged"
+      ]
+    },
+    {
+      "title": "CATCH DUPLICATION BEFORE CODING",
+      "tag": { "label": "you decide", "tone": "from" },
+      "bullets": [
+        "The planning agent searches for existing code related to the plan request",
+        "Decide whether to reuse, extend, extract, defer, or keep the code separate",
+        "Update the plan before implementation begins"
+      ],
+      "note": "Prevents duplicate logic and competing abstractions",
+      "saved": [
+        ".lightsout/plans/<name>/dedup.json",
+        "plan edits + Prior Art section"
+      ]
+    },
+    {
+      "title": "GET THE PLAN TO AN A GRADE",
+      "tag": { "label": "the engine", "tone": "to" },
+      "bullets": [
+        "The engine grades the plan and identifies every gap",
+        "The planning agent updates the plan to address each finding",
+        "Re-grade until it earns an A with no unresolved gaps"
+      ],
+      "note": "Proves the plan is complete enough for an implementation agent with no prior context",
+      "saved": [".lightsout/plans/<name>/grade.json"]
+    }
+  ]
+}
