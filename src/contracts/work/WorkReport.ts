@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FrictionEntry } from '@/contracts/friction/FrictionEntry';
+import { FrictionEntry } from '@/contracts/friction';
 import { WorkReportStatus } from '@/contracts/work/WorkReportStatus';
 
 /**

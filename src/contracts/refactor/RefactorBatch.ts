@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ScanFinding } from '@/contracts/scan/ScanFinding';
+import { ScanFinding } from '@/contracts/scan';
 
 /**
  * One refactor-run batch: one kind of finding in one area of the repo — a

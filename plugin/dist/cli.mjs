@@ -676,20 +676,6 @@ usage:
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-// src/contracts/run/RunStatus.ts
-var RunStatus = {
-  Pending: "pending",
-  Running: "running",
-  Passed: "passed",
-  Failed: "failed",
-  /** Hit the harness rate-limit wall — a first-class pausable state, not an error. Resumes when the window resets. */
-  PausedRateLimit: "paused-rate-limit",
-  /** Stopped at a caller-set budget ceiling (e.g. refactor --max-batches) — pausable, resume to continue. */
-  PausedBudget: "paused-budget",
-  /** Supervisor determined a human decision is required. */
-  Escalated: "escalated"
-};
-
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
@@ -15363,6 +15349,20 @@ var LightsoutConfig = external_exports.object({
   }).optional()
 });
 
+// src/contracts/run/RunStatus.ts
+var RunStatus = {
+  Pending: "pending",
+  Running: "running",
+  Passed: "passed",
+  Failed: "failed",
+  /** Hit the harness rate-limit wall — a first-class pausable state, not an error. Resumes when the window resets. */
+  PausedRateLimit: "paused-rate-limit",
+  /** Stopped at a caller-set budget ceiling (e.g. refactor --max-batches) — pausable, resume to continue. */
+  PausedBudget: "paused-budget",
+  /** Supervisor determined a human decision is required. */
+  Escalated: "escalated"
+};
+
 // src/contracts/run/PackagesSource.ts
 var PackagesSource = {
   /** Explicit `--packages` flag. */
@@ -15489,6 +15489,13 @@ var FrictionEntry = external_exports.object({
   detail: external_exports.string()
 });
 
+// src/contracts/friction/FrictionRecord.ts
+var FrictionRecord = FrictionEntry.extend({
+  at: external_exports.string(),
+  runId: external_exports.string(),
+  step: external_exports.string()
+});
+
 // src/contracts/work/WorkReportStatus.ts
 var WorkReportStatus = {
   Complete: "complete",
@@ -15545,13 +15552,6 @@ var SupervisorVerdict = external_exports.object({
   diagnosis: external_exports.string(),
   /** Concrete instructions injected into the retry invocation. Required when decision is retry. */
   guidance: external_exports.string().optional()
-});
-
-// src/contracts/friction/FrictionRecord.ts
-var FrictionRecord = FrictionEntry.extend({
-  at: external_exports.string(),
-  runId: external_exports.string(),
-  step: external_exports.string()
 });
 
 // src/contracts/scan/ScanDetector.ts
