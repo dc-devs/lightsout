@@ -6,6 +6,8 @@ import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { yellow } from '@/cli/common/terminal/yellow';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
+import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
 
 interface Params {
 	cwd: string;
@@ -17,22 +19,9 @@ interface Params {
 }
 
 export const planDedupCommand = async ({ cwd, driver, name, plansDir, standards, config }: Params): Promise<void> => {
-	const result = await runPlanDedup({
-		cwd,
-		driver,
-		name,
-		plansDir,
-		standards,
-		model: config?.model,
-		effort: config?.effort,
-		permissions: config?.permissions,
-		onProgress: createProgressPrinter(),
-	});
+	const result = await runPlanDedup(planRunOptions({ cwd, driver, name, plansDir, standards, config }));
 
-	if (result.status === 'paused-rate-limit' || result.status === 'failed') {
-		console.error(`\n${result.error}`);
-		process.exit(1);
-	}
+	exitOnPlanFailure(result);
 
 	const { dedup } = result;
 	const count = dedup.findings.length;

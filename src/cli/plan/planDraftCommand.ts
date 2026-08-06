@@ -9,6 +9,8 @@ import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
+import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
 
 interface Params {
 	cwd: string;
@@ -23,23 +25,9 @@ interface Params {
 export const planDraftCommand = async ({ cwd, driver, name, plansDir, standards, config, flags }: Params): Promise<void> => {
 	const scopeFlag = getStringFlag({ flags, name: 'scope' });
 	const scope = scopeFlag === 'phased' ? PlanVariant.Overview : scopeFlag === 'single' ? PlanVariant.Single : undefined;
-	const result = await runPlanDraft({
-		cwd,
-		driver,
-		name,
-		plansDir,
-		scope,
-		standards,
-		model: config?.model,
-		effort: config?.effort,
-		permissions: config?.permissions,
-		onProgress: createProgressPrinter(),
-	});
+	const result = await runPlanDraft({ ...planRunOptions({ cwd, driver, name, plansDir, standards, config }), scope });
 
-	if (result.status === 'paused-rate-limit' || result.status === 'failed') {
-		console.error(`\n${result.error}`);
-		process.exit(1);
-	}
+	exitOnPlanFailure(result);
 
 	if (result.status === 'facts-error') {
 		console.error(`\n${red('facts error')} — the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);

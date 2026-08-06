@@ -8,6 +8,8 @@ import { printStructuralFinding } from '@/cli/common/render/printStructuralFindi
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
+import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
 
 interface Params {
 	cwd: string;
@@ -19,22 +21,9 @@ interface Params {
 }
 
 export const planGradeCommand = async ({ cwd, driver, name, plansDir, standards, config }: Params): Promise<void> => {
-	const result = await runPlanGrade({
-		cwd,
-		driver,
-		name,
-		plansDir,
-		standards,
-		model: config?.model,
-		effort: config?.effort,
-		permissions: config?.permissions,
-		onProgress: createProgressPrinter(),
-	});
+	const result = await runPlanGrade(planRunOptions({ cwd, driver, name, plansDir, standards, config }));
 
-	if (result.status === 'paused-rate-limit' || result.status === 'failed') {
-		console.error(`\n${result.error}`);
-		process.exit(1);
-	}
+	exitOnPlanFailure(result);
 
 	const { grade } = result;
 

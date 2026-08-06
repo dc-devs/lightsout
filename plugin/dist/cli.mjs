@@ -18358,6 +18358,56 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
 import { createHash } from "node:crypto";
 import { readFile as readFile12 } from "node:fs/promises";
 import { basename as basename2, join as join23 } from "node:path";
+
+// src/scan/common/utils/normalizeFunctionTokens.ts
+var normalizeFunctionTokens = ({ node, compiler }) => {
+  if (compiler.isIdentifier(node) || compiler.isPrivateIdentifier(node)) {
+    return /^use[A-Z]/.test(node.text) ? [node.text] : ["ID"];
+  }
+  if (compiler.isStringLiteralLike(node) || compiler.isNumericLiteral(node) || node.kind === compiler.SyntaxKind.TrueKeyword || node.kind === compiler.SyntaxKind.FalseKeyword) {
+    return ["LIT"];
+  }
+  const children = node.getChildren();
+  if (children.length === 0) {
+    return [String(node.kind)];
+  }
+  return children.flatMap((child) => normalizeFunctionTokens({ node: child, compiler }));
+};
+
+// src/scan/common/utils/functionNameOf.ts
+var functionNameOf = ({ node, compiler }) => {
+  if ((compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node)) && node.name) {
+    return node.name.getText();
+  }
+  const parent = node.parent;
+  if (parent && compiler.isVariableDeclaration(parent) && compiler.isIdentifier(parent.name)) {
+    return parent.name.getText();
+  }
+  return "(anonymous)";
+};
+
+// src/scan/common/utils/groupDuplicateFunctions.ts
+var groupDuplicateFunctions = ({ sites }) => {
+  const byHash = /* @__PURE__ */ new Map();
+  for (const site of sites) {
+    byHash.set(site.hash, [...byHash.get(site.hash) ?? [], site]);
+  }
+  const findings = [];
+  for (const [hash3, group] of byHash) {
+    if (group.length > 1) {
+      findings.push({
+        detector: ScanDetector.AstDuplicate,
+        severity: ScanSeverity.Finding,
+        cluster: `ast:${hash3.slice(0, 12)}`,
+        files: group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine })),
+        detail: `${group.map((site) => `'${site.name}'`).join(", ")} have identical bodies after identifier normalization (${group[0]?.tokenCount} tokens)`
+      });
+    }
+  }
+  return findings;
+};
+
+// src/scan/scanAstFindings.ts
 var minBodyTokens = 40;
 var defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
 var fileLineCap = ({ file: file2, caps }) => file2.endsWith(".tsx") ? caps.tsxFile : caps.file;
@@ -18374,29 +18424,6 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
   const caps = { ...defaultSizeCaps, ...size };
   const findings = [];
   const sites = [];
-  const normalize = (node) => {
-    if (compiler.isIdentifier(node) || compiler.isPrivateIdentifier(node)) {
-      return /^use[A-Z]/.test(node.text) ? [node.text] : ["ID"];
-    }
-    if (compiler.isStringLiteralLike(node) || compiler.isNumericLiteral(node) || node.kind === compiler.SyntaxKind.TrueKeyword || node.kind === compiler.SyntaxKind.FalseKeyword) {
-      return ["LIT"];
-    }
-    const children = node.getChildren();
-    if (children.length === 0) {
-      return [String(node.kind)];
-    }
-    return children.flatMap((child) => normalize(child));
-  };
-  const functionName = (node) => {
-    if ((compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node)) && node.name) {
-      return node.name.getText();
-    }
-    const parent = node.parent;
-    if (parent && compiler.isVariableDeclaration(parent) && compiler.isIdentifier(parent.name)) {
-      return parent.name.getText();
-    }
-    return "(anonymous)";
-  };
   for (const file2 of files) {
     const text = await readFile12(join23(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
@@ -18417,10 +18444,10 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
       const isFunctionLike = compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node) || compiler.isArrowFunction(node) || compiler.isFunctionExpression(node);
       if (isFunctionLike && node.body) {
         const body = node.body;
-        const tokens2 = normalize(body);
+        const tokens2 = normalizeFunctionTokens({ node: body, compiler });
         const startLine = source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
         const endLine = source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
-        const name = functionName(node);
+        const name = functionNameOf({ node, compiler });
         if (tokens2.length >= minBodyTokens) {
           sites.push({
             name,
@@ -18447,21 +18474,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
     };
     visit(source);
   }
-  const byHash = /* @__PURE__ */ new Map();
-  for (const site of sites) {
-    byHash.set(site.hash, [...byHash.get(site.hash) ?? [], site]);
-  }
-  for (const [hash3, group] of byHash) {
-    if (group.length > 1) {
-      findings.push({
-        detector: ScanDetector.AstDuplicate,
-        severity: ScanSeverity.Finding,
-        cluster: `ast:${hash3.slice(0, 12)}`,
-        files: group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine })),
-        detail: `${group.map((site) => `'${site.name}'`).join(", ")} have identical bodies after identifier normalization (${group[0]?.tokenCount} tokens)`
-      });
-    }
-  }
+  findings.push(...groupDuplicateFunctions({ sites }));
   return findings;
 };
 
@@ -30612,9 +30625,50 @@ var scanPlacement = async ({ cwd, files, compiler }) => {
 // src/scan/scanStructure.ts
 import { readFile as readFile17 } from "node:fs/promises";
 import { basename as basename6, dirname as dirname5, join as join28 } from "node:path";
-var folderCensusCap = 20;
+
+// src/scan/common/utils/scanFileExports.ts
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var dotPrefixes = (name) => name.split(".").map((_, index, segments) => segments.slice(0, index + 1).join("."));
+var scanFileExports = ({ file: file2, text }) => {
+  const findings = [];
+  const exports = [];
+  for (const line of text.split("\n")) {
+    const match = line.match(exportPattern2);
+    if (match?.[1] && match[2]) {
+      exports.push({ keyword: match[1], name: match[2], line });
+    }
+  }
+  if (exports.length === 0) {
+    return findings;
+  }
+  const keywords = (keyword) => exports.filter((entry) => entry.keyword === keyword);
+  const constTypeName = keywords("const").find(({ name }) => keywords("type").some((entry) => entry.name === name))?.name;
+  const namedConstantFamily = constTypeName !== void 0 && exports.every(({ keyword, name, line }) => name === constTypeName || keyword === "const" && line.includes(`Record<${constTypeName}`));
+  const unionFamily = keywords("interface").length > 0 && keywords("type").length === 1 && keywords("interface").length + 1 === exports.length;
+  if (exports.length > 1 && !namedConstantFamily && !unionFamily) {
+    findings.push({
+      detector: ScanDetector.Structure,
+      severity: ScanSeverity.Finding,
+      cluster: `multi-export:${file2}`,
+      files: [{ path: file2 }],
+      detail: `${exports.length} exports (${exports.map(({ name }) => name).join(", ")}) \u2014 one export per file outside the closed exception list`
+    });
+  }
+  const primary = exports[0];
+  if (primary && exports.length === 1 && !dotPrefixes(nameOf(file2)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
+    findings.push({
+      detector: ScanDetector.Structure,
+      severity: ScanSeverity.Advisory,
+      cluster: `filename-mismatch:${file2}`,
+      files: [{ path: file2 }],
+      detail: `file '${nameOf(file2)}' exports '${primary.name}' \u2014 the filename should match the export`
+    });
+  }
+  return findings;
+};
+
+// src/scan/scanStructure.ts
+var folderCensusCap = 20;
 var firstToken = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/)[0]?.toLowerCase() ?? "";
 var scanStructure = async ({ cwd, files }) => {
   const findings = [];
@@ -30633,41 +30687,7 @@ var scanStructure = async ({ cwd, files }) => {
       continue;
     }
     const text = await readFile17(join28(cwd, file2), "utf8").catch(() => "");
-    const exports = [];
-    for (const line of text.split("\n")) {
-      const match = line.match(exportPattern2);
-      if (match?.[1] && match[2]) {
-        exports.push({ keyword: match[1], name: match[2], line });
-      }
-    }
-    if (exports.length === 0) {
-      continue;
-    }
-    const keywords = (keyword) => exports.filter((entry) => entry.keyword === keyword);
-    const constTypeName = keywords("const").find(({ name }) => keywords("type").some((entry) => entry.name === name))?.name;
-    const namedConstantFamily = constTypeName !== void 0 && exports.every(
-      ({ keyword, name, line }) => name === constTypeName || keyword === "const" && line.includes(`Record<${constTypeName}`)
-    );
-    const unionFamily = keywords("interface").length > 0 && keywords("type").length === 1 && keywords("interface").length + 1 === exports.length;
-    if (exports.length > 1 && !namedConstantFamily && !unionFamily) {
-      findings.push({
-        detector: ScanDetector.Structure,
-        severity: ScanSeverity.Finding,
-        cluster: `multi-export:${file2}`,
-        files: [{ path: file2 }],
-        detail: `${exports.length} exports (${exports.map(({ name }) => name).join(", ")}) \u2014 one export per file outside the closed exception list`
-      });
-    }
-    const primary = exports[0];
-    if (primary && exports.length === 1 && !dotPrefixes(nameOf(file2)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
-      findings.push({
-        detector: ScanDetector.Structure,
-        severity: ScanSeverity.Advisory,
-        cluster: `filename-mismatch:${file2}`,
-        files: [{ path: file2 }],
-        detail: `file '${nameOf(file2)}' exports '${primary.name}' \u2014 the filename should match the export`
-      });
-    }
+    findings.push(...scanFileExports({ file: file2, text }));
   }
   for (const [dir, group] of utilsVerbGroups) {
     for (const [verb, paths] of group) {
@@ -32549,24 +32569,32 @@ var loadPlanningStandards = async ({ cwd, config: config2 }) => {
   return standards;
 };
 
-// src/cli/plan/planDedupCommand.ts
-var planDedupCommand = async ({ cwd, driver, name, plansDir, standards, config: config2 }) => {
-  const result = await runPlanDedup({
-    cwd,
-    driver,
-    name,
-    plansDir,
-    standards,
-    model: config2?.model,
-    effort: config2?.effort,
-    permissions: config2?.permissions,
-    onProgress: createProgressPrinter()
-  });
+// src/cli/plan/common/utils/planRunOptions.ts
+var planRunOptions = ({ cwd, driver, name, plansDir, standards, config: config2 }) => ({
+  cwd,
+  driver,
+  name,
+  plansDir,
+  standards,
+  model: config2?.model,
+  effort: config2?.effort,
+  permissions: config2?.permissions,
+  onProgress: createProgressPrinter()
+});
+
+// src/cli/plan/common/utils/exitOnPlanFailure.ts
+var exitOnPlanFailure = (result) => {
   if (result.status === "paused-rate-limit" || result.status === "failed") {
     console.error(`
 ${result.error}`);
     process.exit(1);
   }
+};
+
+// src/cli/plan/planDedupCommand.ts
+var planDedupCommand = async ({ cwd, driver, name, plansDir, standards, config: config2 }) => {
+  const result = await runPlanDedup(planRunOptions({ cwd, driver, name, plansDir, standards, config: config2 }));
+  exitOnPlanFailure(result);
   const { dedup } = result;
   const count = dedup.findings.length;
   console.log(
@@ -32586,23 +32614,8 @@ dedup: ${result.dedupPath}`);
 var planDraftCommand = async ({ cwd, driver, name, plansDir, standards, config: config2, flags }) => {
   const scopeFlag = getStringFlag({ flags, name: "scope" });
   const scope = scopeFlag === "phased" ? PlanVariant.Overview : scopeFlag === "single" ? PlanVariant.Single : void 0;
-  const result = await runPlanDraft({
-    cwd,
-    driver,
-    name,
-    plansDir,
-    scope,
-    standards,
-    model: config2?.model,
-    effort: config2?.effort,
-    permissions: config2?.permissions,
-    onProgress: createProgressPrinter()
-  });
-  if (result.status === "paused-rate-limit" || result.status === "failed") {
-    console.error(`
-${result.error}`);
-    process.exit(1);
-  }
+  const result = await runPlanDraft({ ...planRunOptions({ cwd, driver, name, plansDir, standards, config: config2 }), scope });
+  exitOnPlanFailure(result);
   if (result.status === "facts-error") {
     console.error(`
 ${red("facts error")} \u2014 the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
@@ -32636,22 +32649,8 @@ var printStructuralFinding = ({ finding }) => {
 
 // src/cli/plan/planGradeCommand.ts
 var planGradeCommand = async ({ cwd, driver, name, plansDir, standards, config: config2 }) => {
-  const result = await runPlanGrade({
-    cwd,
-    driver,
-    name,
-    plansDir,
-    standards,
-    model: config2?.model,
-    effort: config2?.effort,
-    permissions: config2?.permissions,
-    onProgress: createProgressPrinter()
-  });
-  if (result.status === "paused-rate-limit" || result.status === "failed") {
-    console.error(`
-${result.error}`);
-    process.exit(1);
-  }
+  const result = await runPlanGrade(planRunOptions({ cwd, driver, name, plansDir, standards, config: config2 }));
+  exitOnPlanFailure(result);
   const { grade } = result;
   console.log(`
 ${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);

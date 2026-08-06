@@ -3,6 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type ts from 'typescript';
 import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { normalizeFunctionTokens } from '@/scan/common/utils/normalizeFunctionTokens';
+import { functionNameOf } from '@/scan/common/utils/functionNameOf';
+import type { FunctionSite } from '@/scan/common/types/FunctionSite';
+import { groupDuplicateFunctions } from '@/scan/common/utils/groupDuplicateFunctions';
 
 /** Bodies below this normalized-token count are too small to call duplicates. */
 const minBodyTokens = 40;
@@ -26,15 +30,6 @@ const functionSizeCaps = ({ name, path, caps }: { name: string; path: string; ca
 	return { cap: caps.function, kind: 'function' };
 };
 
-interface FunctionSite {
-	name: string;
-	path: string;
-	startLine: number;
-	endLine: number;
-	hash: string;
-	tokenCount: number;
-}
-
 interface Params {
 	cwd: string;
 	/** Repo-relative non-test source files. */
@@ -56,49 +51,6 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 	const caps = { ...defaultSizeCaps, ...size };
 	const findings: ScanFinding[] = [];
 	const sites: FunctionSite[] = [];
-
-	const normalize = (node: ts.Node): string[] => {
-		if (compiler.isIdentifier(node) || compiler.isPrivateIdentifier(node)) {
-			// Hook names stay significant: in React, "calls a different hook" is
-			// exactly what makes two otherwise-identical functions legitimately
-			// un-mergeable (the Rules of Hooks forbid parameterizing or
-			// conditionally calling them), so blurring use* identifiers
-			// manufactured duplicates out of thin wrappers that each bind a
-			// different hook — an irreducible, idiomatic pattern.
-			return /^use[A-Z]/.test(node.text) ? [node.text] : ['ID'];
-		}
-
-		if (
-			compiler.isStringLiteralLike(node) ||
-			compiler.isNumericLiteral(node) ||
-			node.kind === compiler.SyntaxKind.TrueKeyword ||
-			node.kind === compiler.SyntaxKind.FalseKeyword
-		) {
-			return ['LIT'];
-		}
-
-		const children = node.getChildren();
-
-		if (children.length === 0) {
-			return [String(node.kind)];
-		}
-
-		return children.flatMap((child) => normalize(child));
-	};
-
-	const functionName = (node: ts.Node): string => {
-		if ((compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node)) && node.name) {
-			return node.name.getText();
-		}
-
-		const parent = node.parent;
-
-		if (parent && compiler.isVariableDeclaration(parent) && compiler.isIdentifier(parent.name)) {
-			return parent.name.getText();
-		}
-
-		return '(anonymous)';
-	};
 
 	for (const file of files) {
 		const text = await readFile(join(cwd, file), 'utf8').catch(() => undefined);
@@ -127,11 +79,11 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 
 			if (isFunctionLike && (node as ts.FunctionLikeDeclaration).body) {
 				const body = (node as ts.FunctionLikeDeclaration).body as ts.Node;
-				const tokens = normalize(body);
+				const tokens = normalizeFunctionTokens({ node: body, compiler });
 
 				const startLine = source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
 				const endLine = source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
-				const name = functionName(node);
+				const name = functionNameOf({ node, compiler });
 
 				if (tokens.length >= minBodyTokens) {
 					sites.push({
@@ -167,23 +119,7 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 		visit(source);
 	}
 
-	const byHash = new Map<string, FunctionSite[]>();
-
-	for (const site of sites) {
-		byHash.set(site.hash, [...(byHash.get(site.hash) ?? []), site]);
-	}
-
-	for (const [hash, group] of byHash) {
-		if (group.length > 1) {
-			findings.push({
-				detector: ScanDetector.AstDuplicate,
-				severity: ScanSeverity.Finding,
-				cluster: `ast:${hash.slice(0, 12)}`,
-				files: group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine })),
-				detail: `${group.map((site) => `'${site.name}'`).join(', ')} have identical bodies after identifier normalization (${group[0]?.tokenCount} tokens)`,
-			});
-		}
-	}
+	findings.push(...groupDuplicateFunctions({ sites }));
 
 	return findings;
 };
