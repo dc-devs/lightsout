@@ -18,7 +18,11 @@ interface Params {
  */
 export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }: Params) => {
 	return new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve, reject) => {
-		const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+		// `env` is passed explicitly rather than left to ambient inheritance — see
+		// the same note in runCommand. It is inert in production and is what makes
+		// the harness binary stubbable from a test: without it, a test that empties
+		// PATH still spawns the real harness, which costs real money.
+		const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: process.env });
 
 		let stdout = '';
 		let stderr = '';

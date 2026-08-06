@@ -16,7 +16,13 @@ interface Params {
  */
 export const runCommand = ({ command, cwd, timeoutMs }: Params) => {
 	return new Promise<CommandResult>((resolve, reject) => {
-		const child = spawn(command, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+		// `env` is passed explicitly rather than left to ambient inheritance. In
+		// production this is identical — the child inherited exactly these values
+		// anyway — but it makes the environment a visible input, which is what lets
+		// a test stub a binary onto PATH. Some runners (Jest) hand test code a copy
+		// of process.env that real child processes do not inherit, so without this
+		// a PATH-stubbing test silently probes the machine instead of its fixture.
+		const child = spawn(command, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
 
 		let stdout = '';
 		let stderr = '';
