@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { chunkFileGroup } from '@/pipeline';
 
 test('chunkFileGroup: splits above max into sorted slices', () => {
@@ -7,10 +6,10 @@ test('chunkFileGroup: splits above max into sorted slices', () => {
 
 	const chunks = chunkFileGroup({ files: [...files].reverse(), max: 12 });
 
-	assert.equal(chunks.length, 2);
-	assert.deepEqual(chunks[0], files.slice(0, 12));
-	assert.deepEqual(chunks[1], files.slice(12));
-	assert.deepEqual(chunkFileGroup({ files, max: 12 })[0]?.length, 12);
+	expect(chunks.length).toBe(2);
+	expect(chunks[0]).toStrictEqual(files.slice(0, 12));
+	expect(chunks[1]).toStrictEqual(files.slice(12));
+	expect(chunkFileGroup({ files, max: 12 })[0]?.length).toStrictEqual(12);
 });
 
 test('chunkFileGroup: a group that fits in max stays one sorted chunk, and the caller’s array is untouched', () => {
@@ -18,8 +17,9 @@ test('chunkFileGroup: a group that fits in max stays one sorted chunk, and the c
 
 	const chunks = chunkFileGroup({ files, max: 12 });
 
-	assert.deepEqual(chunks, [['src/a.ts', 'src/b.ts', 'src/c.ts']]);
-	assert.deepEqual(files, ['src/b.ts', 'src/a.ts', 'src/c.ts'], 'sorting a group never reorders the caller’s list');
+	expect(chunks).toStrictEqual([['src/a.ts', 'src/b.ts', 'src/c.ts']]);
+	// sorting a group never reorders the caller’s list
+	expect(files).toStrictEqual(['src/b.ts', 'src/a.ts', 'src/c.ts']);
 });
 
 test('chunkFileGroup: an exact multiple of max splits evenly, with no trailing empty chunk', () => {
@@ -27,7 +27,7 @@ test('chunkFileGroup: an exact multiple of max splits evenly, with no trailing e
 
 	const chunks = chunkFileGroup({ files, max: 2 });
 
-	assert.deepEqual(chunks, [
+	expect(chunks).toStrictEqual([
 		['src/0.ts', 'src/1.ts'],
 		['src/2.ts', 'src/3.ts'],
 	]);
@@ -36,5 +36,5 @@ test('chunkFileGroup: an exact multiple of max splits evenly, with no trailing e
 test('chunkFileGroup: an empty group yields no chunks — nothing to spawn a writer for', () => {
 	const chunks = chunkFileGroup({ files: [], max: 12 });
 
-	assert.deepEqual(chunks, []);
+	expect(chunks).toStrictEqual([]);
 });

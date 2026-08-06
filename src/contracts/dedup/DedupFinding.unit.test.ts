@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { DedupFinding } from '@/contracts';
 
 const setupFinding = (overrides: Record<string, unknown> = {}) => {
@@ -24,7 +23,7 @@ describe('DedupFinding', () => {
 
 		const parsed = DedupFinding.parse(finding);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			plannedSymbol: 'formatDate',
 			plannedPath: 'src/plan/common/utils/formatDate.ts',
 			recommendation: 'extract',
@@ -40,7 +39,9 @@ describe('DedupFinding', () => {
 
 		const parsed = DedupFinding.parse(finding);
 
-		assert.equal(parsed.plannedSymbol, 'formatDate', 'runPlanDedup builds findings field by field and never sets isDuplicate — the omit is what lets that object satisfy the schema');
+		// runPlanDedup builds findings field by field and never sets isDuplicate — the
+		// omit is what lets that object satisfy the schema
+		expect(parsed.plannedSymbol).toBe('formatDate');
 	});
 
 	test('an isDuplicate carried over from the verdict is stripped, not rejected', () => {
@@ -48,7 +49,9 @@ describe('DedupFinding', () => {
 
 		const parsed = DedupFinding.parse(finding);
 
-		assert.equal('isDuplicate' in parsed, false, 'only confirmed duplicates become findings, so the flag would be a constant true — dropping it is what makes a finding a resolution rather than a ruling');
+		// only confirmed duplicates become findings, so the flag would be a constant
+		// true — dropping it is what makes a finding a resolution rather than a ruling
+		expect('isDuplicate' in parsed).toBe(false);
 	});
 
 	test('collidesWith and migrateCallers default to empty, and suggestedLocation stays absent', () => {
@@ -56,9 +59,13 @@ describe('DedupFinding', () => {
 
 		const parsed = DedupFinding.parse(finding);
 
-		assert.deepEqual(parsed.collidesWith, [], 'a behavioral duplicate the judge noticed on its own carries no detected name collision');
-		assert.deepEqual(parsed.migrateCallers, [], 'the inherited default survives the omit-and-extend');
-		assert.equal(parsed.suggestedLocation, undefined, 'the inherited optional survives the omit-and-extend');
+		// a behavioral duplicate the judge noticed on its own carries no detected name
+		// collision
+		expect(parsed.collidesWith).toStrictEqual([]);
+		// the inherited default survives the omit-and-extend
+		expect(parsed.migrateCallers).toStrictEqual([]);
+		// the inherited optional survives the omit-and-extend
+		expect(parsed.suggestedLocation).toBe(undefined);
 	});
 
 	test('recommendation accepts each resolution the menu offers', () => {
@@ -67,7 +74,9 @@ describe('DedupFinding', () => {
 
 			const parsed = DedupFinding.parse(finding);
 
-			assert.equal(parsed.recommendation, recommendation, `${recommendation} survives the omit-and-extend as a resolution a finding may carry`);
+			// ${recommendation} survives the omit-and-extend as a resolution a finding may
+			// carry
+			expect(parsed.recommendation).toBe(recommendation);
 		}
 	});
 
@@ -76,7 +85,8 @@ describe('DedupFinding', () => {
 
 		const result = DedupFinding.safeParse(finding);
 
-		assert.equal(result.success, false, 'the inherited enum still closes the set of resolutions a finding may carry');
+		// the inherited enum still closes the set of resolutions a finding may carry
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a finding missing any required field', () => {
@@ -85,7 +95,9 @@ describe('DedupFinding', () => {
 
 			const result = DedupFinding.safeParse(finding);
 
-			assert.equal(result.success, false, `${field} is required — omitting isDuplicate loosens nothing else, and plannedPath is what points the human at the plan line to edit`);
+			// ${field} is required — omitting isDuplicate loosens nothing else, and
+			// plannedPath is what points the human at the plan line to edit
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -95,7 +107,9 @@ describe('DedupFinding', () => {
 
 			const result = DedupFinding.safeParse(finding);
 
-			assert.equal(result.success, false, 'both halves are needed — neither the name nor the path alone locates the existing export the plan collides with');
+			// both halves are needed — neither the name nor the path alone locates the
+			// existing export the plan collides with
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -104,6 +118,8 @@ describe('DedupFinding', () => {
 
 		const parsed = DedupFinding.parse(finding);
 
-		assert.deepEqual(parsed.collidesWith, [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }], 'dedup.json holds the pair the contract declares, whatever else the detector happened to know');
+		// dedup.json holds the pair the contract declares, whatever else the detector
+		// happened to know
+		expect(parsed.collidesWith).toStrictEqual([{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }]);
 	});
 });

@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -44,7 +43,9 @@ describe('readGitChangedFiles', () => {
 
 		const changed = await readGitChangedFiles({ cwd });
 
-		assert.deepEqual(changed, [], 'a clean tree is an empty list, never undefined — undefined means "no git truth available"');
+		// a clean tree is an empty list, never undefined — undefined means "no git
+		// truth available"
+		expect(changed).toStrictEqual([]);
 	});
 
 	test('modified and untracked files are both reported, repo-relative', async () => {
@@ -52,7 +53,7 @@ describe('readGitChangedFiles', () => {
 
 		const changed = await readGitChangedFiles({ cwd });
 
-		assert.deepEqual([...(changed ?? [])].sort(), ['src/added.ts', 'src/index.js']);
+		expect([...(changed ?? [])].sort()).toStrictEqual(['src/added.ts', 'src/index.js']);
 	});
 
 	test('run state under .lightsout/ is never reported as a changed file', async () => {
@@ -62,7 +63,8 @@ describe('readGitChangedFiles', () => {
 
 		const changed = await readGitChangedFiles({ cwd });
 
-		assert.deepEqual(changed, ['src/added.ts'], "the engine's own run state is never attributed to the agent");
+		// the engine's own run state is never attributed to the agent
+		expect(changed).toStrictEqual(['src/added.ts']);
 	});
 
 	test('a staged rename reports the new path, not the old one', async () => {
@@ -70,7 +72,7 @@ describe('readGitChangedFiles', () => {
 
 		const changed = await readGitChangedFiles({ cwd });
 
-		assert.deepEqual(changed, ['src/renamed.js']);
+		expect(changed).toStrictEqual(['src/renamed.js']);
 	});
 
 	test('a nested consumer gets paths relative to itself, with the repo prefix stripped', async () => {
@@ -81,7 +83,9 @@ describe('readGitChangedFiles', () => {
 
 		const changed = await readGitChangedFiles({ cwd });
 
-		assert.deepEqual(changed, ['src/added.ts'], 'paths line up with what agents report from the consumer root, and a sibling package is out of scope');
+		// paths line up with what agents report from the consumer root, and a sibling
+		// package is out of scope
+		expect(changed).toStrictEqual(['src/added.ts']);
 	});
 
 	test('a directory outside any worktree reports undefined', async () => {
@@ -89,6 +93,7 @@ describe('readGitChangedFiles', () => {
 
 		const changed = await readGitChangedFiles({ cwd });
 
-		assert.equal(changed, undefined, 'no worktree means no git truth — the caller degrades to agent-reported files');
+		// no worktree means no git truth — the caller degrades to agent-reported files
+		expect(changed).toBe(undefined);
 	});
 });

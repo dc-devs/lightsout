@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
@@ -126,10 +125,15 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const fixPrompt = fixPromptOf(prompts);
 
-		assert.equal(result.ok, true, result.error);
-		assert.ok(fixPrompt, `the red coverage gate forced a fix invocation, got roles: ${prompts.map(roleOf).join(', ')}`);
-		assert.equal(roleOf(fixPrompt), 'write-tests', 'coverage is the only red — the missing tests are the work, so the test writer gets it');
-		assert.ok(fixPrompt.includes('test-coverage failed'), 'the red gate output rides the fix invocation as its error context');
+		expect(result.ok).toBe(true);
+		// the red coverage gate forced a fix invocation, got roles:
+		// ${prompts.map(roleOf).join(', ')}
+		expect(fixPrompt).toBeTruthy();
+		// coverage is the only red — the missing tests are the work, so the test
+		// writer gets it
+		expect(roleOf(fixPrompt ?? '')).toBe('write-tests');
+		// the red gate output rides the fix invocation as its error context
+		expect(fixPrompt).toContain('test-coverage failed');
 	});
 
 	test('routes a non-coverage red back to the refactor executor', async () => {
@@ -139,10 +143,15 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const fixPrompt = fixPromptOf(prompts);
 
-		assert.equal(result.ok, true, result.error);
-		assert.ok(fixPrompt, `the red check gate forced a fix invocation, got roles: ${prompts.map(roleOf).join(', ')}`);
-		assert.equal(roleOf(fixPrompt), 'refactor', 'a red check gate is the refactor pass breaking its own tree — the executor fixes it, not the test writer');
-		assert.ok(fixPrompt.includes('check failed'), 'the red gate output rides the fix invocation as its error context');
+		expect(result.ok).toBe(true);
+		// the red check gate forced a fix invocation, got roles:
+		// ${prompts.map(roleOf).join(', ')}
+		expect(fixPrompt).toBeTruthy();
+		// a red check gate is the refactor pass breaking its own tree — the executor
+		// fixes it, not the test writer
+		expect(roleOf(fixPrompt ?? '')).toBe('refactor');
+		// the red gate output rides the fix invocation as its error context
+		expect(fixPrompt).toContain('check failed');
 	});
 
 	test('routes a coverage red mixed with another kind to the refactor executor', async () => {
@@ -152,12 +161,15 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 
 		const fixPrompt = fixPromptOf(prompts);
 
-		assert.equal(result.ok, true, result.error);
-		assert.ok(fixPrompt, `the mixed red forced a fix invocation, got roles: ${prompts.map(roleOf).join(', ')}`);
-		assert.ok(
-			fixPrompt.includes('check failed') && fixPrompt.includes('test-coverage failed'),
-			`the arrangement must produce both gate kinds in one error, got: ${fixPrompt}`,
-		);
-		assert.equal(roleOf(fixPrompt), 'refactor', 'the coverage red may be downstream of the source break — the source is fixed first');
+		expect(result.ok).toBe(true);
+		// the mixed red forced a fix invocation, got roles:
+		// ${prompts.map(roleOf).join(', ')}
+		expect(fixPrompt).toBeTruthy();
+		// the arrangement must produce both gate kinds in one error
+		expect(fixPrompt).toContain('check failed');
+		expect(fixPrompt).toContain('test-coverage failed');
+		// the coverage red may be downstream of the source break — the source is fixed
+		// first
+		expect(roleOf(fixPrompt ?? '')).toBe('refactor');
 	});
 });

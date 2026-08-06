@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { runScan } from '@/scan';
 
 // scanFilenameDuplicates is a scan internal: tier 0 runs inside runScan, so
@@ -42,9 +41,12 @@ test('tier 0 reports a same-name pair as one advisory cluster listing both sites
 	const findings = await nameFindings(dir);
 
 	const pair = findings.find((finding) => finding.cluster === 'name:parseToken');
-	assert.deepEqual(pair?.files.map((file) => file.path).sort(), ['src/a/parseToken.ts', 'src/b/parseToken.ts'], 'both declaration sites are listed');
-	assert.equal(pair?.severity, 'advisory', 'same-name siblings can be legitimate — advisory, never gating');
-	assert.ok(pair?.detail.includes('2 places'), `the detail counts the sites: ${pair?.detail}`);
+	// both declaration sites are listed
+	expect(pair?.files.map((file) => file.path).sort()).toStrictEqual(['src/a/parseToken.ts', 'src/b/parseToken.ts']);
+	// same-name siblings can be legitimate — advisory, never gating
+	expect(pair?.severity).toBe('advisory');
+	// the detail counts the sites: ${pair?.detail}
+	expect(pair?.detail.includes('2 places')).toBeTruthy();
 });
 
 test('index files are excluded from tier 0 — every barrel shares that name by convention', async () => {
@@ -52,10 +54,12 @@ test('index files are excluded from tier 0 — every barrel shares that name by 
 
 	const findings = await nameFindings(dir);
 
-	assert.ok(findings.length > 0, 'the fixture does produce tier-0 findings, so the exclusions below are not vacuous');
-	assert.ok(!findings.some((finding) => finding.cluster === 'name:index'), `two index.ts barrels are not a duplicate name:\n${JSON.stringify(findings, undefined, 1)}`);
-	assert.ok(
-		!findings.some((finding) => finding.files.some((file) => file.path.endsWith('/index.ts'))),
-		'no barrel appears in any tier-0 finding, by name or by synonym key',
-	);
+	// the fixture does produce tier-0 findings, so the exclusions below are not
+	// vacuous
+	expect(findings.length > 0).toBeTruthy();
+	// two index.ts barrels are not a duplicate name:\n${JSON.stringify(findings,
+	// undefined, 1)}
+	expect(findings.some((finding) => finding.cluster === 'name:index')).toBeFalsy();
+	// no barrel appears in any tier-0 finding, by name or by synonym key
+	expect(findings.some((finding) => finding.files.some((file) => file.path.endsWith('/index.ts')))).toBeFalsy();
 });

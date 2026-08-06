@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { paint } from '@/cli/common/terminal/paint';
 
 test('paint: no-op when stdout is not a TTY, wraps with the ANSI code when it is', () => {
@@ -7,10 +6,10 @@ test('paint: no-op when stdout is not a TTY, wraps with the ANSI code when it is
 
 	try {
 		process.stdout.isTTY = false;
-		assert.equal(paint({ code: '32' })('hi'), 'hi');
+		expect(paint({ code: '32' })('hi')).toBe('hi');
 
 		process.stdout.isTTY = true;
-		assert.equal(paint({ code: '32' })('hi'), '\u001b[32mhi\u001b[0m');
+		expect(paint({ code: '32' })('hi')).toBe('\u001b[32mhi\u001b[0m');
 	} finally {
 		process.stdout.isTTY = original;
 	}

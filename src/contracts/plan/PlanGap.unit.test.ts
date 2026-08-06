@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { PlanGap } from '@/contracts';
 
 const setupGap = (overrides: Record<string, unknown> = {}) => {
@@ -19,7 +18,7 @@ describe('PlanGap', () => {
 
 		const parsed = PlanGap.parse(gap);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			area: 'omitted-decision',
 			gap: 'the plan never says which harness the refactor command spawns',
 			decision: 'name the harness the refactor pipeline spawns',
@@ -32,7 +31,9 @@ describe('PlanGap', () => {
 
 		const parsed = PlanGap.parse(gap);
 
-		assert.deepEqual(parsed.options, [], 'a gap whose decision has no pre-framed choices still parses — the default keeps the options list array-safe for the skill that renders it');
+		// a gap whose decision has no pre-framed choices still parses — the default
+		// keeps the options list array-safe for the skill that renders it
+		expect(parsed.options).toStrictEqual([]);
 	});
 
 	test('area accepts each kind of decision-level gap the agent surfaces', () => {
@@ -41,7 +42,8 @@ describe('PlanGap', () => {
 
 			const parsed = PlanGap.parse(gap);
 
-			assert.equal(parsed.area, area, `${area} is one of the six gap kinds the gap-check agent may report`);
+			// ${area} is one of the six gap kinds the gap-check agent may report
+			expect(parsed.area).toBe(area);
 		}
 	});
 
@@ -50,7 +52,9 @@ describe('PlanGap', () => {
 
 		const result = PlanGap.safeParse(gap);
 
-		assert.equal(result.success, false, 'an invented area is caught at the agent boundary, before it reaches a grade report a human reads');
+		// an invented area is caught at the agent boundary, before it reaches a grade
+		// report a human reads
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects the capitalized key form of an area', () => {
@@ -58,7 +62,8 @@ describe('PlanGap', () => {
 
 		const result = PlanGap.safeParse(gap);
 
-		assert.equal(result.success, false, 'the enum is built from the GapArea values, not its capitalized keys');
+		// the enum is built from the GapArea values, not its capitalized keys
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a gap missing any required field', () => {
@@ -67,7 +72,9 @@ describe('PlanGap', () => {
 
 			const result = PlanGap.safeParse(gap);
 
-			assert.equal(result.success, false, `${field} is required — area buckets the gap, gap states what is missing, and decision is the question put to the human`);
+			// ${field} is required — area buckets the gap, gap states what is missing, and
+			// decision is the question put to the human
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -77,7 +84,9 @@ describe('PlanGap', () => {
 
 			const result = PlanGap.safeParse(gap);
 
-			assert.equal(result.success, false, 'gap and decision are the prose sentences the skill prints — neither is coerced from a number or a structured object');
+			// gap and decision are the prose sentences the skill prints — neither is
+			// coerced from a number or a structured object
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -87,7 +96,9 @@ describe('PlanGap', () => {
 
 			const result = PlanGap.safeParse(gap);
 
-			assert.equal(result.success, false, 'options is a list of the plain strings a human chooses among — a bare string is not a one-entry list, and a non-string entry is malformed');
+			// options is a list of the plain strings a human chooses among — a bare string
+			// is not a one-entry list, and a non-string entry is malformed
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -96,6 +107,8 @@ describe('PlanGap', () => {
 
 		const parsed = PlanGap.parse(gap);
 
-		assert.equal('severity' in parsed, false, 'a gap carries only the four declared fields, whatever else the agent happened to volunteer');
+		// a gap carries only the four declared fields, whatever else the agent
+		// happened to volunteer
+		expect('severity' in parsed).toBe(false);
 	});
 });

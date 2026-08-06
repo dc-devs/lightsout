@@ -1,29 +1,28 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { nameKey } from '@/common/naming/nameKey';
 
 test('nameKey: synonym verbs collapse to one key', () => {
-	assert.equal(nameKey({ name: 'fetchUserData' }), nameKey({ name: 'getUserData' }));
-	assert.equal(nameKey({ name: 'retrieveUserData' }), nameKey({ name: 'getUserData' }));
-	assert.equal(nameKey({ name: 'makeThing' }), nameKey({ name: 'createThing' }));
+	expect(nameKey({ name: 'fetchUserData' })).toBe(nameKey({ name: 'getUserData' }));
+	expect(nameKey({ name: 'retrieveUserData' })).toBe(nameKey({ name: 'getUserData' }));
+	expect(nameKey({ name: 'makeThing' })).toBe(nameKey({ name: 'createThing' }));
 });
 
 test('nameKey: word order is normalized by sorting', () => {
-	assert.equal(nameKey({ name: 'userDataGet' }), nameKey({ name: 'getUserData' }));
+	expect(nameKey({ name: 'userDataGet' })).toBe(nameKey({ name: 'getUserData' }));
 });
 
 test('nameKey: the key is sorted lowercase tokens with the verb canonicalized', () => {
-	assert.equal(nameKey({ name: 'fetchUserData' }), 'data get user');
-	assert.equal(nameKey({ name: 'verify-facts' }), 'facts validate');
-	assert.equal(nameKey({ name: 'remove_stale.entry' }), 'delete entry stale');
+	expect(nameKey({ name: 'fetchUserData' })).toBe('data get user');
+	expect(nameKey({ name: 'verify-facts' })).toBe('facts validate');
+	expect(nameKey({ name: 'remove_stale.entry' })).toBe('delete entry stale');
 });
 
 test('nameKey: a to/from name keeps its source word order instead of sorting', () => {
-	assert.equal(nameKey({ name: 'hexToRgb' }), 'hex to rgb');
-	assert.equal(nameKey({ name: 'rgbToHex' }), 'rgb to hex');
+	expect(nameKey({ name: 'hexToRgb' })).toBe('hex to rgb');
+	expect(nameKey({ name: 'rgbToHex' })).toBe('rgb to hex');
 });
 
 test('nameKey: the to/from guard keeps conversion opposites distinct', () => {
-	assert.notEqual(nameKey({ name: 'hexToRgb' }), nameKey({ name: 'rgbToHex' }));
-	assert.notEqual(nameKey({ name: 'dtoFromEntity' }), nameKey({ name: 'entityFromDto' }));
+	expect(nameKey({ name: 'hexToRgb' })).not.toBe(nameKey({ name: 'rgbToHex' }));
+	expect(nameKey({ name: 'dtoFromEntity' })).not.toBe(nameKey({ name: 'entityFromDto' }));
 });

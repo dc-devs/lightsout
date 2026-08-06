@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { PlanDraftReport } from '@/contracts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
@@ -26,7 +25,7 @@ describe('PlanDraftReport', () => {
 
 		const parsed = PlanDraftReport.parse(report);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			status: 'drafted',
 			filesWritten: [
 				{ path: '.notes/plans/add-verify-facts/overview.md', variant: 'overview', scope: 'single' },
@@ -43,11 +42,9 @@ describe('PlanDraftReport', () => {
 
 		const parsed = PlanDraftReport.parse(report);
 
-		assert.deepEqual(
-			parsed,
-			{ status: 'drafted', filesWritten: [], decisionsApplied: 4, assumptions: [], discrepancies: [] },
-			'a status and a decision count are a complete report — the writer agent may omit the three arrays',
-		);
+		// a status and a decision count are a complete report — the writer agent may
+		// omit the three arrays
+		expect(parsed).toStrictEqual({ status: 'drafted', filesWritten: [], decisionsApplied: 4, assumptions: [], discrepancies: [] });
 	});
 
 	test('status accepts each draft outcome', () => {
@@ -56,7 +53,8 @@ describe('PlanDraftReport', () => {
 
 			const parsed = PlanDraftReport.parse(report);
 
-			assert.equal(parsed.status, status, `${status} is one of the two outcomes a draft run can end in`);
+			// ${status} is one of the two outcomes a draft run can end in
+			expect(parsed.status).toBe(status);
 		}
 	});
 
@@ -66,7 +64,9 @@ describe('PlanDraftReport', () => {
 
 			const result = PlanDraftReport.safeParse(report);
 
-			assert.equal(result.success, false, `${status} is not a draft outcome — the values are lowercase, matching the report.status === 'error' check in runPlanDraft`);
+			// ${status} is not a draft outcome — the values are lowercase, matching the
+			// report.status === 'error' check in runPlanDraft
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -75,7 +75,9 @@ describe('PlanDraftReport', () => {
 
 		const result = PlanDraftReport.safeParse(report);
 
-		assert.equal(result.success, false, 'status is required — it is what tells runPlanDraft whether to hand the plan on or fail the run');
+		// status is required — it is what tells runPlanDraft whether to hand the plan
+		// on or fail the run
+		expect(result.success).toBe(false);
 	});
 
 	test('variant accepts each shape a written plan file may take', () => {
@@ -84,7 +86,8 @@ describe('PlanDraftReport', () => {
 
 			const parsed = PlanDraftReport.parse(report);
 
-			assert.equal(parsed.filesWritten[0]?.variant, variant, `${variant} is a deliverable shape the writer may report`);
+			// ${variant} is a deliverable shape the writer may report
+			expect(parsed.filesWritten[0]?.variant).toBe(variant);
 		}
 	});
 
@@ -94,7 +97,9 @@ describe('PlanDraftReport', () => {
 
 			const result = PlanDraftReport.safeParse(report);
 
-			assert.equal(result.success, false, `${variant} is not a plan variant — the CLI maps --scope phased to overview before the writer ever reports a file`);
+			// ${variant} is not a plan variant — the CLI maps --scope phased to overview
+			// before the writer ever reports a file
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -103,7 +108,9 @@ describe('PlanDraftReport', () => {
 
 		const parsed = PlanDraftReport.parse(report);
 
-		assert.equal(parsed.filesWritten[0]?.scope, 'phase-2-engine', 'the scope is the phase slug the file covers — the contract does not close that set');
+		// the scope is the phase slug the file covers — the contract does not close
+		// that set
+		expect(parsed.filesWritten[0]?.scope).toBe('phase-2-engine');
 	});
 
 	test('rejects a filesWritten entry missing any of path, variant or scope', () => {
@@ -112,7 +119,9 @@ describe('PlanDraftReport', () => {
 
 			const result = PlanDraftReport.safeParse(report);
 
-			assert.equal(result.success, false, `${field} is required on every written file — the three together are what locate the deliverable and say what it covers`);
+			// ${field} is required on every written file — the three together are what
+			// locate the deliverable and say what it covers
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -121,7 +130,9 @@ describe('PlanDraftReport', () => {
 
 		const parsed = PlanDraftReport.parse(report);
 
-		assert.deepEqual(parsed.filesWritten, [{ path: '.notes/plans/add-verify-facts.md', variant: 'single', scope: 'single' }], 'the report holds the triple the contract declares, whatever else the writer happened to know');
+		// the report holds the triple the contract declares, whatever else the writer
+		// happened to know
+		expect(parsed.filesWritten).toStrictEqual([{ path: '.notes/plans/add-verify-facts.md', variant: 'single', scope: 'single' }]);
 	});
 
 	test('a decisionsApplied of zero parses as the count it is', () => {
@@ -129,7 +140,9 @@ describe('PlanDraftReport', () => {
 
 		const parsed = PlanDraftReport.parse(report);
 
-		assert.equal(parsed.decisionsApplied, 0, 'a draft that applied no decisions reports zero — the field is required, so zero must survive rather than read as absent');
+		// a draft that applied no decisions reports zero — the field is required, so
+		// zero must survive rather than read as absent
+		expect(parsed.decisionsApplied).toBe(0);
 	});
 
 	test('rejects a decisionsApplied that is absent or not a number', () => {
@@ -138,7 +151,9 @@ describe('PlanDraftReport', () => {
 
 			const result = PlanDraftReport.safeParse(report);
 
-			assert.equal(result.success, false, `${String(decisionsApplied)} is not a decision count — the field carries no default, so the writer must state it`);
+			// ${String(decisionsApplied)} is not a decision count — the field carries no
+			// default, so the writer must state it
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -148,7 +163,8 @@ describe('PlanDraftReport', () => {
 
 			const result = PlanDraftReport.safeParse(report);
 
-			assert.equal(result.success, false, `${field} holds prose the human reads — a non-string entry is not a note`);
+			// ${field} holds prose the human reads — a non-string entry is not a note
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -157,10 +173,8 @@ describe('PlanDraftReport', () => {
 
 		const parsed = PlanDraftReport.parse(report);
 
-		assert.deepEqual(
-			Object.keys(parsed).sort(),
-			['assumptions', 'decisionsApplied', 'discrepancies', 'filesWritten', 'status'],
-			'a writer that volunteers extra fields still produces a parseable report — the surplus is dropped, not rejected',
-		);
+		// a writer that volunteers extra fields still produces a parseable report —
+		// the surplus is dropped, not rejected
+		expect(Object.keys(parsed).sort()).toStrictEqual(['assumptions', 'decisionsApplied', 'discrepancies', 'filesWritten', 'status']);
 	});
 });

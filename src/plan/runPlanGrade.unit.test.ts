@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
+import { expect, test } from '@jest/globals';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
 import { Effort, GradeReport, Permissions } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPlanGrade } from '@/plan';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { expectStatus } from '@tests/helpers/expectStatus';
 
 /** Write a single-file plan deliverable at <plansDir>/<name>.md. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
@@ -74,7 +74,8 @@ const gapDriver = (gaps: unknown[], onInvoke?: (invocation: DriverInvocation) =>
 	invoke: async (invocation) => {
 		onInvoke?.(invocation);
 
-		assert.ok(invocation.prompt.includes('# Gap-check input'), 'gap-check invocation marker present');
+		// gap-check invocation marker present
+		expect(invocation.prompt.includes('# Gap-check input')).toBeTruthy();
 
 		return { text: JSON.stringify({ gaps }), exitCode: 0 };
 	},
@@ -85,15 +86,16 @@ test('plan grade: a clean plan with no gaps passes as grade A', async () => {
 	const plansDir = writePlan({ cwd, name: 'clean', body: cleanPlan() });
 	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'clean', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('grade' in result);
-	assert.equal(result.grade.grade, 'A');
-	assert.equal(result.grade.passed, true);
+	expectStatus(result, 'complete');
+	expect('grade' in result).toBeTruthy();
+	expect(result.grade.grade).toBe('A');
+	expect(result.grade.passed).toBe(true);
 
 	const gradePath = join(cwd, '.lightsout', 'plans', 'clean', 'grade.json');
 
-	assert.ok(existsSync(gradePath), 'grade.json written');
-	assert.doesNotThrow(() => GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8'))));
+	// grade.json written
+	expect(existsSync(gradePath)).toBeTruthy();
+	expect(() => GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')))).not.toThrow();
 });
 
 test('plan grade: a gap-returning stub fails the plan with the gaps recorded', async () => {
@@ -102,15 +104,15 @@ test('plan grade: a gap-returning stub fails the plan with the gaps recorded', a
 	const gap = { area: 'omitted-decision', gap: 'no error handling decided', decision: 'what to return on failure', options: ['throw', 'null'] };
 	const result = await runPlanGrade({ cwd, driver: gapDriver([gap]), name: 'gappy', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('grade' in result);
-	assert.equal(result.grade.passed, false);
-	assert.equal(result.grade.grade, 'below-A');
-	assert.equal(result.grade.gaps.length, 1);
+	expectStatus(result, 'complete');
+	expect('grade' in result).toBeTruthy();
+	expect(result.grade.passed).toBe(false);
+	expect(result.grade.grade).toBe('below-A');
+	expect(result.grade.gaps.length).toBe(1);
 
 	const recorded = GradeReport.parse(JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', 'gappy', 'grade.json'), 'utf8')));
 
-	assert.equal(recorded.gaps[0]?.area, 'omitted-decision');
+	expect(recorded.gaps[0]?.area).toBe('omitted-decision');
 });
 
 test('plan grade: a structural defect gates independently of the gap agent', async () => {
@@ -120,10 +122,11 @@ test('plan grade: a structural defect gates independently of the gap agent', asy
 	const plansDir = writePlan({ cwd, name: 'planted', body: cleanPlan().replace('A new module', 'TBD — a new module') });
 	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'planted', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('grade' in result);
-	assert.ok(result.grade.structural.length > 0, 'structural finding present despite an empty gap set');
-	assert.equal(result.grade.passed, false);
+	expectStatus(result, 'complete');
+	expect('grade' in result).toBeTruthy();
+	// structural finding present despite an empty gap set
+	expect(result.grade.structural.length > 0).toBeTruthy();
+	expect(result.grade.passed).toBe(false);
 });
 
 test('plan grade: the resolved model, effort and permissions reach the gap-check driver', async () => {
@@ -141,11 +144,8 @@ test('plan grade: the resolved model, effort and permissions reach the gap-check
 		permissions: Permissions.FullAccess,
 	});
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access' }],
-	);
+	expectStatus(result, 'complete');
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access' }]);
 });
 
 test('plan grade: an omitted effort and permissions stay absent so the harness default stands', async () => {
@@ -155,23 +155,23 @@ test('plan grade: an omitted effort and permissions stay absent so the harness d
 	const driver = gapDriver([], (invocation) => invocations.push(invocation));
 	const result = await runPlanGrade({ cwd, driver, name: 'defaulted', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[{ model: undefined, effort: undefined, permissions: undefined }],
-	);
+	expectStatus(result, 'complete');
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
 });
 
 test('plan grade: no deliverable on disk fails before any agent is spawned', async () => {
 	const cwd = setupConsumerRepo();
 	const failIfCalled: Driver = {
 		name: 'stub',
-		invoke: async () => assert.fail('the gap-check must not be invoked when the plan cannot be resolved'),
+		invoke: async () => {
+			throw new Error('the gap-check must not be invoked when the plan cannot be resolved');
+		},
 	};
 	const result = await runPlanGrade({ cwd, driver: failIfCalled, name: 'ghost', plansDir: join(cwd, '.claude', 'plans') });
 
-	assert.equal(result.status, 'failed');
-	assert.ok('error' in result && /no plan found for 'ghost'/.test(result.error ?? ''), `the resolve error propagates, got: ${result.error}`);
+	expectStatus(result, 'failed');
+	// the resolve error propagates, got: ${result.error}
+	expect('error' in result && /no plan found for 'ghost'/.test(result.error ?? '')).toBeTruthy();
 });
 
 test('plan grade: a rate-limited gap-check parks the run and writes no verdict', async () => {
@@ -188,10 +188,13 @@ test('plan grade: a rate-limited gap-check parks the run and writes no verdict',
 	};
 	const result = await runPlanGrade({ cwd, driver, name: 'parked', plansDir });
 
-	assert.equal(result.status, 'paused-rate-limit');
-	assert.equal(calls, 1, 'a rate limit buys no re-emit retry');
-	assert.ok('error' in result && (result.error ?? '').includes('lightsout plan grade --name parked'), `the error carries the re-run command, got: ${result.error}`);
-	assert.ok(!existsSync(join(cwd, '.lightsout', 'plans', 'parked', 'grade.json')), 'a parked run leaves no verdict behind');
+	expectStatus(result, 'paused-rate-limit');
+	// a rate limit buys no re-emit retry
+	expect(calls).toBe(1);
+	// the error carries the re-run command, got: ${result.error}
+	expect('error' in result && (result.error ?? '').includes('lightsout plan grade --name parked')).toBeTruthy();
+	// a parked run leaves no verdict behind
+	expect(existsSync(join(cwd, '.lightsout', 'plans', 'parked', 'grade.json'))).toBeFalsy();
 });
 
 test('plan grade: a gap-check that never satisfies the contract fails, naming the plan file', async () => {
@@ -208,10 +211,13 @@ test('plan grade: a gap-check that never satisfies the contract fails, naming th
 	};
 	const result = await runPlanGrade({ cwd, driver, name: 'malformed', plansDir });
 
-	assert.equal(result.status, 'failed');
-	assert.equal(calls, 2, 'the rejected report bought exactly one re-emit retry');
-	assert.ok('error' in result && (result.error ?? '').includes('malformed.md'), `the failure names the plan file it was checking, got: ${result.error}`);
-	assert.ok(!existsSync(join(cwd, '.lightsout', 'plans', 'malformed', 'grade.json')), 'no verdict is written for a failed gap-check');
+	expectStatus(result, 'failed');
+	// the rejected report bought exactly one re-emit retry
+	expect(calls).toBe(2);
+	// the failure names the plan file it was checking, got: ${result.error}
+	expect('error' in result && (result.error ?? '').includes('malformed.md')).toBeTruthy();
+	// no verdict is written for a failed gap-check
+	expect(existsSync(join(cwd, '.lightsout', 'plans', 'malformed', 'grade.json'))).toBeFalsy();
 });
 
 test('plan grade: a planned symbol still colliding with an existing export is narrated, never gated', async () => {
@@ -226,11 +232,11 @@ test('plan grade: a planned symbol still colliding with an existing export is na
 	const messages: string[] = [];
 	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'colliding', plansDir, onProgress: (message) => messages.push(message) });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('grade' in result);
-	assert.equal(result.grade.grade, 'A', 'a raw name collision is advisory — the Dedup Review phase enforces, not grade');
-	assert.ok(
-		messages.some((message) => message.includes('lightsout plan dedup --name colliding')),
-		`the advisory points at the dedup command, got: ${messages.join(' | ')}`,
-	);
+	expectStatus(result, 'complete');
+	expect('grade' in result).toBeTruthy();
+	// a raw name collision is advisory — the Dedup Review phase enforces, not
+	// grade
+	expect(result.grade.grade).toBe('A');
+	// the advisory points at the dedup command, got: ${messages.join(' | ')}
+	expect(messages.some((message) => message.includes('lightsout plan dedup --name colliding'))).toBeTruthy();
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -52,12 +51,14 @@ test('refactor: a failed report stops the run as failed, carrying the failure te
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /refactor: failed — REFACTOR-FAILURE-SENTINEL/);
-	assert.equal(passesRun(), 1, 'a failed report ends the loop on the spot');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'refactor')?.status, 'failed');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'verify-refactor'), undefined, 'the run never reached the refactor verify');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/refactor: failed — REFACTOR-FAILURE-SENTINEL/);
+	// a failed report ends the loop on the spot
+	expect(passesRun()).toBe(1);
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('failed');
+	// the run never reached the refactor verify
+	expect(result.manifest.steps.find((step) => step.id === 'verify-refactor')).toBe(undefined);
 });
 
 test('refactor: a terminated report escalates rather than failing — it needs a human, not a retry', async () => {
@@ -68,11 +69,12 @@ test('refactor: a terminated report escalates rather than failing — it needs a
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'escalated');
-	assert.match(result.error ?? '', /refactor: terminated:scope — REFACTOR-SCOPE-SENTINEL/);
-	assert.equal(passesRun(), 1, 'a terminated report ends the loop on the spot');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'refactor')?.status, 'escalated');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('escalated');
+	expect(result.error ?? '').toMatch(/refactor: terminated:scope — REFACTOR-SCOPE-SENTINEL/);
+	// a terminated report ends the loop on the spot
+	expect(passesRun()).toBe(1);
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('escalated');
 });
 
 test('refactor: a loop that spends every pass still changing files cannot walk past the scan gate', async () => {
@@ -89,11 +91,17 @@ test('refactor: a loop that spends every pass still changing files cannot walk p
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'escalated');
-	assert.equal(passesRun(), 3, 'a pass that changes files always earns the next one — the budget is spent in full');
-	assert.match(result.error ?? '', /persist after 3 pass\(es\)/, 'the post-loop scan escalates on the findings that survived');
-	assert.match(result.error ?? '', /multi-export:src\/subject\.js/, 'the surviving cluster is named');
-	assert.match(result.error ?? '', /at src\/subject\.js/, 'with the site a human has to open');
-	assert.doesNotMatch(result.error ?? '', /account of its final pass/, 'an agent that reported no friction contributes no rationale block');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('escalated');
+	// a pass that changes files always earns the next one — the budget is spent in
+	// full
+	expect(passesRun()).toBe(3);
+	// the post-loop scan escalates on the findings that survived
+	expect(result.error ?? '').toMatch(/persist after 3 pass\(es\)/);
+	// the surviving cluster is named
+	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
+	// with the site a human has to open
+	expect(result.error ?? '').toMatch(/at src\/subject\.js/);
+	// an agent that reported no friction contributes no rationale block
+	expect(result.error ?? '').not.toMatch(/account of its final pass/);
 });

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { DedupJudgment } from '@/contracts';
 
 const setupJudgment = (overrides: Record<string, unknown> = {}) => {
@@ -26,26 +25,26 @@ describe('DedupJudgment', () => {
 
 		const parsed = DedupJudgment.parse({ verdicts: [verdict, otherVerdict] });
 
-		assert.deepEqual(
-			parsed.verdicts.map((entry) => [entry.plannedSymbol, entry.isDuplicate, entry.recommendation]),
-			[
-				['formatDate', true, 'reuse'],
-				['parseConfig', false, 'distinct'],
-			],
-			'the judge rules on every candidate in one output, duplicates and non-duplicates alike',
-		);
+		// the judge rules on every candidate in one output, duplicates and
+		// non-duplicates alike
+		expect(parsed.verdicts.map((entry) => [entry.plannedSymbol, entry.isDuplicate, entry.recommendation])).toStrictEqual([
+			['formatDate', true, 'reuse'],
+			['parseConfig', false, 'distinct'],
+		]);
 	});
 
 	test('verdicts defaults to empty — a judgment ruling on nothing is a legitimate result', () => {
 		const parsed = DedupJudgment.parse({});
 
-		assert.deepEqual(parsed, { verdicts: [] }, 'an omitted array parses as the clean "nothing is a real duplicate" judgment rather than failing the agent contract');
+		// an omitted array parses as the clean "nothing is a real duplicate" judgment
+		// rather than failing the agent contract
+		expect(parsed).toStrictEqual({ verdicts: [] });
 	});
 
 	test('an explicitly empty verdicts array parses', () => {
 		const parsed = DedupJudgment.parse({ verdicts: [] });
 
-		assert.deepEqual(parsed.verdicts, []);
+		expect(parsed.verdicts).toStrictEqual([]);
 	});
 
 	test('each nested verdict gets its own defaults applied', () => {
@@ -53,7 +52,9 @@ describe('DedupJudgment', () => {
 
 		const parsed = DedupJudgment.parse({ verdicts: [verdict] });
 
-		assert.deepEqual(parsed.verdicts[0]?.migrateCallers, [], 'the nested verdict schema still fills migrateCallers, so the join reads an array either way');
+		// the nested verdict schema still fills migrateCallers, so the join reads an
+		// array either way
+		expect(parsed.verdicts[0]?.migrateCallers).toStrictEqual([]);
 	});
 
 	test('one malformed verdict rejects the whole judgment', () => {
@@ -61,7 +62,9 @@ describe('DedupJudgment', () => {
 
 		const result = DedupJudgment.safeParse({ verdicts: [otherVerdict, verdict] });
 
-		assert.equal(result.success, false, 'invokeAgentWithContract retries the whole output — a judgment that is only partly valid is not accepted');
+		// invokeAgentWithContract retries the whole output — a judgment that is only
+		// partly valid is not accepted
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a verdicts value that is not an array', () => {
@@ -69,6 +72,7 @@ describe('DedupJudgment', () => {
 
 		const result = DedupJudgment.safeParse({ verdicts: verdict });
 
-		assert.equal(result.success, false, 'a single verdict object in place of the list is a malformed judgment');
+		// a single verdict object in place of the list is a malformed judgment
+		expect(result.success).toBe(false);
 	});
 });

@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { writeSystemPromptFile } from '@/drivers/common/utils/writeSystemPromptFile';
 
 test('writeSystemPromptFile: the file round-trips the system prompt byte-for-byte', async () => {
@@ -10,7 +9,7 @@ test('writeSystemPromptFile: the file round-trips the system prompt byte-for-byt
 
 	const { path, cleanup } = await writeSystemPromptFile({ systemPrompt });
 
-	assert.equal(await readFile(path, 'utf8'), systemPrompt);
+	expect(await readFile(path, 'utf8')).toBe(systemPrompt);
 
 	await cleanup();
 });
@@ -21,9 +20,10 @@ test('writeSystemPromptFile: concurrent spawns get distinct paths', async () => 
 		writeSystemPromptFile({ systemPrompt: 'second' }),
 	]);
 
-	assert.notEqual(first.path, second.path, 'two spawns never share a file');
-	assert.equal(await readFile(first.path, 'utf8'), 'first');
-	assert.equal(await readFile(second.path, 'utf8'), 'second');
+	// two spawns never share a file
+	expect(first.path).not.toBe(second.path);
+	expect(await readFile(first.path, 'utf8')).toBe('first');
+	expect(await readFile(second.path, 'utf8')).toBe('second');
 
 	await Promise.all([first.cleanup(), second.cleanup()]);
 });
@@ -33,8 +33,10 @@ test('writeSystemPromptFile: cleanup removes the file and its directory, and is 
 
 	await cleanup();
 
-	assert.equal(existsSync(path), false, 'the prompt file is gone');
-	assert.equal(existsSync(dirname(path)), false, 'its directory is gone too');
+	// the prompt file is gone
+	expect(existsSync(path)).toBe(false);
+	// its directory is gone too
+	expect(existsSync(dirname(path))).toBe(false);
 
 	await cleanup();
 });

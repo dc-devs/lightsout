@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { runScan } from '@/scan';
 
 const setupRepo = (files: Record<string, string>) => {
@@ -45,12 +44,12 @@ test('ast-duplicate: wrappers binding DIFFERENT use* hooks are not duplicates; i
 	const { findings } = await runScan({ cwd: dir, persist: false });
 	const duplicates = findings.filter((finding) => finding.detector === 'ast-duplicate');
 
-	assert.equal(duplicates.length, 1, `expected exactly the same-hook pair flagged, got: ${JSON.stringify(duplicates)}`);
-	assert.deepEqual(
-		duplicates[0]?.files.map((file) => file.path).sort(),
-		['copyA.ts', 'copyB.ts'],
-		'only the pair calling the SAME hook is a duplicate — different hooks make bodies distinct',
-	);
+	// expected exactly the same-hook pair flagged, got:
+	// ${JSON.stringify(duplicates)}
+	expect(duplicates.length).toBe(1);
+	// only the pair calling the SAME hook is a duplicate — different hooks make
+	// bodies distinct
+	expect(duplicates[0]?.files.map((file) => file.path).sort()).toStrictEqual(['copyA.ts', 'copyB.ts']);
 });
 
 // Statement padding that grows a function body to a chosen line count; the
@@ -76,19 +75,29 @@ test('the size audit measures each function against the cap its NAME earns, spar
 	const sizes = findings.filter((finding) => finding.detector === 'size');
 
 	const report = sizes.find((finding) => finding.cluster === 'size:function:sizes.ts:buildReport');
-	assert.ok(report?.detail.includes('cap ~80'), `an ordinary function carries the 80-line cap:\n${JSON.stringify(sizes, undefined, 1)}`);
-	assert.equal(report?.severity, 'advisory', 'size is a judgment call — orchestration functions are exempt, so it never gates');
-	assert.ok(
-		(report?.files[0]?.endLine ?? 0) - (report?.files[0]?.startLine ?? 0) + 1 > 80,
-		`the finding spans the function that exceeded the cap: ${JSON.stringify(report?.files)}`,
-	);
+	// an ordinary function carries the 80-line cap:\n${JSON.stringify(sizes,
+	// undefined, 1)}
+	expect(report?.detail.includes('cap ~80')).toBeTruthy();
+	// size is a judgment call — orchestration functions are exempt, so it never
+	// gates
+	expect(report?.severity).toBe('advisory');
+	// the finding spans the function that exceeded the cap:
+	// ${JSON.stringify(report?.files)}
+	expect((report?.files[0]?.endLine ?? 0) - (report?.files[0]?.startLine ?? 0) + 1 > 80).toBeTruthy();
 
-	assert.ok(!sizes.some((finding) => finding.cluster.includes('useReportData')), 'a use* function of the same size rides the larger hook cap');
+	// a use* function of the same size rides the larger hook cap
+	expect(sizes.some((finding) => finding.cluster.includes('useReportData'))).toBeFalsy();
 
 	const panel = sizes.find((finding) => finding.cluster === 'size:component:Panel.tsx:Panel');
-	assert.ok(panel?.detail.includes('cap ~200'), `a capitalized .tsx function is a component:\n${JSON.stringify(sizes, undefined, 1)}`);
-	assert.ok(!sizes.some((finding) => finding.cluster === 'size:file:Panel.tsx'), 'the .tsx file itself stays under its larger file cap');
+	// a capitalized .tsx function is a component:\n${JSON.stringify(sizes,
+	// undefined, 1)}
+	expect(panel?.detail.includes('cap ~200')).toBeTruthy();
+	// the .tsx file itself stays under its larger file cap
+	expect(sizes.some((finding) => finding.cluster === 'size:file:Panel.tsx')).toBeFalsy();
 
-	assert.ok(sizes.some((finding) => finding.cluster === 'size:function:callbacks.ts:runAll'), 'the enclosing named function is measured');
-	assert.ok(!sizes.some((finding) => finding.cluster.includes('(anonymous)')), `callbacks inherit their parent's budget:\n${JSON.stringify(sizes, undefined, 1)}`);
+	// the enclosing named function is measured
+	expect(sizes.some((finding) => finding.cluster === 'size:function:callbacks.ts:runAll')).toBeTruthy();
+	// callbacks inherit their parent's budget:\n${JSON.stringify(sizes, undefined,
+	// 1)}
+	expect(sizes.some((finding) => finding.cluster.includes('(anonymous)'))).toBeFalsy();
 });

@@ -1,12 +1,12 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test, type TestContext } from 'node:test';
+import { expect, test, jest } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { RunLockError } from '@/runState';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runPipelineOrFailFast } from '@/cli/common/utils/runPipelineOrFailFast';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 /** A stub agent whose final message is not a report at all — the run fails without throwing. */
 const garbageDriver: Driver = {
@@ -19,15 +19,15 @@ const garbageDriver: Driver = {
  * itself. The real process.exit never returns — a mock that returned would let
  * the catch fall through and rethrow the RunLockError it promised to swallow.
  */
-const captureFailFast = ({ t }: { t: TestContext }) => {
+const captureFailFast = () => {
 	const errors: string[] = [];
 	const exitCodes: (number | string | null | undefined)[] = [];
 
-	t.mock.method(console, 'error', (...args: unknown[]) => {
+	jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
 		errors.push(String(args[0]));
 	});
 
-	t.mock.method(process, 'exit', (code?: number | string | null): never => {
+	jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null): never => {
 		exitCodes.push(code);
 
 		throw new Error('process.exit');
@@ -40,8 +40,8 @@ const captureFailFast = ({ t }: { t: TestContext }) => {
  * A real consumer repo the pipeline can run in. `lockedByPid` plants a lock the
  * pipeline will collide with on the way in.
  */
-const setupPipelineCall = async ({ t, lockedByPid }: { t: TestContext; lockedByPid?: number }) => {
-	const { errors, exitCodes } = captureFailFast({ t });
+const setupPipelineCall = async ({ lockedByPid }: { lockedByPid?: number } = {}) => {
+	const { errors, exitCodes } = captureFailFast();
 	const cwd = setupConsumerRepo();
 
 	if (lockedByPid !== undefined) {
@@ -57,43 +57,46 @@ const setupPipelineCall = async ({ t, lockedByPid }: { t: TestContext; lockedByP
  * created, so the pipeline throws a plain filesystem error — the class of
  * failure that must NOT be swallowed as a clean fail-fast.
  */
-const setupUnusableCwd = async ({ t }: { t: TestContext }) => {
-	const { errors, exitCodes } = captureFailFast({ t });
+const setupUnusableCwd = async () => {
+	const { errors, exitCodes } = captureFailFast();
 	const repo = setupConsumerRepo({ git: false });
 
 	return { cwd: join(repo, 'plan.md'), config: await loadConfig({ cwd: repo }), errors, exitCodes };
 };
 
-test('runPipelineOrFailFast: a live run lock is a clean fail-fast — the message on stderr, exit 1, no stack', async (t) => {
-	const { cwd, config, errors, exitCodes } = await setupPipelineCall({ t, lockedByPid: process.pid });
+test('runPipelineOrFailFast: a live run lock is a clean fail-fast — the message on stderr, exit 1, no stack', async () => {
+	const { cwd, config, errors, exitCodes } = await setupPipelineCall({ lockedByPid: process.pid });
 
-	await assert.rejects(runPipelineOrFailFast({ cwd, planPath: 'plan.md', driver: garbageDriver, config }), /process\.exit/);
+	await expect(runPipelineOrFailFast({ cwd, planPath: 'plan.md', driver: garbageDriver, config })).rejects.toThrow(/process\.exit/);
 
-	assert.deepEqual(exitCodes, [1]);
-	assert.equal(errors.length, 1);
-	assert.match(errors[0] ?? '', /^\n/, 'the message is preceded by a blank line so it stands clear of the run output');
-	assert.match(errors[0] ?? '', /another lightsout run is active in this repo: run already-running/);
+	expect(exitCodes).toStrictEqual([1]);
+	expect(errors.length).toBe(1);
+	// the message is preceded by a blank line so it stands clear of the run output
+	expect(errors[0] ?? '').toMatch(/^\n/);
+	expect(errors[0] ?? '').toMatch(/another lightsout run is active in this repo: run already-running/);
 });
 
-test('runPipelineOrFailFast: the pipeline result is handed back untouched when the run completes', async (t) => {
-	const { cwd, config, errors, exitCodes } = await setupPipelineCall({ t });
+test('runPipelineOrFailFast: the pipeline result is handed back untouched when the run completes', async () => {
+	const { cwd, config, errors, exitCodes } = await setupPipelineCall();
 
 	const result = await runPipelineOrFailFast({ cwd, planPath: 'plan.md', driver: garbageDriver, config });
 
-	assert.equal(result.ok, false, 'a garbage agent report fails the run — a failed run is a returned result, not a fail-fast');
-	assert.equal(typeof result.manifest.runId, 'string');
-	assert.deepEqual(exitCodes, []);
-	assert.deepEqual(errors, []);
+	// a garbage agent report fails the run — a failed run is a returned result,
+	// not a fail-fast
+	expect(result.ok).toBe(false);
+	expect(typeof result.manifest.runId).toBe('string');
+	expect(exitCodes).toStrictEqual([]);
+	expect(errors).toStrictEqual([]);
 });
 
-test('runPipelineOrFailFast: any other error propagates untouched — no message, no exit', async (t) => {
-	const { cwd, config, errors, exitCodes } = await setupUnusableCwd({ t });
+test('runPipelineOrFailFast: any other error propagates untouched — no message, no exit', async () => {
+	const { cwd, config, errors, exitCodes } = await setupUnusableCwd();
 
-	await assert.rejects(
-		runPipelineOrFailFast({ cwd, planPath: 'plan.md', driver: garbageDriver, config }),
-		(error: unknown) => error instanceof Error && !(error instanceof RunLockError),
-	);
+	const error = await getRejectionError({ promise: runPipelineOrFailFast({ cwd, planPath: 'plan.md', driver: garbageDriver, config }) });
 
-	assert.deepEqual(exitCodes, []);
-	assert.deepEqual(errors, []);
+	// anything that is not a lock conflict propagates untouched
+	expect(error).not.toBeInstanceOf(RunLockError);
+
+	expect(exitCodes).toStrictEqual([]);
+	expect(errors).toStrictEqual([]);
 });

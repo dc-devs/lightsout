@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { RunManifest, RunUsage } from '@/contracts';
 import { createRun, readRunManifest, writeManifestWithUsage } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -44,7 +43,7 @@ describe('writeManifestWithUsage', () => {
 
 		const written = await writeManifestWithUsage({ cwd, manifest, usageTotals });
 
-		assert.deepEqual(written.usage, {
+		expect(written.usage).toStrictEqual({
 			invocations: 3,
 			inputTokens: 10,
 			outputTokens: 100,
@@ -59,7 +58,8 @@ describe('writeManifestWithUsage', () => {
 
 		const written = await writeManifestWithUsage({ cwd, manifest, usageTotals });
 
-		assert.deepEqual(written.usage, spentTotals, 'a resumed run that has not spent yet must not zero its history');
+		// a resumed run that has not spent yet must not zero its history
+		expect(written.usage).toStrictEqual(spentTotals);
 	});
 
 	test('leaves usage absent for a fresh run whose driver has reported nothing', async () => {
@@ -67,7 +67,7 @@ describe('writeManifestWithUsage', () => {
 
 		const written = await writeManifestWithUsage({ cwd, manifest, usageTotals });
 
-		assert.equal(written.usage, undefined);
+		expect(written.usage).toBe(undefined);
 	});
 
 	test('applies the patch over the manifest it was handed', async () => {
@@ -80,9 +80,10 @@ describe('writeManifestWithUsage', () => {
 			usageTotals,
 		});
 
-		assert.equal(written.status, 'passed');
-		assert.deepEqual(written.changedFiles, ['src/feature.js']);
-		assert.equal(written.plan, 'plan.md', 'fields the patch does not name survive');
+		expect(written.status).toBe('passed');
+		expect(written.changedFiles).toStrictEqual(['src/feature.js']);
+		// fields the patch does not name survive
+		expect(written.plan).toBe('plan.md');
 	});
 
 	test('persists the patched manifest to disk, not just to the returned value', async () => {
@@ -92,9 +93,9 @@ describe('writeManifestWithUsage', () => {
 
 		const read = await readRunManifest({ cwd, runId: manifest.runId });
 
-		assert.equal(read.status, 'running');
-		assert.equal(read.currentStep, 'implement');
-		assert.deepEqual(read.usage, spentTotals);
+		expect(read.status).toBe('running');
+		expect(read.currentStep).toBe('implement');
+		expect(read.usage).toStrictEqual(spentTotals);
 	});
 
 	test('snapshots the totals so later spend cannot rewrite an already-written manifest', async () => {
@@ -105,8 +106,8 @@ describe('writeManifestWithUsage', () => {
 		usageTotals.invocations += 1;
 		usageTotals.costUsd += 10;
 
-		assert.equal(written.usage?.invocations, 3);
-		assert.equal(written.usage?.costUsd, 0.5);
+		expect(written.usage?.invocations).toBe(3);
+		expect(written.usage?.costUsd).toBe(0.5);
 	});
 
 	test('stamps updatedAt on the write like every other manifest write', async () => {
@@ -114,7 +115,8 @@ describe('writeManifestWithUsage', () => {
 
 		const written = await writeManifestWithUsage({ cwd, manifest, usageTotals });
 
-		assert.ok(written.updatedAt >= manifest.updatedAt, `${written.updatedAt} should not precede ${manifest.updatedAt}`);
-		assert.equal(written.createdAt, manifest.createdAt);
+		// ${written.updatedAt} should not precede ${manifest.updatedAt}
+		expect(written.updatedAt >= manifest.updatedAt).toBeTruthy();
+		expect(written.createdAt).toBe(manifest.createdAt);
 	});
 });

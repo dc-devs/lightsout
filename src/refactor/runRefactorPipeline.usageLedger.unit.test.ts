@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
@@ -56,16 +55,15 @@ describe('runRefactorPipeline usage ledger', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
+		expect(result.ok).toBe(true);
 
 		const ledger = readLedger(result.manifest.runId);
 
-		assert.equal(ledger.length, 2, `both batches spent, so both left a line: ${JSON.stringify(ledger)}`);
-		assert.deepEqual(
-			distinct(ledger.map((record) => `${String(record.model)}/${String(record.effort)}`)),
-			['stub-model/xhigh'],
-			`a refactor run's cost is explainable after the fact: ${JSON.stringify(ledger)}`,
-		);
+		// both batches spent, so both left a line: ${JSON.stringify(ledger)}
+		expect(ledger.length).toBe(2);
+		// a refactor run's cost is explainable after the fact:
+		// ${JSON.stringify(ledger)}
+		expect(distinct(ledger.map((record) => `${String(record.model)}/${String(record.effort)}`))).toStrictEqual(['stub-model/xhigh']);
 	});
 
 	test('omits effort from ledger lines when config sets none', async () => {
@@ -73,15 +71,14 @@ describe('runRefactorPipeline usage ledger', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
+		expect(result.ok).toBe(true);
 
 		const ledger = readLedger(result.manifest.runId);
 
-		assert.deepEqual(
-			distinct(ledger.map((record) => Object.hasOwn(record, 'effort'))),
-			[false],
-			`an unset effort leaves no key to misread as a real setting: ${JSON.stringify(ledger)}`,
-		);
-		assert.deepEqual(distinct(ledger.map((record) => record.model)), ['stub-model'], 'the model still lands on every line');
+		// an unset effort leaves no key to misread as a real setting:
+		// ${JSON.stringify(ledger)}
+		expect(distinct(ledger.map((record) => Object.hasOwn(record, 'effort')))).toStrictEqual([false]);
+		// the model still lands on every line
+		expect(distinct(ledger.map((record) => record.model))).toStrictEqual(['stub-model']);
 	});
 });

@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
@@ -104,15 +103,18 @@ describe('runRefactorPipeline batch outcomes', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.equal(invocations.length, 1, 'the second batch was verified resolved on disk, not re-sent to an agent');
-		assert.equal(result.after['structure'] ?? 0, 0);
+		expect(result.ok).toBe(true);
+		// the second batch was verified resolved on disk, not re-sent to an agent
+		expect(invocations.length).toBe(1);
+		expect(result.after['structure'] ?? 0).toBe(0);
 
 		const beta = result.manifest.steps.find((step) => step.id === 'batch-02:structure:beta');
 
-		assert.equal(beta?.status, 'passed');
-		assert.deepEqual(beta?.report, { outcome: 'resolved', remainingClusters: [], rationale: [] }, 'the skipped batch is still recorded as resolved');
-		assert.deepEqual(beta?.changedFiles, [], 'and attributes nothing — the earlier batch already owns those files');
+		expect(beta?.status).toBe('passed');
+		// the skipped batch is still recorded as resolved
+		expect(beta?.report).toStrictEqual({ outcome: 'resolved', remainingClusters: [], rationale: [] });
+		// and attributes nothing — the earlier batch already owns those files
+		expect(beta?.changedFiles).toStrictEqual([]);
 	});
 
 	test('a pass that resolves only part of a batch requeues the survivors alone', async () => {
@@ -135,11 +137,15 @@ describe('runRefactorPipeline batch outcomes', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.equal(result.after['structure'] ?? 0, 0, 'the requeue finished the batch');
-		assert.equal(prompts.length, 2, 'exactly one requeue — the executor pass, then the remainder');
-		assert.ok(prompts[1]?.includes('src/two.ts'), `the requeue carries the surviving finding:\n${prompts[1]}`);
-		assert.ok(!prompts[1]?.includes('src/one.ts'), `and never re-sends resolved work:\n${prompts[1]}`);
+		expect(result.ok).toBe(true);
+		// the requeue finished the batch
+		expect(result.after['structure'] ?? 0).toBe(0);
+		// exactly one requeue — the executor pass, then the remainder
+		expect(prompts.length).toBe(2);
+		// the requeue carries the surviving finding:\n${prompts[1]}
+		expect(prompts[1]?.includes('src/two.ts')).toBeTruthy();
+		// and never re-sends resolved work:\n${prompts[1]}
+		expect(prompts[1]?.includes('src/one.ts')).toBeFalsy();
 	});
 
 	test('a requeue that resolves nothing declines with the surviving clusters named', async () => {
@@ -164,14 +170,14 @@ describe('runRefactorPipeline batch outcomes', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, 'a spent requeue is a decline, never a run failure');
-		assert.equal(prompts.length, 2, 'the requeue is not repeated once spent');
-		assert.deepEqual(
-			result.declined.map(({ batchId, remainingClusters }) => ({ batchId, remainingClusters })),
-			[{ batchId: 'batch-01:structure:src', remainingClusters: ['multi-export:src/two.ts'] }],
-			'what survived is named for the human, not swallowed',
-		);
-		assert.equal(result.after['structure'] ?? 0, 1, 'the resolved half still burned down');
+		// a spent requeue is a decline, never a run failure
+		expect(result.ok).toBe(true);
+		// the requeue is not repeated once spent
+		expect(prompts.length).toBe(2);
+		// what survived is named for the human, not swallowed
+		expect(result.declined.map(({ batchId, remainingClusters }) => ({ batchId, remainingClusters }))).toStrictEqual([{ batchId: 'batch-01:structure:src', remainingClusters: ['multi-export:src/two.ts'] }]);
+		// the resolved half still burned down
+		expect(result.after['structure'] ?? 0).toBe(1);
 	});
 
 	test('an invocation that produces no report and no verifiable work fails the run', async () => {
@@ -186,11 +192,14 @@ describe('runRefactorPipeline batch outcomes', () => {
 		};
 		const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-		assert.equal(result.ok, false, 'unverifiable work is never salvaged');
-		assert.equal(result.manifest.status, 'failed');
-		assert.match(result.error ?? '', /batch-01:structure:src: /, 'the failure names the batch it stopped at');
-		assert.match(result.error ?? '', /did not match contract/);
-		assert.equal(result.after['structure'] ?? 0, 1, 'nothing burned down');
+		// unverifiable work is never salvaged
+		expect(result.ok).toBe(false);
+		expect(result.manifest.status).toBe('failed');
+		// the failure names the batch it stopped at
+		expect(result.error ?? '').toMatch(/batch-01:structure:src: /);
+		expect(result.error ?? '').toMatch(/did not match contract/);
+		// nothing burned down
+		expect(result.after['structure'] ?? 0).toBe(1);
 	});
 
 	for (const { status, expected } of [
@@ -209,9 +218,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 			};
 			const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-			assert.equal(result.ok, false);
-			assert.equal(result.manifest.status, expected);
-			assert.match(result.error ?? '', /the module boundary is a human call/, 'the agent’s own failure text is the evidence');
+			expect(result.ok).toBe(false);
+			expect(result.manifest.status).toBe(expected);
+			// the agent’s own failure text is the evidence
+			expect(result.error ?? '').toMatch(/the module boundary is a human call/);
 		});
 	}
 
@@ -233,13 +243,13 @@ describe('runRefactorPipeline batch outcomes', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.equal(result.after['structure'] ?? 0, 0, 'the batch resolved once the gate went green');
-		assert.equal(prompts.length, 2, 'one executor pass plus one cheap fix');
-		assert.ok(
-			prompts.every((prompt) => !prompt.includes('# Failing step')),
-			'judgment is only bought when the mechanical retries are exhausted',
-		);
+		expect(result.ok).toBe(true);
+		// the batch resolved once the gate went green
+		expect(result.after['structure'] ?? 0).toBe(0);
+		// one executor pass plus one cheap fix
+		expect(prompts.length).toBe(2);
+		// judgment is only bought when the mechanical retries are exhausted
+		expect(prompts.every((prompt) => !prompt.includes('# Failing step'))).toBeTruthy();
 	});
 
 	test('a rate-limited cheap fix parks the run instead of failing it', async () => {
@@ -259,8 +269,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, false);
-		assert.equal(result.manifest.status, 'paused-rate-limit', 'a rate limit mid-fix is pausable state, never an error');
-		assert.equal(prompts.length, 2, 'the run stopped at the rate-limited fix — no second retry, no supervisor');
+		expect(result.ok).toBe(false);
+		// a rate limit mid-fix is pausable state, never an error
+		expect(result.manifest.status).toBe('paused-rate-limit');
+		// the run stopped at the rate-limited fix — no second retry, no supervisor
+		expect(prompts.length).toBe(2);
 	});
 });

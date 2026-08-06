@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { DecisionsRecord, PlanFacts } from '@/contracts';
 import { buildPlanWriterInvocation } from '@/agents';
 
@@ -22,22 +21,31 @@ const singleOutput = () => [{ path: '/repo/.lightsout/plans/foo/plan.md', varian
 test('buildPlanWriterInvocation: single-variant prompt carries the request, output line, decisions, and facts — no phased or standards sections', () => {
 	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput() });
 
-	assert.ok(invocation.prompt.startsWith('# Draft input'), 'the writer invocation marker leads the prompt');
-	assert.ok(invocation.prompt.includes('## Feature request\n\nadd a foo endpoint'));
-	assert.ok(invocation.prompt.includes('- /repo/.lightsout/plans/foo/plan.md — variant: single'));
-	assert.ok(invocation.prompt.includes('"planName": "foo-endpoint"'), 'the decisions record is inlined as JSON');
-	assert.ok(invocation.prompt.includes('"verifiedAt": "2026-07-09T00:00:00.000Z"'), 'the verified facts are inlined as JSON');
-	assert.ok(invocation.prompt.includes('one JSON PlanDraftReport object'), 'the report-contract reminder closes the prompt');
-	assert.ok(!invocation.prompt.includes('## Phased authoring'), 'no phased section without an overview output');
-	assert.ok(!invocation.prompt.includes('## Code standards'), 'no standards section when standards are absent');
-	assert.ok(!invocation.prompt.includes('## Self-lint'), 'no self-lint section without a lint command');
+	// the writer invocation marker leads the prompt
+	expect(invocation.prompt.startsWith('# Draft input')).toBeTruthy();
+	expect(invocation.prompt.includes('## Feature request\n\nadd a foo endpoint')).toBeTruthy();
+	expect(invocation.prompt.includes('- /repo/.lightsout/plans/foo/plan.md — variant: single')).toBeTruthy();
+	// the decisions record is inlined as JSON
+	expect(invocation.prompt.includes('"planName": "foo-endpoint"')).toBeTruthy();
+	// the verified facts are inlined as JSON
+	expect(invocation.prompt.includes('"verifiedAt": "2026-07-09T00:00:00.000Z"')).toBeTruthy();
+	// the report-contract reminder closes the prompt
+	expect(invocation.prompt.includes('one JSON PlanDraftReport object')).toBeTruthy();
+	// no phased section without an overview output
+	expect(invocation.prompt.includes('## Phased authoring')).toBeFalsy();
+	// no standards section when standards are absent
+	expect(invocation.prompt.includes('## Code standards')).toBeFalsy();
+	// no self-lint section without a lint command
+	expect(invocation.prompt.includes('## Self-lint')).toBeFalsy();
 });
 
 test('buildPlanWriterInvocation: author-only — no corrective findings surface anywhere in the invocation', () => {
 	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput() });
 
-	assert.ok(!invocation.prompt.includes('Structural findings'), 'the prompt carries no corrective findings section');
-	assert.ok(!invocation.systemPrompt.includes('Structural findings'), 'the role prompt carries no corrective findings surface');
+	// the prompt carries no corrective findings section
+	expect(invocation.prompt.includes('Structural findings')).toBeFalsy();
+	// the role prompt carries no corrective findings surface
+	expect(invocation.systemPrompt.includes('Structural findings')).toBeFalsy();
 });
 
 test('buildPlanWriterInvocation: system prompt is the stable role prompt with the plan template appended, identical across invocations', () => {
@@ -50,14 +58,16 @@ test('buildPlanWriterInvocation: system prompt is the stable role prompt with th
 		lintCommand: 'node /elsewhere/cli.mjs plan lint --name other-plan',
 	});
 
-	assert.ok(first.systemPrompt.startsWith('# Role: Plan Writer'), 'the role prompt leads the system prompt');
-	assert.ok(first.systemPrompt.includes('\n\n---\n\n# Plan Template\n\n'), 'the template is appended as a labelled section');
-	assert.ok(first.systemPrompt.includes('## Rules (all variants)'), 'the appended section carries the template body, not just its label');
-	assert.ok(
-		first.systemPrompt.indexOf('\n\n---\n\n# Plan Template\n\n') < first.systemPrompt.indexOf('## Rules (all variants)'),
-		'the template body lands after the label, inside the appended section',
-	);
-	assert.equal(first.systemPrompt, second.systemPrompt, 'the system prompt does not vary with per-invocation input');
+	// the role prompt leads the system prompt
+	expect(first.systemPrompt.startsWith('# Role: Plan Writer')).toBeTruthy();
+	// the template is appended as a labelled section
+	expect(first.systemPrompt.includes('\n\n---\n\n# Plan Template\n\n')).toBeTruthy();
+	// the appended section carries the template body, not just its label
+	expect(first.systemPrompt.includes('## Rules (all variants)')).toBeTruthy();
+	// the template body lands after the label, inside the appended section
+	expect(first.systemPrompt.indexOf('\n\n---\n\n# Plan Template\n\n') < first.systemPrompt.indexOf('## Rules (all variants)')).toBeTruthy();
+	// the system prompt does not vary with per-invocation input
+	expect(first.systemPrompt).toBe(second.systemPrompt);
 });
 
 test('buildPlanWriterInvocation: an overview output adds the phased-authoring section naming the overview path and its directory', () => {
@@ -70,11 +80,14 @@ test('buildPlanWriterInvocation: an overview output adds the phased-authoring se
 		],
 	});
 
-	assert.ok(invocation.prompt.includes('- /repo/.lightsout/plans/foo/overview.md — variant: overview'));
-	assert.ok(invocation.prompt.includes('- /repo/.lightsout/plans/foo/phase1-contracts.md — variant: phase'), 'every output file gets its own bullet');
-	assert.ok(invocation.prompt.includes('## Phased authoring'));
-	assert.ok(invocation.prompt.includes('`/repo/.lightsout/plans/foo/overview.md`'), 'the phased section names the overview path');
-	assert.ok(invocation.prompt.includes('`/repo/.lightsout/plans/foo`'), "the phase files are directed into the overview's directory");
+	expect(invocation.prompt.includes('- /repo/.lightsout/plans/foo/overview.md — variant: overview')).toBeTruthy();
+	// every output file gets its own bullet
+	expect(invocation.prompt.includes('- /repo/.lightsout/plans/foo/phase1-contracts.md — variant: phase')).toBeTruthy();
+	expect(invocation.prompt.includes('## Phased authoring')).toBeTruthy();
+	// the phased section names the overview path
+	expect(invocation.prompt.includes('`/repo/.lightsout/plans/foo/overview.md`')).toBeTruthy();
+	// the phase files are directed into the overview's directory
+	expect(invocation.prompt.includes('`/repo/.lightsout/plans/foo`')).toBeTruthy();
 });
 
 test('buildPlanWriterInvocation: a lint command adds the self-lint section verbatim, before the report-contract reminder', () => {
@@ -82,12 +95,11 @@ test('buildPlanWriterInvocation: a lint command adds the self-lint section verba
 
 	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), lintCommand });
 
-	assert.ok(invocation.prompt.includes('## Self-lint'));
-	assert.ok(invocation.prompt.includes(`\`${lintCommand}\``), 'the exact command lands verbatim in a code span');
-	assert.ok(
-		invocation.prompt.indexOf('## Self-lint') < invocation.prompt.indexOf('one JSON PlanDraftReport object'),
-		'the self-lint step precedes the closing report-contract reminder',
-	);
+	expect(invocation.prompt.includes('## Self-lint')).toBeTruthy();
+	// the exact command lands verbatim in a code span
+	expect(invocation.prompt.includes(`\`${lintCommand}\``)).toBeTruthy();
+	// the self-lint step precedes the closing report-contract reminder
+	expect(invocation.prompt.indexOf('## Self-lint') < invocation.prompt.indexOf('one JSON PlanDraftReport object')).toBeTruthy();
 });
 
 test('buildPlanWriterInvocation: with every optional input present, all sections land in assembly order', () => {
@@ -106,10 +118,9 @@ test('buildPlanWriterInvocation: with every optional input present, all sections
 		(heading) => invocation.prompt.indexOf(heading),
 	);
 
-	assert.ok(
-		order.every((index, position) => index >= 0 && (position === 0 || index > order[position - 1])),
-		`every section is present and lands in assembly order, got indices ${order.join(', ')}`,
-	);
+	// every section is present and lands in assembly order, got indices
+	// ${order.join(', ')}
+	expect(order.every((index, position) => index >= 0 && (position === 0 || index > order[position - 1]))).toBeTruthy();
 });
 
 test('buildPlanWriterInvocation: an overview listed after a phase output still drives the phased-authoring section', () => {
@@ -122,9 +133,12 @@ test('buildPlanWriterInvocation: an overview listed after a phase output still d
 		],
 	});
 
-	assert.ok(invocation.prompt.includes('## Phased authoring'), 'the overview is found regardless of its position in outputs');
-	assert.ok(invocation.prompt.includes('`/repo/.lightsout/plans/bar/overview.md`'), 'the phased section names the overview path, not the first output');
-	assert.ok(invocation.prompt.includes('`/repo/.lightsout/plans/bar`'), "the phase files are directed into the overview's directory");
+	// the overview is found regardless of its position in outputs
+	expect(invocation.prompt.includes('## Phased authoring')).toBeTruthy();
+	// the phased section names the overview path, not the first output
+	expect(invocation.prompt.includes('`/repo/.lightsout/plans/bar/overview.md`')).toBeTruthy();
+	// the phase files are directed into the overview's directory
+	expect(invocation.prompt.includes('`/repo/.lightsout/plans/bar`')).toBeTruthy();
 });
 
 test('buildPlanWriterInvocation: supplemental standards are inlined verbatim in their own section', () => {
@@ -132,6 +146,7 @@ test('buildPlanWriterInvocation: supplemental standards are inlined verbatim in 
 
 	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), standards });
 
-	assert.ok(invocation.prompt.includes('## Code standards (supplemental)'));
-	assert.ok(invocation.prompt.includes('## Tabs only\n\nUse tabs, never spaces.'), 'the standards text lands verbatim');
+	expect(invocation.prompt.includes('## Code standards (supplemental)')).toBeTruthy();
+	// the standards text lands verbatim
+	expect(invocation.prompt.includes('## Tabs only\n\nUse tabs, never spaces.')).toBeTruthy();
 });

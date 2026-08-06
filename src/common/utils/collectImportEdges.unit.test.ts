@@ -1,15 +1,14 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { collectImportEdges } from '@/common/utils/collectImportEdges';
 
-// Runtime require, mirroring resolveConsumerTypescript: a static import would
-// make esbuild inline the whole CJS compiler into the ESM test bundle, where
-// its __filename probes crash.
-const ts = createRequire(import.meta.url)('typescript') as typeof import('typescript');
+// Runtime require rather than a static import: the CJS TypeScript compiler
+// probes __filename at load, so it has to be required at runtime rather than
+// pulled into the module graph. ts-jest transpiles this file to CommonJS, where
+// `require` is already the local resolver — `import.meta` does not exist there.
+const ts = require('typescript') as typeof import('typescript');
 
 const setupRepo = (files: Record<string, string>) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-graph-'));
@@ -37,7 +36,7 @@ test('collectImportEdges: relative paths, barrel index targets, unique alias suf
 	const edges = await collectImportEdges({ cwd: dir, files, compiler: ts });
 	const asPairs = edges.map((edge) => `${edge.from} -> ${edge.to}`).sort();
 
-	assert.deepEqual(asPairs, [
+	expect(asPairs).toStrictEqual([
 		'src/a/boundary.ts -> src/a/deep/helper.ts', // relative
 		'src/a/boundary.ts -> src/widgets/Button.ts', // alias, unique suffix
 		'src/a/deep/helper.ts -> src/shared/index.ts', // relative ../.. resolving to /index barrel
@@ -57,7 +56,7 @@ test('collectImportEdges: an alias resolving to a barrel, a repeated specifier, 
 	const edges = await collectImportEdges({ cwd: dir, files, compiler: ts });
 	const asPairs = edges.map((edge) => `${edge.from} -> ${edge.to}`).sort();
 
-	assert.deepEqual(asPairs, [
+	expect(asPairs).toStrictEqual([
 		'src/a/boundary.ts -> src/a/helper.ts', // imported twice, edged once
 		'src/a/boundary.ts -> src/shared/index.ts', // alias suffix landing on a barrel
 		// NOT: a self-edge from './boundary', NOT: anything from the unreadable src/a/ghost.ts

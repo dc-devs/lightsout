@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test, type TestContext } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { planVerifyFactsCommand } from '@/cli/plan/planVerifyFactsCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
@@ -11,8 +10,8 @@ import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 // consumer repo whose authored facts claim one real and one missing path plus
 // one real and one missing script: the mixed case the command must warn about
 // while still exiting 0.
-const setupVerifyFacts = ({ t, args, authored }: { t: TestContext; args: string[]; authored?: Record<string, unknown> }) => {
-	const captured = captureCommandOutput({ t });
+const setupVerifyFacts = ({ args, authored }: { args: string[]; authored?: Record<string, unknown> }) => {
+	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-verify-facts-command-'));
 	const workspaceDir = join(cwd, '.lightsout', 'plans', 'demo');
 
@@ -49,45 +48,45 @@ const mixedFacts = {
 	],
 };
 
-test('planVerifyFactsCommand: a verified fact set prints the area count, both tallies, one ⚠ per miss, the facts path, and exits 0', async (t) => {
-	const { context, factsPath, logged, errors, exitCodes } = setupVerifyFacts({ t, args: ['--name', 'demo'], authored: mixedFacts });
+test('planVerifyFactsCommand: a verified fact set prints the area count, both tallies, one ⚠ per miss, the facts path, and exits 0', async () => {
+	const { context, factsPath, logged, errors, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo'], authored: mixedFacts });
 
-	await assert.rejects(planVerifyFactsCommand(context), /process\.exit/);
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	assert.match(logged[1] ?? '', /^\nplan verify-facts demo — 1 area\(s\), verified \d{4}-\d\d-\d\dT/);
-	assert.equal(logged[2], '  paths:   2 checked · 1 missing');
-	assert.equal(logged[3], '  scripts: 2 checked · 1 missing');
-	assert.equal(logged[4], '⚠ path not found: src/missing.ts');
-	assert.equal(logged[5], '⚠ script not found: nope');
-	assert.equal(logged[6], `\nfacts: ${factsPath}`);
-	assert.deepEqual(errors, []);
-	assert.deepEqual(exitCodes, [0]);
+	expect(logged[1] ?? '').toMatch(/^\nplan verify-facts demo — 1 area\(s\), verified \d{4}-\d\d-\d\dT/);
+	expect(logged[2]).toBe('  paths:   2 checked · 1 missing');
+	expect(logged[3]).toBe('  scripts: 2 checked · 1 missing');
+	expect(logged[4]).toBe('⚠ path not found: src/missing.ts');
+	expect(logged[5]).toBe('⚠ script not found: nope');
+	expect(logged[6]).toBe(`\nfacts: ${factsPath}`);
+	expect(errors).toStrictEqual([]);
+	expect(exitCodes).toStrictEqual([0]);
 });
 
-test('planVerifyFactsCommand: without --name it prints the usage text on stderr and exits 1 before reading any workspace', async (t) => {
-	const { context, logged, errors, exitCodes } = setupVerifyFacts({ t, args: [] });
+test('planVerifyFactsCommand: without --name it prints the usage text on stderr and exits 1 before reading any workspace', async () => {
+	const { context, logged, errors, exitCodes } = setupVerifyFacts({ args: [] });
 
-	await assert.rejects(planVerifyFactsCommand(context), /process\.exit/);
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	assert.deepEqual(logged, []);
-	assert.match(errors[0] ?? '', /^lightsout — deterministic engine for coding agents/);
-	assert.deepEqual(exitCodes, [1]);
+	expect(logged).toStrictEqual([]);
+	expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
+	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('planVerifyFactsCommand: no authored facts reports the workspace error on stderr and exits 1', async (t) => {
-	const { context, errors, exitCodes } = setupVerifyFacts({ t, args: ['--name', 'demo'] });
+test('planVerifyFactsCommand: no authored facts reports the workspace error on stderr and exits 1', async () => {
+	const { context, errors, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo'] });
 
-	await assert.rejects(planVerifyFactsCommand(context), /process\.exit/);
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	assert.match(errors[0] ?? '', /no authored facts for plan demo/);
-	assert.deepEqual(exitCodes, [1]);
+	expect(errors[0] ?? '').toMatch(/no authored facts for plan demo/);
+	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('planVerifyFactsCommand: a --notes path that does not exist fails before verification and exits 1', async (t) => {
-	const { context, errors, exitCodes } = setupVerifyFacts({ t, args: ['--name', 'demo', '--notes', 'nowhere/notes.md'], authored: mixedFacts });
+test('planVerifyFactsCommand: a --notes path that does not exist fails before verification and exits 1', async () => {
+	const { context, errors, exitCodes } = setupVerifyFacts({ args: ['--name', 'demo', '--notes', 'nowhere/notes.md'], authored: mixedFacts });
 
-	await assert.rejects(planVerifyFactsCommand(context), /process\.exit/);
+	await expect(planVerifyFactsCommand(context)).rejects.toThrow(/process\.exit/);
 
-	assert.match(errors[0] ?? '', /notes file not found: .*nowhere\/notes\.md/);
-	assert.deepEqual(exitCodes, [1]);
+	expect(errors[0] ?? '').toMatch(/notes file not found: .*nowhere\/notes\.md/);
+	expect(exitCodes).toStrictEqual([1]);
 });

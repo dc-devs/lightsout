@@ -1,24 +1,23 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { isTestableSourceFile } from '@/common/utils/isTestableSourceFile';
 
 test('isTestableSourceFile: the JS/TS family (including m/c module variants and mixed case) is testable', () => {
-	assert.equal(isTestableSourceFile('src/add.ts'), true);
-	assert.equal(isTestableSourceFile('src/App.tsx'), true);
-	assert.equal(isTestableSourceFile('src/util.js'), true);
-	assert.equal(isTestableSourceFile('src/Widget.jsx'), true);
-	assert.equal(isTestableSourceFile('src/esm.mjs'), true);
-	assert.equal(isTestableSourceFile('src/cjs.cjs'), true);
-	assert.equal(isTestableSourceFile('src/types.mts'), true);
-	assert.equal(isTestableSourceFile('src/legacy.cts'), true);
-	assert.equal(isTestableSourceFile('src/SHOUT.TS'), true);
+	expect(isTestableSourceFile('src/add.ts')).toBe(true);
+	expect(isTestableSourceFile('src/App.tsx')).toBe(true);
+	expect(isTestableSourceFile('src/util.js')).toBe(true);
+	expect(isTestableSourceFile('src/Widget.jsx')).toBe(true);
+	expect(isTestableSourceFile('src/esm.mjs')).toBe(true);
+	expect(isTestableSourceFile('src/cjs.cjs')).toBe(true);
+	expect(isTestableSourceFile('src/types.mts')).toBe(true);
+	expect(isTestableSourceFile('src/legacy.cts')).toBe(true);
+	expect(isTestableSourceFile('src/SHOUT.TS')).toBe(true);
 });
 
 test('isTestableSourceFile: unknown file types are not testable source', () => {
-	assert.equal(isTestableSourceFile('src/data.json'), false);
-	assert.equal(isTestableSourceFile('docs/readme.md'), false);
-	assert.equal(isTestableSourceFile('src/styles.css'), false);
-	assert.equal(isTestableSourceFile('script.py'), false);
-	assert.equal(isTestableSourceFile('Makefile'), false);
-	assert.equal(isTestableSourceFile('src/typescript-notes'), false);
+	expect(isTestableSourceFile('src/data.json')).toBe(false);
+	expect(isTestableSourceFile('docs/readme.md')).toBe(false);
+	expect(isTestableSourceFile('src/styles.css')).toBe(false);
+	expect(isTestableSourceFile('script.py')).toBe(false);
+	expect(isTestableSourceFile('Makefile')).toBe(false);
+	expect(isTestableSourceFile('src/typescript-notes')).toBe(false);
 });

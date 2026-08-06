@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { DedupVerdict } from '@/contracts';
 
 const setupVerdict = (overrides: Record<string, unknown> = {}) => {
@@ -24,7 +23,7 @@ describe('DedupVerdict', () => {
 
 		const parsed = DedupVerdict.parse(verdict);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			plannedSymbol: 'formatDate',
 			isDuplicate: true,
 			recommendation: 'extract',
@@ -39,8 +38,12 @@ describe('DedupVerdict', () => {
 
 		const parsed = DedupVerdict.parse(verdict);
 
-		assert.deepEqual(parsed.migrateCallers, [], 'a reuse ruling names no callers to migrate — the default keeps the join in runPlanDedup array-safe');
-		assert.equal(parsed.suggestedLocation, undefined, 'suggestedLocation is meaningful only for extract, so absence is a valid ruling');
+		// a reuse ruling names no callers to migrate — the default keeps the join in
+		// runPlanDedup array-safe
+		expect(parsed.migrateCallers).toStrictEqual([]);
+		// suggestedLocation is meaningful only for extract, so absence is a valid
+		// ruling
+		expect(parsed.suggestedLocation).toBe(undefined);
 	});
 
 	test('recommendation accepts each resolution the menu offers', () => {
@@ -49,7 +52,8 @@ describe('DedupVerdict', () => {
 
 			const parsed = DedupVerdict.parse(verdict);
 
-			assert.equal(parsed.recommendation, recommendation, `${recommendation} is one of the five resolutions the judge recommends from`);
+			// ${recommendation} is one of the five resolutions the judge recommends from
+			expect(parsed.recommendation).toBe(recommendation);
 		}
 	});
 
@@ -58,7 +62,9 @@ describe('DedupVerdict', () => {
 
 		const result = DedupVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'an invented resolution is caught at the agent boundary, before the skill offers it to a human');
+		// an invented resolution is caught at the agent boundary, before the skill
+		// offers it to a human
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects the capitalized resolution key — the contract carries the lowercase values', () => {
@@ -66,7 +72,8 @@ describe('DedupVerdict', () => {
 
 		const result = DedupVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'the enum is built from the DedupResolution values, not its capitalized keys');
+		// the enum is built from the DedupResolution values, not its capitalized keys
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a verdict missing any required field', () => {
@@ -75,7 +82,10 @@ describe('DedupVerdict', () => {
 
 			const result = DedupVerdict.safeParse(verdict);
 
-			assert.equal(result.success, false, `${field} is required — plannedSymbol keys the join, isDuplicate decides whether a finding is written, and recommendation/rationale are what the human reads`);
+			// ${field} is required — plannedSymbol keys the join, isDuplicate decides
+			// whether a finding is written, and recommendation/rationale are what the
+			// human reads
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -84,7 +94,9 @@ describe('DedupVerdict', () => {
 
 		const result = DedupVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'runPlanDedup branches on isDuplicate directly, so a truthy string must never reach it');
+		// runPlanDedup branches on isDuplicate directly, so a truthy string must never
+		// reach it
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a migrateCallers that is not a list of caller paths', () => {
@@ -92,7 +104,8 @@ describe('DedupVerdict', () => {
 
 		const result = DedupVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'a bare string is a malformed ruling, not a one-entry list');
+		// a bare string is a malformed ruling, not a one-entry list
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a non-string suggestedLocation', () => {
@@ -100,6 +113,8 @@ describe('DedupVerdict', () => {
 
 		const result = DedupVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'the optional field is still typed when present — it names the path the shared symbol moves to');
+		// the optional field is still typed when present — it names the path the
+		// shared symbol moves to
+		expect(result.success).toBe(false);
 	});
 });

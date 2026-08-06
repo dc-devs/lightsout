@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { appendCommandLog } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -44,7 +43,7 @@ describe('appendCommandLog', () => {
 			},
 		});
 
-		assert.deepEqual(readLog(), [
+		expect(readLog()).toStrictEqual([
 			{
 				at: '2026-07-03T00:00:00.000Z',
 				step: 'clean-slate',
@@ -66,7 +65,8 @@ describe('appendCommandLog', () => {
 			record: { at: '2026-07-03T00:00:00.000Z', group: 'root', kind: 'check', command: 'tsc --noEmit', exitCode: 0 },
 		});
 
-		assert.ok(existsSync(logPath), `the log lands at .lightsout/runs/<runId>/commands.jsonl: ${logPath}`);
+		// the log lands at .lightsout/runs/<runId>/commands.jsonl: ${logPath}
+		expect(existsSync(logPath)).toBeTruthy();
 	});
 
 	test('records a gate that never ran with its reason and no exit code', async () => {
@@ -87,7 +87,7 @@ describe('appendCommandLog', () => {
 
 		const [record] = readLog();
 
-		assert.deepEqual(record, {
+		expect(record).toStrictEqual({
 			at: '2026-07-03T00:00:00.000Z',
 			group: 'root',
 			kind: 'build',
@@ -95,7 +95,8 @@ describe('appendCommandLog', () => {
 			skipped: true,
 			reason: 'no matching script',
 		});
-		assert.equal(Object.hasOwn(record, 'exitCode'), false, 'a gate that never ran has no exit code to misread as a pass');
+		// a gate that never ran has no exit code to misread as a pass
+		expect(Object.hasOwn(record, 'exitCode')).toBe(false);
 	});
 
 	test('keeps a failing gate on one line even when its output tail spans many', async () => {
@@ -114,8 +115,9 @@ describe('appendCommandLog', () => {
 			},
 		});
 
-		assert.equal(readLines().length, 1, 'a multi-line tail must not split the record across JSONL lines');
-		assert.equal(readLog()[0]?.outputTail, 'FAIL first\nFAIL second\n');
+		// a multi-line tail must not split the record across JSONL lines
+		expect(readLines().length).toBe(1);
+		expect(readLog()[0]?.outputTail).toBe('FAIL first\nFAIL second\n');
 	});
 
 	test('appends beside the lines a run already has instead of rewriting the log', async () => {
@@ -131,11 +133,9 @@ describe('appendCommandLog', () => {
 
 		const log = readLog();
 
-		assert.equal(log.length, 2, `every command leaves its own line: ${JSON.stringify(log)}`);
-		assert.deepEqual(
-			log.map((record) => record.kind),
-			['check', 'testUnit'],
-		);
+		// every command leaves its own line: ${JSON.stringify(log)}
+		expect(log.length).toBe(2);
+		expect(log.map((record) => record.kind)).toStrictEqual(['check', 'testUnit']);
 	});
 
 	test('keeps every run gate evidence in its own run directory', async () => {
@@ -155,7 +155,8 @@ describe('appendCommandLog', () => {
 		const log = readLog();
 		const otherLog = readFileSync(join(cwd, '.lightsout', 'runs', 'other-run', 'commands.jsonl'), 'utf8').trim();
 
-		assert.equal(log.length, 1, 'a gate from another run never lands on this ledger');
-		assert.equal((JSON.parse(otherLog) as Record<string, unknown>).exitCode, 1);
+		// a gate from another run never lands on this ledger
+		expect(log.length).toBe(1);
+		expect((JSON.parse(otherLog) as Record<string, unknown>).exitCode).toBe(1);
 	});
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runGates } from '@/pipeline';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -17,7 +16,8 @@ test('a red gate is re-run once — a one-shot flake does not fail the gate set'
 
 	const error = await runGates({ cwd: dir, config });
 
-	assert.equal(error, undefined, 'flake absorbed by the mechanical re-run');
+	// flake absorbed by the mechanical re-run
+	expect(error).toBe(undefined);
 });
 
 test('two consecutive reds are a genuine red, both executions in the command log', async () => {
@@ -26,7 +26,7 @@ test('two consecutive reds are a genuine red, both executions in the command log
 
 	const error = await runGates({ cwd: dir, config, runId: 'r1', step: 'verify' });
 
-	assert.match(error ?? '', /test-unit failed/);
+	expect(error ?? '').toMatch(/test-unit failed/);
 
 	const log = readFileSync(join(dir, '.lightsout', 'runs', 'r1', 'commands.jsonl'), 'utf8')
 		.trim()
@@ -34,9 +34,10 @@ test('two consecutive reds are a genuine red, both executions in the command log
 		.map((line) => JSON.parse(line) as Record<string, unknown>)
 		.filter((record) => record.kind === 'testUnit');
 
-	assert.equal(log.length, 2, 'both executions logged');
-	assert.equal(log[0].rerun, undefined);
-	assert.equal(log[1].rerun, true);
+	// both executions logged
+	expect(log.length).toBe(2);
+	expect(log[0].rerun).toBe(undefined);
+	expect(log[1].rerun).toBe(true);
 });
 
 test('coverage replaces the plain test run in gate sets that include it', async () => {
@@ -45,21 +46,25 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 	const withCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true, coverage: true });
 
-	assert.equal(withCoverage, undefined);
+	expect(withCoverage).toBe(undefined);
 
 	const coveredLines = readGateLog({ dir });
 
-	assert.ok(coveredLines.some((line) => line.endsWith(' coverage')), 'coverage ran');
-	assert.ok(!coveredLines.some((line) => line.endsWith(' testUnit')), 'plain test run replaced — same suites, one fleet');
+	// coverage ran
+	expect(coveredLines.some((line) => line.endsWith(' coverage'))).toBeTruthy();
+	// plain test run replaced — same suites, one fleet
+	expect(coveredLines.some((line) => line.endsWith(' testUnit'))).toBeFalsy();
 
 	const withoutCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true });
 
-	assert.equal(withoutCoverage, undefined);
+	expect(withoutCoverage).toBe(undefined);
 
 	const allLines = readGateLog({ dir }).slice(coveredLines.length);
 
-	assert.ok(allLines.some((line) => line.endsWith(' testUnit')), 'plain test run returns when the set has no coverage');
-	assert.ok(!allLines.some((line) => line.endsWith(' coverage')), 'no coverage outside coverage sets');
+	// plain test run returns when the set has no coverage
+	expect(allLines.some((line) => line.endsWith(' testUnit'))).toBeTruthy();
+	// no coverage outside coverage sets
+	expect(allLines.some((line) => line.endsWith(' coverage'))).toBeFalsy();
 });
 
 test('root group runs after the scoped groups, never concurrently with them', async () => {
@@ -73,13 +78,17 @@ test('root group runs after the scoped groups, never concurrently with them', as
 		includeRoot: true,
 	});
 
-	assert.equal(error, undefined);
+	expect(error).toBe(undefined);
 
 	const lines = readGateLog({ dir });
 	const firstRootIndex = lines.findIndex((line) => line.startsWith('root '));
 	const lastScopedIndex = Math.max(...lines.map((line, index) => (line.startsWith('root ') ? -1 : index)));
 
-	assert.ok(firstRootIndex > -1, 'root group ran');
-	assert.ok(lastScopedIndex > -1, 'scoped groups ran');
-	assert.ok(firstRootIndex > lastScopedIndex, `every root command after every scoped command (root starts at ${firstRootIndex}, scoped ends at ${lastScopedIndex}):\n${lines.join('\n')}`);
+	// root group ran
+	expect(firstRootIndex > -1).toBeTruthy();
+	// scoped groups ran
+	expect(lastScopedIndex > -1).toBeTruthy();
+	// every root command after every scoped command (root starts at
+	// ${firstRootIndex}, scoped ends at ${lastScopedIndex}):\n${lines.join('\n')}
+	expect(firstRootIndex > lastScopedIndex).toBeTruthy();
 });

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { WorkReport } from '@/contracts';
 
 const base = { status: 'complete', changedFiles: [], summary: 'x', failures: [] };
@@ -13,11 +12,14 @@ test('WorkReport priorArt: valid entries parse with matches defaulted; malformed
 		],
 	});
 
-	assert.deepEqual(parsed.priorArt?.[0], { symbol: 'formatDate', searches: ['formatDate', 'dateToString'], matches: [] }, 'matches defaults to empty — "searched, found nothing" is a valid entry');
-	assert.deepEqual(parsed.priorArt?.[1]?.matches, ['loadConfig']);
+	// matches defaults to empty — "searched, found nothing" is a valid entry
+	expect(parsed.priorArt?.[0]).toStrictEqual({ symbol: 'formatDate', searches: ['formatDate', 'dateToString'], matches: [] });
+	expect(parsed.priorArt?.[1]?.matches).toStrictEqual(['loadConfig']);
 
-	assert.equal(WorkReport.parse(base).priorArt, undefined, 'field is optional — non-executor roles omit it');
-	assert.equal(WorkReport.safeParse({ ...base, priorArt: [{ symbol: 'x' }] }).success, false, 'an entry without searches is rejected');
+	// field is optional — non-executor roles omit it
+	expect(WorkReport.parse(base).priorArt).toBe(undefined);
+	// an entry without searches is rejected
+	expect(WorkReport.safeParse({ ...base, priorArt: [{ symbol: 'x' }] }).success).toBe(false);
 });
 
 test('WorkReport status: every terminal outcome parses and nothing outside the set does', () => {
@@ -25,16 +27,22 @@ test('WorkReport status: every terminal outcome parses and nothing outside the s
 
 	const accepted = statuses.filter((status) => WorkReport.safeParse({ ...base, status }).success);
 
-	assert.deepEqual(accepted, statuses, 'these five are the whole vocabulary the engine branches on');
-	assert.equal(WorkReport.safeParse({ ...base, status: 'terminated' }).success, false, 'a bare "terminated" names no reason — the engine could not route it');
-	assert.equal(WorkReport.safeParse({ ...base, status: 'Complete' }).success, false, 'values are lowercase');
-	assert.equal(WorkReport.safeParse({ changedFiles: [], summary: 'x', failures: [] }).success, false, 'status is required — there is no default outcome');
+	// these five are the whole vocabulary the engine branches on
+	expect(accepted).toStrictEqual(statuses);
+	// a bare "terminated" names no reason — the engine could not route it
+	expect(WorkReport.safeParse({ ...base, status: 'terminated' }).success).toBe(false);
+	// values are lowercase
+	expect(WorkReport.safeParse({ ...base, status: 'Complete' }).success).toBe(false);
+	// status is required — there is no default outcome
+	expect(WorkReport.safeParse({ changedFiles: [], summary: 'x', failures: [] }).success).toBe(false);
 });
 
 test('WorkReport failures: omitting the array on a clean report means none', () => {
 	const parsed = WorkReport.parse({ status: 'complete', changedFiles: [], summary: 'x' });
 
-	assert.deepEqual(parsed.failures, [], 'a complete report that omits failures parses rather than paying for a re-emit retry');
+	// a complete report that omits failures parses rather than paying for a
+	// re-emit retry
+	expect(parsed.failures).toStrictEqual([]);
 });
 
 test('WorkReport friction: entries parse and an unrecognized area coerces instead of failing the report', () => {
@@ -46,27 +54,31 @@ test('WorkReport friction: entries parse and an unrecognized area coerces instea
 		],
 	});
 
-	assert.deepEqual(
-		parsed.friction,
-		[
-			{ kind: 'decision', area: 'plan', detail: 'the plan named no fixture' },
-			{ area: 'other', detail: 'an area the agent invented' },
-		],
-		'an invented area degrades to other — a valid zero-change report must never die over its friction taxonomy',
-	);
+	// an invented area degrades to other — a valid zero-change report must never
+	// die over its friction taxonomy
+	expect(parsed.friction).toStrictEqual([
+		{ kind: 'decision', area: 'plan', detail: 'the plan named no fixture' },
+		{ area: 'other', detail: 'an area the agent invented' },
+	]);
 });
 
 test('WorkReport friction: the array is optional — a clean run omits it', () => {
 	const parsed = WorkReport.parse(base);
 
-	assert.equal(parsed.friction, undefined, 'no friction reported is the absence of the key, not an empty array');
+	// no friction reported is the absence of the key, not an empty array
+	expect(parsed.friction).toBe(undefined);
 });
 
 test('WorkReport: the narrative fields are required and each changed file names a path and a summary', () => {
 	const noChangedFiles = WorkReport.safeParse({ status: 'complete', summary: 'x', failures: [] });
 
-	assert.equal(noChangedFiles.success, false, 'changedFiles is required — an empty array is how a no-op run says "nothing changed"');
-	assert.equal(WorkReport.safeParse({ status: 'complete', changedFiles: [], failures: [] }).success, false, 'summary is required — the report always says what was done');
-	assert.equal(WorkReport.safeParse({ ...base, changedFiles: [{ path: 'src/a.ts' }] }).success, false, 'a changed file without its one-clause summary is rejected');
-	assert.equal(WorkReport.safeParse({ ...base, failures: ['a failure', 7] }).success, false, 'failures are strings');
+	// changedFiles is required — an empty array is how a no-op run says "nothing
+	// changed"
+	expect(noChangedFiles.success).toBe(false);
+	// summary is required — the report always says what was done
+	expect(WorkReport.safeParse({ status: 'complete', changedFiles: [], failures: [] }).success).toBe(false);
+	// a changed file without its one-clause summary is rejected
+	expect(WorkReport.safeParse({ ...base, changedFiles: [{ path: 'src/a.ts' }] }).success).toBe(false);
+	// failures are strings
+	expect(WorkReport.safeParse({ ...base, failures: ['a failure', 7] }).success).toBe(false);
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -57,24 +56,33 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 	const allGates = readGateLog({ dir });
 	const postImplementGates = allGates.slice(cleanSlateGates.length);
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(cleanSlateGates.some((line) => line.startsWith('@acme/api ')), 'clean-slate ran the declared package');
-	assert.ok(!cleanSlateGates.some((line) => line.startsWith('@acme/web ')), 'clean-slate skipped undeclared packages');
-	assert.ok(!cleanSlateGates.some((line) => line.startsWith('root ')), 'clean-slate skipped the root group');
-	assert.ok(!allGates.some((line) => line.startsWith('api ')), '{package} used the package.json name, not the directory');
-	assert.ok(postImplementGates.some((line) => line.startsWith('@acme/web ')), 'scope expanded to the strayed-into package');
-	assert.ok(postImplementGates.some((line) => line.startsWith('root ')), 'root group joined after a root file changed');
-	assert.ok(allGates.some((line) => line === '@acme/api coverage'), 'coverage ran scoped');
-	assert.deepEqual([...result.manifest.packages].sort(), ['api', 'web']);
-	assert.equal(result.manifest.packagesSource, 'front-matter');
+	expect(result.ok).toBe(true);
+	// clean-slate ran the declared package
+	expect(cleanSlateGates.some((line) => line.startsWith('@acme/api '))).toBeTruthy();
+	// clean-slate skipped undeclared packages
+	expect(cleanSlateGates.some((line) => line.startsWith('@acme/web '))).toBeFalsy();
+	// clean-slate skipped the root group
+	expect(cleanSlateGates.some((line) => line.startsWith('root '))).toBeFalsy();
+	// {package} used the package.json name, not the directory
+	expect(allGates.some((line) => line.startsWith('api '))).toBeFalsy();
+	// scope expanded to the strayed-into package
+	expect(postImplementGates.some((line) => line.startsWith('@acme/web '))).toBeTruthy();
+	// root group joined after a root file changed
+	expect(postImplementGates.some((line) => line.startsWith('root '))).toBeTruthy();
+	// coverage ran scoped
+	expect(allGates.some((line) => line === '@acme/api coverage')).toBeTruthy();
+	expect([...result.manifest.packages].sort()).toStrictEqual(['api', 'web']);
+	expect(result.manifest.packagesSource).toBe('front-matter');
 
 	const commandLog = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'commands.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-	assert.ok(commandLog.some((entry) => entry['group'] === 'api'), 'command log labels package groups');
-	assert.ok(commandLog.some((entry) => entry['group'] === 'root'), 'command log labels the root group');
+	// command log labels package groups
+	expect(commandLog.some((entry) => entry['group'] === 'api')).toBeTruthy();
+	// command log labels the root group
+	expect(commandLog.some((entry) => entry['group'] === 'root')).toBeTruthy();
 });
 
 test('no scope anywhere: hard error before any gate or agent', async () => {
@@ -87,9 +95,10 @@ test('no scope anywhere: hard error before any gate or agent', async () => {
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /no package scope/);
-	assert.deepEqual(readGateLog({ dir }), [], 'no gates ran');
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/no package scope/);
+	// no gates ran
+	expect(readGateLog({ dir })).toStrictEqual([]);
 });
 
 test('--packages flag overrides front-matter; source recorded as flag', async () => {
@@ -116,10 +125,10 @@ test('--packages flag overrides front-matter; source recorded as flag', async ()
 		packages: ['web'],
 	});
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(cleanSlateGates.some((line) => line.startsWith('@acme/web ')));
-	assert.ok(!cleanSlateGates.some((line) => line.startsWith('@acme/api ')));
-	assert.equal(result.manifest.packagesSource, 'flag');
+	expect(result.ok).toBe(true);
+	expect(cleanSlateGates.some((line) => line.startsWith('@acme/web '))).toBeTruthy();
+	expect(cleanSlateGates.some((line) => line.startsWith('@acme/api '))).toBeFalsy();
+	expect(result.manifest.packagesSource).toBe('flag');
 });
 
 test('scope derived from concrete plan-body paths when nothing is declared', async () => {
@@ -140,11 +149,11 @@ test('scope derived from concrete plan-body paths when nothing is declared', asy
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, true, result.error);
-	assert.deepEqual(result.manifest.packages, ['api']);
-	assert.equal(result.manifest.packagesSource, 'plan-paths');
-	assert.ok(cleanSlateGates.some((line) => line.startsWith('@acme/api ')));
-	assert.ok(!cleanSlateGates.some((line) => line.startsWith('@acme/web ')));
+	expect(result.ok).toBe(true);
+	expect(result.manifest.packages).toStrictEqual(['api']);
+	expect(result.manifest.packagesSource).toBe('plan-paths');
+	expect(cleanSlateGates.some((line) => line.startsWith('@acme/api '))).toBeTruthy();
+	expect(cleanSlateGates.some((line) => line.startsWith('@acme/web '))).toBeFalsy();
 });
 
 test('a declared package without package.json fails its gate group with a clear error', async () => {
@@ -157,6 +166,6 @@ test('a declared package without package.json fails its gate group with a clear 
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /ghost.*no package\.json|no package\.json.*ghost/);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/ghost.*no package\.json|no package\.json.*ghost/);
 });

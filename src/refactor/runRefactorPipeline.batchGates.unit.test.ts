@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
@@ -50,14 +49,14 @@ describe('runRefactorPipeline batch gates', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
+		expect(result.ok).toBe(true);
 
 		const gates = batchGates();
 
-		assert.ok(gates.includes('@acme/api coverage'), `a refactor must not drop coverage in the package it changed: ${gates.join(', ')}`);
-		assert.ok(
-			!gates.some((line) => line.startsWith('@acme/web ')),
-			`the untouched package's suite is never spent: ${gates.join(', ')}`,
-		);
+		// a refactor must not drop coverage in the package it changed: ${gates.join(',
+		// ')}
+		expect(gates.includes('@acme/api coverage')).toBeTruthy();
+		// the untouched package's suite is never spent: ${gates.join(', ')}
+		expect(gates.some((line) => line.startsWith('@acme/web '))).toBeFalsy();
 	});
 });

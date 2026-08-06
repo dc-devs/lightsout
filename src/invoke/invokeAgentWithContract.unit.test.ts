@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { Effort, Permissions, WorkReport } from '@/contracts';
 import { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
@@ -53,15 +52,19 @@ test('contract mismatch retries with a cheap re-emit invocation, not the full ro
 		},
 	});
 
-	assert.equal(failure, undefined);
-	assert.equal(parsed?.summary, 're-emitted');
-	assert.equal(prompts.length, 2);
-	assert.equal(prompts[0], 'ROLE-PROMPT');
-	assert.ok(prompts[1].includes('Re-emit your report'), 'retry is the re-emit prompt');
-	assert.ok(prompts[1].includes('I did lots of work! No JSON here though.'), 'retry carries the rejected text');
-	assert.ok(!prompts[1].includes('ROLE-PROMPT'), 'retry does NOT re-run the role prompt');
-	assert.equal(systemPrompts[1], 'ROLE-SYSTEM-PROMPT', 'role system prompt (the contract) rides along');
-	assert.deepEqual(rejections, [{ text: 'I did lots of work! No JSON here though.', attempt: 1 }]);
+	expect(failure).toBe(undefined);
+	expect(parsed?.summary).toBe('re-emitted');
+	expect(prompts.length).toBe(2);
+	expect(prompts[0]).toBe('ROLE-PROMPT');
+	// retry is the re-emit prompt
+	expect(prompts[1].includes('Re-emit your report')).toBeTruthy();
+	// retry carries the rejected text
+	expect(prompts[1].includes('I did lots of work! No JSON here though.')).toBeTruthy();
+	// retry does NOT re-run the role prompt
+	expect(prompts[1].includes('ROLE-PROMPT')).toBeFalsy();
+	// role system prompt (the contract) rides along
+	expect(systemPrompts[1]).toBe('ROLE-SYSTEM-PROMPT');
+	expect(rejections).toStrictEqual([{ text: 'I did lots of work! No JSON here though.', attempt: 1 }]);
 });
 
 test('two contract mismatches fail the invocation and report both rejections', async () => {
@@ -82,9 +85,9 @@ test('two contract mismatches fail the invocation and report both rejections', a
 		},
 	});
 
-	assert.equal(parsed, undefined);
-	assert.match(failure ?? '', /did not match contract/);
-	assert.deepEqual(rejections, [1, 2]);
+	expect(parsed).toBe(undefined);
+	expect(failure ?? '').toMatch(/did not match contract/);
+	expect(rejections).toStrictEqual([1, 2]);
 });
 
 test('the resolved model, effort and permissions reach the driver verbatim', async () => {
@@ -103,11 +106,8 @@ test('the resolved model, effort and permissions reach the driver verbatim', asy
 		timeoutMs: 1234,
 	});
 
-	assert.equal(failure, undefined);
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions, allowedCommands, cwd, timeoutMs }) => ({ model, effort, permissions, allowedCommands, cwd, timeoutMs })),
-		[{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access', allowedCommands: ['pnpm test'], cwd: '/repo', timeoutMs: 1234 }],
-	);
+	expect(failure).toBe(undefined);
+	expect(invocations.map(({ model, effort, permissions, allowedCommands, cwd, timeoutMs }) => ({ model, effort, permissions, allowedCommands, cwd, timeoutMs }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access', allowedCommands: ['pnpm test'], cwd: '/repo', timeoutMs: 1234 }]);
 });
 
 test('the read-only level is relayed untranslated — the driver, not this chokepoint, maps it to a harness flag', async () => {
@@ -122,8 +122,8 @@ test('the read-only level is relayed untranslated — the driver, not this choke
 		permissions: Permissions.ReadOnly,
 	});
 
-	assert.equal(failure, undefined);
-	assert.equal(invocations[0].permissions, 'read-only');
+	expect(failure).toBe(undefined);
+	expect(invocations[0].permissions).toBe('read-only');
 });
 
 test('an unset model, effort or permissions reaches the driver undefined — no default is invented here', async () => {
@@ -132,11 +132,8 @@ test('an unset model, effort or permissions reaches the driver undefined — no 
 
 	const { report: parsed } = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
 
-	assert.ok(parsed);
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[{ model: undefined, effort: undefined, permissions: undefined }],
-	);
+	expect(parsed).toBeTruthy();
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
 });
 
 test('the re-emit retry runs at the same model, effort and permissions as the first attempt', async () => {
@@ -153,15 +150,12 @@ test('the re-emit retry runs at the same model, effort and permissions as the fi
 		permissions: Permissions.Write,
 	});
 
-	assert.equal(parsed?.summary, 're-emitted');
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[
-			{ model: 'sonnet', effort: 'low', permissions: 'write' },
-			{ model: 'sonnet', effort: 'low', permissions: 'write' },
-		],
-		'a retry must not silently downgrade the effort or capability level',
-	);
+	expect(parsed?.summary).toBe('re-emitted');
+	// a retry must not silently downgrade the effort or capability level
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([
+		{ model: 'sonnet', effort: 'low', permissions: 'write' },
+		{ model: 'sonnet', effort: 'low', permissions: 'write' },
+	]);
 });
 
 test('a driver that throws is returned as a step failure — never retried blindly', async () => {
@@ -178,13 +172,15 @@ test('a driver that throws is returned as a step failure — never retried blind
 
 	const outcome = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
 
-	assert.deepEqual(outcome, {
+	expect(outcome).toStrictEqual({
 		report: undefined,
 		failure: 'agent invocation failed: harness timed out after 1000ms',
 		rateLimited: false,
 		usage: undefined,
 	});
-	assert.equal(invocations.length, 1, 'a second identical timeout would only double the cost of learning the ceiling is low');
+	// a second identical timeout would only double the cost of learning the
+	// ceiling is low
+	expect(invocations.length).toBe(1);
 });
 
 test('a driver that throws a non-Error value still yields a readable failure', async () => {
@@ -202,9 +198,9 @@ test('a driver that throws a non-Error value still yields a readable failure', a
 		contract: WorkReport,
 	});
 
-	assert.equal(parsed, undefined);
-	assert.equal(failure, 'agent invocation failed: spawn EACCES');
-	assert.equal(rateLimited, false);
+	expect(parsed).toBe(undefined);
+	expect(failure).toBe('agent invocation failed: spawn EACCES');
+	expect(rateLimited).toBe(false);
 });
 
 test('a rate-limited harness is reported as such so the engine can park the run', async () => {
@@ -221,8 +217,9 @@ test('a rate-limited harness is reported as such so the engine can park the run'
 
 	const outcome = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
 
-	assert.deepEqual(outcome, { report: undefined, failure: 'harness rate limit reached', rateLimited: true, usage: undefined });
-	assert.equal(invocations.length, 1, 'a rate limit ends the attempt loop — a re-emit retry would hit the same wall');
+	expect(outcome).toStrictEqual({ report: undefined, failure: 'harness rate limit reached', rateLimited: true, usage: undefined });
+	// a rate limit ends the attempt loop — a re-emit retry would hit the same wall
+	expect(invocations.length).toBe(1);
 });
 
 test('a rate limit on the re-emit retry is reported over the earlier contract failure', async () => {
@@ -246,10 +243,10 @@ test('a rate limit on the re-emit retry is reported over the earlier contract fa
 		contract: WorkReport,
 	});
 
-	assert.equal(parsed, undefined);
-	assert.equal(rateLimited, true);
-	assert.equal(failure, 'harness rate limit reached');
-	assert.equal(invocations.length, 2);
+	expect(parsed).toBe(undefined);
+	expect(rateLimited).toBe(true);
+	expect(failure).toBe('harness rate limit reached');
+	expect(invocations.length).toBe(2);
 });
 
 test('the stream event callback is relayed to the driver verbatim', async () => {
@@ -271,8 +268,8 @@ test('the stream event callback is relayed to the driver verbatim', async () => 
 		onEvent: (event) => events.push(event),
 	});
 
-	assert.equal(failure, undefined);
-	assert.deepEqual(events, [{ type: 'tool_use' }]);
+	expect(failure).toBe(undefined);
+	expect(events).toStrictEqual([{ type: 'tool_use' }]);
 });
 
 test('pipeline persists rejected agent output to the run dir as evidence', async () => {
@@ -285,18 +282,21 @@ test('pipeline persists rejected agent output to the run dir as evidence', async
 	const config = await loadConfig({ cwd: dir });
 	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-	assert.equal(result.ok, false);
+	expect(result.ok).toBe(false);
 
 	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
 
-	assert.ok(existsSync(agentsDir), 'agents evidence dir exists');
+	// agents evidence dir exists
+	expect(existsSync(agentsDir)).toBeTruthy();
 
 	const files = readdirSync(agentsDir).sort();
 
-	assert.deepEqual(files, ['rejected-01-implement-attempt1.txt', 'rejected-02-implement-attempt2.txt']);
+	expect(files).toStrictEqual(['rejected-01-implement-attempt1.txt', 'rejected-02-implement-attempt2.txt']);
 
 	const first = readFileSync(join(agentsDir, files[0]), 'utf8');
 
-	assert.ok(first.includes('# step: implement'), 'provenance header');
-	assert.ok(first.includes('prose with no report in it'), 'raw text preserved');
+	// provenance header
+	expect(first.includes('# step: implement')).toBeTruthy();
+	// raw text preserved
+	expect(first.includes('prose with no report in it')).toBeTruthy();
 });

@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { GateResult } from '@/contracts';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runGates } from '@/pipeline';
@@ -18,17 +17,16 @@ test('failFast: false runs every gate and aggregates all failures', async () => 
 
 	const error = await runGates({ cwd: dir, config, failFast: false, onGateResult: (result) => gates.push(result) });
 
-	assert.match(error ?? '', /check failed/);
-	assert.match(error ?? '', /test-unit failed/);
+	expect(error ?? '').toMatch(/check failed/);
+	expect(error ?? '').toMatch(/test-unit failed/);
 
 	const check = gates.filter((gate) => gate.kind === 'check');
 	const testUnit = gates.filter((gate) => gate.kind === 'testUnit');
 
-	assert.ok(check.length >= 1 && testUnit.length >= 1, 'both gates executed and reported');
-	assert.ok(
-		gates.filter((gate) => gate.exitCode !== undefined && gate.exitCode !== 0).every((gate) => gate.outputTail !== undefined),
-		'every red execution carries an outputTail',
-	);
+	// both gates executed and reported
+	expect(check.length >= 1 && testUnit.length >= 1).toBeTruthy();
+	// every red execution carries an outputTail
+	expect(gates.filter((gate) => gate.exitCode !== undefined && gate.exitCode !== 0).every((gate) => gate.outputTail !== undefined)).toBeTruthy();
 });
 
 test('failFast omitted: the first red wins — later gates never execute', async () => {
@@ -38,12 +36,11 @@ test('failFast omitted: the first red wins — later gates never execute', async
 
 	const error = await runGates({ cwd: dir, config, onGateResult: (result) => gates.push(result) });
 
-	assert.match(error ?? '', /check failed/);
-	assert.ok(!/test-unit failed/.test(error ?? ''), 'test run short-circuited by the red check');
-	assert.ok(
-		gates.every((gate) => gate.kind === 'check'),
-		'only the check gate executed',
-	);
+	expect(error ?? '').toMatch(/check failed/);
+	// test run short-circuited by the red check
+	expect(/test-unit failed/.test(error ?? '')).toBeFalsy();
+	// only the check gate executed
+	expect(gates.every((gate) => gate.kind === 'check')).toBeTruthy();
 });
 
 test('failFast: false threads into scoped groups — every red gate in a package aggregates', async () => {
@@ -67,17 +64,13 @@ test('failFast: false threads into scoped groups — every red gate in a package
 
 	const error = await runGates({ cwd: dir, config: await loadConfig({ cwd: dir }), packages: ['api'], failFast: false, onGateResult: (result) => gates.push(result) });
 
-	assert.match(error ?? '', /\[api\] check failed/);
-	assert.match(error ?? '', /\[api\] test-unit failed/);
+	expect(error ?? '').toMatch(/\[api\] check failed/);
+	expect(error ?? '').toMatch(/\[api\] test-unit failed/);
 
-	assert.ok(
-		gates.some((gate) => gate.group === 'api' && gate.kind === 'check' && gate.exitCode !== 0),
-		'scoped check gate executed and reported red',
-	);
-	assert.ok(
-		gates.some((gate) => gate.group === 'api' && gate.kind === 'testUnit' && gate.exitCode !== 0),
-		'scoped test gate ran despite the red check — failFast reached the scoped set',
-	);
+	// scoped check gate executed and reported red
+	expect(gates.some((gate) => gate.group === 'api' && gate.kind === 'check' && gate.exitCode !== 0)).toBeTruthy();
+	// scoped test gate ran despite the red check — failFast reached the scoped set
+	expect(gates.some((gate) => gate.group === 'api' && gate.kind === 'testUnit' && gate.exitCode !== 0)).toBeTruthy();
 });
 
 test('a scoped skip surfaces through onGateResult as a skipped entry', async () => {
@@ -108,12 +101,8 @@ test('a scoped skip surfaces through onGateResult as a skipped entry', async () 
 
 	const skips = gates.filter((gate) => gate.skipped === true);
 
-	assert.ok(
-		skips.some((gate) => gate.group === 'bare' && gate.kind === 'check' && gate.reason === 'no "gate:check" script'),
-		`bare package's missing check reported as a skip:\n${JSON.stringify(skips)}`,
-	);
-	assert.ok(
-		skips.every((gate) => gate.exitCode === undefined),
-		'a skipped gate reports no exit code',
-	);
+	// bare package's missing check reported as a skip:\n${JSON.stringify(skips)}
+	expect(skips.some((gate) => gate.group === 'bare' && gate.kind === 'check' && gate.reason === 'no "gate:check" script')).toBeTruthy();
+	// a skipped gate reports no exit code
+	expect(skips.every((gate) => gate.exitCode === undefined)).toBeTruthy();
 });

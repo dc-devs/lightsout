@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { FrictionEntry } from '@/contracts';
 import { appendFriction } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -40,14 +39,15 @@ describe('appendFriction', () => {
 
 		const [{ at, ...record }] = readLog();
 
-		assert.deepEqual(record, {
+		expect(record).toStrictEqual({
 			kind: 'friction',
 			area: 'environment',
 			detail: 'no jest config in the package',
 			runId: 'run-friction',
 			step: 'write-tests',
 		});
-		assert.match(String(at), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/, 'every entry is stamped with when it was reported');
+		// every entry is stamped with when it was reported
+		expect(String(at)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 	});
 
 	test('creates the log directory for a repo that has never logged friction', async () => {
@@ -55,7 +55,9 @@ describe('appendFriction', () => {
 
 		await appendFriction({ cwd, runId, step: 'implement', friction: [{ area: 'plan', detail: 'a detail' }] });
 
-		assert.ok(existsSync(logPath), `the log lands repo-wide at .lightsout/friction.jsonl, not under a run directory: ${logPath}`);
+		// the log lands repo-wide at .lightsout/friction.jsonl, not under a run
+		// directory: ${logPath}
+		expect(existsSync(logPath)).toBeTruthy();
 	});
 
 	test('writes one line per reported entry, all stamped with the one moment the report landed', async () => {
@@ -73,15 +75,14 @@ describe('appendFriction', () => {
 
 		const log = readLog();
 
-		assert.equal(readLines().length, 2, `every entry leaves its own line: ${JSON.stringify(log)}`);
-		assert.deepEqual(
-			log.map((record) => [record.kind, record.area, record.detail]),
-			[
-				['friction', 'standards', 'the two rules disagreed'],
-				['decision', 'plan', 'chose the narrower reading'],
-			],
-		);
-		assert.equal(log[0]?.at, log[1]?.at, 'one report is one moment — its entries share a stamp');
+		// every entry leaves its own line: ${JSON.stringify(log)}
+		expect(readLines().length).toBe(2);
+		expect(log.map((record) => [record.kind, record.area, record.detail])).toStrictEqual([
+			['friction', 'standards', 'the two rules disagreed'],
+			['decision', 'plan', 'chose the narrower reading'],
+		]);
+		// one report is one moment — its entries share a stamp
+		expect(log[0]?.at).toBe(log[1]?.at);
 	});
 
 	test('leaves no log at all when the agent reported no friction', async () => {
@@ -89,8 +90,10 @@ describe('appendFriction', () => {
 
 		await appendFriction({ cwd, runId, step: 'implement', friction: [] });
 
-		assert.equal(existsSync(logPath), false, 'a clean run writes no line');
-		assert.equal(existsSync(join(cwd, '.lightsout')), false, 'a clean run does not even create the directory');
+		// a clean run writes no line
+		expect(existsSync(logPath)).toBe(false);
+		// a clean run does not even create the directory
+		expect(existsSync(join(cwd, '.lightsout'))).toBe(false);
 	});
 
 	test('appends beside the records earlier runs left instead of rewriting the log', async () => {
@@ -102,11 +105,10 @@ describe('appendFriction', () => {
 
 		const log = readLog();
 
-		assert.equal(log.length, 2, `friction accumulates across runs so the improvement loop sees patterns: ${JSON.stringify(log)}`);
-		assert.deepEqual(
-			log.map((record) => record.runId),
-			['run-before', 'run-friction'],
-		);
+		// friction accumulates across runs so the improvement loop sees patterns:
+		// ${JSON.stringify(log)}
+		expect(log.length).toBe(2);
+		expect(log.map((record) => record.runId)).toStrictEqual(['run-before', 'run-friction']);
 	});
 
 	test('writes a line with no kind key when the agent reported none', async () => {
@@ -116,8 +118,9 @@ describe('appendFriction', () => {
 
 		const [record] = readLog();
 
-		assert.equal(Object.hasOwn(record, 'kind'), false, 'an unset kind leaves no key to misread as a reported one');
-		assert.equal(record.detail, 'the plan was silent on the boundary');
+		// an unset kind leaves no key to misread as a reported one
+		expect(Object.hasOwn(record, 'kind')).toBe(false);
+		expect(record.detail).toBe('the plan was silent on the boundary');
 	});
 
 	test('coerces an area the taxonomy does not recognise to other rather than losing the entry', async () => {
@@ -132,8 +135,9 @@ describe('appendFriction', () => {
 
 		const [record] = readLog();
 
-		assert.equal(record?.area, 'other', 'the label is never load-bearing — the detail is');
-		assert.equal(record?.detail, 'an area the agent invented');
+		// the label is never load-bearing — the detail is
+		expect(record?.area).toBe('other');
+		expect(record?.detail).toBe('an area the agent invented');
 	});
 
 	test('strips a field the agent invented instead of carrying it into the ledger', async () => {
@@ -148,7 +152,8 @@ describe('appendFriction', () => {
 
 		const [record] = readLog();
 
-		assert.deepEqual(Object.keys(record).sort(), ['area', 'at', 'detail', 'kind', 'runId', 'step'], 'the persisted shape is fixed');
+		// the persisted shape is fixed
+		expect(Object.keys(record).sort()).toStrictEqual(['area', 'at', 'detail', 'kind', 'runId', 'step']);
 	});
 
 	test('keeps an entry whose detail spans several lines on one JSONL line', async () => {
@@ -161,17 +166,17 @@ describe('appendFriction', () => {
 			friction: [{ area: 'environment', detail: 'first line\nsecond line' }],
 		});
 
-		assert.equal(readLines().length, 1, 'a multi-line detail must not split the record across JSONL lines');
-		assert.equal(readLog()[0]?.detail, 'first line\nsecond line');
+		// a multi-line detail must not split the record across JSONL lines
+		expect(readLines().length).toBe(1);
+		expect(readLog()[0]?.detail).toBe('first line\nsecond line');
 	});
 
 	test('rejects the report and writes nothing when an entry fails the record contract', async () => {
 		const { cwd, runId, logPath } = setupFrictionLog();
 
-		await assert.rejects(
-			appendFriction({ cwd, runId, step: 'implement', friction: [{ area: 'plan', detail: 42 } as unknown as FrictionEntry] }),
-		);
+		await expect(appendFriction({ cwd, runId, step: 'implement', friction: [{ area: 'plan', detail: 42 } as unknown as FrictionEntry] })).rejects.toThrow();
 
-		assert.equal(existsSync(logPath), false, 'a malformed entry never leaves a half-written line behind');
+		// a malformed entry never leaves a half-written line behind
+		expect(existsSync(logPath)).toBe(false);
 	});
 });

@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test, type TestContext } from 'node:test';
+import { expect, test, jest } from '@jest/globals';
 import { FrictionArea, PackagesSource, RunStatus } from '@/contracts';
 import type { FrictionRecord, RunManifest } from '@/contracts';
 import { printResult } from '@/cli/common/render/printResult';
@@ -13,7 +12,7 @@ import { printResult } from '@/cli/common/render/printResult';
 // the ANSI paint helpers stay no-ops and the assertions read the plain text a
 // piped consumer sees.
 const setupResult = ({
-	t,
+	
 	manifest = {},
 	ok = true,
 	error,
@@ -21,28 +20,23 @@ const setupResult = ({
 	friction = [],
 	rejectedReports = 0,
 }: {
-	t: TestContext;
 	manifest?: Partial<RunManifest>;
 	ok?: boolean;
 	error?: string;
 	commands?: { durationMs?: number; rerun?: true; skipped?: true }[];
 	friction?: FrictionRecord[];
 	rejectedReports?: number;
-}) => {
+} = {}) => {
 	const logged: string[] = [];
 	const errors: string[] = [];
-	const wasTty = process.stdout.isTTY;
 
 	process.stdout.isTTY = false;
-	t.after(() => {
-		process.stdout.isTTY = wasTty;
-	});
 
-	t.mock.method(console, 'log', (...args: unknown[]) => {
+	jest.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
 		logged.push(String(args[0]));
 	});
 
-	t.mock.method(console, 'error', (...args: unknown[]) => {
+	jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
 		errors.push(String(args[0]));
 	});
 
@@ -89,12 +83,12 @@ const setupResult = ({
 /** The labelled summary lines, with the step table's box-drawn rows and the blank spacers dropped. */
 const labelLines = ({ logged }: { logged: string[] }) => logged.filter((line) => line !== '' && !/^[┌├└│]/.test(line));
 
-test('printResult: a clean run with no usage, scope, or gate history prints only the always-present lines', async (t) => {
-	const { result, cwd, logged, errors } = setupResult({ t });
+test('printResult: a clean run with no usage, scope, or gate history prints only the always-present lines', async () => {
+	const { result, cwd, logged, errors } = setupResult();
 
 	await printResult({ result, cwd });
 
-	assert.deepEqual(labelLines({ logged }), [
+	expect(labelLines({ logged })).toStrictEqual([
 		'run       run-1234 · PASSED',
 		'plan      feature.md',
 		'wall      3s',
@@ -102,12 +96,12 @@ test('printResult: a clean run with no usage, scope, or gate history prints only
 		'gates     0 commands',
 		'evidence  .lightsout/runs/run-1234-abcd/',
 	]);
-	assert.deepEqual(errors, []);
+	expect(errors).toStrictEqual([]);
 });
 
-test('printResult: a failed run reports active time, usage, gate detail, retries, this run’s friction, scope, and the error on stderr', async (t) => {
+test('printResult: a failed run reports active time, usage, gate detail, retries, this run’s friction, scope, and the error on stderr', async () => {
 	const { result, cwd, logged, errors } = setupResult({
-		t,
+		
 		ok: false,
 		error: 'gate check failed: pnpm check',
 		manifest: {
@@ -133,7 +127,7 @@ test('printResult: a failed run reports active time, usage, gate detail, retries
 
 	await printResult({ result, cwd });
 
-	assert.deepEqual(labelLines({ logged }), [
+	expect(labelLines({ logged })).toStrictEqual([
 		'run       run-1234 · FAILED',
 		'plan      feature.md',
 		'wall      2m 05s',
@@ -147,18 +141,18 @@ test('printResult: a failed run reports active time, usage, gate detail, retries
 		'scope     api · web (front-matter)',
 		'evidence  .lightsout/runs/run-1234-abcd/',
 	]);
-	assert.deepEqual(errors, ['\ngate check failed: pnpm check']);
+	expect(errors).toStrictEqual(['\ngate check failed: pnpm check']);
 });
 
-test('printResult: an invocation that reported no tokens prints usage with no cache share, and the count reads singular', async (t) => {
+test('printResult: an invocation that reported no tokens prints usage with no cache share, and the count reads singular', async () => {
 	const { result, cwd, logged } = setupResult({
-		t,
+		
 		manifest: { usage: { invocations: 1, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 } },
 	});
 
 	await printResult({ result, cwd });
 
-	assert.deepEqual(labelLines({ logged }), [
+	expect(labelLines({ logged })).toStrictEqual([
 		'run       run-1234 · PASSED',
 		'plan      feature.md',
 		'wall      3s',
@@ -170,12 +164,12 @@ test('printResult: an invocation that reported no tokens prints usage with no ca
 	]);
 });
 
-test('printResult: a scope with no recorded source prints bare, and a failure carrying no message writes nothing to stderr', async (t) => {
-	const { result, cwd, logged, errors } = setupResult({ t, ok: false, manifest: { status: RunStatus.Failed, packages: ['api'] } });
+test('printResult: a scope with no recorded source prints bare, and a failure carrying no message writes nothing to stderr', async () => {
+	const { result, cwd, logged, errors } = setupResult({ ok: false, manifest: { status: RunStatus.Failed, packages: ['api'] } });
 
 	await printResult({ result, cwd });
 
-	assert.deepEqual(labelLines({ logged }), [
+	expect(labelLines({ logged })).toStrictEqual([
 		'run       run-1234 · FAILED',
 		'plan      feature.md',
 		'wall      3s',
@@ -184,5 +178,5 @@ test('printResult: a scope with no recorded source prints bare, and a failure ca
 		'scope     api',
 		'evidence  .lightsout/runs/run-1234-abcd/',
 	]);
-	assert.deepEqual(errors, []);
+	expect(errors).toStrictEqual([]);
 });

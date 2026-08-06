@@ -1,10 +1,10 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { StructuralCheck } from '@/contracts';
 import { runPlanLint } from '@/plan';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { expectStatus } from '@tests/helpers/expectStatus';
 
 /** Write a plan deliverable into the repo's plans dir and return that dir. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
@@ -74,10 +74,12 @@ test('plan lint: a clean plan returns complete with no findings and names the pl
 
 	const result = await runPlanLint({ cwd, name: 'clean', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('findings' in result);
-	assert.deepEqual(result.findings, [], `clean plan should have no findings, got: ${JSON.stringify(result.findings)}`);
-	assert.deepEqual(result.planPaths, [join(plansDir, 'clean.md')], 'the resolved deliverable path comes back');
+	expectStatus(result, 'complete');
+	expect('findings' in result).toBeTruthy();
+	// clean plan should have no findings, got: ${JSON.stringify(result.findings)}
+	expect(result.findings).toStrictEqual([]);
+	// the resolved deliverable path comes back
+	expect(result.planPaths).toStrictEqual([join(plansDir, 'clean.md')]);
 });
 
 test('plan lint: a planted TBD comes back as a NoPlaceholders finding', async () => {
@@ -86,12 +88,10 @@ test('plan lint: a planted TBD comes back as a NoPlaceholders finding', async ()
 
 	const result = await runPlanLint({ cwd, name: 'dirty', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('findings' in result);
-	assert.ok(
-		result.findings.some((finding) => finding.check === StructuralCheck.NoPlaceholders),
-		`the TBD is flagged, got: ${JSON.stringify(result.findings)}`,
-	);
+	expectStatus(result, 'complete');
+	expect('findings' in result).toBeTruthy();
+	// the TBD is flagged, got: ${JSON.stringify(result.findings)}
+	expect(result.findings.some((finding) => finding.check === StructuralCheck.NoPlaceholders)).toBeTruthy();
 });
 
 test('plan lint: the progress line reports the finding count and how many files were scanned', async () => {
@@ -101,9 +101,10 @@ test('plan lint: the progress line reports the finding count and how many files 
 
 	const result = await runPlanLint({ cwd, name: 'progress', plansDir, onProgress: (message) => messages.push(message) });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.equal(messages.length, 1, 'one progress line per lint pass');
-	assert.match(messages[0], /progress.*1 structural finding\(s\).*1 file\(s\)/);
+	expectStatus(result, 'complete');
+	// one progress line per lint pass
+	expect(messages.length).toBe(1);
+	expect(messages[0]).toMatch(/progress.*1 structural finding\(s\).*1 file\(s\)/);
 });
 
 test('plan lint: no deliverable on disk returns failed', async () => {
@@ -111,8 +112,9 @@ test('plan lint: no deliverable on disk returns failed', async () => {
 
 	const result = await runPlanLint({ cwd, name: 'ghost', plansDir: join(cwd, '.claude', 'plans') });
 
-	assert.equal(result.status, 'failed');
-	assert.ok('error' in result && /no plan found for 'ghost'/.test(result.error), 'the resolve error propagates');
+	expectStatus(result, 'failed');
+	// the resolve error propagates
+	expect('error' in result && /no plan found for 'ghost'/.test(result.error)).toBeTruthy();
 });
 
 /** A structurally clean overview file — the overview variant's own required section set. */
@@ -162,14 +164,13 @@ test('plan lint: a phased deliverable lints the overview first, then each phase,
 
 	const result = await runPlanLint({ cwd, name: 'phased', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('planPaths' in result);
-	assert.deepEqual(
-		result.planPaths,
-		[join(plansDir, 'phased', 'overview.md'), join(plansDir, 'phased', 'phase1-core.md'), join(plansDir, 'phased', 'phase2-extra.md')],
-		'the overview fronts the sorted phase files and notes.txt is not a plan',
-	);
-	assert.deepEqual(result.findings, [], `a clean phased deliverable has no findings, got: ${JSON.stringify(result.findings)}`);
+	expectStatus(result, 'complete');
+	expect('planPaths' in result).toBeTruthy();
+	// the overview fronts the sorted phase files and notes.txt is not a plan
+	expect(result.planPaths).toStrictEqual([join(plansDir, 'phased', 'overview.md'), join(plansDir, 'phased', 'phase1-core.md'), join(plansDir, 'phased', 'phase2-extra.md')]);
+	// a clean phased deliverable has no findings, got:
+	// ${JSON.stringify(result.findings)}
+	expect(result.findings).toStrictEqual([]);
 });
 
 test('plan lint: the target repo config reaches the structural lint', async () => {
@@ -178,14 +179,13 @@ test('plan lint: the target repo config reaches the structural lint', async () =
 
 	const result = await runPlanLint({ cwd, name: 'configured', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('findings' in result);
-	assert.ok(
-		result.findings.some(
-			(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/'),
-		),
-		`the configured packagesDir drove the check, got: ${JSON.stringify(result.findings)}`,
-	);
+	expectStatus(result, 'complete');
+	expect('findings' in result).toBeTruthy();
+	// the configured packagesDir drove the check, got:
+	// ${JSON.stringify(result.findings)}
+	expect(result.findings.some(
+		(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/'),
+	)).toBeTruthy();
 });
 
 test('plan lint: an unreadable config leaves the lint running on defaults', async () => {
@@ -196,7 +196,8 @@ test('plan lint: an unreadable config leaves the lint running on defaults', asyn
 
 	const result = await runPlanLint({ cwd, name: 'no-config', plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('findings' in result);
-	assert.deepEqual(result.findings, [], `a broken config is non-fatal here, got: ${JSON.stringify(result.findings)}`);
+	expectStatus(result, 'complete');
+	expect('findings' in result).toBeTruthy();
+	// a broken config is non-fatal here, got: ${JSON.stringify(result.findings)}
+	expect(result.findings).toStrictEqual([]);
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -99,30 +98,27 @@ test('write-tests fan-out: every executable-code kind earns a writer; barrels an
 		onProgress: (message) => progress.push(message),
 	});
 
-	assert.equal(result.ok, true, result.error);
+	expect(result.ok).toBe(true);
 
 	// Every executable-code kind — constant-with-fallback, plain constant, enum,
 	// function, export-default, mixed type+value, tsx component, class — earned a
 	// writer; no inert file did.
-	assert.deepEqual(
-		[...writerTargets].sort(),
-		Object.keys(behavioralFiles).sort(),
-		`only behavioral files earned writers — got:\n${writerTargets.join('\n')}`,
-	);
+	// only behavioral files earned writers — got:\n${writerTargets.join('\n')}
+	expect([...writerTargets].sort()).toStrictEqual(Object.keys(behavioralFiles).sort());
 
 	// Every inert kind — export-* barrel, type re-export, type-only file,
 	// import-then-export barrel, empty file — was skipped and named in the narration.
 	const inertLine = progress.find((line) => line.includes('inert file(s) skipped'));
-	assert.ok(inertLine?.includes(`${Object.keys(inertFiles).length} inert file(s) skipped`), `inert count narrated — got:\n${progress.join('\n')}`);
+	// inert count narrated — got:\n${progress.join('\n')}
+	expect(inertLine?.includes(`${Object.keys(inertFiles).length} inert file(s) skipped`)).toBeTruthy();
 	for (const path of Object.keys(inertFiles)) {
-		assert.ok(inertLine?.includes(path), `${path} narrated as inert — got: ${inertLine}`);
+		// ${path} narrated as inert — got: ${inertLine}
+		expect(inertLine?.includes(path)).toBeTruthy();
 	}
 
 	// The fan-out count reflects the filtered (behavioral-only) set.
-	assert.ok(
-		progress.some((line) => line.includes('step write-tests') && line.includes(`${Object.keys(behavioralFiles).length} file(s)`)),
-		`fan-out count reflects the filtered set — got:\n${progress.join('\n')}`,
-	);
+	// fan-out count reflects the filtered set — got:\n${progress.join('\n')}
+	expect(progress.some((line) => line.includes('step write-tests') && line.includes(`${Object.keys(behavioralFiles).length} file(s)`))).toBeTruthy();
 });
 
 // A pure-removal plan lists deleted files in changed-file truth (git reports
@@ -181,12 +177,14 @@ test('write-tests fan-out: a deleted source file is skipped, never sent to a wri
 	});
 
 	// The deletion no longer escalates — the run completes.
-	assert.equal(result.ok, true, result.error);
+	expect(result.ok).toBe(true);
 
 	// The deleted file was narrated as skipped, naming it.
 	const deletedLine = progress.find((line) => line.includes('deleted file(s) skipped'));
-	assert.ok(deletedLine?.includes('src/index.js'), `deleted file narrated and named — got:\n${progress.join('\n')}`);
+	// deleted file narrated and named — got:\n${progress.join('\n')}
+	expect(deletedLine?.includes('src/index.js')).toBeTruthy();
 
 	// Only the surviving behavioral file earned a writer; the deletion did not.
-	assert.deepEqual(writerTargets, ['src/add.ts'], `only the surviving file earned a writer — got:\n${writerTargets.join('\n')}`);
+	// only the surviving file earned a writer — got:\n${writerTargets.join('\n')}
+	expect(writerTargets).toStrictEqual(['src/add.ts']);
 });

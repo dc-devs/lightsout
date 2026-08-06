@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { readFriction } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -42,7 +41,7 @@ describe('readFriction', () => {
 
 		const friction = await readFriction({ cwd });
 
-		assert.deepEqual(friction, [
+		expect(friction).toStrictEqual([
 			{ kind: 'friction', area: 'plan', detail: 'the plan was silent on the boundary', at: '2026-07-03T00:00:00.000Z', runId: 'run-a', step: 'implement' },
 			{ kind: 'decision', area: 'standards', detail: 'chose the newer rule', at: '2026-07-03T00:00:00.000Z', runId: 'run-b', step: 'refactor' },
 		]);
@@ -53,7 +52,8 @@ describe('readFriction', () => {
 
 		const friction = await readFriction({ cwd });
 
-		assert.deepEqual(friction, [], 'a missing log is an empty history, not a failure');
+		// a missing log is an empty history, not a failure
+		expect(friction).toStrictEqual([]);
 	});
 
 	test('skips a line that is not JSON and keeps the records around it', async () => {
@@ -63,10 +63,7 @@ describe('readFriction', () => {
 
 		const friction = await readFriction({ cwd });
 
-		assert.deepEqual(
-			friction.map((entry) => entry.detail),
-			['first', 'third'],
-		);
+		expect(friction.map((entry) => entry.detail)).toStrictEqual(['first', 'third']);
 	});
 
 	test('skips a line that fails the record contract rather than guessing its provenance', async () => {
@@ -80,10 +77,7 @@ describe('readFriction', () => {
 
 		const friction = await readFriction({ cwd });
 
-		assert.deepEqual(
-			friction.map((entry) => entry.detail),
-			['complete record'],
-		);
+		expect(friction.map((entry) => entry.detail)).toStrictEqual(['complete record']);
 	});
 
 	test('ignores blank lines left by an interrupted append', async () => {
@@ -91,7 +85,7 @@ describe('readFriction', () => {
 
 		const friction = await readFriction({ cwd });
 
-		assert.equal(friction.length, 2);
+		expect(friction.length).toBe(2);
 	});
 
 	test('keeps a record whose area the taxonomy does not recognise, coercing it to other', async () => {
@@ -99,7 +93,7 @@ describe('readFriction', () => {
 
 		const friction = await readFriction({ cwd });
 
-		assert.deepEqual(friction, [
+		expect(friction).toStrictEqual([
 			{ kind: 'friction', area: 'other', detail: 'invented an area', at: '2026-07-03T00:00:00.000Z', runId: 'run-a', step: 'implement' },
 		]);
 	});
@@ -109,10 +103,7 @@ describe('readFriction', () => {
 
 		const friction = await readFriction({ cwd });
 
-		assert.deepEqual(
-			friction.map((entry) => entry.runId),
-			['run-a', 'run-b'],
-			'friction accumulates across runs so the improvement loop sees patterns',
-		);
+		// friction accumulates across runs so the improvement loop sees patterns
+		expect(friction.map((entry) => entry.runId)).toStrictEqual(['run-a', 'run-b']);
 	});
 });

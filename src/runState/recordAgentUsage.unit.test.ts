@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { RunUsage } from '@/contracts';
 import { recordAgentUsage } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -51,7 +50,7 @@ describe('recordAgentUsage', () => {
 
 		const [{ at, ...record }] = readLedger();
 
-		assert.deepEqual(record, {
+		expect(record).toStrictEqual({
 			step: 'implement',
 			model: 'stub-model',
 			effort: 'xhigh',
@@ -61,7 +60,8 @@ describe('recordAgentUsage', () => {
 			cacheCreationTokens: 110,
 			costUsd: 0.5,
 		});
-		assert.match(String(at), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/, 'every spend is stamped with when it happened');
+		// every spend is stamped with when it happened
+		expect(String(at)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 	});
 
 	test('creates the run directory for a run that has written nothing yet', async () => {
@@ -69,7 +69,8 @@ describe('recordAgentUsage', () => {
 
 		await recordAgentUsage({ cwd, runId, step: 'implement', totals, usage });
 
-		assert.ok(existsSync(ledgerPath), `the ledger lands at .lightsout/runs/<runId>/agents.jsonl: ${ledgerPath}`);
+		// the ledger lands at .lightsout/runs/<runId>/agents.jsonl: ${ledgerPath}
+		expect(existsSync(ledgerPath)).toBeTruthy();
 	});
 
 	test('omits the model and effort keys when neither is in force', async () => {
@@ -79,9 +80,11 @@ describe('recordAgentUsage', () => {
 
 		const [record] = readLedger();
 
-		assert.equal(Object.hasOwn(record, 'model'), false, 'an unset model leaves no key to misread as a real setting');
-		assert.equal(Object.hasOwn(record, 'effort'), false, 'an unset effort means the harness default, not a recorded level');
-		assert.equal(record.step, 'implement');
+		// an unset model leaves no key to misread as a real setting
+		expect(Object.hasOwn(record, 'model')).toBe(false);
+		// an unset effort means the harness default, not a recorded level
+		expect(Object.hasOwn(record, 'effort')).toBe(false);
+		expect(record.step).toBe('implement');
 	});
 
 	test('adds the invocation onto the totals the run already carries rather than replacing them', async () => {
@@ -91,7 +94,7 @@ describe('recordAgentUsage', () => {
 
 		await recordAgentUsage({ cwd, runId, step: 'refactor', totals, usage });
 
-		assert.deepEqual(totals, {
+		expect(totals).toStrictEqual({
 			invocations: 3,
 			inputTokens: 11,
 			outputTokens: 102,
@@ -110,11 +113,9 @@ describe('recordAgentUsage', () => {
 
 		const ledger = readLedger();
 
-		assert.equal(ledger.length, 2, `every spend leaves its own line: ${JSON.stringify(ledger)}`);
-		assert.deepEqual(
-			ledger.map((record) => record.step),
-			['implement', 'write-tests'],
-		);
+		// every spend leaves its own line: ${JSON.stringify(ledger)}
+		expect(ledger.length).toBe(2);
+		expect(ledger.map((record) => record.step)).toStrictEqual(['implement', 'write-tests']);
 	});
 
 	test('leaves no ledger line and no spend when the driver reported no usage', async () => {
@@ -122,8 +123,9 @@ describe('recordAgentUsage', () => {
 
 		await recordAgentUsage({ cwd, runId, step: 'implement', model: 'stub-model', effort: 'high', totals });
 
-		assert.equal(existsSync(ledgerPath), false, 'a driver that proves nothing bills nothing');
-		assert.deepEqual(totals, {
+		// a driver that proves nothing bills nothing
+		expect(existsSync(ledgerPath)).toBe(false);
+		expect(totals).toStrictEqual({
 			invocations: 0,
 			inputTokens: 0,
 			outputTokens: 0,

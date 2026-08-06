@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test, type TestContext } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { improveCommand } from '@/cli/improveCommand';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
@@ -10,8 +9,8 @@ import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 // improve resolves its config and driver BEFORE the friction check, and its
 // config load is non-fatal only when no config file exists — both arrangements
 // end at the empty-friction early return, so no harness binary is ever spawned.
-const setupImprove = ({ t, args, config }: { t: TestContext; args: string[]; config?: Record<string, unknown> }) => {
-	const captured = captureCommandOutput({ t });
+const setupImprove = ({ args, config }: { args: string[]; config?: Record<string, unknown> }) => {
+	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-improve-command-'));
 
 	if (config) {
@@ -21,43 +20,43 @@ const setupImprove = ({ t, args, config }: { t: TestContext; args: string[]; con
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, ...captured };
 };
 
-test('improveCommand: without --engine it prints the usage text on stderr and exits 1 before touching the config', async (t) => {
-	const { context, logged, errors, exitCodes } = setupImprove({ t, args: [] });
+test('improveCommand: without --engine it prints the usage text on stderr and exits 1 before touching the config', async () => {
+	const { context, logged, errors, exitCodes } = setupImprove({ args: [] });
 
-	await assert.rejects(improveCommand(context), /process\.exit/);
+	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
 
-	assert.deepEqual(logged, []);
-	assert.equal(errors.length, 1);
-	assert.match(errors[0] ?? '', /^lightsout — deterministic engine for coding agents/);
-	assert.match(errors[0] ?? '', /lightsout improve --engine <lightsout-repo-path>/);
-	assert.deepEqual(exitCodes, [1]);
+	expect(logged).toStrictEqual([]);
+	expect(errors.length).toBe(1);
+	expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
+	expect(errors[0] ?? '').toMatch(/lightsout improve --engine <lightsout-repo-path>/);
+	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('improveCommand: an --engine flag given with no value is not a value — it fails the same way', async (t) => {
-	const { context, errors, exitCodes } = setupImprove({ t, args: ['--engine'] });
+test('improveCommand: an --engine flag given with no value is not a value — it fails the same way', async () => {
+	const { context, errors, exitCodes } = setupImprove({ args: ['--engine'] });
 
-	await assert.rejects(improveCommand(context), /process\.exit/);
+	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
 
-	assert.equal(errors.length, 1);
-	assert.deepEqual(exitCodes, [1]);
+	expect(errors.length).toBe(1);
+	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('improveCommand: no recorded friction reports there is nothing to improve from and exits 0 without invoking a harness', async (t) => {
-	const { context, logged, errors, exitCodes } = setupImprove({ t, args: ['--engine', '/does/not/need/to/exist'] });
+test('improveCommand: no recorded friction reports there is nothing to improve from and exits 0 without invoking a harness', async () => {
+	const { context, logged, errors, exitCodes } = setupImprove({ args: ['--engine', '/does/not/need/to/exist'] });
 
-	await assert.rejects(improveCommand(context), /process\.exit/);
+	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
 
-	assert.deepEqual(logged, ['no friction recorded — nothing to improve from']);
-	assert.deepEqual(errors, []);
-	assert.deepEqual(exitCodes, [0]);
+	expect(logged).toStrictEqual(['no friction recorded — nothing to improve from']);
+	expect(errors).toStrictEqual([]);
+	expect(exitCodes).toStrictEqual([0]);
 });
 
-test('improveCommand: a present-but-invalid config is a hard error, not the missing-config fallback', async (t) => {
+test('improveCommand: a present-but-invalid config is a hard error, not the missing-config fallback', async () => {
 	const { context } = setupImprove({
-		t,
+		
 		args: ['--engine', '/does/not/need/to/exist'],
 		config: { driver: 'codex', scripts: { check: 'c', testUnit: 't', testCoverage: false } },
 	});
 
-	await assert.rejects(improveCommand(context), /renamed to `harness`/);
+	await expect(improveCommand(context)).rejects.toThrow(/renamed to `harness`/);
 });

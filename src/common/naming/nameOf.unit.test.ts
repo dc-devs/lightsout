@@ -1,24 +1,25 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { nameOf } from '@/common/naming/nameOf';
 
 test('nameOf: strips the source extension to the export name', () => {
-	assert.equal(nameOf('src/a/getUser.ts'), 'getUser');
-	assert.equal(nameOf('packages/x/src/Thing.tsx'), 'Thing');
-	assert.equal(nameOf('index.mjs'), 'index');
+	expect(nameOf('src/a/getUser.ts')).toBe('getUser');
+	expect(nameOf('packages/x/src/Thing.tsx')).toBe('Thing');
+	expect(nameOf('index.mjs')).toBe('index');
 });
 
 test('nameOf: every javascript/typescript extension flavour is stripped', () => {
-	assert.equal(nameOf('src/a/legacy.cjs'), 'legacy');
-	assert.equal(nameOf('src/a/Widget.jsx'), 'Widget');
-	assert.equal(nameOf('src/a/plain.js'), 'plain');
-	assert.equal(nameOf('src/a/schema.mts'), 'schema');
-	assert.equal(nameOf('src/a/schema.cts'), 'schema');
+	expect(nameOf('src/a/legacy.cjs')).toBe('legacy');
+	expect(nameOf('src/a/Widget.jsx')).toBe('Widget');
+	expect(nameOf('src/a/plain.js')).toBe('plain');
+	expect(nameOf('src/a/schema.mts')).toBe('schema');
+	expect(nameOf('src/a/schema.cts')).toBe('schema');
 });
 
 test('nameOf: only the trailing source extension goes — dotted names and other file types survive', () => {
-	assert.equal(nameOf('src/a/getUser.unit.test.ts'), 'getUser.unit.test', 'the qualifier stays part of the name');
-	assert.equal(nameOf('src/b/session-response.model.ts'), 'session-response.model');
-	assert.equal(nameOf('src/a/theme.css'), 'theme.css', 'a non-source extension is not an extension to strip');
-	assert.equal(nameOf('src/a/Button'), 'Button');
+	// the qualifier stays part of the name
+	expect(nameOf('src/a/getUser.unit.test.ts')).toBe('getUser.unit.test');
+	expect(nameOf('src/b/session-response.model.ts')).toBe('session-response.model');
+	// a non-source extension is not an extension to strip
+	expect(nameOf('src/a/theme.css')).toBe('theme.css');
+	expect(nameOf('src/a/Button')).toBe('Button');
 });

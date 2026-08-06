@@ -1,9 +1,9 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { readStandards } from '@/standards';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 /** A temp consumer repo holding the given repo-relative files — the entries a config can declare. */
 const setupRepo = ({ files = {} }: { files?: Record<string, string> } = {}) => {
@@ -25,7 +25,8 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: [] });
 
-		assert.equal(standards, undefined, 'no entries means nothing to inline — not an empty string');
+		// no entries means nothing to inline — not an empty string
+		expect(standards).toBe(undefined);
 	});
 
 	test('reads a declared file under a header naming the entry as written', async () => {
@@ -33,7 +34,7 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['docs/style.md'] });
 
-		assert.equal(standards, '<!-- docs/style.md -->\n# Style\nuse tabs\n');
+		expect(standards).toBe('<!-- docs/style.md -->\n# Style\nuse tabs\n');
 	});
 
 	test('joins declared entries in the order written rather than sorting them', async () => {
@@ -41,7 +42,7 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['zeta.md', 'alpha.md'] });
 
-		assert.equal(standards, '<!-- zeta.md -->\nzeta\n\n\n<!-- alpha.md -->\nalpha\n');
+		expect(standards).toBe('<!-- zeta.md -->\nzeta\n\n\n<!-- alpha.md -->\nalpha\n');
 	});
 
 	test('reads every markdown file under a declared folder, recursively, in sorted path order', async () => {
@@ -56,15 +57,12 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['rules'] });
 
-		assert.equal(
-			standards,
-			[
-				'<!-- rules/alpha.md -->\nalpha\n',
-				'<!-- rules/nested/beta.md -->\nbeta\n',
-				'<!-- rules/zeta.md -->\nzeta\n',
-			].join('\n\n'),
-			'sorted display paths, nested files included, non-markdown left out',
-		);
+		// sorted display paths, nested files included, non-markdown left out
+		expect(standards).toBe([
+			'<!-- rules/alpha.md -->\nalpha\n',
+			'<!-- rules/nested/beta.md -->\nbeta\n',
+			'<!-- rules/zeta.md -->\nzeta\n',
+		].join('\n\n'));
 	});
 
 	test('strips a trailing slash from a declared folder so each header names its file once', async () => {
@@ -72,7 +70,7 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['rules/'] });
 
-		assert.equal(standards, '<!-- rules/alpha.md -->\nalpha\n');
+		expect(standards).toBe('<!-- rules/alpha.md -->\nalpha\n');
 	});
 
 	test('neither follows nor collects symlinks inside a declared folder', async () => {
@@ -83,34 +81,28 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['rules'] });
 
-		assert.equal(standards, '<!-- rules/real.md -->\nreal\n', "the walk matches the generator's find — real files only");
+		// the walk matches the generator's find — real files only
+		expect(standards).toBe('<!-- rules/real.md -->\nreal\n');
 	});
 
 	test('rejects a declared entry that is missing from the repo, naming the absolute path', async () => {
 		const { cwd } = setupRepo({ files: { 'docs/style.md': '# Style\n' } });
 
-		await assert.rejects(readStandards({ cwd, paths: ['docs/style.md', 'docs/missing.md'] }), (error: unknown) => {
-			assert.ok(error instanceof Error);
-			assert.match(error.message, /standards file not found/);
-			assert.ok(
-				error.message.includes(join(cwd, 'docs/missing.md')),
-				`the message names the path the consumer must author, got: ${error.message}`,
-			);
+		const error = await getRejectionError({ promise: readStandards({ cwd, paths: ['docs/style.md', 'docs/missing.md'] }) });
 
-			return true;
-		});
+		expect(error.message).toMatch(/standards file not found/);
+		// the message names the path the consumer must author
+		expect(error.message).toContain(join(cwd, 'docs/missing.md'));
 	});
 
 	test('rejects a declared folder holding no markdown at all', async () => {
 		const { cwd } = setupRepo({ files: { 'rules/notes.txt': 'not markdown\n' } });
 
-		await assert.rejects(readStandards({ cwd, paths: ['rules'] }), (error: unknown) => {
-			assert.ok(error instanceof Error);
-			assert.match(error.message, /standards folder contains no markdown files/);
-			assert.ok(error.message.includes(join(cwd, 'rules')), `the message names the empty folder, got: ${error.message}`);
+		const error = await getRejectionError({ promise: readStandards({ cwd, paths: ['rules'] }) });
 
-			return true;
-		});
+		expect(error.message).toMatch(/standards folder contains no markdown files/);
+		// the message names the empty folder
+		expect(error.message).toContain(join(cwd, 'rules'));
 	});
 
 	test('expands a bundled token to its base channel docs when no channels are active', async () => {
@@ -118,12 +110,12 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['lightsout:code-defaults'] });
 
-		assert.ok(
-			standards?.includes('<!-- lightsout defaults: standards/code/architecture/folder-structure.md -->'),
-			'base docs always apply',
-		);
-		assert.ok(!standards?.includes('react-components.md'), 'react docs stay out without the channel');
-		assert.ok(!standards?.includes('tanstack-start'), 'tanstack docs stay out without the channel');
+		// base docs always apply
+		expect(standards?.includes('<!-- lightsout defaults: standards/code/architecture/folder-structure.md -->')).toBeTruthy();
+		// react docs stay out without the channel
+		expect(standards?.includes('react-components.md')).toBeFalsy();
+		// tanstack docs stay out without the channel
+		expect(standards?.includes('tanstack-start')).toBeFalsy();
 	});
 
 	test('appends the docs of each active channel after the base docs', async () => {
@@ -131,19 +123,13 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['lightsout:code-defaults'], channels: ['react', 'tanstack'] });
 
-		assert.ok(
-			standards?.includes('<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->'),
-			'react channel docs present',
-		);
-		assert.ok(
-			standards?.includes('<!-- lightsout defaults: standards/code/architecture/tanstack-start/architecture-decisions.md -->'),
-			'tanstack channel docs present',
-		);
-		assert.ok(
-			(standards?.indexOf('<!-- lightsout defaults: standards/code/architecture/folder-structure.md -->') ?? -1) <
-				(standards?.indexOf('<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->') ?? -1),
-			'base docs precede channel docs',
-		);
+		// react channel docs present
+		expect(standards?.includes('<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->')).toBeTruthy();
+		// tanstack channel docs present
+		expect(standards?.includes('<!-- lightsout defaults: standards/code/architecture/tanstack-start/architecture-decisions.md -->')).toBeTruthy();
+		// base docs precede channel docs
+		expect((standards?.indexOf('<!-- lightsout defaults: standards/code/architecture/folder-structure.md -->') ?? -1) <
+			(standards?.indexOf('<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->') ?? -1)).toBeTruthy();
 	});
 
 	test('drops an active channel the token defines no docs for', async () => {
@@ -151,12 +137,12 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['lightsout:test-defaults'], channels: ['vue'] });
 
-		assert.ok(
-			standards?.includes('<!-- lightsout defaults: standards/tests/unit/jest/unit-testing.md -->'),
-			'base docs still expand',
-		);
-		assert.ok(!standards?.includes('unit-testing-react-components.md'), 'an unknown channel contributes no docs');
-		assert.ok(!standards?.endsWith('\n\n'), 'the unknown channel is dropped, not joined in as a blank block');
+		// base docs still expand
+		expect(standards?.includes('<!-- lightsout defaults: standards/tests/unit/jest/unit-testing.md -->')).toBeTruthy();
+		// an unknown channel contributes no docs
+		expect(standards?.includes('unit-testing-react-components.md')).toBeFalsy();
+		// the unknown channel is dropped, not joined in as a blank block
+		expect(standards?.endsWith('\n\n')).toBeFalsy();
 	});
 
 	test('resolves a bundled token without reading the repo', async () => {
@@ -164,10 +150,8 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd: join(cwd, 'does-not-exist'), paths: ['lightsout:test-defaults'] });
 
-		assert.ok(
-			standards?.includes('<!-- lightsout defaults: standards/tests/unit/jest/unit-testing.md -->'),
-			'tokens are bundled docs — a missing cwd never reaches the filesystem',
-		);
+		// tokens are bundled docs — a missing cwd never reaches the filesystem
+		expect(standards?.includes('<!-- lightsout defaults: standards/tests/unit/jest/unit-testing.md -->')).toBeTruthy();
 	});
 
 	test('composes bundled tokens and repo files into one document in the declared order', async () => {
@@ -175,7 +159,9 @@ describe('readStandards', () => {
 
 		const standards = await readStandards({ cwd, paths: ['lightsout:test-defaults', 'docs/local.md'] });
 
-		assert.ok(standards?.includes('standards/tests/unit/jest/unit-testing.md'), 'the token expanded');
-		assert.ok(standards?.endsWith('\n\n<!-- docs/local.md -->\n# Local\n'), 'the repo file follows the token, separated by a blank line');
+		// the token expanded
+		expect(standards?.includes('standards/tests/unit/jest/unit-testing.md')).toBeTruthy();
+		// the repo file follows the token, separated by a blank line
+		expect(standards?.endsWith('\n\n<!-- docs/local.md -->\n# Local\n')).toBeTruthy();
 	});
 });

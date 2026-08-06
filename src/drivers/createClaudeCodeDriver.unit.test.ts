@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { after, test } from 'node:test';
+import { expect, test, afterAll } from '@jest/globals';
 import { Effort, Permissions } from '@/contracts';
 import { createClaudeCodeDriver } from '@/drivers';
 
@@ -15,7 +14,7 @@ import { createClaudeCodeDriver } from '@/drivers';
 // one, spawning a real process.
 const realPath = process.env.PATH ?? '';
 
-after(() => {
+afterAll(() => {
 	process.env.PATH = realPath;
 });
 
@@ -91,7 +90,7 @@ const setupWithoutClaude = async () => {
 test('createClaudeCodeDriver: the driver reports the harness name the manifest records it under', () => {
 	const driver = createClaudeCodeDriver();
 
-	assert.equal(driver.name, 'claude-code');
+	expect(driver.name).toBe('claude-code');
 });
 
 test('createClaudeCodeDriver: the invocation model, effort, permissions, and grants reach the spawned process as flags', async () => {
@@ -99,7 +98,7 @@ test('createClaudeCodeDriver: the invocation model, effort, permissions, and gra
 
 	await driver.invoke({ prompt: 'TASK', cwd, model: 'opus', effort: Effort.XHigh, permissions: Permissions.Write, allowedCommands: ['pnpm'] });
 
-	assert.deepEqual(await readArgv(), [
+	expect(await readArgv()).toStrictEqual([
 		'-p',
 		'--output-format',
 		'stream-json',
@@ -121,7 +120,7 @@ test('createClaudeCodeDriver: the system prompt reaches the harness as a file, n
 
 	await driver.invoke({ prompt: 'TASK', systemPrompt: '# Role\n\nBe deterministic.\n', cwd });
 
-	assert.equal(await readSystemPromptCopy(), '# Role\n\nBe deterministic.\n');
+	expect(await readSystemPromptCopy()).toBe('# Role\n\nBe deterministic.\n');
 });
 
 test('createClaudeCodeDriver: the system prompt file is removed once the invocation returns', async () => {
@@ -132,7 +131,8 @@ test('createClaudeCodeDriver: the system prompt file is removed once the invocat
 	const argv = await readArgv();
 	const promptPath = argv[argv.indexOf('--append-system-prompt-file') + 1];
 
-	assert.equal(existsSync(promptPath), false, 'the temp prompt file outlives only the spawn');
+	// the temp prompt file outlives only the spawn
+	expect(existsSync(promptPath)).toBe(false);
 });
 
 test('createClaudeCodeDriver: without a system prompt no prompt-file flag is passed', async () => {
@@ -140,7 +140,7 @@ test('createClaudeCodeDriver: without a system prompt no prompt-file flag is pas
 
 	await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(await readArgv(), ['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections']);
+	expect(await readArgv()).toStrictEqual(['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections']);
 });
 
 test('createClaudeCodeDriver: the task prompt rides stdin verbatim, sidestepping the argv ceiling', async () => {
@@ -148,7 +148,7 @@ test('createClaudeCodeDriver: the task prompt rides stdin verbatim, sidestepping
 
 	await driver.invoke({ prompt: 'TASK with — unicode\nand a second line', systemPrompt: 'ROLE', cwd });
 
-	assert.equal(await readStdin(), 'TASK with — unicode\nand a second line');
+	expect(await readStdin()).toBe('TASK with — unicode\nand a second line');
 });
 
 test('createClaudeCodeDriver: the final result event supplies the text and the normalized usage', async () => {
@@ -168,7 +168,7 @@ test('createClaudeCodeDriver: the final result event supplies the text and the n
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, {
+	expect(result).toStrictEqual({
 		text: 'FINAL',
 		exitCode: 0,
 		rateLimited: false,
@@ -184,7 +184,7 @@ test('createClaudeCodeDriver: every parseable streamed event reaches onEvent, bl
 
 	await driver.invoke({ prompt: 'TASK', cwd, onEvent: (streamed) => seen.push(streamed) });
 
-	assert.deepEqual(seen, [{ type: 'assistant', text: 'thinking' }, { type: 'result', result: 'FINAL' }]);
+	expect(seen).toStrictEqual([{ type: 'assistant', text: 'thinking' }, { type: 'result', result: 'FINAL' }]);
 });
 
 test('createClaudeCodeDriver: a result event reporting neither usage nor cost yields no usage at all', async () => {
@@ -192,7 +192,7 @@ test('createClaudeCodeDriver: a result event reporting neither usage nor cost yi
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'FINAL', exitCode: 0, rateLimited: false, usage: undefined });
+	expect(result).toStrictEqual({ text: 'FINAL', exitCode: 0, rateLimited: false, usage: undefined });
 });
 
 test('createClaudeCodeDriver: a result event carrying only a cost reports it with zeroed token counts', async () => {
@@ -200,7 +200,7 @@ test('createClaudeCodeDriver: a result event carrying only a cost reports it wit
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, {
+	expect(result).toStrictEqual({
 		text: 'FINAL',
 		exitCode: 0,
 		rateLimited: false,
@@ -213,7 +213,7 @@ test('createClaudeCodeDriver: with no result event the whole stdout is parsed as
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'ENVELOPE-TEXT', exitCode: 0, rateLimited: false, usage: undefined });
+	expect(result).toStrictEqual({ text: 'ENVELOPE-TEXT', exitCode: 0, rateLimited: false, usage: undefined });
 });
 
 test('createClaudeCodeDriver: a result event split across two stdout chunks is still parsed', async () => {
@@ -221,7 +221,7 @@ test('createClaudeCodeDriver: a result event split across two stdout chunks is s
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'SPLIT', exitCode: 0, rateLimited: false, usage: undefined });
+	expect(result).toStrictEqual({ text: 'SPLIT', exitCode: 0, rateLimited: false, usage: undefined });
 });
 
 test('createClaudeCodeDriver: an is_error result on a zero exit that names a usage limit is reported as rate limited', async () => {
@@ -231,7 +231,7 @@ test('createClaudeCodeDriver: an is_error result on a zero exit that names a usa
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'Claude usage limit reached, resets at 5pm', exitCode: 0, rateLimited: true, usage: undefined });
+	expect(result).toStrictEqual({ text: 'Claude usage limit reached, resets at 5pm', exitCode: 0, rateLimited: true, usage: undefined });
 });
 
 test('createClaudeCodeDriver: an ordinary failure keeps the raw stdout as text and is not misread as a rate limit', async () => {
@@ -239,7 +239,7 @@ test('createClaudeCodeDriver: an ordinary failure keeps the raw stdout as text a
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'boom: unrecognized flag', exitCode: 2, rateLimited: false, usage: undefined });
+	expect(result).toStrictEqual({ text: 'boom: unrecognized flag', exitCode: 2, rateLimited: false, usage: undefined });
 });
 
 test('createClaudeCodeDriver: a harness that prints nothing falls back to stderr for the text', async () => {
@@ -247,22 +247,23 @@ test('createClaudeCodeDriver: a harness that prints nothing falls back to stderr
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'claude: rate limit exceeded', exitCode: 1, rateLimited: true, usage: undefined });
+	expect(result).toStrictEqual({ text: 'claude: rate limit exceeded', exitCode: 1, rateLimited: true, usage: undefined });
 });
 
 test('createClaudeCodeDriver: a hung harness is killed at the timeout, and the system prompt file still gets removed', async () => {
 	const { driver, cwd, readArgv } = await setupClaude({ delaySeconds: 5 });
 
-	await assert.rejects(driver.invoke({ prompt: 'TASK', systemPrompt: 'ROLE', cwd, timeoutMs: 400 }), /claude timed out after 400ms/);
+	await expect(driver.invoke({ prompt: 'TASK', systemPrompt: 'ROLE', cwd, timeoutMs: 400 })).rejects.toThrow(/claude timed out after 400ms/);
 
 	const argv = await readArgv();
 	const promptPath = argv[argv.indexOf('--append-system-prompt-file') + 1];
 
-	assert.equal(existsSync(promptPath), false, 'cleanup runs on the error path too');
+	// cleanup runs on the error path too
+	expect(existsSync(promptPath)).toBe(false);
 });
 
 test('createClaudeCodeDriver: a harness that is not installed rejects with the spawn failure', async () => {
 	const { driver, cwd } = await setupWithoutClaude();
 
-	await assert.rejects(driver.invoke({ prompt: 'TASK', cwd }), /ENOENT/);
+	await expect(driver.invoke({ prompt: 'TASK', cwd })).rejects.toThrow(/ENOENT/);
 });

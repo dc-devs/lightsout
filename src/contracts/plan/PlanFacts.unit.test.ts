@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { PlanFacts } from '@/contracts';
 
 const setupFacts = (overrides: Record<string, unknown> = {}) => {
@@ -29,7 +28,7 @@ describe('PlanFacts', () => {
 
 		const parsed = PlanFacts.parse(facts);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			request: 'add a verify-facts subcommand',
 			areas: [
 				{
@@ -52,7 +51,8 @@ describe('PlanFacts', () => {
 
 		const parsed = PlanFacts.parse(facts);
 
-		assert.deepEqual(parsed.areas, [], 'readPlanFacts consumers flat-map areas without guarding for absence');
+		// readPlanFacts consumers flat-map areas without guarding for absence
+		expect(parsed.areas).toStrictEqual([]);
 	});
 
 	test('nested defaults are applied to a sparse area and a sparse verification', () => {
@@ -63,7 +63,7 @@ describe('PlanFacts', () => {
 
 		const parsed = PlanFacts.parse(facts);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			request: 'add a verify-facts subcommand',
 			areas: [
 				{
@@ -87,7 +87,9 @@ describe('PlanFacts', () => {
 
 			const result = PlanFacts.safeParse(facts);
 
-			assert.equal(result.success, false, `${field} is required — a facts.json the engine has not stamped is authored facts, not plan facts`);
+			// ${field} is required — a facts.json the engine has not stamped is authored
+			// facts, not plan facts
+			expect(result.success).toBe(false);
 		});
 	}
 
@@ -96,7 +98,9 @@ describe('PlanFacts', () => {
 
 		const result = PlanFacts.safeParse(facts);
 
-		assert.equal(result.success, false, 'reading a plan whose facts were never verified is a hard error, never a silent empty verification');
+		// reading a plan whose facts were never verified is a hard error, never a
+		// silent empty verification
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a non-string verifiedAt rather than coercing a timestamp', () => {
@@ -104,7 +108,9 @@ describe('PlanFacts', () => {
 
 		const result = PlanFacts.safeParse(facts);
 
-		assert.equal(result.success, false, 'the field is the ISO string the verify step writes, so facts.json round-trips unchanged');
+		// the field is the ISO string the verify step writes, so facts.json
+		// round-trips unchanged
+		expect(result.success).toBe(false);
 	});
 
 	test('one malformed area rejects the whole facts file', () => {
@@ -112,7 +118,9 @@ describe('PlanFacts', () => {
 
 		const result = PlanFacts.safeParse(facts);
 
-		assert.equal(result.success, false, 'a partly readable facts.json is refused at the read boundary rather than driving a half-blank plan');
+		// a partly readable facts.json is refused at the read boundary rather than
+		// driving a half-blank plan
+		expect(result.success).toBe(false);
 	});
 
 	test('a malformed verification rejects the whole facts file', () => {
@@ -120,7 +128,9 @@ describe('PlanFacts', () => {
 
 		const result = PlanFacts.safeParse(facts);
 
-		assert.equal(result.success, false, 'scriptsChecked is what distinguishes "no scripts missing" from "no scripts checked"');
+		// scriptsChecked is what distinguishes "no scripts missing" from "no scripts
+		// checked"
+		expect(result.success).toBe(false);
 	});
 
 	test('unknown keys are stripped', () => {
@@ -128,6 +138,8 @@ describe('PlanFacts', () => {
 
 		const parsed = PlanFacts.parse({ ...facts, planName: 'packages-to-src', notes: 'hand-added' });
 
-		assert.deepEqual(Object.keys(parsed).sort(), ['areas', 'request', 'verification', 'verifiedAt'], 'facts.json is keyed by its workspace directory, so a hand-added planName never becomes contract data');
+		// facts.json is keyed by its workspace directory, so a hand-added planName
+		// never becomes contract data
+		expect(Object.keys(parsed).sort()).toStrictEqual(['areas', 'request', 'verification', 'verifiedAt']);
 	});
 });

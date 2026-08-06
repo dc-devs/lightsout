@@ -1,9 +1,9 @@
-import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { readRunLock, RunLockError, withRunLock } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 /** Beyond any OS pid range — process.kill(pid, 0) reports ESRCH, i.e. dead. */
 const deadPid = 999_999_999;
@@ -40,10 +40,7 @@ describe('withRunLock', () => {
 			run: async ({ runId }) => ({ runId, holder: await readRunLock({ cwd }) }),
 		});
 
-		assert.deepEqual(
-			{ lockedRunId: held.holder?.runId, lockedPid: held.holder?.pid },
-			{ lockedRunId: held.runId, lockedPid: process.pid },
-		);
+		expect({ lockedRunId: held.holder?.runId, lockedPid: held.holder?.pid }).toStrictEqual({ lockedRunId: held.runId, lockedPid: process.pid });
 	});
 
 	test('mints a fresh run id for every start', async () => {
@@ -52,7 +49,9 @@ describe('withRunLock', () => {
 		const first = await withRunLock({ params: { cwd }, run: async ({ runId }) => runId });
 		const second = await withRunLock({ params: { cwd }, run: async ({ runId }) => runId });
 
-		assert.notEqual(first, second, 'two starts are two runs — reusing an id would overwrite the earlier run state');
+		// two starts are two runs — reusing an id would overwrite the earlier run
+		// state
+		expect(first).not.toBe(second);
 	});
 
 	test('reuses the run id of the run being resumed instead of minting one', async () => {
@@ -63,7 +62,7 @@ describe('withRunLock', () => {
 			run: async (params) => params.runId,
 		});
 
-		assert.equal(runId, 'run-resumed');
+		expect(runId).toBe('run-resumed');
 	});
 
 	test('returns the body result and releases the lock once the body is done', async () => {
@@ -71,24 +70,27 @@ describe('withRunLock', () => {
 
 		const result = await withRunLock({ params: { cwd }, run: async () => 'pipeline result' });
 
-		assert.deepEqual({ result, holder: await readRunLock({ cwd }) }, { result: 'pipeline result', holder: undefined });
+		expect({ result, holder: await readRunLock({ cwd }) }).toStrictEqual({ result: 'pipeline result', holder: undefined });
 	});
 
 	test('releases the lock when the body throws, and lets the failure through untouched', async () => {
 		const { cwd } = setupRunLock();
 		const failure = new Error('the pipeline escalated');
 
-		await assert.rejects(
-			withRunLock({
+		const thrown = await getRejectionError({
+			promise: withRunLock({
 				params: { cwd },
 				run: async () => {
 					throw failure;
 				},
 			}),
-			(thrown: unknown) => thrown === failure,
-		);
+		});
 
-		assert.equal(await readRunLock({ cwd }), undefined, 'a park or escalation still hands the repo back');
+		// the caller's own error is rethrown as itself, not wrapped
+		expect(thrown).toBe(failure);
+
+		// a park or escalation still hands the repo back
+		expect(await readRunLock({ cwd })).toBe(undefined);
 	});
 
 	test('hands the body the whole param set it was given, not just the lock slice', async () => {
@@ -99,7 +101,7 @@ describe('withRunLock', () => {
 			run: async (params) => ({ cwd: params.cwd, planPath: params.planPath }),
 		});
 
-		assert.deepEqual(seen, { cwd, planPath: 'plan.md' });
+		expect(seen).toStrictEqual({ cwd, planPath: 'plan.md' });
 	});
 
 	test('takes over a lock left behind by a dead pid and narrates the takeover', async () => {
@@ -107,10 +109,7 @@ describe('withRunLock', () => {
 
 		const runId = await withRunLock({ params: { cwd, onProgress }, run: async (params) => params.runId });
 
-		assert.deepEqual(
-			{ narrated: progress.filter((line) => line.includes(String(deadPid))).length, tookOver: runId !== 'crashed-run' },
-			{ narrated: 1, tookOver: true },
-		);
+		expect({ narrated: progress.filter((line) => line.includes(String(deadPid))).length, tookOver: runId !== 'crashed-run' }).toStrictEqual({ narrated: 1, tookOver: true });
 	});
 
 	test('starts on a free lock without narrating a takeover that never happened', async () => {
@@ -118,7 +117,7 @@ describe('withRunLock', () => {
 
 		await withRunLock({ params: { cwd, onProgress }, run: async () => 'done' });
 
-		assert.deepEqual(progress, []);
+		expect(progress).toStrictEqual([]);
 	});
 
 	test('takes over a stale lock even with nobody listening for progress', async () => {
@@ -126,35 +125,31 @@ describe('withRunLock', () => {
 
 		const result = await withRunLock({ params: { cwd }, run: async () => 'done' });
 
-		assert.equal(result, 'done', 'narration is optional; the takeover is not');
+		// narration is optional; the takeover is not
+		expect(result).toBe('done');
 	});
 
 	test('refuses to start while a live run holds the lock, leaving the body unrun', async () => {
 		const { cwd, entered } = setupRunLock({ heldBy: { pid: process.pid, runId: 'already-running' } });
 
-		await assert.rejects(
-			withRunLock({
-				params: { cwd },
-				run: async (params) => {
-					entered.push(params.runId);
+		await expect(withRunLock({
+			params: { cwd },
+			run: async (params) => {
+				entered.push(params.runId);
 
-					return 'done';
-				},
-			}),
-			RunLockError,
-		);
+				return 'done';
+			},
+		})).rejects.toThrow(RunLockError);
 
-		assert.deepEqual(entered, [], 'the conflict is detected before any disk write, so nothing else happened');
+		// the conflict is detected before any disk write, so nothing else happened
+		expect(entered).toStrictEqual([]);
 	});
 
 	test('leaves the live holder its lock when it refuses to start', async () => {
 		const { cwd, lockPath } = setupRunLock({ heldBy: { pid: process.pid, runId: 'already-running' } });
 
-		await assert.rejects(withRunLock({ params: { cwd }, run: async () => 'done' }), RunLockError);
+		await expect(withRunLock({ params: { cwd }, run: async () => 'done' })).rejects.toThrow(RunLockError);
 
-		assert.deepEqual(
-			{ present: existsSync(lockPath), holder: (await readRunLock({ cwd }))?.runId },
-			{ present: true, holder: 'already-running' },
-		);
+		expect({ present: existsSync(lockPath), holder: (await readRunLock({ cwd }))?.runId }).toStrictEqual({ present: true, holder: 'already-running' });
 	});
 });

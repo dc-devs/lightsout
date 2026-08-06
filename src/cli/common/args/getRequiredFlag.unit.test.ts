@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test, type TestContext } from 'node:test';
+import { expect, test, jest } from '@jest/globals';
 import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 
@@ -8,15 +7,15 @@ import { parseFlags } from '@/cli/common/args/parseFlags';
 // real process.exit never returns — a mock that returned would let
 // getRequiredFlag fall through and hand back the value it promised never to.
 // `t.mock.method` restores both originals when the test ends.
-const setupRequiredFlag = ({ t, args }: { t: TestContext; args: string[] }) => {
+const setupRequiredFlag = ({ args }: { args: string[] }) => {
 	const errors: string[] = [];
 	const exitCodes: (number | string | null | undefined)[] = [];
 
-	t.mock.method(console, 'error', (...params: unknown[]) => {
+	jest.spyOn(console, 'error').mockImplementation((...params: unknown[]) => {
 		errors.push(String(params[0]));
 	});
 
-	t.mock.method(process, 'exit', (code?: number | string | null): never => {
+	jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null): never => {
 		exitCodes.push(code);
 
 		throw new Error('process.exit');
@@ -25,40 +24,40 @@ const setupRequiredFlag = ({ t, args }: { t: TestContext; args: string[] }) => {
 	return { flags: parseFlags({ args }), errors, exitCodes };
 };
 
-test('getRequiredFlag: returns the value and stays quiet when the flag carries one', (t) => {
-	const { flags, errors, exitCodes } = setupRequiredFlag({ t, args: ['--plan', 'plans/feature.md', '--cwd', '/repo'] });
+test('getRequiredFlag: returns the value and stays quiet when the flag carries one', () => {
+	const { flags, errors, exitCodes } = setupRequiredFlag({ args: ['--plan', 'plans/feature.md', '--cwd', '/repo'] });
 
 	const value = getRequiredFlag({ flags, name: 'plan' });
 
-	assert.equal(value, 'plans/feature.md');
-	assert.deepEqual(errors, []);
-	assert.deepEqual(exitCodes, []);
+	expect(value).toBe('plans/feature.md');
+	expect(errors).toStrictEqual([]);
+	expect(exitCodes).toStrictEqual([]);
 });
 
-test('getRequiredFlag: an absent flag prints the usage text on stderr and exits 1 instead of returning', (t) => {
-	const { flags, errors, exitCodes } = setupRequiredFlag({ t, args: ['--cwd', '/repo'] });
+test('getRequiredFlag: an absent flag prints the usage text on stderr and exits 1 instead of returning', () => {
+	const { flags, errors, exitCodes } = setupRequiredFlag({ args: ['--cwd', '/repo'] });
 
-	assert.throws(() => getRequiredFlag({ flags, name: 'plan' }), /process\.exit/);
+	expect(() => getRequiredFlag({ flags, name: 'plan' })).toThrow(/process\.exit/);
 
-	assert.deepEqual(exitCodes, [1]);
-	assert.equal(errors.length, 1);
-	assert.match(errors[0] ?? '', /^lightsout — deterministic engine for coding agents/);
-	assert.match(errors[0] ?? '', /lightsout implement --plan <path>/);
+	expect(exitCodes).toStrictEqual([1]);
+	expect(errors.length).toBe(1);
+	expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
+	expect(errors[0] ?? '').toMatch(/lightsout implement --plan <path>/);
 });
 
-test('getRequiredFlag: a flag given with no value is boolean, not a value — it fails the same way', (t) => {
-	const { flags, errors, exitCodes } = setupRequiredFlag({ t, args: ['--plan', '--cwd', '/repo'] });
+test('getRequiredFlag: a flag given with no value is boolean, not a value — it fails the same way', () => {
+	const { flags, errors, exitCodes } = setupRequiredFlag({ args: ['--plan', '--cwd', '/repo'] });
 
-	assert.throws(() => getRequiredFlag({ flags, name: 'plan' }), /process\.exit/);
+	expect(() => getRequiredFlag({ flags, name: 'plan' })).toThrow(/process\.exit/);
 
-	assert.deepEqual(exitCodes, [1]);
-	assert.equal(errors.length, 1);
+	expect(exitCodes).toStrictEqual([1]);
+	expect(errors.length).toBe(1);
 });
 
-test('getRequiredFlag: an empty string is a present-but-empty flag and is rejected too', (t) => {
-	const { flags, exitCodes } = setupRequiredFlag({ t, args: ['--plan', '', '--cwd', '/repo'] });
+test('getRequiredFlag: an empty string is a present-but-empty flag and is rejected too', () => {
+	const { flags, exitCodes } = setupRequiredFlag({ args: ['--plan', '', '--cwd', '/repo'] });
 
-	assert.throws(() => getRequiredFlag({ flags, name: 'plan' }), /process\.exit/);
+	expect(() => getRequiredFlag({ flags, name: 'plan' })).toThrow(/process\.exit/);
 
-	assert.deepEqual(exitCodes, [1]);
+	expect(exitCodes).toStrictEqual([1]);
 });

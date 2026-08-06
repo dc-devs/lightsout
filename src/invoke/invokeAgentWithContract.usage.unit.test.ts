@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { WorkReport } from '@/contracts';
 import { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
@@ -40,10 +39,10 @@ test('usage sums across a re-emit retry — one role invocation, one bill', asyn
 		contract: WorkReport,
 	});
 
-	assert.ok(parsed);
-	assert.equal(usage?.outputTokens, 150);
-	assert.equal(usage?.inputTokens, 20);
-	assert.equal(usage?.costUsd, 1);
+	expect(parsed).toBeTruthy();
+	expect(usage?.outputTokens).toBe(150);
+	expect(usage?.inputTokens).toBe(20);
+	expect(usage?.costUsd).toBe(1);
 });
 
 test('an attempt reporting no usage does not zero the invocation total', async () => {
@@ -65,8 +64,8 @@ test('an attempt reporting no usage does not zero the invocation total', async (
 		contract: WorkReport,
 	});
 
-	assert.ok(parsed);
-	assert.deepEqual(usage, { inputTokens: 10, outputTokens: 50, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
+	expect(parsed).toBeTruthy();
+	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 50, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
 });
 
 test('usage spent before a rate limit is still reported — a parked run is billed for what it burned', async () => {
@@ -90,8 +89,8 @@ test('usage spent before a rate limit is still reported — a parked run is bill
 		contract: WorkReport,
 	});
 
-	assert.equal(rateLimited, true);
-	assert.deepEqual(usage, { inputTokens: 20, outputTokens: 120, cacheReadTokens: 2000, cacheCreationTokens: 10, costUsd: 1 });
+	expect(rateLimited).toBe(true);
+	expect(usage).toStrictEqual({ inputTokens: 20, outputTokens: 120, cacheReadTokens: 2000, cacheCreationTokens: 10, costUsd: 1 });
 });
 
 test('usage spent before a driver throw is still reported', async () => {
@@ -117,8 +116,8 @@ test('usage spent before a driver throw is still reported', async () => {
 		contract: WorkReport,
 	});
 
-	assert.equal(failure, 'agent invocation failed: spawn ENOENT');
-	assert.deepEqual(usage, { inputTokens: 10, outputTokens: 100, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
+	expect(failure).toBe('agent invocation failed: spawn ENOENT');
+	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 100, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
 });
 
 test('pipeline writes agents.jsonl per invocation and aggregates usage into the manifest', async () => {
@@ -155,7 +154,7 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 		onProgress: (message) => progressLines.push(message),
 	});
 
-	assert.equal(result.ok, true);
+	expect(result.ok).toBe(true);
 
 	// implement + 1 test writer + refactor = 3 invocations
 	const ledger = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents.jsonl'), 'utf8')
@@ -163,23 +162,19 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-	assert.equal(ledger.length, 3);
-	assert.deepEqual(
-		ledger.map((record) => record.step),
-		['implement', 'write-tests', 'refactor'],
-	);
-	assert.equal(ledger[0].outputTokens, 100);
+	expect(ledger.length).toBe(3);
+	expect(ledger.map((record) => record.step)).toStrictEqual(['implement', 'write-tests', 'refactor']);
+	expect(ledger[0].outputTokens).toBe(100);
 
-	assert.equal(result.manifest.usage?.invocations, 3);
-	assert.equal(result.manifest.usage?.outputTokens, 600);
-	assert.equal(result.manifest.usage?.inputTokens, 30);
-	assert.equal(result.manifest.usage?.cacheReadTokens, 3000);
-	assert.equal(result.manifest.usage?.costUsd, 1.5);
+	expect(result.manifest.usage?.invocations).toBe(3);
+	expect(result.manifest.usage?.outputTokens).toBe(600);
+	expect(result.manifest.usage?.inputTokens).toBe(30);
+	expect(result.manifest.usage?.cacheReadTokens).toBe(3000);
+	expect(result.manifest.usage?.costUsd).toBe(1.5);
 
-	assert.ok(
-		progressLines.some((line) => line.includes('implement · usage: in 10 · out 100 · cache-read 1.0k · $0.50')),
-		`usage narrated:\n${progressLines.filter((line) => line.includes('usage')).join('\n')}`,
-	);
+	// usage narrated:\n${progressLines.filter((line) =>
+	// line.includes('usage')).join('\n')}
+	expect(progressLines.some((line) => line.includes('implement · usage: in 10 · out 100 · cache-read 1.0k · $0.50'))).toBeTruthy();
 });
 
 test('a driver reporting no usage leaves no ledger and no manifest aggregate', async () => {
@@ -209,7 +204,7 @@ test('a driver reporting no usage leaves no ledger and no manifest aggregate', a
 	const config = await loadConfig({ cwd: dir });
 	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-	assert.equal(result.ok, true);
-	assert.equal(result.manifest.usage, undefined);
-	assert.throws(() => readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents.jsonl')));
+	expect(result.ok).toBe(true);
+	expect(result.manifest.usage).toBe(undefined);
+	expect(() => readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents.jsonl'))).toThrow();
 });

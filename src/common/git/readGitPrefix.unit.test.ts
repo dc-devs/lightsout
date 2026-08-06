@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { readGitPrefix } from '@/common/git/readGitPrefix';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -26,7 +25,8 @@ describe('readGitPrefix', () => {
 
 		const prefix = await readGitPrefix({ cwd });
 
-		assert.equal(prefix, '', 'the repo root has nothing to strip from git paths');
+		// the repo root has nothing to strip from git paths
+		expect(prefix).toBe('');
 	});
 
 	test('a nested consumer reports its trailing-slash path inside the repo', async () => {
@@ -34,7 +34,7 @@ describe('readGitPrefix', () => {
 
 		const prefix = await readGitPrefix({ cwd });
 
-		assert.equal(prefix, 'apps/api/');
+		expect(prefix).toBe('apps/api/');
 	});
 
 	test('a directory outside any worktree reports undefined', async () => {
@@ -42,6 +42,8 @@ describe('readGitPrefix', () => {
 
 		const prefix = await readGitPrefix({ cwd });
 
-		assert.equal(prefix, undefined, 'undefined is the signal to degrade to agent-reported files, never an empty prefix');
+		// undefined is the signal to degrade to agent-reported files, never an empty
+		// prefix
+		expect(prefix).toBe(undefined);
 	});
 });

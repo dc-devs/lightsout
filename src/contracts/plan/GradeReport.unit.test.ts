@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { GradeReport } from '@/contracts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
@@ -34,7 +33,7 @@ describe('GradeReport', () => {
 
 		const parsed = GradeReport.parse(report);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			planName: 'packages-to-src',
 			grade: 'below-A',
 			structural: [
@@ -61,8 +60,10 @@ describe('GradeReport', () => {
 	test('structural and gaps default to empty — a clean pass carries no evidence', () => {
 		const parsed = GradeReport.parse({ planName: 'packages-to-src', grade: 'A', passed: true, gradedAt: '2026-08-04T00:00:00.000Z' });
 
-		assert.deepEqual(parsed.structural, [], 'the skill reads both arrays off every grade report without guarding for absence');
-		assert.deepEqual(parsed.gaps, []);
+		// the skill reads both arrays off every grade report without guarding for
+		// absence
+		expect(parsed.structural).toStrictEqual([]);
+		expect(parsed.gaps).toStrictEqual([]);
 	});
 
 	test('grade accepts the bar and everything short of it', () => {
@@ -71,7 +72,8 @@ describe('GradeReport', () => {
 
 			const parsed = GradeReport.parse(report);
 
-			assert.equal(parsed.grade, grade, `${grade} is one of the two verdicts a plan is graded to`);
+			// ${grade} is one of the two verdicts a plan is graded to
+			expect(parsed.grade).toBe(grade);
 		}
 	});
 
@@ -81,7 +83,9 @@ describe('GradeReport', () => {
 
 			const result = GradeReport.safeParse(report);
 
-			assert.equal(result.success, false, `${grade} is not a grade the engine writes — the enum carries the PlanGrade values, not its keys or a wider scale`);
+			// ${grade} is not a grade the engine writes — the enum carries the PlanGrade
+			// values, not its keys or a wider scale
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -91,7 +95,10 @@ describe('GradeReport', () => {
 
 			const result = GradeReport.safeParse(report);
 
-			assert.equal(result.success, false, `${field} is required — planName keys the report to its plan workspace, grade and passed are the verdict, and gradedAt tells the human whether the grade predates their latest edit`);
+			// ${field} is required — planName keys the report to its plan workspace, grade
+			// and passed are the verdict, and gradedAt tells the human whether the grade
+			// predates their latest edit
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -101,7 +108,9 @@ describe('GradeReport', () => {
 
 			const result = GradeReport.safeParse(report);
 
-			assert.equal(result.success, false, 'passed is the typed verdict the skill branches on instead of re-implementing a check, so a truthy string must never reach it');
+			// passed is the typed verdict the skill branches on instead of re-implementing
+			// a check, so a truthy string must never reach it
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -110,7 +119,9 @@ describe('GradeReport', () => {
 
 		const result = GradeReport.safeParse(report);
 
-		assert.equal(result.success, false, 'the field is the ISO string runPlanGrade writes, so grade.json round-trips unchanged');
+		// the field is the ISO string runPlanGrade writes, so grade.json round-trips
+		// unchanged
+		expect(result.success).toBe(false);
 	});
 
 	test('nested gap defaults are applied when grade.json is read back', () => {
@@ -120,16 +131,14 @@ describe('GradeReport', () => {
 
 		const parsed = GradeReport.parse(report);
 
-		assert.deepEqual(
-			parsed.gaps[0],
-			{
-				area: 'insufficient-detail',
-				gap: 'the move map names no target for tests/helpers',
-				decision: 'name the target directory',
-				options: [],
-			},
-			'the gap default survives the nesting — a gap written without options reads back with an empty list',
-		);
+		// the gap default survives the nesting — a gap written without options reads
+		// back with an empty list
+		expect(parsed.gaps[0]).toStrictEqual({
+			area: 'insufficient-detail',
+			gap: 'the move map names no target for tests/helpers',
+			decision: 'name the target directory',
+			options: [],
+		});
 	});
 
 	test('one malformed structural finding rejects the whole report', () => {
@@ -139,7 +148,9 @@ describe('GradeReport', () => {
 
 		const result = GradeReport.safeParse(report);
 
-		assert.equal(result.success, false, 'a partly readable grade.json is refused at the read boundary rather than printing a defect the human cannot locate');
+		// a partly readable grade.json is refused at the read boundary rather than
+		// printing a defect the human cannot locate
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a structural or gaps value that is not an array', () => {
@@ -148,7 +159,8 @@ describe('GradeReport', () => {
 		for (const overrides of [{ structural: finding }, { gaps: gap }]) {
 			const result = GradeReport.safeParse({ ...report, ...overrides });
 
-			assert.equal(result.success, false, 'a single finding or gap object in place of its list is a malformed report');
+			// a single finding or gap object in place of its list is a malformed report
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -157,6 +169,7 @@ describe('GradeReport', () => {
 
 		const parsed = GradeReport.parse(report);
 
-		assert.equal('gradedBy' in parsed, false, 'grade.json holds the six declared fields, whatever else a hand edit added');
+		// grade.json holds the six declared fields, whatever else a hand edit added
+		expect('gradedBy' in parsed).toBe(false);
 	});
 });

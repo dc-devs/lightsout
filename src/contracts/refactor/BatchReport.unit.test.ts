@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { BatchReport } from '@/contracts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
@@ -19,11 +18,9 @@ describe('BatchReport', () => {
 
 		const parsed = BatchReport.parse(report);
 
-		assert.deepEqual(
-			parsed,
-			{ outcome: 'resolved', remainingClusters: [], rationale: ['the agent noted the shared helper it extracted'] },
-			'rationale is tied to neither outcome — runBatch emits it on the resolved paths too, so the schema must not refuse a resolved report that carries one',
-		);
+		// rationale is tied to neither outcome — runBatch emits it on the resolved
+		// paths too, so the schema must not refuse a resolved report that carries one
+		expect(parsed).toStrictEqual({ outcome: 'resolved', remainingClusters: [], rationale: ['the agent noted the shared helper it extracted'] });
 	});
 
 	test('a declined report keeps the clusters that persist and the account of why', () => {
@@ -31,7 +28,7 @@ describe('BatchReport', () => {
 
 		const parsed = BatchReport.parse(report);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			outcome: 'declined',
 			remainingClusters: ['clone:src/scan/scanClones.ts', 'size:src/pipeline/runGates.ts'],
 			rationale: ['the two blocks read alike but diverge on the detector contract'],
@@ -44,7 +41,9 @@ describe('BatchReport', () => {
 
 			const parsed = BatchReport.parse(report);
 
-			assert.equal(parsed.outcome, outcome, `${outcome} is one of the two ways a batch ends — the pipeline branches on this value to count the decline streak`);
+			// ${outcome} is one of the two ways a batch ends — the pipeline branches on
+			// this value to count the decline streak
+			expect(parsed.outcome).toBe(outcome);
 		}
 	});
 
@@ -53,7 +52,10 @@ describe('BatchReport', () => {
 
 		const result = BatchReport.safeParse(report);
 
-		assert.equal(result.success, false, 'a failed or escalated batch is stopped before a report is parsed; an invented ending would read as neither resolved nor declined and silently reset the decline streak');
+		// a failed or escalated batch is stopped before a report is parsed; an
+		// invented ending would read as neither resolved nor declined and silently
+		// reset the decline streak
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects the capitalized outcome key — the contract carries the lowercase values', () => {
@@ -61,7 +63,8 @@ describe('BatchReport', () => {
 
 		const result = BatchReport.safeParse(report);
 
-		assert.equal(result.success, false, 'the enum is built from the BatchOutcome values, not its capitalized keys');
+		// the enum is built from the BatchOutcome values, not its capitalized keys
+		expect(result.success).toBe(false);
 	});
 
 	test('every field is required — no default invents an ending, a cluster list, or a rationale', () => {
@@ -70,7 +73,10 @@ describe('BatchReport', () => {
 
 			const result = BatchReport.safeParse(report);
 
-			assert.equal(result.success, false, `${field} is required — the pipeline reads remainingClusters.length and hands rationale straight to the human, so an absent field would surface as an empty decline reason rather than a bad report`);
+			// ${field} is required — the pipeline reads remainingClusters.length and hands
+			// rationale straight to the human, so an absent field would surface as an
+			// empty decline reason rather than a bad report
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -80,7 +86,9 @@ describe('BatchReport', () => {
 
 			const result = BatchReport.safeParse(report);
 
-			assert.equal(result.success, false, 'a single value in place of the list is a malformed report, not a one-entry list');
+			// a single value in place of the list is a malformed report, not a one-entry
+			// list
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -90,7 +98,9 @@ describe('BatchReport', () => {
 
 			const result = BatchReport.safeParse(report);
 
-			assert.equal(result.success, false, 'both lists are printed to a human verbatim — a structured entry would render as [object Object]');
+			// both lists are printed to a human verbatim — a structured entry would render
+			// as [object Object]
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -99,7 +109,9 @@ describe('BatchReport', () => {
 
 		const parsed = BatchReport.parse(report);
 
-		assert.deepEqual(parsed, { outcome: 'resolved', remainingClusters: [], rationale: [] }, 'the arrays carry no minimum — an agent that reported complete with nothing to say writes two empty lists');
+		// the arrays carry no minimum — an agent that reported complete with nothing
+		// to say writes two empty lists
+		expect(parsed).toStrictEqual({ outcome: 'resolved', remainingClusters: [], rationale: [] });
 	});
 
 	test('keys the schema does not declare are stripped when a persisted step report is read back', () => {
@@ -107,22 +119,23 @@ describe('BatchReport', () => {
 
 		const parsed = BatchReport.parse({ ...report, changedFiles: ['src/scan/scanClones.ts'], batchId: 'batch-01:clones:src' });
 
-		assert.deepEqual(
-			parsed,
-			{
-				outcome: 'declined',
-				remainingClusters: ['clone:src/scan/scanClones.ts', 'size:src/pipeline/runGates.ts'],
-				rationale: ['the two blocks read alike but diverge on the detector contract'],
-			},
-			'the step record keeps changedFiles beside the report; parsing the payload holds only the fields the contract declares',
-		);
+		// the step record keeps changedFiles beside the report; parsing the payload
+		// holds only the fields the contract declares
+		expect(parsed).toStrictEqual({
+			outcome: 'declined',
+			remainingClusters: ['clone:src/scan/scanClones.ts', 'size:src/pipeline/runGates.ts'],
+			rationale: ['the two blocks read alike but diverge on the detector contract'],
+		});
 	});
 
 	test('safeParse refuses a step report that is not an object at all', () => {
 		for (const value of [undefined, null, 'declined', ['declined']]) {
 			const result = BatchReport.safeParse(value);
 
-			assert.equal(result.success, false, 'resume reads every passed step record through safeParse, including steps that carry no batch report — a non-object must fail rather than throw or read as declined');
+			// resume reads every passed step record through safeParse, including steps
+			// that carry no batch report — a non-object must fail rather than throw or
+			// read as declined
+			expect(result.success).toBe(false);
 		}
 	});
 });

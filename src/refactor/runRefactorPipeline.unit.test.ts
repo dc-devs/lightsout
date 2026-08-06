@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { RunManifest } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
@@ -53,15 +52,17 @@ test('refactor: a batch the executor fixes is resolved, with a burn-down', async
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, true, result.error);
-	assert.equal(result.declined.length, 0);
-	assert.equal(result.before['structure'], 1);
-	assert.equal(result.after['structure'] ?? 0, 0, 'the multi-export finding burned down');
+	expect(result.ok).toBe(true);
+	expect(result.declined.length).toBe(0);
+	expect(result.before['structure']).toBe(1);
+	// the multi-export finding burned down
+	expect(result.after['structure'] ?? 0).toBe(0);
 
 	const batch = result.manifest.steps.find((step) => step.id.startsWith('batch-'));
 
-	assert.ok(batch?.id.includes('structure'), 'batch id names the detector');
-	assert.equal(batch?.status, 'passed');
+	// batch id names the detector
+	expect(batch?.id.includes('structure')).toBeTruthy();
+	expect(batch?.status).toBe('passed');
 });
 
 test('refactor: zero changes with persisting clusters is a decline — recorded, run still ok', async () => {
@@ -72,10 +73,12 @@ test('refactor: zero changes with persisting clusters is a decline — recorded,
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, true, result.error);
-	assert.equal(result.declined.length, 1);
-	assert.ok(result.declined[0]?.remainingClusters[0]?.startsWith('multi-export:'), 'the persisting cluster is named');
-	assert.ok(result.declined[0]?.rationale[0]?.includes('left as-is'), "the agent's rationale rides along");
+	expect(result.ok).toBe(true);
+	expect(result.declined.length).toBe(1);
+	// the persisting cluster is named
+	expect(result.declined[0]?.remainingClusters[0]?.startsWith('multi-export:')).toBeTruthy();
+	// the agent's rationale rides along
+	expect(result.declined[0]?.rationale[0]?.includes('left as-is')).toBeTruthy();
 });
 
 test('refactor: three consecutive declines stop the run as systemic', async () => {
@@ -90,10 +93,10 @@ test('refactor: three consecutive declines stop the run as systemic', async () =
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, false);
-	assert.match(result.error ?? '', /consecutive batches declined/);
-	assert.equal(result.manifest.status, 'escalated');
-	assert.equal(result.declined.length, 3);
+	expect(result.ok).toBe(false);
+	expect(result.error ?? '').toMatch(/consecutive batches declined/);
+	expect(result.manifest.status).toBe('escalated');
+	expect(result.declined.length).toBe(3);
 });
 
 test('refactor: a dirty tree is a hard error before any run state exists', async () => {
@@ -101,10 +104,7 @@ test('refactor: a dirty tree is a hard error before any run state exists', async
 
 	writeFileSync(join(dir, 'src/uncommitted.ts'), 'export const later = 1;\n');
 
-	await assert.rejects(
-		runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) }),
-		/requires a clean tree/,
-	);
+	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) })).rejects.toThrow(/requires a clean tree/);
 });
 
 test('refactor: a red pre-flight gate fails the run before any batch', async () => {
@@ -125,9 +125,10 @@ test('refactor: a red pre-flight gate fails the run before any batch', async () 
 
 	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, false);
-	assert.match(result.error ?? '', /not green before refactoring/);
-	assert.equal(invocations.length, 0, 'no agent was spawned against a red baseline');
+	expect(result.ok).toBe(false);
+	expect(result.error ?? '').toMatch(/not green before refactoring/);
+	// no agent was spawned against a red baseline
+	expect(invocations.length).toBe(0);
 });
 
 test('refactor: an empty work-list completes as a verdict, spawning nothing', async () => {
@@ -144,9 +145,9 @@ test('refactor: an empty work-list completes as a verdict, spawning nothing', as
 
 	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, true, result.error);
-	assert.equal(invocations.length, 0);
-	assert.equal(result.manifest.status, 'passed');
+	expect(result.ok).toBe(true);
+	expect(invocations.length).toBe(0);
+	expect(result.manifest.status).toBe('passed');
 });
 
 test('refactor: a rate limit parks the run; resume finishes it', async () => {
@@ -172,15 +173,16 @@ test('refactor: a rate limit parks the run; resume finishes it', async () => {
 	const config = await loadConfig({ cwd: dir });
 	const parked = await runRefactorPipeline({ cwd: dir, driver: parkThenFix, config });
 
-	assert.equal(parked.ok, false);
-	assert.equal(parked.manifest.status, 'paused-rate-limit');
+	expect(parked.ok).toBe(false);
+	expect(parked.manifest.status).toBe('paused-rate-limit');
 
 	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
 	const resumed = await runRefactorPipeline({ cwd: dir, driver: parkThenFix, config, existing });
 
-	assert.equal(resumed.ok, true, resumed.error);
-	assert.equal(resumed.manifest.runId, parked.manifest.runId, 'resume continues the same run');
-	assert.equal(resumed.after['structure'] ?? 0, 0);
+	expect(resumed.ok).toBe(true);
+	// resume continues the same run
+	expect(resumed.manifest.runId).toBe(parked.manifest.runId);
+	expect(resumed.after['structure'] ?? 0).toBe(0);
 });
 
 test('refactor: --max-batches parks resumable at the budget ceiling', async () => {
@@ -195,13 +197,14 @@ test('refactor: --max-batches parks resumable at the budget ceiling', async () =
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }), maxBatches: 1 });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'paused-budget');
-	assert.match(result.error ?? '', /--max-batches 1/);
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('paused-budget');
+	expect(result.error ?? '').toMatch(/--max-batches 1/);
 
 	const passedBatches = result.manifest.steps.filter((step) => step.id.startsWith('batch-') && step.status === 'passed');
 
-	assert.equal(passedBatches.length, 1, 'exactly one batch ran before the ceiling');
+	// exactly one batch ran before the ceiling
+	expect(passedBatches.length).toBe(1);
 });
 
 test('refactor: declines recorded before a park survive the resume (report, streak, and all)', async () => {
@@ -238,16 +241,18 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 	const config = await loadConfig({ cwd: dir });
 	const parked = await runRefactorPipeline({ cwd: dir, driver, config });
 
-	assert.equal(parked.manifest.status, 'paused-rate-limit');
-	assert.equal(parked.declined.length, 1, 'alpha declined before the park');
+	expect(parked.manifest.status).toBe('paused-rate-limit');
+	// alpha declined before the park
+	expect(parked.declined.length).toBe(1);
 
 	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
 	const resumed = await runRefactorPipeline({ cwd: dir, driver, config, existing });
 
-	assert.equal(resumed.ok, true, resumed.error);
-	assert.equal(resumed.declined.length, 1, "the pre-park decline survives the resume — it is the run's deliverable");
-	assert.ok(resumed.declined[0]?.batchId.includes('alpha'));
-	assert.ok(resumed.declined[0]?.rationale[0]?.includes('alpha left as-is'));
+	expect(resumed.ok).toBe(true);
+	// the pre-park decline survives the resume — it is the run's deliverable
+	expect(resumed.declined.length).toBe(1);
+	expect(resumed.declined[0]?.batchId.includes('alpha')).toBeTruthy();
+	expect(resumed.declined[0]?.rationale[0]?.includes('alpha left as-is')).toBeTruthy();
 });
 
 test('refactor: an implement-pipeline manifest is refused with a pointer to the right command', async () => {
@@ -268,10 +273,7 @@ test('refactor: an implement-pipeline manifest is refused with a pointer to the 
 		baselineDirtyFiles: [],
 	});
 
-	await assert.rejects(
-		runRefactorPipeline({ cwd: dir, driver: decliningDriver, config, existing: implementManifest }),
-		/belongs to the implement pipeline/,
-	);
+	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config, existing: implementManifest })).rejects.toThrow(/belongs to the implement pipeline/);
 });
 
 test('refactor: terminated:scope is a decline that continues, not a run-ending escalation', async () => {
@@ -300,10 +302,14 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 
 	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, true, `a scope refusal must not end the run: ${result.error}`);
-	assert.equal(result.declined.length, 1, 'the scope refusal is recorded as a decline');
-	assert.ok(result.declined[0]?.rationale.some((line) => line.includes('cannot be resolved in scope')), 'the refusal reason rides the decline');
-	assert.equal(result.after['structure'] ?? 0, 1, 'the other batch still ran and resolved');
+	// a scope refusal must not end the run: ${result.error}
+	expect(result.ok).toBe(true);
+	// the scope refusal is recorded as a decline
+	expect(result.declined.length).toBe(1);
+	// the refusal reason rides the decline
+	expect(result.declined[0]?.rationale.some((line) => line.includes('cannot be resolved in scope'))).toBeTruthy();
+	// the other batch still ran and resolved
+	expect(result.after['structure'] ?? 0).toBe(1);
 });
 
 test('refactor: an invocation failure whose work is verifiably done is salvaged as resolved', async () => {
@@ -326,12 +332,15 @@ test('refactor: an invocation failure whose work is verifiably done is salvaged 
 
 	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, true, `verified work must be salvaged, not failed: ${result.error}`);
-	assert.equal(result.after['structure'] ?? 0, 0, 'the finding is gone');
+	// verified work must be salvaged, not failed: ${result.error}
+	expect(result.ok).toBe(true);
+	// the finding is gone
+	expect(result.after['structure'] ?? 0).toBe(0);
 
 	const batch = result.manifest.steps.find((step) => step.id.startsWith('batch-'));
 
-	assert.ok(JSON.stringify(batch?.report).includes('salvaged'), 'the salvage is recorded honestly on the step');
+	// the salvage is recorded honestly on the step
+	expect(JSON.stringify(batch?.report).includes('salvaged')).toBeTruthy();
 });
 
 test('refactor: advisories are recomputed at batch time, not served stale from the frozen worklist', async () => {
@@ -369,7 +378,7 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 	const config = await loadConfig({ cwd: dir });
 	const parked = await runRefactorPipeline({ cwd: dir, driver, config });
 
-	assert.equal(parked.manifest.status, 'paused-rate-limit');
+	expect(parked.manifest.status).toBe('paused-rate-limit');
 
 	// Between park and resume, the advisory's location shifts — the frozen
 	// worklist now cites stale lines.
@@ -378,8 +387,11 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
 	const resumed = await runRefactorPipeline({ cwd: dir, driver, config, existing });
 
-	assert.equal(resumed.ok, true, resumed.error);
-	assert.ok(prompts[0]?.includes('alpha/multi.ts:12'), `the advisory in the prompt cites the LIVE line (12), not the frozen one (2) — got:\n${prompts[0]?.split('\n').filter((line) => line.includes('[size]')).join('\n')}`);
+	expect(resumed.ok).toBe(true);
+	// the advisory in the prompt cites the LIVE line (12), not the frozen one (2)
+	// — got:\n${prompts[0]?.split('\n').filter((line) =>
+	// line.includes('[size]')).join('\n')}
+	expect(prompts[0]?.includes('alpha/multi.ts:12')).toBeTruthy();
 });
 
 // v1.2 — supervisor consult on the red-gate exception path. The fixture's
@@ -443,17 +455,22 @@ test('refactor: supervisor guidance rescues a red-gated batch', async () => {
 
 	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, true, `the guided retry must rescue the batch: ${result.error}`);
-	assert.equal(result.after['structure'] ?? 0, 0, 'the finding burned down');
+	// the guided retry must rescue the batch: ${result.error}
+	expect(result.ok).toBe(true);
+	// the finding burned down
+	expect(result.after['structure'] ?? 0).toBe(0);
 
 	const guided = prompts.find((prompt) => prompt.includes('# Supervisor guidance'));
 
-	assert.ok(guided?.includes('broken.flag trips the check gate'), 'the diagnosis rides the guided retry');
-	assert.ok(guided?.includes('delete broken.flag'), 'the guidance rides the guided retry');
+	// the diagnosis rides the guided retry
+	expect(guided?.includes('broken.flag trips the check gate')).toBeTruthy();
+	// the guidance rides the guided retry
+	expect(guided?.includes('delete broken.flag')).toBeTruthy();
 
 	const ledger = readFileSync(join(dir, '.lightsout/runs', result.manifest.runId, 'agents.jsonl'), 'utf8');
 
-	assert.ok(ledger.includes(':supervisor'), 'the consult is on the usage ledger');
+	// the consult is on the usage ledger
+	expect(ledger.includes(':supervisor')).toBeTruthy();
 });
 
 test('refactor: a supervisor escalate verdict ends the run with the diagnosis attached', async () => {
@@ -472,9 +489,10 @@ test('refactor: a supervisor escalate verdict ends the run with the diagnosis at
 
 	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'escalated');
-	assert.match(result.error ?? '', /a human must rule on/, 'the diagnosis is the escalation evidence');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('escalated');
+	// the diagnosis is the escalation evidence
+	expect(result.error ?? '').toMatch(/a human must rule on/);
 });
 
 test('refactor: a rate-limited supervisor parks the run, not fails it', async () => {
@@ -490,6 +508,7 @@ test('refactor: a rate-limited supervisor parks the run, not fails it', async ()
 
 	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'paused-rate-limit', 'rate-limit exhaustion is a pausable state, never an error');
+	expect(result.ok).toBe(false);
+	// rate-limit exhaustion is a pausable state, never an error
+	expect(result.manifest.status).toBe('paused-rate-limit');
 });

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { DecisionsRecord } from '@/contracts';
 
 /** One authored Decision-Log row, as the session writes it into decisions.json. */
@@ -31,7 +30,7 @@ describe('DecisionsRecord', () => {
 
 		const parsed = DecisionsRecord.parse(record);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			planName: 'grill-me',
 			decisions: [
 				{
@@ -59,7 +58,9 @@ describe('DecisionsRecord', () => {
 
 		const parsed = DecisionsRecord.parse(record);
 
-		assert.deepEqual(parsed.decisions, [], 'a record with no rows yet is authored, not corrupt — the default keeps every downstream join array-safe');
+		// a record with no rows yet is authored, not corrupt — the default keeps every
+		// downstream join array-safe
+		expect(parsed.decisions).toStrictEqual([]);
 	});
 
 	test('a row omitting assumption gets the false default through the record', () => {
@@ -77,7 +78,9 @@ describe('DecisionsRecord', () => {
 
 		const parsed = DecisionsRecord.parse(record);
 
-		assert.equal(parsed.decisions[0]?.assumption, false, 'the row contract applies inside the record, so plan draft always reads a boolean flag');
+		// the row contract applies inside the record, so plan draft always reads a
+		// boolean flag
+		expect(parsed.decisions[0]?.assumption).toBe(false);
 	});
 
 	test('rejects a record missing its plan name', () => {
@@ -85,7 +88,8 @@ describe('DecisionsRecord', () => {
 
 		const result = DecisionsRecord.safeParse(record);
 
-		assert.equal(result.success, false, 'planName keys the plan workspace the draft is written into');
+		// planName keys the plan workspace the draft is written into
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a non-string plan name', () => {
@@ -93,7 +97,8 @@ describe('DecisionsRecord', () => {
 
 		const result = DecisionsRecord.safeParse(record);
 
-		assert.equal(result.success, false, 'the name is the kebab workspace key, not a number');
+		// the name is the kebab workspace key, not a number
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects decisions that is a bare row rather than a list of rows', () => {
@@ -101,7 +106,8 @@ describe('DecisionsRecord', () => {
 
 		const result = DecisionsRecord.safeParse(record);
 
-		assert.equal(result.success, false, 'a single object is a malformed record, not a one-entry log');
+		// a single object is a malformed record, not a one-entry log
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a record whose row violates the row contract', () => {
@@ -110,7 +116,9 @@ describe('DecisionsRecord', () => {
 
 			const result = DecisionsRecord.safeParse(record);
 
-			assert.equal(result.success, false, 'a malformed row fails the whole record — drafting from decisions that were never authored would silently produce a bad plan');
+			// a malformed row fails the whole record — drafting from decisions that were
+			// never authored would silently produce a bad plan
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -119,6 +127,8 @@ describe('DecisionsRecord', () => {
 
 		const parsed = DecisionsRecord.parse(record);
 
-		assert.deepEqual(Object.keys(parsed).sort(), ['decisions', 'planName'], 'decisions.json holds the two fields the contract declares, whatever else the session wrote beside them');
+		// decisions.json holds the two fields the contract declares, whatever else the
+		// session wrote beside them
+		expect(Object.keys(parsed).sort()).toStrictEqual(['decisions', 'planName']);
 	});
 });

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { buildReportReemitterInvocation } from '@/agents';
 
 const setupReemitter = ({
@@ -12,7 +11,8 @@ test('buildReportReemitterInvocation: the user prompt leads with the re-emitter 
 
 	const { prompt } = buildReportReemitterInvocation(params);
 
-	assert.ok(prompt.startsWith('# Re-emit your report'), 'the recovery instructions lead the user prompt');
+	// the recovery instructions lead the user prompt
+	expect(prompt.startsWith('# Re-emit your report')).toBeTruthy();
 });
 
 test('buildReportReemitterInvocation: the validation error and the rejected message follow, each under its heading, in that order', () => {
@@ -20,13 +20,12 @@ test('buildReportReemitterInvocation: the validation error and the rejected mess
 
 	const { prompt } = buildReportReemitterInvocation(params);
 
-	assert.ok(
-		prompt.includes(
-			`# Validation error\n\n${params.validationError}\n\n# Your previous final message\n\n${params.rejectedText}`,
-		),
-		'the error the agent must fix comes before the message it must fix',
-	);
-	assert.ok(prompt.endsWith(params.rejectedText), 'the rejected message closes the prompt');
+	// the error the agent must fix comes before the message it must fix
+	expect(prompt.includes(
+		`# Validation error\n\n${params.validationError}\n\n# Your previous final message\n\n${params.rejectedText}`,
+	)).toBeTruthy();
+	// the rejected message closes the prompt
+	expect(prompt.endsWith(params.rejectedText)).toBeTruthy();
 });
 
 test('buildReportReemitterInvocation: only a user prompt is supplied — the role invocation keeps its own system prompt', () => {
@@ -34,7 +33,9 @@ test('buildReportReemitterInvocation: only a user prompt is supplied — the rol
 
 	const invocation = buildReportReemitterInvocation(params);
 
-	assert.deepEqual(Object.keys(invocation), ['prompt'], 'no system prompt is built; the caller reuses the role prompt that carries the contract');
+	// no system prompt is built; the caller reuses the role prompt that carries
+	// the contract
+	expect(Object.keys(invocation)).toStrictEqual(['prompt']);
 });
 
 test('buildReportReemitterInvocation: the rejected message passes through verbatim, fences and headings intact', () => {
@@ -44,7 +45,8 @@ test('buildReportReemitterInvocation: the rejected message passes through verbat
 
 	const { prompt } = buildReportReemitterInvocation(params);
 
-	assert.ok(prompt.includes(params.rejectedText), 'nothing in the rejected text is escaped, trimmed, or truncated');
+	// nothing in the rejected text is escaped, trimmed, or truncated
+	expect(prompt.includes(params.rejectedText)).toBeTruthy();
 });
 
 test('buildReportReemitterInvocation: a multi-line validation error keeps every line', () => {
@@ -54,10 +56,8 @@ test('buildReportReemitterInvocation: a multi-line validation error keeps every 
 
 	const { prompt } = buildReportReemitterInvocation(params);
 
-	assert.ok(
-		prompt.includes('# Validation error\n\nstatus: Invalid enum value. Expected "complete" | "failed"\nchangedFiles: Required\n\n# Your previous final message'),
-		'every zod issue reaches the agent, one per line',
-	);
+	// every zod issue reaches the agent, one per line
+	expect(prompt.includes('# Validation error\n\nstatus: Invalid enum value. Expected "complete" | "failed"\nchangedFiles: Required\n\n# Your previous final message')).toBeTruthy();
 });
 
 test('buildReportReemitterInvocation: both headings survive empty inputs', () => {
@@ -65,5 +65,6 @@ test('buildReportReemitterInvocation: both headings survive empty inputs', () =>
 
 	const { prompt } = buildReportReemitterInvocation(params);
 
-	assert.ok(prompt.endsWith('# Validation error\n\n\n\n# Your previous final message\n\n'), 'an empty error or message leaves its heading in place');
+	// an empty error or message leaves its heading in place
+	expect(prompt.endsWith('# Validation error\n\n\n\n# Your previous final message\n\n')).toBeTruthy();
 });

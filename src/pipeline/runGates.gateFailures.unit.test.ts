@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { GateResult } from '@/contracts';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runGates } from '@/pipeline';
@@ -24,8 +23,8 @@ test('the build gate runs last in the root set, after check and the test run', a
 
 	const error = await runGates({ cwd: dir, config });
 
-	assert.equal(error, undefined);
-	assert.deepEqual(readGateLog({ dir }), ['root check', 'root testUnit', 'root build']);
+	expect(error).toBe(undefined);
+	expect(readGateLog({ dir })).toStrictEqual(['root check', 'root testUnit', 'root build']);
 });
 
 test('a red build fails the set with its exit code and output', async () => {
@@ -34,8 +33,8 @@ test('a red build fails the set with its exit code and output', async () => {
 
 	const error = await runGates({ cwd: dir, config });
 
-	assert.match(error ?? '', /build failed \(exit 3\)/);
-	assert.match(error ?? '', /compiler said no/);
+	expect(error ?? '').toMatch(/build failed \(exit 3\)/);
+	expect(error ?? '').toMatch(/compiler said no/);
 });
 
 test('a red generate short-circuits the gate set — no gate runs behind broken codegen', async () => {
@@ -49,9 +48,10 @@ test('a red generate short-circuits the gate set — no gate runs behind broken 
 
 	const error = await runGates({ cwd: dir, config });
 
-	assert.match(error ?? '', /generate failed \(exit 2\)/);
-	assert.match(error ?? '', /codegen broke/);
-	assert.deepEqual(readGateLog({ dir }), [], 'no gate ran after the red generate');
+	expect(error ?? '').toMatch(/generate failed \(exit 2\)/);
+	expect(error ?? '').toMatch(/codegen broke/);
+	// no gate ran after the red generate
+	expect(readGateLog({ dir })).toStrictEqual([]);
 });
 
 test('a gate that cannot spawn is a red gate, not a crash — and is never re-run', async () => {
@@ -61,13 +61,15 @@ test('a gate that cannot spawn is a red gate, not a crash — and is never re-ru
 
 	const error = await runGates({ cwd: join(dir, 'no-such-dir'), config, onGateResult: (result) => results.push(result) });
 
-	assert.match(error ?? '', /check failed \(exit -1\)/);
-	assert.match(error ?? '', /ENOENT/);
+	expect(error ?? '').toMatch(/check failed \(exit -1\)/);
+	expect(error ?? '').toMatch(/ENOENT/);
 
 	const checks = results.filter((result) => result.kind === 'check');
 
-	assert.equal(checks.length, 1, 'a synthetic -1 buys no flake re-run');
-	assert.equal(checks[0]?.exitCode, -1);
-	assert.equal(checks[0]?.rerun, undefined);
-	assert.match(checks[0]?.outputTail ?? '', /ENOENT/, 'the spawn error is the red gate’s evidence');
+	// a synthetic -1 buys no flake re-run
+	expect(checks.length).toBe(1);
+	expect(checks[0]?.exitCode).toBe(-1);
+	expect(checks[0]?.rerun).toBe(undefined);
+	// the spawn error is the red gate’s evidence
+	expect(checks[0]?.outputTail ?? '').toMatch(/ENOENT/);
 });

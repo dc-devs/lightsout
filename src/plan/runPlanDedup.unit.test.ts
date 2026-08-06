@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
+import { expect, test } from '@jest/globals';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
 import { DedupReport, Effort, Permissions } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPlanDedup } from '@/plan';
+import { expectStatus } from '@tests/helpers/expectStatus';
 
 /** A temp repo with the given existing source files and a single-file plan at <plansDir>/<name>.md. */
 const setup = ({ existing, creates, name = 'p' }: { existing: string[]; creates: string[]; name?: string }) => {
@@ -35,8 +35,10 @@ const judgeDriver = (verdicts: unknown[], calls: { count: number }): Driver => (
 	invoke: async ({ prompt }) => {
 		calls.count += 1;
 
-		assert.ok(prompt.includes('# Dedup input'), 'dedup invocation marker present');
-		assert.ok(prompt.includes('## Detected name collisions'), 'detected-collisions section present');
+		// dedup invocation marker present
+		expect(prompt.includes('# Dedup input')).toBeTruthy();
+		// detected-collisions section present
+		expect(prompt.includes('## Detected name collisions')).toBeTruthy();
 
 		return { text: JSON.stringify({ verdicts }), exitCode: 0 };
 	},
@@ -58,18 +60,20 @@ test('plan dedup: a confirmed duplicate becomes a DedupFinding', async () => {
 	const verdict = { plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' };
 	const result = await runPlanDedup({ cwd, driver: judgeDriver([verdict], calls), name, plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('dedup' in result);
-	assert.equal(calls.count, 1, 'the judge was invoked once');
-	assert.equal(result.dedup.findings.length, 1);
-	assert.equal(result.dedup.findings[0]?.plannedSymbol, 'getUser');
-	assert.equal(result.dedup.findings[0]?.recommendation, 'reuse');
-	assert.ok(result.dedup.findings[0]?.collidesWith.some((collision) => collision.name === 'fetchUser'));
+	expectStatus(result, 'complete');
+	expect('dedup' in result).toBeTruthy();
+	// the judge was invoked once
+	expect(calls.count).toBe(1);
+	expect(result.dedup.findings.length).toBe(1);
+	expect(result.dedup.findings[0]?.plannedSymbol).toBe('getUser');
+	expect(result.dedup.findings[0]?.recommendation).toBe('reuse');
+	expect(result.dedup.findings[0]?.collidesWith.some((collision) => collision.name === 'fetchUser')).toBeTruthy();
 
 	const dedupPath = join(cwd, '.lightsout', 'plans', name, 'dedup.json');
 
-	assert.ok(existsSync(dedupPath), 'dedup.json written');
-	assert.doesNotThrow(() => DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8'))));
+	// dedup.json written
+	expect(existsSync(dedupPath)).toBeTruthy();
+	expect(() => DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')))).not.toThrow();
 });
 
 test('plan dedup: an isDuplicate:false verdict is dropped', async () => {
@@ -78,41 +82,49 @@ test('plan dedup: an isDuplicate:false verdict is dropped', async () => {
 	const verdict = { plannedSymbol: 'getUser', isDuplicate: false, recommendation: 'distinct', rationale: 'different concept' };
 	const result = await runPlanDedup({ cwd, driver: judgeDriver([verdict], calls), name, plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('dedup' in result);
-	assert.equal(calls.count, 1);
-	assert.deepEqual(result.dedup.findings, []);
+	expectStatus(result, 'complete');
+	expect('dedup' in result).toBeTruthy();
+	expect(calls.count).toBe(1);
+	expect(result.dedup.findings).toStrictEqual([]);
 });
 
 test('plan dedup: no candidates → empty report and no agent call', async () => {
 	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/brandNewWidget.ts'] });
 	const failIfCalled: Driver = {
 		name: 'stub',
-		invoke: async () => assert.fail('the judge must not be invoked when there are no candidates'),
+		invoke: async () => {
+			throw new Error('the judge must not be invoked when there are no candidates');
+		},
 	};
 	const result = await runPlanDedup({ cwd, driver: failIfCalled, name, plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.ok('dedup' in result);
-	assert.deepEqual(result.dedup.findings, []);
+	expectStatus(result, 'complete');
+	expect('dedup' in result).toBeTruthy();
+	expect(result.dedup.findings).toStrictEqual([]);
 
 	const dedupPath = join(cwd, '.lightsout', 'plans', name, 'dedup.json');
 
-	assert.ok(existsSync(dedupPath), 'dedup.json still written on the no-op path');
+	// dedup.json still written on the no-op path
+	expect(existsSync(dedupPath)).toBeTruthy();
 });
 
 test('plan dedup: a missing deliverable fails with the plan workspace already created', async () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-dedup-missing-'));
 	const failIfCalled: Driver = {
 		name: 'stub',
-		invoke: async () => assert.fail('the judge must not be invoked when the deliverable does not resolve'),
+		invoke: async () => {
+			throw new Error('the judge must not be invoked when the deliverable does not resolve');
+		},
 	};
 	const result = await runPlanDedup({ cwd, driver: failIfCalled, name: 'ghost', plansDir: join(cwd, '.claude', 'plans') });
 
-	assert.equal(result.status, 'failed');
-	assert.ok('error' in result && /no plan found for 'ghost'/.test(result.error), 'the resolve error propagates');
-	assert.equal(result.workspaceDir, join(cwd, '.lightsout', 'plans', 'ghost'));
-	assert.ok(existsSync(result.workspaceDir), 'the workspace is created before the resolve, so a failure still has somewhere to report from');
+	expectStatus(result, 'failed');
+	// the resolve error propagates
+	expect('error' in result && /no plan found for 'ghost'/.test(result.error)).toBeTruthy();
+	expect(result.workspaceDir).toBe(join(cwd, '.lightsout', 'plans', 'ghost'));
+	// the workspace is created before the resolve, so a failure still has
+	// somewhere to report from
+	expect(existsSync(result.workspaceDir)).toBeTruthy();
 });
 
 test('plan dedup: the resolved model, effort and permissions reach the harness', async () => {
@@ -128,11 +140,8 @@ test('plan dedup: the resolved model, effort and permissions reach the harness',
 		permissions: Permissions.FullAccess,
 	});
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'full-access' }],
-	);
+	expectStatus(result, 'complete');
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'full-access' }]);
 });
 
 test('plan dedup: an unset effort or permissions is forwarded absent — this role invents no default', async () => {
@@ -140,23 +149,23 @@ test('plan dedup: an unset effort or permissions is forwarded absent — this ro
 	const invocations: DriverInvocation[] = [];
 	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations), name, plansDir });
 
-	assert.equal(result.status, 'complete', 'error' in result ? result.error : undefined);
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[{ model: undefined, effort: undefined, permissions: undefined }],
-	);
+	expectStatus(result, 'complete');
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
 });
 
 test('plan dedup: no deliverable on disk fails before any detection or judging', async () => {
 	const { cwd, plansDir } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const failIfCalled: Driver = {
 		name: 'stub',
-		invoke: async () => assert.fail('the judge must not be invoked when the plan cannot be resolved'),
+		invoke: async () => {
+			throw new Error('the judge must not be invoked when the plan cannot be resolved');
+		},
 	};
 	const result = await runPlanDedup({ cwd, driver: failIfCalled, name: 'ghost', plansDir });
 
-	assert.equal(result.status, 'failed');
-	assert.ok('error' in result && /no plan found for 'ghost'/.test(result.error ?? ''), `the resolve error propagates, got: ${result.error}`);
+	expectStatus(result, 'failed');
+	// the resolve error propagates, got: ${result.error}
+	expect('error' in result && /no plan found for 'ghost'/.test(result.error ?? '')).toBeTruthy();
 });
 
 test('plan dedup: a rate-limited judge parks the run and writes no report', async () => {
@@ -172,10 +181,13 @@ test('plan dedup: a rate-limited judge parks the run and writes no report', asyn
 	};
 	const result = await runPlanDedup({ cwd, driver, name, plansDir });
 
-	assert.equal(result.status, 'paused-rate-limit');
-	assert.equal(calls, 1, 'a rate limit buys no re-emit retry');
-	assert.ok('error' in result && (result.error ?? '').includes(`lightsout plan dedup --name ${name}`), `the error carries the re-run command, got: ${result.error}`);
-	assert.ok(!existsSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json')), 'a parked run leaves no findings behind');
+	expectStatus(result, 'paused-rate-limit');
+	// a rate limit buys no re-emit retry
+	expect(calls).toBe(1);
+	// the error carries the re-run command, got: ${result.error}
+	expect('error' in result && (result.error ?? '').includes(`lightsout plan dedup --name ${name}`)).toBeTruthy();
+	// a parked run leaves no findings behind
+	expect(existsSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json'))).toBeFalsy();
 });
 
 test('plan dedup: a judge whose output never satisfies the contract fails and writes no report', async () => {
@@ -191,8 +203,11 @@ test('plan dedup: a judge whose output never satisfies the contract fails and wr
 	};
 	const result = await runPlanDedup({ cwd, driver, name, plansDir });
 
-	assert.equal(result.status, 'failed');
-	assert.equal(calls, 2, 'the rejected report bought exactly one re-emit retry');
-	assert.ok('error' in result && /dedup judge failed/.test(result.error ?? ''), `the failure names the judging step, got: ${result.error}`);
-	assert.ok(!existsSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json')), 'no report is written for a failed judgment');
+	expectStatus(result, 'failed');
+	// the rejected report bought exactly one re-emit retry
+	expect(calls).toBe(2);
+	// the failure names the judging step, got: ${result.error}
+	expect('error' in result && /dedup judge failed/.test(result.error ?? '')).toBeTruthy();
+	// no report is written for a failed judgment
+	expect(existsSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json'))).toBeFalsy();
 });

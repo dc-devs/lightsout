@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { AgentUsage } from '@/contracts';
 
 /** Every field a different number, so a mix-up between two of them shows. */
@@ -26,7 +25,7 @@ describe('AgentUsage', () => {
 
 		const parsed = AgentUsage.parse(usage);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			inputTokens: 10,
 			outputTokens: 100,
 			cacheReadTokens: 880,
@@ -39,14 +38,18 @@ describe('AgentUsage', () => {
 		for (const field of ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheCreationTokens', 'costUsd']) {
 			const { usage } = setupUsage({ omit: field });
 
-			assert.equal(AgentUsage.safeParse(usage).success, false, `a partial envelope is refused whole rather than recorded with ${field} silently zeroed — the engine records what it can prove and never estimates`);
+			// a partial envelope is refused whole rather than recorded with ${field}
+			// silently zeroed — the engine records what it can prove and never estimates
+			expect(AgentUsage.safeParse(usage).success).toBe(false);
 		}
 	});
 
 	test('a numeric string is refused rather than coerced', () => {
 		const { usage } = setupUsage({ extra: { inputTokens: '10' } });
 
-		assert.equal(AgentUsage.safeParse(usage).success, false, 'a harness reporting a string count is a driver bug, not a value to silently convert');
+		// a harness reporting a string count is a driver bug, not a value to silently
+		// convert
+		expect(AgentUsage.safeParse(usage).success).toBe(false);
 	});
 
 	test('extra keys a harness envelope carries are stripped from the normalized record', () => {
@@ -54,8 +57,10 @@ describe('AgentUsage', () => {
 
 		const parsed = AgentUsage.parse(usage);
 
-		assert.equal('serviceTier' in parsed, false, 'the schema normalizes to the fields the engine records — harness-specific extras never reach the ledger');
-		assert.equal('webSearchRequests' in parsed, false);
+		// the schema normalizes to the fields the engine records — harness-specific
+		// extras never reach the ledger
+		expect('serviceTier' in parsed).toBe(false);
+		expect('webSearchRequests' in parsed).toBe(false);
 	});
 
 	test('zero counters and a fractional cost parse — a free, cache-only invocation is a real reading', () => {
@@ -65,7 +70,10 @@ describe('AgentUsage', () => {
 
 		const parsed = AgentUsage.parse(usage);
 
-		assert.equal(parsed.inputTokens, 0, 'zero is a reported reading, distinct from an omitted field');
-		assert.equal(parsed.costUsd, 0.000125, 'cost keeps its fractional precision — it is summed across every invocation of a run');
+		// zero is a reported reading, distinct from an omitted field
+		expect(parsed.inputTokens).toBe(0);
+		// cost keeps its fractional precision — it is summed across every invocation
+		// of a run
+		expect(parsed.costUsd).toBe(0.000125);
 	});
 });

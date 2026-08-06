@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { listSourceFiles } from '@/common/utils/listSourceFiles';
 
 const setupRepo = (files: string[]) => {
@@ -31,7 +30,7 @@ test('listSourceFiles: every JS/TS flavor is listed repo-relative and sorted, wi
 
 	const files = await listSourceFiles({ cwd });
 
-	assert.deepEqual(files, [
+	expect(files).toStrictEqual([
 		'src/a/first.ts',
 		'src/a/first.unit.test.ts',
 		'src/b/second.tsx',
@@ -62,7 +61,7 @@ test('listSourceFiles: dot entries, dependency and build dirs, declaration files
 
 	const files = await listSourceFiles({ cwd });
 
-	assert.deepEqual(files, ['src/keep.ts']);
+	expect(files).toStrictEqual(['src/keep.ts']);
 });
 
 test('listSourceFiles: the exclude list drops matching paths, with or without a trailing slash', async () => {
@@ -70,7 +69,9 @@ test('listSourceFiles: the exclude list drops matching paths, with or without a 
 
 	const files = await listSourceFiles({ cwd, exclude: ['src/gen/', 'packages/api/generated'] });
 
-	assert.deepEqual(files, ['src/keep.ts'], 'a declared generated path is excluded whether or not the config spelled it with a trailing slash');
+	// a declared generated path is excluded whether or not the config spelled it
+	// with a trailing slash
+	expect(files).toStrictEqual(['src/keep.ts']);
 });
 
 test('listSourceFiles: an unreadable directory yields no files rather than throwing', async () => {
@@ -78,5 +79,5 @@ test('listSourceFiles: an unreadable directory yields no files rather than throw
 
 	const files = await listSourceFiles({ cwd: join(cwd, 'not-there') });
 
-	assert.deepEqual(files, []);
+	expect(files).toStrictEqual([]);
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver, DriverResult } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -50,15 +49,15 @@ test('verify: a rate limit inside a cheap fix retry parks the run before judgmen
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'paused-rate-limit');
-	assert.ok(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`), result.error);
-	assert.equal(counts['fix'], 1, 'the first rate-limited fix ends the step — the second retry is never spent');
-	assert.equal(counts['supervisor'], undefined, 'a parked run never consults the supervisor');
-	assert.equal(
-		result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts,
-		2,
-		'the park keeps the record it entered the retry with — the aborted fix advances nothing',
-	);
+	expect(result.manifest.status).toBe('paused-rate-limit');
+	expect(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`)).toBeTruthy();
+	// the first rate-limited fix ends the step — the second retry is never spent
+	expect(counts['fix']).toBe(1);
+	// a parked run never consults the supervisor
+	expect(counts['supervisor']).toBe(undefined);
+	// the park keeps the record it entered the retry with — the aborted fix
+	// advances nothing
+	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(2);
 });
 
 test('verify: a rate-limited supervisor parks the run after the cheap retries are spent', async () => {
@@ -66,10 +65,12 @@ test('verify: a rate-limited supervisor parks the run after the cheap retries ar
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'paused-rate-limit');
-	assert.ok(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`), result.error);
-	assert.equal(counts['fix'], 2, 'both mechanical retries ran before judgment was bought');
-	assert.equal(counts['supervisor'], 1, 'the supervisor was consulted exactly once');
+	expect(result.manifest.status).toBe('paused-rate-limit');
+	expect(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`)).toBeTruthy();
+	// both mechanical retries ran before judgment was bought
+	expect(counts['fix']).toBe(2);
+	// the supervisor was consulted exactly once
+	expect(counts['supervisor']).toBe(1);
 });
 
 test('verify: a retry verdict carrying no guidance escalates instead of buying a blind third fix', async () => {
@@ -79,9 +80,11 @@ test('verify: a retry verdict carrying no guidance escalates instead of buying a
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'escalated');
-	assert.equal(counts['fix'], 2, 'a retry with nothing to say buys no guided attempt');
-	assert.match(result.error ?? '', /verify-implement: still failing after retries\./);
-	assert.match(result.error ?? '', /supervisor \(retry\): DIAGNOSIS-SENTINEL/, 'the verdict is quoted with its decision');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'verify-implement')?.status, 'escalated');
+	expect(result.manifest.status).toBe('escalated');
+	// a retry with nothing to say buys no guided attempt
+	expect(counts['fix']).toBe(2);
+	expect(result.error ?? '').toMatch(/verify-implement: still failing after retries\./);
+	// the verdict is quoted with its decision
+	expect(result.error ?? '').toMatch(/supervisor \(retry\): DIAGNOSIS-SENTINEL/);
+	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.status).toBe('escalated');
 });

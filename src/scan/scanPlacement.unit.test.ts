@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { runScan } from '@/scan';
 
 const setup = (files: Record<string, string>) => {
@@ -37,16 +36,18 @@ test('scanPlacement flags a module-internal common file leaking to outside impor
 	const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 	const findings = allFindings.filter((finding) => finding.detector === 'placement');
 
-	assert.ok(
-		findings.every((finding) => finding.severity === 'finding'),
-		'every placement finding carries the finding severity',
-	);
-	assert.deepEqual(findings.map((finding) => finding.cluster).sort(), ['placement:src/pay/common/utils/round.ts'], 'only the leaked module-internal common file');
+	// every placement finding carries the finding severity
+	expect(findings.every((finding) => finding.severity === 'finding')).toBeTruthy();
+	// only the leaked module-internal common file
+	expect(findings.map((finding) => finding.cluster).sort()).toStrictEqual(['placement:src/pay/common/utils/round.ts']);
 
 	const leak = findings.find((finding) => finding.cluster === 'placement:src/pay/common/utils/round.ts');
-	assert.ok(leak?.detail.includes('src/bill/bill.ts') && leak.detail.includes('src/ledger/ledger.ts'), 'detail lists the outside consumers');
-	assert.ok(leak?.detail.includes('src/common/'), 'detail points at the lowest common ancestor common/');
-	assert.ok(!leak?.detail.includes('src/pay/pay.ts'), 'the module using its OWN common is not a consumer');
+	// detail lists the outside consumers
+	expect(leak?.detail.includes('src/bill/bill.ts') && leak.detail.includes('src/ledger/ledger.ts')).toBeTruthy();
+	// detail points at the lowest common ancestor common/
+	expect(leak?.detail.includes('src/common/')).toBeTruthy();
+	// the module using its OWN common is not a consumer
+	expect(leak?.detail.includes('src/pay/pay.ts')).toBeFalsy();
 });
 
 test('a leak whose owner and consumer share no ancestor promotes to the repo root common/', async () => {
@@ -63,6 +64,8 @@ test('a leak whose owner and consumer share no ancestor promotes to the repo roo
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
 	const leak = findings.find((finding) => finding.cluster === 'placement:pay/common/utils/round.ts');
-	assert.ok(leak?.detail.includes('billing/bill.ts'), `the outside consumer is named:\n${JSON.stringify(findings, undefined, 1)}`);
-	assert.ok(leak?.detail.includes('(/common/)'), `no shared ancestor puts the promotion target at the root: ${leak?.detail}`);
+	// the outside consumer is named:\n${JSON.stringify(findings, undefined, 1)}
+	expect(leak?.detail.includes('billing/bill.ts')).toBeTruthy();
+	// no shared ancestor puts the promotion target at the root: ${leak?.detail}
+	expect(leak?.detail.includes('(/common/)')).toBeTruthy();
 });

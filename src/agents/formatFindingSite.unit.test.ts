@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { ScanFinding } from '@/contracts';
 import { formatFindingSite } from '@/agents';
 
@@ -21,7 +20,7 @@ describe('formatFindingSite', () => {
 
 		const site = formatFindingSite({ file });
 
-		assert.equal(site, 'src/widget/widget.ts');
+		expect(site).toBe('src/widget/widget.ts');
 	});
 
 	test('appends the start line when the finding names a single line', () => {
@@ -29,7 +28,7 @@ describe('formatFindingSite', () => {
 
 		const site = formatFindingSite({ file });
 
-		assert.equal(site, 'src/widget/widget.ts:12');
+		expect(site).toBe('src/widget/widget.ts:12');
 	});
 
 	test('renders a span when the finding covers a range of lines', () => {
@@ -37,7 +36,7 @@ describe('formatFindingSite', () => {
 
 		const site = formatFindingSite({ file });
 
-		assert.equal(site, 'src/widget/widget.ts:12-40');
+		expect(site).toBe('src/widget/widget.ts:12-40');
 	});
 
 	test('collapses a one-line span to a single line number', () => {
@@ -45,7 +44,7 @@ describe('formatFindingSite', () => {
 
 		const site = formatFindingSite({ file });
 
-		assert.equal(site, 'src/widget/widget.ts:12');
+		expect(site).toBe('src/widget/widget.ts:12');
 	});
 
 	test('ignores an end line that arrives without a start line', () => {
@@ -53,6 +52,6 @@ describe('formatFindingSite', () => {
 
 		const site = formatFindingSite({ file });
 
-		assert.equal(site, 'src/widget/widget.ts');
+		expect(site).toBe('src/widget/widget.ts');
 	});
 });

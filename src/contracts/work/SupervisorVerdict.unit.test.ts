@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { SupervisorDecision, SupervisorVerdict } from '@/contracts';
 
 const setupVerdict = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
@@ -22,7 +21,7 @@ describe('SupervisorVerdict', () => {
 
 		const parsed = SupervisorVerdict.parse(verdict);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			decision: 'retry',
 			diagnosis: 'the gate fails because the fixture writes to a path the test never creates',
 			guidance: 'create the fixture directory before writing to it',
@@ -34,7 +33,7 @@ describe('SupervisorVerdict', () => {
 
 		const parsed = SupervisorVerdict.parse(verdict);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			decision: 'escalate',
 			diagnosis: 'the gate fails because the fixture writes to a path the test never creates',
 		});
@@ -46,7 +45,8 @@ describe('SupervisorVerdict', () => {
 
 			const parsed = SupervisorVerdict.parse(verdict);
 
-			assert.equal(parsed.decision, decision, `${decision} is one of the two outcomes the exception path branches on`);
+			// ${decision} is one of the two outcomes the exception path branches on
+			expect(parsed.decision).toBe(decision);
 		}
 	});
 
@@ -55,9 +55,13 @@ describe('SupervisorVerdict', () => {
 
 		const parsed = SupervisorVerdict.parse(verdict);
 
-		assert.equal(SupervisorDecision.Retry, 'retry', 'verifyStep and superviseBatch compare the parsed decision to this constant, so the two spellings must be the same string');
-		assert.equal(SupervisorDecision.Escalate, 'escalate', 'the escalate value is what parks the run for a human');
-		assert.equal(parsed.decision, SupervisorDecision.Escalate, 'a parsed verdict matches the constant its call sites branch on');
+		// verifyStep and superviseBatch compare the parsed decision to this constant,
+		// so the two spellings must be the same string
+		expect(SupervisorDecision.Retry).toBe('retry');
+		// the escalate value is what parks the run for a human
+		expect(SupervisorDecision.Escalate).toBe('escalate');
+		// a parsed verdict matches the constant its call sites branch on
+		expect(parsed.decision).toBe(SupervisorDecision.Escalate);
 	});
 
 	test('rejects a decision outside the two-route vocabulary', () => {
@@ -65,7 +69,9 @@ describe('SupervisorVerdict', () => {
 
 		const result = SupervisorVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'an invented route is caught at the agent boundary — the pipeline has no third branch to take');
+		// an invented route is caught at the agent boundary — the pipeline has no
+		// third branch to take
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects the capitalized decision key — the contract carries the lowercase values', () => {
@@ -73,14 +79,18 @@ describe('SupervisorVerdict', () => {
 
 		const result = SupervisorVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'the enum is built from the SupervisorDecision values, not its capitalized keys');
+		// the enum is built from the SupervisorDecision values, not its capitalized
+		// keys
+		expect(result.success).toBe(false);
 	});
 
 	test('decision and diagnosis are each required', () => {
 		for (const field of ['decision', 'diagnosis']) {
 			const { verdict } = setupVerdict({ omit: field });
 
-			assert.equal(SupervisorVerdict.safeParse(verdict).success, false, `a verdict with no ${field} is unusable — decision routes the run and diagnosis is what a parked run is judged from`);
+			// a verdict with no ${field} is unusable — decision routes the run and
+			// diagnosis is what a parked run is judged from
+			expect(SupervisorVerdict.safeParse(verdict).success).toBe(false);
 		}
 	});
 
@@ -88,7 +98,8 @@ describe('SupervisorVerdict', () => {
 		for (const extra of [{ diagnosis: 7 }, { diagnosis: ['the fixture path is missing'] }]) {
 			const { verdict } = setupVerdict({ extra });
 
-			assert.equal(SupervisorVerdict.safeParse(verdict).success, false, 'the diagnosis is printed to a human verbatim');
+			// the diagnosis is printed to a human verbatim
+			expect(SupervisorVerdict.safeParse(verdict).success).toBe(false);
 		}
 	});
 
@@ -97,7 +108,9 @@ describe('SupervisorVerdict', () => {
 
 		const result = SupervisorVerdict.safeParse(verdict);
 
-		assert.equal(result.success, false, 'guidance is injected into the retry invocation as text, so a list would reach the agent as "[object Object]"');
+		// guidance is injected into the retry invocation as text, so a list would
+		// reach the agent as "[object Object]"
+		expect(result.success).toBe(false);
 	});
 
 	test('a retry that names no guidance still parses', () => {
@@ -105,7 +118,9 @@ describe('SupervisorVerdict', () => {
 
 		const parsed = SupervisorVerdict.parse(verdict);
 
-		assert.equal(parsed.guidance, undefined, 'the call sites guard on the guidance being present, so a guidance-free retry costs an unguided retry rather than a rejected verdict and a re-emit');
+		// the call sites guard on the guidance being present, so a guidance-free retry
+		// costs an unguided retry rather than a rejected verdict and a re-emit
+		expect(parsed.guidance).toBe(undefined);
 	});
 
 	test('an empty diagnosis parses — the contract types the field, it does not grade the analysis', () => {
@@ -113,7 +128,9 @@ describe('SupervisorVerdict', () => {
 
 		const parsed = SupervisorVerdict.parse(verdict);
 
-		assert.equal(parsed.diagnosis, '', 'a thin diagnosis is a prompt problem, not a parse failure that would burn the supervisor budget again');
+		// a thin diagnosis is a prompt problem, not a parse failure that would burn
+		// the supervisor budget again
+		expect(parsed.diagnosis).toBe('');
 	});
 
 	test('keys the schema does not declare are stripped', () => {
@@ -121,14 +138,12 @@ describe('SupervisorVerdict', () => {
 
 		const parsed = SupervisorVerdict.parse(verdict);
 
-		assert.deepEqual(
-			parsed,
-			{
-				decision: 'retry',
-				diagnosis: 'the gate fails because the fixture writes to a path the test never creates',
-				guidance: 'create the fixture directory',
-			},
-			'the verdict holds the fields the contract declares, whatever else the supervisor volunteered',
-		);
+		// the verdict holds the fields the contract declares, whatever else the
+		// supervisor volunteered
+		expect(parsed).toStrictEqual({
+			decision: 'retry',
+			diagnosis: 'the gate fails because the fixture writes to a path the test never creates',
+			guidance: 'create the fixture directory',
+		});
 	});
 });

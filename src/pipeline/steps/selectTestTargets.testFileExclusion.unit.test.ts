@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -56,6 +55,7 @@ test('write-tests fan-out: files under __tests__/ are test files, never writer t
 		planPath: 'plan.md',
 	});
 
-	assert.equal(result.ok, true, result.error);
-	assert.deepEqual(writerTargets, ['src/feature.ts'], 'the __tests__/ helper must not earn a test writer');
+	expect(result.ok).toBe(true);
+	// the __tests__/ helper must not earn a test writer
+	expect(writerTargets).toStrictEqual(['src/feature.ts']);
 });

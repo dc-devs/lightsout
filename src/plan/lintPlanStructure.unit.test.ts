@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { LightsoutConfig, StructuralCheck } from '@/contracts';
 import { lintPlanStructure } from '@/plan';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -104,10 +103,8 @@ None.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some((finding) => finding.check === StructuralCheck.PathExists && finding.issue.includes('src/does-not-exist.ts')),
-		'the missing modify path is flagged',
-	);
+	// the missing modify path is flagged
+	expect(findings.some((finding) => finding.check === StructuralCheck.PathExists && finding.issue.includes('src/does-not-exist.ts'))).toBeTruthy();
 });
 
 test('lintPlanStructure: a Files to Create path that already exists is flagged', async () => {
@@ -143,10 +140,8 @@ None.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some((finding) => finding.check === StructuralCheck.PathExists && finding.issue.includes('already exists')),
-		'the create path that exists is flagged',
-	);
+	// the create path that exists is flagged
+	expect(findings.some((finding) => finding.check === StructuralCheck.PathExists && finding.issue.includes('already exists'))).toBeTruthy();
 });
 
 test('lintPlanStructure: a missing Patterns to Mirror path is flagged with its plan-relative location and fix', async () => {
@@ -180,18 +175,16 @@ None.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.PathExists),
-		[
-			{
-				check: StructuralCheck.PathExists,
-				issue: 'referenced path does not exist: src/gone.ts',
-				location: 'missing-mirror.md → src/gone.ts',
-				fix: 'correct the path or move it under Files to Create if it does not exist yet',
-			},
-		],
-		'a mirror target is stated as existing code — a missing one is the same defect as a missing modify path',
-	);
+	// a mirror target is stated as existing code — a missing one is the same
+	// defect as a missing modify path
+	expect(findings.filter((finding) => finding.check === StructuralCheck.PathExists)).toStrictEqual([
+		{
+			check: StructuralCheck.PathExists,
+			issue: 'referenced path does not exist: src/gone.ts',
+			location: 'missing-mirror.md → src/gone.ts',
+			fix: 'correct the path or move it under Files to Create if it does not exist yet',
+		},
+	]);
 });
 
 test('lintPlanStructure: a Files to Create path that exists is flagged with a location and a fix that moves it', async () => {
@@ -227,17 +220,14 @@ None.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.PathExists),
-		[
-			{
-				check: StructuralCheck.PathExists,
-				issue: 'Files to Create path already exists: src/index.js',
-				location: 'create-exists-detail.md → src/index.js',
-				fix: 'move it to Files to Modify, or choose a new path',
-			},
-		],
-	);
+	expect(findings.filter((finding) => finding.check === StructuralCheck.PathExists)).toStrictEqual([
+		{
+			check: StructuralCheck.PathExists,
+			issue: 'Files to Create path already exists: src/index.js',
+			location: 'create-exists-detail.md → src/index.js',
+			fix: 'move it to Files to Modify, or choose a new path',
+		},
+	]);
 });
 
 test('lintPlanStructure: a TBD placeholder is flagged', async () => {
@@ -273,7 +263,8 @@ None.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(findings.some((finding) => finding.check === StructuralCheck.NoPlaceholders), 'the TBD is flagged');
+	// the TBD is flagged
+	expect(findings.some((finding) => finding.check === StructuralCheck.NoPlaceholders)).toBeTruthy();
 });
 
 test('lintPlanStructure: a missing "What Next Plan Expects" section is flagged', async () => {
@@ -305,10 +296,8 @@ Change it.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some((finding) => finding.check === StructuralCheck.SectionsPresent && finding.issue.includes('What Next Plan Expects')),
-		'the missing section is flagged',
-	);
+	// the missing section is flagged
+	expect(findings.some((finding) => finding.check === StructuralCheck.SectionsPresent && finding.issue.includes('What Next Plan Expects'))).toBeTruthy();
 });
 
 test('lintPlanStructure: a missing "Global Constraints" section is flagged on an implementable plan', async () => {
@@ -344,10 +333,8 @@ None.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some((finding) => finding.check === StructuralCheck.SectionsPresent && finding.issue.includes('Global Constraints')),
-		'the missing section is flagged',
-	);
+	// the missing section is flagged
+	expect(findings.some((finding) => finding.check === StructuralCheck.SectionsPresent && finding.issue.includes('Global Constraints'))).toBeTruthy();
 });
 
 test('lintPlanStructure: a missing "Global Constraints" section is flagged on an overview plan', async () => {
@@ -375,15 +362,13 @@ An overview without the constraints section.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some(
-			(finding) =>
-				finding.check === StructuralCheck.SectionsPresent &&
-				finding.issue.includes('Global Constraints') &&
-				finding.issue.includes('overview'),
-		),
-		'the missing section is flagged on the overview variant',
-	);
+	// the missing section is flagged on the overview variant
+	expect(findings.some(
+		(finding) =>
+			finding.check === StructuralCheck.SectionsPresent &&
+			finding.issue.includes('Global Constraints') &&
+			finding.issue.includes('overview'),
+	)).toBeTruthy();
 });
 
 test('lintPlanStructure: a 60-file plan trips ScopeWithinGuardrail', async () => {
@@ -418,7 +403,8 @@ None.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(findings.some((finding) => finding.check === StructuralCheck.ScopeWithinGuardrail), 'the oversized plan is flagged');
+	// the oversized plan is flagged
+	expect(findings.some((finding) => finding.check === StructuralCheck.ScopeWithinGuardrail)).toBeTruthy();
 });
 
 test('lintPlanStructure: a clean plan returns no findings', async () => {
@@ -427,7 +413,8 @@ test('lintPlanStructure: a clean plan returns no findings', async () => {
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(findings, [], `clean plan should have no findings, got: ${JSON.stringify(findings)}`);
+	// clean plan should have no findings, got: ${JSON.stringify(findings)}
+	expect(findings).toStrictEqual([]);
 });
 
 /** The clean plan with a snippet standing in for its Context prose. */
@@ -448,7 +435,8 @@ test('lintPlanStructure: a template-literal interpolation inside a fenced block 
 		snippet: '```ts\nconst greeting = `hi ${userName}`;\n```',
 	});
 
-	assert.deepEqual(findings, [], `a fenced interpolation must not be flagged, got: ${JSON.stringify(findings)}`);
+	// a fenced interpolation must not be flagged, got: ${JSON.stringify(findings)}
+	expect(findings).toStrictEqual([]);
 });
 
 test('lintPlanStructure: a template-literal interpolation in prose is not a placeholder — the lookbehind covers it outside fences', async () => {
@@ -457,7 +445,8 @@ test('lintPlanStructure: a template-literal interpolation in prose is not a plac
 		snippet: 'The writer interpolates `hi ${userName}` into the greeting.',
 	});
 
-	assert.deepEqual(findings, [], `a prose interpolation must not be flagged, got: ${JSON.stringify(findings)}`);
+	// a prose interpolation must not be flagged, got: ${JSON.stringify(findings)}
+	expect(findings).toStrictEqual([]);
 });
 
 test('lintPlanStructure: destructuring inside a fenced block is not a placeholder', async () => {
@@ -466,25 +455,29 @@ test('lintPlanStructure: destructuring inside a fenced block is not a placeholde
 		snippet: '```tsx\nconst {userName} = props;\n\nreturn <span>{userName}</span>;\n```',
 	});
 
-	assert.deepEqual(findings, [], `fenced code braces must not be flagged, got: ${JSON.stringify(findings)}`);
+	// fenced code braces must not be flagged, got: ${JSON.stringify(findings)}
+	expect(findings).toStrictEqual([]);
 });
 
 test('lintPlanStructure: a bare brace-token in prose is still flagged', async () => {
 	const findings = await placeholderFindings({ name: 'prose-token.md', snippet: 'Resolve the {token} before writing.' });
 
-	assert.equal(findings.length, 1, `the prose brace-token is flagged, got: ${JSON.stringify(findings)}`);
+	// the prose brace-token is flagged, got: ${JSON.stringify(findings)}
+	expect(findings.length).toBe(1);
 });
 
 test('lintPlanStructure: a brace-token in an inline code span is still flagged — fences only, never spans', async () => {
 	const findings = await placeholderFindings({ name: 'span-token.md', snippet: 'Place it at `packages/{package}/src/thing.ts`.' });
 
-	assert.equal(findings.length, 1, `the inline-span brace-token is flagged, got: ${JSON.stringify(findings)}`);
+	// the inline-span brace-token is flagged, got: ${JSON.stringify(findings)}
+	expect(findings.length).toBe(1);
 });
 
 test('lintPlanStructure: a TODO inside a fenced block is still flagged — fences suppress only the brace-token', async () => {
 	const findings = await placeholderFindings({ name: 'fenced-todo.md', snippet: '```ts\n// TODO: decide later\n```' });
 
-	assert.equal(findings.length, 1, `the fenced TODO is flagged, got: ${JSON.stringify(findings)}`);
+	// the fenced TODO is flagged, got: ${JSON.stringify(findings)}
+	expect(findings.length).toBe(1);
 });
 
 test('lintPlanStructure: fence state resets per file — an unclosed fence never silences the next plan', async () => {
@@ -495,8 +488,11 @@ test('lintPlanStructure: fence state resets per file — an unclosed fence never
 	const findings = await lintPlanStructure({ cwd, planPaths: [unclosed, following] });
 	const placeholders = findings.filter((finding) => finding.check === StructuralCheck.NoPlaceholders);
 
-	assert.equal(placeholders.length, 1, `only the second plan's prose token is flagged, got: ${JSON.stringify(placeholders)}`);
-	assert.ok(placeholders[0].location.startsWith('after-fence.md:'), 'the finding is attributed to the second plan');
+	// only the second plan's prose token is flagged, got:
+	// ${JSON.stringify(placeholders)}
+	expect(placeholders.length).toBe(1);
+	// the finding is attributed to the second plan
+	expect(placeholders[0].location.startsWith('after-fence.md:')).toBeTruthy();
 });
 
 /** A minimal plan whose only lint-relevant content is one verification command. */
@@ -533,10 +529,9 @@ test('lintPlanStructure: `pnpm --filter <pkg> run <script>` resolves the script,
 	const path = writePlan({ cwd, name: 'filter-run.md', body: verificationPlan({ command: 'pnpm --filter consumer run check' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		!findings.some((finding) => finding.check === StructuralCheck.ScriptExists),
-		`existing script behind --filter … run must not be flagged, got: ${JSON.stringify(findings)}`,
-	);
+	// existing script behind --filter … run must not be flagged, got:
+	// ${JSON.stringify(findings)}
+	expect(findings.some((finding) => finding.check === StructuralCheck.ScriptExists)).toBeFalsy();
 });
 
 test('lintPlanStructure: `pnpm -F <pkg> <script>` resolves the script, not the flag', async () => {
@@ -547,10 +542,9 @@ test('lintPlanStructure: `pnpm -F <pkg> <script>` resolves the script, not the f
 	const path = writePlan({ cwd, name: 'short-filter.md', body: verificationPlan({ command: 'pnpm -F consumer check' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		!findings.some((finding) => finding.check === StructuralCheck.ScriptExists),
-		`existing script behind -F must not be flagged, got: ${JSON.stringify(findings)}`,
-	);
+	// existing script behind -F must not be flagged, got:
+	// ${JSON.stringify(findings)}
+	expect(findings.some((finding) => finding.check === StructuralCheck.ScriptExists)).toBeFalsy();
 });
 
 test('lintPlanStructure: a genuinely missing script behind --filter … run is still flagged', async () => {
@@ -561,10 +555,8 @@ test('lintPlanStructure: a genuinely missing script behind --filter … run is s
 	const path = writePlan({ cwd, name: 'filter-run-missing.md', body: verificationPlan({ command: 'pnpm --filter consumer run nope' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some((finding) => finding.check === StructuralCheck.ScriptExists && finding.issue.includes("'nope'")),
-		`missing script must be flagged by name, got: ${JSON.stringify(findings)}`,
-	);
+	// missing script must be flagged by name, got: ${JSON.stringify(findings)}
+	expect(findings.some((finding) => finding.check === StructuralCheck.ScriptExists && finding.issue.includes("'nope'"))).toBeTruthy();
 });
 
 test('lintPlanStructure: `yarn <script>` resolves the bare script name', async () => {
@@ -575,10 +567,9 @@ test('lintPlanStructure: `yarn <script>` resolves the bare script name', async (
 	const path = writePlan({ cwd, name: 'yarn-missing.md', body: verificationPlan({ command: 'yarn build' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some((finding) => finding.check === StructuralCheck.ScriptExists && finding.issue.includes("'build'")),
-		`the yarn script name must be flagged by name, got: ${JSON.stringify(findings)}`,
-	);
+	// the yarn script name must be flagged by name, got:
+	// ${JSON.stringify(findings)}
+	expect(findings.some((finding) => finding.check === StructuralCheck.ScriptExists && finding.issue.includes("'build'"))).toBeTruthy();
 });
 
 test('lintPlanStructure: a flag directly after `yarn` resolves no script — the command is left alone', async () => {
@@ -589,11 +580,8 @@ test('lintPlanStructure: a flag directly after `yarn` resolves no script — the
 	const path = writePlan({ cwd, name: 'yarn-flag.md', body: verificationPlan({ command: 'yarn --cwd sub check' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.ScriptExists),
-		[],
-		'an unparseable yarn form is skipped, never guessed into a finding',
-	);
+	// an unparseable yarn form is skipped, never guessed into a finding
+	expect(findings.filter((finding) => finding.check === StructuralCheck.ScriptExists)).toStrictEqual([]);
 });
 
 test('lintPlanStructure: a raw command with no package-manager prefix is never flagged', async () => {
@@ -604,11 +592,8 @@ test('lintPlanStructure: a raw command with no package-manager prefix is never f
 	const path = writePlan({ cwd, name: 'raw-command.md', body: verificationPlan({ command: 'tsc --noEmit' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.ScriptExists),
-		[],
-		'a raw command is not a package script and must not be guessed into a finding',
-	);
+	// a raw command is not a package script and must not be guessed into a finding
+	expect(findings.filter((finding) => finding.check === StructuralCheck.ScriptExists)).toStrictEqual([]);
 });
 
 test('lintPlanStructure: a config full-command override is skipped even when it names no package script', async () => {
@@ -620,11 +605,8 @@ test('lintPlanStructure: a config full-command override is skipped even when it 
 	const path = writePlan({ cwd, name: 'config-override.md', body: verificationPlan({ command: 'pnpm ghost-script' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.ScriptExists),
-		[],
-		'a command the config declares verbatim is an override, not a package script',
-	);
+	// a command the config declares verbatim is an override, not a package script
+	expect(findings.filter((finding) => finding.check === StructuralCheck.ScriptExists)).toStrictEqual([]);
 });
 
 /** A plan whose only lint-relevant content is one modify path and one verification command. */
@@ -669,11 +651,8 @@ test('lintPlanStructure: a script living only in a target package manifest resol
 	const path = writePlan({ cwd, name: 'package-script.md', body });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.ScriptExists),
-		[],
-		'the package named by a modify path contributes its scripts',
-	);
+	// the package named by a modify path contributes its scripts
+	expect(findings.filter((finding) => finding.check === StructuralCheck.ScriptExists)).toStrictEqual([]);
 });
 
 test('lintPlanStructure: an unparseable package.json contributes no scripts instead of throwing', async () => {
@@ -684,10 +663,9 @@ test('lintPlanStructure: an unparseable package.json contributes no scripts inst
 	const path = writePlan({ cwd, name: 'corrupt-manifest.md', body: verificationPlan({ command: 'pnpm check' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some((finding) => finding.check === StructuralCheck.ScriptExists && finding.issue.includes("'check'")),
-		`the script resolves against no manifest and is flagged, got: ${JSON.stringify(findings)}`,
-	);
+	// the script resolves against no manifest and is flagged, got:
+	// ${JSON.stringify(findings)}
+	expect(findings.some((finding) => finding.check === StructuralCheck.ScriptExists && finding.issue.includes("'check'"))).toBeTruthy();
 });
 
 test('lintPlanStructure: a path directly under packages/ with no package segment is flagged', async () => {
@@ -697,12 +675,10 @@ test('lintPlanStructure: a path directly under packages/ with no package segment
 	const path = writePlan({ cwd, name: 'loose-package-path.md', body });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some(
-			(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes("'packages/loose.ts'"),
-		),
-		`the unidentifiable package path is flagged, got: ${JSON.stringify(findings)}`,
-	);
+	// the unidentifiable package path is flagged, got: ${JSON.stringify(findings)}
+	expect(findings.some(
+		(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes("'packages/loose.ts'"),
+	)).toBeTruthy();
 });
 
 test('lintPlanStructure: a configured packagesDir moves the package-segment check off the default', async () => {
@@ -713,12 +689,11 @@ test('lintPlanStructure: a configured packagesDir moves the package-segment chec
 	const path = writePlan({ cwd, name: 'custom-packages-dir.md', body });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });
 
-	assert.ok(
-		findings.some(
-			(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/'),
-		),
-		`the configured packages directory drives the check, got: ${JSON.stringify(findings)}`,
-	);
+	// the configured packages directory drives the check, got:
+	// ${JSON.stringify(findings)}
+	expect(findings.some(
+		(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/'),
+	)).toBeTruthy();
 });
 
 test('lintPlanStructure: Phases plus Cross-Phase Dependencies make a plan overview without an Overview title', async () => {
@@ -743,11 +718,9 @@ test('lintPlanStructure: Phases plus Cross-Phase Dependencies make a plan overvi
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 	const sections = findings.filter((finding) => finding.check === StructuralCheck.SectionsPresent);
 
-	assert.deepEqual(
-		sections.map((finding) => finding.issue),
-		["missing required section '## Global Constraints' (overview plan)"],
-		'only the overview section set is required — the implementable-only sections are not',
-	);
+	// only the overview section set is required — the implementable-only sections
+	// are not
+	expect(sections.map((finding) => finding.issue)).toStrictEqual(["missing required section '## Global Constraints' (overview plan)"]);
 });
 
 test('lintPlanStructure: an overview.md basename is the overview variant on its own', async () => {
@@ -766,14 +739,11 @@ test('lintPlanStructure: an overview.md basename is the overview variant on its 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 	const sections = findings.filter((finding) => finding.check === StructuralCheck.SectionsPresent);
 
-	assert.deepEqual(
-		sections.map((finding) => finding.issue),
-		[
-			"missing required section '## Phases' (overview plan)",
-			"missing required section '## Cross-Phase Dependencies' (overview plan)",
-		],
-		'the filename alone selects the overview section set',
-	);
+	// the filename alone selects the overview section set
+	expect(sections.map((finding) => finding.issue)).toStrictEqual([
+		"missing required section '## Phases' (overview plan)",
+		"missing required section '## Cross-Phase Dependencies' (overview plan)",
+	]);
 });
 
 test('lintPlanStructure: a `###` path in a later section is not a Files-to-Create path', async () => {
@@ -792,11 +762,8 @@ Background reading — not a file this plan creates.
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.PathExists),
-		[],
-		'the create-path scan closes at the next `##` heading',
-	);
+	// the create-path scan closes at the next `##` heading
+	expect(findings.filter((finding) => finding.check === StructuralCheck.PathExists)).toStrictEqual([]);
 });
 
 test('lintPlanStructure: a create heading whose first code span is not a path falls through to the path span', async () => {
@@ -809,12 +776,10 @@ test('lintPlanStructure: a create heading whose first code span is not a path fa
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.ok(
-		findings.some(
-			(finding) => finding.check === StructuralCheck.PathExists && finding.issue === 'Files to Create path already exists: src/index.js',
-		),
-		`the path-shaped span is the create path, got: ${JSON.stringify(findings)}`,
-	);
+	// the path-shaped span is the create path, got: ${JSON.stringify(findings)}
+	expect(findings.some(
+		(finding) => finding.check === StructuralCheck.PathExists && finding.issue === 'Files to Create path already exists: src/index.js',
+	)).toBeTruthy();
 });
 
 test('lintPlanStructure: a create heading with no path-shaped code span contributes no create path', async () => {
@@ -827,9 +792,6 @@ test('lintPlanStructure: a create heading with no path-shaped code span contribu
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	assert.deepEqual(
-		findings.filter((finding) => finding.check === StructuralCheck.PathExists),
-		[],
-		'a bare symbol name is not a path and is never stat-ed',
-	);
+	// a bare symbol name is not a path and is never stat-ed
+	expect(findings.filter((finding) => finding.check === StructuralCheck.PathExists)).toStrictEqual([]);
 });

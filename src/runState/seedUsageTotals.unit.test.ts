@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { RunUsage } from '@/contracts';
 import { seedUsageTotals } from '@/runState';
 
@@ -19,7 +18,7 @@ describe('seedUsageTotals', () => {
 	test('starts a fresh run at zero on every field', () => {
 		const totals = seedUsageTotals({});
 
-		assert.deepEqual(totals, {
+		expect(totals).toStrictEqual({
 			invocations: 0,
 			inputTokens: 0,
 			outputTokens: 0,
@@ -34,7 +33,7 @@ describe('seedUsageTotals', () => {
 
 		const totals = seedUsageTotals({ usage });
 
-		assert.deepEqual(totals, {
+		expect(totals).toStrictEqual({
 			invocations: 3,
 			inputTokens: 10,
 			outputTokens: 100,
@@ -50,6 +49,8 @@ describe('seedUsageTotals', () => {
 		const totals = seedUsageTotals({ usage });
 
 		totals.invocations += 1;
-		assert.equal(usage.invocations, 3, 'the live aggregate is accumulated in place — sharing it would corrupt the loaded manifest');
+		// the live aggregate is accumulated in place — sharing it would corrupt the
+		// loaded manifest
+		expect(usage.invocations).toBe(3);
 	});
 });

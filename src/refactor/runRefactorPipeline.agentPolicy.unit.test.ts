@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
@@ -57,13 +56,13 @@ describe('invokeBatchAgent — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.ok(invocations.length > 0, 'the stub driver was invoked');
-		assert.deepEqual(
-			distinctPolicies(invocations),
-			['undefined/write'],
-			`a refactor executor must be able to write, and an unset effort is the harness's to choose: ${JSON.stringify(invocations.map(({ effort, permissions }) => ({ effort, permissions })))}`,
-		);
+		expect(result.ok).toBe(true);
+		// the stub driver was invoked
+		expect(invocations.length > 0).toBeTruthy();
+		// a refactor executor must be able to write, and an unset effort is the
+		// harness's to choose: ${JSON.stringify(invocations.map(({ effort, permissions
+		// }) => ({ effort, permissions })))}
+		expect(distinctPolicies(invocations)).toStrictEqual(['undefined/write']);
 	});
 
 	test('passes a configured effort and full-access level to every batch invocation', async () => {
@@ -71,11 +70,10 @@ describe('invokeBatchAgent — via runRefactorPipeline', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.deepEqual(
-			distinctPolicies(invocations),
-			['high/full-access'],
-			`the configured level and effort replace the defaults: ${JSON.stringify(invocations.map(({ effort, permissions }) => ({ effort, permissions })))}`,
-		);
+		expect(result.ok).toBe(true);
+		// the configured level and effort replace the defaults:
+		// ${JSON.stringify(invocations.map(({ effort, permissions }) => ({ effort,
+		// permissions })))}
+		expect(distinctPolicies(invocations)).toStrictEqual(['high/full-access']);
 	});
 });

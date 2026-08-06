@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { ScanFinding } from '@/contracts';
 import { batchFindings } from '@/refactor';
 
@@ -24,12 +23,10 @@ test('batchFindings: groups by detector × area, mechanical-first order', () => 
 		packagesDir: 'packages',
 	});
 
-	assert.deepEqual(
-		batches.map((batch) => `${batch.detector} ${batch.folder}`),
-		['module-boundary packages/api', 'module-boundary packages/web', 'structure (root)', 'structure src', 'clone packages/api'],
-		'boundary before structure before clone; package dirs, top segments, and (root) as areas',
-	);
-	assert.ok(batches.every((batch, index) => batch.id.startsWith(`batch-${String(index + 1).padStart(2, '0')}:`)));
+	// boundary before structure before clone; package dirs, top segments, and
+	// (root) as areas
+	expect(batches.map((batch) => `${batch.detector} ${batch.folder}`)).toStrictEqual(['module-boundary packages/api', 'module-boundary packages/web', 'structure (root)', 'structure src', 'clone packages/api']);
+	expect(batches.every((batch, index) => batch.id.startsWith(`batch-${String(index + 1).padStart(2, '0')}:`))).toBeTruthy();
 });
 
 test('batchFindings: a detector outside the priority list sorts after every listed one', () => {
@@ -43,11 +40,9 @@ test('batchFindings: a detector outside the priority list sorts after every list
 		packagesDir: 'packages',
 	});
 
-	assert.deepEqual(
-		batches.map((batch) => batch.detector),
-		['module-boundary', 'clone', 'dead-export'],
-		'an unlisted detector degrades to "after the known ones" — never to an error, and never ahead of the mechanical work',
-	);
+	// an unlisted detector degrades to "after the known ones" — never to an error,
+	// and never ahead of the mechanical work
+	expect(batches.map((batch) => batch.detector)).toStrictEqual(['module-boundary', 'clone', 'dead-export']);
 });
 
 test('batchFindings: an oversized group splits into sorted chunks of 12', () => {
@@ -56,10 +51,11 @@ test('batchFindings: an oversized group splits into sorted chunks of 12', () => 
 	);
 	const batches = batchFindings({ findings, advisories: [], packagesDir: 'packages' });
 
-	assert.equal(batches.length, 2);
-	assert.equal(batches[0]?.findings.length, 12);
-	assert.equal(batches[1]?.findings.length, 1);
-	assert.equal(batches[1]?.findings[0]?.cluster, 'clone:12', 'chunks split in cluster order');
+	expect(batches.length).toBe(2);
+	expect(batches[0]?.findings.length).toBe(12);
+	expect(batches[1]?.findings.length).toBe(1);
+	// chunks split in cluster order
+	expect(batches[1]?.findings[0]?.cluster).toBe('clone:12');
 });
 
 test('batchFindings: advisories attach to batches whose files overlap, never form batches', () => {
@@ -73,9 +69,9 @@ test('batchFindings: advisories attach to batches whose files overlap, never for
 		packagesDir: 'packages',
 	});
 
-	assert.equal(batches.length, 2);
-	assert.equal(batches.find((batch) => batch.folder === 'src')?.advisories.length, 1);
-	assert.equal(batches.find((batch) => batch.folder === 'lib')?.advisories.length, 0);
+	expect(batches.length).toBe(2);
+	expect(batches.find((batch) => batch.folder === 'src')?.advisories.length).toBe(1);
+	expect(batches.find((batch) => batch.folder === 'lib')?.advisories.length).toBe(0);
 });
 
 test('batchFindings: a finding spanning folders gets a dedicated cross batch with every side in scope', () => {
@@ -93,7 +89,9 @@ test('batchFindings: a finding spanning folders gets a dedicated cross batch wit
 
 	const cross = batches.find((batch) => batch.folder === '(cross)');
 
-	assert.ok(cross, 'multi-folder finding forms its own (cross) batch');
-	assert.deepEqual(cross?.findings.map((entry) => entry.cluster), ['clone:x']);
-	assert.equal(batches.at(-1)?.folder, '(cross)', 'cross batches run after single-folder batches of the same detector');
+	// multi-folder finding forms its own (cross) batch
+	expect(cross).toBeTruthy();
+	expect(cross?.findings.map((entry) => entry.cluster)).toStrictEqual(['clone:x']);
+	// cross batches run after single-folder batches of the same detector
+	expect(batches.at(-1)?.folder).toBe('(cross)');
 });

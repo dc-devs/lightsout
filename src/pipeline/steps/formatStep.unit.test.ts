@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -47,16 +46,19 @@ test('format: a formatter that exits non-zero fails the run and files its output
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', skipRefactor: true });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /format failed \(exit 3\)/);
-	assert.match(result.error ?? '', /FORMATTER-SENTINEL/, 'the formatter output travels with the verdict');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'format')?.status, 'failed');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/format failed \(exit 3\)/);
+	// the formatter output travels with the verdict
+	expect(result.error ?? '').toMatch(/FORMATTER-SENTINEL/);
+	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('failed');
 
 	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry['kind'] === 'format');
 
-	assert.equal(logged?.['exitCode'], 3, 'the failing formatter is logged with its exit code');
-	assert.match(String(logged?.['outputTail']), /FORMATTER-SENTINEL/, 'and with the output tail a human needs');
+	// the failing formatter is logged with its exit code
+	expect(logged?.['exitCode']).toBe(3);
+	// and with the output tail a human needs
+	expect(String(logged?.['outputTail'])).toMatch(/FORMATTER-SENTINEL/);
 });
 
 test('format: a green formatter that turns a gate red fails the run as a configuration problem', async () => {
@@ -67,14 +69,17 @@ test('format: a green formatter that turns a gate red fails the run as a configu
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', skipRefactor: true });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /format: formatting broke verification — review the formatter\/gate configuration\./);
-	assert.match(result.error ?? '', /test-unit failed/, 'the red gate that caught it is named');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'format')?.status, 'failed');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/format: formatting broke verification — review the formatter\/gate configuration\./);
+	// the red gate that caught it is named
+	expect(result.error ?? '').toMatch(/test-unit failed/);
+	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('failed');
 
 	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry['kind'] === 'format');
 
-	assert.equal(logged?.['exitCode'], 0, 'the formatter itself was green — only the gate after it was not');
-	assert.equal(logged?.['outputTail'], undefined, 'a green command carries no output tail');
+	// the formatter itself was green — only the gate after it was not
+	expect(logged?.['exitCode']).toBe(0);
+	// a green command carries no output tail
+	expect(logged?.['outputTail']).toBe(undefined);
 });

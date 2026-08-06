@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { consultSupervisor } from '@/common/utils/consultSupervisor';
@@ -58,9 +57,10 @@ test('consult supervisor: the harness is invoked read-only, whatever the config 
 
 	const result = await consultSupervisor(args);
 
-	assert.equal(result.failure, undefined);
-	assert.equal(invocations.length, 1);
-	assert.equal(invocations[0].permissions, 'read-only', "the supervisor's posture is engine-owned — config never widens it");
+	expect(result.failure).toBe(undefined);
+	expect(invocations.length).toBe(1);
+	// the supervisor's posture is engine-owned — config never widens it
+	expect(invocations[0].permissions).toBe('read-only');
 });
 
 test('consult supervisor: a config without permissions still invokes read-only', async () => {
@@ -68,7 +68,7 @@ test('consult supervisor: a config without permissions still invokes read-only',
 
 	await consultSupervisor(args);
 
-	assert.equal(invocations[0].permissions, 'read-only');
+	expect(invocations[0].permissions).toBe('read-only');
 });
 
 test('consult supervisor: the configured effort rides along to the harness', async () => {
@@ -76,7 +76,7 @@ test('consult supervisor: the configured effort rides along to the harness', asy
 
 	await consultSupervisor(args);
 
-	assert.equal(invocations[0].effort, 'xhigh');
+	expect(invocations[0].effort).toBe('xhigh');
 });
 
 test('consult supervisor: no configured effort leaves the harness on its own default', async () => {
@@ -84,7 +84,8 @@ test('consult supervisor: no configured effort leaves the harness on its own def
 
 	await consultSupervisor(args);
 
-	assert.equal(invocations[0].effort, undefined, 'an absent effort is forwarded as absent, never defaulted by the engine');
+	// an absent effort is forwarded as absent, never defaulted by the engine
+	expect(invocations[0].effort).toBe(undefined);
 });
 
 test('consult supervisor: the configured model rides along to the harness', async () => {
@@ -92,7 +93,7 @@ test('consult supervisor: the configured model rides along to the harness', asyn
 
 	await consultSupervisor(args);
 
-	assert.equal(invocations[0].model, 'stub-model-1');
+	expect(invocations[0].model).toBe('stub-model-1');
 });
 
 test('consult supervisor: an unset supervisor timeout falls back to fifteen minutes', async () => {
@@ -100,7 +101,7 @@ test('consult supervisor: an unset supervisor timeout falls back to fifteen minu
 
 	await consultSupervisor(args);
 
-	assert.equal(invocations[0].timeoutMs, 900_000);
+	expect(invocations[0].timeoutMs).toBe(900_000);
 });
 
 test('consult supervisor: a configured supervisorMinutes sets the invocation ceiling', async () => {
@@ -108,7 +109,7 @@ test('consult supervisor: a configured supervisorMinutes sets the invocation cei
 
 	await consultSupervisor(args);
 
-	assert.equal(invocations[0].timeoutMs, 300_000);
+	expect(invocations[0].timeoutMs).toBe(300_000);
 });
 
 test('consult supervisor: the failing step, gate output, and plan reach the supervisor prompt', async () => {
@@ -118,11 +119,15 @@ test('consult supervisor: the failing step, gate output, and plan reach the supe
 
 	const { prompt, cwd, systemPrompt } = invocations[0];
 
-	assert.ok(prompt.includes('`implement` — 3 attempt(s) so far'), `the failing step and attempt count ride the prompt, got: ${prompt}`);
-	assert.ok(prompt.includes('GATE-OUTPUT'), 'the verification output rides the prompt');
-	assert.ok(prompt.includes('PLAN-CONTENT'), "the plan rides the prompt as the supervisor's context");
-	assert.ok(systemPrompt, 'the supervisor role prompt is the system prompt');
-	assert.equal(cwd, '/repo');
+	// the failing step and attempt count ride the prompt, got: ${prompt}
+	expect(prompt.includes('`implement` — 3 attempt(s) so far')).toBeTruthy();
+	// the verification output rides the prompt
+	expect(prompt.includes('GATE-OUTPUT')).toBeTruthy();
+	// the plan rides the prompt as the supervisor's context
+	expect(prompt.includes('PLAN-CONTENT')).toBeTruthy();
+	// the supervisor role prompt is the system prompt
+	expect(systemPrompt).toBeTruthy();
+	expect(cwd).toBe('/repo');
 });
 
 test('consult supervisor: a contract-valid verdict comes back parsed for the caller to act on', async () => {
@@ -130,8 +135,8 @@ test('consult supervisor: a contract-valid verdict comes back parsed for the cal
 
 	const result = await consultSupervisor(args);
 
-	assert.equal(result.failure, undefined);
-	assert.deepEqual(result.report, { decision: 'retry', diagnosis: 'stale artifact', guidance: 'delete BROKEN' });
+	expect(result.failure).toBe(undefined);
+	expect(result.report).toStrictEqual({ decision: 'retry', diagnosis: 'stale artifact', guidance: 'delete BROKEN' });
 });
 
 test('consult supervisor: a verdict that never matches the contract fails instead of returning a report', async () => {
@@ -139,8 +144,8 @@ test('consult supervisor: a verdict that never matches the contract fails instea
 
 	const result = await consultSupervisor(args);
 
-	assert.equal(result.report, undefined);
-	assert.match(result.failure ?? '', /did not match contract/);
+	expect(result.report).toBe(undefined);
+	expect(result.failure ?? '').toMatch(/did not match contract/);
 });
 
 test('consult supervisor: every contract-rejected message reaches the caller, attempt by attempt, as run evidence', async () => {
@@ -148,14 +153,11 @@ test('consult supervisor: every contract-rejected message reaches the caller, at
 
 	await consultSupervisor(args);
 
-	assert.deepEqual(
-		rejected.map(({ text, attempt }) => ({ text, attempt })),
-		[
-			{ text: 'the run looks broken to me', attempt: 1 },
-			{ text: 'the run looks broken to me', attempt: 2 },
-		],
-		'the caller persists the raw text of both the first try and the re-emit retry',
-	);
+	// the caller persists the raw text of both the first try and the re-emit retry
+	expect(rejected.map(({ text, attempt }) => ({ text, attempt }))).toStrictEqual([
+		{ text: 'the run looks broken to me', attempt: 1 },
+		{ text: 'the run looks broken to me', attempt: 2 },
+	]);
 });
 
 test("consult supervisor: the caller's stream listener reaches the harness", async () => {
@@ -163,5 +165,6 @@ test("consult supervisor: the caller's stream listener reaches the harness", asy
 
 	await consultSupervisor(args);
 
-	assert.deepEqual(events, [{ type: 'stub-stream-event' }], 'harness events flow back to the caller untouched');
+	// harness events flow back to the caller untouched
+	expect(events).toStrictEqual([{ type: 'stub-stream-event' }]);
 });

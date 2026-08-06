@@ -1,9 +1,9 @@
-import assert from 'node:assert/strict';
+import { expect, describe, test } from '@jest/globals';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
 import { readDecisions } from '@/plan';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 /**
  * A temp repo whose plan workspace holds the given raw `decisions.json`.
@@ -37,7 +37,7 @@ describe('readDecisions', () => {
 
 		const record = await readDecisions({ cwd, name });
 
-		assert.deepEqual(record, { planName: 'grill-me', decisions: [decisionRow] });
+		expect(record).toStrictEqual({ planName: 'grill-me', decisions: [decisionRow] });
 	});
 
 	test('defaults an omitted decisions array to empty rather than failing the read', async () => {
@@ -45,7 +45,8 @@ describe('readDecisions', () => {
 
 		const record = await readDecisions({ cwd, name });
 
-		assert.deepEqual(record, { planName: 'grill-me', decisions: [] }, 'a record with no rows yet is authored, not corrupt');
+		// a record with no rows yet is authored, not corrupt
+		expect(record).toStrictEqual({ planName: 'grill-me', decisions: [] });
 	});
 
 	test('reads from the plan workspace keyed by name, so two plans never cross', async () => {
@@ -56,38 +57,37 @@ describe('readDecisions', () => {
 
 		const record = await readDecisions({ cwd, name: 'plan-b' });
 
-		assert.deepEqual(record, { planName: 'plan-b', decisions: [decisionRow] }, 'the name selects the workspace, not the first one on disk');
+		// the name selects the workspace, not the first one on disk
+		expect(record).toStrictEqual({ planName: 'plan-b', decisions: [decisionRow] });
 	});
 
 	test('rejects a missing decisions.json, naming the plan and the path to author', async () => {
 		const { cwd, name, decisionsPath } = setupWorkspace({ name: 'unauthored' });
 
-		await assert.rejects(readDecisions({ cwd, name }), (error: unknown) => {
-			assert.ok(error instanceof Error);
-			assert.match(error.message, /no decisions found for plan unauthored/);
-			assert.ok(error.message.includes(decisionsPath), `the message names the workspace path the session must author, got: ${error.message}`);
-			assert.match(error.message, /author decisions\.json before drafting/);
+		const error = await getRejectionError({ promise: readDecisions({ cwd, name }) });
 
-			return true;
-		});
+		expect(error.message).toMatch(/no decisions found for plan unauthored/);
+		// the message names the workspace path the session must author
+		expect(error.message).toContain(decisionsPath);
+		expect(error.message).toMatch(/author decisions\.json before drafting/);
 	});
 
 	test('rejects a decisions.json that is not valid JSON', async () => {
 		const { cwd, name } = setupWorkspace({ content: '{"planName": "grill-me",' });
 
-		await assert.rejects(readDecisions({ cwd, name }), SyntaxError, 'a truncated file is a hard error — never a silent empty record');
+		// a truncated file is a hard error — never a silent empty record
+		expect(readDecisions({ cwd, name })).rejects.toThrow(SyntaxError);
 	});
 
 	test('rejects a record that violates the contract', async () => {
 		const { cwd, name } = setupWorkspace({ content: JSON.stringify({ decisions: [decisionRow] }) });
 
-		await assert.rejects(readDecisions({ cwd, name }), (error: unknown) => {
-			assert.ok(error instanceof Error);
-			assert.doesNotMatch(error.message, /no decisions found/, 'the file was read — it is the shape that failed');
-			assert.match(error.message, /planName/, 'the schema failure names the offending field');
+		const error = await getRejectionError({ promise: readDecisions({ cwd, name }) });
 
-			return true;
-		});
+		// the file was read — it is the shape that failed
+		expect(error.message).not.toMatch(/no decisions found/);
+		// the schema failure names the offending field
+		expect(error.message).toMatch(/planName/);
 	});
 
 	test('rejects a decisions row missing a contract field', async () => {
@@ -95,11 +95,9 @@ describe('readDecisions', () => {
 			content: JSON.stringify({ planName: 'grill-me', decisions: [{ source: 'Elicitation', question: 'q' }] }),
 		});
 
-		await assert.rejects(readDecisions({ cwd, name }), (error: unknown) => {
-			assert.ok(error instanceof Error);
-			assert.match(error.message, /choice|options|rationale/, 'a half-authored row fails the read rather than drafting from it');
+		const error = await getRejectionError({ promise: readDecisions({ cwd, name }) });
 
-			return true;
-		});
+		// a half-authored row fails the read rather than drafting from it
+		expect(error.message).toMatch(/choice|options|rationale/);
 	});
 });

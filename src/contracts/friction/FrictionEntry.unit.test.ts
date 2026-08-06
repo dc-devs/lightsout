@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { FrictionEntry } from '@/contracts';
 
 test('FrictionEntry: every documented area parses to its own label', () => {
@@ -7,31 +6,39 @@ test('FrictionEntry: every documented area parses to its own label', () => {
 
 	const parsed = areas.map((area) => FrictionEntry.parse({ area, detail: 'a detail' }).area);
 
-	assert.deepEqual(parsed, areas, 'these five are the taxonomy agents report against');
+	// these five are the taxonomy agents report against
+	expect(parsed).toStrictEqual(areas);
 });
 
 test('FrictionEntry: an unrecognized area coerces to other instead of failing the entry', () => {
 	const parsed = FrictionEntry.parse({ area: 'scope', detail: 'an area the agent invented' });
 
-	assert.deepEqual(parsed, { area: 'other', detail: 'an area the agent invented' }, 'a live run once lost a valid zero-change report to an invented "scope" area — the label is never load-bearing, the detail is');
+	// a live run once lost a valid zero-change report to an invented "scope" area
+	// — the label is never load-bearing, the detail is
+	expect(parsed).toStrictEqual({ area: 'other', detail: 'an area the agent invented' });
 });
 
 test('FrictionEntry: a non-string area coerces to other', () => {
 	const parsed = FrictionEntry.parse({ area: 42, detail: 'a detail' });
 
-	assert.equal(parsed.area, 'other', 'best-effort means any shape of wrong label lands on other, not just an unknown string');
+	// best-effort means any shape of wrong label lands on other, not just an
+	// unknown string
+	expect(parsed.area).toBe('other');
 });
 
 test('FrictionEntry: an omitted area coerces to other', () => {
 	const parsed = FrictionEntry.parse({ detail: 'a detail' });
 
-	assert.equal(parsed.area, 'other', 'detail alone is a usable entry — an agent that skips the taxonomy still gets its signal recorded');
+	// detail alone is a usable entry — an agent that skips the taxonomy still gets
+	// its signal recorded
+	expect(parsed.area).toBe('other');
 });
 
 test('FrictionEntry: kind is optional — omitting it means friction', () => {
 	const parsed = FrictionEntry.parse({ area: 'plan', detail: 'a detail' });
 
-	assert.equal(parsed.kind, undefined, 'the unset kind is the documented default, not a parse failure');
+	// the unset kind is the documented default, not a parse failure
+	expect(parsed.kind).toBe(undefined);
 });
 
 test('FrictionEntry: kind accepts both reported kinds', () => {
@@ -39,19 +46,23 @@ test('FrictionEntry: kind accepts both reported kinds', () => {
 
 	const parsed = kinds.map((kind) => FrictionEntry.parse({ kind, area: 'plan', detail: 'a detail' }).kind);
 
-	assert.deepEqual(parsed, kinds);
+	expect(parsed).toStrictEqual(kinds);
 });
 
 test('FrictionEntry: an unrecognized kind is rejected, unlike an unrecognized area', () => {
 	const result = FrictionEntry.safeParse({ kind: 'observation', area: 'plan', detail: 'a detail' });
 
-	assert.equal(result.success, false, 'kind carries no catch — the friction/decision split is load-bearing for the improvement loop');
-	assert.equal(FrictionEntry.safeParse({ kind: 'Friction', area: 'plan', detail: 'a detail' }).success, false, 'values are lowercase');
+	// kind carries no catch — the friction/decision split is load-bearing for the
+	// improvement loop
+	expect(result.success).toBe(false);
+	// values are lowercase
+	expect(FrictionEntry.safeParse({ kind: 'Friction', area: 'plan', detail: 'a detail' }).success).toBe(false);
 });
 
 test('FrictionEntry: detail is required and must be a string', () => {
 	const missing = FrictionEntry.safeParse({ area: 'plan' });
 
-	assert.equal(missing.success, false, 'an entry with no detail carries no signal at all');
-	assert.equal(FrictionEntry.safeParse({ area: 'plan', detail: 42 }).success, false);
+	// an entry with no detail carries no signal at all
+	expect(missing.success).toBe(false);
+	expect(FrictionEntry.safeParse({ area: 'plan', detail: 42 }).success).toBe(false);
 });

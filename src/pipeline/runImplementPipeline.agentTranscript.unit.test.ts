@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -51,18 +50,16 @@ test('pipeline tees each invocation stream to agents/stream-*.jsonl without narr
 		onProgress: (message) => progressLines.push(message),
 	});
 
-	assert.equal(result.ok, true);
+	expect(result.ok).toBe(true);
 
 	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
 
-	assert.ok(existsSync(agentsDir));
+	expect(existsSync(agentsDir)).toBeTruthy();
 
 	const transcripts = readdirSync(agentsDir).filter((name) => name.startsWith('stream-'));
 
-	assert.ok(
-		transcripts.some((name) => name.includes('implement')),
-		`implement transcript exists: ${transcripts.join(', ')}`,
-	);
+	// implement transcript exists: ${transcripts.join(', ')}
+	expect(transcripts.some((name) => name.includes('implement'))).toBeTruthy();
 
 	const implementTranscript = transcripts.find((name) => name.includes('implement'));
 	const events = readFileSync(join(agentsDir, implementTranscript ?? ''), 'utf8')
@@ -70,15 +67,14 @@ test('pipeline tees each invocation stream to agents/stream-*.jsonl without narr
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-	assert.equal(events.length, 2, 'both events landed, in order');
-	assert.equal(events[0].type, 'assistant');
-	assert.equal(events[1].type, 'result');
+	// both events landed, in order
+	expect(events.length).toBe(2);
+	expect(events[0].type).toBe('assistant');
+	expect(events[1].type).toBe('result');
 
 	// The full play-by-play belongs on disk, not in the terminal — a working
 	// agent fires tools every few seconds and narrating each one drowned the
 	// progress stream.
-	assert.ok(
-		progressLines.every((line) => !line.includes('Edit')),
-		`no per-tool-call narration:\n${progressLines.join('\n')}`,
-	);
+	// no per-tool-call narration:\n${progressLines.join('\n')}
+	expect(progressLines.every((line) => !line.includes('Edit'))).toBeTruthy();
 });

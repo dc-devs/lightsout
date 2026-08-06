@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { runScan } from '@/scan';
 
 // mapFolderModules is a scan internal: its classification map is observable
@@ -62,21 +61,23 @@ test('folder classification surfaces through boundary and barrel-star findings; 
 
 	// module: feat's barrel omits internal.ts, so the deep import flags — naming the module and its barrel
 	const feat = boundary.find((finding) => finding.cluster === 'boundary:src/useInternal/u.ts');
-	assert.ok(feat?.detail.includes("module 'src/feat'"), 'feat is classified a module — its internal deep import flags');
-	assert.ok(feat?.detail.includes('src/feat/index.ts'), 'the finding names feat’s barrel path');
+	// feat is classified a module — its internal deep import flags
+	expect(feat?.detail.includes("module 'src/feat'")).toBeTruthy();
+	// the finding names feat’s barrel path
+	expect(feat?.detail.includes('src/feat/index.ts')).toBeTruthy();
 
 	// domainFolder: fmt's barrel re-exports both files, hiding nothing → the deep import does NOT flag
-	assert.ok(!boundary.some((finding) => finding.cluster === 'boundary:src/useFmt/u.ts'), 'fmt is a domainFolder — deep import allowed, no boundary finding');
+	// fmt is a domainFolder — deep import allowed, no boundary finding
+	expect(boundary.some((finding) => finding.cluster === 'boundary:src/useFmt/u.ts')).toBeFalsy();
 
 	// module via own common/: box's barrel covers box.ts, yet owning common/ forces module status
-	assert.ok(
-		boundary.some((finding) => finding.cluster === 'boundary:src/useBox/u.ts' && finding.detail.includes("module 'src/box'")),
-		'box is a module because it owns a common/ subfolder',
-	);
+	// box is a module because it owns a common/ subfolder
+	expect(boundary.some((finding) => finding.cluster === 'boundary:src/useBox/u.ts' && finding.detail.includes("module 'src/box'"))).toBeTruthy();
 
 	// common-segment and src-root barrels are excluded from the module map, so their
 	// export * raises no star — only the genuine module barrel (box) does
-	assert.deepEqual(star.map((finding) => finding.cluster), ['barrel-star:src/box/index.ts'], 'excluded folders raise no barrel-star; the module barrel does');
+	// excluded folders raise no barrel-star; the module barrel does
+	expect(star.map((finding) => finding.cluster)).toStrictEqual(['barrel-star:src/box/index.ts']);
 });
 
 test('nested-module chains defer the parent to domainFolder — the OUTERMOST crossed module is the child', async () => {
@@ -98,6 +99,8 @@ test('nested-module chains defer the parent to domainFolder — the OUTERMOST cr
 	// child still hides hidden.ts → it is a module; group's only descendants live in
 	// child, so with the nested subtree removed group omits nothing → domainFolder.
 	// The boundary therefore names the child, not the deferred parent.
-	assert.ok(nested?.detail.includes("module 'src/group/child'"), 'the nested module child is crossed');
-	assert.ok(!nested?.detail.includes("module 'src/group'"), 'group deferred to domainFolder — never the crossed module');
+	// the nested module child is crossed
+	expect(nested?.detail.includes("module 'src/group/child'")).toBeTruthy();
+	// group deferred to domainFolder — never the crossed module
+	expect(nested?.detail.includes("module 'src/group'")).toBeFalsy();
 });

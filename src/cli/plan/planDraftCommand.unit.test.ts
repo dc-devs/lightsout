@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test, type TestContext } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { PlanDraftStatus, PlanFixStatus, PlanVariant } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { parseFlags } from '@/cli/common/args/parseFlags';
@@ -47,9 +46,10 @@ const writerDriver = ({ body, variant = PlanVariant.Single, report }: { body?: s
 
 		const path = outputPathFrom(prompt);
 
-		assert.ok(path, `plan path parsed from the writer prompt, got: ${prompt}`);
+		// plan path parsed from the writer prompt
+		expect(path).toBeTruthy();
 
-		if (body !== undefined) {
+		if (body !== undefined && path !== undefined) {
 			writeFileSync(path, body);
 		}
 
@@ -61,8 +61,8 @@ const writerDriver = ({ body, variant = PlanVariant.Single, report }: { body?: s
 });
 
 // The plan workspace `plan draft` reads its authored facts and decisions from.
-const setupDraft = ({ t, args = [] }: { t: TestContext; args?: string[] }) => {
-	const captured = captureCommandOutput({ t });
+const setupDraft = ({ args = [] }: { args?: string[] } = {}) => {
+	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ git: false });
 	const workspaceDir = join(cwd, '.lightsout', 'plans', 'demo');
 
@@ -81,86 +81,71 @@ const setupDraft = ({ t, args = [] }: { t: TestContext; args?: string[] }) => {
 	return { cwd, plansDir: join(cwd, '.claude', 'plans'), name: 'demo', flags: parseFlags({ args }), ...captured };
 };
 
-test('planDraftCommand: a structurally clean draft reports its variant, lists each written path, and exits 0', async (t) => {
-	const { cwd, plansDir, name, flags, logged, errors, exitCodes } = setupDraft({ t });
+test('planDraftCommand: a structurally clean draft reports its variant, lists each written path, and exits 0', async () => {
+	const { cwd, plansDir, name, flags, logged, errors, exitCodes } = setupDraft();
 
-	await assert.rejects(
-		planDraftCommand({ cwd, driver: writerDriver({ body: cleanPlanBody() }), name, plansDir, standards: undefined, config: undefined, flags }),
-		/process\.exit/,
-	);
+	await expect(planDraftCommand({ cwd, driver: writerDriver({ body: cleanPlanBody() }), name, plansDir, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
-	assert.equal(printed[0], '\nplan draft demo — single, structurally clean');
-	assert.equal(printed[1], `  ✓ ${join(plansDir, 'demo.md')}`);
-	assert.deepEqual(errors, []);
-	assert.deepEqual(exitCodes, [0]);
+	expect(printed[0]).toBe('\nplan draft demo — single, structurally clean');
+	expect(printed[1]).toBe(`  ✓ ${join(plansDir, 'demo.md')}`);
+	expect(errors).toStrictEqual([]);
+	expect(exitCodes).toStrictEqual([0]);
 });
 
-test('planDraftCommand: --scope phased drafts the overview variant and says so', async (t) => {
-	const { cwd, plansDir, name, flags, logged, exitCodes } = setupDraft({ t, args: ['--scope', 'phased'] });
+test('planDraftCommand: --scope phased drafts the overview variant and says so', async () => {
+	const { cwd, plansDir, name, flags, logged, exitCodes } = setupDraft({ args: ['--scope', 'phased'] });
 
-	await assert.rejects(
-		planDraftCommand({
-			cwd,
-			driver: writerDriver({ body: overviewPlanBody(), variant: PlanVariant.Overview }),
-			name,
-			plansDir,
-			standards: undefined,
-			config: undefined,
-			flags,
-		}),
-		/process\.exit/,
-	);
+	await expect(planDraftCommand({
+		cwd,
+		driver: writerDriver({ body: overviewPlanBody(), variant: PlanVariant.Overview }),
+		name,
+		plansDir,
+		standards: undefined,
+		config: undefined,
+		flags,
+	})).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
-	assert.equal(printed[0], '\nplan draft demo — overview, structurally clean');
-	assert.equal(printed[1], `  ✓ ${join(plansDir, 'demo', 'overview.md')}`);
-	assert.deepEqual(exitCodes, [0]);
+	expect(printed[0]).toBe('\nplan draft demo — overview, structurally clean');
+	expect(printed[1]).toBe(`  ✓ ${join(plansDir, 'demo', 'overview.md')}`);
+	expect(exitCodes).toStrictEqual([0]);
 });
 
-test('planDraftCommand: a facts/decisions discrepancy is reported as a facts error, one ⚠ per discrepancy, and exits 1', async (t) => {
-	const { cwd, plansDir, name, flags, logged, errors, exitCodes } = setupDraft({ t });
+test('planDraftCommand: a facts/decisions discrepancy is reported as a facts error, one ⚠ per discrepancy, and exits 1', async () => {
+	const { cwd, plansDir, name, flags, logged, errors, exitCodes } = setupDraft();
 	const report = { status: PlanDraftStatus.Error, filesWritten: [], decisionsApplied: 0, assumptions: [], discrepancies: ['src/gone.ts does not exist', 'the api package is named core'] };
 
-	await assert.rejects(
-		planDraftCommand({ cwd, driver: writerDriver({ report }), name, plansDir, standards: undefined, config: undefined, flags }),
-		/process\.exit/,
-	);
+	await expect(planDraftCommand({ cwd, driver: writerDriver({ report }), name, plansDir, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
 
-	assert.deepEqual(printedLines({ logged }), []);
-	assert.match(errors[0] ?? '', /^\nfacts error — the plan-writer found the facts\/decisions do not match the codebase/);
-	assert.equal(errors[1], '  ⚠ src/gone.ts does not exist');
-	assert.equal(errors[2], '  ⚠ the api package is named core');
-	assert.deepEqual(exitCodes, [1]);
+	expect(printedLines({ logged })).toStrictEqual([]);
+	expect(errors[0] ?? '').toMatch(/^\nfacts error — the plan-writer found the facts\/decisions do not match the codebase/);
+	expect(errors[1]).toBe('  ⚠ src/gone.ts does not exist');
+	expect(errors[2]).toBe('  ⚠ the api package is named core');
+	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('planDraftCommand: a writer that reports a draft but writes no file fails with the run error and exits 1', async (t) => {
-	const { cwd, plansDir, name, flags, errors, exitCodes } = setupDraft({ t });
+test('planDraftCommand: a writer that reports a draft but writes no file fails with the run error and exits 1', async () => {
+	const { cwd, plansDir, name, flags, errors, exitCodes } = setupDraft();
 	const report = { status: PlanDraftStatus.Drafted, filesWritten: [], decisionsApplied: 0, assumptions: [], discrepancies: [] };
 
-	await assert.rejects(
-		planDraftCommand({ cwd, driver: writerDriver({ report }), name, plansDir, standards: undefined, config: undefined, flags }),
-		/process\.exit/,
-	);
+	await expect(planDraftCommand({ cwd, driver: writerDriver({ report }), name, plansDir, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
 
-	assert.equal(errors[0], '\nplan-writer reported drafted but listed no files written');
-	assert.deepEqual(exitCodes, [1]);
+	expect(errors[0]).toBe('\nplan-writer reported drafted but listed no files written');
+	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('planDraftCommand: structural findings that survive the repair loop print with their fixes and exit 1', async (t) => {
-	const { cwd, plansDir, name, flags, logged, errors, exitCodes } = setupDraft({ t });
+test('planDraftCommand: structural findings that survive the repair loop print with their fixes and exit 1', async () => {
+	const { cwd, plansDir, name, flags, logged, errors, exitCodes } = setupDraft();
 	const dirtyBody = cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting');
 
-	await assert.rejects(
-		planDraftCommand({ cwd, driver: writerDriver({ body: dirtyBody }), name, plansDir, standards: undefined, config: undefined, flags }),
-		/process\.exit/,
-	);
+	await expect(planDraftCommand({ cwd, driver: writerDriver({ body: dirtyBody }), name, plansDir, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
 
-	assert.deepEqual(printedLines({ logged }), []);
-	assert.match(errors[0] ?? '', /^\n1 structural issue\(s\) remain after re-drafting — resolve, then re-draft:$/);
-	assert.match(errors[1] ?? '', /^ {2}⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present$/);
-	assert.match(errors[2] ?? '', /^ {5}fix: resolve 'TBD'/);
-	assert.deepEqual(exitCodes, [1]);
+	expect(printedLines({ logged })).toStrictEqual([]);
+	expect(errors[0] ?? '').toMatch(/^\n1 structural issue\(s\) remain after re-drafting — resolve, then re-draft:$/);
+	expect(errors[1] ?? '').toMatch(/^ {2}⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present$/);
+	expect(errors[2] ?? '').toMatch(/^ {5}fix: resolve 'TBD'/);
+	expect(exitCodes).toStrictEqual([1]);
 });

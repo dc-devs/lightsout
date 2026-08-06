@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
 
 const setupConsumerDir = ({ config }: { config?: Record<string, unknown> } = {}) => {
@@ -20,8 +19,8 @@ test('resolveConfigAndDriver: only a genuinely absent config file is non-fatal â
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
 
-	assert.equal(config, undefined);
-	assert.equal(driver.name, 'claude-code');
+	expect(config).toBe(undefined);
+	expect(driver.name).toBe('claude-code');
 });
 
 test('resolveConfigAndDriver: global harness and model land in the effective config and the driver', async () => {
@@ -29,8 +28,8 @@ test('resolveConfigAndDriver: global harness and model land in the effective con
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 
-	assert.equal(driver.name, 'codex');
-	assert.deepEqual(config, { harness: 'codex', model: 'gpt-5.2', effort: undefined, scripts: { check: 'c', testUnit: 't', testCoverage: false } });
+	expect(driver.name).toBe('codex');
+	expect(config).toStrictEqual({ harness: 'codex', model: 'gpt-5.2', effort: undefined, scripts: { check: 'c', testUnit: 't', testCoverage: false } });
 });
 
 test('resolveConfigAndDriver: a per-command harness override drops the global model from the effective config (decision 7)', async () => {
@@ -38,8 +37,8 @@ test('resolveConfigAndDriver: a per-command harness override drops the global mo
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
 
-	assert.equal(driver.name, 'codex');
-	assert.deepEqual(config, {
+	expect(driver.name).toBe('codex');
+	expect(config).toStrictEqual({
 		harness: 'codex',
 		model: undefined,
 		effort: undefined,
@@ -53,7 +52,7 @@ test('resolveConfigAndDriver: a global effort lands in the effective config', as
 
 	const { config } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 
-	assert.deepEqual(config, { harness: 'claude-code', model: undefined, effort: 'high', scripts: { check: 'c', testUnit: 't', testCoverage: false } });
+	expect(config).toStrictEqual({ harness: 'claude-code', model: undefined, effort: 'high', scripts: { check: 'c', testUnit: 't', testCoverage: false } });
 });
 
 test('resolveConfigAndDriver: a per-command effort overrides the global in the effective config', async () => {
@@ -61,7 +60,7 @@ test('resolveConfigAndDriver: a per-command effort overrides the global in the e
 
 	const { config } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 
-	assert.deepEqual(config, {
+	expect(config).toStrictEqual({
 		harness: 'claude-code',
 		model: undefined,
 		effort: 'max',
@@ -73,14 +72,13 @@ test('resolveConfigAndDriver: a per-command effort overrides the global in the e
 test('resolveConfigAndDriver: a present-but-invalid config (typoed commands key) is a hard error', async () => {
 	const { cwd } = setupConsumerDir({ config: { commands: { implment: {} }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
 
-	await assert.rejects(
-		resolveConfigAndDriver({ cwd, command: 'implement' }),
-		'continuing would silently discard every setting in the file and run with defaults (decision 26)',
-	);
+	// continuing would silently discard every setting in the file and run with
+	// defaults (decision 26)
+	expect(resolveConfigAndDriver({ cwd, command: 'implement' })).rejects.toThrow();
 });
 
 test('resolveConfigAndDriver: a stale top-level driver key rejects with a message naming harness', async () => {
 	const { cwd } = setupConsumerDir({ config: { driver: 'codex', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
 
-	await assert.rejects(resolveConfigAndDriver({ cwd, command: 'plan' }), /renamed to `harness`/);
+	await expect(resolveConfigAndDriver({ cwd, command: 'plan' })).rejects.toThrow(/renamed to `harness`/);
 });

@@ -1,6 +1,5 @@
-import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { createRun, getRunDir, readRunManifest } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -22,11 +21,11 @@ describe('createRun', () => {
 
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
-		assert.equal(manifest.status, 'pending');
-		assert.equal(manifest.currentStep, null);
-		assert.deepEqual(manifest.steps, []);
-		assert.deepEqual(manifest.changedFiles, []);
-		assert.deepEqual(manifest.packages, []);
+		expect(manifest.status).toBe('pending');
+		expect(manifest.currentStep).toBe(null);
+		expect(manifest.steps).toStrictEqual([]);
+		expect(manifest.changedFiles).toStrictEqual([]);
+		expect(manifest.packages).toStrictEqual([]);
 	});
 
 	test('creates the run directory so later writes have somewhere to land', async () => {
@@ -34,7 +33,8 @@ describe('createRun', () => {
 
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
-		assert.ok(existsSync(getRunDir({ cwd, runId: manifest.runId })), 'the run directory exists before any step runs');
+		// the run directory exists before any step runs
+		expect(existsSync(getRunDir({ cwd, runId: manifest.runId }))).toBeTruthy();
 	});
 
 	test('takes the id the caller already locked the run under', async () => {
@@ -42,8 +42,9 @@ describe('createRun', () => {
 
 		const manifest = await createRun({ cwd, runId: 'pre-minted-run', plan: 'plan.md', driver: 'stub' });
 
-		assert.equal(manifest.runId, 'pre-minted-run');
-		assert.ok(existsSync(getRunDir({ cwd, runId: 'pre-minted-run' })), 'the directory is named for the locked id');
+		expect(manifest.runId).toBe('pre-minted-run');
+		// the directory is named for the locked id
+		expect(existsSync(getRunDir({ cwd, runId: 'pre-minted-run' }))).toBeTruthy();
 	});
 
 	test('mints a fresh id for a caller that has none', async () => {
@@ -52,8 +53,9 @@ describe('createRun', () => {
 		const first = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 		const second = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
-		assert.match(first.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-		assert.notEqual(first.runId, second.runId, 'two runs never share a directory');
+		expect(first.runId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+		// two runs never share a directory
+		expect(first.runId).not.toBe(second.runId);
 	});
 
 	test('records the plan, overview, pipeline, and driver as the run permanent identity', async () => {
@@ -67,10 +69,11 @@ describe('createRun', () => {
 			driver: 'codex',
 		});
 
-		assert.equal(manifest.plan, 'plans/phase-2.md');
-		assert.equal(manifest.overview, 'plans/overview.md');
-		assert.equal(manifest.pipeline, 'refactor');
-		assert.equal(manifest.harness, 'codex', 'the driver is persisted as the harness a resume must reuse');
+		expect(manifest.plan).toBe('plans/phase-2.md');
+		expect(manifest.overview).toBe('plans/overview.md');
+		expect(manifest.pipeline).toBe('refactor');
+		// the driver is persisted as the harness a resume must reuse
+		expect(manifest.harness).toBe('codex');
 	});
 
 	test('leaves the optional routing fields unset when the caller omits them', async () => {
@@ -78,9 +81,9 @@ describe('createRun', () => {
 
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
-		assert.equal(manifest.pipeline, undefined);
-		assert.equal(manifest.overview, undefined);
-		assert.equal(manifest.config, undefined);
+		expect(manifest.pipeline).toBe(undefined);
+		expect(manifest.overview).toBe(undefined);
+		expect(manifest.config).toBe(undefined);
 	});
 
 	test('snapshots the resolved config as the settings that produced this run', async () => {
@@ -89,7 +92,7 @@ describe('createRun', () => {
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub', config });
 		const read = await readRunManifest({ cwd, runId: manifest.runId });
 
-		assert.deepEqual(read.config, { harness: 'stub', scripts: { check: 'true', testUnit: 'true', testCoverage: false } });
+		expect(read.config).toStrictEqual({ harness: 'stub', scripts: { check: 'true', testUnit: 'true', testCoverage: false } });
 	});
 
 	test('seeds the dirty paths that changed-file attribution subtracts', async () => {
@@ -97,7 +100,7 @@ describe('createRun', () => {
 
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub', baselineDirtyFiles: ['src/wip.js', 'notes.md'] });
 
-		assert.deepEqual(manifest.baselineDirtyFiles, ['src/wip.js', 'notes.md']);
+		expect(manifest.baselineDirtyFiles).toStrictEqual(['src/wip.js', 'notes.md']);
 	});
 
 	test('starts from an empty baseline when the repo was clean at run start', async () => {
@@ -105,7 +108,8 @@ describe('createRun', () => {
 
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
-		assert.deepEqual(manifest.baselineDirtyFiles, [], 'no baseline means every dirty path is the run doing');
+		// no baseline means every dirty path is the run doing
+		expect(manifest.baselineDirtyFiles).toStrictEqual([]);
 	});
 
 	test('stamps the manifest on disk, readable without the returned value', async () => {
@@ -114,8 +118,9 @@ describe('createRun', () => {
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 		const read = await readRunManifest({ cwd, runId: manifest.runId });
 
-		assert.equal(read.runId, manifest.runId);
-		assert.match(read.createdAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
-		assert.ok(read.updatedAt >= read.createdAt, `${read.updatedAt} should not precede ${read.createdAt}`);
+		expect(read.runId).toBe(manifest.runId);
+		expect(read.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+		// ${read.updatedAt} should not precede ${read.createdAt}
+		expect(read.updatedAt >= read.createdAt).toBeTruthy();
 	});
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -103,45 +102,61 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 		onProgress: (message) => progress.push(message),
 	});
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(systemPrompts['implement']?.[0]?.includes('OVERVIEW-SENTINEL'), 'overview inlined into the executor system prompt');
-	assert.ok(result.manifest.changedFiles.includes('src/helper.js'), 'git caught the unreported file');
-	assert.ok(!result.manifest.changedFiles.includes('scratch.txt'), 'baseline dirt excluded');
-	assert.ok(result.manifest.baselineDirtyFiles.includes('scratch.txt'), 'baseline recorded in manifest');
-	assert.ok(
-		!result.manifest.changedFiles.some((file) => file === 'cov.log' || file === 'fmt.log' || file.startsWith('.lightsout/')),
-		'gate artifacts and run state never attributed',
-	);
-	assert.equal(prompts['write-tests']?.length, 2, 'one writer per JS/TS file — the .tf earned no writer');
-	assert.ok(
-		prompts['write-tests']?.every((prompt) => (prompt.match(/^- /gm) ?? []).length === 1),
-		'each writer got exactly one file in its target list',
-	);
-	assert.ok(result.manifest.changedFiles.includes('src/infra.tf'), 'the .tf is still tracked as changed');
-	assert.ok(!prompts['refactor']?.[0]?.includes('src/infra.tf'), 'refactor review list is JS/TS only');
-	assert.equal(refactorPass, 2, 'refactor looped until an empty pass');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'refactor')?.attempts, 2);
-	assert.equal(countLog(dir, 'cov.log'), 4, 'coverage gate ran at clean-slate, tests, refactor, format');
-	assert.equal(countLog(dir, 'fmt.log'), 1, 'format command ran exactly once');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'format')?.status, 'passed');
+	expect(result.ok).toBe(true);
+	// overview inlined into the executor system prompt
+	expect(systemPrompts['implement']?.[0]?.includes('OVERVIEW-SENTINEL')).toBeTruthy();
+	// git caught the unreported file
+	expect(result.manifest.changedFiles.includes('src/helper.js')).toBeTruthy();
+	// baseline dirt excluded
+	expect(result.manifest.changedFiles.includes('scratch.txt')).toBeFalsy();
+	// baseline recorded in manifest
+	expect(result.manifest.baselineDirtyFiles.includes('scratch.txt')).toBeTruthy();
+	// gate artifacts and run state never attributed
+	expect(result.manifest.changedFiles.some((file) => file === 'cov.log' || file === 'fmt.log' || file.startsWith('.lightsout/'))).toBeFalsy();
+	// one writer per JS/TS file — the .tf earned no writer
+	expect(prompts['write-tests']?.length).toBe(2);
+	// each writer got exactly one file in its target list
+	expect(prompts['write-tests']?.every((prompt) => (prompt.match(/^- /gm) ?? []).length === 1)).toBeTruthy();
+	// the .tf is still tracked as changed
+	expect(result.manifest.changedFiles.includes('src/infra.tf')).toBeTruthy();
+	// refactor review list is JS/TS only
+	expect(prompts['refactor']?.[0]?.includes('src/infra.tf')).toBeFalsy();
+	// refactor looped until an empty pass
+	expect(refactorPass).toBe(2);
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.attempts).toBe(2);
+	// coverage gate ran at clean-slate, tests, refactor, format
+	expect(countLog(dir, 'cov.log')).toBe(4);
+	// format command ran exactly once
+	expect(countLog(dir, 'fmt.log')).toBe(1);
+	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('passed');
 
 	const commands = readCommandLog(dir, result.manifest.runId);
 	const cleanSlateCheck = commands.find((entry) => entry['kind'] === 'check' && entry['step'] === 'clean-slate');
 
-	assert.ok(commands.length > 0, 'commands.jsonl written');
-	assert.ok(cleanSlateCheck, 'passing commands leave evidence too');
-	assert.equal(cleanSlateCheck?.['exitCode'], 0);
-	assert.equal(typeof cleanSlateCheck?.['durationMs'], 'number');
-	assert.equal(cleanSlateCheck?.['outputTail'], undefined, 'no output tail on success');
-	assert.ok(commands.some((entry) => entry['kind'] === 'format'), 'format command logged');
+	// commands.jsonl written
+	expect(commands.length > 0).toBeTruthy();
+	// passing commands leave evidence too
+	expect(cleanSlateCheck).toBeTruthy();
+	expect(cleanSlateCheck?.['exitCode']).toBe(0);
+	expect(typeof cleanSlateCheck?.['durationMs']).toBe('number');
+	// no output tail on success
+	expect(cleanSlateCheck?.['outputTail']).toBe(undefined);
+	// format command logged
+	expect(commands.some((entry) => entry['kind'] === 'format')).toBeTruthy();
 
-	assert.equal(result.manifest.config?.scripts.check, 'true', 'config snapshot recorded in the manifest');
-	assert.ok(progress.some((line) => line.startsWith('step clean-slate — attempt 1')), 'step-start progress emitted');
-	assert.ok(progress.some((line) => /^gate \[root\] check: exit 0/.test(line)), 'gate results streamed');
-	assert.ok(progress.some((line) => line.includes('step implement: agent report complete')), 'agent reports streamed');
+	// config snapshot recorded in the manifest
+	expect(result.manifest.config?.scripts.check).toBe('true');
+	// step-start progress emitted
+	expect(progress.some((line) => line.startsWith('step clean-slate — attempt 1'))).toBeTruthy();
+	// gate results streamed
+	expect(progress.some((line) => /^gate \[root\] check: exit 0/.test(line))).toBeTruthy();
+	// agent reports streamed
+	expect(progress.some((line) => line.includes('step implement: agent report complete'))).toBeTruthy();
 	// No consumer TypeScript in this repo → grouping degrades to one file per group.
-	assert.ok(progress.some((line) => line.includes('2 group(s) across 2 file(s) (import-graph), up to 5 writers in parallel')), 'writer fan-out announced');
-	assert.ok(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete')), 'refactor loop end announced');
+	// writer fan-out announced
+	expect(progress.some((line) => line.includes('2 group(s) across 2 file(s) (import-graph), up to 5 writers in parallel'))).toBeTruthy();
+	// refactor loop end announced
+	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
 });
 
 test('scan gate: findings feed the refactor prompt; a fixing pass clears the gate', async () => {
@@ -189,11 +204,15 @@ test('scan gate: findings feed the refactor prompt; a fixing pass clears the gat
 		onProgress: (message) => progress.push(message),
 	});
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(progress.some((line) => line.includes('scan gate: 1 finding(s)') && line.includes('1 gating')), 'gate narrated the finding');
-	assert.ok(prompts[0]?.includes('# Scan findings'), 'findings section injected into the refactor prompt');
-	assert.ok(prompts[0]?.includes('[structure] src/messy.js'), 'the planted violation named in the work-list');
-	assert.ok(!prompts[1]?.includes('# Scan findings'), 'clean tree injects no findings section');
+	expect(result.ok).toBe(true);
+	// gate narrated the finding
+	expect(progress.some((line) => line.includes('scan gate: 1 finding(s)') && line.includes('1 gating'))).toBeTruthy();
+	// findings section injected into the refactor prompt
+	expect(prompts[0]?.includes('# Scan findings')).toBeTruthy();
+	// the planted violation named in the work-list
+	expect(prompts[0]?.includes('[structure] src/messy.js')).toBeTruthy();
+	// clean tree injects no findings section
+	expect(prompts[1]?.includes('# Scan findings')).toBeFalsy();
 });
 
 test('scan gate: two identical declined passes escalate early — the third pass is never bought', async () => {
@@ -230,16 +249,17 @@ test('scan gate: two identical declined passes escalate early — the third pass
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'escalated');
-	assert.equal(refactorInvocations, 2, 'the second identical decline settles it — no third invocation');
-	assert.match(result.error ?? '', /scan gate — 1 finding\(s\) persist after 2 pass\(es\)/);
-	assert.match(result.error ?? '', /multi-export:src\/messy\.js/);
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('escalated');
+	// the second identical decline settles it — no third invocation
+	expect(refactorInvocations).toBe(2);
+	expect(result.error ?? '').toMatch(/scan gate — 1 finding\(s\) persist after 2 pass\(es\)/);
+	expect(result.error ?? '').toMatch(/multi-export:src\/messy\.js/);
 	// The escalation carries the evidence a human needs: the finding's detail
 	// with its location, and the agent's own account of why it was left.
-	assert.match(result.error ?? '', /at src\/messy\.js/);
-	assert.match(result.error ?? '', /the refactor agent's account of its final pass:/);
-	assert.match(result.error ?? '', /finding kept: the split would break the public API/);
+	expect(result.error ?? '').toMatch(/at src\/messy\.js/);
+	expect(result.error ?? '').toMatch(/the refactor agent's account of its final pass:/);
+	expect(result.error ?? '').toMatch(/finding kept: the split would break the public API/);
 });
 
 test('scan gate: a declined pass that still CHANGED the gating set earns the next pass', async () => {
@@ -292,12 +312,14 @@ test('scan gate: a declined pass that still CHANGED the gating set earns the nex
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'escalated');
-	assert.equal(refactorInvocations, 3, 'a shrinking gating set is progress — the full pass budget stays available');
-	assert.match(result.error ?? '', /persist after 3 pass\(es\)/);
-	assert.match(result.error ?? '', /multi-export:src\/beta\.js/);
-	assert.doesNotMatch(result.error ?? '', /multi-export:src\/alpha\.js/, 'the quietly-fixed violation is gone from the escalation');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('escalated');
+	// a shrinking gating set is progress — the full pass budget stays available
+	expect(refactorInvocations).toBe(3);
+	expect(result.error ?? '').toMatch(/persist after 3 pass\(es\)/);
+	expect(result.error ?? '').toMatch(/multi-export:src\/beta\.js/);
+	// the quietly-fixed violation is gone from the escalation
+	expect(result.error ?? '').not.toMatch(/multi-export:src\/alpha\.js/);
 });
 
 test('implement that changes nothing fails instead of passing vacuously', async () => {
@@ -305,9 +327,9 @@ test('implement that changes nothing fails instead of passing vacuously', async 
 	const driver: Driver = { name: 'stub', invoke: async () => ({ text: report(), exitCode: 0 }) };
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /nothing was implemented/);
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/nothing was implemented/);
 });
 
 test('non-git directory degrades to agent-reported files', async () => {
@@ -326,8 +348,8 @@ test('non-git directory degrades to agent-reported files', async () => {
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(result.manifest.changedFiles.includes('src/feature.js'));
+	expect(result.ok).toBe(true);
+	expect(result.manifest.changedFiles.includes('src/feature.js')).toBeTruthy();
 });
 
 test('rate-limited harness parks the run with resume instructions', async () => {
@@ -335,9 +357,9 @@ test('rate-limited harness parks the run with resume instructions', async () => 
 	const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'paused-rate-limit');
-	assert.ok(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`), result.error);
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('paused-rate-limit');
+	expect(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`)).toBeTruthy();
 });
 
 test('terminated:* report escalates instead of failing', async () => {
@@ -351,9 +373,9 @@ test('terminated:* report escalates instead of failing', async () => {
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'escalated');
-	assert.match(result.error ?? '', /terminated:ambiguity/);
-	assert.match(result.error ?? '', /target module/);
+	expect(result.manifest.status).toBe('escalated');
+	expect(result.error ?? '').toMatch(/terminated:ambiguity/);
+	expect(result.error ?? '').toMatch(/target module/);
 });
 
 test('verify failure: cheap retries, then supervisor escalate with diagnosis', async () => {
@@ -372,7 +394,8 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 			}
 
 			if (role === 'fix') {
-				assert.ok(prompt.includes('# Previously changed files'), 'fix re-invocation carries changed files');
+				// fix re-invocation carries changed files
+				expect(prompt.includes('# Previously changed files')).toBeTruthy();
 
 				return { text: report(), exitCode: 0 };
 			}
@@ -385,18 +408,22 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'escalated');
-	assert.match(result.error ?? '', /DIAGNOSIS-SENTINEL/);
-	assert.equal(counts['fix'], 2, 'exactly two cheap fix retries');
-	assert.equal(counts['supervisor'], 1, 'supervisor consulted exactly once');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts, 3);
+	expect(result.manifest.status).toBe('escalated');
+	expect(result.error ?? '').toMatch(/DIAGNOSIS-SENTINEL/);
+	// exactly two cheap fix retries
+	expect(counts['fix']).toBe(2);
+	// supervisor consulted exactly once
+	expect(counts['supervisor']).toBe(1);
+	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(3);
 
 	const failed = readCommandLog(dir, result.manifest.runId).find(
 		(entry) => entry['kind'] === 'testUnit' && entry['exitCode'] !== 0,
 	);
 
-	assert.ok(failed, 'failing command logged');
-	assert.equal(typeof failed?.['outputTail'], 'string', 'failure carries an output tail');
+	// failing command logged
+	expect(failed).toBeTruthy();
+	// failure carries an output tail
+	expect(typeof failed?.['outputTail']).toBe('string');
 });
 
 test('supervisor retry-with-guidance heals the run', async () => {
@@ -430,8 +457,8 @@ test('supervisor retry-with-guidance heals the run', async () => {
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, true, result.error);
-	assert.equal(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts, 4);
+	expect(result.ok).toBe(true);
+	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(4);
 });
 
 test('resume skips passed steps and continues attempt counts', async () => {
@@ -457,7 +484,7 @@ test('resume skips passed steps and continues attempt counts', async () => {
 	const config = await loadConfig({ cwd: dir });
 	const parked = await runImplementPipeline({ cwd: dir, driver: parkOnWrite, config, planPath: 'plan.md' });
 
-	assert.equal(parked.manifest.status, 'paused-rate-limit');
+	expect(parked.manifest.status).toBe('paused-rate-limit');
 
 	const counts: Record<string, number> = {};
 	const resumeDriver: Driver = {
@@ -473,10 +500,13 @@ test('resume skips passed steps and continues attempt counts', async () => {
 	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
 	const resumed = await runImplementPipeline({ cwd: dir, driver: resumeDriver, config, existing });
 
-	assert.equal(resumed.ok, true, resumed.error);
-	assert.equal(counts['implement'] ?? 0, 0, 'passed steps are not re-run');
-	assert.equal(counts['write-tests'], 1, 'parked step re-runs');
-	assert.equal(resumed.manifest.steps.find((step) => step.id === 'write-tests')?.attempts, 2, 'attempts continue across resume');
+	expect(resumed.ok).toBe(true);
+	// passed steps are not re-run
+	expect(counts['implement'] ?? 0).toBe(0);
+	// parked step re-runs
+	expect(counts['write-tests']).toBe(1);
+	// attempts continue across resume
+	expect(resumed.manifest.steps.find((step) => step.id === 'write-tests')?.attempts).toBe(2);
 });
 
 test('friction lands in friction.jsonl with run/step provenance; decisions keep their kind', async () => {
@@ -503,12 +533,14 @@ test('friction lands in friction.jsonl with run/step provenance; decisions keep 
 	const entries = await readFriction({ cwd: dir });
 	const entry = entries.find((candidate) => candidate.detail === 'FRICTION-SENTINEL');
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(entry, 'friction entry persisted');
-	assert.equal(entry?.runId, result.manifest.runId);
-	assert.equal(entry?.step, 'implement');
-	assert.equal(entry?.kind, 'decision');
-	assert.ok(entry?.at && !Number.isNaN(Date.parse(entry.at)), 'timestamp is a valid date');
+	expect(result.ok).toBe(true);
+	// friction entry persisted
+	expect(entry).toBeTruthy();
+	expect(entry?.runId).toBe(result.manifest.runId);
+	expect(entry?.step).toBe('implement');
+	expect(entry?.kind).toBe('decision');
+	// timestamp is a valid date
+	expect(entry?.at && !Number.isNaN(Date.parse(entry.at))).toBeTruthy();
 });
 
 test('malformed agent output is retried once, then fails the step', async () => {
@@ -524,9 +556,10 @@ test('malformed agent output is retried once, then fails the step', async () => 
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /did not match contract/);
-	assert.equal(calls, 2, 'one retry after the malformed report');
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/did not match contract/);
+	// one retry after the malformed report
+	expect(calls).toBe(2);
 });
 
 test('write-tests aggregates per-file failures; terminated writers escalate', async () => {
@@ -569,14 +602,14 @@ test('write-tests aggregates per-file failures; terminated writers escalate', as
 
 	const failed = await run({ failingStatus: 'failed' });
 
-	assert.equal(failed.manifest.status, 'failed');
-	assert.match(failed.error ?? '', /src\/a\.js/);
-	assert.match(failed.error ?? '', /WRITER-FAILURE-SENTINEL/);
-	assert.match(failed.error ?? '', /1 of 2/);
+	expect(failed.manifest.status).toBe('failed');
+	expect(failed.error ?? '').toMatch(/src\/a\.js/);
+	expect(failed.error ?? '').toMatch(/WRITER-FAILURE-SENTINEL/);
+	expect(failed.error ?? '').toMatch(/1 of 2/);
 
 	const terminated = await run({ failingStatus: 'terminated:scope' });
 
-	assert.equal(terminated.manifest.status, 'escalated');
+	expect(terminated.manifest.status).toBe('escalated');
 });
 
 test('a driver exception (timeout, spawn failure) is a recorded failure, never a zombie', async () => {
@@ -592,10 +625,12 @@ test('a driver exception (timeout, spawn failure) is a recorded failure, never a
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 	const persisted = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
 
-	assert.equal(result.ok, false);
-	assert.equal(persisted.status, 'failed', 'manifest records the failure — no running zombie');
-	assert.match(result.error ?? '', /agent invocation failed.*timed out/);
-	assert.equal(calls, 1, 'no blind retry after a timeout');
+	expect(result.ok).toBe(false);
+	// manifest records the failure — no running zombie
+	expect(persisted.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/agent invocation failed.*timed out/);
+	// no blind retry after a timeout
+	expect(calls).toBe(1);
 });
 
 test('config timeouts reach the driver; defaults are 60m agent / 15m supervisor', async () => {
@@ -616,8 +651,10 @@ test('config timeouts reach the driver; defaults are 60m agent / 15m supervisor'
 		return received;
 	};
 
-	assert.equal(await run({ config: {} }), 60 * 60_000, 'default agent ceiling is 60 minutes');
-	assert.equal(await run({ config: { timeouts: { agentMinutes: 33 } } }), 33 * 60_000, 'configured ceiling reaches the driver');
+	// default agent ceiling is 60 minutes
+	expect(await run({ config: {} })).toBe(60 * 60_000);
+	// configured ceiling reaches the driver
+	expect(await run({ config: { timeouts: { agentMinutes: 33 } } })).toBe(33 * 60_000);
 });
 
 test('generate runs first in every gate set; generated prefixes earn no attribution or agent turns', async () => {
@@ -658,15 +695,18 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 	const commands = readCommandLog(dir, result.manifest.runId);
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(!result.manifest.changedFiles.includes('src/gen/model.ts'), 'generated file never attributed — even agent-reported');
-	assert.deepEqual(writers, ['src/feature.js'], 'no writer spawned for the generated .ts');
-	assert.equal(commands[0]?.['kind'], 'generate', 'generate is the first command of the first gate set');
-	assert.equal(countLog(dir, 'gen.log'), 4, 'generate ran once per gate set (clean-slate + 3 verifies; no format configured)');
-	assert.ok(
-		commands.every((entry, index) => entry['kind'] !== 'check' || commands.slice(0, index).some((prior) => prior['kind'] === 'generate')),
-		'every check is preceded by a generate',
-	);
+	expect(result.ok).toBe(true);
+	// generated file never attributed — even agent-reported
+	expect(result.manifest.changedFiles.includes('src/gen/model.ts')).toBeFalsy();
+	// no writer spawned for the generated .ts
+	expect(writers).toStrictEqual(['src/feature.js']);
+	// generate is the first command of the first gate set
+	expect(commands[0]?.['kind']).toBe('generate');
+	// generate ran once per gate set (clean-slate + 3 verifies; no format
+	// configured)
+	expect(countLog(dir, 'gen.log')).toBe(4);
+	// every check is preceded by a generate
+	expect(commands.every((entry, index) => entry['kind'] !== 'check' || commands.slice(0, index).some((prior) => prior['kind'] === 'generate'))).toBeTruthy();
 });
 
 test('standards default on when unspecified; false switches them off explicitly', async () => {
@@ -694,12 +734,15 @@ test('standards default on when unspecified; false switches them off explicitly'
 
 	const defaulted = await run({ config: {} });
 
-	assert.ok(defaulted.includes('# Standards\n\nThese rules are binding'), 'unspecified → standards section present');
-	assert.ok(defaulted.includes('One Export Per File'), 'bundled defaults inlined');
+	// unspecified → standards section present
+	expect(defaulted.includes('# Standards\n\nThese rules are binding')).toBeTruthy();
+	// bundled defaults inlined
+	expect(defaulted.includes('One Export Per File')).toBeTruthy();
 
 	const disabled = await run({ config: { standards: false, testStandards: false } });
 
-	assert.ok(!disabled.includes('# Standards\n\nThese rules are binding'), 'false → no standards section');
+	// false → no standards section
+	expect(disabled.includes('# Standards\n\nThese rules are binding')).toBeFalsy();
 });
 
 test('missing plan file fails the run before any agent spawns', async () => {
@@ -717,8 +760,8 @@ test('missing plan file fails the run before any agent spawns', async () => {
 		planPath: 'ghost.md',
 	});
 
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /plan file not found: .*ghost\.md/);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/plan file not found: .*ghost\.md/);
 });
 
 test('a change with no testable source skips both write-tests and refactor, and still passes', async () => {
@@ -739,14 +782,16 @@ test('a change with no testable source skips both write-tests and refactor, and 
 	};
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(result.manifest.changedFiles.includes('docs.md'), 'the doc change is still attributed');
+	expect(result.ok).toBe(true);
+	// the doc change is still attributed
+	expect(result.manifest.changedFiles.includes('docs.md')).toBeTruthy();
 
 	const stepReport = (id: string) => result.manifest.steps.find((step) => step.id === id)?.report;
 
-	assert.deepEqual(stepReport('write-tests'), { skipped: 'no eligible source files' });
-	assert.deepEqual(stepReport('refactor'), { skipped: 'no changed source files to review' });
-	assert.equal(result.manifest.steps.find((step) => step.id === 'verify-refactor')?.status, 'passed', 'the verify after a skipped refactor still runs');
+	expect(stepReport('write-tests')).toStrictEqual({ skipped: 'no eligible source files' });
+	expect(stepReport('refactor')).toStrictEqual({ skipped: 'no changed source files to review' });
+	// the verify after a skipped refactor still runs
+	expect(result.manifest.steps.find((step) => step.id === 'verify-refactor')?.status).toBe('passed');
 });
 
 test('missing overview file fails the run before any agent spawns', async () => {
@@ -765,8 +810,8 @@ test('missing overview file fails the run before any agent spawns', async () => 
 		overviewPath: 'missing-overview.md',
 	});
 
-	assert.equal(result.manifest.status, 'failed');
-	assert.match(result.error ?? '', /overview file not found/);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/overview file not found/);
 });
 
 test('--skip-refactor omits the refactor steps; absent format command is skipped', async () => {
@@ -791,11 +836,11 @@ test('--skip-refactor omits the refactor steps; absent format command is skipped
 		skipRefactor: true,
 	});
 
-	assert.equal(result.ok, true, result.error);
-	assert.equal(result.manifest.steps.find((step) => step.id === 'refactor'), undefined);
+	expect(result.ok).toBe(true);
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')).toBe(undefined);
 
 	const format = result.manifest.steps.find((step) => step.id === 'format');
 
-	assert.equal(format?.status, 'passed');
-	assert.deepEqual(format?.report, { skipped: 'no format command configured' });
+	expect(format?.status).toBe('passed');
+	expect(format?.report).toStrictEqual({ skipped: 'no format command configured' });
 });

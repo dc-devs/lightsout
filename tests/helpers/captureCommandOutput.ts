@@ -1,7 +1,10 @@
-import type { TestContext } from 'node:test';
+import { jest } from '@jest/globals';
 
-interface Params {
-	t: TestContext;
+/** What a CLI command wrote and how it ended — the captured observable surface. */
+export interface CapturedCommandOutput {
+	logged: string[];
+	errors: string[];
+	exitCodes: (number | string | null | undefined)[];
 }
 
 /**
@@ -10,28 +13,25 @@ interface Params {
  * the mock throws: one that returned would let the command body run on past a
  * fatal exit and assert output the real CLI never produces. isTTY is pinned off
  * so the ANSI paint helpers stay no-ops and the assertions read the plain text a
- * piped consumer sees. `t.mock.method` restores every original when the test ends.
+ * piped consumer sees. The Jest config restores every spy after each test, and
+ * tests/config/setupTestEnvironment.ts restores isTTY.
  */
-export const captureCommandOutput = ({ t }: Params) => {
+export const captureCommandOutput = (): CapturedCommandOutput => {
 	const logged: string[] = [];
 	const errors: string[] = [];
 	const exitCodes: (number | string | null | undefined)[] = [];
-	const wasTty = process.stdout.isTTY;
 
 	process.stdout.isTTY = false;
-	t.after(() => {
-		process.stdout.isTTY = wasTty;
-	});
 
-	t.mock.method(console, 'log', (...args: unknown[]) => {
+	jest.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
 		logged.push(String(args[0]));
 	});
 
-	t.mock.method(console, 'error', (...args: unknown[]) => {
+	jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
 		errors.push(String(args[0]));
 	});
 
-	t.mock.method(process, 'exit', (code?: number | string | null): never => {
+	jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null): never => {
 		exitCodes.push(code);
 
 		throw new Error('process.exit');

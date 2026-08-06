@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { runScan } from '@/scan';
 
 // scanClones is a scan internal: tier 1 runs inside runScan, so its clone
@@ -46,18 +45,14 @@ test('tier 1 reports the duplicated span across both files', async () => {
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
 	const clones = findings.filter((finding) => finding.detector === 'clone');
-	assert.ok(
-		clones.some((finding) => {
-			const paths = finding.files.map((file) => file.path).sort();
+	// the copied body clones:\n${JSON.stringify(clones, undefined, 1)}
+	expect(clones.some((finding) => {
+		const paths = finding.files.map((file) => file.path).sort();
 
-			return paths[0] === 'src/a/alpha.ts' && paths[1] === 'src/b/beta.ts';
-		}),
-		`the copied body clones:\n${JSON.stringify(clones, undefined, 1)}`,
-	);
-	assert.ok(
-		clones.every((finding) => finding.files.every((file) => (file.startLine ?? 0) >= 1 && (file.endLine ?? 0) >= (file.startLine ?? 0))),
-		'every clone carries a real line span',
-	);
+		return paths[0] === 'src/a/alpha.ts' && paths[1] === 'src/b/beta.ts';
+	})).toBeTruthy();
+	// every clone carries a real line span
+	expect(clones.every((finding) => finding.files.every((file) => (file.startLine ?? 0) >= 1 && (file.endLine ?? 0) >= (file.startLine ?? 0)))).toBeTruthy();
 });
 
 test('a listed file that cannot be read is skipped, never fatal', async () => {
@@ -65,9 +60,9 @@ test('a listed file that cannot be read is skipped, never fatal', async () => {
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
-	assert.ok(findings.length > 0, 'the scan completes and still reports the readable files');
-	assert.ok(
-		!findings.some((finding) => finding.files.some((file) => file.path === 'src/broken.ts')),
-		`an unreadable file contributes nothing:\n${JSON.stringify(findings, undefined, 1)}`,
-	);
+	// the scan completes and still reports the readable files
+	expect(findings.length > 0).toBeTruthy();
+	// an unreadable file contributes nothing:\n${JSON.stringify(findings,
+	// undefined, 1)}
+	expect(findings.some((finding) => finding.files.some((file) => file.path === 'src/broken.ts'))).toBeFalsy();
 });

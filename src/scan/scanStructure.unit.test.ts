@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { runScan } from '@/scan';
 
 const setupStructureRepo = ({ files }: { files: Record<string, string> }) => {
@@ -37,15 +36,18 @@ describe('scanStructure', () => {
 		const multi = findings.find((finding) => finding.cluster === 'multi-export:src/pay/config.ts');
 		const mismatch = findings.find((finding) => finding.cluster === 'filename-mismatch:src/pay/helpers.ts');
 
-		assert.equal(multi?.severity, 'finding', 'one-export-per-file is a rule violation');
-		assert.ok(multi?.detail.includes('loadConfig') && multi.detail.includes('saveConfig'), `the detail names the competing exports: ${multi?.detail}`);
-		assert.deepEqual(multi?.files, [{ path: 'src/pay/config.ts' }], 'the finding points at the offending file');
-		assert.equal(mismatch?.severity, 'advisory', 'a filename mismatch is judgment-adjacent, never a rule violation');
-		assert.ok(mismatch?.detail.includes('buildLabel'), `the detail names the export the filename should follow: ${mismatch?.detail}`);
-		assert.ok(
-			!findings.some((finding) => finding.cluster === 'filename-mismatch:src/pay/config.ts'),
-			'a file with several exports has no single export its filename could match',
-		);
+		// one-export-per-file is a rule violation
+		expect(multi?.severity).toBe('finding');
+		// the detail names the competing exports: ${multi?.detail}
+		expect(multi?.detail.includes('loadConfig') && multi.detail.includes('saveConfig')).toBeTruthy();
+		// the finding points at the offending file
+		expect(multi?.files).toStrictEqual([{ path: 'src/pay/config.ts' }]);
+		// a filename mismatch is judgment-adjacent, never a rule violation
+		expect(mismatch?.severity).toBe('advisory');
+		// the detail names the export the filename should follow: ${mismatch?.detail}
+		expect(mismatch?.detail.includes('buildLabel')).toBeTruthy();
+		// a file with several exports has no single export its filename could match
+		expect(findings.some((finding) => finding.cluster === 'filename-mismatch:src/pay/config.ts')).toBeFalsy();
 	});
 
 	test('exempts a union family — interfaces plus exactly one type alias — from one-export-per-file', async () => {
@@ -61,11 +63,8 @@ describe('scanStructure', () => {
 
 		const findings = allFindings.filter((finding) => finding.detector === 'structure');
 
-		assert.deepEqual(
-			findings.map((finding) => finding.cluster),
-			['multi-export:src/shape/Region.ts'],
-			'the discriminated union stays together; a second alias breaks the family',
-		);
+		// the discriminated union stays together; a second alias breaks the family
+		expect(findings.map((finding) => finding.cluster)).toStrictEqual(['multi-export:src/shape/Region.ts']);
 	});
 
 	test('exempts a named constant with its derived type and Record lookup maps', async () => {
@@ -83,11 +82,8 @@ describe('scanStructure', () => {
 
 		const findings = allFindings.filter((finding) => finding.detector === 'structure');
 
-		assert.deepEqual(
-			findings.map((finding) => finding.cluster),
-			['multi-export:src/order/OrderKind.ts'],
-			'the lookup map rides along with its constant; an unrelated const does not',
-		);
+		// the lookup map rides along with its constant; an unrelated const does not
+		expect(findings.map((finding) => finding.cluster)).toStrictEqual(['multi-export:src/order/OrderKind.ts']);
 	});
 
 	test('skips barrels — an index file is judged on neither export count nor filename', async () => {
@@ -102,7 +98,9 @@ describe('scanStructure', () => {
 
 		const findings = allFindings.filter((finding) => finding.detector === 'structure');
 
-		assert.deepEqual(findings.map((finding) => finding.cluster), [], `a barrel is exempt from both structure rules:\n${JSON.stringify(findings, undefined, 1)}`);
+		// a barrel is exempt from both structure rules:\n${JSON.stringify(findings,
+		// undefined, 1)}
+		expect(findings.map((finding) => finding.cluster)).toStrictEqual([]);
 	});
 
 	test('skips a file that exports nothing rather than matching its filename against no export', async () => {
@@ -117,7 +115,9 @@ describe('scanStructure', () => {
 
 		const findings = allFindings.filter((finding) => finding.detector === 'structure');
 
-		assert.deepEqual(findings.map((finding) => finding.cluster), [], `an export-free file has no contract to mismatch:\n${JSON.stringify(findings, undefined, 1)}`);
+		// an export-free file has no contract to mismatch:\n${JSON.stringify(findings,
+		// undefined, 1)}
+		expect(findings.map((finding) => finding.cluster)).toStrictEqual([]);
 	});
 
 	test('groups repeated first tokens only inside a utils/ folder', async () => {
@@ -138,13 +138,12 @@ describe('scanStructure', () => {
 		const findings = allFindings.filter((finding) => finding.detector === 'structure');
 		const domain = findings.filter((finding) => finding.cluster.startsWith('domain:'));
 
-		assert.deepEqual(domain.map((finding) => finding.cluster), ['domain:src/a/utils:format'], 'only a repeated verb inside utils/ is a graduation candidate');
-		assert.equal(domain[0]?.severity, 'advisory', 'graduation is a heuristic, never a rule violation');
-		assert.deepEqual(
-			domain[0]?.files.map((file) => file.path).sort(),
-			['src/a/utils/formatCurrency.ts', 'src/a/utils/formatDate.ts'],
-			'the finding lists every file in the group',
-		);
+		// only a repeated verb inside utils/ is a graduation candidate
+		expect(domain.map((finding) => finding.cluster)).toStrictEqual(['domain:src/a/utils:format']);
+		// graduation is a heuristic, never a rule violation
+		expect(domain[0]?.severity).toBe('advisory');
+		// the finding lists every file in the group
+		expect(domain[0]?.files.map((file) => file.path).sort()).toStrictEqual(['src/a/utils/formatCurrency.ts', 'src/a/utils/formatDate.ts']);
 	});
 
 	test('flags a folder over the census cap, counting every file including its barrel', async () => {
@@ -163,9 +162,13 @@ describe('scanStructure', () => {
 		const findings = allFindings.filter((finding) => finding.detector === 'structure');
 		const census = findings.filter((finding) => finding.cluster.startsWith('census:'));
 
-		assert.deepEqual(census.map((finding) => finding.cluster), ['census:src/wide'], 'a folder sitting exactly at the cap is not flagged');
-		assert.equal(census[0]?.severity, 'advisory', 'the census is a heuristic, never a rule violation');
-		assert.deepEqual(census[0]?.files, [{ path: 'src/wide' }], 'the finding points at the folder, not a file');
-		assert.ok(census[0]?.detail.includes('21 files'), `the detail counts the barrel too: ${census[0]?.detail}`);
+		// a folder sitting exactly at the cap is not flagged
+		expect(census.map((finding) => finding.cluster)).toStrictEqual(['census:src/wide']);
+		// the census is a heuristic, never a rule violation
+		expect(census[0]?.severity).toBe('advisory');
+		// the finding points at the folder, not a file
+		expect(census[0]?.files).toStrictEqual([{ path: 'src/wide' }]);
+		// the detail counts the barrel too: ${census[0]?.detail}
+		expect(census[0]?.detail.includes('21 files')).toBeTruthy();
 	});
 });

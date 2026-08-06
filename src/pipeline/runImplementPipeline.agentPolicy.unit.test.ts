@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { Permissions } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
@@ -63,13 +62,11 @@ describe('PipelineRun agent policy', () => {
 
 		const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-		assert.equal(result.ok, true);
-		assert.ok(invocations.length > 0, 'the stub driver was invoked');
-		assert.deepEqual(
-			distinct(invocations.map((invocation) => invocation.permissions)),
-			['write'],
-			`every working role runs at the write level: ${JSON.stringify(invocations)}`,
-		);
+		expect(result.ok).toBe(true);
+		// the stub driver was invoked
+		expect(invocations.length > 0).toBeTruthy();
+		// every working role runs at the write level: ${JSON.stringify(invocations)}
+		expect(distinct(invocations.map((invocation) => invocation.permissions))).toStrictEqual(['write']);
 	});
 
 	test('passes a configured full-access level to every working role', async () => {
@@ -77,12 +74,9 @@ describe('PipelineRun agent policy', () => {
 
 		const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-		assert.equal(result.ok, true);
-		assert.deepEqual(
-			distinct(invocations.map((invocation) => invocation.permissions)),
-			['full-access'],
-			`the configured level replaces the default: ${JSON.stringify(invocations)}`,
-		);
+		expect(result.ok).toBe(true);
+		// the configured level replaces the default: ${JSON.stringify(invocations)}
+		expect(distinct(invocations.map((invocation) => invocation.permissions))).toStrictEqual(['full-access']);
 	});
 
 	test('records the resolved effort beside the model on every usage ledger line', async () => {
@@ -90,15 +84,12 @@ describe('PipelineRun agent policy', () => {
 
 		const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-		assert.equal(result.ok, true);
+		expect(result.ok).toBe(true);
 
 		const ledger = readLedger(result.manifest.runId);
 
-		assert.deepEqual(
-			distinct(ledger.map((record) => `${String(record.model)}/${String(record.effort)}`)),
-			['stub-model/xhigh'],
-			`cost is explainable after the fact: ${JSON.stringify(ledger)}`,
-		);
+		// cost is explainable after the fact: ${JSON.stringify(ledger)}
+		expect(distinct(ledger.map((record) => `${String(record.model)}/${String(record.effort)}`))).toStrictEqual(['stub-model/xhigh']);
 	});
 
 	test('omits effort from ledger lines when config sets none', async () => {
@@ -106,19 +97,13 @@ describe('PipelineRun agent policy', () => {
 
 		const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-		assert.equal(result.ok, true);
+		expect(result.ok).toBe(true);
 
 		const ledger = readLedger(result.manifest.runId);
 
-		assert.deepEqual(
-			distinct(ledger.map((record) => Object.hasOwn(record, 'effort'))),
-			[false],
-			`an unset effort leaves no key to misread: ${JSON.stringify(ledger)}`,
-		);
-		assert.deepEqual(
-			distinct(ledger.map((record) => record.model)),
-			['stub-model'],
-			'the model still lands on every line',
-		);
+		// an unset effort leaves no key to misread: ${JSON.stringify(ledger)}
+		expect(distinct(ledger.map((record) => Object.hasOwn(record, 'effort')))).toStrictEqual([false]);
+		// the model still lands on every line
+		expect(distinct(ledger.map((record) => record.model))).toStrictEqual(['stub-model']);
 	});
 });

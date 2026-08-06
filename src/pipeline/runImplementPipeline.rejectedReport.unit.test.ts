@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -53,21 +52,22 @@ test('a final message that fails the report contract is saved to the run dir bef
 		onProgress: (message) => progressLines.push(message),
 	});
 
-	assert.equal(result.ok, true, result.error);
+	expect(result.ok).toBe(true);
 
 	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
 	const rejected = readdirSync(agentsDir).filter((name) => name.startsWith('rejected-'));
 
-	assert.deepEqual(rejected, ['rejected-01-implement-attempt1.txt'], 'the rejected message is filed by sequence, step, and attempt');
+	// the rejected message is filed by sequence, step, and attempt
+	expect(rejected).toStrictEqual(['rejected-01-implement-attempt1.txt']);
 
 	const saved = readFileSync(join(agentsDir, rejected[0] ?? ''), 'utf8');
 
-	assert.match(saved, /^# step: implement · invocation attempt 1\n# validation: /, 'the header names the step and attempt the text came from');
-	assert.ok(saved.includes(implementProse), 'the raw final message is preserved verbatim, not summarized');
-	assert.ok(
-		progressLines.some((line) => line.includes(`.lightsout/runs/${result.manifest.runId}/agents/rejected-01-implement-attempt1.txt`)),
-		`the run is told where the evidence landed:\n${progressLines.join('\n')}`,
-	);
+	// the header names the step and attempt the text came from
+	expect(saved).toMatch(/^# step: implement · invocation attempt 1\n# validation: /);
+	// the raw final message is preserved verbatim, not summarized
+	expect(saved.includes(implementProse)).toBeTruthy();
+	// the run is told where the evidence landed:\n${progressLines.join('\n')}
+	expect(progressLines.some((line) => line.includes(`.lightsout/runs/${result.manifest.runId}/agents/rejected-01-implement-attempt1.txt`))).toBeTruthy();
 });
 
 test('two rejected messages in one run are filed under distinct sequence numbers', async () => {
@@ -102,17 +102,16 @@ test('two rejected messages in one run are filed under distinct sequence numbers
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, true, result.error);
+	expect(result.ok).toBe(true);
 
 	const agentsDir = join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents');
 	const rejected = readdirSync(agentsDir)
 		.filter((name) => name.startsWith('rejected-'))
 		.sort();
 
-	assert.deepEqual(
-		rejected,
-		['rejected-01-implement-attempt1.txt', 'rejected-02-write-tests-attempt1.txt'],
-		'a second rejection never overwrites the first — the counter runs across steps',
-	);
-	assert.ok(readFileSync(join(agentsDir, 'rejected-02-write-tests-attempt1.txt'), 'utf8').includes(writerProse), 'each file holds its own step’s text');
+	// a second rejection never overwrites the first — the counter runs across
+	// steps
+	expect(rejected).toStrictEqual(['rejected-01-implement-attempt1.txt', 'rejected-02-write-tests-attempt1.txt']);
+	// each file holds its own step’s text
+	expect(readFileSync(join(agentsDir, 'rejected-02-write-tests-attempt1.txt'), 'utf8').includes(writerProse)).toBeTruthy();
 });

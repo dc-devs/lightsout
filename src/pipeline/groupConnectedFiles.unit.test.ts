@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { groupConnectedFiles } from '@/pipeline';
 
 test('groupConnectedFiles: chains merge, isolates stand alone, output is deterministic', () => {
@@ -10,7 +9,7 @@ test('groupConnectedFiles: chains merge, isolates stand alone, output is determi
 		{ from: 'a.ts', to: 'not-in-set.ts' },
 	];
 
-	assert.deepEqual(groupConnectedFiles({ files, edges }), [['a.ts', 'b.ts', 'c.ts'], ['lonely.ts']]);
+	expect(groupConnectedFiles({ files, edges })).toStrictEqual([['a.ts', 'b.ts', 'c.ts'], ['lonely.ts']]);
 });
 
 test('groupConnectedFiles: component membership and ordering are independent of edge order', () => {
@@ -23,11 +22,12 @@ test('groupConnectedFiles: component membership and ordering are independent of 
 	const forward = groupConnectedFiles({ files, edges });
 	const reversed = groupConnectedFiles({ files, edges: [...edges].reverse() });
 
-	assert.deepEqual(forward, [
+	expect(forward).toStrictEqual([
 		['a.ts', 'b.ts'],
 		['m.ts', 'z.ts'],
 	]);
-	assert.deepEqual(reversed, forward, 'same components in the same order whichever way the edges arrive');
+	// same components in the same order whichever way the edges arrive
+	expect(reversed).toStrictEqual(forward);
 });
 
 test('groupConnectedFiles: a repeated edge and a self-edge merge nothing new', () => {
@@ -38,9 +38,9 @@ test('groupConnectedFiles: a repeated edge and a self-edge merge nothing new', (
 		{ from: 'a.ts', to: 'a.ts' },
 	];
 
-	assert.deepEqual(groupConnectedFiles({ files, edges }), [['a.ts', 'b.ts']]);
+	expect(groupConnectedFiles({ files, edges })).toStrictEqual([['a.ts', 'b.ts']]);
 });
 
 test('groupConnectedFiles: no files yields no components, even with edges', () => {
-	assert.deepEqual(groupConnectedFiles({ files: [], edges: [{ from: 'a.ts', to: 'b.ts' }] }), []);
+	expect(groupConnectedFiles({ files: [], edges: [{ from: 'a.ts', to: 'b.ts' }] })).toStrictEqual([]);
 });

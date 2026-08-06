@@ -1,9 +1,9 @@
-import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { runCommand } from '@/common/utils/runCommand';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 const setupCwd = ({ files = {} }: { files?: Record<string, string> } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-runcommand-'));
@@ -20,7 +20,7 @@ test('runCommand: a green command resolves with exit code 0 and its captured std
 
 	const result = await runCommand({ command: 'echo gate-output', cwd });
 
-	assert.deepEqual(result, { exitCode: 0, stdout: 'gate-output\n', stderr: '' });
+	expect(result).toStrictEqual({ exitCode: 0, stdout: 'gate-output\n', stderr: '' });
 });
 
 test('runCommand: a red exit is a result, not an exception — the engine owns what failure means', async () => {
@@ -28,7 +28,9 @@ test('runCommand: a red exit is a result, not an exception — the engine owns w
 
 	const result = await runCommand({ command: 'echo boom 1>&2; exit 3', cwd });
 
-	assert.deepEqual(result, { exitCode: 3, stdout: '', stderr: 'boom\n' }, 'a non-zero gate exit must reach the caller as data, so the pipeline can record it and continue');
+	// a non-zero gate exit must reach the caller as data, so the pipeline can
+	// record it and continue
+	expect(result).toStrictEqual({ exitCode: 3, stdout: '', stderr: 'boom\n' });
 });
 
 test('runCommand: the command runs in the given cwd, not the engine process cwd', async () => {
@@ -36,16 +38,15 @@ test('runCommand: the command runs in the given cwd, not the engine process cwd'
 
 	const result = await runCommand({ command: 'cat marker.txt', cwd });
 
-	assert.deepEqual(result, { exitCode: 0, stdout: 'here\n', stderr: '' });
+	expect(result).toStrictEqual({ exitCode: 0, stdout: 'here\n', stderr: '' });
 });
 
 test('runCommand: a command that outlives its timeout is killed and rejects naming the ceiling', async () => {
 	const { cwd } = setupCwd();
 
-	await assert.rejects(
-		runCommand({ command: 'sleep 30', cwd, timeoutMs: 50 }),
-		(error: unknown) => error instanceof Error && error.message === 'command timed out after 50ms: sleep 30',
-	);
+	const error = await getRejectionError({ promise: runCommand({ command: 'sleep 30', cwd, timeoutMs: 50 }) });
+
+	expect(error.message).toBe('command timed out after 50ms: sleep 30');
 });
 
 test('runCommand: a command killed by a signal reports exit code -1 rather than a null code', async () => {
@@ -53,5 +54,7 @@ test('runCommand: a command killed by a signal reports exit code -1 rather than 
 
 	const result = await runCommand({ command: 'kill -9 $$', cwd });
 
-	assert.equal(result.exitCode, -1, 'a signalled death carries no exit code — the gate still gets a number it can judge as failure');
+	// a signalled death carries no exit code — the gate still gets a number it can
+	// judge as failure
+	expect(result.exitCode).toBe(-1);
 });

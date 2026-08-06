@@ -1,13 +1,13 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { expectDefined } from '@tests/helpers/expectDefined';
 
 const grant = 'pnpm --filter api run prisma:migrate:dev:name';
 
@@ -43,17 +43,22 @@ test('agentCommands: grant section reaches the executor, driver gets allowedComm
 	const config = await loadConfig({ cwd: dir });
 	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-	assert.equal(result.ok, true);
+	expect(result.ok).toBe(true);
 
 	const implement = invocations.find((invocation) => invocation.role === 'implement');
 	const writer = invocations.find((invocation) => invocation.role === 'write-tests');
 
 	// The grant is stable for the whole run, so it rides the cached system prompt.
-	assert.ok(implement?.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands'), 'executor role prompt carries the grant section');
-	assert.ok(implement?.systemPrompt?.includes(grant), 'grant lists the exact prefix');
-	assert.deepEqual(implement?.allowedCommands, [grant], 'driver receives allowedCommands for the executor');
-	assert.ok(!writer?.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands'), 'test-writer role prompt has no grant section');
-	assert.deepEqual(writer?.allowedCommands, [grant], 'harness-level allowance is uniform for working roles');
+	// executor role prompt carries the grant section
+	expect(implement?.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands')).toBeTruthy();
+	// grant lists the exact prefix
+	expect(implement?.systemPrompt?.includes(grant)).toBeTruthy();
+	// driver receives allowedCommands for the executor
+	expect(implement?.allowedCommands).toStrictEqual([grant]);
+	// test-writer role prompt has no grant section
+	expect(writer?.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands')).toBeFalsy();
+	// harness-level allowance is uniform for working roles
+	expect(writer?.allowedCommands).toStrictEqual([grant]);
 });
 
 test('agentCommands absent: no grant section, no allowedCommands', async () => {
@@ -76,7 +81,8 @@ test('agentCommands absent: no grant section, no allowedCommands', async () => {
 
 	await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-	assert.ok(implementInvocation, 'executor was invoked');
-	assert.ok(!implementInvocation.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands'));
-	assert.equal(implementInvocation.allowedCommands, undefined);
+	// executor was invoked
+	expectDefined(implementInvocation);
+	expect(implementInvocation.systemPrompt?.includes('# Granted commands\n\nYou may run these shell commands')).toBeFalsy();
+	expect(implementInvocation.allowedCommands).toBe(undefined);
 });

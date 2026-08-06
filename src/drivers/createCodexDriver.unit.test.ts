@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { after, test } from 'node:test';
+import { expect, test, afterAll } from '@jest/globals';
 import { Effort, Permissions } from '@/contracts';
 import { createCodexDriver } from '@/drivers';
 
@@ -14,7 +13,7 @@ import { createCodexDriver } from '@/drivers';
 // the real one, spawning a real process.
 const realPath = process.env.PATH ?? '';
 
-after(() => {
+afterAll(() => {
 	process.env.PATH = realPath;
 });
 
@@ -68,8 +67,8 @@ test('createCodexDriver: the invocation model, effort, and permissions reach the
 
 	const argv = await readArgv();
 
-	assert.deepEqual(argv.slice(0, 5), ['exec', '--skip-git-repo-check', '--color', 'never', '--output-last-message']);
-	assert.deepEqual(argv.slice(6), ['--dangerously-bypass-approvals-and-sandbox', '--model', 'gpt-5.2', '-c', 'model_reasoning_effort="high"']);
+	expect(argv.slice(0, 5)).toStrictEqual(['exec', '--skip-git-repo-check', '--color', 'never', '--output-last-message']);
+	expect(argv.slice(6)).toStrictEqual(['--dangerously-bypass-approvals-and-sandbox', '--model', 'gpt-5.2', '-c', 'model_reasoning_effort="high"']);
 });
 
 test('createCodexDriver: an invocation carrying none of them spawns a sandboxed process with the approval policy pinned', async () => {
@@ -79,7 +78,7 @@ test('createCodexDriver: an invocation carrying none of them spawns a sandboxed 
 
 	const argv = await readArgv();
 
-	assert.deepEqual(argv.slice(6), ['--sandbox', 'workspace-write', '-c', 'approval_policy="never"']);
+	expect(argv.slice(6)).toStrictEqual(['--sandbox', 'workspace-write', '-c', 'approval_policy="never"']);
 });
 
 test('createCodexDriver: codex has no system-prompt channel, so role instructions ride at the top of stdin', async () => {
@@ -87,7 +86,7 @@ test('createCodexDriver: codex has no system-prompt channel, so role instruction
 
 	await driver.invoke({ prompt: 'TASK', systemPrompt: 'ROLE', cwd });
 
-	assert.equal(await readStdin(), '# Role instructions\n\nROLE\n\n# Task\n\nTASK');
+	expect(await readStdin()).toBe('# Role instructions\n\nROLE\n\n# Task\n\nTASK');
 });
 
 test('createCodexDriver: without a system prompt the task text reaches stdin verbatim', async () => {
@@ -95,7 +94,7 @@ test('createCodexDriver: without a system prompt the task text reaches stdin ver
 
 	await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.equal(await readStdin(), 'TASK');
+	expect(await readStdin()).toBe('TASK');
 });
 
 test('createCodexDriver: the final message is read from the output file, not the event stream', async () => {
@@ -103,7 +102,7 @@ test('createCodexDriver: the final message is read from the output file, not the
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'FINAL-MESSAGE', exitCode: 0, rateLimited: false });
+	expect(result).toStrictEqual({ text: 'FINAL-MESSAGE', exitCode: 0, rateLimited: false });
 });
 
 test('createCodexDriver: a failed spawn whose output names a usage limit reports rateLimited, falling back to stderr for text', async () => {
@@ -111,7 +110,7 @@ test('createCodexDriver: a failed spawn whose output names a usage limit reports
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'error: usage limit reached, try again later', exitCode: 1, rateLimited: true });
+	expect(result).toStrictEqual({ text: 'error: usage limit reached, try again later', exitCode: 1, rateLimited: true });
 });
 
 test('createCodexDriver: a zero exit that wrote no final message is still an error path for the rate-limit heuristic', async () => {
@@ -119,7 +118,7 @@ test('createCodexDriver: a zero exit that wrote no final message is still an err
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'quota exhausted', exitCode: 0, rateLimited: true });
+	expect(result).toStrictEqual({ text: 'quota exhausted', exitCode: 0, rateLimited: true });
 });
 
 test('createCodexDriver: an ordinary failure is not misread as a rate limit, and stdout carries the text', async () => {
@@ -127,7 +126,7 @@ test('createCodexDriver: an ordinary failure is not misread as a rate limit, and
 
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
-	assert.deepEqual(result, { text: 'boom: unrecognized subcommand', exitCode: 2, rateLimited: false });
+	expect(result).toStrictEqual({ text: 'boom: unrecognized subcommand', exitCode: 2, rateLimited: false });
 });
 
 test('createCodexDriver: the temp directory holding the output file is removed once the invocation returns', async () => {
@@ -138,5 +137,6 @@ test('createCodexDriver: the temp directory holding the output file is removed o
 	const argv = await readArgv();
 	const outFile = argv[argv.indexOf('--output-last-message') + 1];
 
-	assert.equal(existsSync(dirname(outFile)), false, 'the driver cleans up after itself');
+	// the driver cleans up after itself
+	expect(existsSync(dirname(outFile))).toBe(false);
 });

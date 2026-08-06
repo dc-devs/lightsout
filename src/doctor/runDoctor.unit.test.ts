@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test, jest } from '@jest/globals';
 import { runDoctor } from '@/doctor';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -18,18 +17,22 @@ test('doctor passes a healthy consumer repo — gitignore judged by git, not by 
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('config')?.status, 'pass');
-	assert.match(checks.get('config')?.detail ?? '', /harness claude-code/, 'a config with no harness key reports the default by name');
-	assert.equal(checks.get('harness')?.status, 'pass');
-	assert.match(checks.get('harness')?.detail ?? '', /claude 2\.1\.201/);
-	assert.equal(checks.get('gitignore')?.status, 'pass', checks.get('gitignore')?.detail);
-	assert.equal(checks.get('script-binaries')?.status, 'pass', checks.get('script-binaries')?.detail);
+	expect(checks.get('config')?.status).toBe('pass');
+	// a config with no harness key reports the default by name
+	expect(checks.get('config')?.detail ?? '').toMatch(/harness claude-code/);
+	expect(checks.get('harness')?.status).toBe('pass');
+	expect(checks.get('harness')?.detail ?? '').toMatch(/claude 2\.1\.201/);
+	expect(checks.get('gitignore')?.status).toBe('pass');
+	expect(checks.get('script-binaries')?.status).toBe('pass');
 
 	// Checks with nothing to say emit no line at all — a single-package repo
 	// has no scoped gates, no Jest config, and no testing-library to weigh in on.
-	assert.equal(checks.get('scoped-gates'), undefined, 'a config without packageScripts is not a monorepo to scope-check');
-	assert.equal(checks.get('jest-mocks'), undefined, 'no Jest config found means no mock-cleanup opinion');
-	assert.equal(checks.get('user-event'), undefined, 'no testing-library dependency means no user-event nudge');
+	// a config without packageScripts is not a monorepo to scope-check
+	expect(checks.get('scoped-gates')).toBe(undefined);
+	// no Jest config found means no mock-cleanup opinion
+	expect(checks.get('jest-mocks')).toBe(undefined);
+	// no testing-library dependency means no user-event nudge
+	expect(checks.get('user-event')).toBe(undefined);
 });
 
 test('doctor fails hard on an invalid config and checks nothing else', async () => {
@@ -39,9 +42,9 @@ test('doctor fails hard on an invalid config and checks nothing else', async () 
 
 	const checks = await runDoctor({ cwd: dir, probeHarness: passingProbe });
 
-	assert.equal(checks.length, 1);
-	assert.equal(checks[0]?.id, 'config');
-	assert.equal(checks[0]?.status, 'fail');
+	expect(checks.length).toBe(1);
+	expect(checks[0]?.id).toBe('config');
+	expect(checks[0]?.status).toBe('fail');
 });
 
 test('doctor flags a broken harness binary with the probe output', async () => {
@@ -53,8 +56,8 @@ test('doctor flags a broken harness binary with the probe output', async () => {
 		}),
 	);
 
-	assert.equal(checks.get('harness')?.status, 'fail');
-	assert.match(checks.get('harness')?.detail ?? '', /ENOENT/);
+	expect(checks.get('harness')?.status).toBe('fail');
+	expect(checks.get('harness')?.detail ?? '').toMatch(/ENOENT/);
 });
 
 test('doctor probes every harness binary the commands block references and names the broken one', async () => {
@@ -67,9 +70,12 @@ test('doctor probes every harness binary the commands block references and names
 		}),
 	);
 
-	assert.equal(checks.get('harness')?.status, 'fail', 'a per-command harness whose binary is broken fails the harness check even when the global binary is healthy');
-	assert.match(checks.get('harness')?.detail ?? '', /codex/);
-	assert.match(checks.get('harness')?.fix ?? '', /codex/, 'the fix names the broken binary');
+	// a per-command harness whose binary is broken fails the harness check even
+	// when the global binary is healthy
+	expect(checks.get('harness')?.status).toBe('fail');
+	expect(checks.get('harness')?.detail ?? '').toMatch(/codex/);
+	// the fix names the broken binary
+	expect(checks.get('harness')?.fix ?? '').toMatch(/codex/);
 });
 
 test('doctor reports a harness binary whose probe throws as not runnable, with an install fix', async () => {
@@ -83,9 +89,10 @@ test('doctor reports a harness binary whose probe throws as not runnable, with a
 		}),
 	);
 
-	assert.equal(checks.get('harness')?.status, 'fail');
-	assert.match(checks.get('harness')?.detail ?? '', /claude not runnable: spawn claude EACCES/);
-	assert.match(checks.get('harness')?.fix ?? '', /install/, 'a binary that cannot even spawn gets the install fix, not the repair fix');
+	expect(checks.get('harness')?.status).toBe('fail');
+	expect(checks.get('harness')?.detail ?? '').toMatch(/claude not runnable: spawn claude EACCES/);
+	// a binary that cannot even spawn gets the install fix, not the repair fix
+	expect(checks.get('harness')?.fix ?? '').toMatch(/install/);
 });
 
 test('doctor probes each referenced binary once, even when several commands name the same harness', async () => {
@@ -105,8 +112,9 @@ test('doctor probes each referenced binary once, even when several commands name
 		}),
 	);
 
-	assert.equal(checks.get('harness')?.status, 'pass');
-	assert.deepEqual([...probedBinaries].sort(), ['claude', 'codex'], 'duplicate harness references collapse to one probe per binary');
+	expect(checks.get('harness')?.status).toBe('pass');
+	// duplicate harness references collapse to one probe per binary
+	expect([...probedBinaries].sort()).toStrictEqual(['claude', 'codex']);
 });
 
 test('doctor probes the binary the global harness key names, not the claude-code default', async () => {
@@ -123,17 +131,18 @@ test('doctor probes the binary the global harness key names, not the claude-code
 		}),
 	);
 
-	assert.deepEqual(probedBinaries, ['codex'], 'a global harness replaces the default rather than adding to it');
-	assert.equal(checks.get('harness')?.status, 'pass');
-	assert.match(checks.get('harness')?.detail ?? '', /codex 0\.146\.0/);
+	// a global harness replaces the default rather than adding to it
+	expect(probedBinaries).toStrictEqual(['codex']);
+	expect(checks.get('harness')?.status).toBe('pass');
+	expect(checks.get('harness')?.detail ?? '').toMatch(/codex 0\.146\.0/);
 });
 
 test('doctor names the configured global harness in the config check detail', async () => {
 	const dir = setupConsumerRepo({ git: false, config: { harness: 'codex' } });
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('config')?.status, 'pass');
-	assert.match(checks.get('config')?.detail ?? '', /harness codex/);
+	expect(checks.get('config')?.status).toBe('pass');
+	expect(checks.get('config')?.detail ?? '').toMatch(/harness codex/);
 });
 
 test('doctor probes both the global harness and a command that overrides it', async () => {
@@ -150,8 +159,9 @@ test('doctor probes both the global harness and a command that overrides it', as
 		}),
 	);
 
-	assert.deepEqual([...probedBinaries].sort(), ['claude', 'codex'], 'every harness some command resolves to is probed');
-	assert.equal(checks.get('harness')?.status, 'pass');
+	// every harness some command resolves to is probed
+	expect([...probedBinaries].sort()).toStrictEqual(['claude', 'codex']);
+	expect(checks.get('harness')?.status).toBe('pass');
 });
 
 test('doctor probes an unknown harness name as its own binary name — getDriver, not doctor, owns rejecting it', async () => {
@@ -163,8 +173,9 @@ test('doctor probes an unknown harness name as its own binary name — getDriver
 		}),
 	);
 
-	assert.equal(checks.get('harness')?.status, 'fail');
-	assert.match(checks.get('harness')?.detail ?? '', /my-harness/, 'a harness name with no binary mapping is probed under its own name');
+	expect(checks.get('harness')?.status).toBe('fail');
+	// a harness name with no binary mapping is probed under its own name
+	expect(checks.get('harness')?.detail ?? '').toMatch(/my-harness/);
 });
 
 test('doctor passes the harness check when every referenced binary probes green, naming each', async () => {
@@ -176,9 +187,9 @@ test('doctor passes the harness check when every referenced binary probes green,
 		}),
 	);
 
-	assert.equal(checks.get('harness')?.status, 'pass');
-	assert.match(checks.get('harness')?.detail ?? '', /claude 2\.1\.201/);
-	assert.match(checks.get('harness')?.detail ?? '', /codex 0\.128\.0/);
+	expect(checks.get('harness')?.status).toBe('pass');
+	expect(checks.get('harness')?.detail ?? '').toMatch(/claude 2\.1\.201/);
+	expect(checks.get('harness')?.detail ?? '').toMatch(/codex 0\.128\.0/);
 });
 
 test('doctor warns on missing gitignore entries, scriptless packages, jest configs without mock cleanup, and stale generated paths', async () => {
@@ -203,21 +214,39 @@ test('doctor warns on missing gitignore entries, scriptless packages, jest confi
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('gitignore')?.status, 'warn');
-	assert.match(checks.get('gitignore')?.fix ?? '', /friction\.jsonl/);
-	assert.match(checks.get('gitignore')?.fix ?? '', /lock\.json/);
-	assert.ok(!(checks.get('gitignore')?.fix ?? '').includes('runs/'), 'already-present entry not re-suggested');
+	expect(checks.get('gitignore')?.status).toBe('warn');
+	expect(checks.get('gitignore')?.fix ?? '').toMatch(/friction\.jsonl/);
+	expect(checks.get('gitignore')?.fix ?? '').toMatch(/lock\.json/);
+	// already-present entry not re-suggested
+	expect((checks.get('gitignore')?.fix ?? '').includes('runs/')).toBeFalsy();
 
-	assert.equal(checks.get('scoped-gates')?.status, 'note', 'skips are a decision to surface, not a defect to nag about');
-	assert.match(checks.get('scoped-gates')?.detail ?? '', /infra \(check, test:unit\)/);
-	assert.match(checks.get('scoped-gates')?.detail ?? '', /typo'd script name looks identical/);
+	// skips are a decision to surface, not a defect to nag about
+	expect(checks.get('scoped-gates')?.status).toBe('note');
+	expect(checks.get('scoped-gates')?.detail ?? '').toMatch(/infra \(check, test:unit\)/);
+	expect(checks.get('scoped-gates')?.detail ?? '').toMatch(/typo'd script name looks identical/);
 
-	assert.equal(checks.get('jest-mocks')?.status, 'warn');
-	assert.match(checks.get('jest-mocks')?.detail ?? '', /api.*jest\.config\.js lacks restoreMocks/);
+	expect(checks.get('jest-mocks')?.status).toBe('warn');
+	expect(checks.get('jest-mocks')?.detail ?? '').toMatch(/api.*jest\.config\.js lacks restoreMocks/);
 
-	assert.equal(checks.get('generated')?.status, 'warn');
-	assert.match(checks.get('generated')?.detail ?? '', /schema\.gql/);
-	assert.ok(!(checks.get('generated')?.detail ?? '').includes('src/gen'), 'existing generated path not flagged');
+	expect(checks.get('generated')?.status).toBe('warn');
+	expect(checks.get('generated')?.detail ?? '').toMatch(/schema\.gql/);
+	// existing generated path not flagged
+	expect((checks.get('generated')?.detail ?? '').includes('src/gen')).toBeFalsy();
+});
+
+test('doctor finds jest configs under the plural tests/ directory, not just test/', async () => {
+	const dir = setupConsumerRepo({ git: false });
+
+	mkdirSync(join(dir, 'tests/config'), { recursive: true });
+	writeFileSync(join(dir, 'tests/config/jest.config.cjs'), 'module.exports = { clearMocks: true };\n');
+
+	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
+
+	// a warn verdict is what proves the config was discovered AND read — the
+	// engine's own repo spells this directory `tests`, and isTestFile already
+	// accepts both spellings, so scanning only `test/` left it in a blind spot
+	expect(checks.get('jest-mocks')?.status).toBe('warn');
+	expect(checks.get('jest-mocks')?.detail ?? '').toMatch(/tests\/config\/jest\.config\.cjs lacks restoreMocks/);
 });
 
 test('doctor notes packages with @testing-library/react but no user-event — and stays silent for packages with both or neither', async () => {
@@ -250,10 +279,13 @@ test('doctor notes packages with @testing-library/react but no user-event — an
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('user-event')?.status, 'note', 'a recommendation, not a defect');
-	assert.match(checks.get('user-event')?.detail ?? '', /web-app/);
-	assert.ok(!(checks.get('user-event')?.detail ?? '').includes('widget'), 'package already on user-event not flagged');
-	assert.ok(!(checks.get('user-event')?.detail ?? '').includes('api'), 'package without testing-library not flagged');
+	// a recommendation, not a defect
+	expect(checks.get('user-event')?.status).toBe('note');
+	expect(checks.get('user-event')?.detail ?? '').toMatch(/web-app/);
+	// package already on user-event not flagged
+	expect((checks.get('user-event')?.detail ?? '').includes('widget')).toBeFalsy();
+	// package without testing-library not flagged
+	expect((checks.get('user-event')?.detail ?? '').includes('api')).toBeFalsy();
 });
 
 test('doctor lint-rules: flags disabled mechanical rules, passes enforced ones, notes a missing linter, and respects standards:false', async () => {
@@ -264,8 +296,8 @@ test('doctor lint-rules: flags disabled mechanical rules, passes enforced ones, 
 
 	const flaggedChecks = byId(await runDoctor({ cwd: flagged, probeHarness: passingProbe }));
 
-	assert.equal(flaggedChecks.get('lint-rules')?.status, 'note');
-	assert.match(flaggedChecks.get('lint-rules')?.detail ?? '', /useImportType, noExplicitAny missing or disabled/);
+	expect(flaggedChecks.get('lint-rules')?.status).toBe('note');
+	expect(flaggedChecks.get('lint-rules')?.detail ?? '').toMatch(/useImportType, noExplicitAny missing or disabled/);
 
 	// Both rules on → pass
 	const clean = setupConsumerRepo({ git: false });
@@ -274,20 +306,21 @@ test('doctor lint-rules: flags disabled mechanical rules, passes enforced ones, 
 
 	const cleanChecks = byId(await runDoctor({ cwd: clean, probeHarness: passingProbe }));
 
-	assert.equal(cleanChecks.get('lint-rules')?.status, 'pass', cleanChecks.get('lint-rules')?.detail);
+	expect(cleanChecks.get('lint-rules')?.status).toBe('pass');
 
 	// No linter at all → note
 	const bare = setupConsumerRepo({ git: false });
 	const bareChecks = byId(await runDoctor({ cwd: bare, probeHarness: passingProbe }));
 
-	assert.equal(bareChecks.get('lint-rules')?.status, 'note');
-	assert.match(bareChecks.get('lint-rules')?.detail ?? '', /no linter config found/);
+	expect(bareChecks.get('lint-rules')?.status).toBe('note');
+	expect(bareChecks.get('lint-rules')?.detail ?? '').toMatch(/no linter config found/);
 
 	// standards: false = the consumer opted out — no check at all
 	const yolo = setupConsumerRepo({ git: false, config: { standards: false } });
 	const yoloChecks = byId(await runDoctor({ cwd: yolo, probeHarness: passingProbe }));
 
-	assert.equal(yoloChecks.get('lint-rules'), undefined, 'opting out of standards opts out of the lint nudge');
+	// opting out of standards opts out of the lint nudge
+	expect(yoloChecks.get('lint-rules')).toBe(undefined);
 });
 
 test('doctor lint-rules judges an eslint config by the eslint rule names, not biome’s', async () => {
@@ -298,8 +331,8 @@ test('doctor lint-rules judges an eslint config by the eslint rule names, not bi
 
 	const flaggedChecks = byId(await runDoctor({ cwd: flagged, probeHarness: passingProbe }));
 
-	assert.equal(flaggedChecks.get('lint-rules')?.status, 'note');
-	assert.match(flaggedChecks.get('lint-rules')?.detail ?? '', /eslint\.config\.mjs — consistent-type-imports, no-explicit-any missing or disabled/);
+	expect(flaggedChecks.get('lint-rules')?.status).toBe('note');
+	expect(flaggedChecks.get('lint-rules')?.detail ?? '').toMatch(/eslint\.config\.mjs — consistent-type-imports, no-explicit-any missing or disabled/);
 
 	// A legacy .eslintrc with both rules on → pass, counted as one config.
 	const clean = setupConsumerRepo({ git: false });
@@ -311,8 +344,8 @@ test('doctor lint-rules judges an eslint config by the eslint rule names, not bi
 
 	const cleanChecks = byId(await runDoctor({ cwd: clean, probeHarness: passingProbe }));
 
-	assert.equal(cleanChecks.get('lint-rules')?.status, 'pass', cleanChecks.get('lint-rules')?.detail);
-	assert.match(cleanChecks.get('lint-rules')?.detail ?? '', /1 lint config/);
+	expect(cleanChecks.get('lint-rules')?.status).toBe('pass');
+	expect(cleanChecks.get('lint-rules')?.detail ?? '').toMatch(/1 lint config/);
 });
 
 test('doctor passes scoped-gates when every package defines every scoped gate script', async () => {
@@ -328,8 +361,8 @@ test('doctor passes scoped-gates when every package defines every scoped gate sc
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('scoped-gates')?.status, 'pass');
-	assert.match(checks.get('scoped-gates')?.detail ?? '', /every package defines every scoped gate/);
+	expect(checks.get('scoped-gates')?.status).toBe('pass');
+	expect(checks.get('scoped-gates')?.detail ?? '').toMatch(/every package defines every scoped gate/);
 });
 
 test('doctor treats only manifest-bearing, non-dot directories as packages', async () => {
@@ -354,8 +387,10 @@ test('doctor treats only manifest-bearing, non-dot directories as packages', asy
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('scoped-gates')?.status, 'pass', 'a skipped directory is never reported as a package missing its gate script');
-	assert.equal(checks.get('jest-mocks'), undefined, 'Jest configs under a non-package directory are never read');
+	// a skipped directory is never reported as a package missing its gate script
+	expect(checks.get('scoped-gates')?.status).toBe('pass');
+	// Jest configs under a non-package directory are never read
+	expect(checks.get('jest-mocks')).toBe(undefined);
 });
 
 test('doctor skips an unparseable package.json and keeps auditing the rest', async () => {
@@ -376,9 +411,11 @@ test('doctor skips an unparseable package.json and keeps auditing the rest', asy
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('user-event')?.status, 'note', 'a manifest that will not parse is skipped, not fatal');
-	assert.match(checks.get('user-event')?.detail ?? '', /web-app/);
-	assert.ok(!(checks.get('user-event')?.detail ?? '').includes('root'), 'the unparseable manifest yields no finding of its own');
+	// a manifest that will not parse is skipped, not fatal
+	expect(checks.get('user-event')?.status).toBe('note');
+	expect(checks.get('user-event')?.detail ?? '').toMatch(/web-app/);
+	// the unparseable manifest yields no finding of its own
+	expect((checks.get('user-event')?.detail ?? '').includes('root')).toBeFalsy();
 });
 
 test('doctor skips a package.json whose dependency fields have the wrong shape', async () => {
@@ -399,9 +436,11 @@ test('doctor skips a package.json whose dependency fields have the wrong shape',
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('user-event')?.status, 'note', 'a manifest that fails the dependency schema is skipped, not read anyway');
-	assert.match(checks.get('user-event')?.detail ?? '', /web-app/);
-	assert.ok(!(checks.get('user-event')?.detail ?? '').includes('root'), 'the malformed dependency list produces no finding of its own');
+	// a manifest that fails the dependency schema is skipped, not read anyway
+	expect(checks.get('user-event')?.status).toBe('note');
+	expect(checks.get('user-event')?.detail ?? '').toMatch(/web-app/);
+	// the malformed dependency list produces no finding of its own
+	expect((checks.get('user-event')?.detail ?? '').includes('root')).toBeFalsy();
 });
 
 test('doctor probes the binaries of scoped gate commands too, not just the root scripts', async () => {
@@ -417,9 +456,9 @@ test('doctor probes the binaries of scoped gate commands too, not just the root 
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('script-binaries')?.status, 'fail');
-	assert.match(checks.get('script-binaries')?.detail ?? '', /definitely-not-a-real-binary-xyz/);
-	assert.match(checks.get('script-binaries')?.fix ?? '', /install/);
+	expect(checks.get('script-binaries')?.status).toBe('fail');
+	expect(checks.get('script-binaries')?.detail ?? '').toMatch(/definitely-not-a-real-binary-xyz/);
+	expect(checks.get('script-binaries')?.fix ?? '').toMatch(/install/);
 });
 
 test('doctor orders checks positives-first: pass, then note, then warn/fail', async () => {
@@ -439,8 +478,11 @@ test('doctor orders checks positives-first: pass, then note, then warn/fail', as
 	const checks = await runDoctor({ cwd: dir, probeHarness: passingProbe });
 	const ranks = checks.map((check) => ({ pass: 0, note: 1, warn: 2, fail: 3 })[check.status]);
 
-	assert.deepEqual([...ranks].sort((a, b) => a - b), ranks, `severity is non-decreasing: ${checks.map((c) => `${c.id}:${c.status}`).join(', ')}`);
-	assert.ok(ranks.includes(1) && ranks.includes(2), 'fixture produced both a note and a warn');
+	// severity is non-decreasing: ${checks.map((c) =>
+	// `${c.id}:${c.status}`).join(', ')}
+	expect([...ranks].sort((a, b) => a - b)).toStrictEqual(ranks);
+	// fixture produced both a note and a warn
+	expect(ranks.includes(1) && ranks.includes(2)).toBeTruthy();
 });
 
 test('doctor passes the generated check when every configured path exists, and emits no check when none are configured', async () => {
@@ -451,14 +493,17 @@ test('doctor passes the generated check when every configured path exists, and e
 
 	const configuredChecks = byId(await runDoctor({ cwd: configured, probeHarness: passingProbe }));
 
-	assert.equal(configuredChecks.get('generated')?.status, 'pass', configuredChecks.get('generated')?.detail);
-	assert.match(configuredChecks.get('generated')?.detail ?? '', /2 generated path\(s\) exist/, 'a directory prefix and a plain file both count as present');
-	assert.equal(configuredChecks.get('generated')?.fix, undefined, 'a pass carries no fix');
+	expect(configuredChecks.get('generated')?.status).toBe('pass');
+	// a directory prefix and a plain file both count as present
+	expect(configuredChecks.get('generated')?.detail ?? '').toMatch(/2 generated path\(s\) exist/);
+	// a pass carries no fix
+	expect(configuredChecks.get('generated')?.fix).toBe(undefined);
 
 	const bare = setupConsumerRepo({ git: false });
 	const bareChecks = byId(await runDoctor({ cwd: bare, probeHarness: passingProbe }));
 
-	assert.equal(bareChecks.get('generated'), undefined, 'no `generated` key means no generated check at all, not an empty pass');
+	// no `generated` key means no generated check at all, not an empty pass
+	expect(bareChecks.get('generated')).toBe(undefined);
 });
 
 test('doctor finds jest configs nested under test/ and fails on missing gate binaries', async () => {
@@ -473,8 +518,9 @@ test('doctor finds jest configs nested under test/ and fails on missing gate bin
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 
-	assert.equal(checks.get('jest-mocks')?.status, 'pass');
-	assert.equal(checks.get('script-binaries')?.status, 'fail');
-	assert.match(checks.get('script-binaries')?.detail ?? '', /definitely-not-a-real-binary-xyz/);
-	assert.match(checks.get('gitignore')?.detail ?? '', /not a git repository/, 'non-git repo is stated, not guessed at');
+	expect(checks.get('jest-mocks')?.status).toBe('pass');
+	expect(checks.get('script-binaries')?.status).toBe('fail');
+	expect(checks.get('script-binaries')?.detail ?? '').toMatch(/definitely-not-a-real-binary-xyz/);
+	// non-git repo is stated, not guessed at
+	expect(checks.get('gitignore')?.detail ?? '').toMatch(/not a git repository/);
 });

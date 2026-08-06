@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { ExploreArea } from '@/contracts';
 
 const setupArea = (overrides: Record<string, unknown> = {}) => {
@@ -23,7 +22,7 @@ describe('ExploreArea', () => {
 
 		const parsed = ExploreArea.parse(area);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			area: 'engine plan pipeline',
 			affectedPackages: ['src/plan'],
 			filesToModify: [{ path: 'src/plan/runPlanVerifyFacts.ts', role: 'stamps the verification onto facts.json' }],
@@ -37,19 +36,17 @@ describe('ExploreArea', () => {
 	test('every array field defaults to empty so a sparse explorer report still parses', () => {
 		const parsed = ExploreArea.parse({ area: 'cli surface', namingConvention: '<verb>Command.ts per subcommand' });
 
-		assert.deepEqual(
-			parsed,
-			{
-				area: 'cli surface',
-				affectedPackages: [],
-				filesToModify: [],
-				patternsToMirror: [],
-				integrationPoints: [],
-				scripts: [],
-				namingConvention: '<verb>Command.ts per subcommand',
-			},
-			'verifyFacts flat-maps filesToModify/patternsToMirror and reads scripts.length off every area without guarding for absence',
-		);
+		// verifyFacts flat-maps filesToModify/patternsToMirror and reads
+		// scripts.length off every area without guarding for absence
+		expect(parsed).toStrictEqual({
+			area: 'cli surface',
+			affectedPackages: [],
+			filesToModify: [],
+			patternsToMirror: [],
+			integrationPoints: [],
+			scripts: [],
+			namingConvention: '<verb>Command.ts per subcommand',
+		});
 	});
 
 	test('unknown keys an explorer volunteers are stripped', () => {
@@ -57,7 +54,8 @@ describe('ExploreArea', () => {
 
 		const parsed = ExploreArea.parse({ ...area, fileContents: 'the whole file pasted in', confidence: 0.9 });
 
-		assert.deepEqual(Object.keys(parsed).sort(), ['affectedPackages', 'area', 'filesToModify', 'integrationPoints', 'namingConvention', 'patternsToMirror', 'scripts'], 'the area carries data, not file contents — extra keys never reach facts.json');
+		// the area carries data, not file contents — extra keys never reach facts.json
+		expect(Object.keys(parsed).sort()).toStrictEqual(['affectedPackages', 'area', 'filesToModify', 'integrationPoints', 'namingConvention', 'patternsToMirror', 'scripts']);
 	});
 
 	for (const field of ['area', 'namingConvention']) {
@@ -66,7 +64,9 @@ describe('ExploreArea', () => {
 
 			const result = ExploreArea.safeParse(area);
 
-			assert.equal(result.success, false, `${field} is required — it is the one line that tells the implementing agent what this bundle covers`);
+			// ${field} is required — it is the one line that tells the implementing agent
+			// what this bundle covers
+			expect(result.success).toBe(false);
 		});
 	}
 
@@ -81,7 +81,9 @@ describe('ExploreArea', () => {
 
 			const result = ExploreArea.safeParse(area);
 
-			assert.equal(result.success, false, 'a half-filled entry is refused at the contract boundary rather than reaching the on-disk verification as an undefined path');
+			// a half-filled entry is refused at the contract boundary rather than reaching
+			// the on-disk verification as an undefined path
+			expect(result.success).toBe(false);
 		});
 	}
 
@@ -90,7 +92,9 @@ describe('ExploreArea', () => {
 
 		const result = ExploreArea.safeParse(area);
 
-		assert.equal(result.success, false, 'verifyFacts joins the path onto cwd — it must be a string before it is stat-ed');
+		// verifyFacts joins the path onto cwd — it must be a string before it is
+		// stat-ed
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects an affectedPackages value that is not an array of strings', () => {
@@ -98,6 +102,8 @@ describe('ExploreArea', () => {
 
 		const result = ExploreArea.safeParse(area);
 
-		assert.equal(result.success, false, 'a bare string in place of the list is a malformed area — the packages scope the script lookup');
+		// a bare string in place of the list is a malformed area — the packages scope
+		// the script lookup
+		expect(result.success).toBe(false);
 	});
 });

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { StructuralFinding } from '@/contracts';
 
 const setupFinding = (overrides: Record<string, unknown> = {}) => {
@@ -20,7 +19,7 @@ describe('StructuralFinding', () => {
 
 		const parsed = StructuralFinding.parse(finding);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			check: 'path-exists',
 			issue: 'the plan names src/plan/runPlanGrade.ts, which does not exist',
 			location: 'Files to Modify, line 42',
@@ -34,7 +33,9 @@ describe('StructuralFinding', () => {
 
 			const parsed = StructuralFinding.parse(finding);
 
-			assert.equal(parsed.check, check, `${check} is one of the seven checks lintPlanStructure may report a defect for`);
+			// ${check} is one of the seven checks lintPlanStructure may report a defect
+			// for
+			expect(parsed.check).toBe(check);
 		}
 	});
 
@@ -43,7 +44,9 @@ describe('StructuralFinding', () => {
 
 		const result = StructuralFinding.safeParse(finding);
 
-		assert.equal(result.success, false, 'the check set is closed — a finding naming a lint the engine never runs would print a defect no fix could clear');
+		// the check set is closed — a finding naming a lint the engine never runs
+		// would print a defect no fix could clear
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects the capitalized key form of a check', () => {
@@ -51,7 +54,8 @@ describe('StructuralFinding', () => {
 
 		const result = StructuralFinding.safeParse(finding);
 
-		assert.equal(result.success, false, 'the enum is built from the StructuralCheck values, not its capitalized keys');
+		// the enum is built from the StructuralCheck values, not its capitalized keys
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a finding missing any required field', () => {
@@ -60,7 +64,9 @@ describe('StructuralFinding', () => {
 
 			const result = StructuralFinding.safeParse(finding);
 
-			assert.equal(result.success, false, `${field} is required — the repair agent needs all four to act without re-deriving the defect`);
+			// ${field} is required — the repair agent needs all four to act without
+			// re-deriving the defect
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -70,7 +76,10 @@ describe('StructuralFinding', () => {
 
 			const result = StructuralFinding.safeParse(finding);
 
-			assert.equal(result.success, false, 'location is the prose pointer printed beside the check and fix is one instruction — neither is coerced from a line number or a list of candidate edits');
+			// location is the prose pointer printed beside the check and fix is one
+			// instruction — neither is coerced from a line number or a list of candidate
+			// edits
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -79,6 +88,8 @@ describe('StructuralFinding', () => {
 
 		const parsed = StructuralFinding.parse(finding);
 
-		assert.equal('severity' in parsed, false, 'a finding carries only the four declared fields — every structural defect is equally blocking');
+		// a finding carries only the four declared fields — every structural defect is
+		// equally blocking
+		expect('severity' in parsed).toBe(false);
 	});
 });

@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { DecisionRow } from '@/contracts';
 
 /** One Decision-Log row as the session authors it during the planning dialogue. */
@@ -22,7 +21,7 @@ describe('DecisionRow', () => {
 
 		const parsed = DecisionRow.parse(row);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			source: 'Grill',
 			question: 'where do plan deliverables live?',
 			options: 'repo root / .claude/plans',
@@ -37,7 +36,9 @@ describe('DecisionRow', () => {
 
 		const parsed = DecisionRow.parse(row);
 
-		assert.equal(parsed.assumption, false, 'a row without the flag is a human-confirmed choice — the gap-check only surfaces the flagged ones');
+		// a row without the flag is a human-confirmed choice — the gap-check only
+		// surfaces the flagged ones
+		expect(parsed.assumption).toBe(false);
 	});
 
 	test('an explicit assumption row keeps the flag the gap-check reads', () => {
@@ -45,7 +46,8 @@ describe('DecisionRow', () => {
 
 		const parsed = DecisionRow.parse(row);
 
-		assert.equal(parsed.assumption, true, 'a choice made without human confirmation stays marked through the parse');
+		// a choice made without human confirmation stays marked through the parse
+		expect(parsed.assumption).toBe(true);
 	});
 
 	test('source accepts each stage of the planning dialogue', () => {
@@ -54,7 +56,8 @@ describe('DecisionRow', () => {
 
 			const parsed = DecisionRow.parse(row);
 
-			assert.equal(parsed.source, source, `${source} is one of the stages a Decision-Log row can come from`);
+			// ${source} is one of the stages a Decision-Log row can come from
+			expect(parsed.source).toBe(source);
 		}
 	});
 
@@ -63,7 +66,9 @@ describe('DecisionRow', () => {
 
 		const result = DecisionRow.safeParse(row);
 
-		assert.equal(result.success, false, 'the enum carries the capitalized values on purpose, so the JSON field and the Decision-Log Source column stay one token');
+		// the enum carries the capitalized values on purpose, so the JSON field and
+		// the Decision-Log Source column stay one token
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a source outside the planning dialogue stages', () => {
@@ -71,7 +76,9 @@ describe('DecisionRow', () => {
 
 		const result = DecisionRow.safeParse(row);
 
-		assert.equal(result.success, false, 'an invented stage is caught at the contract, before a plan is drafted from it');
+		// an invented stage is caught at the contract, before a plan is drafted from
+		// it
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a row missing any required field', () => {
@@ -80,7 +87,9 @@ describe('DecisionRow', () => {
 
 			const result = DecisionRow.safeParse(row);
 
-			assert.equal(result.success, false, `${field} is required — a half-authored row would draft a plan whose Decision Log has a hole in it`);
+			// ${field} is required — a half-authored row would draft a plan whose Decision
+			// Log has a hole in it
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -90,7 +99,8 @@ describe('DecisionRow', () => {
 
 			const result = DecisionRow.safeParse(row);
 
-			assert.equal(result.success, false, `${field} is prose the human reads in the Decision Log, not a number`);
+			// ${field} is prose the human reads in the Decision Log, not a number
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -99,7 +109,9 @@ describe('DecisionRow', () => {
 
 		const result = DecisionRow.safeParse(row);
 
-		assert.equal(result.success, false, 'the gap-check branches on the flag directly, so a truthy string must never reach it');
+		// the gap-check branches on the flag directly, so a truthy string must never
+		// reach it
+		expect(result.success).toBe(false);
 	});
 
 	test('strips keys the contract does not declare', () => {
@@ -107,10 +119,8 @@ describe('DecisionRow', () => {
 
 		const parsed = DecisionRow.parse(row);
 
-		assert.deepEqual(
-			Object.keys(parsed).sort(),
-			['assumption', 'choice', 'options', 'question', 'rationale', 'source'],
-			'a row carries the six declared fields, whatever else the session happened to write beside them',
-		);
+		// a row carries the six declared fields, whatever else the session happened to
+		// write beside them
+		expect(Object.keys(parsed).sort()).toStrictEqual(['assumption', 'choice', 'options', 'question', 'rationale', 'source']);
 	});
 });

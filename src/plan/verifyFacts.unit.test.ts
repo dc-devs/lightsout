@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { ExploreArea } from '@/contracts';
 import { verifyFacts } from '@/plan';
 
@@ -45,11 +44,14 @@ test('verifyFacts: present vs missing paths and scripts, counts correct', async 
 		},
 	});
 
-	assert.equal(result.pathsChecked, 3, 'two files-to-modify + one pattern');
-	assert.deepEqual(result.missingPaths, ['src/gone.ts']);
-	assert.equal(result.scriptsChecked, 2);
-	assert.deepEqual(result.missingScripts, ['build'], "present 'check' not flagged, absent 'build' is");
-	assert.deepEqual(result.createPathsThatExist, [], 'create-path checking is deferred to draft');
+	// two files-to-modify + one pattern
+	expect(result.pathsChecked).toBe(3);
+	expect(result.missingPaths).toStrictEqual(['src/gone.ts']);
+	expect(result.scriptsChecked).toBe(2);
+	// present 'check' not flagged, absent 'build' is
+	expect(result.missingScripts).toStrictEqual(['build']);
+	// create-path checking is deferred to draft
+	expect(result.createPathsThatExist).toStrictEqual([]);
 });
 
 test('verifyFacts: a script found in an affected package is not a miss', async () => {
@@ -68,8 +70,9 @@ test('verifyFacts: a script found in an affected package is not a miss', async (
 		},
 	});
 
-	assert.deepEqual(result.missingScripts, [], 'the key resolves against the affected package.json');
-	assert.equal(result.scriptsChecked, 1);
+	// the key resolves against the affected package.json
+	expect(result.missingScripts).toStrictEqual([]);
+	expect(result.scriptsChecked).toBe(1);
 });
 
 test('verifyFacts: never throws when no package.json exists — script is simply a miss', async () => {
@@ -80,8 +83,8 @@ test('verifyFacts: never throws when no package.json exists — script is simply
 		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
 	});
 
-	assert.deepEqual(result.missingScripts, ['check']);
-	assert.equal(result.pathsChecked, 0);
+	expect(result.missingScripts).toStrictEqual(['check']);
+	expect(result.pathsChecked).toBe(0);
 });
 
 test('verifyFacts: an unparsable package.json contributes no script keys — the script is a miss', async () => {
@@ -94,8 +97,9 @@ test('verifyFacts: an unparsable package.json contributes no script keys — the
 		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
 	});
 
-	assert.deepEqual(result.missingScripts, ['check'], 'a manifest that fails to parse offers no keys');
-	assert.equal(result.scriptsChecked, 1);
+	// a manifest that fails to parse offers no keys
+	expect(result.missingScripts).toStrictEqual(['check']);
+	expect(result.scriptsChecked).toBe(1);
 });
 
 test('verifyFacts: a scripts field that is not an object contributes no script keys', async () => {
@@ -108,8 +112,9 @@ test('verifyFacts: a scripts field that is not an object contributes no script k
 		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
 	});
 
-	assert.deepEqual(result.missingScripts, ['check'], 'a non-object scripts field offers no keys');
-	assert.equal(result.scriptsChecked, 1);
+	// a non-object scripts field offers no keys
+	expect(result.missingScripts).toStrictEqual(['check']);
+	expect(result.scriptsChecked).toBe(1);
 });
 
 test('verifyFacts: a package.json without a scripts block contributes no script keys', async () => {
@@ -122,8 +127,9 @@ test('verifyFacts: a package.json without a scripts block contributes no script 
 		facts: { request: 'x', areas: [area({ scripts: [{ key: 'check', command: 'tsc' }] })] },
 	});
 
-	assert.deepEqual(result.missingScripts, ['check'], 'no scripts block means no available keys');
-	assert.equal(result.scriptsChecked, 1);
+	// no scripts block means no available keys
+	expect(result.missingScripts).toStrictEqual(['check']);
+	expect(result.scriptsChecked).toBe(1);
 });
 
 test('verifyFacts: an area with no scripts checks paths only — zero scripts checked', async () => {
@@ -137,7 +143,7 @@ test('verifyFacts: an area with no scripts checks paths only — zero scripts ch
 		facts: { request: 'x', areas: [area({ filesToModify: [{ path: 'src/present.ts', role: 'the file to change' }] })] },
 	});
 
-	assert.equal(result.scriptsChecked, 0);
-	assert.deepEqual(result.missingScripts, []);
-	assert.equal(result.pathsChecked, 1);
+	expect(result.scriptsChecked).toBe(0);
+	expect(result.missingScripts).toStrictEqual([]);
+	expect(result.pathsChecked).toBe(1);
 });

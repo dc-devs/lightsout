@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runGates } from '@/pipeline';
 import { gateLogCommand } from '@tests/helpers/gateLogCommand';
@@ -56,15 +55,18 @@ test('a package without a gate script is skipped with narration and a log record
 		onProgress: (message) => progress.push(message),
 	});
 
-	assert.equal(error, undefined);
+	expect(error).toBe(undefined);
 
 	const gates = readGateLog({ dir });
 
-	assert.ok(gates.includes('@acme/api check'), 'package with scripts ran its gates');
-	assert.ok(gates.includes('@acme/api testUnit'));
-	assert.ok(!gates.some((line) => line.startsWith('@acme/bare ')), 'scriptless package ran nothing');
-	assert.ok(progress.includes('gate [bare] check: skipped (no "gate:check" script)'), `narrated:\n${progress.join('\n')}`);
-	assert.ok(progress.includes('gate [bare] testUnit: skipped (no "gate:test" script)'));
+	// package with scripts ran its gates
+	expect(gates.includes('@acme/api check')).toBeTruthy();
+	expect(gates.includes('@acme/api testUnit')).toBeTruthy();
+	// scriptless package ran nothing
+	expect(gates.some((line) => line.startsWith('@acme/bare '))).toBeFalsy();
+	// narrated:\n${progress.join('\n')}
+	expect(progress.includes('gate [bare] check: skipped (no "gate:check" script)')).toBeTruthy();
+	expect(progress.includes('gate [bare] testUnit: skipped (no "gate:test" script)')).toBeTruthy();
 
 	const records = readFileSync(join(dir, '.lightsout', 'runs', 'run-skip', 'commands.jsonl'), 'utf8')
 		.trim()
@@ -72,17 +74,12 @@ test('a package without a gate script is skipped with narration and a log record
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 	const skips = records.filter((record) => record.skipped === true);
 
-	assert.deepEqual(
-		skips.map((record) => [record.group, record.kind, record.reason]),
-		[
-			['bare', 'check', 'no "gate:check" script'],
-			['bare', 'testUnit', 'no "gate:test" script'],
-		],
-	);
-	assert.ok(
-		skips.every((record) => !('exitCode' in record)),
-		'a skipped gate records no exit code — nothing ran',
-	);
+	expect(skips.map((record) => [record.group, record.kind, record.reason])).toStrictEqual([
+		['bare', 'check', 'no "gate:check" script'],
+		['bare', 'testUnit', 'no "gate:test" script'],
+	]);
+	// a skipped gate records no exit code — nothing ran
+	expect(skips.every((record) => !('exitCode' in record))).toBeTruthy();
 });
 
 test('a package missing only the coverage script falls back to its plain test run', async () => {
@@ -96,15 +93,18 @@ test('a package missing only the coverage script falls back to its plain test ru
 		onProgress: (message) => progress.push(message),
 	});
 
-	assert.equal(error, undefined);
+	expect(error).toBe(undefined);
 
 	const gates = readGateLog({ dir });
 
-	assert.ok(gates.includes('@acme/api coverage'), 'coverage ran where the script exists');
-	assert.ok(!gates.includes('@acme/api testUnit'), 'coverage replaced the plain test run');
-	assert.ok(gates.includes('@acme/semi testUnit'), 'coverage-less package fell back to plain tests');
-	assert.ok(!gates.includes('@acme/semi coverage'));
-	assert.ok(progress.includes('gate [semi] testCoverage: skipped (no "gate:coverage" script)'));
+	// coverage ran where the script exists
+	expect(gates.includes('@acme/api coverage')).toBeTruthy();
+	// coverage replaced the plain test run
+	expect(gates.includes('@acme/api testUnit')).toBeFalsy();
+	// coverage-less package fell back to plain tests
+	expect(gates.includes('@acme/semi testUnit')).toBeTruthy();
+	expect(gates.includes('@acme/semi coverage')).toBeFalsy();
+	expect(progress.includes('gate [semi] testCoverage: skipped (no "gate:coverage" script)')).toBeTruthy();
 });
 
 test('a template with no run token always executes — unknown script is not missing script', async () => {
@@ -115,6 +115,7 @@ test('a template with no run token always executes — unknown script is not mis
 		packages: ['bare'],
 	});
 
-	assert.equal(error, undefined);
-	assert.ok(readGateLog({ dir }).includes('@acme/bare check'), 'unparseable template ran as-is');
+	expect(error).toBe(undefined);
+	// unparseable template ran as-is
+	expect(readGateLog({ dir }).includes('@acme/bare check')).toBeTruthy();
 });

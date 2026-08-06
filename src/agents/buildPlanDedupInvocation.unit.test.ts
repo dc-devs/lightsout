@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { buildPlanDedupInvocation } from '@/agents';
 
 const planText = '# Phase 1\n\nPLAN-SENTINEL';
@@ -10,16 +9,19 @@ const candidates = () => [{ plannedSymbol: 'formatDate', collidesWith: [{ name: 
 test('buildPlanDedupInvocation: the system prompt carries the role, the overview, and the code standards', () => {
 	const { systemPrompt } = buildPlanDedupInvocation({ planText, overviewText, candidates: candidates(), standards });
 
-	assert.ok(systemPrompt.startsWith('# Role: Judge Plan Dedup'), 'the role prompt leads the system prompt');
-	assert.ok(systemPrompt.includes(`# Overview (context only — do not judge standalone)\n\n${overviewText}`));
-	assert.ok(systemPrompt.includes(`# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`));
+	// the role prompt leads the system prompt
+	expect(systemPrompt.startsWith('# Role: Judge Plan Dedup')).toBeTruthy();
+	expect(systemPrompt.includes(`# Overview (context only — do not judge standalone)\n\n${overviewText}`)).toBeTruthy();
+	expect(systemPrompt.includes(`# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`)).toBeTruthy();
 });
 
 test('buildPlanDedupInvocation: overview and standards sections are omitted when absent', () => {
 	const { systemPrompt } = buildPlanDedupInvocation({ planText, candidates: candidates() });
 
-	assert.ok(!systemPrompt.includes('# Overview (context only'), 'no overview section for a single-file plan');
-	assert.ok(!systemPrompt.includes('# Code standards'), 'no standards section when standards are absent');
+	// no overview section for a single-file plan
+	expect(systemPrompt.includes('# Overview (context only')).toBeFalsy();
+	// no standards section when standards are absent
+	expect(systemPrompt.includes('# Code standards')).toBeFalsy();
 });
 
 test('buildPlanDedupInvocation: the system prompt is byte-identical across judgments in one run', () => {
@@ -31,7 +33,8 @@ test('buildPlanDedupInvocation: the system prompt is byte-identical across judgm
 		standards,
 	});
 
-	assert.equal(first.systemPrompt, second.systemPrompt, 'neither the plan nor the collisions can break the cached prefix');
+	// neither the plan nor the collisions can break the cached prefix
+	expect(first.systemPrompt).toBe(second.systemPrompt);
 });
 
 test('buildPlanDedupInvocation: the user prompt carries the plan and each detected collision as a bullet', () => {
@@ -42,12 +45,16 @@ test('buildPlanDedupInvocation: the user prompt carries the plan and each detect
 		standards,
 	});
 
-	assert.ok(prompt.startsWith('# Dedup input'), 'the marker runPlanDedup keys dedup invocations off');
-	assert.ok(prompt.includes(`## Plan to judge\n\n${planText}`));
-	assert.ok(prompt.includes('## Detected name collisions\n\n- `formatDate` collides with: formatDate → a.ts; formatDate → b.ts'));
-	assert.ok(prompt.includes('one JSON DedupJudgment object'), 'the report-contract reminder closes the prompt');
-	assert.ok(!prompt.includes('OVERVIEW-SENTINEL'), 'the overview is paid for once, in the cached system prompt');
-	assert.ok(!prompt.includes('STANDARDS-SENTINEL'), 'the standards are paid for once, in the cached system prompt');
+	// the marker runPlanDedup keys dedup invocations off
+	expect(prompt.startsWith('# Dedup input')).toBeTruthy();
+	expect(prompt.includes(`## Plan to judge\n\n${planText}`)).toBeTruthy();
+	expect(prompt.includes('## Detected name collisions\n\n- `formatDate` collides with: formatDate → a.ts; formatDate → b.ts')).toBeTruthy();
+	// the report-contract reminder closes the prompt
+	expect(prompt.includes('one JSON DedupJudgment object')).toBeTruthy();
+	// the overview is paid for once, in the cached system prompt
+	expect(prompt.includes('OVERVIEW-SENTINEL')).toBeFalsy();
+	// the standards are paid for once, in the cached system prompt
+	expect(prompt.includes('STANDARDS-SENTINEL')).toBeFalsy();
 });
 
 test('buildPlanDedupInvocation: each detected collision is its own bullet line', () => {
@@ -59,33 +66,34 @@ test('buildPlanDedupInvocation: each detected collision is its own bullet line',
 		],
 	});
 
-	assert.ok(prompt.includes('## Detected name collisions\n\n- `formatDate` collides with: formatDate → a.ts\n- `parseAction` collides with: parseAction → b.ts'));
+	expect(prompt.includes('## Detected name collisions\n\n- `formatDate` collides with: formatDate → a.ts\n- `parseAction` collides with: parseAction → b.ts')).toBeTruthy();
 });
 
 test('buildPlanDedupInvocation: an empty collision list renders the section with no bullets', () => {
 	const { prompt } = buildPlanDedupInvocation({ planText, candidates: [] });
 
-	assert.ok(prompt.includes('## Detected name collisions'), 'the judge still sees the section it rules on');
-	assert.ok(!prompt.includes('collides with:'), 'nothing detected means no bullets');
-	assert.ok(prompt.includes('one JSON DedupJudgment object'), 'the report-contract reminder still closes the prompt');
+	// the judge still sees the section it rules on
+	expect(prompt.includes('## Detected name collisions')).toBeTruthy();
+	// nothing detected means no bullets
+	expect(prompt.includes('collides with:')).toBeFalsy();
+	// the report-contract reminder still closes the prompt
+	expect(prompt.includes('one JSON DedupJudgment object')).toBeTruthy();
 });
 
 test('buildPlanDedupInvocation: the standards close the system prompt when there is no overview', () => {
 	const { systemPrompt } = buildPlanDedupInvocation({ planText, candidates: candidates(), standards });
 
-	assert.ok(!systemPrompt.includes('# Overview (context only'), 'no overview section for a single-file plan');
-	assert.ok(
-		systemPrompt.endsWith(`\n\n---\n\n# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`),
-		'the standards join straight onto the role prompt',
-	);
+	// no overview section for a single-file plan
+	expect(systemPrompt.includes('# Overview (context only')).toBeFalsy();
+	// the standards join straight onto the role prompt
+	expect(systemPrompt.endsWith(`\n\n---\n\n# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`)).toBeTruthy();
 });
 
 test('buildPlanDedupInvocation: the overview closes the system prompt when standards are absent', () => {
 	const { systemPrompt } = buildPlanDedupInvocation({ planText, overviewText, candidates: candidates() });
 
-	assert.ok(!systemPrompt.includes('# Code standards'), 'no standards section when standards are absent');
-	assert.ok(
-		systemPrompt.endsWith(`\n\n---\n\n# Overview (context only — do not judge standalone)\n\n${overviewText}`),
-		'the overview joins straight onto the role prompt',
-	);
+	// no standards section when standards are absent
+	expect(systemPrompt.includes('# Code standards')).toBeFalsy();
+	// the overview joins straight onto the role prompt
+	expect(systemPrompt.endsWith(`\n\n---\n\n# Overview (context only — do not judge standalone)\n\n${overviewText}`)).toBeTruthy();
 });

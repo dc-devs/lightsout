@@ -1,44 +1,40 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { WorkReport } from '@/contracts';
 import { extractJsonReport } from '@/invoke/extractJsonReport';
 
 test('extractJsonReport accepts bare JSON', () => {
-	assert.deepEqual(extractJsonReport({ text: ' {"status":"complete"} ' }), { status: 'complete' });
+	expect(extractJsonReport({ text: ' {"status":"complete"} ' })).toStrictEqual({ status: 'complete' });
 });
 
 test('extractJsonReport accepts ```json fenced JSON', () => {
-	assert.deepEqual(extractJsonReport({ text: '```json\n{"a":1}\n```' }), { a: 1 });
+	expect(extractJsonReport({ text: '```json\n{"a":1}\n```' })).toStrictEqual({ a: 1 });
 });
 
 test('extractJsonReport accepts bare-fenced JSON', () => {
-	assert.deepEqual(extractJsonReport({ text: '```\n{"a":1}\n```' }), { a: 1 });
+	expect(extractJsonReport({ text: '```\n{"a":1}\n```' })).toStrictEqual({ a: 1 });
 });
 
 test('extractJsonReport rejects garbage', () => {
-	assert.equal(extractJsonReport({ text: 'I could not produce a report, sorry.' }), undefined);
-	assert.equal(extractJsonReport({ text: 'an unbalanced { brace and {broken json}' }), undefined);
+	expect(extractJsonReport({ text: 'I could not produce a report, sorry.' })).toBe(undefined);
+	expect(extractJsonReport({ text: 'an unbalanced { brace and {broken json}' })).toBe(undefined);
 });
 
 // The shape that failed FeedbackDrop run 91dbc0a5 twice: a valid report
 // behind one sentence of preamble. Strictness belongs to the zod contract,
 // not to finding the payload.
 test('extractJsonReport accepts prose-wrapped JSON without fences', () => {
-	assert.deepEqual(extractJsonReport({ text: 'Here is the report: {"a":1}' }), { a: 1 });
-	assert.deepEqual(
-		extractJsonReport({
-			text: 'All files created and wired. The implementation is complete. My final report:\n\n{"status":"complete","changedFiles":[{"path":"src/a.ts","summary":"x"}]}',
-		}),
-		{ status: 'complete', changedFiles: [{ path: 'src/a.ts', summary: 'x' }] },
-	);
+	expect(extractJsonReport({ text: 'Here is the report: {"a":1}' })).toStrictEqual({ a: 1 });
+	expect(extractJsonReport({
+		text: 'All files created and wired. The implementation is complete. My final report:\n\n{"status":"complete","changedFiles":[{"path":"src/a.ts","summary":"x"}]}',
+	})).toStrictEqual({ status: 'complete', changedFiles: [{ path: 'src/a.ts', summary: 'x' }] });
 });
 
 test('extractJsonReport accepts JSON with trailing prose', () => {
-	assert.deepEqual(extractJsonReport({ text: '{"a":1}\n\nLet me know if you need anything else!' }), { a: 1 });
+	expect(extractJsonReport({ text: '{"a":1}\n\nLet me know if you need anything else!' })).toStrictEqual({ a: 1 });
 });
 
 test('extractJsonReport prefers the LAST embedded object (the report is the closing act)', () => {
-	assert.deepEqual(extractJsonReport({ text: 'I considered {"draft":true} first.\n\nFinal: {"status":"complete"}' }), {
+	expect(extractJsonReport({ text: 'I considered {"draft":true} first.\n\nFinal: {"status":"complete"}' })).toStrictEqual({
 		status: 'complete',
 	});
 });
@@ -61,11 +57,11 @@ test('extractJsonReport prefers the LAST parseable fenced block (a re-emitter se
 	].join('\n');
 	const extracted = extractJsonReport({ text }) as { friction: Array<{ area: string }> };
 
-	assert.equal(extracted.friction[0]?.area, 'other');
+	expect(extracted.friction[0]?.area).toBe('other');
 });
 
 test('extractJsonReport falls back to an earlier fenced block when the last is unparseable', () => {
-	assert.deepEqual(extractJsonReport({ text: '```json\n{"a":1}\n```\nnotes:\n```\nnot json at all\n```' }), { a: 1 });
+	expect(extractJsonReport({ text: '```json\n{"a":1}\n```\nnotes:\n```\nnot json at all\n```' })).toStrictEqual({ a: 1 });
 });
 
 // The shape that failed the same run at attempt 1: a valid zero-change
@@ -79,23 +75,23 @@ test('WorkReport coerces an unrecognized friction area to other instead of rejec
 		friction: [{ kind: 'decision', area: 'scope', detail: 'duplication across scope boundary' }],
 	});
 
-	assert.equal(report.friction?.[0]?.area, 'other');
-	assert.equal(report.friction?.[0]?.detail, 'duplication across scope boundary');
+	expect(report.friction?.[0]?.area).toBe('other');
+	expect(report.friction?.[0]?.detail).toBe('duplication across scope boundary');
 });
 
 test('extractJsonReport skips an empty fenced block and keeps looking', () => {
-	assert.deepEqual(extractJsonReport({ text: '```\n```\n\nFinal report: {"a":1}' }), { a: 1 });
+	expect(extractJsonReport({ text: '```\n```\n\nFinal report: {"a":1}' })).toStrictEqual({ a: 1 });
 });
 
 test('extractJsonReport returns the whole outer object when the payload nests', () => {
-	assert.deepEqual(extractJsonReport({ text: 'Final report: {"outer":{"inner":{"deep":1}},"n":2}' }), {
+	expect(extractJsonReport({ text: 'Final report: {"outer":{"inner":{"deep":1}},"n":2}' })).toStrictEqual({
 		outer: { inner: { deep: 1 } },
 		n: 2,
 	});
 });
 
 test('extractJsonReport ignores braces inside JSON strings', () => {
-	assert.deepEqual(extractJsonReport({ text: 'report: {"summary":"added {config} handling for \\"x\\"","n":1}' }), {
+	expect(extractJsonReport({ text: 'report: {"summary":"added {config} handling for \\"x\\"","n":1}' })).toStrictEqual({
 		summary: 'added {config} handling for "x"',
 		n: 1,
 	});

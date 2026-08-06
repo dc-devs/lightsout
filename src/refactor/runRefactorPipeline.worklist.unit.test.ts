@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { RefactorWorklist } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
@@ -91,25 +90,19 @@ describe('runRefactorPipeline work-list', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config, path: 'alpha' });
 
-		assert.equal(result.ok, true, result.error);
-		assert.deepEqual(result.before, { structure: 1 }, 'only the in-scope finding counts as work');
-		assert.deepEqual(
-			result.declined.map((entry) => entry.batchId),
-			['batch-01:structure:alpha'],
-			'the out-of-scope folder never became a batch',
-		);
-		assert.ok(
-			prompts.every((prompt) => !prompt.includes('beta/multi.ts')),
-			`no agent was pointed outside the scope:\n${prompts.join('\n\n')}`,
-		);
+		expect(result.ok).toBe(true);
+		// only the in-scope finding counts as work
+		expect(result.before).toStrictEqual({ structure: 1 });
+		// the out-of-scope folder never became a batch
+		expect(result.declined.map((entry) => entry.batchId)).toStrictEqual(['batch-01:structure:alpha']);
+		// no agent was pointed outside the scope:\n${prompts.join('\n\n')}
+		expect(prompts.every((prompt) => !prompt.includes('beta/multi.ts'))).toBeTruthy();
 
 		const worklist = readWorklist({ dir, plan: result.manifest.plan });
 
-		assert.equal(worklist.path, 'alpha', 'the scope is frozen with the work-list, so resume scans the same subtree');
-		assert.deepEqual(
-			worklist.batches.map((batch) => batch.id),
-			['batch-01:structure:alpha'],
-		);
+		// the scope is frozen with the work-list, so resume scans the same subtree
+		expect(worklist.path).toBe('alpha');
+		expect(worklist.batches.map((batch) => batch.id)).toStrictEqual(['batch-01:structure:alpha']);
 	});
 
 	test('the frozen work-list carries Finding-severity work with size advisories as context, nothing else', async () => {
@@ -127,22 +120,19 @@ describe('runRefactorPipeline work-list', () => {
 		};
 		const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), maxBatches: 0 });
 
-		assert.equal(result.manifest.status, 'paused-budget');
+		expect(result.manifest.status).toBe('paused-budget');
 
 		const worklist = readWorklist({ dir, plan: result.manifest.plan });
 		const advisories = worklist.batches.flatMap((batch) => batch.advisories);
 
-		assert.ok(advisories.length > 0, 'the over-cap function rode along as context');
-		assert.deepEqual(
-			[...new Set(advisories.map((advisory) => advisory.detector))],
-			['size'],
-			"only size advisories are context — dead-export and filename advisories must not ride in as if they were work: they'd read as a work-list the agent is judged against",
-		);
-		assert.deepEqual(
-			[...new Set(worklist.batches.flatMap((batch) => batch.findings.map((finding) => finding.severity)))],
-			['finding'],
-			'advisories are never batched as work',
-		);
+		// the over-cap function rode along as context
+		expect(advisories.length > 0).toBeTruthy();
+		// only size advisories are context — dead-export and filename advisories must
+		// not ride in as if they were work: they'd read as a work-list the agent is
+		// judged against
+		expect([...new Set(advisories.map((advisory) => advisory.detector))]).toStrictEqual(['size']);
+		// advisories are never batched as work
+		expect([...new Set(worklist.batches.flatMap((batch) => batch.findings.map((finding) => finding.severity)))]).toStrictEqual(['finding']);
 	});
 
 	test('a baselined finding is not work — the run completes as a verdict, spawning nothing', async () => {
@@ -150,10 +140,12 @@ describe('runRefactorPipeline work-list', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.equal(result.manifest.status, 'passed');
-		assert.deepEqual(result.before, {}, 'accepted debt is not the refactor run’s work');
-		assert.equal(prompts.length, 0, 'no agent was spent on already-accepted debt');
+		expect(result.ok).toBe(true);
+		expect(result.manifest.status).toBe('passed');
+		// accepted debt is not the refactor run’s work
+		expect(result.before).toStrictEqual({});
+		// no agent was spent on already-accepted debt
+		expect(prompts.length).toBe(0);
 	});
 
 	test('burn-down mode takes the baselined finding as work and burns it down', async () => {
@@ -161,14 +153,18 @@ describe('runRefactorPipeline work-list', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config, all: true });
 
-		assert.equal(result.ok, true, result.error);
-		assert.equal(result.before['structure'], 1, 'the accepted cluster is the work-list in burn-down mode');
-		assert.equal(result.after['structure'] ?? 0, 0, 'and it burned down');
-		assert.ok(prompts.length > 0, 'the batch reached an agent');
+		expect(result.ok).toBe(true);
+		// the accepted cluster is the work-list in burn-down mode
+		expect(result.before['structure']).toBe(1);
+		// and it burned down
+		expect(result.after['structure'] ?? 0).toBe(0);
+		// the batch reached an agent
+		expect(prompts.length > 0).toBeTruthy();
 
 		const worklist = readWorklist({ dir, plan: result.manifest.plan });
 
-		assert.equal(worklist.all, true, 'the mode is frozen with the work-list, so resume re-scans the same way');
+		// the mode is frozen with the work-list, so resume re-scans the same way
+		expect(worklist.all).toBe(true);
 	});
 
 	test('a repo outside any git worktree is refused before any run state exists', async () => {
@@ -183,9 +179,6 @@ describe('runRefactorPipeline work-list', () => {
 			},
 		};
 
-		await assert.rejects(
-			runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) }),
-			/requires a git worktree/,
-		);
+		await expect(runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) })).rejects.toThrow(/requires a git worktree/);
 	});
 });

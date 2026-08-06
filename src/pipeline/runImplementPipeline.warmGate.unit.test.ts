@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
@@ -60,10 +59,14 @@ test('write-tests warm gate: a real driver stream event releases the held-back w
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, true, result.error);
-	assert.equal(writers, 2, 'two changed files → two writer groups');
-	assert.ok(log.indexOf('start:2') > log.indexOf('start:1'), 'the warm writer spawns first');
-	assert.ok(log.indexOf('start:2') < log.indexOf('end:1'), 'the held-back writer starts on the stream event — not when the warm writer settles');
+	expect(result.ok).toBe(true);
+	// two changed files → two writer groups
+	expect(writers).toBe(2);
+	// the warm writer spawns first
+	expect(log.indexOf('start:2') > log.indexOf('start:1')).toBeTruthy();
+	// the held-back writer starts on the stream event — not when the warm writer
+	// settles
+	expect(log.indexOf('start:2') < log.indexOf('end:1')).toBeTruthy();
 
 	// The first-event hook wraps the transcript sink — both events must still
 	// land in the warm writer's stream file, in order.
@@ -76,9 +79,6 @@ test('write-tests warm gate: a real driver stream event releases the held-back w
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-	assert.deepEqual(
-		events.map((event) => event.note),
-		['first-event', 'second-event'],
-		'the hook tees events through to the transcript unchanged',
-	);
+	// the hook tees events through to the transcript unchanged
+	expect(events.map((event) => event.note)).toStrictEqual(['first-event', 'second-event']);
 });

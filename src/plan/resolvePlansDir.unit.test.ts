@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { resolvePlansDir } from '@/plan';
 
@@ -22,7 +21,7 @@ describe('resolvePlansDir', () => {
 
 		const plansDir = resolvePlansDir({ cwd, config });
 
-		assert.equal(plansDir, '/repo/.claude/plans');
+		expect(plansDir).toBe('/repo/.claude/plans');
 	});
 
 	test('defaults to .claude/plans under cwd when no config was loaded at all', () => {
@@ -30,7 +29,8 @@ describe('resolvePlansDir', () => {
 
 		const plansDir = resolvePlansDir({ cwd, config });
 
-		assert.equal(plansDir, '/repo/.claude/plans', 'an absent config resolves the same default as a config that omits plansDir');
+		// an absent config resolves the same default as a config that omits plansDir
+		expect(plansDir).toBe('/repo/.claude/plans');
 	});
 
 	test('resolves a relative config.plansDir against cwd', () => {
@@ -38,7 +38,7 @@ describe('resolvePlansDir', () => {
 
 		const plansDir = resolvePlansDir({ cwd, config });
 
-		assert.equal(plansDir, '/repo/docs/plans');
+		expect(plansDir).toBe('/repo/docs/plans');
 	});
 
 	test('returns an absolute config.plansDir unchanged, leaving cwd out of it', () => {
@@ -46,7 +46,7 @@ describe('resolvePlansDir', () => {
 
 		const plansDir = resolvePlansDir({ cwd, config });
 
-		assert.equal(plansDir, '/srv/lightsout/plans');
+		expect(plansDir).toBe('/srv/lightsout/plans');
 	});
 
 	test('the --plans flag wins over a configured plansDir', () => {
@@ -54,7 +54,8 @@ describe('resolvePlansDir', () => {
 
 		const plansDir = resolvePlansDir({ cwd, flag: 'tmp/plans', config });
 
-		assert.equal(plansDir, '/repo/tmp/plans', 'the CLI override outranks the committed config');
+		// the CLI override outranks the committed config
+		expect(plansDir).toBe('/repo/tmp/plans');
 	});
 
 	test('the --plans flag wins over the default when no config was loaded', () => {
@@ -62,7 +63,7 @@ describe('resolvePlansDir', () => {
 
 		const plansDir = resolvePlansDir({ cwd, flag: 'plans', config });
 
-		assert.equal(plansDir, '/repo/plans');
+		expect(plansDir).toBe('/repo/plans');
 	});
 
 	test('returns an absolute --plans flag unchanged, leaving cwd out of it', () => {
@@ -70,6 +71,6 @@ describe('resolvePlansDir', () => {
 
 		const plansDir = resolvePlansDir({ cwd, flag: '/srv/override/plans', config });
 
-		assert.equal(plansDir, '/srv/override/plans');
+		expect(plansDir).toBe('/srv/override/plans');
 	});
 });

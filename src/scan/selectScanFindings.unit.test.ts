@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { ScanFinding } from '@/contracts';
 import { selectScanFindings } from '@/scan';
 
@@ -27,21 +26,15 @@ test('selectScanFindings keeps finding-severity items touching changed files; ga
 
 	const { workList, advisories, gating } = selectScanFindings({ findings, changedFiles: ['src/changed.ts'] });
 
-	assert.deepEqual(
-		workList.map((entry) => entry.cluster),
-		['multi-export:src/changed.ts', 'ast:abc123def456', 'clone:src/changed.ts:10', 'size:file:src/changed.ts', 'boundary:src/changed.ts', 'placement:src/other/common/x.ts'],
-		'advisories and untouched-file findings excluded; the changed↔legacy dup and both architecture findings included',
-	);
-	assert.deepEqual(
-		gating.map((entry) => entry.cluster),
-		['multi-export:src/changed.ts', 'ast:abc123def456', 'size:file:src/changed.ts', 'boundary:src/changed.ts'],
-		'path-keyed file size and module boundaries gate; line-keyed clone, per-function size and placement inform but never gate',
-	);
-	assert.deepEqual(
-		advisories.map((entry) => entry.cluster),
-		['size:function:src/changed.ts:big'],
-		'size advisories flow to the agent as judgment items; non-size advisories do not',
-	);
+	// advisories and untouched-file findings excluded; the changed↔legacy dup and
+	// both architecture findings included
+	expect(workList.map((entry) => entry.cluster)).toStrictEqual(['multi-export:src/changed.ts', 'ast:abc123def456', 'clone:src/changed.ts:10', 'size:file:src/changed.ts', 'boundary:src/changed.ts', 'placement:src/other/common/x.ts']);
+	// path-keyed file size and module boundaries gate; line-keyed clone,
+	// per-function size and placement inform but never gate
+	expect(gating.map((entry) => entry.cluster)).toStrictEqual(['multi-export:src/changed.ts', 'ast:abc123def456', 'size:file:src/changed.ts', 'boundary:src/changed.ts']);
+	// size advisories flow to the agent as judgment items; non-size advisories do
+	// not
+	expect(advisories.map((entry) => entry.cluster)).toStrictEqual(['size:function:src/changed.ts:big']);
 });
 
 test('selectScanFindings drops size advisories in files the run never touched', () => {
@@ -52,11 +45,8 @@ test('selectScanFindings drops size advisories in files the run never touched', 
 
 	const { advisories } = selectScanFindings({ findings, changedFiles: ['src/changed.ts'] });
 
-	assert.deepEqual(
-		advisories.map((entry) => entry.cluster),
-		['size:function:src/changed.ts:big'],
-		'pre-existing debt outside the run stays out of the judgment list',
-	);
+	// pre-existing debt outside the run stays out of the judgment list
+	expect(advisories.map((entry) => entry.cluster)).toStrictEqual(['size:function:src/changed.ts:big']);
 });
 
 test('selectScanFindings never gates on an advisory whose cluster carries a gating prefix', () => {
@@ -66,11 +56,9 @@ test('selectScanFindings never gates on an advisory whose cluster carries a gati
 
 	const selected = selectScanFindings({ findings, changedFiles: ['src/changed.ts'] });
 
-	assert.deepEqual(
-		{ workList: selected.workList.map((entry) => entry.cluster), advisories: selected.advisories.map((entry) => entry.cluster), gating: selected.gating.map((entry) => entry.cluster) },
-		{ workList: [], advisories: ['size:file:src/changed.ts'], gating: [] },
-		'gating is a workList subset, so severity decides before the cluster prefix does',
-	);
+	// gating is a workList subset, so severity decides before the cluster prefix
+	// does
+	expect({ workList: selected.workList.map((entry) => entry.cluster), advisories: selected.advisories.map((entry) => entry.cluster), gating: selected.gating.map((entry) => entry.cluster) }).toStrictEqual({ workList: [], advisories: ['size:file:src/changed.ts'], gating: [] });
 });
 
 test('selectScanFindings selects nothing when the run changed no files', () => {
@@ -81,5 +69,6 @@ test('selectScanFindings selects nothing when the run changed no files', () => {
 
 	const selected = selectScanFindings({ findings, changedFiles: [] });
 
-	assert.deepEqual(selected, { workList: [], advisories: [], gating: [] }, 'an empty changed-file set touches nothing');
+	// an empty changed-file set touches nothing
+	expect(selected).toStrictEqual({ workList: [], advisories: [], gating: [] });
 });

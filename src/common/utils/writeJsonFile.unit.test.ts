@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { writeJsonFile } from '@/common/utils/writeJsonFile';
 
 const setupTarget = ({ existing }: { existing?: string } = {}) => {
@@ -20,7 +19,7 @@ test('writeJsonFile: the value lands tab-indented with a trailing newline', asyn
 
 	await writeJsonFile({ path, value: { id: 'run-1', steps: [{ name: 'check', ok: true }] } });
 
-	assert.equal(readFileSync(path, 'utf8'), '{\n\t"id": "run-1",\n\t"steps": [\n\t\t{\n\t\t\t"name": "check",\n\t\t\t"ok": true\n\t\t}\n\t]\n}\n');
+	expect(readFileSync(path, 'utf8')).toBe('{\n\t"id": "run-1",\n\t"steps": [\n\t\t{\n\t\t\t"name": "check",\n\t\t\t"ok": true\n\t\t}\n\t]\n}\n');
 });
 
 test('writeJsonFile: an existing file is replaced whole, never appended to', async () => {
@@ -28,5 +27,5 @@ test('writeJsonFile: an existing file is replaced whole, never appended to', asy
 
 	await writeJsonFile({ path, value: { ok: true } });
 
-	assert.equal(readFileSync(path, 'utf8'), '{\n\t"ok": true\n}\n');
+	expect(readFileSync(path, 'utf8')).toBe('{\n\t"ok": true\n}\n');
 });

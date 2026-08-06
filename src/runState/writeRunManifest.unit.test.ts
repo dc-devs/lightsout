@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { readRunManifest } from '@/runState';
 import { createRun, getRunDir, writeRunManifest } from '@/runState';
 import { readStandards } from '@/standards';
@@ -14,11 +13,11 @@ test('manifest write → read round trip', async () => {
 	const read = await readRunManifest({ cwd, runId: created.runId });
 
 	// JSON round-trip drops explicitly-undefined optional keys (overview).
-	assert.deepEqual(read, JSON.parse(JSON.stringify(created)));
-	assert.equal(read.plan, 'plan.md');
-	assert.equal(read.harness, 'stub');
-	assert.equal(read.status, 'pending');
-	assert.deepEqual(read.steps, []);
+	expect(read).toStrictEqual(JSON.parse(JSON.stringify(created)));
+	expect(read.plan).toBe('plan.md');
+	expect(read.harness).toBe('stub');
+	expect(read.status).toBe('pending');
+	expect(read.steps).toStrictEqual([]);
 });
 
 test('writeRunManifest stamps updatedAt on every write', async () => {
@@ -29,8 +28,9 @@ test('writeRunManifest stamps updatedAt on every write', async () => {
 
 	const rewritten = await writeRunManifest({ cwd, manifest: created });
 
-	assert.ok(rewritten.updatedAt > created.updatedAt, `${rewritten.updatedAt} should be after ${created.updatedAt}`);
-	assert.equal(rewritten.createdAt, created.createdAt);
+	// ${rewritten.updatedAt} should be after ${created.updatedAt}
+	expect(rewritten.updatedAt > created.updatedAt).toBeTruthy();
+	expect(rewritten.createdAt).toBe(created.createdAt);
 });
 
 test('writeRunManifest leaves no temporary file beside the manifest it swapped in', async () => {
@@ -41,15 +41,17 @@ test('writeRunManifest leaves no temporary file beside the manifest it swapped i
 
 	const runDir = getRunDir({ cwd, runId: created.runId });
 
-	assert.ok(existsSync(join(runDir, 'manifest.json')), 'the manifest is in place');
-	assert.ok(!existsSync(join(runDir, 'manifest.json.tmp')), 'the tmp file is renamed over, never left behind');
-	assert.deepEqual(readdirSync(runDir), ['manifest.json']);
+	// the manifest is in place
+	expect(existsSync(join(runDir, 'manifest.json'))).toBeTruthy();
+	// the tmp file is renamed over, never left behind
+	expect(existsSync(join(runDir, 'manifest.json.tmp'))).toBeFalsy();
+	expect(readdirSync(runDir)).toStrictEqual(['manifest.json']);
 });
 
 test('a run with no manifest on disk is rejected at the read boundary', async () => {
 	const cwd = setupConsumerRepo({ git: false });
 
-	await assert.rejects(readRunManifest({ cwd, runId: 'never-created' }), /ENOENT/);
+	await expect(readRunManifest({ cwd, runId: 'never-created' })).rejects.toThrow(/ENOENT/);
 });
 
 test('corrupted manifest is rejected at the read boundary', async () => {
@@ -57,16 +59,16 @@ test('corrupted manifest is rejected at the read boundary', async () => {
 	const created = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
 
 	writeFileSync(join(getRunDir({ cwd, runId: created.runId }), 'manifest.json'), 'not json at all');
-	await assert.rejects(readRunManifest({ cwd, runId: created.runId }));
+	await expect(readRunManifest({ cwd, runId: created.runId })).rejects.toThrow();
 
 	writeFileSync(join(getRunDir({ cwd, runId: created.runId }), 'manifest.json'), '{"runId":"x"}');
-	await assert.rejects(readRunManifest({ cwd, runId: created.runId }));
+	await expect(readRunManifest({ cwd, runId: created.runId })).rejects.toThrow();
 });
 
 test('readStandards throws on a declared-but-missing file', async () => {
 	const cwd = setupConsumerRepo({ git: false });
 
-	await assert.rejects(readStandards({ cwd, paths: ['missing-card.md'] }), /standards file not found/);
+	await expect(readStandards({ cwd, paths: ['missing-card.md'] })).rejects.toThrow(/standards file not found/);
 });
 
 test('readStandards inlines declared files with their path as provenance', async () => {
@@ -76,8 +78,8 @@ test('readStandards inlines declared files with their path as provenance', async
 
 	const standards = await readStandards({ cwd, paths: ['card.md'] });
 
-	assert.ok(standards?.includes('RULE-SENTINEL'));
-	assert.ok(standards?.includes('card.md'));
+	expect(standards?.includes('RULE-SENTINEL')).toBeTruthy();
+	expect(standards?.includes('card.md')).toBeTruthy();
 });
 
 test('readStandards expands a folder entry recursively in sorted order with per-file provenance', async () => {
@@ -93,24 +95,28 @@ test('readStandards expands a folder entry recursively in sorted order with per-
 
 	const standards = (await readStandards({ cwd, paths: ['guides', 'card.md'] })) ?? '';
 
-	assert.ok(standards.includes('FIRST-SENTINEL'), 'nested markdown inlined');
-	assert.ok(standards.includes('SECOND-SENTINEL'), 'nested markdown inlined');
-	assert.ok(standards.includes('TOP-SENTINEL'), 'top-level markdown inlined');
-	assert.ok(!standards.includes('TXT-SENTINEL'), 'non-markdown files are skipped');
+	// nested markdown inlined
+	expect(standards.includes('FIRST-SENTINEL')).toBeTruthy();
+	// nested markdown inlined
+	expect(standards.includes('SECOND-SENTINEL')).toBeTruthy();
+	// top-level markdown inlined
+	expect(standards.includes('TOP-SENTINEL')).toBeTruthy();
+	// non-markdown files are skipped
+	expect(standards.includes('TXT-SENTINEL')).toBeFalsy();
 
-	assert.ok(standards.includes('<!-- guides/a/first.md -->'), 'per-file provenance');
-	assert.ok(standards.includes('<!-- guides/b/second.md -->'), 'per-file provenance');
-	assert.ok(standards.includes('<!-- guides/top.md -->'), 'per-file provenance');
+	// per-file provenance
+	expect(standards.includes('<!-- guides/a/first.md -->')).toBeTruthy();
+	// per-file provenance
+	expect(standards.includes('<!-- guides/b/second.md -->')).toBeTruthy();
+	// per-file provenance
+	expect(standards.includes('<!-- guides/top.md -->')).toBeTruthy();
 
-	assert.ok(
-		standards.indexOf('<!-- guides/a/first.md -->') < standards.indexOf('<!-- guides/b/second.md -->'),
-		'folder files inline in sorted path order',
-	);
-	assert.ok(
-		standards.indexOf('<!-- guides/b/second.md -->') < standards.indexOf('<!-- guides/top.md -->'),
-		'folder files inline in sorted path order',
-	);
-	assert.ok(standards.indexOf('TOP-SENTINEL') < standards.indexOf('CARD-SENTINEL'), 'entry order preserved');
+	// folder files inline in sorted path order
+	expect(standards.indexOf('<!-- guides/a/first.md -->') < standards.indexOf('<!-- guides/b/second.md -->')).toBeTruthy();
+	// folder files inline in sorted path order
+	expect(standards.indexOf('<!-- guides/b/second.md -->') < standards.indexOf('<!-- guides/top.md -->')).toBeTruthy();
+	// entry order preserved
+	expect(standards.indexOf('TOP-SENTINEL') < standards.indexOf('CARD-SENTINEL')).toBeTruthy();
 });
 
 test('readStandards trims a trailing slash from a folder entry in provenance headers', async () => {
@@ -122,10 +128,14 @@ test('readStandards trims a trailing slash from a folder entry in provenance hea
 
 	const standards = (await readStandards({ cwd, paths: ['guides/'] })) ?? '';
 
-	assert.ok(standards.includes('<!-- guides/top.md -->'), 'no doubled slash in provenance');
-	assert.ok(standards.includes('<!-- guides/a/first.md -->'), 'no doubled slash in nested provenance');
-	assert.ok(!standards.includes('guides//'), 'entry spelling is normalised, not concatenated');
-	assert.ok(standards.includes('TOP-SENTINEL') && standards.includes('FIRST-SENTINEL'), 'markdown still inlined');
+	// no doubled slash in provenance
+	expect(standards.includes('<!-- guides/top.md -->')).toBeTruthy();
+	// no doubled slash in nested provenance
+	expect(standards.includes('<!-- guides/a/first.md -->')).toBeTruthy();
+	// entry spelling is normalised, not concatenated
+	expect(standards.includes('guides//')).toBeFalsy();
+	// markdown still inlined
+	expect(standards.includes('TOP-SENTINEL') && standards.includes('FIRST-SENTINEL')).toBeTruthy();
 });
 
 test('readStandards does not follow or collect symlinks inside a folder entry', async () => {
@@ -141,9 +151,12 @@ test('readStandards does not follow or collect symlinks inside a folder entry', 
 
 	const standards = (await readStandards({ cwd, paths: ['guides'] })) ?? '';
 
-	assert.ok(standards.includes('REAL-SENTINEL'), 'regular markdown inlined');
-	assert.ok(!standards.includes('LINKED-SENTINEL'), 'symlinked markdown files are not collected');
-	assert.ok(!standards.includes('DEEP-SENTINEL'), 'symlinked directories are not walked');
+	// regular markdown inlined
+	expect(standards.includes('REAL-SENTINEL')).toBeTruthy();
+	// symlinked markdown files are not collected
+	expect(standards.includes('LINKED-SENTINEL')).toBeFalsy();
+	// symlinked directories are not walked
+	expect(standards.includes('DEEP-SENTINEL')).toBeFalsy();
 });
 
 test('readStandards throws on a folder entry with no markdown files', async () => {
@@ -152,7 +165,7 @@ test('readStandards throws on a folder entry with no markdown files', async () =
 	mkdirSync(join(cwd, 'empty-guides'), { recursive: true });
 	writeFileSync(join(cwd, 'empty-guides/readme.txt'), 'TXT-SENTINEL');
 
-	await assert.rejects(readStandards({ cwd, paths: ['empty-guides'] }), /contains no markdown files/);
+	await expect(readStandards({ cwd, paths: ['empty-guides'] })).rejects.toThrow(/contains no markdown files/);
 });
 
 test('readStandards resolves bundled-default tokens and stacks them with files', async () => {
@@ -163,8 +176,12 @@ test('readStandards resolves bundled-default tokens and stacks them with files',
 	const code = await readStandards({ cwd, paths: ['lightsout:code-defaults', 'extras.md'] });
 	const tests = await readStandards({ cwd, paths: ['lightsout:test-defaults'] });
 
-	assert.ok(code?.includes('One Export Per File'), 'code defaults bundled');
-	assert.ok(code?.includes('lightsout defaults: standards/code/'), 'provenance headers present');
-	assert.ok(code?.includes('EXTRAS-SENTINEL'), 'repo extras stack after the token');
-	assert.ok(tests?.includes('Module Boundary Testing'), 'test defaults bundled');
+	// code defaults bundled
+	expect(code?.includes('One Export Per File')).toBeTruthy();
+	// provenance headers present
+	expect(code?.includes('lightsout defaults: standards/code/')).toBeTruthy();
+	// repo extras stack after the token
+	expect(code?.includes('EXTRAS-SENTINEL')).toBeTruthy();
+	// test defaults bundled
+	expect(tests?.includes('Module Boundary Testing')).toBeTruthy();
 });

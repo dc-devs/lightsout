@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -53,11 +52,13 @@ test('nested consumer: agent-reported repo-root-relative paths normalize to cons
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
-	assert.equal(result.ok, true, result.error);
-	assert.equal(writerCount, 1, 'one real changed file — one writer, not two');
+	expect(result.ok).toBe(true);
+	// one real changed file — one writer, not two
+	expect(writerCount).toBe(1);
 
 	const manifest = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
 	const sourceChanges = manifest.changedFiles.filter((file) => file.startsWith('src/') || file.startsWith('consumer/'));
 
-	assert.deepEqual(sourceChanges, ['src/feature.js'], 'one consumer-relative identity, no repo-root duplicate');
+	// one consumer-relative identity, no repo-root duplicate
+	expect(sourceChanges).toStrictEqual(['src/feature.js']);
 });

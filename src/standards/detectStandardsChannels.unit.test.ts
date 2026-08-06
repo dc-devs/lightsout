@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { detectStandardsChannels, readStandards } from '@/standards';
 import { loadConfig } from '@/common/utils/loadConfig';
@@ -46,10 +45,11 @@ test('detectStandardsChannels reads scoped package dependencies', async () => {
 	writePackage({ dir: join(dir, 'packages/web'), name: '@acme/web', deps: { preact: '^10.0.0' } });
 	writePackage({ dir: join(dir, 'packages/site'), name: '@acme/site', deps: { react: '^19.0.0', '@tanstack/react-start': '^1.0.0' } });
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api'] }), []);
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] }), ['react']);
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api', 'site'] }), ['react', 'tanstack']);
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['ghost'] }), [], 'unreadable manifests contribute nothing');
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api'] })).toStrictEqual([]);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] })).toStrictEqual(['react']);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api', 'site'] })).toStrictEqual(['react', 'tanstack']);
+	// unreadable manifests contribute nothing
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['ghost'] })).toStrictEqual([]);
 });
 
 test('detectStandardsChannels falls back to the root package.json outside monorepo mode', async () => {
@@ -57,13 +57,13 @@ test('detectStandardsChannels falls back to the root package.json outside monore
 
 	writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'solo', dependencies: { react: '^19.0.0' } }));
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: [] }), ['react']);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: [] })).toStrictEqual(['react']);
 });
 
 test('detectStandardsChannels returns nothing when the root fallback manifest is absent', async () => {
 	const dir = setupMonorepo();
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: [] }), []);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: [] })).toStrictEqual([]);
 });
 
 test('detectStandardsChannels detects signals in devDependencies and peerDependencies', async () => {
@@ -72,8 +72,10 @@ test('detectStandardsChannels detects signals in devDependencies and peerDepende
 	writePackage({ dir: join(dir, 'packages/web'), name: '@acme/web', devDeps: { react: '^19.0.0' } });
 	writePackage({ dir: join(dir, 'packages/api'), name: '@acme/api', peerDeps: { '@tanstack/react-start': '^1.0.0' } });
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] }), ['react'], 'devDependencies count');
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api'] }), ['tanstack'], 'peerDependencies count');
+	// devDependencies count
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] })).toStrictEqual(['react']);
+	// peerDependencies count
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api'] })).toStrictEqual(['tanstack']);
 });
 
 test('detectStandardsChannels activates a channel from any of its signal packages', async () => {
@@ -82,8 +84,8 @@ test('detectStandardsChannels activates a channel from any of its signal package
 	writePackage({ dir: join(dir, 'packages/web'), name: '@acme/web', deps: { 'react-dom': '^19.0.0' } });
 	writePackage({ dir: join(dir, 'packages/api'), name: '@acme/api', deps: { '@tanstack/start': '^1.0.0' } });
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] }), ['react']);
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api'] }), ['tanstack']);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] })).toStrictEqual(['react']);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api'] })).toStrictEqual(['tanstack']);
 });
 
 test('detectStandardsChannels ignores a package whose signal is not a dependency name', async () => {
@@ -91,7 +93,7 @@ test('detectStandardsChannels ignores a package whose signal is not a dependency
 
 	writePackage({ dir: join(dir, 'packages/web'), name: 'react', deps: { '@acme/react-utils': '^1.0.0' } });
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] }), []);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] })).toStrictEqual([]);
 });
 
 test('detectStandardsChannels skips unparseable manifests without suppressing their siblings', async () => {
@@ -101,17 +103,12 @@ test('detectStandardsChannels skips unparseable manifests without suppressing th
 	writeRawManifest({ dir: join(dir, 'packages/mistyped'), contents: JSON.stringify({ name: '@acme/mistyped', dependencies: { react: 19 } }) });
 	writePackage({ dir: join(dir, 'packages/web'), name: '@acme/web', deps: { react: '^19.0.0' } });
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['broken'] }), [], 'malformed JSON contributes nothing');
-	assert.deepEqual(
-		await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['mistyped'] }),
-		[],
-		'a manifest failing the schema contributes nothing',
-	);
-	assert.deepEqual(
-		await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['broken', 'mistyped', 'web'] }),
-		['react'],
-		'readable siblings still contribute their channels',
-	);
+	// malformed JSON contributes nothing
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['broken'] })).toStrictEqual([]);
+	// a manifest failing the schema contributes nothing
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['mistyped'] })).toStrictEqual([]);
+	// readable siblings still contribute their channels
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['broken', 'mistyped', 'web'] })).toStrictEqual(['react']);
 });
 
 test('detectStandardsChannels resolves scoped manifests under a custom packagesDir', async () => {
@@ -119,25 +116,23 @@ test('detectStandardsChannels resolves scoped manifests under a custom packagesD
 
 	writePackage({ dir: join(dir, 'apps/web'), name: '@acme/web', deps: { react: '^19.0.0' } });
 
-	assert.deepEqual(await detectStandardsChannels({ cwd: dir, packagesDir: 'apps', packages: ['web'] }), ['react']);
-	assert.deepEqual(
-		await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] }),
-		[],
-		'the default dir holds a different web package with no react dep',
-	);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'apps', packages: ['web'] })).toStrictEqual(['react']);
+	// the default dir holds a different web package with no react dep
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] })).toStrictEqual([]);
 });
 
 test('bundled tokens expand to base docs plus active channels only', async () => {
 	const base = await readStandards({ cwd: '/nonexistent', paths: ['lightsout:test-defaults'] });
 	const withReact = await readStandards({ cwd: '/nonexistent', paths: ['lightsout:test-defaults'], channels: ['react'] });
 
-	assert.ok(base?.includes('standards/tests/unit/jest/unit-testing.md'), 'base doc present');
-	assert.ok(!base?.includes('unit-testing-react-components.md'), 'react doc absent without the channel');
-	assert.ok(withReact?.includes('unit-testing-react-components.md'), 'react doc present with the channel');
-	assert.ok(
-		(withReact?.indexOf('unit-testing.md') ?? 0) < (withReact?.indexOf('unit-testing-react-components.md') ?? 0),
-		'base docs precede channel docs',
-	);
+	// base doc present
+	expect(base?.includes('standards/tests/unit/jest/unit-testing.md')).toBeTruthy();
+	// react doc absent without the channel
+	expect(base?.includes('unit-testing-react-components.md')).toBeFalsy();
+	// react doc present with the channel
+	expect(withReact?.includes('unit-testing-react-components.md')).toBeTruthy();
+	// base docs precede channel docs
+	expect((withReact?.indexOf('unit-testing.md') ?? 0) < (withReact?.indexOf('unit-testing-react-components.md') ?? 0)).toBeTruthy();
 });
 
 test('pipeline injects channel docs for react packages and announces the detection', async () => {
@@ -181,14 +176,16 @@ test('pipeline injects channel docs for react packages and announces the detecti
 		onProgress: (message) => progressLines.push(message),
 	});
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(
-		progressLines.some((line) => line.includes('standards channels: base + react (detected from package dependencies)')),
-		`channel announcement:\n${progressLines.filter((line) => line.includes('standards')).join('\n')}`,
-	);
-	assert.ok(prompts['write-tests']?.includes('unit-testing-react-components.md'), 'test writer got the react channel doc');
-	assert.ok(prompts['implement']?.includes('standards/code/architecture/react/architecture-decisions.md'), 'executor got react architecture');
-	assert.ok(!prompts['implement']?.includes('tanstack-start'), 'tanstack channel stays out without the dependency');
+	expect(result.ok).toBe(true);
+	// channel announcement:\n${progressLines.filter((line) =>
+	// line.includes('standards')).join('\n')}
+	expect(progressLines.some((line) => line.includes('standards channels: base + react (detected from package dependencies)'))).toBeTruthy();
+	// test writer got the react channel doc
+	expect(prompts['write-tests']?.includes('unit-testing-react-components.md')).toBeTruthy();
+	// executor got react architecture
+	expect(prompts['implement']?.includes('standards/code/architecture/react/architecture-decisions.md')).toBeTruthy();
+	// tanstack channel stays out without the dependency
+	expect(prompts['implement']?.includes('tanstack-start')).toBeFalsy();
 });
 
 test('standardsChannels config replaces detection', async () => {
@@ -233,7 +230,7 @@ test('standardsChannels config replaces detection', async () => {
 		onProgress: (message) => progressLines.push(message),
 	});
 
-	assert.equal(result.ok, true, result.error);
-	assert.ok(progressLines.some((line) => line.includes('standards channels: base + react (configured)')));
-	assert.ok(prompts['write-tests']?.includes('unit-testing-react-components.md'));
+	expect(result.ok).toBe(true);
+	expect(progressLines.some((line) => line.includes('standards channels: base + react (configured)'))).toBeTruthy();
+	expect(prompts['write-tests']?.includes('unit-testing-react-components.md')).toBeTruthy();
 });

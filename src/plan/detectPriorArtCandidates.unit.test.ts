@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { LightsoutConfig } from '@/contracts';
 import { detectPriorArtCandidates } from '@/plan';
 
@@ -33,46 +32,46 @@ test('detectPriorArtCandidates: a synonym name-collision is a candidate', async 
 	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.equal(candidates.length, 1);
-	assert.equal(candidates[0]?.plannedSymbol, 'getUser');
-	assert.equal(candidates[0]?.plannedPath, 'src/getUser.ts');
-	assert.ok(candidates[0]?.collidesWith.some((collision) => collision.name === 'fetchUser'));
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.plannedSymbol).toBe('getUser');
+	expect(candidates[0]?.plannedPath).toBe('src/getUser.ts');
+	expect(candidates[0]?.collidesWith.some((collision) => collision.name === 'fetchUser')).toBeTruthy();
 });
 
 test('detectPriorArtCandidates: an exact name-collision is a candidate', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/parseThing.ts'], creates: ['src/other/parseThing.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.equal(candidates.length, 1);
-	assert.ok(candidates[0]?.collidesWith.some((collision) => collision.path === 'src/parseThing.ts'));
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith.some((collision) => collision.path === 'src/parseThing.ts')).toBeTruthy();
 });
 
 test('detectPriorArtCandidates: a to/from inverse is not a candidate', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/rgbToHex.ts'], creates: ['src/hexToRgb.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.deepEqual(candidates, []);
+	expect(candidates).toStrictEqual([]);
 });
 
 test('detectPriorArtCandidates: a component+route casing pair is not a candidate', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/GetStarted.tsx'], creates: ['src/get-started.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.deepEqual(candidates, []);
+	expect(candidates).toStrictEqual([]);
 });
 
 test('detectPriorArtCandidates: a genuinely novel name yields no candidate', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/brandNewWidget.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.deepEqual(candidates, []);
+	expect(candidates).toStrictEqual([]);
 });
 
 test('detectPriorArtCandidates: collisions against a test file or index.* are excluded', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/tests/getUser.ts', 'src/index.ts'], creates: ['src/getUser.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.deepEqual(candidates, []);
+	expect(candidates).toStrictEqual([]);
 });
 
 test('detectPriorArtCandidates: a plan path that cannot be read is skipped, not fatal', async () => {
@@ -81,33 +80,32 @@ test('detectPriorArtCandidates: a plan path that cannot be read is skipped, not 
 
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths: [ghost, ...planPaths] });
 
-	assert.equal(candidates.length, 1, 'the readable plan still contributes its planned symbols');
-	assert.equal(candidates[0]?.plannedSymbol, 'getUser');
+	// the readable plan still contributes its planned symbols
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.plannedSymbol).toBe('getUser');
 });
 
 test('detectPriorArtCandidates: a planned index.* file is never a planned symbol', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/feature/index.ts', 'src/getUser.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.deepEqual(
-		candidates.map((candidate) => candidate.plannedSymbol),
-		['getUser'],
-		'a barrel carries no symbol of its own',
-	);
+	// a barrel carries no symbol of its own
+	expect(candidates.map((candidate) => candidate.plannedSymbol)).toStrictEqual(['getUser']);
 });
 
 test('detectPriorArtCandidates: a planned path that already exists is not prior art against itself', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/getUser.ts'], creates: ['src/getUser.ts'] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.deepEqual(candidates, [], 'the planned path is excluded from the census it is compared against');
+	// the planned path is excluded from the census it is compared against
+	expect(candidates).toStrictEqual([]);
 });
 
 test('detectPriorArtCandidates: a plan with no Files to Create yields no candidates', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts'], creates: [] });
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
 
-	assert.deepEqual(candidates, []);
+	expect(candidates).toStrictEqual([]);
 });
 
 test('detectPriorArtCandidates: a collision inside a configured generated path is excluded', async () => {
@@ -119,5 +117,6 @@ test('detectPriorArtCandidates: a collision inside a configured generated path i
 
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths, config });
 
-	assert.deepEqual(candidates, [], 'generated output is not prior art');
+	// generated output is not prior art
+	expect(candidates).toStrictEqual([]);
 });

@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 
 // The CLI has no in-process seam (process.exit + hard-wired getDriver), so
 // characterization runs it as a subprocess and pins EXACT stdout/stderr/exit.
@@ -102,43 +101,43 @@ const seedVerifyFactsFixture = async () => {
 test('cli: no args prints usage to stderr and exits 0', async () => {
 	const { stdout, stderr, code } = await runCli({ args: [] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 0);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(0);
 });
 
 test('cli: help prints usage to stderr and exits 0', async () => {
 	const { stdout, stderr, code } = await runCli({ args: ['help'] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 0);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(0);
 });
 
 test('cli: an unknown command prints usage to stderr and exits 1', async () => {
 	const { stdout, stderr, code } = await runCli({ args: ['nonsense'] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(1);
 });
 
 test('cli: status in a fresh dir reports no runs and exits 0', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['status', '--cwd', cwd] });
 
-	assert.equal(stdout, 'no runs found\n');
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toBe('no runs found\n');
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: friction in a fresh dir reports nothing recorded and exits 0', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['friction', '--cwd', cwd] });
 
-	assert.equal(stdout, 'no friction recorded\n');
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toBe('no friction recorded\n');
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 // The dispatch table's doctor entry, end to end: a dir with no config is the
@@ -148,56 +147,56 @@ test('cli: doctor in a fresh dir fails on the missing config and exits 1', async
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['doctor', '--cwd', cwd] });
 
-	assert.match(stdout, /^doctor {4}/);
-	assert.match(stdout, /✗ config/);
-	assert.match(stdout, /\n1 check\(s\) · 1 fail\n$/);
-	assert.equal(stderr, '');
-	assert.equal(code, 1);
+	expect(stdout).toMatch(/^doctor {4}/);
+	expect(stdout).toMatch(/✗ config/);
+	expect(stdout).toMatch(/\n1 check\(s\) · 1 fail\n$/);
+	expect(stderr).toBe('');
+	expect(code).toBe(1);
 });
 
 test('cli: verify (removed command) prints usage to stderr and exits 1', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['verify', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(1);
 });
 
 test('cli: implement without --plan prints usage to stderr and exits 1', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['implement', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(1);
 });
 
 test('cli: plan explore (removed subcommand) prints usage to stderr and exits 1', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'explore', '--name', 'demo', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(1);
 });
 
 test('cli: plan verify-facts without --name prints usage to stderr and exits 1', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(1);
 });
 
 test('cli: plan verify-facts without an authored facts.json reports the error and exits 1', async () => {
 	const cwd = await freshCwd();
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.match(stderr, /no authored facts for plan demo/);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toMatch(/no authored facts for plan demo/);
+	expect(code).toBe(1);
 });
 
 test('cli: plan verify-facts with an unparsable facts.json reports the error and exits 1', async () => {
@@ -208,9 +207,9 @@ test('cli: plan verify-facts with an unparsable facts.json reports the error and
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.notEqual(stderr, '');
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).not.toBe('');
+	expect(code).toBe(1);
 });
 
 // A structurally clean plan whose paths resolve against seedPlanLintFixture:
@@ -289,9 +288,9 @@ test('cli: plan lint without --name prints usage to stderr and exits 1', async (
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(1);
 });
 
 test('cli: plan lint on a clean plan reports clean and exits 0', async () => {
@@ -299,11 +298,12 @@ test('cli: plan lint on a clean plan reports clean and exits 0', async () => {
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
 
-	assert.equal(stderr, '');
-	assert.match(stdout, /plan lint demo: 0 structural finding\(s\) across 1 file\(s\)/);
-	assert.match(stdout, /plan lint demo — clean \(1 file\(s\)\)/);
-	assert.ok(!stdout.includes('⚠'), 'a clean plan prints no finding lines');
-	assert.equal(code, 0);
+	expect(stderr).toBe('');
+	expect(stdout).toMatch(/plan lint demo: 0 structural finding\(s\) across 1 file\(s\)/);
+	expect(stdout).toMatch(/plan lint demo — clean \(1 file\(s\)\)/);
+	// a clean plan prints no finding lines
+	expect(stdout.includes('⚠')).toBeFalsy();
+	expect(code).toBe(0);
 });
 
 test('cli: plan lint on a plan with a placeholder prints the finding and exits 1', async () => {
@@ -311,11 +311,11 @@ test('cli: plan lint on a plan with a placeholder prints the finding and exits 1
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
 
-	assert.equal(stderr, '');
-	assert.match(stdout, /plan lint demo — 1 structural finding\(s\) \(1 file\(s\)\)/);
-	assert.match(stdout, /⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present/);
-	assert.match(stdout, /fix: resolve 'TBD'/);
-	assert.equal(code, 1);
+	expect(stderr).toBe('');
+	expect(stdout).toMatch(/plan lint demo — 1 structural finding\(s\) \(1 file\(s\)\)/);
+	expect(stdout).toMatch(/⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present/);
+	expect(stdout).toMatch(/fix: resolve 'TBD'/);
+	expect(code).toBe(1);
 });
 
 test('cli: plan lint reads the plan deliverable from --plans and exits 0 when clean', async () => {
@@ -323,9 +323,9 @@ test('cli: plan lint reads the plan deliverable from --plans and exits 0 when cl
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--plans', plansDir, '--cwd', cwd] });
 
-	assert.equal(stderr, '');
-	assert.match(stdout, /plan lint demo — clean \(1 file\(s\)\)/);
-	assert.equal(code, 0);
+	expect(stderr).toBe('');
+	expect(stdout).toMatch(/plan lint demo — clean \(1 file\(s\)\)/);
+	expect(code).toBe(0);
 });
 
 test('cli: plan lint without a plan deliverable reports the error and exits 1', async () => {
@@ -333,9 +333,9 @@ test('cli: plan lint without a plan deliverable reports the error and exits 1', 
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'ghost', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.match(stderr, /no plan found for 'ghost'/);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toMatch(/no plan found for 'ghost'/);
+	expect(code).toBe(1);
 });
 
 test('cli: plan verify-facts stamps facts.json, warns on misses, and exits 0', async () => {
@@ -343,25 +343,25 @@ test('cli: plan verify-facts stamps facts.json, warns on misses, and exits 0', a
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--cwd', cwd] });
 
-	assert.equal(code, 0);
-	assert.equal(stderr, '');
-	assert.match(stdout, /plan verify-facts demo — 1 area\(s\), verified /);
-	assert.match(stdout, /paths: {3}2 checked · 1 missing/);
-	assert.match(stdout, /scripts: 2 checked · 1 missing/);
-	assert.match(stdout, /⚠ path not found: src\/missing\.ts/);
-	assert.match(stdout, /⚠ script not found: nope/);
-	assert.ok(stdout.endsWith(`\nfacts: ${factsPath}\n`));
+	expect(code).toBe(0);
+	expect(stderr).toBe('');
+	expect(stdout).toMatch(/plan verify-facts demo — 1 area\(s\), verified /);
+	expect(stdout).toMatch(/paths: {3}2 checked · 1 missing/);
+	expect(stdout).toMatch(/scripts: 2 checked · 1 missing/);
+	expect(stdout).toMatch(/⚠ path not found: src\/missing\.ts/);
+	expect(stdout).toMatch(/⚠ script not found: nope/);
+	expect(stdout.endsWith(`\nfacts: ${factsPath}\n`)).toBeTruthy();
 
 	const stamped = JSON.parse(await readFile(factsPath, 'utf8'));
-	assert.equal(stamped.request, 'add a widget');
-	assert.deepEqual(stamped.verification, {
+	expect(stamped.request).toBe('add a widget');
+	expect(stamped.verification).toStrictEqual({
 		pathsChecked: 2,
 		missingPaths: ['src/missing.ts'],
 		scriptsChecked: 2,
 		missingScripts: ['nope'],
 		createPathsThatExist: [],
 	});
-	assert.ok(!Number.isNaN(Date.parse(stamped.verifiedAt)));
+	expect(Number.isNaN(Date.parse(stamped.verifiedAt))).toBeFalsy();
 });
 
 // improve resolves its driver through the per-command config BEFORE the
@@ -372,9 +372,9 @@ test('cli: improve with no config and no friction reports nothing to improve and
 
 	const { stdout, stderr, code } = await runCli({ args: ['improve', '--engine', cwd, '--cwd', cwd] });
 
-	assert.equal(stdout, 'no friction recorded — nothing to improve from\n');
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toBe('no friction recorded — nothing to improve from\n');
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: improve resolves a commands.improve driver override from the config and exits 0', async () => {
@@ -387,9 +387,9 @@ test('cli: improve resolves a commands.improve driver override from the config a
 
 	const { stdout, stderr, code } = await runCli({ args: ['improve', '--engine', cwd, '--cwd', cwd] });
 
-	assert.equal(stdout, 'no friction recorded — nothing to improve from\n');
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toBe('no friction recorded — nothing to improve from\n');
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 // A parked implement run plus a config naming a DIFFERENT harness. resume
@@ -432,10 +432,12 @@ test('cli: resume reconstructs the driver from the manifest harness, never the c
 
 	const { stdout, stderr, code } = await runCli({ args: ['resume', '--run', runId, '--cwd', cwd] });
 
-	assert.equal(stdout, '', 'the failure lands before the run header is printed');
-	assert.match(stderr, /unknown driver: retired-harness/);
-	assert.ok(!stderr.includes('unknown driver: codex'), "the config's harness is never what resume reconstructs");
-	assert.equal(code, 1);
+	// the failure lands before the run header is printed
+	expect(stdout).toBe('');
+	expect(stderr).toMatch(/unknown driver: retired-harness/);
+	// the config's harness is never what resume reconstructs
+	expect(stderr.includes('unknown driver: codex')).toBeFalsy();
+	expect(code).toBe(1);
 });
 
 // The engine's snapshot behavior (write-once, freeze-before-facts, missing
@@ -447,11 +449,11 @@ test('cli: plan verify-facts --notes freezes the notes snapshot into the workspa
 
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'verify-facts', '--name', 'demo', '--notes', 'rough-notes.md', '--cwd', cwd] });
 
-	assert.equal(code, 0);
-	assert.equal(stderr, '');
-	assert.match(stdout, /plan verify-facts · notes frozen → /);
+	expect(code).toBe(0);
+	expect(stderr).toBe('');
+	expect(stdout).toMatch(/plan verify-facts · notes frozen → /);
 	const frozen = await readFile(join(cwd, '.lightsout', 'plans', 'demo', 'notes.md'), 'utf8');
-	assert.equal(frozen, '# Rough notes\n\nthe idea in plain words\n');
+	expect(frozen).toBe('# Rough notes\n\nthe idea in plain words\n');
 });
 
 // A consumer repo with the gate config every mutating command demands, and
@@ -505,9 +507,9 @@ test('cli: status lists each run with its status, plan, and last update', async 
 
 	const { stdout, stderr, code } = await runCli({ args: ['status', '--cwd', cwd] });
 
-	assert.equal(stdout, `${runId}  failed  plan: plans/demo.md  updated: ${updatedAt}\n`);
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toBe(`${runId}  failed  plan: plans/demo.md  updated: ${updatedAt}\n`);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: status reports a running run with no live process as a resumable crash', async () => {
@@ -515,9 +517,9 @@ test('cli: status reports a running run with no live process as a resumable cras
 
 	const { stdout, stderr, code } = await runCli({ args: ['status', '--cwd', cwd] });
 
-	assert.match(stdout, /^run-fixture {2}running \(no live process — crashed\? resume with --run run-fixture\) {2}plan: plans\/demo\.md {2}updated: /);
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toMatch(/^run-fixture {2}running \(no live process — crashed\? resume with --run run-fixture\) {2}plan: plans\/demo\.md {2}updated: /);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: status leaves a running run alone while the lock names a live process', async () => {
@@ -525,10 +527,11 @@ test('cli: status leaves a running run alone while the lock names a live process
 
 	const { stdout, stderr, code } = await runCli({ args: ['status', '--cwd', cwd] });
 
-	assert.match(stdout, /^run-fixture {2}running {2}plan: plans\/demo\.md {2}updated: /);
-	assert.ok(!stdout.includes('no live process'), 'a live lock for this very run is proof it is not a crash leftover');
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toMatch(/^run-fixture {2}running {2}plan: plans\/demo\.md {2}updated: /);
+	// a live lock for this very run is proof it is not a crash leftover
+	expect(stdout.includes('no live process')).toBeFalsy();
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: status skips a run whose manifest cannot be read and still lists the rest', async () => {
@@ -538,10 +541,11 @@ test('cli: status skips a run whose manifest cannot be read and still lists the 
 
 	const { stdout, stderr, code } = await runCli({ args: ['status', '--cwd', cwd] });
 
-	assert.ok(!stdout.includes('corrupt-run'), 'an unreadable manifest is skipped, never guessed at');
-	assert.match(stdout, /^run-fixture {2}failed {2}plan: plans\/demo\.md/m);
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	// an unreadable manifest is skipped, never guessed at
+	expect(stdout.includes('corrupt-run')).toBeFalsy();
+	expect(stdout).toMatch(/^run-fixture {2}failed {2}plan: plans\/demo\.md/m);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: resume without --run prints usage to stderr and exits 1', async () => {
@@ -549,9 +553,9 @@ test('cli: resume without --run prints usage to stderr and exits 1', async () =>
 
 	const { stdout, stderr, code } = await runCli({ args: ['resume', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, usageErr);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(usageErr);
+	expect(code).toBe(1);
 });
 
 test('cli: resume refuses a refactor run and names the command that owns it', async () => {
@@ -559,9 +563,9 @@ test('cli: resume refuses a refactor run and names the command that owns it', as
 
 	const { stdout, stderr, code } = await runCli({ args: ['resume', '--run', runId, '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, `run ${runId} belongs to the refactor pipeline — resume it with: lightsout refactor --run ${runId}\n`);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(`run ${runId} belongs to the refactor pipeline — resume it with: lightsout refactor --run ${runId}\n`);
+	expect(code).toBe(1);
 });
 
 test('cli: resume refuses a run that already passed', async () => {
@@ -569,9 +573,9 @@ test('cli: resume refuses a run that already passed', async () => {
 
 	const { stdout, stderr, code } = await runCli({ args: ['resume', '--run', runId, '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, `run ${runId} already passed — nothing to resume\n`);
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe(`run ${runId} already passed — nothing to resume\n`);
+	expect(code).toBe(1);
 });
 
 test('cli: refactor rejects a --max-batches below one and exits 1', async () => {
@@ -579,9 +583,9 @@ test('cli: refactor rejects a --max-batches below one and exits 1', async () => 
 
 	const { stdout, stderr, code } = await runCli({ args: ['refactor', '--max-batches', '0', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, "--max-batches must be a positive integer, got '0'\n");
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe("--max-batches must be a positive integer, got '0'\n");
+	expect(code).toBe(1);
 });
 
 test('cli: refactor rejects a non-numeric --max-batches and exits 1', async () => {
@@ -589,9 +593,9 @@ test('cli: refactor rejects a non-numeric --max-batches and exits 1', async () =
 
 	const { stdout, stderr, code } = await runCli({ args: ['refactor', '--max-batches', 'lots', '--cwd', cwd] });
 
-	assert.equal(stdout, '');
-	assert.equal(stderr, "--max-batches must be a positive integer, got 'lots'\n");
-	assert.equal(code, 1);
+	expect(stdout).toBe('');
+	expect(stderr).toBe("--max-batches must be a positive integer, got 'lots'\n");
+	expect(code).toBe(1);
 });
 
 test('cli: refactor reports an unknown --run and exits 1 before starting anything', async () => {
@@ -599,9 +603,10 @@ test('cli: refactor reports an unknown --run and exits 1 before starting anythin
 
 	const { stdout, stderr, code } = await runCli({ args: ['refactor', '--run', 'ghost', '--cwd', cwd] });
 
-	assert.equal(stdout, '', 'the refusal lands before the "resuming run" line is printed');
-	assert.equal(stderr, 'no run found for --run ghost\n');
-	assert.equal(code, 1);
+	// the refusal lands before the "resuming run" line is printed
+	expect(stdout).toBe('');
+	expect(stderr).toBe('no run found for --run ghost\n');
+	expect(code).toBe(1);
 });
 
 // A repo with a planted tier-0 synonym pair split across two folders, and no
@@ -628,10 +633,13 @@ test('cli: scan prints each finding, the detector breakdown, and exits 0', async
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
 
-	assert.equal(stderr, '');
-	assert.match(stdout, /ℹ filename-duplicate {2}\S/, 'the advisory icon leads and the detector name is rendered in its padded column');
-	assert.match(stdout, /\n\d+ finding\(s\) · [^\n]*filename-duplicate \d+[^\n]* — report: \.lightsout\/scan\.json\n$/);
-	assert.equal(code, 0, 'scan reports; it never fails the caller');
+	expect(stderr).toBe('');
+	// the advisory icon leads and the detector name is rendered in its padded
+	// column
+	expect(stdout).toMatch(/ℹ filename-duplicate {2}\S/);
+	expect(stdout).toMatch(/\n\d+ finding\(s\) · [^\n]*filename-duplicate \d+[^\n]* — report: \.lightsout\/scan\.json\n$/);
+	// scan reports; it never fails the caller
+	expect(code).toBe(0);
 });
 
 test('cli: scan writes its typed report to .lightsout/scan.json', async () => {
@@ -640,12 +648,10 @@ test('cli: scan writes its typed report to .lightsout/scan.json', async () => {
 	const { code } = await runCli({ args: ['scan', '--cwd', cwd] });
 
 	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'scan.json'), 'utf8'));
-	assert.equal(report.path, '.');
-	assert.ok(
-		report.findings.some((finding: { detector: string }) => finding.detector === 'filename-duplicate'),
-		'the evidence file carries the findings, not just the printed summary',
-	);
-	assert.equal(code, 0);
+	expect(report.path).toBe('.');
+	// the evidence file carries the findings, not just the printed summary
+	expect(report.findings.some((finding: { detector: string }) => finding.detector === 'filename-duplicate')).toBeTruthy();
+	expect(code).toBe(0);
 });
 
 test('cli: scan renders a degraded detector tier as a note instead of failing', async () => {
@@ -653,9 +659,9 @@ test('cli: scan renders a degraded detector tier as a note instead of failing', 
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
 
-	assert.match(stdout, /ℹ note {16}[^\n]*no typescript resolvable from the target repo/);
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(stdout).toMatch(/ℹ note {16}[^\n]*no typescript resolvable from the target repo/);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: scan --baseline writes the debt ledger and exits 0', async () => {
@@ -664,11 +670,12 @@ test('cli: scan --baseline writes the debt ledger and exits 0', async () => {
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--baseline', '--cwd', cwd] });
 
 	const ledger = JSON.parse(await readFile(join(cwd, 'lightsout.scan-baseline.json'), 'utf8'));
-	assert.equal(ledger.path, '.');
-	assert.ok(ledger.clusters.length > 0, 'the accepted clusters are what future scans measure against');
-	assert.match(stdout, /ℹ note {16}baseline written: \d+ cluster\(s\) accepted as existing debt/);
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	expect(ledger.path).toBe('.');
+	// the accepted clusters are what future scans measure against
+	expect(ledger.clusters.length > 0).toBeTruthy();
+	expect(stdout).toMatch(/ℹ note {16}baseline written: \d+ cluster\(s\) accepted as existing debt/);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: scan reports nothing new once the findings are baselined', async () => {
@@ -676,10 +683,11 @@ test('cli: scan reports nothing new once the findings are baselined', async () =
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
 
-	assert.ok(!stdout.includes('filename-duplicate'), 'a baselined finding is accepted debt, not news');
-	assert.match(stdout, /\n0 finding\(s\) — report: \.lightsout\/scan\.json\n$/);
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	// a baselined finding is accepted debt, not news
+	expect(stdout.includes('filename-duplicate')).toBeFalsy();
+	expect(stdout).toMatch(/\n0 finding\(s\) — report: \.lightsout\/scan\.json\n$/);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: scan --all reports the findings the baseline already accepted', async () => {
@@ -687,9 +695,10 @@ test('cli: scan --all reports the findings the baseline already accepted', async
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--all', '--cwd', cwd] });
 
-	assert.match(stdout, /ℹ filename-duplicate {2}\S/, 'a baselined cluster is printed again under --all');
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	// a baselined cluster is printed again under --all
+	expect(stdout).toMatch(/ℹ filename-duplicate {2}\S/);
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });
 
 test('cli: scan --path narrows the scan to one subtree', async () => {
@@ -697,9 +706,12 @@ test('cli: scan --path narrows the scan to one subtree', async () => {
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--path', 'src/a', '--cwd', cwd] });
 
-	assert.ok(!stdout.includes('filename-duplicate'), 'the synonym pair is split by the narrowed scope, so tier 0 has nothing to pair');
+	// the synonym pair is split by the narrowed scope, so tier 0 has nothing to
+	// pair
+	expect(stdout.includes('filename-duplicate')).toBeFalsy();
 	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'scan.json'), 'utf8'));
-	assert.equal(report.path, 'src/a', 'the flag reaches the engine as the scanned subpath');
-	assert.equal(stderr, '');
-	assert.equal(code, 0);
+	// the flag reaches the engine as the scanned subpath
+	expect(report.path).toBe('src/a');
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
 });

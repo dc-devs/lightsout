@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { StepRecord } from '@/contracts';
 
 const setupStep = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
@@ -23,14 +22,16 @@ describe('StepRecord', () => {
 
 		const parsed = StepRecord.parse(step);
 
-		assert.deepEqual(parsed, { id: 'implement', status: 'running', attempts: 1 });
+		expect(parsed).toStrictEqual({ id: 'implement', status: 'running', attempts: 1 });
 	});
 
 	test('id, status, and attempts are each required', () => {
 		for (const field of ['id', 'status', 'attempts']) {
 			const { step } = setupStep({ omit: field });
 
-			assert.equal(StepRecord.safeParse(step).success, false, `a step with no ${field} cannot be resumed from — the manifest is the only state a resumed run reads`);
+			// a step with no ${field} cannot be resumed from — the manifest is the only
+			// state a resumed run reads
+			expect(StepRecord.safeParse(step).success).toBe(false);
 		}
 	});
 
@@ -38,14 +39,16 @@ describe('StepRecord', () => {
 		for (const status of ['pending', 'running', 'passed', 'failed', 'paused-rate-limit', 'paused-budget', 'escalated']) {
 			const { step } = setupStep({ extra: { status } });
 
-			assert.equal(StepRecord.parse(step).status, status, `${status} is a step state the pipeline can durably record`);
+			// ${status} is a step state the pipeline can durably record
+			expect(StepRecord.parse(step).status).toBe(status);
 		}
 	});
 
 	test('a status outside the run-status set fails — the enum is closed', () => {
 		const { step } = setupStep({ extra: { status: 'skipped' } });
 
-		assert.equal(StepRecord.safeParse(step).success, false, 'an unrecognized state would resume into a branch no step handler covers');
+		// an unrecognized state would resume into a branch no step handler covers
+		expect(StepRecord.safeParse(step).success).toBe(false);
 	});
 
 	test('attempts must be a non-negative integer', () => {
@@ -53,9 +56,12 @@ describe('StepRecord', () => {
 		const negative = setupStep({ extra: { attempts: -1 } }).step;
 		const fractional = setupStep({ extra: { attempts: 1.5 } }).step;
 
-		assert.equal(StepRecord.parse(zero).attempts, 0, 'a step that has not run yet has zero attempts');
-		assert.equal(StepRecord.safeParse(negative).success, false, 'a negative count would let a step exceed its retry ceiling');
-		assert.equal(StepRecord.safeParse(fractional).success, false, 'attempts counts whole invocations');
+		// a step that has not run yet has zero attempts
+		expect(StepRecord.parse(zero).attempts).toBe(0);
+		// a negative count would let a step exceed its retry ceiling
+		expect(StepRecord.safeParse(negative).success).toBe(false);
+		// attempts counts whole invocations
+		expect(StepRecord.safeParse(fractional).success).toBe(false);
 	});
 
 	test('the optional fields carry the step audit trail through parsing intact', () => {
@@ -71,7 +77,7 @@ describe('StepRecord', () => {
 
 		const parsed = StepRecord.parse(step);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			id: 'implement',
 			status: 'failed',
 			attempts: 2,
@@ -87,12 +93,16 @@ describe('StepRecord', () => {
 
 		const parsed = StepRecord.parse(step);
 
-		assert.deepEqual(parsed.report, report, "the role's own contract validates the report at its boundary; the manifest keeps every key it was handed");
+		// the role's own contract validates the report at its boundary; the manifest
+		// keeps every key it was handed
+		expect(parsed.report).toStrictEqual(report);
 	});
 
 	test('a malformed changedFiles list fails rather than being coerced to strings', () => {
 		const { step } = setupStep({ extra: { changedFiles: ['src/a.ts', 7] } });
 
-		assert.equal(StepRecord.safeParse(step).success, false, 'per-step attribution feeds the run-wide union of paths — a non-path entry would flow into it');
+		// per-step attribution feeds the run-wide union of paths — a non-path entry
+		// would flow into it
+		expect(StepRecord.safeParse(step).success).toBe(false);
 	});
 });

@@ -1,16 +1,16 @@
-import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { collapseCasing } from '@/common/naming/collapseCasing';
 
 test('collapseCasing: casing/separator variants collapse to one key', () => {
-	assert.equal(collapseCasing('GetStarted'), collapseCasing('get-started'));
-	assert.equal(collapseCasing('get_started'), collapseCasing('getStarted'));
-	assert.notEqual(collapseCasing('getStarted'), collapseCasing('getStartedNow'));
+	expect(collapseCasing('GetStarted')).toBe(collapseCasing('get-started'));
+	expect(collapseCasing('get_started')).toBe(collapseCasing('getStarted'));
+	expect(collapseCasing('getStarted')).not.toBe(collapseCasing('getStartedNow'));
 });
 
 test('collapseCasing: the key is bare lowercase alphanumerics, in source order', () => {
-	assert.equal(collapseCasing('GetStarted'), 'getstarted');
-	assert.equal(collapseCasing('get-started_now.v2'), 'getstartednowv2');
-	assert.equal(collapseCasing('session-response.model'), 'sessionresponsemodel');
-	assert.equal(collapseCasing('---'), '', 'a name of pure separators collapses to nothing');
+	expect(collapseCasing('GetStarted')).toBe('getstarted');
+	expect(collapseCasing('get-started_now.v2')).toBe('getstartednowv2');
+	expect(collapseCasing('session-response.model')).toBe('sessionresponsemodel');
+	// a name of pure separators collapses to nothing
+	expect(collapseCasing('---')).toBe('');
 });

@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
@@ -57,23 +56,21 @@ describe('runRefactorPipeline batch evidence', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
+		expect(result.ok).toBe(true);
 
 		const agentsDir = agentsDirOf({ dir, runId: result.manifest.runId });
 		const streams = readdirSync(agentsDir).filter((name) => name.startsWith('stream-'));
 
-		assert.deepEqual(streams, ['stream-batch-01_structure_src-1.jsonl'], 'the batch id is slugged into the name, with the invocation number');
-		assert.deepEqual(
-			readFileSync(join(agentsDir, streams[0] ?? ''), 'utf8')
-				.trim()
-				.split('\n')
-				.map((line) => JSON.parse(line) as Record<string, unknown>),
-			[
-				{ type: 'assistant', message: 'editing' },
-				{ type: 'result', result: 'done' },
-			],
-			'every event lands verbatim, in order — the transcript is the run’s evidence',
-		);
+		// the batch id is slugged into the name, with the invocation number
+		expect(streams).toStrictEqual(['stream-batch-01_structure_src-1.jsonl']);
+		// every event lands verbatim, in order — the transcript is the run’s evidence
+		expect(readFileSync(join(agentsDir, streams[0] ?? ''), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line) as Record<string, unknown>)).toStrictEqual([
+			{ type: 'assistant', message: 'editing' },
+			{ type: 'result', result: 'done' },
+		]);
 	});
 
 	test('files a rejected batch report to the run dir before the re-emit retry', async () => {
@@ -91,13 +88,15 @@ describe('runRefactorPipeline batch evidence', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
+		expect(result.ok).toBe(true);
 
 		const agentsDir = agentsDirOf({ dir, runId: result.manifest.runId });
 		const rejected = readdirSync(agentsDir).filter((name) => name.startsWith('rejected-'));
 
-		assert.deepEqual(rejected, ['rejected-batch-01_structure_src-1-1.txt'], 'the rejected message is filed by batch, invocation, and attempt');
-		assert.equal(readFileSync(join(agentsDir, rejected[0] ?? ''), 'utf8'), prose, 'the raw final message is preserved verbatim, not summarized');
+		// the rejected message is filed by batch, invocation, and attempt
+		expect(rejected).toStrictEqual(['rejected-batch-01_structure_src-1-1.txt']);
+		// the raw final message is preserved verbatim, not summarized
+		expect(readFileSync(join(agentsDir, rejected[0] ?? ''), 'utf8')).toBe(prose);
 	});
 
 	test('appends a batch agent’s friction to the repo ledger with the batch as its provenance', async () => {
@@ -110,29 +109,23 @@ describe('runRefactorPipeline batch evidence', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.deepEqual(
-			readFileSync(join(dir, '.lightsout', 'friction.jsonl'), 'utf8')
-				.trim()
-				.split('\n')
-				.map((line) => JSON.parse(line) as Record<string, unknown>)
-				.map(({ kind, area, detail, step, runId }) => ({ kind, area, detail, step, runId })),
-			[
-				{
-					kind: 'friction',
-					area: 'standards',
-					detail: 'the size cap and the barrel rule disagreed',
-					step: batchId,
-					runId: result.manifest.runId,
-				},
-			],
-			'the improvement loop needs to know which batch of which run fought the agent',
-		);
-		assert.deepEqual(
-			result.declined.map((entry) => entry.rationale),
-			[['[standards] the size cap and the barrel rule disagreed']],
-			'and the same friction is the decline’s rationale for the human',
-		);
+		expect(result.ok).toBe(true);
+		// the improvement loop needs to know which batch of which run fought the agent
+		expect(readFileSync(join(dir, '.lightsout', 'friction.jsonl'), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line) as Record<string, unknown>)
+			.map(({ kind, area, detail, step, runId }) => ({ kind, area, detail, step, runId }))).toStrictEqual([
+			{
+				kind: 'friction',
+				area: 'standards',
+				detail: 'the size cap and the barrel rule disagreed',
+				step: batchId,
+				runId: result.manifest.runId,
+			},
+		]);
+		// and the same friction is the decline’s rationale for the human
+		expect(result.declined.map((entry) => entry.rationale)).toStrictEqual([['[standards] the size cap and the barrel rule disagreed']]);
 	});
 
 	test('attributes a file the agent changed but never reported — git truth is merged in', async () => {
@@ -146,12 +139,10 @@ describe('runRefactorPipeline batch evidence', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.deepEqual(
-			[...result.manifest.changedFiles].sort(),
-			['src/betaThing.ts', 'src/multi.ts'],
-			'the forgotten file is still the batch’s doing — agents can forget, git cannot be sweet-talked',
-		);
+		expect(result.ok).toBe(true);
+		// the forgotten file is still the batch’s doing — agents can forget, git
+		// cannot be sweet-talked
+		expect([...result.manifest.changedFiles].sort()).toStrictEqual(['src/betaThing.ts', 'src/multi.ts']);
 	});
 
 	test('keeps generated output out of a batch’s changed files', async () => {
@@ -168,11 +159,8 @@ describe('runRefactorPipeline batch evidence', () => {
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
-		assert.equal(result.ok, true, result.error);
-		assert.deepEqual(
-			[...result.manifest.changedFiles].sort(),
-			['src/betaThing.ts', 'src/multi.ts'],
-			'build output the run happened to produce is not work the human must review',
-		);
+		expect(result.ok).toBe(true);
+		// build output the run happened to produce is not work the human must review
+		expect([...result.manifest.changedFiles].sort()).toStrictEqual(['src/betaThing.ts', 'src/multi.ts']);
 	});
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -53,14 +52,14 @@ test('write-tests: a rate-limited writer parks the run, and the writers that alr
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
-	assert.equal(result.ok, false);
-	assert.equal(result.manifest.status, 'paused-rate-limit');
-	assert.ok(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`), result.error);
-	assert.deepEqual(
-		result.manifest.steps.find((step) => step.id === 'write-tests')?.changedFiles,
-		['test/alpha.test.js'],
-		'the landed writer is persisted before the park is decided — a resumed run knows what exists',
-	);
-	assert.ok(result.manifest.changedFiles.includes('test/alpha.test.js'), 'and the run-wide changed-file truth carries it too');
-	assert.equal(result.manifest.steps.find((step) => step.id === 'verify-tests'), undefined, 'the run stopped at write-tests');
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('paused-rate-limit');
+	expect(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`)).toBeTruthy();
+	// the landed writer is persisted before the park is decided — a resumed run
+	// knows what exists
+	expect(result.manifest.steps.find((step) => step.id === 'write-tests')?.changedFiles).toStrictEqual(['test/alpha.test.js']);
+	// and the run-wide changed-file truth carries it too
+	expect(result.manifest.changedFiles.includes('test/alpha.test.js')).toBeTruthy();
+	// the run stopped at write-tests
+	expect(result.manifest.steps.find((step) => step.id === 'verify-tests')).toBe(undefined);
 });

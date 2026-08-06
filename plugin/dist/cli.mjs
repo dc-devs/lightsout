@@ -15914,7 +15914,7 @@ var checkGenerated = async ({ cwd, config: config2 }) => {
 import { spawn } from "node:child_process";
 var runCommand = ({ command, cwd, timeoutMs }) => {
   return new Promise((resolve3, reject) => {
-    const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: process.env });
     let stdout = "";
     let stderr = "";
     const timeout = timeoutMs ? setTimeout(() => {
@@ -16013,11 +16013,13 @@ import { join as join3 } from "node:path";
 var findJestConfigs = async ({ packageDir }) => {
   const rootEntries = await readdir(packageDir).catch(() => []);
   const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, name));
-  const testEntries = await readdir(join3(packageDir, "test"), { recursive: true }).catch(() => []);
-  return [
-    ...found,
-    ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, "test", name))
-  ];
+  for (const testDir of ["test", "tests"]) {
+    const testEntries = await readdir(join3(packageDir, testDir), { recursive: true }).catch(() => []);
+    found.push(
+      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, testDir, name))
+    );
+  }
+  return found;
 };
 var checkJestMocks = async ({ cwd, packageDirs }) => {
   const jestFindings = [];
@@ -16619,7 +16621,7 @@ var buildClaudeCodeArgs = ({ systemPromptPath, model, effort, permissions, allow
 import { spawn as spawn2 } from "node:child_process";
 var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) => {
   return new Promise((resolve3, reject) => {
-    const child = spawn2(command, args, { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn2(command, args, { cwd, stdio: ["pipe", "pipe", "pipe"], env: process.env });
     let stdout = "";
     let stderr = "";
     let lineBuffer = "";
@@ -17310,8 +17312,18 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
 };
 
 // src/pipeline/PipelineRun.ts
-import { appendFile as appendFile3, mkdir as mkdir5, writeFile as writeFile4 } from "node:fs/promises";
+import { mkdir as mkdir5, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join20 } from "node:path";
+
+// src/common/utils/createEventFileSink.ts
+import { appendFile as appendFile3 } from "node:fs/promises";
+var createEventFileSink = ({ path, ready }) => {
+  let tail = ready ? ready.catch(() => void 0) : Promise.resolve();
+  return (event) => {
+    tail = tail.then(() => appendFile3(path, `${JSON.stringify(event)}
+`, "utf8")).catch(() => void 0);
+  };
+};
 
 // src/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
@@ -17903,11 +17915,7 @@ var PipelineRun = class {
     this.transcriptCount += 1;
     const dir = join20(getRunDir({ cwd: this.cwd, runId: this.manifest.runId }), "agents");
     const path = join20(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
-    let tail = mkdir5(dir, { recursive: true });
-    return (event) => {
-      tail = tail.then(() => appendFile3(path, `${JSON.stringify(event)}
-`, "utf8")).catch(() => void 0);
-    };
+    return createEventFileSink({ path, ready: mkdir5(dir, { recursive: true }) });
   }
   // A final message that fails its contract is still evidence — persist it
   // to the run dir before any retry, so a rejected report never has to be
@@ -32937,7 +32945,7 @@ var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attribut
 };
 
 // src/refactor/invokeBatchAgent.ts
-import { appendFile as appendFile8, mkdir as mkdir10, writeFile as writeFile13 } from "node:fs/promises";
+import { mkdir as mkdir10, writeFile as writeFile13 } from "node:fs/promises";
 import { join as join47 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
@@ -32967,10 +32975,7 @@ var invokeBatchAgent = async ({
     permissions: config2.permissions ?? Permissions.Write,
     timeoutMs: agentTimeoutMs,
     allowedCommands: config2.agentCommands,
-    onEvent: (event) => {
-      void appendFile8(streamPath, `${JSON.stringify(event)}
-`, "utf8").catch(() => void 0);
-    },
+    onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
       await writeFile13(join47(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
@@ -33021,7 +33026,7 @@ var runBatchGates = async ({ cwd, config: config2, runId, step, onProgress }) =>
 };
 
 // src/refactor/superviseBatch.ts
-import { appendFile as appendFile9, mkdir as mkdir11, writeFile as writeFile14 } from "node:fs/promises";
+import { mkdir as mkdir11, writeFile as writeFile14 } from "node:fs/promises";
 import { join as join48 } from "node:path";
 var superviseBatch = async ({
   cwd,
@@ -33050,10 +33055,7 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: (event) => {
-      void appendFile9(join48(agentsDir, `stream-${slug}-supervisor.jsonl`), `${JSON.stringify(event)}
-`, "utf8").catch(() => void 0);
-    },
+    onEvent: createEventFileSink({ path: join48(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
       await writeFile14(join48(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }

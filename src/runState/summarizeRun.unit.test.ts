@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
@@ -49,14 +48,16 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 	const config = await loadConfig({ cwd: dir });
 	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
-	assert.equal(result.ok, true);
+	expect(result.ok).toBe(true);
 
 	const summary = await summarizeRun({ cwd: dir, manifest: result.manifest });
 
-	assert.ok(summary.wallMs >= 0);
-	assert.ok(summary.activeMs > 0, 'active time summed from step durations');
-	assert.ok(summary.gateMs > 0, 'gate time measured from commands.jsonl');
-	assert.ok(summary.gates.commands > 0);
+	expect(summary.wallMs >= 0).toBeTruthy();
+	// active time summed from step durations
+	expect(summary.activeMs > 0).toBeTruthy();
+	// gate time measured from commands.jsonl
+	expect(summary.gateMs > 0).toBeTruthy();
+	expect(summary.gates.commands > 0).toBeTruthy();
 
 	const byId = new Map(summary.steps.map((step) => [step.id, step]));
 	const implement = byId.get('implement');
@@ -64,26 +65,28 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 	const refactor = byId.get('refactor');
 	const cleanSlate = byId.get('clean-slate');
 
-	assert.ok(implement && typeof implement.durationMs === 'number', 'implement duration stamped');
-	assert.deepEqual(implement.changedFiles, ['src/feature.js']);
-	assert.equal(implement.invocations, 1);
-	assert.equal(implement.outputTokens, 100);
-	assert.equal(implement.costUsd, 0.5);
+	// implement duration stamped
+	expect(typeof implement?.durationMs).toBe('number');
+	expect(implement?.changedFiles).toStrictEqual(['src/feature.js']);
+	expect(implement?.invocations).toBe(1);
+	expect(implement?.outputTokens).toBe(100);
+	expect(implement?.costUsd).toBe(0.5);
 
-	assert.deepEqual(writeTests?.changedFiles, ['test.feature.test.js']);
-	assert.equal(writeTests?.invocations, 1);
+	expect(writeTests?.changedFiles).toStrictEqual(['test.feature.test.js']);
+	expect(writeTests?.invocations).toBe(1);
 
 	// The refactor loop reported zero changes on its first pass — attributed
 	// as an explicit empty list, distinct from steps that never change files.
-	assert.deepEqual(refactor?.changedFiles, []);
-	assert.equal(refactor?.invocations, 1);
+	expect(refactor?.changedFiles).toStrictEqual([]);
+	expect(refactor?.invocations).toBe(1);
 
-	assert.equal(cleanSlate?.invocations, 0, 'gate-only steps bill no agents');
-	assert.equal(cleanSlate?.changedFiles, undefined);
+	// gate-only steps bill no agents
+	expect(cleanSlate?.invocations).toBe(0);
+	expect(cleanSlate?.changedFiles).toBe(undefined);
 
-	assert.equal(summary.cacheReadShare, 0.88);
-	assert.equal(summary.rejectedReports, 0);
-	assert.deepEqual(summary.frictionByArea, [{ area: 'plan', count: 1 }]);
+	expect(summary.cacheReadShare).toBe(0.88);
+	expect(summary.rejectedReports).toBe(0);
+	expect(summary.frictionByArea).toStrictEqual([{ area: 'plan', count: 1 }]);
 });
 
 test('summarizeRun tolerates a run dir with no ledger, no commands, no friction', async () => {
@@ -104,15 +107,15 @@ test('summarizeRun tolerates a run dir with no ledger, no commands, no friction'
 		},
 	});
 
-	assert.equal(summary.wallMs, 600_000);
-	assert.equal(summary.activeMs, 0);
-	assert.equal(summary.gateMs, 0);
-	assert.equal(summary.usage, undefined);
-	assert.equal(summary.cacheReadShare, undefined);
-	assert.equal(summary.gates.commands, 0);
-	assert.equal(summary.rejectedReports, 0);
-	assert.deepEqual(summary.frictionByArea, []);
-	assert.deepEqual(summary.steps, [
+	expect(summary.wallMs).toBe(600_000);
+	expect(summary.activeMs).toBe(0);
+	expect(summary.gateMs).toBe(0);
+	expect(summary.usage).toBe(undefined);
+	expect(summary.cacheReadShare).toBe(undefined);
+	expect(summary.gates.commands).toBe(0);
+	expect(summary.rejectedReports).toBe(0);
+	expect(summary.frictionByArea).toStrictEqual([]);
+	expect(summary.steps).toStrictEqual([
 		{ id: 'clean-slate', status: 'failed', attempts: 1, durationMs: undefined, changedFiles: undefined, invocations: 0, outputTokens: 0, costUsd: 0 },
 	]);
 });
@@ -178,12 +181,13 @@ test('summarizeRun attributes supervisor consultations to the step they supervis
 
 	const byId = new Map(summary.steps.map((step) => [step.id, step]));
 
-	assert.equal(byId.get('implement')?.invocations, 2, 'the supervisor consultation bills to the step it supervised');
-	assert.equal(byId.get('implement')?.outputTokens, 120);
-	assert.equal(byId.get('implement')?.costUsd, 0.75);
-	assert.equal(byId.get('write-tests')?.invocations, 1);
-	assert.equal(byId.get('write-tests')?.costUsd, 0.125);
-	assert.equal(summary.activeMs, 1_500);
+	// the supervisor consultation bills to the step it supervised
+	expect(byId.get('implement')?.invocations).toBe(2);
+	expect(byId.get('implement')?.outputTokens).toBe(120);
+	expect(byId.get('implement')?.costUsd).toBe(0.75);
+	expect(byId.get('write-tests')?.invocations).toBe(1);
+	expect(byId.get('write-tests')?.costUsd).toBe(0.125);
+	expect(summary.activeMs).toBe(1_500);
 });
 
 test('summarizeRun separates gates that ran from re-runs and skips', async () => {
@@ -217,8 +221,9 @@ test('summarizeRun separates gates that ran from re-runs and skips', async () =>
 		},
 	});
 
-	assert.deepEqual(summary.gates, { commands: 2, reruns: 1, skipped: 2 });
-	assert.equal(summary.gateMs, 175, 'every recorded duration counts toward gate time');
+	expect(summary.gates).toStrictEqual({ commands: 2, reruns: 1, skipped: 2 });
+	// every recorded duration counts toward gate time
+	expect(summary.gateMs).toBe(175);
 });
 
 test('summarizeRun counts the rejected reports that cost a re-emit retry', async () => {
@@ -247,7 +252,8 @@ test('summarizeRun counts the rejected reports that cost a re-emit retry', async
 		},
 	});
 
-	assert.equal(summary.rejectedReports, 2, 'accepted transcripts are not retries');
+	// accepted transcripts are not retries
+	expect(summary.rejectedReports).toBe(2);
 });
 
 test('summarizeRun counts only this run friction, not the repo accumulated history', async () => {
@@ -285,7 +291,7 @@ test('summarizeRun counts only this run friction, not the repo accumulated histo
 		},
 	});
 
-	assert.deepEqual(summary.frictionByArea, [
+	expect(summary.frictionByArea).toStrictEqual([
 		{ area: 'plan', count: 2 },
 		{ area: 'prompt', count: 1 },
 	]);
@@ -321,8 +327,9 @@ test('summarizeRun skips ledger lines it cannot trust instead of failing the rep
 		},
 	});
 
-	assert.equal(summary.steps[0]?.invocations, 1, 'a torn line bills nothing rather than guessing');
-	assert.equal(summary.steps[0]?.outputTokens, 100);
+	// a torn line bills nothing rather than guessing
+	expect(summary.steps[0]?.invocations).toBe(1);
+	expect(summary.steps[0]?.outputTokens).toBe(100);
 });
 
 test('summarizeRun reports no cache share for a run whose input tokens are all zero', async () => {
@@ -344,8 +351,10 @@ test('summarizeRun reports no cache share for a run whose input tokens are all z
 		},
 	});
 
-	assert.equal(summary.cacheReadShare, undefined, 'a share of nothing is not zero efficiency');
-	assert.equal(summary.usage?.outputTokens, 40, 'the usage aggregate still passes through');
+	// a share of nothing is not zero efficiency
+	expect(summary.cacheReadShare).toBe(undefined);
+	// the usage aggregate still passes through
+	expect(summary.usage?.outputTokens).toBe(40);
 });
 
 test('summarizeRun clamps wall time for a manifest stamped out of order', async () => {
@@ -366,5 +375,6 @@ test('summarizeRun clamps wall time for a manifest stamped out of order', async 
 		},
 	});
 
-	assert.equal(summary.wallMs, 0, 'a clock that ran backwards reports no time, never negative time');
+	// a clock that ran backwards reports no time, never negative time
+	expect(summary.wallMs).toBe(0);
 });

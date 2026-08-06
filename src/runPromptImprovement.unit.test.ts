@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { Effort } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPromptImprovement } from '@/runPromptImprovement';
@@ -47,9 +46,9 @@ test('empty friction short-circuits without invoking the driver', async () => {
 	};
 	const result = await runPromptImprovement({ consumerCwd, engineCwd, driver });
 
-	assert.deepEqual(result.friction, []);
-	assert.equal(result.report, undefined);
-	assert.equal(result.rateLimited, false);
+	expect(result.friction).toStrictEqual([]);
+	expect(result.report).toBe(undefined);
+	expect(result.rateLimited).toBe(false);
 });
 
 test('accumulated friction reaches the improver with kind, provenance, and prompt files', async () => {
@@ -74,11 +73,14 @@ test('accumulated friction reaches the improver with kind, provenance, and promp
 	};
 	const result = await runPromptImprovement({ consumerCwd, engineCwd, driver });
 
-	assert.equal(result.friction.length, 1, 'corrupt lines skipped, valid ones kept');
-	assert.equal(result.report?.status, 'complete');
-	assert.ok(received.includes('IMPROVER-SENTINEL'));
-	assert.ok(received.includes('[decision/plan]'), 'kind and area ride along');
-	assert.ok(received.includes('src/agents/prompts/featureExecutor.md'), 'editable prompt files listed');
+	// corrupt lines skipped, valid ones kept
+	expect(result.friction.length).toBe(1);
+	expect(result.report?.status).toBe('complete');
+	expect(received.includes('IMPROVER-SENTINEL')).toBeTruthy();
+	// kind and area ride along
+	expect(received.includes('[decision/plan]')).toBeTruthy();
+	// editable prompt files listed
+	expect(received.includes('src/agents/prompts/featureExecutor.md')).toBeTruthy();
 });
 
 test('the resolved model and effort ride the improver invocation at the write capability level', async () => {
@@ -91,12 +93,10 @@ test('the resolved model and effort ride the improver invocation at the write ca
 	const driver = recordingDriver({ invocations });
 	const result = await runPromptImprovement({ consumerCwd, engineCwd, driver, model: 'gpt-5.2', effort: Effort.XHigh });
 
-	assert.equal(result.report?.status, 'complete');
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'write' }],
-		'the caller-resolved model and effort reach the harness; the improver edits prompt files, so it needs write',
-	);
+	expect(result.report?.status).toBe('complete');
+	// the caller-resolved model and effort reach the harness; the improver edits
+	// prompt files, so it needs write
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'write' }]);
 });
 
 test('an unset effort reaches the driver undefined, while the write level still stands', async () => {
@@ -109,12 +109,10 @@ test('an unset effort reaches the driver undefined, while the write level still 
 	const driver = recordingDriver({ invocations });
 	const result = await runPromptImprovement({ consumerCwd, engineCwd, driver });
 
-	assert.equal(result.report?.status, 'complete');
-	assert.deepEqual(
-		invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions })),
-		[{ model: undefined, effort: undefined, permissions: 'write' }],
-		'the harness default stands for an unset effort; the capability level belongs to the role, never to a config read',
-	);
+	expect(result.report?.status).toBe('complete');
+	// the harness default stands for an unset effort; the capability level belongs
+	// to the role, never to a config read
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: 'write' }]);
 });
 
 test('only the markdown files in the prompts directory are offered as editable surface', async () => {
@@ -128,7 +126,9 @@ test('only the markdown files in the prompts directory are offered as editable s
 	const driver = recordingDriver({ invocations });
 	const result = await runPromptImprovement({ consumerCwd, engineCwd, driver });
 
-	assert.equal(result.report?.status, 'complete');
-	assert.ok(invocations[0]?.prompt.includes('- src/agents/prompts/featureExecutor.md'), 'prompts are listed repo-relative, as the improver must address them');
-	assert.ok(!invocations[0]?.prompt.includes('scratch.txt'), 'a non-markdown neighbour is not the improver’s to edit');
+	expect(result.report?.status).toBe('complete');
+	// prompts are listed repo-relative, as the improver must address them
+	expect(invocations[0]?.prompt.includes('- src/agents/prompts/featureExecutor.md')).toBeTruthy();
+	// a non-markdown neighbour is not the improver’s to edit
+	expect(invocations[0]?.prompt.includes('scratch.txt')).toBeFalsy();
 });

@@ -1,7 +1,6 @@
-import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { readRunLock } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -39,7 +38,7 @@ describe('readRunLock', () => {
 
 		const holder = await readRunLock({ cwd });
 
-		assert.deepEqual(holder, { pid: 4242, runId: 'run-a', startedAt: '2026-07-03T00:00:00.000Z' });
+		expect(holder).toStrictEqual({ pid: 4242, runId: 'run-a', startedAt: '2026-07-03T00:00:00.000Z' });
 	});
 
 	test('reads no holder for a repo that has never taken the lock', async () => {
@@ -47,7 +46,8 @@ describe('readRunLock', () => {
 
 		const holder = await readRunLock({ cwd });
 
-		assert.equal(holder, undefined, 'a missing lock is a free repo, not a failure');
+		// a missing lock is a free repo, not a failure
+		expect(holder).toBe(undefined);
 	});
 
 	test('reads no holder from a lock file that is not JSON at all', async () => {
@@ -55,7 +55,8 @@ describe('readRunLock', () => {
 
 		const holder = await readRunLock({ cwd });
 
-		assert.equal(holder, undefined, 'an interrupted write leaves garbage the acquirer must be free to steal');
+		// an interrupted write leaves garbage the acquirer must be free to steal
+		expect(holder).toBe(undefined);
 	});
 
 	for (const { name, raw } of unreadableLocks) {
@@ -64,7 +65,7 @@ describe('readRunLock', () => {
 
 			const holder = await readRunLock({ cwd });
 
-			assert.equal(holder, undefined);
+			expect(holder).toBe(undefined);
 		});
 	}
 
@@ -73,6 +74,6 @@ describe('readRunLock', () => {
 
 		const holder = await readRunLock({ cwd });
 
-		assert.deepEqual(holder, { pid: 4242, runId: 'run-a', startedAt: '2026-07-03T00:00:00.000Z' });
+		expect(holder).toStrictEqual({ pid: 4242, runId: 'run-a', startedAt: '2026-07-03T00:00:00.000Z' });
 	});
 });

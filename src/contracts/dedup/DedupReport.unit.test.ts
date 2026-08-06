@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { expect, describe, test } from '@jest/globals';
 import { DedupReport } from '@/contracts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
@@ -26,7 +25,7 @@ describe('DedupReport', () => {
 
 		const parsed = DedupReport.parse(report);
 
-		assert.deepEqual(parsed, {
+		expect(parsed).toStrictEqual({
 			planName: 'packages-to-src',
 			reviewedAt: '2026-08-04T00:00:00.000Z',
 			findings: [
@@ -45,7 +44,9 @@ describe('DedupReport', () => {
 	test('findings defaults to empty — the clean result is still a report', () => {
 		const parsed = DedupReport.parse({ planName: 'packages-to-src', reviewedAt: '2026-08-04T00:00:00.000Z' });
 
-		assert.deepEqual(parsed.findings, [], 'no candidates detected and every candidate ruled distinct both read back as an empty findings array');
+		// no candidates detected and every candidate ruled distinct both read back as
+		// an empty findings array
+		expect(parsed.findings).toStrictEqual([]);
 	});
 
 	test('an explicitly empty findings array parses', () => {
@@ -53,7 +54,7 @@ describe('DedupReport', () => {
 
 		const parsed = DedupReport.parse(report);
 
-		assert.deepEqual(parsed.findings, []);
+		expect(parsed.findings).toStrictEqual([]);
 	});
 
 	test('nested finding defaults are applied when dedup.json is read back', () => {
@@ -63,18 +64,15 @@ describe('DedupReport', () => {
 
 		const parsed = DedupReport.parse(report);
 
-		assert.deepEqual(
-			parsed.findings[0],
-			{
-				plannedSymbol: 'formatDate',
-				plannedPath: 'src/plan/formatDate.ts',
-				recommendation: 'reuse',
-				rationale: 'an identical utility already exists',
-				collidesWith: [],
-				migrateCallers: [],
-			},
-			'the skill reads both arrays off every finding without guarding for absence',
-		);
+		// the skill reads both arrays off every finding without guarding for absence
+		expect(parsed.findings[0]).toStrictEqual({
+			plannedSymbol: 'formatDate',
+			plannedPath: 'src/plan/formatDate.ts',
+			recommendation: 'reuse',
+			rationale: 'an identical utility already exists',
+			collidesWith: [],
+			migrateCallers: [],
+		});
 	});
 
 	test('an isDuplicate on a nested finding is stripped', () => {
@@ -82,7 +80,9 @@ describe('DedupReport', () => {
 
 		const parsed = DedupReport.parse({ ...report, findings: [{ ...finding, isDuplicate: true }] });
 
-		assert.equal('isDuplicate' in (parsed.findings[0] ?? {}), false, 'the omit holds through the nesting — a hand-edited dedup.json still reads as findings, not verdicts');
+		// the omit holds through the nesting — a hand-edited dedup.json still reads as
+		// findings, not verdicts
+		expect('isDuplicate' in (parsed.findings[0] ?? {})).toBe(false);
 	});
 
 	test('rejects a report missing planName or reviewedAt', () => {
@@ -91,7 +91,10 @@ describe('DedupReport', () => {
 
 			const result = DedupReport.safeParse(report);
 
-			assert.equal(result.success, false, `${field} is required — planName keys the report to its plan workspace and reviewedAt tells the human whether the review predates their latest plan edit`);
+			// ${field} is required — planName keys the report to its plan workspace and
+			// reviewedAt tells the human whether the review predates their latest plan
+			// edit
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -100,7 +103,9 @@ describe('DedupReport', () => {
 
 		const result = DedupReport.safeParse(report);
 
-		assert.equal(result.success, false, 'the field is the ISO string runPlanDedup writes, so the JSON round-trips unchanged');
+		// the field is the ISO string runPlanDedup writes, so the JSON round-trips
+		// unchanged
+		expect(result.success).toBe(false);
 	});
 
 	test('one malformed finding rejects the whole report', () => {
@@ -108,7 +113,9 @@ describe('DedupReport', () => {
 
 		const result = DedupReport.safeParse(report);
 
-		assert.equal(result.success, false, 'a partly readable dedup.json is refused at the read boundary rather than driving a half-blank review');
+		// a partly readable dedup.json is refused at the read boundary rather than
+		// driving a half-blank review
+		expect(result.success).toBe(false);
 	});
 
 	test('rejects a findings value that is not an array', () => {
@@ -116,6 +123,7 @@ describe('DedupReport', () => {
 
 		const result = DedupReport.safeParse({ ...report, findings: finding });
 
-		assert.equal(result.success, false, 'a single finding object in place of the list is a malformed report');
+		// a single finding object in place of the list is a malformed report
+		expect(result.success).toBe(false);
 	});
 });

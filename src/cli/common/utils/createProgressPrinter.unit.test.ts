@@ -1,41 +1,40 @@
-import assert from 'node:assert/strict';
-import { test, type TestContext } from 'node:test';
+import { expect, test, jest } from '@jest/globals';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
 
 // The stamp is elapsed wall time since the printer was created, so the clock is
 // the arrangement: the mocked Date starts every printer at zero. The printed
 // line is the whole output, so console.log is captured too.
-const captureClockAndOutput = ({ t }: { t: TestContext }) => {
+const captureClockAndOutput = () => {
 	const logged: string[] = [];
 
-	t.mock.method(console, 'log', (...args: unknown[]) => {
+	jest.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
 		logged.push(String(args[0]));
 	});
-	t.mock.timers.enable({ apis: ['Date'], now: 0 });
+	jest.useFakeTimers({ now: 0 });
 
 	return { logged };
 };
 
 // The tick fixes exactly how long the run has been going when the message is
 // printed; `laterPrinter` hands back one created after the tick instead.
-const setupProgressPrinter = ({ t, elapsedMs = 0, laterPrinter = false }: { t: TestContext; elapsedMs?: number; laterPrinter?: boolean }) => {
-	const { logged } = captureClockAndOutput({ t });
+const setupProgressPrinter = ({ elapsedMs = 0, laterPrinter = false }: { elapsedMs?: number; laterPrinter?: boolean } = {}) => {
+	const { logged } = captureClockAndOutput();
 	const printer = createProgressPrinter();
 
-	t.mock.timers.tick(elapsedMs);
+	jest.advanceTimersByTime(elapsedMs);
 
 	return { printer: laterPrinter ? createProgressPrinter() : printer, logged };
 };
 
 // A printer that has already spoken once: the second stamp must be read off the
 // clock again, not reused from the first message.
-const setupPrinterAfterFirstMessage = ({ t }: { t: TestContext }) => {
-	const { logged } = captureClockAndOutput({ t });
+const setupPrinterAfterFirstMessage = () => {
+	const { logged } = captureClockAndOutput();
 	const printer = createProgressPrinter();
 
-	t.mock.timers.tick(5_000);
+	jest.advanceTimersByTime(5_000);
 	printer('first');
-	t.mock.timers.tick(60_000);
+	jest.advanceTimersByTime(60_000);
 
 	return { printer, logged };
 };
@@ -49,51 +48,51 @@ for (const { elapsedMs, expected } of [
 	{ elapsedMs: 3_600_000, expected: '[+60:00] scanning' },
 	{ elapsedMs: 3_725_000, expected: '[+62:05] scanning' },
 ]) {
-	test(`createProgressPrinter: ${elapsedMs}ms into the run prints ${expected}`, (t) => {
-		const { printer, logged } = setupProgressPrinter({ t, elapsedMs });
+	test(`createProgressPrinter: ${elapsedMs}ms into the run prints ${expected}`, () => {
+		const { printer, logged } = setupProgressPrinter({ elapsedMs });
 
 		printer('scanning');
 
-		assert.deepEqual(logged, [expected]);
+		expect(logged).toStrictEqual([expected]);
 	});
 }
 
-test('createProgressPrinter: a sub-second remainder rounds to the nearest second and can roll the minute over', (t) => {
-	const { printer, logged } = setupProgressPrinter({ t, elapsedMs: 59_600 });
+test('createProgressPrinter: a sub-second remainder rounds to the nearest second and can roll the minute over', () => {
+	const { printer, logged } = setupProgressPrinter({ elapsedMs: 59_600 });
 
 	printer('scanning');
 
-	assert.deepEqual(logged, ['[+1:00] scanning']);
+	expect(logged).toStrictEqual(['[+1:00] scanning']);
 });
 
-test('createProgressPrinter: a remainder below half a second rounds down', (t) => {
-	const { printer, logged } = setupProgressPrinter({ t, elapsedMs: 1_400 });
+test('createProgressPrinter: a remainder below half a second rounds down', () => {
+	const { printer, logged } = setupProgressPrinter({ elapsedMs: 1_400 });
 
 	printer('scanning');
 
-	assert.deepEqual(logged, ['[+0:01] scanning']);
+	expect(logged).toStrictEqual(['[+0:01] scanning']);
 });
 
-test('createProgressPrinter: each printer counts from its own creation, so one made mid-run starts back at zero', (t) => {
-	const { printer, logged } = setupProgressPrinter({ t, elapsedMs: 60_000, laterPrinter: true });
+test('createProgressPrinter: each printer counts from its own creation, so one made mid-run starts back at zero', () => {
+	const { printer, logged } = setupProgressPrinter({ elapsedMs: 60_000, laterPrinter: true });
 
 	printer('scanning');
 
-	assert.deepEqual(logged, ['[+0:00] scanning']);
+	expect(logged).toStrictEqual(['[+0:00] scanning']);
 });
 
-test('createProgressPrinter: the stamp is read off the clock at every call, not fixed by the first message', (t) => {
-	const { printer, logged } = setupPrinterAfterFirstMessage({ t });
+test('createProgressPrinter: the stamp is read off the clock at every call, not fixed by the first message', () => {
+	const { printer, logged } = setupPrinterAfterFirstMessage();
 
 	printer('second');
 
-	assert.deepEqual(logged, ['[+0:05] first', '[+1:05] second']);
+	expect(logged).toStrictEqual(['[+0:05] first', '[+1:05] second']);
 });
 
-test('createProgressPrinter: the message is printed verbatim after the stamp, whatever it contains', (t) => {
-	const { printer, logged } = setupProgressPrinter({ t, elapsedMs: 12_000 });
+test('createProgressPrinter: the message is printed verbatim after the stamp, whatever it contains', () => {
+	const { printer, logged } = setupProgressPrinter({ elapsedMs: 12_000 });
 
 	printer('gate check failed: [pnpm check] — exit 1');
 
-	assert.deepEqual(logged, ['[+0:12] gate check failed: [pnpm check] — exit 1']);
+	expect(logged).toStrictEqual(['[+0:12] gate check failed: [pnpm check] — exit 1']);
 });

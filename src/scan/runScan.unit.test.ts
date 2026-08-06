@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { expect, test } from '@jest/globals';
 import { runScan } from '@/scan';
 
 const bigBody = `
@@ -76,98 +75,99 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 	const { findings, notes } = await runScan({ cwd: dir });
 	const byDetector = (detector: string) => findings.filter((finding) => finding.detector === detector);
 
-	assert.ok(!notes.some((note) => note.includes('typescript')), `typescript resolved for the AST tier: ${notes.join('; ')}`);
-	assert.ok(
-		notes.some((note) => note.includes('--baseline')),
-		'without a baseline the accept-debt hint is offered',
-	);
+	// typescript resolved for the AST tier: ${notes.join('; ')}
+	expect(notes.some((note) => note.includes('typescript'))).toBeFalsy();
+	// without a baseline the accept-debt hint is offered
+	expect(notes.some((note) => note.includes('--baseline'))).toBeTruthy();
 
 	const astDups = byDetector('ast-duplicate');
 
-	assert.equal(astDups.length, 1, JSON.stringify(astDups));
-	assert.deepEqual(
-		astDups[0]?.files.map((file) => file.path).sort(),
-		['src/a/sumTotals.ts', 'src/b/tallyItems.ts'],
-		'renamed twins caught by normalization',
-	);
+	expect(astDups.length).toBe(1);
+	// renamed twins caught by normalization
+	expect(astDups[0]?.files.map((file) => file.path).sort()).toStrictEqual(['src/a/sumTotals.ts', 'src/b/tallyItems.ts']);
 
-	assert.ok(byDetector('clone').length >= 1, 'token-level clone reported');
-	assert.ok(
-		findings.every((finding) => finding.files.every((file) => !file.path.includes('.test.'))),
-		'test files never appear in findings',
-	);
+	// token-level clone reported
+	expect(byDetector('clone').length >= 1).toBeTruthy();
+	// test files never appear in findings
+	expect(findings.every((finding) => finding.files.every((file) => !file.path.includes('.test.')))).toBeTruthy();
 
 	const names = byDetector('filename-duplicate');
 
-	assert.ok(names.some((finding) => finding.cluster === 'name:normalizeRecord'), 'same-name pair');
-	assert.ok(
-		names.some((finding) => finding.detail.includes("'fetchUserData'") && finding.detail.includes("'getUserData'")),
-		'synonym pair collapses to one concept',
-	);
-	assert.ok(!names.some((finding) => finding.detail.includes('hexToRgb')), 'to/from opposites are deliberate, not duplicates');
-	assert.ok(!names.some((finding) => finding.detail.includes('GetStarted')), 'component + kebab route pair is a framework pair');
+	// same-name pair
+	expect(names.some((finding) => finding.cluster === 'name:normalizeRecord')).toBeTruthy();
+	// synonym pair collapses to one concept
+	expect(names.some((finding) => finding.detail.includes("'fetchUserData'") && finding.detail.includes("'getUserData'"))).toBeTruthy();
+	// to/from opposites are deliberate, not duplicates
+	expect(names.some((finding) => finding.detail.includes('hexToRgb'))).toBeFalsy();
+	// component + kebab route pair is a framework pair
+	expect(names.some((finding) => finding.detail.includes('GetStarted'))).toBeFalsy();
 
 	const structure = byDetector('structure');
 
-	assert.ok(structure.some((finding) => finding.cluster === 'multi-export:src/a/config.ts'), 'multi-export flagged');
-	assert.ok(!structure.some((finding) => finding.cluster.includes('Action.ts')), 'const+type named constant is exempt');
-	assert.ok(structure.some((finding) => finding.cluster === 'filename-mismatch:src/a/helpers.ts'), 'misnamed file flagged');
-	assert.ok(
-		!structure.some((finding) => finding.cluster === 'filename-mismatch:src/b/session-response.model.ts'),
-		'framework dot-suffix is convention, not a mismatch',
-	);
-	assert.ok(structure.some((finding) => finding.cluster === 'domain:src/a/utils:format'), 'domain-folder candidate');
+	// multi-export flagged
+	expect(structure.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeTruthy();
+	// const+type named constant is exempt
+	expect(structure.some((finding) => finding.cluster.includes('Action.ts'))).toBeFalsy();
+	// misnamed file flagged
+	expect(structure.some((finding) => finding.cluster === 'filename-mismatch:src/a/helpers.ts')).toBeTruthy();
+	// framework dot-suffix is convention, not a mismatch
+	expect(structure.some((finding) => finding.cluster === 'filename-mismatch:src/b/session-response.model.ts')).toBeFalsy();
+	// domain-folder candidate
+	expect(structure.some((finding) => finding.cluster === 'domain:src/a/utils:format')).toBeTruthy();
 
-	assert.ok(byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts'), 'oversized file flagged');
-	assert.ok(!byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx'), '.tsx under its larger cap not flagged');
+	// oversized file flagged
+	expect(byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
+	// .tsx under its larger cap not flagged
+	expect(byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
 
 	const dead = byDetector('dead-export');
 
-	assert.ok(dead.some((finding) => finding.detail.includes("'unusedThing'")), 'dead export flagged');
-	assert.ok(!dead.some((finding) => finding.detail.includes("'buildLabel'")), 'consumed export not flagged');
+	// dead export flagged
+	expect(dead.some((finding) => finding.detail.includes("'unusedThing'"))).toBeTruthy();
+	// consumed export not flagged
+	expect(dead.some((finding) => finding.detail.includes("'buildLabel'"))).toBeFalsy();
 });
 
 test('scan baseline ratchet: --baseline accepts debt explicitly; later scans report only what is new', async () => {
 	const dir = setupScanRepo();
 	const first = await runScan({ cwd: dir });
 
-	assert.ok(first.findings.length > 0, 'scan without a baseline reports the full debt');
-	assert.ok(!existsSync(join(dir, 'lightsout.scan-baseline.json')), 'a plain scan never writes the baseline');
-	assert.ok(
-		first.notes.some((note) => note.includes('--baseline')),
-		'the accept-debt hint is offered',
-	);
+	// scan without a baseline reports the full debt
+	expect(first.findings.length > 0).toBeTruthy();
+	// a plain scan never writes the baseline
+	expect(existsSync(join(dir, 'lightsout.scan-baseline.json'))).toBeFalsy();
+	// the accept-debt hint is offered
+	expect(first.notes.some((note) => note.includes('--baseline'))).toBeTruthy();
 
 	const accepting = await runScan({ cwd: dir, writeBaseline: true });
 
-	assert.ok(existsSync(join(dir, 'lightsout.scan-baseline.json')), 'the explicit flag writes the committed ledger at the repo root');
-	assert.equal(accepting.findings.length, first.findings.length, 'the accepting run still reports everything');
+	// the explicit flag writes the committed ledger at the repo root
+	expect(existsSync(join(dir, 'lightsout.scan-baseline.json'))).toBeTruthy();
+	// the accepting run still reports everything
+	expect(accepting.findings.length).toBe(first.findings.length);
 
 	const second = await runScan({ cwd: dir });
 
-	assert.equal(second.findings.length, 0, `clean re-scan is silent: ${second.findings.map((finding) => finding.cluster).join(', ')}`);
-	assert.ok(
-		second.notes.some((note) => note.includes('suppressed')),
-		'suppression is stated, not silent',
-	);
+	// clean re-scan is silent: ${second.findings.map((finding) =>
+	// finding.cluster).join(', ')}
+	expect(second.findings.length).toBe(0);
+	// suppression is stated, not silent
+	expect(second.notes.some((note) => note.includes('suppressed'))).toBeTruthy();
 
 	// a new defect lands after the baseline was accepted
 	writeFileSync(join(dir, 'src/b/config.ts'), 'export const readConfig = () => 1;\nexport const writeConfig = () => 2;\n');
 
 	const third = await runScan({ cwd: dir });
 
-	assert.ok(
-		third.findings.some((finding) => finding.cluster === 'multi-export:src/b/config.ts'),
-		'the new finding is reported',
-	);
-	assert.ok(
-		!third.findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts'),
-		'the baselined cluster stays suppressed',
-	);
+	// the new finding is reported
+	expect(third.findings.some((finding) => finding.cluster === 'multi-export:src/b/config.ts')).toBeTruthy();
+	// the baselined cluster stays suppressed
+	expect(third.findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeFalsy();
 
 	const everything = await runScan({ cwd: dir, all: true });
 
-	assert.ok(everything.findings.length > third.findings.length, '--all includes the baselined findings');
+	// --all includes the baselined findings
+	expect(everything.findings.length > third.findings.length).toBeTruthy();
 });
 
 test('scan resolves typescript from workspace packages and honors scan.minCloneTokens', async () => {
@@ -192,19 +192,14 @@ test('scan resolves typescript from workspace packages and honors scan.minCloneT
 
 	const { findings, notes } = await runScan({ cwd: dir });
 
-	assert.ok(!notes.some((note) => note.includes('typescript')), `tier 2 ran via the workspace fallback:\n${notes.join('\n')}`);
-	assert.ok(
-		findings.some((finding) => finding.detector === 'ast-duplicate'),
-		'ast tier found the renamed twins',
-	);
-	assert.ok(
-		!findings.some((finding) => finding.detector === 'clone'),
-		'the per-repo minCloneTokens floor suppressed tier-1 clones',
-	);
-	assert.ok(
-		findings.some((finding) => finding.cluster === 'size:file:packages/app/src/sumTotals.ts'),
-		'the per-repo size.file override (5 lines) flagged an ordinary file',
-	);
+	// tier 2 ran via the workspace fallback:\n${notes.join('\n')}
+	expect(notes.some((note) => note.includes('typescript'))).toBeFalsy();
+	// ast tier found the renamed twins
+	expect(findings.some((finding) => finding.detector === 'ast-duplicate')).toBeTruthy();
+	// the per-repo minCloneTokens floor suppressed tier-1 clones
+	expect(findings.some((finding) => finding.detector === 'clone')).toBeFalsy();
+	// the per-repo size.file override (5 lines) flagged an ordinary file
+	expect(findings.some((finding) => finding.cluster === 'size:file:packages/app/src/sumTotals.ts')).toBeTruthy();
 });
 
 test('scan degrades honestly without a resolvable typescript', async () => {
@@ -216,7 +211,8 @@ test('scan degrades honestly without a resolvable typescript', async () => {
 
 	const { notes } = await runScan({ cwd: dir });
 
-	assert.ok(notes.some((note) => note.includes('typescript')), `honest skip note:\n${notes.join('\n')}`);
+	// honest skip note:\n${notes.join('\n')}
+	expect(notes.some((note) => note.includes('typescript'))).toBeTruthy();
 });
 
 test('dead-export: an entry index (imports, no exports) is a consumer, not a barrel', async () => {
@@ -236,14 +232,12 @@ test('dead-export: an entry index (imports, no exports) is a consumer, not a bar
 	const { findings } = await runScan({ cwd: dir });
 	const dead = findings.filter((finding) => finding.detector === 'dead-export');
 
-	assert.ok(
-		!dead.some((finding) => finding.detail.includes('runEverything')),
-		`an entry file's imports are consumption:\n${JSON.stringify(dead, undefined, 1)}`,
-	);
-	assert.ok(
-		dead.some((finding) => finding.detail.includes('helperThing') && finding.detail.includes('barrel')),
-		`a genuine barrel-only export still flags:\n${JSON.stringify(dead, undefined, 1)}`,
-	);
+	// an entry file's imports are consumption:\n${JSON.stringify(dead, undefined,
+	// 1)}
+	expect(dead.some((finding) => finding.detail.includes('runEverything'))).toBeFalsy();
+	// a genuine barrel-only export still flags:\n${JSON.stringify(dead, undefined,
+	// 1)}
+	expect(dead.some((finding) => finding.detail.includes('helperThing') && finding.detail.includes('barrel'))).toBeTruthy();
 });
 
 // Parallel adapters legitimately share their import lists — imports are
@@ -285,18 +279,18 @@ test('clone detection ignores import spans but keeps real clones on their true l
 	const { findings } = await runScan({ cwd: dir });
 	const clones = findings.filter((finding) => finding.detector === 'clone');
 
-	assert.ok(
-		!clones.some((finding) => finding.files.some((file) => file.path.includes('importHeavy'))),
-		`shared import blocks reported as clones:\n${JSON.stringify(clones, undefined, 1)}`,
-	);
+	// shared import blocks reported as clones:\n${JSON.stringify(clones,
+	// undefined, 1)}
+	expect(clones.some((finding) => finding.files.some((file) => file.path.includes('importHeavy')))).toBeFalsy();
 
 	const offset = clones.filter((finding) => finding.files.every((file) => file.path.includes('offset')));
 
-	assert.ok(offset.length >= 1, `the duplicated body below the imports still clones:\n${JSON.stringify(clones, undefined, 1)}`);
-	assert.ok(
-		offset.every((finding) => finding.files.every((file) => (file.startLine ?? 0) > importBlockLines)),
-		`clone lines must point below the blanked imports:\n${JSON.stringify(offset, undefined, 1)}`,
-	);
+	// the duplicated body below the imports still
+	// clones:\n${JSON.stringify(clones, undefined, 1)}
+	expect(offset.length >= 1).toBeTruthy();
+	// clone lines must point below the blanked imports:\n${JSON.stringify(offset,
+	// undefined, 1)}
+	expect(offset.every((finding) => finding.files.every((file) => (file.startLine ?? 0) > importBlockLines))).toBeTruthy();
 });
 
 /** The smallest repo that still yields one known, stable finding cluster. */
@@ -318,14 +312,10 @@ test('an unreadable baseline is called out and ignored — nothing is silently s
 
 	const { findings, notes } = await runScan({ cwd: dir, persist: false });
 
-	assert.ok(
-		notes.some((note) => note.includes('unreadable')),
-		`a corrupt ledger states itself:\n${notes.join('\n')}`,
-	);
-	assert.ok(
-		findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts'),
-		'a ledger that could not be read suppresses nothing',
-	);
+	// a corrupt ledger states itself:\n${notes.join('\n')}
+	expect(notes.some((note) => note.includes('unreadable'))).toBeTruthy();
+	// a ledger that could not be read suppresses nothing
+	expect(findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeTruthy();
 });
 
 test('a baselined cluster that no longer exists is reported as burn-down progress', async () => {
@@ -339,11 +329,10 @@ test('a baselined cluster that no longer exists is reported as burn-down progres
 
 	const { findings, notes } = await runScan({ cwd: dir, persist: false });
 
-	assert.ok(!findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts'), 'the cluster still present stays suppressed');
-	assert.ok(
-		notes.some((note) => note.includes('1 baselined cluster(s) no longer found')),
-		`the resolved cluster is counted as progress:\n${notes.join('\n')}`,
-	);
+	// the cluster still present stays suppressed
+	expect(findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeFalsy();
+	// the resolved cluster is counted as progress:\n${notes.join('\n')}
+	expect(notes.some((note) => note.includes('1 baselined cluster(s) no longer found'))).toBeTruthy();
 });
 
 test('runScan reports stage progress and leaves the evidence file alone when told not to persist', async () => {
@@ -352,13 +341,14 @@ test('runScan reports stage progress and leaves the evidence file alone when tol
 
 	const { findings } = await runScan({ cwd: dir, persist: false, onProgress: (message) => messages.push(message) });
 
-	assert.ok(messages[0]?.includes('1 source file(s)'), `the opening progress line counts the scope: ${messages[0]}`);
-	assert.ok(
-		messages.some((message) => message.includes('dead exports')),
-		`progress is reported through the last stage:\n${messages.join('\n')}`,
-	);
-	assert.ok(findings.length > 0, 'the scan still reports its findings');
-	assert.ok(!existsSync(join(dir, '.lightsout/scan.json')), 'persist: false never clobbers the standalone report');
+	// the opening progress line counts the scope: ${messages[0]}
+	expect(messages[0]?.includes('1 source file(s)')).toBeTruthy();
+	// progress is reported through the last stage:\n${messages.join('\n')}
+	expect(messages.some((message) => message.includes('dead exports'))).toBeTruthy();
+	// the scan still reports its findings
+	expect(findings.length > 0).toBeTruthy();
+	// persist: false never clobbers the standalone report
+	expect(existsSync(join(dir, '.lightsout/scan.json'))).toBeFalsy();
 });
 
 test('a persisting scan writes the typed evidence file it returns', async () => {
@@ -368,7 +358,10 @@ test('a persisting scan writes the typed evidence file it returns', async () => 
 
 	const raw = readFileSync(join(dir, '.lightsout/scan.json'), 'utf8');
 	const report = JSON.parse(raw) as { path: string; findings: Array<{ cluster: string }>; notes: string[] };
-	assert.equal(report.path, '.', 'a whole-repo scan records the root as its scope');
-	assert.deepEqual(report.findings.map((finding) => finding.cluster).sort(), findings.map((finding) => finding.cluster).sort(), 'the file holds what the caller got');
-	assert.deepEqual(report.notes, notes, 'the notes travel with the findings');
+	// a whole-repo scan records the root as its scope
+	expect(report.path).toBe('.');
+	// the file holds what the caller got
+	expect(report.findings.map((finding) => finding.cluster).sort()).toStrictEqual(findings.map((finding) => finding.cluster).sort());
+	// the notes travel with the findings
+	expect(report.notes).toStrictEqual(notes);
 });

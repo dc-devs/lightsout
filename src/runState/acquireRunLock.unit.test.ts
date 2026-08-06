@@ -1,11 +1,11 @@
-import assert from 'node:assert/strict';
 import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { afterEach, expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { acquireRunLock, readRunLock, releaseRunLock, RunLockError } from '@/runState';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { report } from '@tests/helpers/report';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -17,6 +17,20 @@ const lockPath = (dir: string) => join(dir, '.lightsout', 'lock.json');
 
 /** Permission bits do not apply to root, so the rethrow they provoke is unreachable there. */
 const skipAsRoot = process.getuid?.() === 0 ? 'file permissions do not apply to root' : false;
+// Jest has no per-call `{ skip }` option, so the choice is made at the call site.
+const testUnlessRoot = skipAsRoot ? test.skip : test;
+
+// The one cleanup tests/config/setupTestEnvironment.ts cannot cover: a directory
+// made read-only mid-test must be writable again or the temp tree cannot be
+// removed. Recorded at file scope so a single hook restores it.
+let lockedStateDir: string | undefined;
+
+afterEach(() => {
+	if (lockedStateDir) {
+		chmodSync(lockedStateDir, 0o755);
+		lockedStateDir = undefined;
+	}
+});
 
 const plantLock = ({ dir, pid, runId }: { dir: string; pid: number; runId: string }) => {
 	mkdirSync(join(dir, '.lightsout'), { recursive: true });
@@ -50,23 +64,23 @@ test('acquire → lock on disk with our pid; release → gone', async () => {
 	const dir = setupConsumerRepo({ git: false });
 	const acquired = await acquireRunLock({ cwd: dir, runId: 'run-a' });
 
-	assert.equal(acquired.stalePid, undefined);
+	expect(acquired.stalePid).toBe(undefined);
 
 	const lock = await readRunLock({ cwd: dir });
 
-	assert.equal(lock?.pid, process.pid);
-	assert.equal(lock?.runId, 'run-a');
+	expect(lock?.pid).toBe(process.pid);
+	expect(lock?.runId).toBe('run-a');
 
 	await releaseRunLock({ cwd: dir, runId: 'run-a' });
-	assert.ok(!existsSync(lockPath(dir)));
+	expect(existsSync(lockPath(dir))).toBeFalsy();
 });
 
 test('a second acquire against a live holder fails fast with RunLockError', async () => {
 	const dir = setupConsumerRepo({ git: false });
 
 	await acquireRunLock({ cwd: dir, runId: 'run-a' });
-	await assert.rejects(acquireRunLock({ cwd: dir, runId: 'run-b' }), RunLockError);
-	await assert.rejects(acquireRunLock({ cwd: dir, runId: 'run-b' }), /run run-a \(pid \d+/);
+	await expect(acquireRunLock({ cwd: dir, runId: 'run-b' })).rejects.toThrow(RunLockError);
+	await expect(acquireRunLock({ cwd: dir, runId: 'run-b' })).rejects.toThrow(/run run-a \(pid \d+/);
 });
 
 test('a lock from a dead pid is stale — stolen and reported', async () => {
@@ -76,8 +90,8 @@ test('a lock from a dead pid is stale — stolen and reported', async () => {
 
 	const acquired = await acquireRunLock({ cwd: dir, runId: 'run-b' });
 
-	assert.equal(acquired.stalePid, deadPid);
-	assert.equal((await readRunLock({ cwd: dir }))?.runId, 'run-b');
+	expect(acquired.stalePid).toBe(deadPid);
+	expect((await readRunLock({ cwd: dir }))?.runId).toBe('run-b');
 });
 
 test('a corrupt lock is stale, not fatal', async () => {
@@ -88,8 +102,8 @@ test('a corrupt lock is stale, not fatal', async () => {
 
 	const acquired = await acquireRunLock({ cwd: dir, runId: 'run-b' });
 
-	assert.equal(acquired.stalePid, undefined);
-	assert.equal((await readRunLock({ cwd: dir }))?.runId, 'run-b');
+	expect(acquired.stalePid).toBe(undefined);
+	expect((await readRunLock({ cwd: dir }))?.runId).toBe('run-b');
 });
 
 test('a lock that exists but cannot be cleared gives up as unacquirable, not as a conflict', async () => {
@@ -99,31 +113,30 @@ test('a lock that exists but cannot be cleared gives up as unacquirable, not as 
 	// steal-and-retry runs out of attempts instead of looping forever.
 	mkdirSync(lockPath(dir), { recursive: true });
 
-	await assert.rejects(acquireRunLock({ cwd: dir, runId: 'run-b' }), (thrown: unknown) => {
-		assert.ok(thrown instanceof RunLockError);
-		assert.match(thrown.message, /could not acquire/);
-		assert.doesNotMatch(thrown.message, /another lightsout run is active/, 'nothing live was found — this is not a conflict');
+	const thrown = await getRejectionError({ promise: acquireRunLock({ cwd: dir, runId: 'run-b' }) });
 
-		return true;
-	});
+	expect(thrown).toBeInstanceOf(RunLockError);
+	expect(thrown.message).toMatch(/could not acquire/);
+	// nothing live was found — this is not a conflict
+	expect(thrown.message).not.toMatch(/another lightsout run is active/);
 
-	assert.ok(existsSync(lockPath(dir)), 'what it could not clear, it left alone');
+	// what it could not clear, it left alone
+	expect(existsSync(lockPath(dir))).toBeTruthy();
 });
 
-test('an fs failure that is not a lock conflict is rethrown as itself', { skip: skipAsRoot }, async (t) => {
+testUnlessRoot('an fs failure that is not a lock conflict is rethrown as itself', async () => {
 	const dir = setupConsumerRepo({ git: false });
 	const stateDir = join(dir, '.lightsout');
 
 	mkdirSync(stateDir, { recursive: true });
 	chmodSync(stateDir, 0o555);
-	t.after(() => chmodSync(stateDir, 0o755));
+	lockedStateDir = stateDir;
 
-	await assert.rejects(acquireRunLock({ cwd: dir, runId: 'run-a' }), (thrown: unknown) => {
-		assert.equal((thrown as NodeJS.ErrnoException).code, 'EACCES');
-		assert.ok(!(thrown instanceof RunLockError), 'an unwritable repo is not another run holding the lock');
+	const thrown = await getRejectionError({ promise: acquireRunLock({ cwd: dir, runId: 'run-a' }) });
 
-		return true;
-	});
+	expect((thrown as NodeJS.ErrnoException).code).toBe('EACCES');
+	// an unwritable repo is not another run holding the lock
+	expect(thrown).not.toBeInstanceOf(RunLockError);
 });
 
 test('release never deletes a lock owned by another pid or run', async () => {
@@ -131,11 +144,13 @@ test('release never deletes a lock owned by another pid or run', async () => {
 
 	plantLock({ dir, pid: deadPid, runId: 'other-run' });
 	await releaseRunLock({ cwd: dir, runId: 'other-run' });
-	assert.ok(existsSync(lockPath(dir)), 'foreign pid survives');
+	// foreign pid survives
+	expect(existsSync(lockPath(dir))).toBeTruthy();
 
 	plantLock({ dir, pid: process.pid, runId: 'other-run' });
 	await releaseRunLock({ cwd: dir, runId: 'not-that-run' });
-	assert.ok(existsSync(lockPath(dir)), 'foreign runId survives');
+	// foreign runId survives
+	expect(existsSync(lockPath(dir))).toBeTruthy();
 });
 
 test('release with nothing on disk is a no-op, so a failed start can still unwind', async () => {
@@ -143,7 +158,8 @@ test('release with nothing on disk is a no-op, so a failed start can still unwin
 
 	await releaseRunLock({ cwd: dir, runId: 'run-a' });
 
-	assert.ok(!existsSync(lockPath(dir)), 'releasing a lock that was never taken creates nothing');
+	// releasing a lock that was never taken creates nothing
+	expect(existsSync(lockPath(dir))).toBeFalsy();
 });
 
 test('pipeline start against a live lock fails fast — no orphan run directory', async () => {
@@ -153,12 +169,10 @@ test('pipeline start against a live lock fails fast — no orphan run directory'
 
 	const config = await loadConfig({ cwd: dir });
 
-	await assert.rejects(
-		runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver: happyDriver(dir), config }),
-		RunLockError,
-	);
+	await expect(runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver: happyDriver(dir), config })).rejects.toThrow(RunLockError);
 
-	assert.ok(!existsSync(join(dir, '.lightsout', 'runs')), 'nothing was written');
+	// nothing was written
+	expect(existsSync(join(dir, '.lightsout', 'runs'))).toBeFalsy();
 });
 
 test('pipeline holds the lock while running, steals a stale one, releases on pass', async () => {
@@ -181,18 +195,20 @@ test('pipeline holds the lock while running, steals a stale one, releases on pas
 		},
 	});
 
-	assert.equal(result.ok, true);
-	assert.ok(progressLines.some((line) => line.includes(`stale run lock from dead pid ${deadPid}`)));
-	assert.ok(heldDuringRun, 'lock existed mid-run');
-	assert.ok(!existsSync(lockPath(dir)), 'lock released after pass');
+	expect(result.ok).toBe(true);
+	expect(progressLines.some((line) => line.includes(`stale run lock from dead pid ${deadPid}`))).toBeTruthy();
+	// lock existed mid-run
+	expect(heldDuringRun).toBeTruthy();
+	// lock released after pass
+	expect(existsSync(lockPath(dir))).toBeFalsy();
 
 	const lock = await readRunLock({ cwd: dir });
 
-	assert.equal(lock, undefined);
+	expect(lock).toBe(undefined);
 
 	const runIds = readdirSync(join(dir, '.lightsout', 'runs'));
 
-	assert.ok(runIds.includes(result.manifest.runId));
+	expect(runIds.includes(result.manifest.runId)).toBeTruthy();
 });
 
 test('pipeline releases the lock on a failed run too', async () => {
@@ -205,6 +221,7 @@ test('pipeline releases the lock on a failed run too', async () => {
 	const config = await loadConfig({ cwd: dir });
 	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver: garbageDriver, config });
 
-	assert.equal(result.ok, false);
-	assert.ok(!existsSync(lockPath(dir)), 'lock released after failure');
+	expect(result.ok).toBe(false);
+	// lock released after failure
+	expect(existsSync(lockPath(dir))).toBeFalsy();
 });
