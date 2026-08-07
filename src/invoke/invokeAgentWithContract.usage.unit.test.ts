@@ -9,6 +9,7 @@ import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { outcomeFields } from '@tests/helpers/outcomeFields';
 
 const stubUsage = (outputTokens: number) => ({
 	inputTokens: 10,
@@ -32,12 +33,12 @@ test('usage sums across a re-emit retry — one role invocation, one bill', asyn
 		},
 	};
 
-	const { report: parsed, usage } = await invokeAgentWithContract({
+	const { report: parsed, usage } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: { systemPrompt: 's', prompt: 'p' },
 		contract: WorkReport,
-	});
+	}));
 
 	expect(parsed).toBeTruthy();
 	expect(usage?.outputTokens).toBe(150);
@@ -57,12 +58,12 @@ test('an attempt reporting no usage does not zero the invocation total', async (
 		},
 	};
 
-	const { report: parsed, usage } = await invokeAgentWithContract({
+	const { report: parsed, usage } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: { systemPrompt: 's', prompt: 'p' },
 		contract: WorkReport,
-	});
+	}));
 
 	expect(parsed).toBeTruthy();
 	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 50, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
@@ -82,12 +83,12 @@ test('usage spent before a rate limit is still reported — a parked run is bill
 		},
 	};
 
-	const { rateLimited, usage } = await invokeAgentWithContract({
+	const { rateLimited, usage } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: { systemPrompt: 's', prompt: 'p' },
 		contract: WorkReport,
-	});
+	}));
 
 	expect(rateLimited).toBe(true);
 	expect(usage).toStrictEqual({ inputTokens: 20, outputTokens: 120, cacheReadTokens: 2000, cacheCreationTokens: 10, costUsd: 1 });
@@ -109,12 +110,12 @@ test('usage spent before a driver throw is still reported', async () => {
 		},
 	};
 
-	const { failure, usage } = await invokeAgentWithContract({
+	const { failure, usage } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: { systemPrompt: 's', prompt: 'p' },
 		contract: WorkReport,
-	});
+	}));
 
 	expect(failure).toBe('agent invocation failed: spawn ENOENT');
 	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 100, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });

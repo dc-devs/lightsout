@@ -33,20 +33,22 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 	// rate-limit it signals the caller to park with its own (unmutated) record;
 	// otherwise it returns the advanced record and the fresh gate error.
 	const applyFix = async ({ fix, record }: { fix: Awaited<ReturnType<PipelineRun['invokeRole']>>; record: StepRecord }) => {
-		if (fix.rateLimited) {
+		if (!fix.ok && fix.rateLimited) {
 			return { rateLimited: true as const };
-		}
-
-		if (fix.report) {
-			await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: fix.report.friction ?? [] });
 		}
 
 		let next = record;
 
-		if (fix.report?.status === WorkReportStatus.Complete) {
-			next = withStepFiles({ record, reports: [fix.report], gitPrefix });
+		if (fix.ok) {
+			const { report } = fix;
 
-			await run.setStep({ record: { ...next, report: fix.report }, patch: await collectChanged({ run, gitPrefix, reports: [fix.report] }) });
+			await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: id, friction: report.friction ?? [] });
+
+			if (report.status === WorkReportStatus.Complete) {
+				next = withStepFiles({ record, reports: [report], gitPrefix });
+
+				await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
+			}
 		}
 
 		const error = await gates({ run, coverage });
@@ -111,21 +113,23 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 
 			await run.recordUsage({ step: `${id}-supervisor`, usage: verdict.usage });
 
-			if (verdict.rateLimited) {
+			if (!verdict.ok && verdict.rateLimited) {
 				return run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() });
 			}
 
-			if (verdict.report) {
-				run.progress(`step ${id}: supervisor verdict — ${verdict.report.decision}`);
+			const ruling = verdict.ok ? verdict.report : undefined;
+
+			if (ruling) {
+				run.progress(`step ${id}: supervisor verdict — ${ruling.decision}`);
 			}
 
-			if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
+			if (ruling?.decision === SupervisorDecision.Retry && ruling.guidance) {
 				record = { ...record, attempts: record.attempts + 1 };
 
 				await run.setStep({ record });
 
 				const result = await runFix({
-					errorContext: `${error}\n\n# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`,
+					errorContext: `${error}\n\n# Supervisor diagnosis\n${ruling.diagnosis}\n\n# Supervisor guidance\n${ruling.guidance}`,
 					record,
 				});
 
@@ -138,7 +142,7 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 			}
 
 			if (error) {
-				const diagnosis = verdict.report ? `\nsupervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : '';
+				const diagnosis = ruling ? `\nsupervisor (${ruling.decision}): ${ruling.diagnosis}` : '';
 
 				return run.stop({ record, status: RunStatus.Escalated, error: `${id}: still failing after retries.${diagnosis}\n\n${error}` });
 			}

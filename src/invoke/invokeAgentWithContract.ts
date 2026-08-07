@@ -3,6 +3,8 @@ import { buildReportReemitterInvocation } from '@/agents';
 import type { AgentUsage, Effort, Permissions } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { extractJsonReport } from '@/invoke/extractJsonReport';
+import type { AgentOutcome } from '@/invoke/common/types/AgentOutcome';
+import { messageOf } from '@/common/utils/messageOf';
 
 const maxReportAttempts = 2;
 
@@ -67,7 +69,7 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	allowedCommands,
 	onEvent,
 	onRejectedOutput,
-}: Params<Contract>) => {
+}: Params<Contract>): Promise<AgentOutcome<z.infer<Contract>>> => {
 	let lastFailure = 'no attempts made';
 	let rejected: { rejectedText: string; validationError: string } | undefined;
 	let usage: AgentUsage | undefined;
@@ -96,21 +98,21 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 			// and the run resumes from — never uncaught crashes that zombie the
 			// manifest. No blind retry: a second identical timeout just doubles
 			// the cost of learning the ceiling is too low.
-			const message = error instanceof Error ? error.message : String(error);
+			const message = messageOf({ error });
 
-			return { report: undefined, failure: `agent invocation failed: ${message}`, rateLimited: false, usage };
+			return { ok: false, failure: `agent invocation failed: ${message}`, rateLimited: false, usage };
 		}
 
 		usage = sumUsage({ total: usage, attempt: result.usage });
 
 		if (result.rateLimited) {
-			return { report: undefined, failure: 'harness rate limit reached', rateLimited: true, usage };
+			return { ok: false, failure: 'harness rate limit reached', rateLimited: true, usage };
 		}
 
 		const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
 
 		if (parsed.success) {
-			return { report: parsed.data as z.infer<Contract>, failure: undefined, rateLimited: false, usage };
+			return { ok: true, report: parsed.data as z.infer<Contract>, usage };
 		}
 
 		lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;
@@ -118,5 +120,5 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 		rejected = { rejectedText: result.text, validationError: parsed.error.message };
 	}
 
-	return { report: undefined, failure: lastFailure, rateLimited: false, usage };
+	return { ok: false, failure: lastFailure, rateLimited: false, usage };
 };

@@ -125,7 +125,7 @@ export const runBatch = async ({
 
 		const buildFixInvocation = ({ gateError, guidance }: { gateError: string; guidance?: string }) =>
 			buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, scanFindings: workFindings, scanAdvisories: liveAdvisories, gateError, guidance });
-		const { report, failure, rateLimited } = await invoke({
+		const attemptOutcome = await invoke({
 			label: pass === 1 ? '' : 'requeue',
 			invocation: buildRefactorExecutorInvocation({
 				planContent: standaloneBanner,
@@ -136,23 +136,27 @@ export const runBatch = async ({
 			}),
 		});
 
-		if (rateLimited) {
-			return { kind: 'parked' };
-		}
+		if (!attemptOutcome.ok) {
+			if (attemptOutcome.rateLimited) {
+				return { kind: 'parked' };
+			}
 
-		if (!report) {
+			const { failure } = attemptOutcome;
+
 			// Salvage check (live lesson: a laptop-sleep-killed agent had finished
 			// its edits but never reported): if the clusters are verifiably gone
 			// AND gates are green, the work is done — classify it, don't discard it.
 			if ((await remainingClusters({ frozen: workFindings })).length === 0 && !(await gates())) {
-				rationale.push(`[other] salvaged: agent invocation failed (${failure ?? 'unknown'}) but the clusters are resolved and gates are green`);
+				rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the clusters are resolved and gates are green`);
 				onProgress(`${batch.id}: invocation failed but work verified on disk — salvaged as resolved`);
 
 				return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
 			}
 
-			return { kind: 'failed', error: `${batch.id}: ${failure ?? 'unknown failure'}` };
+			return { kind: 'failed', error: `${batch.id}: ${failure}` };
 		}
+
+		const { report } = attemptOutcome;
 
 		if (report.status === WorkReportStatus.TerminatedScope) {
 			// A scope refusal is judgment, not failure — record it as a decline
@@ -180,7 +184,7 @@ export const runBatch = async ({
 
 			const fix = await invoke({ label: `fix-${retry}`, invocation: buildFixInvocation({ gateError }) });
 
-			if (fix.rateLimited) {
+			if (!fix.ok && fix.rateLimited) {
 				return { kind: 'parked' };
 			}
 

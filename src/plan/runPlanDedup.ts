@@ -1,11 +1,11 @@
-import { appendFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DedupJudgment, DedupReport, type DedupFinding, type Effort, type Permissions } from '@/contracts';
 import { buildPlanDedupInvocation } from '@/agents';
 import type { Driver } from '@/drivers';
+import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
 import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
-import { invokeAgentWithContract } from '@/invoke';
+import { matchDedupVerdicts } from '@/plan/common/utils/matchDedupVerdicts';
 import { writeJsonFile } from '@/common/utils/writeJsonFile';
 
 const defaultDedupTimeoutMs = 30 * 60 * 1000;
@@ -79,58 +79,21 @@ export const runPlanDedup = async ({
 	progress(`plan dedup ${name}: ${candidates.length} candidate(s) detected, judging`);
 
 	const planText = planFiles.map((file) => file.text).join('\n\n');
-	const { report, failure, rateLimited } = await invokeAgentWithContract({
-		driver,
-		cwd,
+	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'dedup', model, effort, permissions, timeoutMs });
+	const outcome = await invokePlanAgent({
 		invocation: buildPlanDedupInvocation({ planText, overviewText, candidates, standards }),
 		contract: DedupJudgment,
-		model,
-		effort,
-		permissions,
-		timeoutMs,
-		onEvent: (event) => {
-			void appendFile(join(workspaceDir, 'dedup-stream.jsonl'), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-		},
-		onRejectedOutput: async ({ text, attempt }) => {
-			await writeFile(join(workspaceDir, `dedup-rejected-${attempt}.txt`), text, 'utf8').catch(() => undefined);
-		},
 	});
 
-	if (rateLimited) {
-		return {
-			status: 'paused-rate-limit' as const,
-			workspaceDir,
-			error: `rate limit reached — re-run: lightsout plan dedup --name ${name}`,
-		};
+	if (!outcome.ok) {
+		return outcome.rateLimited
+			? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limit reached — re-run: lightsout plan dedup --name ${name}` }
+			: { status: 'failed' as const, workspaceDir, error: `dedup judge failed: ${outcome.failure}` };
 	}
 
-	if (!report) {
-		return { status: 'failed' as const, workspaceDir, error: `dedup judge failed: ${failure ?? 'unknown failure'}` };
-	}
+	const { report } = outcome;
 
-	// Join: each candidate whose verdict confirms a duplicate becomes a finding
-	// (detected `collidesWith` + the agent's resolution, matched by `plannedSymbol`).
-	const verdictBySymbol = new Map(report.verdicts.map((verdict) => [verdict.plannedSymbol, verdict]));
-	const findings: DedupFinding[] = [];
-
-	for (const candidate of candidates) {
-		const verdict = verdictBySymbol.get(candidate.plannedSymbol);
-
-		if (!verdict || !verdict.isDuplicate) {
-			continue;
-		}
-
-		findings.push({
-			plannedSymbol: candidate.plannedSymbol,
-			plannedPath: candidate.plannedPath,
-			collidesWith: candidate.collidesWith,
-			recommendation: verdict.recommendation,
-			rationale: verdict.rationale,
-			suggestedLocation: verdict.suggestedLocation,
-			migrateCallers: verdict.migrateCallers,
-		});
-	}
-
+	const findings = matchDedupVerdicts({ candidates, verdicts: report.verdicts });
 	const { dedup, dedupPath } = await writeReport(findings);
 
 	progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);

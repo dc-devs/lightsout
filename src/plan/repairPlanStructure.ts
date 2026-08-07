@@ -1,9 +1,8 @@
-import { appendFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PlanFixReport, PlanFixStatus, type Effort, type LightsoutConfig, type Permissions, type StructuralFinding } from '@/contracts';
 import { buildPlanRepairInvocation } from '@/agents';
+import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
 import type { Driver } from '@/drivers';
-import { invokeAgentWithContract } from '@/invoke';
 import { lintPlanStructure } from '@/plan/lintPlanStructure';
 
 const maxRepairAttempts = 3;
@@ -58,9 +57,10 @@ export const repairPlanStructure = async ({ cwd, driver, name, planPaths, worksp
 
 		const beforeKey = findingSetKey({ findings });
 
-		const { report, failure, rateLimited } = await invokeAgentWithContract({
-			driver,
-			cwd,
+		// One runner per attempt, so each repair keeps its own transcript under the
+		// name the workspace already uses.
+		const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: `repair-${repair}`, model, effort, permissions, timeoutMs });
+		const outcome = await invokePlanAgent({
 			invocation: buildPlanRepairInvocation({
 				findings,
 				planPaths,
@@ -68,25 +68,15 @@ export const repairPlanStructure = async ({ cwd, driver, name, planPaths, worksp
 				factsPath: join(workspaceDir, 'facts.json'),
 			}),
 			contract: PlanFixReport,
-			model,
-			effort,
-			permissions,
-			timeoutMs,
-			onEvent: (event) => {
-				void appendFile(join(workspaceDir, `repair-${repair}-stream.jsonl`), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-			},
-			onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
-				await writeFile(join(workspaceDir, `repair-rejected-${repair}-${reportAttempt}.txt`), text, 'utf8').catch(() => undefined);
-			},
 		});
 
-		if (rateLimited) {
-			return { status: 'paused-rate-limit' as const, error: `rate limit reached — re-run: lightsout plan draft --name ${name}` };
+		if (!outcome.ok) {
+			return outcome.rateLimited
+				? { status: 'paused-rate-limit' as const, error: `rate limit reached — re-run: lightsout plan draft --name ${name}` }
+				: { status: 'failed' as const, error: outcome.failure };
 		}
 
-		if (!report) {
-			return { status: 'failed' as const, error: failure ?? 'unknown failure' };
-		}
+		const { report } = outcome;
 
 		// The repairer found a finding unresolvable from its inputs — narrate the
 		// declines, then fall through to the re-lint below and stop: it may have

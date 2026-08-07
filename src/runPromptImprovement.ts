@@ -29,13 +29,13 @@ export const runPromptImprovement = async ({ consumerCwd, engineCwd, driver, mod
 	const friction = await readFriction({ cwd: consumerCwd });
 
 	if (friction.length === 0) {
-		return { friction, report: undefined, failure: undefined, rateLimited: false };
+		return { status: 'no-friction' as const, friction };
 	}
 
 	const files = await readdir(join(engineCwd, promptsDir));
 	const promptFiles = files.filter((file) => file.endsWith('.md')).map((file) => join(promptsDir, file));
 
-	const { report, failure, rateLimited } = await invokeAgentWithContract({
+	const outcome = await invokeAgentWithContract({
 		driver,
 		cwd: engineCwd,
 		invocation: buildPromptImproverInvocation({ friction, promptFiles }),
@@ -46,5 +46,5 @@ export const runPromptImprovement = async ({ consumerCwd, engineCwd, driver, mod
 		timeoutMs: improverTimeoutMs,
 	});
 
-	return { friction, report, failure, rateLimited };
+	return { status: 'invoked' as const, friction, outcome };
 };

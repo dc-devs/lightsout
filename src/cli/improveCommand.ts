@@ -15,26 +15,28 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
 	const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config?.model, effort: config?.effort });
 
-	if (result.friction.length === 0) {
+	if (result.status === 'no-friction') {
 		console.log('no friction recorded — nothing to improve from');
 		process.exit(0);
 	}
 
-	if (result.rateLimited || !result.report) {
-		console.error(result.failure ?? 'improver produced no valid report');
+	if (!result.outcome.ok) {
+		console.error(result.outcome.failure);
 		process.exit(1);
 	}
 
-	console.log(`\nimprove: ${result.report.status} (${result.friction.length} friction entries considered)`);
-	console.log(`  ${result.report.summary}`);
+	const { report } = result.outcome;
 
-	for (const file of result.report.changedFiles) {
+	console.log(`\nimprove: ${report.status} (${result.friction.length} friction entries considered)`);
+	console.log(`  ${report.summary}`);
+
+	for (const file of report.changedFiles) {
 		console.log(`  ~ ${file.path} — ${file.summary}`);
 	}
 
-	if (result.report.changedFiles.length > 0) {
+	if (report.changedFiles.length > 0) {
 		console.log(`\nreview the diff in ${engineCwd} — the loop proposes, a human ships.`);
 	}
 
-	process.exit(result.report.status === 'complete' ? 0 : 1);
+	process.exit(report.status === 'complete' ? 0 : 1);
 };

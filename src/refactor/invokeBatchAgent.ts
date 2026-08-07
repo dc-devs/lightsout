@@ -68,11 +68,15 @@ export const invokeBatchAgent = async ({
 
 	await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ''}`, usage: outcome.usage });
 
-	for (const file of outcome.report?.changedFiles ?? []) {
+	if (!outcome.ok) {
+		return outcome;
+	}
+
+	for (const file of outcome.report.changedFiles) {
 		reportedFiles.add(file.path);
 	}
 
-	if (outcome.report?.friction && outcome.report.friction.length > 0) {
+	if (outcome.report.friction && outcome.report.friction.length > 0) {
 		await appendFriction({ cwd, runId, step: batch.id, friction: outcome.report.friction });
 		rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
 	}

@@ -16,15 +16,13 @@ interface Params {
  * report to continue with, or the stop result the caller returns immediately.
  */
 export const invokeRoleOrStop = async ({ run, record, invocation, step }: Params): Promise<{ report: WorkReport } | { stopped: PipelineResult }> => {
-	const { report, failure, rateLimited } = await run.invokeRole({ invocation, step });
+	const outcome = await run.invokeRole({ invocation, step });
 
-	if (rateLimited) {
-		return { stopped: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) };
+	if (!outcome.ok) {
+		return outcome.rateLimited
+			? { stopped: await run.stop({ record, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) }
+			: { stopped: await run.stop({ record, status: RunStatus.Failed, error: outcome.failure }) };
 	}
 
-	if (!report) {
-		return { stopped: await run.stop({ record, status: RunStatus.Failed, error: failure ?? 'unknown failure' }) };
-	}
-
-	return { report };
+	return { report: outcome.report };
 };

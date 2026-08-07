@@ -4,6 +4,7 @@ import { SupervisorDecision, type AgentUsage, type LightsoutConfig } from '@/con
 import type { Driver } from '@/drivers';
 import { consultSupervisor } from '@/common/utils/consultSupervisor';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
+import type { AgentOutcome } from '@/invoke';
 import { getRunDir } from '@/runState';
 
 /** The supervisor consult's terminal condition, mapped by the batch loop. */
@@ -26,7 +27,7 @@ interface Params {
 	onProgress: (message: string) => void;
 	recordUsage: (params: { step: string; usage?: AgentUsage }) => Promise<void>;
 	/** One guided fix attempt through the caller's gate-kind routing. */
-	invokeGuidedFix: (params: { guidance: string }) => Promise<{ rateLimited?: boolean }>;
+	invokeGuidedFix: (params: { guidance: string }) => Promise<AgentOutcome<unknown>>;
 	/** Re-run the batch's gates after the guided fix. */
 	gates: () => Promise<string | undefined>;
 }
@@ -75,22 +76,24 @@ export const superviseBatch = async ({
 
 	await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
 
-	if (verdict.rateLimited) {
+	if (!verdict.ok && verdict.rateLimited) {
 		return { kind: 'parked' };
 	}
 
-	if (verdict.report) {
-		onProgress(`${batchId}: supervisor verdict — ${verdict.report.decision}`);
+	const ruling = verdict.ok ? verdict.report : undefined;
+
+	if (ruling) {
+		onProgress(`${batchId}: supervisor verdict — ${ruling.decision}`);
 	}
 
 	let remainingError: string | undefined = gateError;
 
-	if (verdict.report?.decision === SupervisorDecision.Retry && verdict.report.guidance) {
+	if (ruling?.decision === SupervisorDecision.Retry && ruling.guidance) {
 		const fix = await invokeGuidedFix({
-			guidance: `# Supervisor diagnosis\n${verdict.report.diagnosis}\n\n# Supervisor guidance\n${verdict.report.guidance}`,
+			guidance: `# Supervisor diagnosis\n${ruling.diagnosis}\n\n# Supervisor guidance\n${ruling.guidance}`,
 		});
 
-		if (fix.rateLimited) {
+		if (!fix.ok && fix.rateLimited) {
 			return { kind: 'parked' };
 		}
 
@@ -98,7 +101,7 @@ export const superviseBatch = async ({
 	}
 
 	if (remainingError) {
-		const diagnosis = verdict.report ? `\nsupervisor (${verdict.report.decision}): ${verdict.report.diagnosis}` : '';
+		const diagnosis = ruling ? `\nsupervisor (${ruling.decision}): ${ruling.diagnosis}` : '';
 
 		return {
 			kind: 'escalated',

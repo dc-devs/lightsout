@@ -3,6 +3,7 @@ import type { LightsoutConfig } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { consultSupervisor } from '@/common/utils/consultSupervisor';
 import { verdict } from '@tests/helpers/verdict';
+import { outcomeFields } from '@tests/helpers/outcomeFields';
 
 /**
  * A stub harness recording every invocation it receives, plus the minimum
@@ -55,7 +56,7 @@ const setupSupervisor = ({ overrides = {}, text = verdict() }: { overrides?: Par
 test('consult supervisor: the harness is invoked read-only, whatever the config permits', async () => {
 	const { invocations, args } = setupSupervisor({ overrides: { permissions: 'full-access' } });
 
-	const result = await consultSupervisor(args);
+	const result = outcomeFields(await consultSupervisor(args));
 
 	expect(result.failure).toBe(undefined);
 	expect(invocations.length).toBe(1);
@@ -133,7 +134,7 @@ test('consult supervisor: the failing step, gate output, and plan reach the supe
 test('consult supervisor: a contract-valid verdict comes back parsed for the caller to act on', async () => {
 	const { args } = setupSupervisor({ text: verdict({ decision: 'retry', diagnosis: 'stale artifact', guidance: 'delete BROKEN' }) });
 
-	const result = await consultSupervisor(args);
+	const result = outcomeFields(await consultSupervisor(args));
 
 	expect(result.failure).toBe(undefined);
 	expect(result.report).toStrictEqual({ decision: 'retry', diagnosis: 'stale artifact', guidance: 'delete BROKEN' });
@@ -142,7 +143,7 @@ test('consult supervisor: a contract-valid verdict comes back parsed for the cal
 test('consult supervisor: a verdict that never matches the contract fails instead of returning a report', async () => {
 	const { args } = setupSupervisor({ text: 'the run looks broken to me' });
 
-	const result = await consultSupervisor(args);
+	const result = outcomeFields(await consultSupervisor(args));
 
 	expect(result.report).toBe(undefined);
 	expect(result.failure ?? '').toMatch(/did not match contract/);

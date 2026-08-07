@@ -1,13 +1,14 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
-import { PlanDraftReport, PlanDraftStatus, PlanVariant, type Effort, type Permissions, type StructuralFinding } from '@/contracts';
+import { mkdir } from 'node:fs/promises';
+import { PlanDraftReport, PlanDraftStatus, type Effort, type Permissions, type PlanVariant, type StructuralFinding } from '@/contracts';
 import { buildPlanWriterInvocation } from '@/agents';
 import type { Driver } from '@/drivers';
+import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
 import { estimatePlanScope } from '@/plan/estimatePlanScope';
-import { invokeAgentWithContract } from '@/invoke';
 import { loadConfig } from '@/common/utils/loadConfig';
-import { pathExists } from '@/plan/common/utils/pathExists';
+import { planDraftOutputs } from '@/plan/common/paths/planDraftOutputs';
+import { buildPlanLintCommand } from '@/plan/common/utils/buildPlanLintCommand';
 import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
+import { verifyDraftedFiles } from '@/plan/common/paths/verifyDraftedFiles';
 import { readDecisions } from '@/plan/readDecisions';
 import { readPlanFacts } from '@/plan/readPlanFacts';
 import { repairPlanStructure } from '@/plan/repairPlanStructure';
@@ -74,55 +75,27 @@ export const runPlanDraft = async ({
 	const config = await loadConfig({ cwd }).catch(() => undefined);
 	const variant = scope ?? estimatePlanScope({ facts });
 
-	// Single → one file at <plansDir>/<name>.md. Phased → the overview file
-	// fronts the phase files the agent authors alongside it in <plansDir>/<name>/.
-	const outputs =
-		variant === PlanVariant.Single
-			? [{ path: join(plansDir, `${name}.md`), variant: PlanVariant.Single }]
-			: [{ path: join(plansDir, name, 'overview.md'), variant: PlanVariant.Overview }];
+	const { outputs, dir } = planDraftOutputs({ plansDir, name, variant });
 
-	await mkdir(variant === PlanVariant.Single ? plansDir : join(plansDir, name), { recursive: true });
+	await mkdir(dir, { recursive: true });
 
 	progress(`plan draft ${name}: variant ${variant} (${scope ? 'scope flag' : 'estimated'})`);
 
-	// The writer self-lints in-session, where its context is already loaded — a
-	// repair spawn re-reads everything it already knew. `process.argv[1]` is the
-	// running CLI bundle, so the writer's subprocess resolves the identical
-	// engine. The consumer-controlled paths are quoted (they may contain spaces);
-	// the prefix stays unquoted in both the command and the grant, because the
-	// harness's allowed-tools rule is a literal prefix match.
-	const lintPrefix = `node ${process.argv[1]} plan lint`;
-	const lintCommand = `${lintPrefix} --name ${name} --plans "${plansDir}" --cwd "${cwd}"`;
-
-	const { report, failure, rateLimited } = await invokeAgentWithContract({
-		driver,
-		cwd,
-		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand }),
+	const lint = buildPlanLintCommand({ cwd, name, plansDir });
+	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'draft', model, effort, permissions, timeoutMs });
+	const outcome = await invokePlanAgent({
+		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand: lint.command }),
 		contract: PlanDraftReport,
-		model,
-		effort,
-		permissions,
-		timeoutMs,
-		allowedCommands: [lintPrefix],
-		onEvent: (event) => {
-			void appendFile(join(workspaceDir, 'draft-stream.jsonl'), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-		},
-		onRejectedOutput: async ({ text, attempt: reportAttempt }) => {
-			await writeFile(join(workspaceDir, `draft-rejected-${reportAttempt}.txt`), text, 'utf8').catch(() => undefined);
-		},
+		allowedCommands: [lint.prefix],
 	});
 
-	if (rateLimited) {
-		return {
-			status: 'paused-rate-limit' as const,
-			workspaceDir,
-			error: `rate limit reached — re-run: lightsout plan draft --name ${name}`,
-		};
+	if (!outcome.ok) {
+		return outcome.rateLimited
+			? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limit reached — re-run: lightsout plan draft --name ${name}` }
+			: { status: 'failed' as const, workspaceDir, error: outcome.failure };
 	}
 
-	if (!report) {
-		return { status: 'failed' as const, workspaceDir, error: failure ?? 'unknown failure' };
-	}
+	const { report } = outcome;
 
 	// A facts/decisions discrepancy the agent found is not a drafting bug — the
 	// inputs are wrong. Surface it for the session to re-explore; never loop.
@@ -130,26 +103,13 @@ export const runPlanDraft = async ({
 		return { status: 'facts-error' as const, workspaceDir, discrepancies: report.discrepancies };
 	}
 
-	const planPaths = report.filesWritten.map((file) => (isAbsolute(file.path) ? file.path : join(cwd, file.path)));
-	const missing: string[] = [];
+	const drafted = await verifyDraftedFiles({ cwd, filesWritten: report.filesWritten });
 
-	for (const path of planPaths) {
-		if (!(await pathExists({ path }))) {
-			missing.push(path);
-		}
+	if ('error' in drafted) {
+		return { status: 'failed' as const, workspaceDir, error: drafted.error };
 	}
 
-	if (planPaths.length === 0 || missing.length > 0) {
-		return {
-			status: 'failed' as const,
-			workspaceDir,
-			error:
-				planPaths.length === 0
-					? 'plan-writer reported drafted but listed no files written'
-					: `plan-writer reported files that were not written: ${missing.join(', ')}`,
-		};
-	}
-
+	const { planPaths } = drafted;
 	const repaired = await repairPlanStructure({ cwd, driver, name, planPaths, workspaceDir, config, model, effort, permissions, timeoutMs, progress });
 
 	if (repaired.status === 'paused-rate-limit') {

@@ -1,2 +1,2 @@
 export { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
-export { extractJsonReport } from '@/invoke/extractJsonReport';
+export type { AgentOutcome } from '@/invoke/common/types/AgentOutcome';

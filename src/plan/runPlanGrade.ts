@@ -1,11 +1,10 @@
-import { appendFile, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { GapCheckReport, GradeReport, PlanGrade, type Effort, type Permissions, type PlanGap } from '@/contracts';
 import { buildPlanGapCheckInvocation } from '@/agents';
 import type { Driver } from '@/drivers';
+import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
 import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
-import { invokeAgentWithContract } from '@/invoke';
 import { lintPlanStructure } from '@/plan/lintPlanStructure';
 import { writeJsonFile } from '@/common/utils/writeJsonFile';
 
@@ -74,38 +73,22 @@ export const runPlanGrade = async ({
 	progress(`plan grade ${name}: ${structural.length} structural finding(s), gap-checking ${phases.length} plan file(s)`);
 
 	const gaps: PlanGap[] = [];
+	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'grade', model, effort, permissions, timeoutMs });
 
 	for (const phase of phases) {
-		const { report, failure, rateLimited } = await invokeAgentWithContract({
-			driver,
-			cwd,
+		const outcome = await invokePlanAgent({
 			invocation: buildPlanGapCheckInvocation({ planText: phase.text, overviewText, standards }),
 			contract: GapCheckReport,
-			model,
-			effort,
-			permissions,
-			timeoutMs,
-			onEvent: (event) => {
-				void appendFile(join(workspaceDir, 'grade-stream.jsonl'), `${JSON.stringify(event)}\n`, 'utf8').catch(() => undefined);
-			},
-			onRejectedOutput: async ({ text, attempt }) => {
-				await writeFile(join(workspaceDir, `grade-rejected-${basename(phase.path)}-${attempt}.txt`), text, 'utf8').catch(() => undefined);
-			},
+			label: basename(phase.path),
 		});
 
-		if (rateLimited) {
-			return {
-				status: 'paused-rate-limit' as const,
-				workspaceDir,
-				error: `rate limit reached — re-run: lightsout plan grade --name ${name}`,
-			};
+		if (!outcome.ok) {
+			return outcome.rateLimited
+				? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limit reached — re-run: lightsout plan grade --name ${name}` }
+				: { status: 'failed' as const, workspaceDir, error: `gap-check failed for ${basename(phase.path)}: ${outcome.failure}` };
 		}
 
-		if (!report) {
-			return { status: 'failed' as const, workspaceDir, error: `gap-check failed for ${basename(phase.path)}: ${failure ?? 'unknown failure'}` };
-		}
-
-		gaps.push(...report.gaps);
+		gaps.push(...outcome.report.gaps);
 	}
 
 	const grade = structural.length === 0 && gaps.length === 0 ? PlanGrade.A : PlanGrade.BelowA;

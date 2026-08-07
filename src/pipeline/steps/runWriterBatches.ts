@@ -29,25 +29,25 @@ const createAggregate = ({ run }: { run: PipelineRun }) => {
 	const collect = async ({ result }: { result: WriterResult }) => {
 		const label = result.group.join(', ');
 
-		if (result.rateLimited) {
-			parked = true;
+		if (!result.ok) {
+			if (result.rateLimited) {
+				parked = true;
+			} else {
+				failures.push(`${label}: ${result.failure}`);
+			}
 
 			return;
 		}
 
-		if (!result.report) {
-			failures.push(`${label}: ${result.failure ?? 'unknown failure'}`);
+		const { report } = result;
 
-			return;
-		}
+		await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: 'write-tests', friction: report.friction ?? [] });
+		reports.push(report);
+		run.progress(`write-tests: ${label} — ${report.status}`);
 
-		await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: 'write-tests', friction: result.report.friction ?? [] });
-		reports.push(result.report);
-		run.progress(`write-tests: ${label} — ${result.report.status}`);
-
-		if (result.report.status !== WorkReportStatus.Complete) {
-			terminated = terminated || result.report.status !== WorkReportStatus.Failed;
-			failures.push(`${label}: ${result.report.status} — ${result.report.failures.join('; ')}`);
+		if (report.status !== WorkReportStatus.Complete) {
+			terminated = terminated || report.status !== WorkReportStatus.Failed;
+			failures.push(`${label}: ${report.status} — ${report.failures.join('; ')}`);
 		}
 	};
 

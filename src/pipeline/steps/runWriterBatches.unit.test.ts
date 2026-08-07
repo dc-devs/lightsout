@@ -16,12 +16,14 @@ const workReport = (overrides: Partial<WorkReport> = {}): WorkReport => ({
 	...overrides,
 });
 
-/** What a stubbed writer invocation returns — the invokeRole outcome fields runWriterBatches reads. */
-interface Outcome {
-	report?: WorkReport;
-	failure?: string;
-	rateLimited?: boolean;
-}
+/** What a stubbed writer invocation returns — the invokeRole outcome runWriterBatches reads. */
+type Outcome = { ok: true; report: WorkReport } | { ok: false; failure: string; rateLimited: boolean };
+
+/** A writer that answered with a report. */
+const answered = (report: WorkReport): Outcome => ({ ok: true, report });
+
+/** A writer that parked on the harness rate limit. */
+const rateLimitedOutcome = (): Outcome => ({ ok: false, failure: 'harness rate limit reached', rateLimited: true });
 
 /**
  * A PipelineRun stub that records an ordered event log: `start:<file>` when a
@@ -64,7 +66,7 @@ test('runWriterBatches: the held-back writers start as soon as the warm spawn st
 				await delay(20);
 			}
 
-			return { report: workReport() };
+			return answered(workReport());
 		},
 	});
 
@@ -80,7 +82,7 @@ test('runWriterBatches: the held-back writers start as soon as the warm spawn st
 });
 
 test('runWriterBatches: a warm spawn that never streams an event releases the rest when it settles — the stub-driver path', async () => {
-	const { run, log } = setupRun({ respond: async () => ({ report: workReport() }) });
+	const { run, log } = setupRun({ respond: async () => answered(workReport()) });
 
 	const { reports, failures, parked } = await runWriterBatches({ run, groups: groupsOf(3), planContent: '# Plan' });
 
@@ -93,7 +95,7 @@ test('runWriterBatches: a warm spawn that never streams an event releases the re
 });
 
 test('runWriterBatches: zero groups return empty aggregates without spawning a writer', async () => {
-	const { run, log } = setupRun({ respond: async () => ({ report: workReport() }) });
+	const { run, log } = setupRun({ respond: async () => answered(workReport()) });
 
 	const outcome = await runWriterBatches({ run, groups: [], planContent: '# Plan' });
 
@@ -103,7 +105,7 @@ test('runWriterBatches: zero groups return empty aggregates without spawning a w
 });
 
 test('runWriterBatches: a single group runs ungated — there is nothing to warm for', async () => {
-	const { run, gated } = setupRun({ respond: async () => ({ report: workReport() }) });
+	const { run, gated } = setupRun({ respond: async () => answered(workReport()) });
 
 	const { reports } = await runWriterBatches({ run, groups: groupsOf(1), planContent: '# Plan' });
 
@@ -118,10 +120,10 @@ test('runWriterBatches: a rate limit in a released batch parks the run and the w
 			if (onFirstEvent) {
 				onFirstEvent();
 
-				return { report: workReport({ summary: 'warm' }) };
+				return answered(workReport({ summary: 'warm' }));
 			}
 
-			return file === 'src/file1.ts' ? { rateLimited: true } : { report: workReport() };
+			return file === 'src/file1.ts' ? rateLimitedOutcome() : answered(workReport());
 		},
 	});
 
@@ -135,7 +137,7 @@ test('runWriterBatches: a rate limit in a released batch parks the run and the w
 
 test('runWriterBatches: a warm spawn that rate-limits before streaming stops every remaining group', async () => {
 	const { run, log } = setupRun({
-		respond: async ({ onFirstEvent }) => (onFirstEvent ? { rateLimited: true } : { report: workReport() }),
+		respond: async ({ onFirstEvent }) => (onFirstEvent ? rateLimitedOutcome() : answered(workReport())),
 	});
 
 	const { reports, parked } = await runWriterBatches({ run, groups: groupsOf(3), planContent: '# Plan' });
@@ -154,12 +156,12 @@ test('runWriterBatches: a warm spawn that rate-limits after streaming stops the 
 				onFirstEvent();
 				await delay(5);
 
-				return { rateLimited: true };
+				return rateLimitedOutcome();
 			}
 
 			await delay(30);
 
-			return { report: workReport() };
+			return answered(workReport());
 		},
 	});
 
@@ -177,18 +179,18 @@ test('runWriterBatches: complete, failed, and absent reports aggregate exactly a
 	const { run } = setupRun({
 		respond: async ({ file }) => {
 			if (file === 'src/file1.ts') {
-				return { report: workReport({ status: WorkReportStatus.Failed, failures: ['bad assertion'] }) };
+				return answered(workReport({ status: WorkReportStatus.Failed, failures: ['bad assertion'] }));
 			}
 
 			if (file === 'src/file2.ts') {
-				return { failure: 'driver exploded' };
+				return { ok: false, failure: 'driver exploded', rateLimited: false };
 			}
 
 			if (file === 'src/file3.ts') {
-				return { report: workReport({ status: WorkReportStatus.TerminatedAmbiguity, failures: ['unclear plan'] }) };
+				return answered(workReport({ status: WorkReportStatus.TerminatedAmbiguity, failures: ['unclear plan'] }));
 			}
 
-			return { report: workReport() };
+			return answered(workReport());
 		},
 	});
 

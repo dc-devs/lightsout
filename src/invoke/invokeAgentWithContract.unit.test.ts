@@ -8,6 +8,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { outcomeFields } from '@tests/helpers/outcomeFields';
 
 const roleInvocation = { systemPrompt: 'ROLE-SYSTEM-PROMPT', prompt: 'ROLE-PROMPT' };
 
@@ -42,7 +43,7 @@ test('contract mismatch retries with a cheap re-emit invocation, not the full ro
 		},
 	};
 
-	const { report: parsed, failure } = await invokeAgentWithContract({
+	const { report: parsed, failure } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: roleInvocation,
@@ -50,7 +51,7 @@ test('contract mismatch retries with a cheap re-emit invocation, not the full ro
 		onRejectedOutput: ({ text, attempt }) => {
 			rejections.push({ text, attempt });
 		},
-	});
+	}));
 
 	expect(failure).toBe(undefined);
 	expect(parsed?.summary).toBe('re-emitted');
@@ -75,7 +76,7 @@ test('two contract mismatches fail the invocation and report both rejections', a
 		invoke: async () => ({ text: 'still not a report', exitCode: 0 }),
 	};
 
-	const { report: parsed, failure } = await invokeAgentWithContract({
+	const { report: parsed, failure } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: roleInvocation,
@@ -83,7 +84,7 @@ test('two contract mismatches fail the invocation and report both rejections', a
 		onRejectedOutput: ({ attempt }) => {
 			rejections.push(attempt);
 		},
-	});
+	}));
 
 	expect(parsed).toBe(undefined);
 	expect(failure ?? '').toMatch(/did not match contract/);
@@ -94,7 +95,7 @@ test('the resolved model, effort and permissions reach the driver verbatim', asy
 	const invocations: DriverInvocation[] = [];
 	const driver = capturingDriver({ invocations, texts: [report()] });
 
-	const { failure } = await invokeAgentWithContract({
+	const { failure } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '/repo',
 		invocation: roleInvocation,
@@ -104,7 +105,7 @@ test('the resolved model, effort and permissions reach the driver verbatim', asy
 		permissions: Permissions.FullAccess,
 		allowedCommands: ['pnpm test'],
 		timeoutMs: 1234,
-	});
+	}));
 
 	expect(failure).toBe(undefined);
 	expect(invocations.map(({ model, effort, permissions, allowedCommands, cwd, timeoutMs }) => ({ model, effort, permissions, allowedCommands, cwd, timeoutMs }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access', allowedCommands: ['pnpm test'], cwd: '/repo', timeoutMs: 1234 }]);
@@ -114,13 +115,13 @@ test('the read-only level is relayed untranslated — the driver, not this choke
 	const invocations: DriverInvocation[] = [];
 	const driver = capturingDriver({ invocations, texts: [report()] });
 
-	const { failure } = await invokeAgentWithContract({
+	const { failure } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: roleInvocation,
 		contract: WorkReport,
 		permissions: Permissions.ReadOnly,
-	});
+	}));
 
 	expect(failure).toBe(undefined);
 	expect(invocations[0].permissions).toBe('read-only');
@@ -130,7 +131,7 @@ test('an unset model, effort or permissions reaches the driver undefined — no 
 	const invocations: DriverInvocation[] = [];
 	const driver = capturingDriver({ invocations, texts: [report()] });
 
-	const { report: parsed } = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
+	const { report: parsed } = outcomeFields(await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport }));
 
 	expect(parsed).toBeTruthy();
 	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
@@ -140,7 +141,7 @@ test('the re-emit retry runs at the same model, effort and permissions as the fi
 	const invocations: DriverInvocation[] = [];
 	const driver = capturingDriver({ invocations, texts: ['no report in this prose', report({ summary: 're-emitted' })] });
 
-	const { report: parsed } = await invokeAgentWithContract({
+	const { report: parsed } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: roleInvocation,
@@ -148,7 +149,7 @@ test('the re-emit retry runs at the same model, effort and permissions as the fi
 		model: 'sonnet',
 		effort: Effort.Low,
 		permissions: Permissions.Write,
-	});
+	}));
 
 	expect(parsed?.summary).toBe('re-emitted');
 	// a retry must not silently downgrade the effort or capability level
@@ -173,7 +174,7 @@ test('a driver that throws is returned as a step failure — never retried blind
 	const outcome = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
 
 	expect(outcome).toStrictEqual({
-		report: undefined,
+		ok: false,
 		failure: 'agent invocation failed: harness timed out after 1000ms',
 		rateLimited: false,
 		usage: undefined,
@@ -191,12 +192,12 @@ test('a driver that throws a non-Error value still yields a readable failure', a
 		},
 	};
 
-	const { report: parsed, failure, rateLimited } = await invokeAgentWithContract({
+	const { report: parsed, failure, rateLimited } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: roleInvocation,
 		contract: WorkReport,
-	});
+	}));
 
 	expect(parsed).toBe(undefined);
 	expect(failure).toBe('agent invocation failed: spawn EACCES');
@@ -217,7 +218,7 @@ test('a rate-limited harness is reported as such so the engine can park the run'
 
 	const outcome = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
 
-	expect(outcome).toStrictEqual({ report: undefined, failure: 'harness rate limit reached', rateLimited: true, usage: undefined });
+	expect(outcome).toStrictEqual({ ok: false, failure: 'harness rate limit reached', rateLimited: true, usage: undefined });
 	// a rate limit ends the attempt loop — a re-emit retry would hit the same wall
 	expect(invocations.length).toBe(1);
 });
@@ -236,12 +237,12 @@ test('a rate limit on the re-emit retry is reported over the earlier contract fa
 		},
 	};
 
-	const { report: parsed, failure, rateLimited } = await invokeAgentWithContract({
+	const { report: parsed, failure, rateLimited } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: roleInvocation,
 		contract: WorkReport,
-	});
+	}));
 
 	expect(parsed).toBe(undefined);
 	expect(rateLimited).toBe(true);
@@ -260,13 +261,13 @@ test('the stream event callback is relayed to the driver verbatim', async () => 
 		},
 	};
 
-	const { failure } = await invokeAgentWithContract({
+	const { failure } = outcomeFields(await invokeAgentWithContract({
 		driver,
 		cwd: '.',
 		invocation: roleInvocation,
 		contract: WorkReport,
 		onEvent: (event) => events.push(event),
-	});
+	}));
 
 	expect(failure).toBe(undefined);
 	expect(events).toStrictEqual([{ type: 'tool_use' }]);
