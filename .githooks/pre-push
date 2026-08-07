@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# Refuse to push when the shipped bundle does not match src/.
+#
+# plugin/dist/cli.mjs is what users actually run — marketplace installs copy
+# only plugin/, never src/. It is committed, and nothing else in this repo
+# verifies it is current, so a branch that changes src/ and forgets
+# `pnpm bundle` merges clean, reviews clean, and ships broken.
+#
+# The check builds to a temp file and compares. It never writes into the
+# working tree; fixing a failure is your `pnpm bundle`, so the rebuild lands
+# in a commit you chose.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Bypass in an emergency: git push --no-verify
+
+set -eu
+
+# A branch deletion (`git push --delete`) pushes nothing to verify.
+deleting=1
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+	[ "$local_sha" = "0000000000000000000000000000000000000000" ] || deleting=0
+done
+[ "$deleting" = 1 ] && exit 0
+
+root=$(git rev-parse --show-toplevel)
+bundle="$root/plugin/dist/cli.mjs"
+entry="$root/src/cli/index.ts"
+
+# Nothing to check in a tree that predates either path.
+[ -f "$entry" ] || exit 0
+[ -f "$bundle" ] || exit 0
+
+tmp=$(mktemp -t lightsout-bundle-check)
+trap 'rm -f "$tmp"' EXIT
+
+if ! npx --no-install esbuild "$entry" \
+	--bundle --platform=node --format=esm --loader:.md=text \
+	--banner:js="import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);" \
+	--outfile="$tmp" --log-level=error; then
+	echo "pre-push: could not run esbuild — is the repo installed (pnpm install)?" >&2
+	echo "pre-push: bypass with 'git push --no-verify' if you are sure." >&2
+	exit 1
+fi
+
+if cmp -s "$tmp" "$bundle"; then
+	exit 0
+fi
+
+cat >&2 <<'MSG'
+
+  pre-push blocked: plugin/dist/cli.mjs does not match src/.
+
+  That file is the artifact plugin users run. Pushing it stale ships code
+  that is not the code you merged.
+
+    pnpm bundle && git add plugin/dist/cli.mjs
+
+  then amend or add a commit and push again.
+
+  Note: this checks your working tree, so uncommitted src/ edits will also
+  trip it. Bypass with 'git push --no-verify'.
+
+MSG
+exit 1

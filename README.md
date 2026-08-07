@@ -6,8 +6,6 @@ Lightsout takes a finished plan and runs it through a gated software factory. Yo
 
 **Humans make the decisions. Agents execute them. Your commands decide when the work is done.**
 
-Named for lights-out manufacturing: factories designed to run unattended.
-
 **Status: pre-alpha.**
 
 ## Why
@@ -92,6 +90,9 @@ Turn the design into an executable spec. `/plan` explores the codebase, searches
 
 The plan is graded and revised until nothing is left for the implementation agent to guess, invent, or decide on its own.
 
+[![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
+
+
 ```text
 /plan .lightsout/plans/rate-limiting/notes.md
 ```
@@ -101,6 +102,8 @@ The plan is graded and revised until nothing is left for the implementation agen
 Hand the finished spec to the factory. `/implement` follows the plan, writes the code and tests, and performs a mandatory refactoring pass.
 
 Deterministic gates run between every stage. If a test, lint, type-check, or coverage command fails, the pipeline stops. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
+
+[![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
 /implement .claude/plans/rate-limiting/plan.md

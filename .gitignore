@@ -8,6 +8,7 @@ node_modules/
 # source directory.
 *.tsbuildinfo
 .test-dist/
+coverage/
 
 # os / editor
 .DS_Store
