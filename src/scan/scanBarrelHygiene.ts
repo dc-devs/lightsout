@@ -39,7 +39,8 @@ export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params):
 				severity: ScanSeverity.Finding,
 				cluster: `barrel-star:${entry.barrelPath}`,
 				files: [{ path: entry.barrelPath }],
-				detail: `${stars.map((line) => `'${line.specifier}'`).join(', ')} re-exported with \`export *\` — a barrel is its public API; list named re-exports instead`,
+				detail: `${stars.map((line) => `'${line.specifier}'`).join(', ')} re-exported with \`export *\``,
+				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
 			});
 		}
 
@@ -67,7 +68,8 @@ export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params):
 					severity: ScanSeverity.Advisory,
 					cluster: `barrel-dead:${entry.barrelPath}:${name}`,
 					files: [{ path: entry.barrelPath }],
-					detail: `'${name}' is exported from ${entry.barrelPath} but no file outside module '${folder}' consumes it — deliberate public API, or dead?`,
+					detail: `'${name}' is exported from ${entry.barrelPath} but no file outside module '${folder}' consumes it`,
+					guidance: 'Deliberate public API, or dead? Only the author knows.',
 				});
 			}
 		}

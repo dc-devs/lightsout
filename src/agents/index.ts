@@ -9,3 +9,4 @@ export { buildPlanRepairInvocation } from '@/agents/buildPlanRepairInvocation';
 export { buildPlanGapCheckInvocation } from '@/agents/buildPlanGapCheckInvocation';
 export { buildPlanDedupInvocation } from '@/agents/buildPlanDedupInvocation';
 export { formatFindingSite } from '@/agents/formatFindingSite';
+export { formatFindingText } from '@/agents/formatFindingText';

@@ -1,5 +1,6 @@
 import type { ScanFinding } from '@/contracts';
 import { formatFindingSite } from '@/agents/formatFindingSite';
+import { formatFindingText } from '@/agents/formatFindingText';
 import refactorExecutorPrompt from '@/agents/prompts/refactorExecutor.md';
 
 interface Params {
@@ -20,7 +21,7 @@ interface Params {
 const findingLine = (finding: ScanFinding) => {
 	const where = finding.files.map((file) => formatFindingSite({ file })).join(' ↔ ');
 
-	return `- [${finding.detector}] ${where} — ${finding.detail}`;
+	return `- [${finding.detector}] ${where} — ${formatFindingText({ finding })}`;
 };
 
 /**

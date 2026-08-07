@@ -59,6 +59,7 @@ export const scanModuleBoundaries = async ({ cwd, files, compiler }: Params): Pr
 			cluster: `boundary:${from}`,
 			files: [{ path: from }, { path: to }],
 			detail: `deep-imports '${to}' — an internal of module '${outermost}'; import from its barrel '${barrelPath}' instead`,
+			guidance: 'A module’s barrel is its public API; everything else is an internal.',
 		});
 	}
 

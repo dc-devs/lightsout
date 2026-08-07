@@ -48,7 +48,7 @@ interface Params {
  */
 export const scanPlacement = async ({ cwd, files, compiler }: Params): Promise<ScanFinding[]> => {
 	const edges = await collectImportEdges({ cwd, files, compiler });
-	const consumersByFile = new Map<string, Set<string>>();
+	const leaksByFile = new Map<string, { owner: string; consumers: Set<string> }>();
 
 	for (const { from, to } of edges) {
 		const owner = commonOwner(to);
@@ -59,14 +59,15 @@ export const scanPlacement = async ({ cwd, files, compiler }: Params): Promise<S
 			continue;
 		}
 
-		consumersByFile.set(to, (consumersByFile.get(to) ?? new Set()).add(from));
+		// The owner is carried rather than recomputed below: it is already proven
+		// to exist by the guard above, and asking twice would mean guarding twice.
+		leaksByFile.set(to, { owner, consumers: (leaksByFile.get(to)?.consumers ?? new Set()).add(from) });
 	}
 
 	const findings: ScanFinding[] = [];
 
-	for (const [file, consumerSet] of consumersByFile) {
+	for (const [file, { owner, consumers: consumerSet }] of leaksByFile) {
 		const consumers = [...consumerSet].sort();
-		const owner = commonOwner(file) ?? '';
 		const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname(consumer))]);
 
 		findings.push({
@@ -74,7 +75,8 @@ export const scanPlacement = async ({ cwd, files, compiler }: Params): Promise<S
 			severity: ScanSeverity.Finding,
 			cluster: `placement:${file}`,
 			files: [{ path: file }, ...consumers.map((path) => ({ path }))],
-			detail: `'${file}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(', ')} — promote to the lowest common ancestor common/ (${lca}/common/)`,
+			detail: `'${file}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(', ')} — promote to ${lca}/common/`,
+			guidance: 'Shared code belongs in the common/ of the lowest folder that contains everyone using it.',
 		});
 	}
 

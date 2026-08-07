@@ -67,7 +67,8 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 				severity: ScanSeverity.Finding,
 				cluster: `size:file:${file}`,
 				files: [{ path: file }],
-				detail: `${lineCount} lines (cap ~${fileLineCap({ file, caps })}) — split or graduate the concept`,
+				detail: `${lineCount} lines (cap ~${fileLineCap({ file, caps })})`,
+				guidance: 'Split the file, or graduate the concept it has grown into.',
 			});
 		}
 
@@ -108,7 +109,8 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 						severity: ScanSeverity.Advisory,
 						cluster: `size:${kind}:${file}:${name}`,
 						files: [{ path: file, startLine, endLine }],
-						detail: `${kind} '${name}' is ${lines} lines (cap ~${cap}) — extract logic (orchestration functions that only sequence step calls are exempt; judge before acting)`,
+						detail: `${kind} '${name}' is ${lines} lines (cap ~${cap})`,
+						guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
 					});
 				}
 			}

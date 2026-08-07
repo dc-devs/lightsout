@@ -79,11 +79,11 @@ export const scanDeadExports = async ({ cwd, files, referenceFiles }: Params) =>
 		const base = { detector: ScanDetector.DeadExport, severity: ScanSeverity.Advisory, cluster, files: [{ path: file }] };
 
 		if (!referencedBy.barrel && !referencedBy.test) {
-			findings.push({ ...base, detail: `'${name}' is referenced nowhere else — dead code candidate (delete; version control has history)` });
+			findings.push({ ...base, detail: `'${name}' is referenced nowhere else`, guidance: 'A dead code candidate. Delete it — version control has the history.' });
 		} else if (!referencedBy.source && referencedBy.test && !referencedBy.barrel) {
-			findings.push({ ...base, detail: `'${name}' is referenced only by tests — production-dead candidate` });
+			findings.push({ ...base, detail: `'${name}' is referenced only by tests`, guidance: 'A production-dead candidate: only its own tests keep it alive.' });
 		} else if (!referencedBy.source && referencedBy.barrel && !referencedBy.test) {
-			findings.push({ ...base, detail: `'${name}' is exported through a barrel but no module consumes it — deliberate public API, or dead?` });
+			findings.push({ ...base, detail: `'${name}' is exported through a barrel but no module consumes it`, guidance: 'Deliberate public API, or dead? Only the author knows.' });
 		}
 	}
 

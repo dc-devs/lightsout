@@ -6,6 +6,24 @@ import { scanFileExports } from '@/scan/common/utils/scanFileExports';
 
 const folderCensusCap = 20;
 
+/**
+ * Leading verbs that describe how a value is reached rather than what it is
+ * about. A domain folder is named for its subject — `formatting/`,
+ * `validation/`, `parsing/` — and those names come from verbs that carry a
+ * subject with them. These do not: grouping on them yields `predicates/`,
+ * `getters/`, `resolution/`, `builders/`, which are folders named for the ROLE
+ * of the code they hold — banned outright by folder-structure.md. Two `is*`
+ * functions are two predicates, not a shared domain, so they never graduate.
+ */
+const accessVerbs = new Set([
+	'is', 'has', 'can', 'should', 'was',
+	'get', 'set', 'read', 'write', 'load', 'save', 'fetch', 'list', 'collect', 'gather',
+	'to', 'as', 'from', 'with', 'on',
+	'create', 'make', 'new', 'build', 'init',
+	'resolve', 'find', 'lookup',
+	'run', 'invoke', 'call', 'execute', 'apply',
+]);
+
 const firstToken = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(/[\s\-_.]+/)[0]?.toLowerCase() ?? '';
 
 interface Params {
@@ -49,13 +67,14 @@ export const scanStructure = async ({ cwd, files }: Params) => {
 
 	for (const [dir, group] of utilsVerbGroups) {
 		for (const [verb, paths] of group) {
-			if (paths.length > 1 && verb) {
+			if (paths.length > 1 && verb && !accessVerbs.has(verb)) {
 				findings.push({
 					detector: ScanDetector.Structure,
 					severity: ScanSeverity.Advisory,
 					cluster: `domain:${dir}:${verb}`,
 					files: paths.map((path) => ({ path })),
-					detail: `${paths.length} '${verb}*' functions in ${dir} — domain-folder graduation candidate (heuristic; judge before acting)`,
+					detail: `${paths.length} '${verb}*' functions in ${dir}`,
+					guidance: 'A domain-folder graduation candidate. Heuristic — judge before acting.',
 				});
 			}
 		}
@@ -68,7 +87,8 @@ export const scanStructure = async ({ cwd, files }: Params) => {
 				severity: ScanSeverity.Advisory,
 				cluster: `census:${dir}`,
 				files: [{ path: dir }],
-				detail: `${paths.length} files in one flat folder (census cap ~${folderCensusCap}) — group by domain or graduate concepts`,
+				detail: `${paths.length} files in one flat folder (census cap ~${folderCensusCap})`,
+				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
 			});
 		}
 	}

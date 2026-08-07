@@ -5,6 +5,7 @@ import { formatTokenCount } from '@/cli/common/formatting/formatTokenCount';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 import { paintStatus } from '@/cli/common/terminal/paintStatus';
+import { renderTable } from '@/cli/common/render/renderTable';
 
 interface Params {
 	steps: Awaited<ReturnType<typeof summarizeRun>>['steps'];
@@ -47,30 +48,15 @@ export const printStepTable = ({ steps, activeMs }: Params): void => {
 		invocations > 0 ? `$${steps.reduce((total, step) => total + step.costUsd, 0).toFixed(2)}` : '—',
 		`${steps.reduce((count, step) => count + (step.changedFiles?.length ?? 0), 0)}`,
 	];
-	const allRows = [headers, ...rows.map((row) => row.cells), totalCells];
-	const widths = headers.map((_, column) => Math.max(...allRows.map((cells) => (cells[column] ?? '').length)) + 2);
-	const rule = (left: string, mid: string, right: string) => dim(`${left}${widths.map((width) => '─'.repeat(width)).join(mid)}${right}`);
-	const renderRow = ({ cells, status, emphasis }: { cells: string[]; status?: string; emphasis?: (text: string) => string }) => {
-		const rendered = cells.map((text, column) => {
-			const width = widths[column] ?? 0;
-			const padded = column === 0 ? ` ${text.padEnd(width - 1)}` : `${text.padStart(width - 1)} `;
-			const painted = paintCell({ text, padded, status });
+	const lines = renderTable({
+		headers,
+		rows: [
+			...rows.map((row) => ({ cells: row.cells, paintCell: ({ text, padded }: { text: string; padded: string }) => paintCell({ text, padded, status: row.status }) })),
+			{ cells: totalCells, emphasis: bold, paintCell: ({ text, padded }: { text: string; padded: string }) => paintCell({ text, padded }) },
+		],
+	});
 
-			return emphasis && text !== '—' ? emphasis(painted) : painted;
-		});
-
-		return `${dim('│')}${rendered.join(dim('│'))}${dim('│')}`;
-	};
-
-	console.log(rule('┌', '┬', '┐'));
-	console.log(renderRow({ cells: headers }));
-
-	for (const row of rows) {
-		console.log(rule('├', '┼', '┤'));
-		console.log(renderRow({ cells: row.cells, status: row.status }));
+	for (const line of lines) {
+		console.log(line);
 	}
-
-	console.log(rule('├', '┼', '┤'));
-	console.log(renderRow({ cells: totalCells, emphasis: bold }));
-	console.log(rule('└', '┴', '┘'));
 };

@@ -19,7 +19,14 @@ export const ScanFinding = z.object({
 			endLine: z.number().optional(),
 		}),
 	),
+	/** What is true of this one site — the measurement, the names, the span. */
 	detail: z.string(),
+	/**
+	 * What to do about findings of this kind, and any judgment the detector
+	 * cannot make for itself. Constant across every finding a detector emits for
+	 * the same reason, so a reader is told once rather than once per site.
+	 */
+	guidance: z.string().optional(),
 });
 
 export type ScanFinding = z.infer<typeof ScanFinding>;

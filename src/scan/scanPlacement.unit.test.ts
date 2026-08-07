@@ -67,5 +67,5 @@ test('a leak whose owner and consumer share no ancestor promotes to the repo roo
 	// the outside consumer is named:\n${JSON.stringify(findings, undefined, 1)}
 	expect(leak?.detail.includes('billing/bill.ts')).toBeTruthy();
 	// no shared ancestor puts the promotion target at the root: ${leak?.detail}
-	expect(leak?.detail.includes('(/common/)')).toBeTruthy();
+	expect(leak?.detail.includes('promote to /common/')).toBeTruthy();
 });

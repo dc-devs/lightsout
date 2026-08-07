@@ -50,6 +50,7 @@ export const scanClones = async ({ cwd, files, minTokens = defaultMinTokens }: P
 					{ path: a.sourceId, startLine: a.start.line, endLine: a.end.line },
 				],
 				detail: `${a.end.line - a.start.line + 1}-line duplicated span`,
+				guidance: 'Copy-paste at the token level. Extract the shared span, or justify why the copies must diverge.',
 			});
 		}
 	}

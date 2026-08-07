@@ -48,8 +48,10 @@ test('scanBarrelHygiene flags export * and module barrel entries no outside file
 	expect(dead.map((finding) => finding.cluster)).toStrictEqual(['barrel-dead:src/m/index.ts:orphan']);
 	// barrel-dead is advisory
 	expect(dead[0]?.severity === 'advisory').toBeTruthy();
+	// the fact is the finding; what to do about it is the detector's guidance
+	expect(dead[0]?.detail.includes('no file outside module')).toBeTruthy();
 	// phrasing mirrors scanDeadExports
-	expect(dead[0]?.detail.includes('public API') && dead[0].detail.includes('dead')).toBeTruthy();
+	expect(dead[0]?.guidance?.includes('public API') && dead[0].guidance.includes('dead')).toBeTruthy();
 	// an externally consumed entry is live
 	expect(dead.some((finding) => finding.cluster.includes(':used'))).toBeFalsy();
 	// domain-folder entries are not boundary entries

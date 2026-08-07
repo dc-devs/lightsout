@@ -47,7 +47,8 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 				severity: ScanSeverity.Advisory,
 				cluster: `name:${name}`,
 				files: paths.map((path) => ({ path })),
-				detail: `'${name}' is declared in ${paths.length} places — same concept implemented twice, or a promotion candidate`,
+				detail: `'${name}' is declared in ${paths.length} places`,
+				guidance: 'One concept implemented twice, or a promotion candidate.',
 			});
 		}
 	}
@@ -69,7 +70,8 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 				severity: ScanSeverity.Advisory,
 				cluster: `tokens:${key}`,
 				files: paths.map((path) => ({ path })),
-				detail: `${names.map((name) => `'${name}'`).join(', ')} differ only by synonym or word order — likely one concept under two names`,
+				detail: `${names.map((name) => `'${name}'`).join(', ')} differ only by synonym or word order`,
+				guidance: 'Likely one concept living under two names.',
 			});
 		}
 	}

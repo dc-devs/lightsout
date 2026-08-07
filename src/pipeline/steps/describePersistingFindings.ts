@@ -1,4 +1,4 @@
-import { formatFindingSite } from '@/agents';
+import { formatFindingSite, formatFindingText } from '@/agents';
 import type { ScanFinding, WorkReport } from '@/contracts';
 
 interface Params {
@@ -17,7 +17,7 @@ export const describePersistingFindings = ({ gating, report, passes }: Params): 
 	const findingLines = gating.map((finding) => {
 		const where = finding.files.map((file) => formatFindingSite({ file })).join(', ');
 
-		return `- ${finding.cluster} — ${finding.detail}\n  at ${where}`;
+		return `- ${finding.cluster} — ${formatFindingText({ finding })}\n  at ${where}`;
 	});
 	const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
 

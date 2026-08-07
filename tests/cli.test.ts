@@ -634,11 +634,28 @@ test('cli: scan prints each finding, the detector breakdown, and exits 0', async
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
-	// the advisory icon leads and the detector name is rendered in its padded
-	// column
-	expect(stdout).toMatch(/ℹ filename-duplicate {2}\S/);
-	expect(stdout).toMatch(/\n\d+ finding\(s\) · [^\n]*filename-duplicate \d+[^\n]* — report: \.lightsout\/scan\.json\n$/);
+	// each detector gets a heading carrying its severity and count
+	expect(stdout).toMatch(/ℹ filename-duplicate · 1 advisory/);
+	// the shared guidance is stated once, under the rows it covers
+	expect(stdout).toContain('Likely one concept living under two names.');
+	// and the tally is a table, closed off by the report path
+	expect(stdout).toMatch(/│ filename-duplicate │\s+—\s+│\s+1\s+│/);
+	expect(stdout).toMatch(/report: \.lightsout\/scan\.json\n$/);
 	// scan reports; it never fails the caller
+	expect(code).toBe(0);
+});
+
+test('cli: scan counts advisories apart from findings and does not call them debt', async () => {
+	const { cwd } = await seedScanFixture();
+
+	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
+
+	// the fixture plants a synonym pair and the two unreferenced exports behind
+	// it — all advice to weigh, none of it work
+	expect(stdout).toMatch(/│ total\s+│\s+—\s+│\s+3\s+│/);
+	// so the accept-as-debt hint stays quiet — advice is not a ledger entry
+	expect(stdout.includes('--baseline')).toBeFalsy();
+	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
 
@@ -659,7 +676,7 @@ test('cli: scan renders a degraded detector tier as a note instead of failing', 
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
 
-	expect(stdout).toMatch(/ℹ note {16}[^\n]*no typescript resolvable from the target repo/);
+	expect(stdout).toMatch(/ℹ [^\n]*no typescript resolvable from the target repo/);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
@@ -673,7 +690,7 @@ test('cli: scan --baseline writes the debt ledger and exits 0', async () => {
 	expect(ledger.path).toBe('.');
 	// the accepted clusters are what future scans measure against
 	expect(ledger.clusters.length > 0).toBeTruthy();
-	expect(stdout).toMatch(/ℹ note {16}baseline written: \d+ cluster\(s\) accepted as existing debt/);
+	expect(stdout).toMatch(/ℹ baseline written: \d+ cluster\(s\) accepted as existing debt/);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
@@ -685,7 +702,9 @@ test('cli: scan reports nothing new once the findings are baselined', async () =
 
 	// a baselined finding is accepted debt, not news
 	expect(stdout.includes('filename-duplicate')).toBeFalsy();
-	expect(stdout).toMatch(/\n0 finding\(s\) — report: \.lightsout\/scan\.json\n$/);
+	// nothing left to report reads as a sentence, not an empty table
+	expect(stdout).toContain('clean — no findings, no advisories');
+	expect(stdout.includes('┌')).toBeFalsy();
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
@@ -696,7 +715,7 @@ test('cli: scan --all reports the findings the baseline already accepted', async
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--all', '--cwd', cwd] });
 
 	// a baselined cluster is printed again under --all
-	expect(stdout).toMatch(/ℹ filename-duplicate {2}\S/);
+	expect(stdout).toMatch(/ℹ filename-duplicate · 1 advisory/);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
