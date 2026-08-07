@@ -49,7 +49,7 @@
         "Skip this step only when the approach is already settled"
       ],
       "note": "Ensures the design is chosen before implementation begins",
-      "saved": ["decisions.json — chosen approach"]
+      "saved": ["decisions.json"]
     },
     {
       "title": "WRITE THE IMPLEMENTATION PLAN",
@@ -62,8 +62,8 @@
       "note": "Creates the specification the implementation agent will follow",
       "saved": [
         "<plans>/<name>.md",
-        "or <name>/overview.md + phase-*.md",
-        "failed drafts are retained for review"
+        "<plans>/<name>/overview.md",
+        "<plans>/<name>/phase-*.md"
       ]
     },
     {
@@ -76,8 +76,7 @@
       ],
       "note": "Prevents the implementation agent from filling gaps on its own",
       "saved": [
-        "plan edits + Decision Log entries",
-        "decisions.json — assumptions flagged"
+        "decisions.json"
       ]
     },
     {
@@ -89,10 +88,7 @@
         "Update the plan before implementation begins"
       ],
       "note": "Prevents duplicate logic and competing abstractions",
-      "saved": [
-        ".lightsout/plans/<name>/dedup.json",
-        "plan edits + Prior Art section"
-      ]
+      "saved": [".lightsout/plans/<name>/dedup.json"]
     },
     {
       "title": "GET THE PLAN TO AN A GRADE",

@@ -19,7 +19,7 @@
       "bullets":    ["Verify every referenced file and path"],
       "note":       "Ensures the plan reflects the repository's current state",
       "savedLabel": "SAVED WHEN NOTES EXIST",
-      "saved":      [".lightsout/plans/<name>/facts.json", "— stamped verified"]
+      "saved":      [".lightsout/plans/<name>/facts.json"]
     }
   ]
 }
@@ -40,7 +40,7 @@
 | `cards[].bullets` | no | 2–3, each a complete thought. Wraps automatically. |
 | `cards[].note` | no | Italic line under the bullets: what this step prevents. Wraps automatically. |
 | `cards[].savedLabel` | no | Overrides the graphic-wide label for one card, e.g. `SAVED WHEN NOTES EXIST`. |
-| `cards[].saved` | no | Mono, no wrapping. A line starting `—`, `or `, `nothing`, `failed`, or `…` renders dim as an annotation. |
+| `cards[].saved` | no | **File names only** — one path per line, mono, no wrapping. No commentary, no `— annotations`. |
 
 Card height is uniform across the grid, computed from the fullest card. The
 artifact band sits at one y for every card — dividers, labels, and first path

@@ -2,7 +2,7 @@
 	"scripts": {
 		"check": "pnpm check",
 		"testUnit": "pnpm test",
-		"testCoverage": false
+		"testCoverage": "pnpm test:unit:coverage"
 	},
 	"agentCommands": ["pnpm"],
 	"generated": ["plugin/dist/"]

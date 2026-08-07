@@ -36,7 +36,10 @@ Six rules. Break them and it turns into a slide from 2013.
    sentence run across two bullets — each dot must stand alone.
 5. **Monospace is reserved for machine truth** — file paths, commands, flags.
    That contrast is what makes the graphic read as technical rather than
-   decorative.
+   decorative. The artifact band is **file names and nothing else**: no
+   "— stamped verified", no "or …", no "plan edits + Decision Log rows".
+   A reader scans that band for paths they can open; prose in it defeats the
+   scan. Anything you wanted to say there belongs in a bullet or the why-line.
 6. **One closing line.** A single pill at the bottom with the claim the whole
    graphic exists to support. Not three. One.
 7. **Every card says what it prevents.** One italic line under the bullets,
@@ -100,7 +103,7 @@ In a GitHub README, serve the pair by theme:
 | bullets per card | 2–3 | four makes the card a wall |
 | bullet text | ~90 chars | wraps at ~46; two lines is fine, three is a paragraph |
 | `note` | ~110 chars | one thought, wraps to two lines |
-| `saved` lines | 1–3 | mono is wide; ~50 chars each, no wrapping |
+| `saved` lines | 1–3 | file paths only, ~50 chars each, no wrapping |
 | tag label | ~12 chars | the pill auto-sizes but crowds the badge |
 | total cards | 6–12 | past 12, split into two graphics |
 

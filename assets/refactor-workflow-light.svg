@@ -1,0 +1,378 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2375" height="2493" viewBox="0 0 2375 2493" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<defs>
+<radialGradient id="bg" cx="50%" cy="0%" r="120%"><stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#f7f9fd"/><stop offset="100%" stop-color="#eaeff8"/></radialGradient>
+<linearGradient id="title" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#101a2b"/><stop offset="100%" stop-color="#6d28d9"/></linearGradient>
+<linearGradient id="rail" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#12b3c5" stop-opacity="0"/><stop offset="18%" stop-color="#12b3c5" stop-opacity="0.85"/><stop offset="82%" stop-color="#6b09cd" stop-opacity="0.85"/><stop offset="100%" stop-color="#6b09cd" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge0" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#12b3c5" stop-opacity="0.75"/><stop offset="100%" stop-color="#2098c6" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule0" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#12b3c5" stop-opacity="0.95"/><stop offset="100%" stop-color="#12b3c5" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1aa4c6" stop-opacity="0.75"/><stop offset="100%" stop-color="#2888c7" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1aa4c6" stop-opacity="0.95"/><stop offset="100%" stop-color="#1aa4c6" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2294c6" stop-opacity="0.75"/><stop offset="100%" stop-color="#3079c8" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#2294c6" stop-opacity="0.95"/><stop offset="100%" stop-color="#2294c6" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2a85c7" stop-opacity="0.75"/><stop offset="100%" stop-color="#3969c8" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule3" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#2a85c7" stop-opacity="0.95"/><stop offset="100%" stop-color="#2a85c7" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3275c8" stop-opacity="0.75"/><stop offset="100%" stop-color="#415ac9" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule4" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#3275c8" stop-opacity="0.95"/><stop offset="100%" stop-color="#3275c8" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3a66c9" stop-opacity="0.75"/><stop offset="100%" stop-color="#494bca" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule5" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#3a66c9" stop-opacity="0.95"/><stop offset="100%" stop-color="#3a66c9" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4356c9" stop-opacity="0.75"/><stop offset="100%" stop-color="#513bcb" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule6" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#4356c9" stop-opacity="0.95"/><stop offset="100%" stop-color="#4356c9" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge7" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4b47ca" stop-opacity="0.75"/><stop offset="100%" stop-color="#592ccb" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule7" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#4b47ca" stop-opacity="0.95"/><stop offset="100%" stop-color="#4b47ca" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge8" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5337cb" stop-opacity="0.75"/><stop offset="100%" stop-color="#611ccc" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule8" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#5337cb" stop-opacity="0.95"/><stop offset="100%" stop-color="#5337cb" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge9" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5b28cc" stop-opacity="0.75"/><stop offset="100%" stop-color="#690dcd" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule9" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#5b28cc" stop-opacity="0.95"/><stop offset="100%" stop-color="#5b28cc" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge10" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6318cc" stop-opacity="0.75"/><stop offset="100%" stop-color="#6b09cd" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule10" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#6318cc" stop-opacity="0.95"/><stop offset="100%" stop-color="#6318cc" stop-opacity="0"/></linearGradient>
+<linearGradient id="edge11" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6b09cd" stop-opacity="0.75"/><stop offset="100%" stop-color="#6b09cd" stop-opacity="0.28"/></linearGradient>
+<linearGradient id="rule11" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#6b09cd" stop-opacity="0.95"/><stop offset="100%" stop-color="#6b09cd" stop-opacity="0"/></linearGradient>
+<filter id="lift" x="-30%" y="-30%" width="160%" height="180%"><feGaussianBlur in="SourceAlpha" stdDeviation="7"/><feOffset dy="5" result="s"/><feFlood flood-color="#2b3a55" flood-opacity="0.18"/><feComposite in2="s" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.1" fill="#94a3b8" fill-opacity="0.35"/></pattern>
+</defs>
+<rect width="2375" height="2493" fill="url(#bg)"/>
+<rect x="0" y="0" width="260" height="180" fill="url(#dots)"/>
+<rect x="2115" y="2313" width="260" height="180" fill="url(#dots)"/>
+<text x="1187.5" y="106" text-anchor="middle" font-size="62" font-weight="700" letter-spacing="-0.5" fill="url(#title)">How /refactor turns scan findings into verified cleanup</text>
+<text x="1187.5" y="152" text-anchor="middle" font-size="25" fill="#4c5a72">Twelve steps, one batch at a time, every fix re-scanned and re-gated before the next begins.</text>
+<rect x="857.5" y="180" width="660" height="2" fill="url(#rail)"/>
+<g><line x1="599" y1="552.5" x2="637" y2="552.5" stroke="#16abc5" stroke-opacity="0.55" stroke-width="2"/><path d="M633,546.5 L645,552.5 L633,558.5" fill="none" stroke="#16abc5" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1164" y1="552.5" x2="1202" y2="552.5" stroke="#1e9cc6" stroke-opacity="0.55" stroke-width="2"/><path d="M1198,546.5 L1210,552.5 L1198,558.5" fill="none" stroke="#1e9cc6" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1729" y1="552.5" x2="1767" y2="552.5" stroke="#268cc7" stroke-opacity="0.55" stroke-width="2"/><path d="M1763,546.5 L1775,552.5 L1763,558.5" fill="none" stroke="#268cc7" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M2293,552.5 H2341 Q2355,552.5 2355,566.5 V896.0 Q2355,910.0 2341,910.0 H34 Q20,910.0 20,924.0 V1253.5 Q20,1267.5 34,1267.5 H76" fill="none" stroke="#2e7dc8" stroke-opacity="0.4" stroke-width="1.6" stroke-dasharray="6 7"/>
+<path d="M74,1261.5 L86,1267.5 L74,1273.5" fill="none" stroke="#2e7dc8" stroke-opacity="0.8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<g><line x1="599" y1="1267.5" x2="637" y2="1267.5" stroke="#366dc8" stroke-opacity="0.55" stroke-width="2"/><path d="M633,1261.5 L645,1267.5 L633,1273.5" fill="none" stroke="#366dc8" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1164" y1="1267.5" x2="1202" y2="1267.5" stroke="#3e5ec9" stroke-opacity="0.55" stroke-width="2"/><path d="M1198,1261.5 L1210,1267.5 L1198,1273.5" fill="none" stroke="#3e5ec9" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1729" y1="1267.5" x2="1767" y2="1267.5" stroke="#474fca" stroke-opacity="0.55" stroke-width="2"/><path d="M1763,1261.5 L1775,1267.5 L1763,1273.5" fill="none" stroke="#474fca" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M2293,1267.5 H2341 Q2355,1267.5 2355,1281.5 V1611.0 Q2355,1625.0 2341,1625.0 H34 Q20,1625.0 20,1639.0 V1968.5 Q20,1982.5 34,1982.5 H76" fill="none" stroke="#4f3fca" stroke-opacity="0.4" stroke-width="1.6" stroke-dasharray="6 7"/>
+<path d="M74,1976.5 L86,1982.5 L74,1988.5" fill="none" stroke="#4f3fca" stroke-opacity="0.8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<g><line x1="599" y1="1982.5" x2="637" y2="1982.5" stroke="#5730cb" stroke-opacity="0.55" stroke-width="2"/><path d="M633,1976.5 L645,1982.5 L633,1988.5" fill="none" stroke="#5730cb" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1164" y1="1982.5" x2="1202" y2="1982.5" stroke="#5f20cc" stroke-opacity="0.55" stroke-width="2"/><path d="M1198,1976.5 L1210,1982.5 L1198,1988.5" fill="none" stroke="#5f20cc" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g><line x1="1729" y1="1982.5" x2="1767" y2="1982.5" stroke="#6711cd" stroke-opacity="0.55" stroke-width="2"/><path d="M1763,1976.5 L1775,1982.5 L1763,1988.5" fill="none" stroke="#6711cd" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(90,236)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge0)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#12b3c5" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#12b3c5" fill-opacity="0.12" stroke="#12b3c5" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#12b3c5">1</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">START THE RUN</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule0)"/>
+<circle cx="34" cy="159" r="3.4" fill="#12b3c5" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Point <tspan font-family="Menlo, SF Mono, monospace" fill="#0e7490">/refactor</tspan> at the whole repo or one</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">folder, with an optional batch budget</text>
+<circle cx="34" cy="222" r="3.4" fill="#12b3c5" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">Refuse to start without a config, without</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">git, or with uncommitted changes</text>
+<circle cx="34" cy="285" r="3.4" fill="#12b3c5" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#26344a">Create a run ID and a repository lock so no</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">other lightsout run touches the same tree</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#5d6c85">Keeps the entire cleanup as one diff you can read,</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#5d6c85">revert, or resume</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#12b3c5" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#12b3c5" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/runs/&lt;id&gt;/manifest.json</text>
+<text x="28" y="581" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/lock.json</text>
+</g>
+<g transform="translate(655,236)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge1)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#1aa4c6" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#1aa4c6" fill-opacity="0.12" stroke="#1aa4c6" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#1aa4c6">2</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">FIND THE WORK</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule1)"/>
+<circle cx="34" cy="159" r="3.4" fill="#1aa4c6" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Search source files for repeated names,</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">copied code, duplicate logic, oversized</text>
+<text x="50" y="220" font-size="19" font-weight="500" fill="#26344a">code, misplaced files, boundary violations,</text>
+<text x="50" y="248" font-size="19" font-weight="500" fill="#26344a">and dead exports</text>
+<circle cx="34" cy="278" r="3.4" fill="#1aa4c6" fill-opacity="0.9"/>
+<text x="50" y="283" font-size="19" font-weight="500" fill="#26344a">Detectors that read types need the repo’s</text>
+<text x="50" y="311" font-size="19" font-weight="500" fill="#26344a">own TypeScript, and say so when it is</text>
+<text x="50" y="339" font-size="19" font-weight="500" fill="#26344a">missing</text>
+<circle cx="34" cy="369" r="3.4" fill="#1aa4c6" fill-opacity="0.9"/>
+<text x="50" y="374" font-size="19" font-weight="500" fill="#26344a">Leave out anything already accepted as known</text>
+<text x="50" y="402" font-size="19" font-weight="500" fill="#26344a">debt, unless you asked for everything</text>
+<text x="28" y="436" font-size="16.5" font-style="italic" fill="#5d6c85">Detection is deterministic code — no agent is ever</text>
+<text x="28" y="461" font-size="16.5" font-style="italic" fill="#5d6c85">asked to go find problems</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#1aa4c6" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#1aa4c6" fill-opacity="1">READ FROM DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">lightsout.scan-baseline.json</text>
+</g>
+<g transform="translate(1220,236)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge2)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#2294c6" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#2294c6" fill-opacity="0.12" stroke="#2294c6" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#2294c6">3</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">GROUP INTO BATCHES</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule2)"/>
+<circle cx="34" cy="159" r="3.4" fill="#2294c6" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">One batch is one kind of finding in one area</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">— a package, a top-level folder, or the repo</text>
+<text x="50" y="220" font-size="19" font-weight="500" fill="#26344a">root</text>
+<circle cx="34" cy="250" r="3.4" fill="#2294c6" fill-opacity="0.9"/>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">The most mechanical kinds run first, twelve</text>
+<text x="50" y="283" font-size="19" font-weight="500" fill="#26344a">findings at most, and a finding spanning two</text>
+<text x="50" y="311" font-size="19" font-weight="500" fill="#26344a">areas gets its own batch</text>
+<circle cx="34" cy="341" r="3.4" fill="#2294c6" fill-opacity="0.9"/>
+<text x="50" y="346" font-size="19" font-weight="500" fill="#26344a">Freeze the list to disk and work from it —</text>
+<text x="50" y="374" font-size="19" font-weight="500" fill="#26344a">never recompute it midway</text>
+<text x="28" y="408" font-size="16.5" font-style="italic" fill="#5d6c85">Gives each agent a single coherent job instead of a</text>
+<text x="28" y="433" font-size="16.5" font-style="italic" fill="#5d6c85">pile of unrelated fixes</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#2294c6" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#2294c6" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/runs/&lt;id&gt;/worklist.json</text>
+</g>
+<g transform="translate(1785,236)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge3)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#2a85c7" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#2a85c7" fill-opacity="0.12" stroke="#2a85c7" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#2a85c7">4</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="25.6" font-weight="700" letter-spacing="0.6" fill="#0d1626">VERIFY THE REPO STARTS GREEN</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule3)"/>
+<circle cx="34" cy="159" r="3.4" fill="#2a85c7" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Run any code generator first, then lint,</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">type checks, tests, build, and coverage</text>
+<circle cx="34" cy="222" r="3.4" fill="#2a85c7" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">Stop immediately if any gate is already</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">failing</text>
+<circle cx="34" cy="285" r="3.4" fill="#2a85c7" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#26344a">Skip this on a resumed run when an earlier</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">attempt already proved it green</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#5d6c85">Proves any later failure was introduced by this run,</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#5d6c85">not inherited from the repository</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#2a85c7" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#2a85c7" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">manifest.json</text>
+<text x="28" y="581" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/runs/&lt;id&gt;/commands.jsonl</text>
+</g>
+<g transform="translate(90,951)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge4)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#3275c8" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#3275c8" fill-opacity="0.12" stroke="#3275c8" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#3275c8">5</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">SKIP WHAT IS ALREADY FIXED</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule4)"/>
+<circle cx="34" cy="159" r="3.4" fill="#3275c8" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Scan again immediately before each batch</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">starts</text>
+<circle cx="34" cy="222" r="3.4" fill="#3275c8" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">If earlier batches already cleared these</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">findings, close the batch and spend no agent</text>
+<circle cx="34" cy="285" r="3.4" fill="#3275c8" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#26344a">Collect fresh size warnings for the batch’s</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">files — the frozen ones cite line numbers</text>
+<text x="50" y="346" font-size="19" font-weight="500" fill="#26344a">that have since moved</text>
+<text x="28" y="380" font-size="16.5" font-style="italic" fill="#5d6c85">Never pays an agent to fix something that is already</text>
+<text x="28" y="405" font-size="16.5" font-style="italic" fill="#5d6c85">gone</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#3275c8" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#3275c8" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">manifest.json</text>
+</g>
+<g transform="translate(655,951)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge5)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#3a66c9" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#3a66c9" fill-opacity="0.12" stroke="#3a66c9" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#3a66c9">6</text>
+<rect x="358" y="32" width="116" height="28" rx="14" fill="#12b3c5" fill-opacity="0.10" stroke="#12b3c5" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="374" cy="46" r="4" fill="#12b3c5" fill-opacity="0.9"/>
+<text x="386" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the agent</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">FIX ONE BATCH</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule5)"/>
+<circle cx="34" cy="159" r="3.4" fill="#3a66c9" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Batches run one at a time; the agent gets</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">the findings, the files they live in, and</text>
+<text x="50" y="220" font-size="19" font-weight="500" fill="#26344a">your code standards</text>
+<circle cx="34" cy="250" r="3.4" fill="#3a66c9" fill-opacity="0.9"/>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">Findings must be fixed or explained; size</text>
+<text x="50" y="283" font-size="19" font-weight="500" fill="#26344a">warnings are judged against your documented</text>
+<text x="50" y="311" font-size="19" font-weight="500" fill="#26344a">exemptions</text>
+<circle cx="34" cy="341" r="3.4" fill="#3a66c9" fill-opacity="0.9"/>
+<text x="50" y="346" font-size="19" font-weight="500" fill="#26344a">It may run only the commands your config</text>
+<text x="50" y="374" font-size="19" font-weight="500" fill="#26344a">allows, works under a time limit, and</text>
+<text x="50" y="402" font-size="19" font-weight="500" fill="#26344a">answers with one structured report</text>
+<text x="28" y="436" font-size="16.5" font-style="italic" fill="#5d6c85">Changes structure only — the behavior has to survive</text>
+<text x="28" y="461" font-size="16.5" font-style="italic" fill="#5d6c85">untouched</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#3a66c9" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#3a66c9" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/runs/&lt;id&gt;/agents/</text>
+<text x="28" y="581" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">stream-batch-NN-*.jsonl</text>
+<text x="28" y="605" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">rejected-*.txt</text>
+</g>
+<g transform="translate(1220,951)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge6)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#4356c9" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#4356c9" fill-opacity="0.12" stroke="#4356c9" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#4356c9">7</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">VERIFY THE BATCH</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule6)"/>
+<circle cx="34" cy="159" r="3.4" fill="#4356c9" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Re-run the gates, scoped to the packages</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">that changed, with coverage always on</text>
+<circle cx="34" cy="222" r="3.4" fill="#4356c9" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">Try up to two lightweight repairs when a</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">gate goes red</text>
+<circle cx="34" cy="285" r="3.4" fill="#4356c9" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#26344a">Send a coverage-only failure to a</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">test-writing agent; a mixed failure goes</text>
+<text x="50" y="346" font-size="19" font-weight="500" fill="#26344a">back to the refactor agent first</text>
+<text x="28" y="380" font-size="16.5" font-style="italic" fill="#5d6c85">Stops a batch that broke the build from reaching the</text>
+<text x="28" y="405" font-size="16.5" font-style="italic" fill="#5d6c85">next one</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#4356c9" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#4356c9" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">manifest.json</text>
+<text x="28" y="581" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/runs/&lt;id&gt;/commands.jsonl</text>
+</g>
+<g transform="translate(1785,951)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge7)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#4b47ca" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#4b47ca" fill-opacity="0.12" stroke="#4b47ca" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#4b47ca">8</text>
+<rect x="358" y="32" width="116" height="28" rx="14" fill="#12b3c5" fill-opacity="0.10" stroke="#12b3c5" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="374" cy="46" r="4" fill="#12b3c5" fill-opacity="0.9"/>
+<text x="386" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the agent</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">BRING IN A SUPERVISOR</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule7)"/>
+<circle cx="34" cy="159" r="3.4" fill="#4b47ca" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">When the quick repairs run out, a read-only</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">supervisor diagnoses the failure</text>
+<circle cx="34" cy="222" r="3.4" fill="#4b47ca" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">It either grants one guided retry or rules</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">the failure a human problem</text>
+<circle cx="34" cy="285" r="3.4" fill="#4b47ca" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#26344a">If the gates are still red after that, the</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">run stops with the diagnosis attached as</text>
+<text x="50" y="346" font-size="19" font-weight="500" fill="#26344a">evidence</text>
+<text x="28" y="380" font-size="16.5" font-style="italic" fill="#5d6c85">Buys judgment exactly once, instead of retrying</text>
+<text x="28" y="405" font-size="16.5" font-style="italic" fill="#5d6c85">forever</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#4b47ca" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#4b47ca" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/runs/&lt;id&gt;/agents/</text>
+<text x="28" y="581" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">stream-batch-NN-supervisor.jsonl</text>
+</g>
+<g transform="translate(90,1666)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge8)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#5337cb" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#5337cb" fill-opacity="0.12" stroke="#5337cb" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#5337cb">9</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">RULE ON THE BATCH</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule8)"/>
+<circle cx="34" cy="159" r="3.4" fill="#5337cb" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Scan again — the code rules, and a copied</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">block that merely moved is not gone</text>
+<circle cx="34" cy="222" r="3.4" fill="#5337cb" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">Gone counts as resolved; still there with</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">nothing changed counts as declined, with the</text>
+<text x="50" y="283" font-size="19" font-weight="500" fill="#26344a">agent’s reasoning kept</text>
+<circle cx="34" cy="313" r="3.4" fill="#5337cb" fill-opacity="0.9"/>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">Partly fixed earns one more pass, and</text>
+<text x="50" y="346" font-size="19" font-weight="500" fill="#26344a">whatever survives that is recorded as</text>
+<text x="50" y="374" font-size="19" font-weight="500" fill="#26344a">declined</text>
+<text x="28" y="408" font-size="16.5" font-style="italic" fill="#5d6c85">Work finished without a report still counts, and</text>
+<text x="28" y="433" font-size="16.5" font-style="italic" fill="#5d6c85">changed files come from git, minus generated output</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#5337cb" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#5337cb" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">manifest.json</text>
+<text x="28" y="581" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/friction.jsonl</text>
+</g>
+<g transform="translate(655,1666)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge9)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#5b28cc" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#5b28cc" fill-opacity="0.12" stroke="#5b28cc" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#5b28cc">10</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">KNOW WHEN TO STOP</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule9)"/>
+<circle cx="34" cy="159" r="3.4" fill="#5b28cc" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Three declines in a row end the run — the</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">pattern is systemic, and more spend will not</text>
+<text x="50" y="220" font-size="19" font-weight="500" fill="#26344a">fix it</text>
+<circle cx="34" cy="250" r="3.4" fill="#5b28cc" fill-opacity="0.9"/>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">A refusal on scope grounds counts as a</text>
+<text x="50" y="283" font-size="19" font-weight="500" fill="#26344a">decline and the run carries on</text>
+<circle cx="34" cy="313" r="3.4" fill="#5b28cc" fill-opacity="0.9"/>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">A harness rate limit or your batch budget</text>
+<text x="50" y="346" font-size="19" font-weight="500" fill="#26344a">parks the run instead of failing it</text>
+<text x="28" y="380" font-size="16.5" font-style="italic" fill="#5d6c85">Each batch is saved before the next begins, and</text>
+<text x="28" y="405" font-size="16.5" font-style="italic" fill="#5d6c85">declines are read back — resuming re-runs nothing</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#5b28cc" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#5b28cc" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">manifest.json</text>
+</g>
+<g transform="translate(1220,1666)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge10)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#6318cc" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#6318cc" fill-opacity="0.12" stroke="#6318cc" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#6318cc">11</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#6b09cd" fill-opacity="0.10" stroke="#6b09cd" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">the engine</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">MEASURE THE BURN-DOWN</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule10)"/>
+<circle cx="34" cy="159" r="3.4" fill="#6318cc" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Scan the whole scope once more and report</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">findings before and after, one line per kind</text>
+<circle cx="34" cy="222" r="3.4" fill="#6318cc" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">A parked run reports no burn-down — resume</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">it to finish and measure</text>
+<circle cx="34" cy="285" r="3.4" fill="#6318cc" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#26344a">Keep every batch outcome, retry, token cost,</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">and point of friction in one folder</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#5d6c85">Turns the cleanup into a number you can check rather</text>
+<text x="28" y="377" font-size="16.5" font-style="italic" fill="#5d6c85">than a claim</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#6318cc" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#6318cc" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/runs/&lt;id&gt;/</text>
+<text x="28" y="581" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">agents.jsonl</text>
+<text x="28" y="605" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/friction.jsonl</text>
+</g>
+<g transform="translate(1785,1666)">
+<rect x="0" y="0" width="500" height="633" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge11)" stroke-width="1.5" filter="url(#lift)"/>
+<rect x="0" y="0" width="500" height="633" rx="20" fill="none" stroke="#6b09cd" stroke-opacity="0.10" stroke-width="6"/>
+<circle cx="42" cy="46" r="19" fill="#6b09cd" fill-opacity="0.12" stroke="#6b09cd" stroke-opacity="0.75" stroke-width="1.4"/>
+<text x="42" y="53" text-anchor="middle" font-size="19" font-weight="600" fill="#6b09cd">12</text>
+<rect x="350" y="32" width="124" height="28" rx="14" fill="#12b3c5" fill-opacity="0.10" stroke="#12b3c5" stroke-opacity="0.45" stroke-width="1"/>
+<circle cx="366" cy="46" r="4" fill="#12b3c5" fill-opacity="0.9"/>
+<text x="378" y="51" font-size="14.5" fill="#33415a" fill-opacity="0.92">you decide</text>
+<text x="28" y="112" font-size="26" font-weight="700" letter-spacing="0.6" fill="#0d1626">REVIEW AND COMMIT</text>
+<rect x="28" y="126" width="150" height="2" fill="url(#rule11)"/>
+<circle cx="34" cy="159" r="3.4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="50" y="164" font-size="19" font-weight="500" fill="#26344a">Read each declined batch alongside the</text>
+<text x="50" y="192" font-size="19" font-weight="500" fill="#26344a">agent’s own reasoning for leaving it</text>
+<circle cx="34" cy="222" r="3.4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="50" y="227" font-size="19" font-weight="500" fill="#26344a">Fix it by hand, or accept it as known debt</text>
+<text x="50" y="255" font-size="19" font-weight="500" fill="#26344a">in the baseline</text>
+<circle cx="34" cy="285" r="3.4" fill="#6b09cd" fill-opacity="0.9"/>
+<text x="50" y="290" font-size="19" font-weight="500" fill="#26344a">Review the working-tree diff and commit it —</text>
+<text x="50" y="318" font-size="19" font-weight="500" fill="#26344a">the engine never commits</text>
+<text x="28" y="352" font-size="16.5" font-style="italic" fill="#5d6c85">Leaves the last call on unfixed debt with a human</text>
+<line x1="28" y1="507" x2="472" y2="507" stroke="#6b09cd" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
+<text x="28" y="531" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#6b09cd" fill-opacity="1">SAVED TO DISK</text>
+<text x="28" y="557" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">lightsout.scan-baseline.json</text>
+</g>
+<g filter="url(#lift)"><rect x="500.5" y="2387" width="1374" height="76" rx="38.0" fill="#ffffff" stroke="url(#rail)" stroke-width="1.6"/></g>
+<circle cx="552.5" cy="2425.0" r="11" fill="none" stroke="#12b3c5" stroke-width="1.8"/>
+<path d="M546.5,2425.0 l4.5,5 l8-9.5" fill="none" stroke="#12b3c5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="582.5" y="2434.0" font-size="26" font-weight="600" fill="#0d1626">The engine never commits. It hands back a measured before-and-after and a diff you review.</text>
+</svg>

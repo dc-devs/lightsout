@@ -103,6 +103,8 @@ Hand the finished spec to the factory. `/implement` follows the plan, writes the
 
 Deterministic gates run between every stage. If a test, lint, type-check, or coverage command fails, the pipeline stops. When the run succeeds, the complete record is written to `.lightsout/runs/<id>/`.
 
+[![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
+
 ```text
 /implement .claude/plans/rate-limiting/plan.md
 ```

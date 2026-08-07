@@ -132,7 +132,7 @@
 <text x="28" y="349" font-size="16.5" font-style="italic" fill="#5d6c85">begins</text>
 <line x1="28" y1="423" x2="472" y2="423" stroke="#386ac8" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
 <text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#386ac8" fill-opacity="1">SAVED TO DISK</text>
-<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">decisions.json — chosen approach</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">decisions.json</text>
 </g>
 <g transform="translate(90,867)">
 <rect x="0" y="0" width="500" height="549" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge4)" stroke-width="1.5" filter="url(#lift)"/>
@@ -158,8 +158,8 @@
 <line x1="28" y1="423" x2="472" y2="423" stroke="#4552ca" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
 <text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#4552ca" fill-opacity="1">SAVED TO DISK</text>
 <text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">&lt;plans&gt;/&lt;name&gt;.md</text>
-<text x="28" y="497" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#67758d">or &lt;name&gt;/overview.md + phase-*.md</text>
-<text x="28" y="521" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#67758d">failed drafts are retained for review</text>
+<text x="28" y="497" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">&lt;plans&gt;/&lt;name&gt;/overview.md</text>
+<text x="28" y="521" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">&lt;plans&gt;/&lt;name&gt;/phase-*.md</text>
 </g>
 <g transform="translate(655,867)">
 <rect x="0" y="0" width="500" height="549" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge5)" stroke-width="1.5" filter="url(#lift)"/>
@@ -184,8 +184,7 @@
 <text x="28" y="377" font-size="16.5" font-style="italic" fill="#5d6c85">on its own</text>
 <line x1="28" y1="423" x2="472" y2="423" stroke="#523acb" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
 <text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#523acb" fill-opacity="1">SAVED TO DISK</text>
-<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">plan edits + Decision Log entries</text>
-<text x="28" y="497" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">decisions.json — assumptions flagged</text>
+<text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">decisions.json</text>
 </g>
 <g transform="translate(1220,867)">
 <rect x="0" y="0" width="500" height="549" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge6)" stroke-width="1.5" filter="url(#lift)"/>
@@ -209,7 +208,6 @@
 <line x1="28" y1="423" x2="472" y2="423" stroke="#5e21cc" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3 5"/>
 <text x="28" y="447" font-size="12.5" font-weight="600" letter-spacing="1.8" fill="#5e21cc" fill-opacity="1">SAVED TO DISK</text>
 <text x="28" y="473" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">.lightsout/plans/&lt;name&gt;/dedup.json</text>
-<text x="28" y="497" font-family="Menlo, SF Mono, monospace" font-size="14.5" fill="#152233">plan edits + Prior Art section</text>
 </g>
 <g transform="translate(1785,867)">
 <rect x="0" y="0" width="500" height="549" rx="20" fill="#ffffff" fill-opacity="0.97" stroke="url(#edge7)" stroke-width="1.5" filter="url(#lift)"/>
