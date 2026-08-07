@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import type { CommandResult } from '@/common/types/CommandResult';
+import { collectChildOutput } from '@/common/utils/collectChildOutput';
 
 interface Params {
 	command: string;
@@ -16,69 +18,29 @@ interface Params {
  * failure or timeout; an exit code is a result, not an exception — the
  * caller owns what it means.
  */
-export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }: Params) => {
-	return new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve, reject) => {
-		// `env` is passed explicitly rather than left to ambient inheritance — see
-		// the same note in runCommand. It is inert in production and is what makes
-		// the harness binary stubbable from a test: without it, a test that empties
-		// PATH still spawns the real harness, which costs real money.
-		const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: process.env });
+export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }: Params): Promise<CommandResult> => {
+	// `env` is passed explicitly rather than left to ambient inheritance — see
+	// the same note in runCommand. It is inert in production and is what makes
+	// the harness binary stubbable from a test: without it, a test that empties
+	// PATH still spawns the real harness, which costs real money.
+	// `detached` puts the harness at the head of its own process group, so a
+	// timeout kills the tools it spawned along with it. See the same note in
+	// runCommand.
+	const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: process.env, detached: true });
 
-		let stdout = '';
-		let stderr = '';
-		let lineBuffer = '';
-
-		const emitLines = (text: string, flush = false) => {
-			if (!onStdoutLine) {
-				return;
-			}
-
-			lineBuffer += text;
-
-			const lines = lineBuffer.split('\n');
-
-			lineBuffer = flush ? '' : (lines.pop() ?? '');
-
-			for (const line of lines) {
-				if (line.trim()) {
-					onStdoutLine(line);
-				}
-			}
-		};
-
-		const timeout = timeoutMs
-			? setTimeout(() => {
-					child.kill('SIGKILL');
-					reject(new Error(`${command} timed out after ${timeoutMs}ms`));
-				}, timeoutMs)
-			: undefined;
-
-		child.stdout.on('data', (chunk: Buffer) => {
-			const text = chunk.toString();
-
-			stdout += text;
-			emitLines(text);
-		});
-
-		child.stderr.on('data', (chunk: Buffer) => {
-			stderr += chunk.toString();
-		});
-
-		child.on('error', (error) => {
-			clearTimeout(timeout);
-			reject(error);
-		});
-
-		child.on('close', (code) => {
-			clearTimeout(timeout);
-			emitLines('', true);
-			resolve({ exitCode: code ?? -1, stdout, stderr });
-		});
-
-		if (stdinText !== undefined) {
-			child.stdin.write(stdinText);
-		}
-
-		child.stdin.end();
+	// Listeners attach before stdin is written, so a harness that answers
+	// immediately cannot out-run the collector.
+	const collected = collectChildOutput({
+		child,
+		timeout: timeoutMs ? { ms: timeoutMs, message: `${command} timed out after ${timeoutMs}ms` } : undefined,
+		onStdoutLine,
 	});
+
+	if (stdinText !== undefined) {
+		child.stdin?.write(stdinText);
+	}
+
+	child.stdin?.end();
+
+	return collected;
 };

@@ -52,7 +52,10 @@ const setupClaude = async ({
 			'  prev="$arg"',
 			'done',
 			`cat > '${stdinPath}'`,
-			...(delaySeconds > 0 ? [`sleep ${delaySeconds}`] : []),
+			// `exec` so the hang IS this process rather than a child of it: a plain
+			// `sleep` would survive the driver's SIGKILL, outlive the test as an
+			// orphan, and keep the inherited stdout pipe open.
+			...(delaySeconds > 0 ? [`exec sleep ${delaySeconds}`] : []),
 			...stdoutChunks.flatMap((chunk, index) => [
 				...(index > 0 && chunkDelay ? ['sleep 0.2'] : []),
 				`printf '%s' '${chunk}'`,

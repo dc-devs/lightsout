@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import type { CommandResult } from '@/common/types/CommandResult';
+import { collectChildOutput } from '@/common/utils/collectChildOutput';
 
 interface Params {
 	/** Full shell command from consumer config (e.g. `pnpm --filter api check`). */
@@ -15,41 +15,22 @@ interface Params {
  * result, not an exception (the engine owns what failure means).
  */
 export const runCommand = ({ command, cwd, timeoutMs }: Params) => {
-	return new Promise<CommandResult>((resolve, reject) => {
-		// `env` is passed explicitly rather than left to ambient inheritance. In
-		// production this is identical — the child inherited exactly these values
-		// anyway — but it makes the environment a visible input, which is what lets
-		// a test stub a binary onto PATH. Some runners (Jest) hand test code a copy
-		// of process.env that real child processes do not inherit, so without this
-		// a PATH-stubbing test silently probes the machine instead of its fixture.
-		const child = spawn(command, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+	// `env` is passed explicitly rather than left to ambient inheritance. In
+	// production this is identical — the child inherited exactly these values
+	// anyway — but it makes the environment a visible input, which is what lets
+	// a test stub a binary onto PATH. Some runners (Jest) hand test code a copy
+	// of process.env that real child processes do not inherit, so without this
+	// a PATH-stubbing test silently probes the machine instead of its fixture.
+	// `detached` makes the shell its own process-group leader, so a gate that
+	// blows its deadline can be killed WITH the tree it started. Without it,
+	// killing `pnpm test` leaves the test runner underneath it running on a
+	// machine nobody is watching. Ctrl-C still reaches it — collectChildOutput
+	// relays the signal, which is the job the terminal's foreground group did
+	// before the child left it.
+	const child = spawn(command, { cwd, shell: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env, detached: true });
 
-		let stdout = '';
-		let stderr = '';
-
-		const timeout = timeoutMs
-			? setTimeout(() => {
-					child.kill('SIGKILL');
-					reject(new Error(`command timed out after ${timeoutMs}ms: ${command}`));
-				}, timeoutMs)
-			: undefined;
-
-		child.stdout.on('data', (chunk: Buffer) => {
-			stdout += chunk.toString();
-		});
-
-		child.stderr.on('data', (chunk: Buffer) => {
-			stderr += chunk.toString();
-		});
-
-		child.on('error', (error) => {
-			clearTimeout(timeout);
-			reject(error);
-		});
-
-		child.on('close', (code) => {
-			clearTimeout(timeout);
-			resolve({ exitCode: code ?? -1, stdout, stderr });
-		});
+	return collectChildOutput({
+		child,
+		timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : undefined,
 	});
 };
