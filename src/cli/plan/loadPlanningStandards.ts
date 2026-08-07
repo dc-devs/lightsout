@@ -1,6 +1,7 @@
 import { detectStandardsChannels, readStandards } from '@/standards';
 import type { LightsoutConfig } from '@/contracts';
 import { dim } from '@/cli/common/terminal/dim';
+import { messageOf } from '@/common/utils/messageOf';
 
 interface Params {
 	cwd: string;
@@ -20,7 +21,7 @@ export const loadPlanningStandards = async ({ cwd, config }: Params): Promise<st
 
 		standards = await readStandards({ cwd, paths: standardsPaths, channels });
 	} catch (error) {
-		console.log(dim(`standards not loaded (non-fatal): ${error instanceof Error ? error.message : String(error)}`));
+		console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error })}`));
 		standards = undefined;
 	}
 

@@ -4,6 +4,7 @@ import { AuthoredFacts, type PlanFacts } from '@/contracts';
 import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
 import { readPlanWorkspaceFile } from '@/plan/common/utils/readPlanWorkspaceFile';
 import { verifyFacts } from '@/plan/verifyFacts';
+import { messageOf } from '@/common/utils/messageOf';
 
 interface Params {
 	cwd: string;
@@ -92,7 +93,7 @@ export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: P
 			notFound: (filePath) => `no authored facts for plan ${name} at ${filePath} — author facts.json ({ request, areas }), then re-run: lightsout plan verify-facts --name ${name}`,
 		});
 	} catch (error) {
-		return { status: 'failed' as const, workspaceDir, error: error instanceof Error ? error.message : String(error) };
+		return { status: 'failed' as const, workspaceDir, error: messageOf({ error }) };
 	}
 
 	const verification = await verifyFacts({ cwd, facts: authored });

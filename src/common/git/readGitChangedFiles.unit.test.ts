@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, describe, test } from '@jest/globals';
@@ -94,6 +94,37 @@ describe('readGitChangedFiles', () => {
 		const changed = await readGitChangedFiles({ cwd });
 
 		// no worktree means no git truth — the caller degrades to agent-reported files
+		expect(changed).toBe(undefined);
+	});
+
+	test('a directory that does not exist reports undefined rather than raising the spawn failure', async () => {
+		const changed = await readGitChangedFiles({ cwd: '/lightsout/no/such/directory' });
+
+		expect(changed).toBe(undefined);
+	});
+
+	test('a rename reports the destination path, which is the file that now exists', async () => {
+		const { cwd } = setupChangedRepo({ write: { 'src/renamed.ts': 'export const renamed = 1;\n' } });
+
+		// git records a staged rename as `old -> new`; only the new path is a file
+		// anything downstream can open
+		execFileSync('git', ['add', '-A'], { cwd });
+        execFileSync('git', ['mv', 'src/renamed.ts', 'src/moved.ts'], { cwd });
+
+		const changed = await readGitChangedFiles({ cwd });
+
+		expect(changed).toContain('src/moved.ts');
+	});
+
+	test('a worktree whose index is corrupt reports undefined instead of a half-truth', async () => {
+		const { cwd } = setupChangedRepo({ write: { 'src/added.ts': 'export const added = 1;\n' } });
+
+		// the prefix still resolves — that is path arithmetic — but status cannot
+		// read the index, and a partial changed-file list is worse than none
+		writeFileSync(join(cwd, '.git', 'index'), 'this is not an index file');
+
+		const changed = await readGitChangedFiles({ cwd });
+
 		expect(changed).toBe(undefined);
 	});
 });

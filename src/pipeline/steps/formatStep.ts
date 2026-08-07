@@ -4,6 +4,7 @@ import { appendCommandLog } from '@/runState';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
 import { gates } from '@/pipeline/common/utils/gates';
+import { messageOf } from '@/common/utils/messageOf';
 
 const formatTimeoutMs = 10 * 60_000;
 
@@ -34,7 +35,7 @@ export const formatStep = ({ run }: Params): PipelineStep => ({
 			result = await runCommand({ command: formatCommand, cwd: run.cwd, timeoutMs: formatTimeoutMs });
 		} catch (error) {
 			// A formatter that times out or fails to spawn is a red step, not a crash.
-			result = { exitCode: -1, stdout: '', stderr: error instanceof Error ? error.message : String(error) };
+			result = { exitCode: -1, stdout: '', stderr: messageOf({ error }) };
 		}
 
 		await appendCommandLog({

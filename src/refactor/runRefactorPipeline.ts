@@ -12,7 +12,7 @@ import type { Driver } from '@/drivers';
 import { runGates } from '@/pipeline';
 import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '@/runState';
 import { runScan } from '@/scan';
-import { detectStandardsChannels, readStandards } from '@/standards';
+import { resolveStandards } from '@/standards';
 import { countByDetector } from '@/refactor/countByDetector';
 import { initializeRun } from '@/refactor/initializeRun';
 import { seedResumeState } from '@/refactor/seedResumeState';
@@ -124,11 +124,9 @@ const executeRefactor = async ({
 		await setStep({ record: { ...record, status: RunStatus.Passed } });
 	}
 
-	const standardsPaths = config.standards === false ? [] : (config.standards ?? ['lightsout:code-defaults']);
-	const testStandardsPaths = config.testStandards === false ? [] : (config.testStandards ?? ['lightsout:test-defaults']);
-	const channels = config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config.packagesDir ?? 'packages', packages: [] }));
-	const standards = await readStandards({ cwd, paths: standardsPaths, channels });
-	const testStandards = await readStandards({ cwd, paths: testStandardsPaths, channels });
+	// A refactor run has no package scope of its own, so channels come from the
+	// repo root manifest.
+	const { standards, testStandards } = await resolveStandards({ cwd, config, packages: [] });
 	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
 
 	let declineStreak = seeded.declineStreak;

@@ -1,7 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import type { LightsoutConfig } from '@/contracts';
 import type { Driver } from '@/drivers';
+import { PipelineRun } from '@/pipeline/PipelineRun';
+import { formatStep } from '@/pipeline/steps/formatStep';
+import { createRun } from '@/runState';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
@@ -82,4 +86,19 @@ test('format: a green formatter that turns a gate red fails the run as a configu
 	expect(logged?.['exitCode']).toBe(0);
 	// a green command carries no output tail
 	expect(logged?.['outputTail']).toBe(undefined);
+});
+
+test('formatStep: called with no formatter configured it does nothing, whatever order it was reached in', async () => {
+	const cwd = setupConsumerRepo();
+	const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+	const manifest = await createRun({ cwd, plan: 'plan.md', pipeline: 'implement', driver: 'stub', config });
+	const run = new PipelineRun({ cwd, config, driver: { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) }, manifest });
+
+	const step = formatStep({ run });
+
+	// the pipeline skips it first — this is the guard behind that, asserted
+	// directly because the machinery in front of it can never let this happen
+	expect(step.skip?.()).toBe('no format command configured');
+	expect(await step.run()).toBe(undefined);
+	expect(run.current().steps).toStrictEqual([]);
 });

@@ -188,3 +188,54 @@ test('write-tests fan-out: a deleted source file is skipped, never sent to a wri
 	// only the surviving file earned a writer — got:\n${writerTargets.join('\n')}
 	expect(writerTargets).toStrictEqual(['src/add.ts']);
 });
+
+// A file that cannot be read but IS still on disk is not a deletion. Treating
+// the two alike would silently drop a real source file from the test-writing
+// fan-out, leaving it uncovered with nothing said about it.
+test('write-tests fan-out: an unreadable file that still exists keeps its writer, unlike a deleted one', async () => {
+	const dir = setupConsumerRepo();
+
+	linkTypescript({ dir });
+
+	const writerTargets: string[] = [];
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'write-tests') {
+				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, 'test/feature.test.js'), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			// A directory standing where the source file should be: it exists, so
+			// stat succeeds, but readFile cannot produce text for it.
+			rmSync(join(dir, 'src/index.js'));
+			mkdirSync(join(dir, 'src/index.js'));
+
+			return { text: report({ changedFiles: [{ path: 'src/index.js', summary: 'changed' }] }), exitCode: 0 };
+		},
+	};
+
+	const progress: string[] = [];
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await loadConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	expect(result.ok).toBe(true);
+	// it is on disk, so it is a target — not narrated away as deleted
+	expect(writerTargets).toStrictEqual(['src/index.js']);
+	expect(progress.some((line) => line.includes('deleted file(s) skipped'))).toBe(false);
+});

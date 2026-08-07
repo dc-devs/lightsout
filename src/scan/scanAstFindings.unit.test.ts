@@ -101,3 +101,22 @@ test('the size audit measures each function against the cap its NAME earns, spar
 	// 1)}
 	expect(sizes.some((finding) => finding.cluster.includes('(anonymous)'))).toBeFalsy();
 });
+
+// Arrow functions carry no name of their own, so the reportable label comes
+// from the variable they are assigned to. A `function` declaration and a class
+// method DO carry one, and that is the name the finding must use.
+test('size: a function declaration and a class method are reported under their own names', async () => {
+	const body = `${'\tconst padding = 1;\n'.repeat(90)}`;
+	const dir = setupRepo({
+		'declared.ts': `export function declaredHelper() {\n${body}\treturn 1;\n}\n`,
+		'method.ts': `export class Service {\n\tdoTheWork() {\n${body}\t\treturn 1;\n\t}\n}\n`,
+	});
+
+	const { findings } = await runScan({ cwd: dir, persist: false });
+	const named = findings.filter((finding) => finding.detector === 'size').map((finding) => finding.detail);
+
+	expect(named.some((detail) => detail.includes("'declaredHelper'"))).toBe(true);
+	expect(named.some((detail) => detail.includes("'doTheWork'"))).toBe(true);
+	// never the placeholder an unnamed node would get
+	expect(named.some((detail) => detail.includes('(anonymous)'))).toBe(false);
+});

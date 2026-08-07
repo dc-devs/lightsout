@@ -16,7 +16,7 @@ export const readFileContents = async ({ cwd, files }: Params): Promise<Map<stri
 	const contents = new Map<string, string>();
 
 	for (const file of new Set(files)) {
-		contents.set(file, (await readFile(join(cwd, file), 'utf8').catch(() => '')) ?? '');
+		contents.set(file, await readFile(join(cwd, file), 'utf8').catch(() => ''));
 	}
 
 	return contents;

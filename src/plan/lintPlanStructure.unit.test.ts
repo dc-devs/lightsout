@@ -795,3 +795,19 @@ test('lintPlanStructure: a create heading with no path-shaped code span contribu
 	// a bare symbol name is not a path and is never stat-ed
 	expect(findings.filter((finding) => finding.check === StructuralCheck.PathExists)).toStrictEqual([]);
 });
+
+test('lintPlanStructure: a plan file that cannot be read is a finding, not a silent pass', async () => {
+	const cwd = setupConsumerRepo();
+	const planPath = join(cwd, 'unreadable-plan.md');
+
+	// a directory standing where the plan should be: the draft claimed a path
+	// that holds no text, and a clean lint would let that through as structural
+	mkdirSync(planPath);
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [planPath] });
+
+	expect(findings.map(({ issue, location }) => ({ issue, location }))).toStrictEqual([
+		{ issue: 'plan file could not be read', location: planPath },
+	]);
+	expect(findings[0]?.fix).toMatch(/ensure the draft wrote the plan file/);
+});

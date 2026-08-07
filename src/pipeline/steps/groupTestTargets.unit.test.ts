@@ -84,3 +84,69 @@ test('write-tests fan-out: files that import each other share ONE writer; unrela
 	// grouping narrated — got:\n${progress.join('\n')}
 	expect(progress.some((line) => line.includes('2 group(s) across 3 file(s) (import-graph)'))).toBeTruthy();
 });
+
+// An import component larger than the writer cap would hand one agent a
+// pathological amount of context. It is split into sorted chunks instead, and
+// the split is narrated so the run explains why one concept got two writers.
+test('write-tests fan-out: an import component above the writer cap splits into chunks, and says so', async () => {
+	const dir = setupConsumerRepo();
+
+	linkTypescript({ dir });
+
+	const writerPrompts: string[] = [];
+	const chainLength = 14;
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'write-tests') {
+				writerPrompts.push(prompt);
+
+				const testFile = `test/writer-${writerPrompts.length}.test.js`;
+
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, testFile), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			// One chain: every file imports the next, so they form a single
+			// connected component longer than the cap.
+			const changedFiles = [];
+
+			for (let index = 0; index < chainLength; index += 1) {
+				const next = index + 1 < chainLength ? `import { link${index + 1} } from './link${index + 1}';\n` : '';
+				const body = `export const link${index} = () => ${index + 1 < chainLength ? `link${index + 1}()` : index};\n`;
+
+				writeFileSync(join(dir, `src/link${index}.ts`), `${next}\n${body}`);
+				changedFiles.push({ path: `src/link${index}.ts`, summary: 'chain' });
+			}
+
+			return { text: report({ changedFiles }), exitCode: 0 };
+		},
+	};
+
+	const progress: string[] = [];
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await loadConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	expect(result.ok).toBe(true);
+
+	const splitLine = progress.find((line) => line.includes('exceeds the'));
+
+	expectDefined(splitLine);
+	expect(splitLine).toMatch(/import component of 14 files exceeds the 12-file writer cap/);
+	// one oversized component becomes more than one writer
+	expect(writerPrompts.length).toBeGreaterThan(1);
+});

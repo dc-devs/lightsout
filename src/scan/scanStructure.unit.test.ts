@@ -146,6 +146,48 @@ describe('scanStructure', () => {
 		expect(domain[0]?.files.map((file) => file.path).sort()).toStrictEqual(['src/a/utils/formatCurrency.ts', 'src/a/utils/formatDate.ts']);
 	});
 
+	test('never groups on a verb that only says how a value is reached', async () => {
+		const { dir } = setupStructureRepo({
+			files: {
+				'src/a/utils/isTestFile.ts': 'export const isTestFile = () => true;\n',
+				'src/a/utils/isInertFile.ts': 'export const isInertFile = () => true;\n',
+				'src/a/utils/resolveConfig.ts': 'export const resolveConfig = () => 1;\n',
+				'src/a/utils/resolveDriver.ts': 'export const resolveDriver = () => 2;\n',
+				// a verb that carries a subject with it still graduates
+				'src/a/utils/validateEmail.ts': 'export const validateEmail = () => 1;\n',
+				'src/a/utils/validatePhone.ts': 'export const validatePhone = () => 2;\n',
+			},
+		});
+
+		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
+
+		const domain = allFindings.filter((finding) => finding.detector === 'structure' && finding.cluster.startsWith('domain:'));
+
+		// is*/resolve* would graduate to `predicates/` and `resolution/` — folders
+		// named for the ROLE of the code they hold, which folder-structure.md bans;
+		// `validation/` names a subject, which is what a domain folder is for
+		expect(domain.map((finding) => finding.cluster)).toStrictEqual(['domain:src/a/utils:validate']);
+	});
+
+	test('reads a generator template line as string content, not as a second export', async () => {
+		const { dir } = setupStructureRepo({
+			files: {
+				// the emitted text starts at column 0 and reads exactly like a
+				// declaration, but it sits inside a template literal
+				'src/gen/writeBarrel.ts':
+					'export const writeBarrel = ({ name }: { name: string }) => {\n\treturn `// generated\nexport const ${name}: Record<string, string> = {};\n`;\n};\n',
+			},
+		});
+
+		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
+
+		const findings = allFindings.filter((finding) => finding.detector === 'structure');
+
+		// one real export, whose name the filename already matches — counting the
+		// interpolated placeholder would make this a multi-export violation
+		expect(findings.map((finding) => finding.cluster)).toStrictEqual([]);
+	});
+
 	test('flags a folder over the census cap, counting every file including its barrel', async () => {
 		const { dir } = setupStructureRepo({
 			files: {

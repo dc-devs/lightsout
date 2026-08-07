@@ -1,88 +1,138 @@
-import { writeFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@jest/globals';
+import { expect, describe, test, jest } from '@jest/globals';
+import type { LightsoutConfig } from '@/contracts';
+import type { Driver } from '@/drivers';
 import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planCommand } from '@/cli/plan';
+import { planCommand } from '@/cli/plan/planCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { writePlanDeliverable } from '@tests/helpers/writePlanDeliverable';
 
-// planCommand is pure dispatch, so each test drives a route to the point where
-// the subcommand it picked is unmistakable in the output — the deterministic
-// routes (lint, verify-facts) run to completion, and the agent routes are
-// observed at the config resolution they reach before any harness is spawned.
-const setupPlan = ({ args, plan, config }: { args: string[]; plan?: string; config?: Record<string, unknown> }) => {
+// Mocked Imports
+// -------------------------
+// planCommand is a dispatcher: the only behaviour it owns is which subcommand
+// runs and what reaches it. The subcommands are other modules' entry points, so
+// they are stubbed rather than driven — running them for real would spawn a
+// harness to prove a routing decision.
+
+const mockPlanVerifyFactsCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockPlanLintCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockPlanDraftCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockPlanDedupCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockPlanGradeCommand = jest.fn<(params: unknown) => Promise<void>>();
+const mockResolveConfigAndDriver = jest.fn<(params: unknown) => Promise<{ config?: LightsoutConfig; driver: Driver }>>();
+const mockLoadPlanningStandards = jest.fn<(params: unknown) => Promise<string | undefined>>();
+
+// -------------------------
+
+jest.mock('@/cli/plan/planVerifyFactsCommand', () => ({ planVerifyFactsCommand: (params: unknown) => mockPlanVerifyFactsCommand(params) }));
+jest.mock('@/cli/plan/planLintCommand', () => ({ planLintCommand: (params: unknown) => mockPlanLintCommand(params) }));
+jest.mock('@/cli/plan/planDraftCommand', () => ({ planDraftCommand: (params: unknown) => mockPlanDraftCommand(params) }));
+jest.mock('@/cli/plan/planDedupCommand', () => ({ planDedupCommand: (params: unknown) => mockPlanDedupCommand(params) }));
+jest.mock('@/cli/plan/planGradeCommand', () => ({ planGradeCommand: (params: unknown) => mockPlanGradeCommand(params) }));
+jest.mock('@/cli/common/utils/resolveConfigAndDriver', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
+jest.mock('@/cli/plan/loadPlanningStandards', () => ({ loadPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
+
+const stubDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
+
+const setupPlan = ({ args }: { args: string[] }) => {
 	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo({ git: false });
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-command-'));
+	const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false }, plansDir: 'docs/plans' };
 
-	if (plan !== undefined) {
-		writePlanDeliverable({ cwd, name: 'demo', body: plan });
+	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver });
+	mockLoadPlanningStandards.mockResolvedValue('STANDARDS');
+
+	for (const mock of [mockPlanVerifyFactsCommand, mockPlanLintCommand, mockPlanDraftCommand, mockPlanDedupCommand, mockPlanGradeCommand]) {
+		mock.mockResolvedValue(undefined);
 	}
 
-	if (config) {
-		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify(config));
-	}
-
-	return { context: { flags: parseFlags({ args }), rest: args, cwd }, cwd, ...captured };
+	return { context: { flags: parseFlags({ args }), rest: args, cwd }, cwd, config, ...captured };
 };
 
-test('planCommand: the lint subcommand runs the deterministic lint and exits 0 on a clean plan', async () => {
-	const { context, logged, exitCodes } = setupPlan({ args: ['lint', '--name', 'demo'], plan: cleanPlanBody() });
+/** The first argument the given subcommand was handed. */
+const argsOf = (mock: jest.Mock<(params: unknown) => Promise<void>>) => mock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
 
-	await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+describe('planCommand', () => {
+	test('routes verify-facts without resolving a harness, because it runs no agent', async () => {
+		const { context, cwd } = setupPlan({ args: ['verify-facts', '--name', 'demo'] });
 
-	expect(logged[1]).toBe('\nplan lint demo — clean (1 file(s))');
-	expect(exitCodes).toStrictEqual([0]);
-});
+		await planCommand(context);
 
-test('planCommand: the verify-facts subcommand routes to the deterministic verifier — no config, no driver, no agent', async () => {
-	const { context, errors, exitCodes } = setupPlan({ args: ['verify-facts', '--name', 'demo'] });
-
-	await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
-
-	expect(errors[0] ?? '').toMatch(/no authored facts for plan demo/);
-	expect(exitCodes).toStrictEqual([1]);
-});
-
-test('planCommand: the draft subcommand resolves config and driver after the required --name — a broken config stops it there', async () => {
-	const { context } = setupPlan({
-		
-		args: ['draft', '--name', 'demo'],
-		config: { driver: 'codex', scripts: { check: 'true', testUnit: 'true', testCoverage: false } },
+		expect(mockPlanVerifyFactsCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanVerifyFactsCommand)?.cwd).toBe(cwd);
+		// a deterministic subcommand must not cost a harness resolution
+		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
 	});
 
-	await expect(planCommand(context)).rejects.toThrow(/renamed to `harness`/);
-});
+	test('routes lint without resolving a harness either', async () => {
+		const { context } = setupPlan({ args: ['lint', '--name', 'demo'] });
 
-test('planCommand: an agent subcommand without --name prints the usage text and exits 1 before any config is read', async () => {
-	const { context, errors, exitCodes } = setupPlan({
-		
-		args: ['draft'],
-		config: { driver: 'codex', scripts: { check: 'true', testUnit: 'true', testCoverage: false } },
+		await planCommand(context);
+
+		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
+		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
 	});
 
-	await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+	test('routes draft with the resolved harness, plans directory, and standards', async () => {
+		const { context, cwd, config } = setupPlan({ args: ['draft', '--name', 'demo'] });
 
-	expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
-	expect(exitCodes).toStrictEqual([1]);
-});
+		await planCommand(context);
 
-test('planCommand: an unknown subcommand prints the usage text on stderr and exits 1', async () => {
-	const { context, logged, errors, exitCodes } = setupPlan({ args: ['explore', '--name', 'demo'] });
+		expect(mockPlanDraftCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanDraftCommand)).toMatchObject({ cwd, name: 'demo', standards: 'STANDARDS', config, driver: stubDriver });
+		// the config's plansDir is resolved to an absolute path before dispatch
+		expect(argsOf(mockPlanDraftCommand)?.plansDir).toBe(join(cwd, 'docs/plans'));
+	});
 
-	await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+	test('routes dedup', async () => {
+		const { context } = setupPlan({ args: ['dedup', '--name', 'demo'] });
 
-	expect(logged).toStrictEqual([]);
-	expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
-	expect(exitCodes).toStrictEqual([1]);
-});
+		await planCommand(context);
 
-test('planCommand: no subcommand at all prints the usage text on stderr and exits 1', async () => {
-	const { context, errors, exitCodes } = setupPlan({ args: ['--name', 'demo'] });
+		expect(mockPlanDedupCommand).toHaveBeenCalledTimes(1);
+		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
+	});
 
-	await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+	test('routes grade', async () => {
+		const { context } = setupPlan({ args: ['grade', '--name', 'demo'] });
 
-	expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
-	expect(exitCodes).toStrictEqual([1]);
+		await planCommand(context);
+
+		expect(mockPlanGradeCommand).toHaveBeenCalledTimes(1);
+		expect(mockPlanDedupCommand).not.toHaveBeenCalled();
+	});
+
+	test('a --plans flag overrides the configured plans directory', async () => {
+		const { context, cwd } = setupPlan({ args: ['draft', '--name', 'demo', '--plans', 'custom/plans'] });
+
+		await planCommand(context);
+
+		expect(argsOf(mockPlanDraftCommand)?.plansDir).toBe(join(cwd, 'custom/plans'));
+	});
+
+	test('an unknown subcommand prints the usage text and exits 1', async () => {
+		const { context, errors, exitCodes } = setupPlan({ args: ['sideways'] });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('no subcommand at all is the same as an unknown one', async () => {
+		const { context, exitCodes } = setupPlan({ args: [] });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('an agent subcommand without --name fails before resolving a harness', async () => {
+		const { context } = setupPlan({ args: ['draft'] });
+
+		await expect(planCommand(context)).rejects.toThrow(/process\.exit|--name/);
+
+		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
+	});
 });

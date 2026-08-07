@@ -1,4 +1,3 @@
-export { DecisionSource } from '@/contracts/plan/DecisionSource';
 export { PlanDraftStatus } from '@/contracts/plan/PlanDraftStatus';
 export { PlanVariant } from '@/contracts/plan/PlanVariant';
 export { PlanGrade } from '@/contracts/plan/PlanGrade';

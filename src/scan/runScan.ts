@@ -1,6 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { z } from 'zod';
 import type { ScanFinding } from '@/contracts';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { listSourceFiles } from '@/common/utils/listSourceFiles';
@@ -14,12 +13,7 @@ import { scanFilenameDuplicates } from '@/scan/scanFilenameDuplicates';
 import { scanModuleBoundaries } from '@/scan/scanModuleBoundaries';
 import { scanPlacement } from '@/scan/scanPlacement';
 import { scanStructure } from '@/scan/scanStructure';
-
-const ScanBaseline = z.object({
-	at: z.string(),
-	path: z.string(),
-	clusters: z.array(z.string()),
-});
+import { applyScanBaseline } from '@/scan/common/utils/applyScanBaseline';
 
 /** Deepest directory (depth ≥ 2) holding >50% of findings — a report dominated by one path should diagnose its own config gap (live case: a generated Prisma dir missing from `generated`). */
 const dominantPath = ({ findings }: { findings: ScanFinding[] }) => {
@@ -138,57 +132,13 @@ export const runScan = async ({ cwd, path, all = false, writeBaseline = false, p
 
 	await mkdir(dir, { recursive: true });
 
-	// The baseline lives at the repo root, next to the config, so it gets
-	// COMMITTED — a debt ledger the PR that creates it makes reviewable, and
-	// whose shrinking diff is the burn-down. Never under gitignored .lightsout/.
-	const baselinePath = join(cwd, 'lightsout.scan-baseline.json');
-	const baselineRaw = await readFile(baselinePath, 'utf8').catch(() => undefined);
+	const baseline = await applyScanBaseline({ cwd, path, findings, all, writeBaseline });
 
-	let baselineJson: unknown;
-
-	try {
-		baselineJson = baselineRaw === undefined ? undefined : JSON.parse(baselineRaw);
-	} catch {
-		baselineJson = null; // present but corrupt — safeParse below fails it into the unreadable branch
-	}
-
-	const baseline = baselineRaw === undefined ? undefined : ScanBaseline.safeParse(baselineJson);
-
-	let reported = findings;
-
-	if (writeBaseline) {
-		const clusters = [...new Set(findings.map((finding) => finding.cluster))];
-
-		await writeFile(baselinePath, `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', clusters }, undefined, '\t')}\n`, 'utf8');
-		notes.push(
-			`baseline ${baseline === undefined ? 'written' : 'refreshed'}: ${clusters.length} cluster(s) accepted as existing debt — commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`,
-		);
-	} else if (baseline === undefined) {
-		if (findings.length > 0) {
-			notes.push(`no baseline — \`lightsout scan --baseline\` accepts these findings as existing debt so future scans report only what's new`);
-		}
-	} else if (baseline.success) {
-		const accepted = new Set(baseline.data.clusters);
-		const fresh = findings.filter((finding) => !accepted.has(finding.cluster));
-		const currentClusters = new Set(findings.map((finding) => finding.cluster));
-		const resolved = baseline.data.clusters.filter((cluster) => !currentClusters.has(cluster)).length;
-
-		reported = all ? findings : fresh;
-
-		if (!all && findings.length > fresh.length) {
-			notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
-		}
-
-		if (resolved > 0) {
-			notes.push(`${resolved} baselined cluster(s) no longer found — burn-down progress (--baseline to refresh the ledger)`);
-		}
-	} else {
-		notes.push('lightsout.scan-baseline.json is unreadable — ignored; re-run with --baseline to rewrite it');
-	}
+	notes.push(...baseline.notes);
 
 	if (persist) {
 		await writeFile(join(dir, 'scan.json'), `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`, 'utf8');
 	}
 
-	return { findings: reported, notes };
+	return { findings: baseline.reported, notes };
 };

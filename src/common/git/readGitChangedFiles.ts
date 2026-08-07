@@ -37,7 +37,11 @@ export const readGitChangedFiles = async ({ cwd }: Params) => {
 		.filter(Boolean)
 		.map((line) => {
 			const path = line.slice(3);
-			const renameTarget = path.split(' -> ').at(-1) ?? path;
+			// A rename is recorded as `old -> new`; only the destination is a file
+			// that now exists. Indexed from the last arrow rather than split, so
+			// there is no impossible "no segments" case to guard against.
+			const arrow = path.lastIndexOf(' -> ');
+			const renameTarget = arrow === -1 ? path : path.slice(arrow + ' -> '.length);
 
 			return renameTarget.replace(/^"|"$/g, '');
 		})

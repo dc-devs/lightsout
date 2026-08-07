@@ -6,7 +6,6 @@ export { WorkReport, WorkReportStatus, SupervisorDecision, SupervisorVerdict } f
 export { FrictionArea, FrictionEntry, FrictionRecord } from '@/contracts/friction';
 export { ScanDetector, ScanSeverity, ScanFinding } from '@/contracts/scan';
 export {
-	DecisionSource,
 	PlanDraftStatus,
 	PlanVariant,
 	PlanGrade,

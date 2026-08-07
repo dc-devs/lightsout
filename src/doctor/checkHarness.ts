@@ -2,6 +2,7 @@ import type { LightsoutConfig } from '@/contracts';
 import { runCommand } from '@/common/utils/runCommand';
 import { probeTimeoutMs } from '@/doctor/common/constants/probeTimeoutMs';
 import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
+import { messageOf } from '@/common/utils/messageOf';
 
 const driverBinaries: Record<string, string> = { 'claude-code': 'claude', codex: 'codex' };
 
@@ -42,7 +43,7 @@ export const checkHarness = async ({ cwd, config, probeHarness }: Params): Promi
 		} catch (error) {
 			failures.push({
 				binary,
-				detail: `${binary} not runnable: ${error instanceof Error ? error.message : String(error)}`,
+				detail: `${binary} not runnable: ${messageOf({ error })}`,
 				fix: `install the ${binary} CLI and log in`,
 			});
 		}

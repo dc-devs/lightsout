@@ -149,3 +149,25 @@ test('planDraftCommand: structural findings that survive the repair loop print w
 	expect(errors[2] ?? '').toMatch(/^ {5}fix: resolve 'TBD'/);
 	expect(exitCodes).toStrictEqual([1]);
 });
+
+test('planDraftCommand: --scope single forces the one-file variant instead of leaving it to the estimate', async () => {
+	const { cwd, plansDir, name, flags, logged, exitCodes } = setupDraft({ args: ['--scope', 'single'] });
+
+	await expect(planDraftCommand({
+		cwd,
+		driver: writerDriver({ body: cleanPlanBody() }),
+		name,
+		plansDir,
+		standards: undefined,
+		config: undefined,
+		flags,
+	})).rejects.toThrow(/process\.exit/);
+
+	const printed = printedLines({ logged });
+
+	// the flag decides, so the file lands beside the plans dir rather than in a
+	// folder of phases
+	expect(printed[0]).toBe('\nplan draft demo — single, structurally clean');
+	expect(printed[1]).toBe(`  ✓ ${join(plansDir, 'demo.md')}`);
+	expect(exitCodes).toStrictEqual([0]);
+});

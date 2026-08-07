@@ -1,5 +1,5 @@
 import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
-import { pathFromLine } from '@/plan/common/utils/pathFromLine';
+import { pathFromLine } from '@/plan/common/paths/pathFromLine';
 import { planCreatePaths } from '@/plan/planCreatePaths';
 
 /** Split a plan into its `##` sections (a `###` subheading stays inside its section). */

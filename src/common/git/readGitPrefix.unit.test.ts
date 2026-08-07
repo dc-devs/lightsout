@@ -46,4 +46,12 @@ describe('readGitPrefix', () => {
 		// prefix
 		expect(prefix).toBe(undefined);
 	});
+
+	test('a directory that does not exist reports no prefix rather than raising the spawn failure', async () => {
+		// git cannot even be started here, which is not the caller's problem: the
+		// prefix is an optional refinement, so an unanswerable question is undefined
+		const prefix = await readGitPrefix({ cwd: '/lightsout/no/such/directory' });
+
+		expect(prefix).toBe(undefined);
+	});
 });
