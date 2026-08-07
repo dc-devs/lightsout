@@ -30,6 +30,7 @@ export const groupDuplicateFunctions = ({ sites }: Params): ScanFinding[] => {
 				cluster: `ast:${hash.slice(0, 12)}`,
 				files: group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine })),
 				detail: `${group.map((site) => `'${site.name}'`).join(', ')} have identical bodies after identifier normalization (${group[0]?.tokenCount} tokens)`,
+					guidance: 'Renaming the identifiers did not make these different functions.',
 			});
 		}
 	}

@@ -1,6 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '@/plan/common/utils/pathExists';
+import { pathExists } from '@/plan/common/paths/pathExists';
 
 interface Params {
 	/** Kebab plan name — the deliverable's basename. */

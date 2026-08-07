@@ -19,7 +19,7 @@ interface Params {
 /**
  * Every markdown file under `dir`, recursively, as display paths under the
  * config entry as written, in lexicographic order — the same walk and
- * ordering `tools/generateStandardsBarrels.mjs` builds the bundled defaults
+ * ordering `tools/generateStandardsBarrels.ts` builds the bundled defaults
  * with, so a folder entry and the bundled docs agree. Symlinks inside the
  * tree are neither followed nor collected, matching that generator's `find`.
  */

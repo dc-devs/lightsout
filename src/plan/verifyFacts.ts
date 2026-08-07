@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AuthoredFacts, PathVerification } from '@/contracts';
-import { pathExists } from '@/plan/common/utils/pathExists';
+import { pathExists } from '@/plan/common/paths/pathExists';
 
 interface Params {
 	cwd: string;

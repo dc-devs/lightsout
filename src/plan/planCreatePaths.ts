@@ -1,4 +1,4 @@
-import { pathFromLine } from '@/plan/common/utils/pathFromLine';
+import { pathFromLine } from '@/plan/common/paths/pathFromLine';
 
 interface Params {
 	/** The full markdown text of one plan file. */
