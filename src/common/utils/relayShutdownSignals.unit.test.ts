@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { expect, describe, test } from '@jest/globals';
+import { expect, describe, jest, test } from '@jest/globals';
 import { relayShutdownSignals } from '@/common/utils/relayShutdownSignals';
 
 /** A detached shell that reports its grandchild's pid, then waits. */
@@ -24,8 +24,62 @@ const cleanup = ({ child, grandchildPid }: { child: ChildProcess; grandchildPid:
 	}
 };
 
+const alive = ({ pid }: { pid: number }) => {
+	try {
+		process.kill(pid, 0);
+
+		return true;
+	} catch {
+		return false;
+	}
+};
+
 /** Listener counts for the signals the relay owns. */
 const listeners = () => ({ interrupt: process.listenerCount('SIGINT'), terminate: process.listenerCount('SIGTERM') });
+
+/**
+ * A fresh copy of the module, so one test's shutdown does not latch the flag
+ * the next test needs unset, plus the interrupt handler it installed and a
+ * record of what it re-raises at the engine itself.
+ *
+ * `process.kill` is stubbed for the engine's own pid only — a real one would
+ * end the test run, which is the very thing the code under test is for. Signals
+ * aimed at the children still go through, so what reaches them is real.
+ */
+const setupRelay = async ({ child }: { child: ChildProcess }) => {
+	jest.resetModules();
+
+	const { relayShutdownSignals: fresh } = await import('@/common/utils/relayShutdownSignals');
+	const raised: NodeJS.Signals[] = [];
+	const realKill = process.kill.bind(process);
+
+	jest.spyOn(process, 'kill').mockImplementation((pid: number, signal?: string | number) => {
+		if (pid === process.pid) {
+			raised.push(signal as NodeJS.Signals);
+
+			return true;
+		}
+
+		return realKill(pid, signal as NodeJS.Signals);
+	});
+
+	const before = process.listeners('SIGINT');
+
+	fresh({ child });
+
+	const handler = process.listeners('SIGINT').find((listener) => !before.includes(listener)) as () => void;
+
+	return { handler, raised };
+};
+
+/** The handler cannot be awaited — Node calls it for its side effects — so settle on what it records. */
+const waitForRaise = async ({ raised }: { raised: NodeJS.Signals[] }) => {
+	for (let attempt = 1; attempt <= 200 && raised.length === 0; attempt += 1) {
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	}
+
+	return raised;
+};
 
 describe('relayShutdownSignals', () => {
 	test('listens while a child is running and stops once it is released', async () => {
@@ -76,6 +130,36 @@ describe('relayShutdownSignals', () => {
 		stop();
 
 		expect(listeners()).toStrictEqual(before);
+		cleanup({ child, grandchildPid });
+	});
+
+	test('stops the children before re-raising, so nothing outlives the engine', async () => {
+		const { child, grandchildPid } = await setupChild();
+		const { handler, raised } = await setupRelay({ child });
+
+		handler();
+
+		expect(await waitForRaise({ raised })).toStrictEqual(['SIGINT']);
+
+		// the re-raise is what ends the engine, so anything still running when it
+		// happens is orphaned — the children must already be gone by then
+		expect(alive({ pid: grandchildPid })).toBe(false);
+		cleanup({ child, grandchildPid });
+	});
+
+	test('ignores a repeat interrupt instead of restarting the grace period', async () => {
+		const { child, grandchildPid } = await setupChild();
+		const { handler, raised } = await setupRelay({ child });
+
+		handler();
+		handler();
+
+		await waitForRaise({ raised });
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		// a second Ctrl-C arriving mid-shutdown would otherwise start the wait
+		// over, making an impatient press the slowest way out
+		expect(raised).toStrictEqual(['SIGINT']);
 		cleanup({ child, grandchildPid });
 	});
 });

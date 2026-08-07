@@ -42,11 +42,23 @@ const cleanup = ({ child, grandchildPid }: { child: ChildProcess; grandchildPid:
 	}
 };
 
+/** A child that installs a no-op SIGTERM handler, so only SIGKILL can end it. */
+const setupStubbornChild = async () => {
+	const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); console.log('ready'); setInterval(() => {}, 1_000);"], {
+		stdio: ['ignore', 'pipe', 'pipe'],
+		detached: true,
+	});
+
+	await new Promise((resolve) => child.stdout?.once('data', resolve));
+
+	return child;
+};
+
 describe('terminateChildGroups', () => {
 	test('stops a backgrounded job, which would ignore an interrupt of its own', async () => {
 		const { child, grandchildPid } = await setupChild();
 
-		terminateChildGroups({ children: [child] });
+		await terminateChildGroups({ children: [child] });
 
 		// a shell sets SIGINT to ignore on the jobs it backgrounds, so relaying
 		// Ctrl-C verbatim would leave this running with nothing left to stop it
@@ -58,7 +70,7 @@ describe('terminateChildGroups', () => {
 		const first = await setupChild();
 		const second = await setupChild();
 
-		terminateChildGroups({ children: [first.child, second.child] });
+		await terminateChildGroups({ children: [first.child, second.child] });
 
 		expect(await waitForExit({ pid: first.grandchildPid })).toBe(true);
 		expect(await waitForExit({ pid: second.grandchildPid })).toBe(true);
@@ -75,13 +87,42 @@ describe('terminateChildGroups', () => {
 		});
 
 		await new Promise((resolve) => setTimeout(resolve, 100));
-		terminateChildGroups({ children: [child] });
-		await new Promise((resolve) => child.once('close', resolve));
+
+		// listened for before the terminate, which now returns only once the child
+		// is already gone — a close waited on afterwards would never arrive
+		const closed = new Promise((resolve) => child.once('close', resolve));
+
+		await terminateChildGroups({ children: [child] });
+		await closed;
 
 		expect(output).toContain('cleaned');
 	});
 
-	test('given nothing to stop, it does nothing', () => {
-		expect(() => terminateChildGroups({ children: [] })).not.toThrow();
+	test('kills a child that ignores the polite signal, once its grace period is up', async () => {
+		const child = await setupStubbornChild();
+
+		await terminateChildGroups({ children: [child], graceMs: 200 });
+		await new Promise((resolve) => child.once('exit', resolve));
+
+		// SIGTERM is catchable, so a harness that traps it and never exits would
+		// otherwise outlive the engine that spawned it — still running, still
+		// billing, with nothing left to stop it.
+		expect(child.signalCode).toBe('SIGKILL');
+	});
+
+	test('returns as soon as the children are gone rather than waiting out the grace', async () => {
+		const { child, grandchildPid } = await setupChild();
+		const started = Date.now();
+
+		await terminateChildGroups({ children: [child], graceMs: 10_000 });
+
+		// a child that honours SIGTERM must not make Ctrl-C feel broken
+		expect(Date.now() - started).toBeLessThan(5_000);
+		expect(await waitForExit({ pid: grandchildPid })).toBe(true);
+		cleanup({ child, grandchildPid });
+	});
+
+	test('given nothing to stop, it does nothing', async () => {
+		await expect(terminateChildGroups({ children: [] })).resolves.toBeUndefined();
 	});
 });

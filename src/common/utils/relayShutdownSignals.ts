@@ -5,9 +5,22 @@ const relayed: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 const live = new Set<ChildProcess>();
 
 let installed = false;
+let shuttingDown = false;
 
-const onSignal = (signal: NodeJS.Signals) => {
-	terminateChildGroups({ children: live });
+const onSignal = async (signal: NodeJS.Signals) => {
+	// A repeat Ctrl-C would otherwise start the grace period over, making an
+	// impatient second press the slowest way out. The wait is bounded already,
+	// so the right answer to the repeat is to keep going.
+	if (shuttingDown) {
+		return;
+	}
+
+	shuttingDown = true;
+
+	// Awaited, so the children are gone before the engine is. Re-raising while
+	// they were still being asked to stop is what orphaned a harness that traps
+	// SIGTERM: the engine died first and took the escalation with it.
+	await terminateChildGroups({ children: live });
 
 	// Re-raising restores the disposition the engine had before it listened: it
 	// dies on Ctrl-C, with the exit status a caller expects. Merely listening
@@ -17,7 +30,7 @@ const onSignal = (signal: NodeJS.Signals) => {
 	process.kill(process.pid, signal);
 };
 
-const handlers = new Map<NodeJS.Signals, () => void>(relayed.map((signal) => [signal, () => onSignal(signal)]));
+const handlers = new Map<NodeJS.Signals, () => void>(relayed.map((signal) => [signal, () => void onSignal(signal)]));
 
 const install = () => {
 	if (installed) {
@@ -61,6 +74,11 @@ interface Params {
  * pair each, because several harnesses run at once (the test writers go up to
  * five in parallel) and per-child listeners would trip Node's max-listener
  * warning under load.
+ *
+ * The engine outlives the interrupt just long enough to see the children out —
+ * SIGTERM, then a hard kill for whatever ignored it — before re-raising and
+ * dying itself. Ctrl-C therefore costs the grace period only when a child
+ * declines to honour it.
  *
  * @returns a function that stops relaying to this child — call it once the
  * child has settled, or its group id will be reused by an unrelated process.

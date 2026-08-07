@@ -15920,6 +15920,9 @@ var checkGenerated = async ({ cwd, config: config2 }) => {
 // src/common/utils/runCommand.ts
 import { spawn } from "node:child_process";
 
+// src/common/constants/killGraceMs.ts
+var killGraceMs = 2e3;
+
 // src/common/utils/killProcessGroup.ts
 var killProcessGroup = ({ child, signal }) => {
   if (child.pid !== void 0 && process.platform !== "win32") {
@@ -15936,9 +15939,28 @@ var killProcessGroup = ({ child, signal }) => {
 };
 
 // src/common/utils/terminateChildGroups.ts
-var terminateChildGroups = ({ children }) => {
-  for (const child of children) {
+var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
+var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve3) => child.once("exit", () => resolve3()));
+var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
+  const targets = [...children];
+  for (const child of targets) {
     killProcessGroup({ child, signal: "SIGTERM" });
+  }
+  if (targets.length === 0) {
+    return;
+  }
+  let grace;
+  await Promise.race([
+    Promise.all(targets.map((child) => exited({ child }))),
+    new Promise((resolve3) => {
+      grace = setTimeout(resolve3, graceMs);
+    })
+  ]);
+  clearTimeout(grace);
+  for (const child of targets) {
+    if (!settled({ child })) {
+      killProcessGroup({ child, signal: "SIGKILL" });
+    }
   }
 };
 
@@ -15946,12 +15968,17 @@ var terminateChildGroups = ({ children }) => {
 var relayed = ["SIGINT", "SIGTERM"];
 var live = /* @__PURE__ */ new Set();
 var installed = false;
-var onSignal = (signal) => {
-  terminateChildGroups({ children: live });
+var shuttingDown = false;
+var onSignal = async (signal) => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  await terminateChildGroups({ children: live });
   uninstall();
   process.kill(process.pid, signal);
 };
-var handlers = new Map(relayed.map((signal) => [signal, () => onSignal(signal)]));
+var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
 var install = () => {
   if (installed) {
     return;
@@ -15982,7 +16009,6 @@ var relayShutdownSignals = ({ child }) => {
 };
 
 // src/common/utils/collectChildOutput.ts
-var killGraceMs = 2e3;
 var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
   return new Promise((resolve3, reject) => {
     let stdout = "";

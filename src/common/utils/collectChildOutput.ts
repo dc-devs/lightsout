@@ -1,10 +1,8 @@
 import type { ChildProcess } from 'node:child_process';
+import { killGraceMs } from '@/common/constants/killGraceMs';
 import type { CommandResult } from '@/common/types/CommandResult';
 import { killProcessGroup } from '@/common/utils/killProcessGroup';
 import { relayShutdownSignals } from '@/common/utils/relayShutdownSignals';
-
-/** How long a child gets to honour SIGTERM before it is killed outright. */
-const killGraceMs = 2_000;
 
 interface Params {
 	/** An already-spawned child whose stdout and stderr are piped. */
