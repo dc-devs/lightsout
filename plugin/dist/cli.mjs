@@ -34881,22 +34881,29 @@ var printStandardsRuleList = ({ rules }) => {
 // src/cli/common/render/printStandardsSummary.ts
 var countOf2 = ({ findings, rule, severity }) => findings.filter((finding) => finding.rule === rule && finding.severity === severity).length;
 var cell = ({ count }) => count === 0 ? "\u2014" : `${count}`;
-var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
+var printStandardsSummary = ({ findings, rules, reportPath: reportPath2 }) => {
   console.log("");
   if (findings.length === 0) {
     console.log(green("clean \u2014 nothing blocking, no advisories"));
     console.log(dim(`report: ${reportPath2}`));
     return;
   }
-  const rules = [...new Set(findings.map((finding) => finding.rule))];
-  const rows = rules.map((rule) => ({
-    cells: [
-      rule,
-      cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Blocking }) }),
-      cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Advisory }) })
-    ],
-    ruleAbove: false
-  }));
+  const summaryOf = ({ rule }) => rules.find((listing) => listing.rule === rule)?.summary ?? "";
+  const reported = [...new Set(findings.map((finding) => finding.rule))];
+  const rows = reported.flatMap((rule) => [
+    {
+      cells: [
+        rule,
+        cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Blocking }) }),
+        cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Advisory }) })
+      ]
+    },
+    {
+      cells: [summaryOf({ rule }), "", ""],
+      ruleAbove: false,
+      emphasis: dim
+    }
+  ]);
   const totals = {
     cells: [
       "total",
@@ -34915,9 +34922,10 @@ var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
 // src/cli/standardsCheckCommand.ts
 var reportPath = ".lightsout/standards-check.json";
 var standardsCheckCommand = async ({ flags, cwd }) => {
+  const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const rules = listStandardsRules({ config: config2 });
   if (flags.get("list") === true) {
-    const config2 = await loadConfig({ cwd }).catch(() => void 0);
-    printStandardsRuleList({ rules: listStandardsRules({ config: config2 }) });
+    printStandardsRuleList({ rules });
     process.exit(0);
   }
   const checkPath = getStringFlag({ flags, name: "path" });
@@ -34939,7 +34947,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
   for (const note of notes) {
     console.log(`${dim("\u2139")} ${dim(note)}`);
   }
-  printStandardsSummary({ findings: ordered, reportPath });
+  printStandardsSummary({ findings: ordered, rules, reportPath });
   process.exit(0);
 };
 

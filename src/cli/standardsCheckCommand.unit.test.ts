@@ -48,8 +48,13 @@ const setupCheck = ({
 	findings = [],
 	notes = [],
 	progress = [],
-}: { args?: string[]; findings?: StandardsFinding[]; notes?: string[]; progress?: string[] } = {}) => {
+	rules,
+}: { args?: string[]; findings?: StandardsFinding[]; notes?: string[]; progress?: string[]; rules?: StandardsRuleListing[] } = {}) => {
 	const captured = captureCommandOutput();
+
+	// The run path reads the listing too — it is where each reported rule's
+	// one-line summary comes from — so the stub answers on both paths.
+	mockListStandardsRules.mockReturnValue(rules ?? [listing({ rule: StandardsRule.SizeFunction, summary: 'a function longer than the size cap' })]);
 
 	mockRunStandardsCheck.mockImplementation(async ({ onProgress }) => {
 		for (const message of progress) {
@@ -113,13 +118,26 @@ describe('standardsCheckCommand', () => {
 	test('the same findings-first order carries into the summary table', async () => {
 		const { context, logged } = setupCheck({
 			findings: [finding(), finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Blocking, siteKey: 'boundary:src/a.ts' })],
+			rules: [
+				listing({ rule: StandardsRule.SizeFunction, summary: 'a function longer than the size cap' }),
+				listing({ rule: StandardsRule.ModuleBoundary, summary: 'a file deep-imported across a module boundary' }),
+			],
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		const ruleColumn = logged.filter((line) => line.startsWith('│')).map((line) => line.split('│')[1]?.trim());
 
-		expect(ruleColumn).toStrictEqual(['rule', 'module-boundary', 'size-function', 'total']);
+		// blocking leads, and each rule's summary sits under its own row rather
+		// than under whichever row the check happened to report first
+		expect(ruleColumn).toStrictEqual([
+			'rule',
+			'module-boundary',
+			'a file deep-imported across a module boundary',
+			'size-function',
+			'a function longer than the size cap',
+			'total',
+		]);
 	});
 
 	test('names the report file and exits 0, so a caller reads success from the exit code', async () => {

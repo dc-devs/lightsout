@@ -1,4 +1,5 @@
 import { StandardsSeverity, type StandardsFinding } from '@/contracts';
+import type { StandardsRuleListing } from '@/standardsCheck';
 import { renderTable } from '@/cli/common/render/renderTable';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
@@ -6,6 +7,8 @@ import { green } from '@/cli/common/terminal/green';
 
 interface Params {
 	findings: StandardsFinding[];
+	/** Every rule with its one-line summary — the tally names rule ids, which say nothing on their own. */
+	rules: StandardsRuleListing[];
 	/** Where the typed report was written, relative to the repo root. */
 	reportPath: string;
 }
@@ -22,8 +25,12 @@ const cell = ({ count }: { count: number }) => (count === 0 ? '—' : `${count}`
  * they ask for different things: a blocking finding is work, an advisory is
  * guidance someone has to judge in context. A repo carrying only advisories is
  * clean, and a single summed number would report it as indebted.
+ *
+ * Each rule's summary sits dim beneath its own row, the same shape `--list`
+ * uses: a tally of rule ids alone tells a reader how much they have without
+ * telling them what any of it is.
  */
-export const printStandardsSummary = ({ findings, reportPath }: Params): void => {
+export const printStandardsSummary = ({ findings, rules, reportPath }: Params): void => {
 	console.log('');
 
 	if (findings.length === 0) {
@@ -33,15 +40,22 @@ export const printStandardsSummary = ({ findings, reportPath }: Params): void =>
 		return;
 	}
 
-	const rules = [...new Set(findings.map((finding) => finding.rule))];
-	const rows = rules.map((rule) => ({
-		cells: [
-			rule,
-			cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Blocking }) }),
-			cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Advisory }) }),
-		],
-		ruleAbove: false,
-	}));
+	const summaryOf = ({ rule }: { rule: string }) => rules.find((listing) => listing.rule === rule)?.summary ?? '';
+	const reported = [...new Set(findings.map((finding) => finding.rule))];
+	const rows = reported.flatMap((rule) => [
+		{
+			cells: [
+				rule,
+				cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Blocking }) }),
+				cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Advisory }) }),
+			],
+		},
+		{
+			cells: [summaryOf({ rule }), '', ''],
+			ruleAbove: false,
+			emphasis: dim,
+		},
+	]);
 	const totals = {
 		cells: [
 			'total',

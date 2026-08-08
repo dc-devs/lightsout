@@ -11,13 +11,15 @@ import type { CommandContext } from '@/cli/common/types/CommandContext';
 const reportPath = '.lightsout/standards-check.json';
 
 export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	// --list answers "what does this repo enforce?" and runs nothing. A repo
-	// without a config still has an answer — every rule at its default — so a
-	// missing config is tolerated here exactly as the run path tolerates it.
-	if (flags.get('list') === true) {
-		const config = await loadConfig({ cwd }).catch(() => undefined);
+	// A repo without a config still has an answer — every rule at its default —
+	// so a missing config is tolerated on both paths, and both need the listing:
+	// `--list` prints it whole, the run path reads each rule's summary from it.
+	const config = await loadConfig({ cwd }).catch(() => undefined);
+	const rules = listStandardsRules({ config });
 
-		printStandardsRuleList({ rules: listStandardsRules({ config }) });
+	// --list answers "what does this repo enforce?" and runs nothing.
+	if (flags.get('list') === true) {
+		printStandardsRuleList({ rules });
 		process.exit(0);
 	}
 
@@ -47,6 +49,6 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 		console.log(`${dim('ℹ')} ${dim(note)}`);
 	}
 
-	printStandardsSummary({ findings: ordered, reportPath });
+	printStandardsSummary({ findings: ordered, rules, reportPath });
 	process.exit(0);
 };
