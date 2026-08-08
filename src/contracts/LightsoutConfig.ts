@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { Effort } from '@/contracts/Effort';
 import { Permissions } from '@/contracts/Permissions';
+// Through the barrel, not the two files: `standardsCheck` is a module of its
+// own inside contracts, and its index.ts is the path in. No cycle — nothing
+// under it reads the config.
+import { StandardsRule, StandardsSeverity } from '@/contracts/standardsCheck';
 
 /** One command's harness override: harness, model, and/or effort, each falling back to the global field. */
 const commandHarness = z
@@ -148,22 +152,29 @@ export const LightsoutConfig = z.object({
 	standardsChannels: z.array(z.string()).optional(),
 	/** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
 	scan: z.never('`scan` was renamed to `standardsChecks`').optional(),
-	/** `lightsout standards-check` tuning — per-repo floors, not global guesses. */
+	/**
+	 * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
+	 * value is either a severity, or an object with a severity and/or that
+	 * rule's own settings. A rule not named here keeps its default — silence
+	 * is never a change. Keyed by the closed rule list rather than a free
+	 * string, so a mistyped id fails parsing instead of silently disabling an
+	 * override the user believes is active (same reasoning as `commands`
+	 * being `.strict()`). Read the live state with
+	 * `lightsout standards-check --list`.
+	 */
 	standardsChecks: z
-		.object({
-			/** Minimum jscpd token span for a clone finding (default 50). */
-			minCloneTokens: z.number().int().positive().optional(),
-			/** Line-cap overrides for the size rules (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
-			size: z
-				.object({
-					file: z.number().int().positive().optional(),
-					tsxFile: z.number().int().positive().optional(),
-					function: z.number().int().positive().optional(),
-					hook: z.number().int().positive().optional(),
-					component: z.number().int().positive().optional(),
-				})
-				.optional(),
-		})
+		.partialRecord(
+			z.enum(StandardsRule),
+			z.union([
+				z.enum(StandardsSeverity),
+				z
+					.object({
+						severity: z.enum(StandardsSeverity).optional(),
+						settings: z.record(z.string(), z.number()).optional(),
+					})
+					.strict(),
+			]),
+		)
 		.optional(),
 });
 

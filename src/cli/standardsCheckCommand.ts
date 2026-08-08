@@ -1,7 +1,9 @@
 import { StandardsSeverity } from '@/contracts';
-import { runStandardsCheck } from '@/standardsCheck';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { listStandardsRules, runStandardsCheck } from '@/standardsCheck';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
+import { printStandardsRuleList } from '@/cli/common/render/printStandardsRuleList';
 import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
 import { dim } from '@/cli/common/terminal/dim';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
@@ -9,6 +11,16 @@ import type { CommandContext } from '@/cli/common/types/CommandContext';
 const reportPath = '.lightsout/standards-check.json';
 
 export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
+	// --list answers "what does this repo enforce?" and runs nothing. A repo
+	// without a config still has an answer — every rule at its default — so a
+	// missing config is tolerated here exactly as the run path tolerates it.
+	if (flags.get('list') === true) {
+		const config = await loadConfig({ cwd }).catch(() => undefined);
+
+		printStandardsRuleList({ rules: listStandardsRules({ config }) });
+		process.exit(0);
+	}
+
 	const checkPath = getStringFlag({ flags, name: 'path' });
 	const { findings, notes } = await runStandardsCheck({
 		cwd,

@@ -18,10 +18,18 @@ high-confidence and behavior-preserving:
 - If a Standards section is provided, any deviation from it
 - If a Standards findings section is provided, those are deterministic
   standards-check results on the changed files — address them FIRST; the engine
-  re-runs the checks after you report, and unresolved findings re-invoke you. Entries
-  under its Advisory subsection carry judgment: fix each unless a documented
-  exemption (e.g. orchestration functions) genuinely applies — never block
-  on them, and note applied exemptions in your summary.
+  re-runs the checks after you report, and unresolved findings re-invoke you.
+- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each
+  carries its own `guidance` line. Apply that guidance — there is no single
+  blanket rule covering every advisory, because they come from different rules
+  asking for different things. Never block on an advisory.
+- The hard limit below still governs an advisory: never change behavior or a
+  public API. An advisory whose only available fix would do either is REPORTED
+  as a noted exemption with your reason, never applied.
+- Deleting an export is a public-API change by definition. A dead-export-family
+  advisory (`dead-export`, `test-only-export`, `barrel-only-export`) is
+  therefore reported rather than acted on, unless the finding itself proves
+  nothing consumes the export.
 
 ## Hard limits
 

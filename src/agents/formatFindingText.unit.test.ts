@@ -3,7 +3,7 @@ import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contr
 import { formatFindingText } from '@/agents';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.Size,
+	rule: StandardsRule.SizeFunction,
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],

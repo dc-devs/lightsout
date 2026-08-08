@@ -1,6 +1,7 @@
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsRule, type StandardsFinding } from '@/contracts';
 import { collapseCasing } from '@/common/naming/collapseCasing';
 import { nameOf } from '@/common/naming/nameOf';
+import { buildFinding } from '@/standardsCheck/common/utils/buildFinding';
 
 // The name position rejects `${` before capturing: a code GENERATOR emits its
 // output as a template literal, so lines like `export const ${exportName}: …`
@@ -23,11 +24,12 @@ interface Params {
 }
 
 /**
- * The per-file half of the structure lint: one-export-per-file outside the
- * closed exception list, and filename ↔ export-name match.
+ * The per-file half of the structure lint: the `multi-export` rule
+ * (one-export-per-file outside the closed exception list) and the
+ * `filename-mismatch` rule (filename ↔ export-name match).
  *
- * Split out of `checkStructure` so that function is left sequencing its three
- * passes rather than carrying this logic inline. A module internal — covered
+ * Split out of `checkStructure` so that function is left sequencing its four
+ * rules rather than carrying this logic inline. A module internal — covered
  * through `checkStructure`'s own tests, which is where its behaviour is pinned.
  */
 export const checkFileExports = ({ file, text }: Params): StandardsFinding[] => {
@@ -58,27 +60,27 @@ export const checkFileExports = ({ file, text }: Params): StandardsFinding[] => 
 	const unionFamily = keywords('interface').length > 0 && keywords('type').length === 1 && keywords('interface').length + 1 === exports.length;
 
 	if (exports.length > 1 && !namedConstantFamily && !unionFamily) {
-		findings.push({
-			rule: StandardsRule.Structure,
-			severity: StandardsSeverity.Finding,
-			siteKey: `multi-export:${file}`,
-			files: [{ path: file }],
-			detail: `${exports.length} exports (${exports.map(({ name }) => name).join(', ')})`,
-			guidance: 'One export per file, outside the closed exception list.',
-		});
+		findings.push(
+			buildFinding({
+				rule: StandardsRule.MultiExport,
+				files: [{ path: file }],
+				detail: `${exports.length} exports (${exports.map(({ name }) => name).join(', ')})`,
+				guidance: 'One export per file, outside the closed exception list.',
+			}),
+		);
 	}
 
 	const primary = exports[0];
 
 	if (primary && exports.length === 1 && !dotPrefixes(nameOf(file)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
-		findings.push({
-			rule: StandardsRule.Structure,
-			severity: StandardsSeverity.Advisory,
-			siteKey: `filename-mismatch:${file}`,
-			files: [{ path: file }],
-			detail: `file '${nameOf(file)}' exports '${primary.name}'`,
-			guidance: 'The filename should match the export it holds.',
-		});
+		findings.push(
+			buildFinding({
+				rule: StandardsRule.FilenameMismatch,
+				files: [{ path: file }],
+				detail: `file '${nameOf(file)}' exports '${primary.name}'`,
+				guidance: 'The filename should match the export it holds.',
+			}),
+		);
 	}
 
 	return findings;

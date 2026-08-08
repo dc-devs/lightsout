@@ -1,7 +1,6 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
 import {
 	BatchOutcome,
-	StandardsRule,
 	StandardsSeverity,
 	WorkReportStatus,
 	type AgentUsage,
@@ -54,8 +53,8 @@ interface Params {
  * Execute one batch to a terminal condition: invoke the refactor executor on
  * the batch's findings, verify with scoped gates (cheap fix retries route by
  * gate kind — a red COVERAGE gate goes to the test writer, everything else
- * back to the refactor executor), then re-check the batch's clusters.
- * Clusters gone → resolved; agent changed nothing and clusters persist →
+ * back to the refactor executor), then re-check the batch's site keys.
+ * Sites gone → resolved; agent changed nothing and sites persist →
  * declined; partial → one re-invocation on the remainder, then whatever
  * persists is declined with the agent's rationale attached.
  */
@@ -88,7 +87,7 @@ export const runBatch = async ({
 
 	const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
 
-	const remainingClusters = async ({ frozen }: { frozen: StandardsFinding[] }) => {
+	const remainingSiteKeys = async ({ frozen }: { frozen: StandardsFinding[] }) => {
 		const { findings } = await checkLive();
 
 		return matchRemainingFindings({ frozen, live: findings });
@@ -97,27 +96,27 @@ export const runBatch = async ({
 	const batchChangedFiles = () => collectBatchChanges({ cwd, config, reportedFiles, attributedFiles });
 
 	// One live check up front serves two purposes: the staleness check (earlier
-	// batches may have already eliminated these clusters — no agent spent) and
+	// batches may have already eliminated these sites — no agent spent) and
 	// FRESH advisories (frozen worklist advisories cite pre-run line numbers;
 	// live lesson from run 50d4ab35, where the agent flagged the drift).
 	const preCheck = await checkLive();
 
 	if (matchRemainingFindings({ frozen: batch.findings, live: preCheck.findings }).length === 0) {
-		onProgress(`${batch.id}: clusters already resolved by earlier work — no agent spent`);
+		onProgress(`${batch.id}: sites already resolved by earlier work — no agent spent`);
 
-		return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: [] };
+		return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: [] };
 	}
 
 	const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file) => file.path)));
+	// Every advisory touching the batch's files, not just the size ones: each
+	// carries its own guidance, and one the agent never sees is one it can
+	// never judge.
 	const liveAdvisories = preCheck.findings.filter(
-		(finding) =>
-			finding.severity === StandardsSeverity.Advisory &&
-			finding.rule === StandardsRule.Size &&
-			finding.files.some((file) => batchFiles.has(file.path)),
+		(finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file) => batchFiles.has(file.path)),
 	);
 
 	// Up to two executor passes: the initial batch, then one re-invocation on
-	// whatever clusters survived a pass that DID change the tree (a partial).
+	// whatever sites survived a pass that DID change the tree (a partial).
 	let workFindings: StandardsFinding[] = batch.findings;
 
 	for (let pass = 1; pass <= 2; pass += 1) {
@@ -144,13 +143,13 @@ export const runBatch = async ({
 			const { failure } = attemptOutcome;
 
 			// Salvage check (live lesson: a laptop-sleep-killed agent had finished
-			// its edits but never reported): if the clusters are verifiably gone
+			// its edits but never reported): if the sites are verifiably gone
 			// AND gates are green, the work is done — classify it, don't discard it.
-			if ((await remainingClusters({ frozen: workFindings })).length === 0 && !(await gates())) {
-				rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the clusters are resolved and gates are green`);
+			if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !(await gates())) {
+				rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
 				onProgress(`${batch.id}: invocation failed but work verified on disk — salvaged as resolved`);
 
-				return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+				return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
 			}
 
 			return { kind: 'failed', error: `${batch.id}: ${failure}` };
@@ -165,7 +164,7 @@ export const runBatch = async ({
 
 			return {
 				kind: 'done',
-				report: { outcome: BatchOutcome.Declined, remainingClusters: await remainingClusters({ frozen: workFindings }), rationale },
+				report: { outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }), rationale },
 				changedFiles: await batchChangedFiles(),
 			};
 		}
@@ -218,10 +217,10 @@ export const runBatch = async ({
 			}
 		}
 
-		const remaining = await remainingClusters({ frozen: workFindings });
+		const remaining = await remainingSiteKeys({ frozen: workFindings });
 
 		if (remaining.length === 0) {
-			return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+			return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
 		}
 
 		if (report.changedFiles.length === 0 || pass === 2) {
@@ -229,12 +228,12 @@ export const runBatch = async ({
 			// honestly and move on; a decline never fails the run by itself.
 			return {
 				kind: 'done',
-				report: { outcome: BatchOutcome.Declined, remainingClusters: remaining, rationale },
+				report: { outcome: BatchOutcome.Declined, remainingSiteKeys: remaining, rationale },
 				changedFiles: await batchChangedFiles(),
 			};
 		}
 
-		onProgress(`${batch.id}: ${remaining.length} cluster(s) persist after a changing pass — one requeue`);
+		onProgress(`${batch.id}: ${remaining.length} site(s) persist after a changing pass — one requeue`);
 		workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
 	}
 

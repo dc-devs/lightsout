@@ -57,10 +57,10 @@ test('folder classification surfaces through boundary and barrel-star findings; 
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 	const boundary = findings.filter((finding) => finding.rule === 'module-boundary');
-	const star = findings.filter((finding) => finding.rule === 'barrel-hygiene' && finding.siteKey.startsWith('barrel-star:'));
+	const star = findings.filter((finding) => finding.rule === 'barrel-star');
 
 	// module: feat's barrel omits internal.ts, so the deep import flags — naming the module and its barrel
-	const feat = boundary.find((finding) => finding.siteKey === 'boundary:src/useInternal/u.ts');
+	const feat = boundary.find((finding) => finding.files.some((file) => file.path === 'src/useInternal/u.ts'));
 	// feat is classified a module — its internal deep import flags
 	expect(feat?.detail.includes("module 'src/feat'")).toBeTruthy();
 	// the finding names feat’s barrel path
@@ -68,11 +68,11 @@ test('folder classification surfaces through boundary and barrel-star findings; 
 
 	// domainFolder: fmt's barrel re-exports both files, hiding nothing → the deep import does NOT flag
 	// fmt is a domainFolder — deep import allowed, no boundary finding
-	expect(boundary.some((finding) => finding.siteKey === 'boundary:src/useFmt/u.ts')).toBeFalsy();
+	expect(boundary.some((finding) => finding.files.some((file) => file.path === 'src/useFmt/u.ts'))).toBeFalsy();
 
 	// module via own common/: box's barrel covers box.ts, yet owning common/ forces module status
 	// box is a module because it owns a common/ subfolder
-	expect(boundary.some((finding) => finding.siteKey === 'boundary:src/useBox/u.ts' && finding.detail.includes("module 'src/box'"))).toBeTruthy();
+	expect(boundary.some((finding) => finding.files.some((file) => file.path === 'src/useBox/u.ts') && finding.detail.includes("module 'src/box'"))).toBeTruthy();
 
 	// common-segment and src-root barrels are excluded from the module map, so their
 	// export * raises no star — only the genuine module barrel (box) does
@@ -94,7 +94,7 @@ test('nested-module chains defer the parent to domainFolder — the OUTERMOST cr
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 	const boundary = findings.filter((finding) => finding.rule === 'module-boundary');
-	const nested = boundary.find((finding) => finding.siteKey === 'boundary:src/useNested/u.ts');
+	const nested = boundary.find((finding) => finding.files.some((file) => file.path === 'src/useNested/u.ts'));
 
 	// child still hides hidden.ts → it is a module; group's only descendants live in
 	// child, so with the nested subtree removed group omits nothing → domainFolder.
@@ -122,7 +122,7 @@ test('a barrel that cannot be read exports nothing, so its folder stays a module
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 	const boundary = findings.filter((finding) => finding.rule === 'module-boundary');
-	const broken = boundary.find((finding) => finding.siteKey === 'boundary:src/useBroken/u.ts');
+	const broken = boundary.find((finding) => finding.files.some((file) => file.path === 'src/useBroken/u.ts'));
 
 	// a barrel nobody can read is assumed to hide everything — the safe
 	// direction: it never silently opens the module it fronts

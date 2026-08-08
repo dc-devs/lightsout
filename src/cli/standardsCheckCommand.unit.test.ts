@@ -1,8 +1,13 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, describe, test, jest } from '@jest/globals';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type LightsoutConfig, type StandardsFinding } from '@/contracts';
+import type { StandardsRuleListing } from '@/standardsCheck';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 // Mocked Imports
 // -------------------------
@@ -21,12 +26,16 @@ interface RunStandardsCheckParams {
 }
 
 const mockRunStandardsCheck = jest.fn<(params: RunStandardsCheckParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
+const mockListStandardsRules = jest.fn<(params: { config?: LightsoutConfig }) => StandardsRuleListing[]>();
 
-jest.mock('@/standardsCheck', () => ({ runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params) }));
+jest.mock('@/standardsCheck', () => ({
+	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
+	listStandardsRules: (params: { config?: LightsoutConfig }) => mockListStandardsRules(params),
+}));
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.Size,
+	rule: StandardsRule.SizeFunction,
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
@@ -53,11 +62,41 @@ const setupCheck = ({
 	return { context: { flags: parseFlags({ args }), rest: [], cwd: '/repo' }, ...captured };
 };
 
+const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleListing => ({
+	rule: StandardsRule.MultiExport,
+	doc: 'standards/code/style-guide/structure/one-export-per-file.md',
+	summary: 'more than one export in a file',
+	severity: StandardsSeverity.Finding,
+	fromConfig: false,
+	settings: {},
+	...overrides,
+});
+
+/**
+ * The --list path is its own arrangement: it runs no check, and it reads the
+ * repo's config off disk, so the cwd has to be a real directory — one holding a
+ * config, or one holding none.
+ */
+const setupRuleList = ({ cwd, rules = [listing()] }: { cwd: string; rules?: StandardsRuleListing[] }) => {
+	const captured = captureCommandOutput();
+
+	mockListStandardsRules.mockReturnValue(rules);
+
+	return { context: { flags: parseFlags({ args: ['--list'] }), rest: [], cwd }, ...captured };
+};
+
 /** The group headings the renderer printed, in the order they were printed. */
 const headingsOf = ({ logged }: { logged: string[] }) => logged.filter((line) => line.includes(' · '));
 
+/** The printed table's rows, cell by cell. */
+const cellsOf = ({ logged }: { logged: string[] }) =>
+	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
+
 /** What the command handed the standards check. */
 const checkParams = () => mockRunStandardsCheck.mock.calls[0]?.[0];
+
+/** What the command handed the rule ledger. */
+const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];
 
 describe('standardsCheckCommand', () => {
 	test('findings are printed before advisories, whatever order the check returned them in', async () => {
@@ -68,7 +107,7 @@ describe('standardsCheckCommand', () => {
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// an advisory read first would set the wrong expectation about the work
-		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 finding', 'ℹ size · 1 advisory']);
+		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 finding', 'ℹ size-function · 1 advisory']);
 	});
 
 	test('the same findings-first order carries into the summary table', async () => {
@@ -80,7 +119,7 @@ describe('standardsCheckCommand', () => {
 
 		const ruleColumn = logged.filter((line) => line.startsWith('│')).map((line) => line.split('│')[1]?.trim());
 
-		expect(ruleColumn).toStrictEqual(['rule', 'module-boundary', 'size', 'total']);
+		expect(ruleColumn).toStrictEqual(['rule', 'module-boundary', 'size-function', 'total']);
 	});
 
 	test('names the report file and exits 0, so a caller reads success from the exit code', async () => {
@@ -142,5 +181,59 @@ describe('standardsCheckCommand', () => {
 		expect(logged).toContain('clean — no findings, no advisories');
 		expect(logged.some((line) => line.startsWith('ℹ'))).toBe(false);
 		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('--list prints every rule with the state it runs at and the doc it enforces', async () => {
+		const { context, logged } = setupRuleList({
+			cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')),
+			rules: [
+				listing(),
+				listing({
+					rule: StandardsRule.Clone,
+					doc: 'standards/code/architecture/architecture-decisions.md',
+					summary: 'copy-pasted spans',
+					severity: StandardsSeverity.Advisory,
+					settings: { minTokens: 50 },
+				}),
+			],
+		});
+
+		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(cellsOf({ logged })).toStrictEqual([
+			['rule', 'state', 'standards doc'],
+			['multi-export', 'blocking', 'standards/code/style-guide/structure/one-export-per-file.md'],
+			['more than one export in a file', '', ''],
+			['clone', 'advisory', 'standards/code/architecture/architecture-decisions.md'],
+			['copy-pasted spans — minTokens 50', '', ''],
+			['2 rule(s)', '1 blocking', '1 advisory, 0 off'],
+		]);
+	});
+
+	test('--list answers the question without running a single check, and exits 0', async () => {
+		const { context, exitCodes } = setupRuleList({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')) });
+
+		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(mockRunStandardsCheck).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test("the repo's own config reaches the ledger, so what prints is this repo's policy", async () => {
+		const { context } = setupRuleList({ cwd: setupConsumerRepo({ git: false, config: { standardsChecks: { clone: 'off' } } }) });
+
+		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(listParams()?.config).toEqual(expect.objectContaining({ standardsChecks: { clone: 'off' } }));
+	});
+
+	test('a repo with no config still gets an answer — every rule at its default', async () => {
+		const { context, logged } = setupRuleList({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')) });
+
+		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// a missing config is tolerated here exactly as the run path tolerates it
+		expect(listParams()).toStrictEqual({ config: undefined });
+		expect(cellsOf({ logged })).toContainEqual(['multi-export', 'blocking', 'standards/code/style-guide/structure/one-export-per-file.md']);
 	});
 });

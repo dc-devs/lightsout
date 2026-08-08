@@ -1,7 +1,8 @@
 import { dirname } from 'node:path';
-import type ts from 'typescript';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsRule, type StandardsFinding } from '@/contracts';
 import { collectImportEdges } from '@/common/utils/collectImportEdges';
+import type { StandardsPass } from '@/standardsCheck/common/types/StandardsPass';
+import { buildFinding } from '@/standardsCheck/common/utils/buildFinding';
 
 /** The module that owns a common file: everything before its LAST `common` segment. */
 const commonOwner = (path: string) => {
@@ -29,24 +30,20 @@ const lowestCommonAncestor = (paths: string[]) => {
 	return shared.join('/');
 };
 
-interface Params {
-	cwd: string;
-	/** Repo-relative source files, TESTS INCLUDED — a test reaching into a module's common leaks the boundary too. */
-	files: string[];
-	compiler: typeof ts;
-}
-
 /**
  * Placement check: a file under `<module>/common/…` is module-internal
  * shared code; when an importer OUTSIDE that module reaches into it, the
  * standards' fix is promotion to the lowest common ancestor's `common/`.
  * Package/repo `src`-root common is shared by design and never a leak. This
  * is the only check here — duplicate/promotion-candidate detection already
- * lives in the filename-duplicate and AST tiers. Not gating: the fix is a
- * file move, so it informs the work-list rather than blocking. Runs only when
- * TypeScript resolves (import resolution required).
+ * lives in the filename and AST passes. Runs only when TypeScript resolves
+ * (import resolution required).
  */
-export const checkPlacement = async ({ cwd, files, compiler }: Params): Promise<StandardsFinding[]> => {
+export const checkPlacement: StandardsPass = async ({ cwd, files, compiler }) => {
+	if (compiler === undefined) {
+		return [];
+	}
+
 	const edges = await collectImportEdges({ cwd, files, compiler });
 	const leaksByFile = new Map<string, { owner: string; consumers: Set<string> }>();
 
@@ -69,15 +66,16 @@ export const checkPlacement = async ({ cwd, files, compiler }: Params): Promise<
 	for (const [file, { owner, consumers: consumerSet }] of leaksByFile) {
 		const consumers = [...consumerSet].sort();
 		const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname(consumer))]);
+		const sites = [{ path: file }, ...consumers.map((path) => ({ path }))];
 
-		findings.push({
-			rule: StandardsRule.Placement,
-			severity: StandardsSeverity.Finding,
-			siteKey: `placement:${file}`,
-			files: [{ path: file }, ...consumers.map((path) => ({ path }))],
-			detail: `'${file}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(', ')} — promote to ${lca}/common/`,
-			guidance: 'Shared code belongs in the common/ of the lowest folder that contains everyone using it.',
-		});
+		findings.push(
+			buildFinding({
+				rule: StandardsRule.Placement,
+				files: sites,
+				detail: `'${file}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(', ')} — promote to ${lca}/common/`,
+				guidance: 'Shared code belongs in the common/ of the lowest folder that contains everyone using it.',
+			}),
+		);
 	}
 
 	return findings;

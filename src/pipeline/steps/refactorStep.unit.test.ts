@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
@@ -9,13 +9,22 @@ import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 /**
- * A consumer repo whose implement step lands `source` at `src/subject.js` and
- * whose writers drop one stub test, leaving the refactor role — answered by
- * `onRefactor`, once per pass — as the only thing left to decide the run.
- * `onProgress` collects the run's narration into `progress` for the tests that
- * assert on what a watching human is told.
+ * A consumer repo whose implement step lands `source` at `src/subject.js` —
+ * plus any `extraSources`, keyed by repo-relative path — and whose writers drop
+ * one stub test, leaving the refactor role — answered by `onRefactor`, once per
+ * pass — as the only thing left to decide the run. `onProgress` collects the
+ * run's narration into `progress` for the tests that assert on what a watching
+ * human is told.
  */
-const setupRefactorRun = async ({ source, onRefactor }: { source: string; onRefactor: (params: { pass: number; cwd: string }) => string }) => {
+const setupRefactorRun = async ({
+	source,
+	extraSources = {},
+	onRefactor,
+}: {
+	source: string;
+	extraSources?: Record<string, string>;
+	onRefactor: (params: { pass: number; cwd: string }) => string;
+}) => {
 	const dir = setupConsumerRepo();
 	const progress: string[] = [];
 	let passes = 0;
@@ -39,7 +48,20 @@ const setupRefactorRun = async ({ source, onRefactor }: { source: string; onRefa
 
 			writeFileSync(join(dir, 'src/subject.js'), source);
 
-			return { text: report({ changedFiles: [{ path: 'src/subject.js', summary: 'feature' }] }), exitCode: 0 };
+			for (const [path, contents] of Object.entries(extraSources)) {
+				mkdirSync(dirname(join(dir, path)), { recursive: true });
+				writeFileSync(join(dir, path), contents);
+			}
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/subject.js', summary: 'feature' },
+						...Object.keys(extraSources).map((path) => ({ path, summary: 'feature' })),
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -155,15 +177,76 @@ test("refactor: the escalation carries the agent's reported friction as its acco
 	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
 });
 
-test('refactor: a first decline narrates how many gating findings the checks still report before buying another pass', async () => {
+test('refactor: a first decline narrates how many findings the checks still report before buying another pass', async () => {
 	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
 		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
-		// A no-change pass whose gating set is the first one seen — the loop has
+		// A no-change pass whose work-list is the first one seen — the loop has
 		// nothing to compare it against yet, so it narrates and spends another pass.
 		onRefactor: () => report({ changedFiles: [] }),
 	});
 
 	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress });
 
-	expect(progress.some((line) => /^refactor pass 1: no changes but the checks still report [1-9]\d* gating finding\(s\) — another pass$/.test(line))).toBe(true);
+	expect(progress.some((line) => /^refactor pass 1: no changes but the checks still report [1-9]\d* finding\(s\) — another pass$/.test(line))).toBe(true);
+});
+
+test('refactor: a star re-export blocks the loop on its own — severity is the whole gate, with no allow-list of blockable rules', async () => {
+	const { dir, driver, config } = await setupRefactorRun({
+		// The subject file is deliberately clean (one export, named for its
+		// file), so the only work-list finding in the tree is the `export *` in
+		// the planted barrel — a rule no allow-list of site-key prefixes let
+		// through before, and which the gate must now block on unaided.
+		source: 'export const subject = () => 1;\n',
+		extraSources: {
+			'src/widget/widget.ts': 'export const widget = () => 1;\n',
+			'src/widget/index.ts': "export * from './widget';\n",
+		},
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('escalated');
+	expect(result.error ?? '').toMatch(/barrel-star:src\/widget\/index\.ts/);
+	expect(result.error ?? '').toMatch(/at src\/widget\/index\.ts/);
+	// it carried the escalation alone — no other finding was blocking
+	expect(result.error ?? '').toMatch(/1 finding\(s\) persist/);
+});
+
+test('refactor: the gate narration counts the work-list and the advisories, and nothing else', async () => {
+	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
+		// Two exports in one file: one blocking multi-export finding, plus the
+		// unconsumed-export advisory that rides along with it — an advisory from
+		// a rule outside the size family, which now reaches the loop too.
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress });
+
+	// anchored at both ends: the work-list count IS the blocking count, so the
+	// line carries no separate blocking tally
+	expect(progress.some((line) => /^standards gate: [1-9]\d* finding\(s\) \+ [1-9]\d* advisory\(ies\) on changed files$/.test(line))).toBe(true);
+});
+
+test('refactor: a loop that spends every pass on a tree the checks find clean passes at the post-loop check', async () => {
+	const { dir, driver, config, passesRun } = await setupRefactorRun({
+		source: 'export const subject = () => 1;\n',
+		onRefactor: ({ pass, cwd }) => {
+			// Every pass edits the file and reports the change, so the loop never
+			// takes its no-change exit — but nothing it writes is a work-list
+			// finding, so the post-loop check has nothing to escalate on.
+			writeFileSync(join(cwd, 'src/subject.js'), `export const subject = () => ${pass};\n`);
+
+			return report({ changedFiles: [{ path: 'src/subject.js', summary: `pass ${pass}` }] });
+		},
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.ok).toBe(true);
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
+	// the full pass budget was spent, and the post-loop check let the run through
+	expect(passesRun()).toBe(3);
 });

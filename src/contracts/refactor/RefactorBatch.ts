@@ -7,7 +7,7 @@ import { StandardsFinding } from '@/contracts/standardsCheck';
  * site keys are what the post-batch re-check looks for.
  */
 export const RefactorBatch = z.object({
-	/** Manifest step id: `batch-NN:<rule>:<folder>`. */
+	/** Manifest step id: `batch-NN:<rule>:<folder>` — the rule is one of the standards-check rule ids, not a check function. */
 	id: z.string(),
 	rule: z.string(),
 	/** Grouping folder: `<packagesDir>/<package>` when under it, else the top path segment, else '(root)'. */

@@ -3,7 +3,7 @@ import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contr
 import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.Size,
+	rule: StandardsRule.SizeFunction,
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
@@ -41,7 +41,7 @@ describe('printStandardsSummary', () => {
 		expect(cellsOf({ logged })).toStrictEqual([
 			['rule', 'findings', 'advisories'],
 			['module-boundary', '1', '—'],
-			['size', '—', '2'],
+			['size-function', '—', '2'],
 			['total', '1', '2'],
 		]);
 	});

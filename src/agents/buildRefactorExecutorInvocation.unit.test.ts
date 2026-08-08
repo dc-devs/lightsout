@@ -5,7 +5,7 @@ import { buildRefactorExecutorInvocation } from '@/agents';
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.Structure,
+	rule: StandardsRule.MultiExport,
 	severity: StandardsSeverity.Finding,
 	siteKey: 'widget',
 	files: [{ path: 'src/widget.ts' }],
@@ -36,7 +36,7 @@ test('buildRefactorExecutorInvocation: the system prompt is byte-identical acros
 		changedFiles: ['src/widget.ts', 'src/other.ts'],
 		standards,
 		findings: [finding()],
-		advisories: [finding({ rule: StandardsRule.Size, severity: StandardsSeverity.Advisory })],
+		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory })],
 		errorContext: 'check failed',
 	});
 
@@ -60,12 +60,12 @@ test('buildRefactorExecutorInvocation: findings and advisories render as rule bu
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [finding()],
-		advisories: [finding({ rule: StandardsRule.Size, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
-	expect(prompt.includes('- [structure] src/widget.ts — file exceeds the size cap')).toBeTruthy();
-	expect(prompt.includes('- [size] src/widget.ts — function exceeds 50 lines')).toBeTruthy();
+	expect(prompt.includes('- [multi-export] src/widget.ts — file exceeds the size cap')).toBeTruthy();
+	expect(prompt.includes('- [size-function] src/widget.ts — function exceeds 50 lines')).toBeTruthy();
 	// advisories keep their non-blocking framing
 	expect(prompt.includes('Advisory — judge each against')).toBeTruthy();
 });
@@ -75,7 +75,7 @@ test('buildRefactorExecutorInvocation: the blocking findings lead the standards 
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [finding()],
-		advisories: [finding({ rule: StandardsRule.Size, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	// one heading for both lists — a second heading reads as a second work-list
@@ -90,7 +90,7 @@ test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, af
 		changedFiles: ['src/widget.ts'],
 		advisories: [
 			finding({
-				rule: StandardsRule.Size,
+				rule: StandardsRule.SizeFunction,
 				severity: StandardsSeverity.Advisory,
 				detail: "function 'one' is 114 lines (cap ~80)",
 				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt.',
@@ -100,7 +100,7 @@ test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, af
 
 	// without the guidance the agent reads a bare line count and rewrites the
 	// orchestration the rule meant to spare
-	expect(prompt.includes("- [size] src/widget.ts — function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt.")).toBeTruthy();
+	expect(prompt.includes("- [size-function] src/widget.ts — function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt.")).toBeTruthy();
 });
 
 test('buildRefactorExecutorInvocation: a multi-site finding renders every location with its line span, joined by the clone marker', () => {
@@ -132,14 +132,14 @@ test('buildRefactorExecutorInvocation: each finding gets its own bullet line', (
 	});
 
 	// the work-list is one finding per line, in the order handed in
-	expect(prompt.includes('- [structure] src/widget.ts — file exceeds the size cap\n- [structure] src/other.ts:3 — export name collides')).toBeTruthy();
+	expect(prompt.includes('- [multi-export] src/widget.ts — file exceeds the size cap\n- [multi-export] src/other.ts:3 — export name collides')).toBeTruthy();
 });
 
 test('buildRefactorExecutorInvocation: a findings-only run renders without the advisory framing', () => {
 	const { prompt } = buildRefactorExecutorInvocation({ planContent, changedFiles: ['src/widget.ts'], findings: [finding()], advisories: [] });
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
-	expect(prompt.includes('- [structure] src/widget.ts — file exceeds the size cap')).toBeTruthy();
+	expect(prompt.includes('- [multi-export] src/widget.ts — file exceeds the size cap')).toBeTruthy();
 	// no advisory framing without advisories
 	expect(prompt.includes('Advisory — judge each against')).toBeFalsy();
 });
@@ -149,11 +149,11 @@ test('buildRefactorExecutorInvocation: an advisories-only run renders without th
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [],
-		advisories: [finding({ rule: StandardsRule.Size, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
-	expect(prompt.includes('- [size] src/widget.ts — function exceeds 50 lines')).toBeTruthy();
+	expect(prompt.includes('- [size-function] src/widget.ts — function exceeds 50 lines')).toBeTruthy();
 	// no blocking framing without findings
 	expect(prompt.includes('Address each one first')).toBeFalsy();
 });

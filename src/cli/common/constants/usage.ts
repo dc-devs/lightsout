@@ -6,6 +6,7 @@ usage:
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]

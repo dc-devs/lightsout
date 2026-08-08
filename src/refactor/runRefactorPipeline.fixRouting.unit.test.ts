@@ -229,7 +229,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 		// the heading the executor's role prompt names, or the executor re-fixes blind
 		// to what it was sent to resolve
 		expect(fixPrompt).toContain('# Standards findings (deterministic checks)');
-		expect(fixPrompt).toMatch(/- \[structure] src\/multi\.ts/);
+		expect(fixPrompt).toMatch(/- \[multi-export] src\/multi\.ts/);
 	});
 
 	test('carries the live size advisories into the refactor executor’s fix invocation', async () => {
@@ -242,6 +242,6 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 		expect(result.ok).toBe(true);
 		// the advisories the pre-batch check recomputed ride the fix pass beside the
 		// findings, so the second pass judges the same context the first one did
-		expect(fixPrompt).toMatch(/- \[size] alpha\/multi\.ts:\d+/);
+		expect(fixPrompt).toMatch(/- \[size-function] alpha\/multi\.ts:\d+/);
 	});
 });

@@ -1,4 +1,4 @@
-import { StandardsRule, StandardsSeverity, type LightsoutConfig, type RefactorWorklist } from '@/contracts';
+import { StandardsSeverity, type LightsoutConfig, type RefactorWorklist } from '@/contracts';
 import { runStandardsCheck } from '@/standardsCheck';
 import { batchFindings } from '@/refactor/batchFindings';
 
@@ -13,7 +13,7 @@ interface Params {
 
 /**
  * Compute a run's work-list from the tree, once: check (baseline-filtered
- * unless `all`), keep Finding severity as work, carry size advisories as
+ * unless `all`), keep Finding severity as work, carry every advisory as
  * per-batch context, and batch deterministically. The caller freezes the
  * result into the run dir — the staleness lesson inverted: computed from the
  * tree, never hand-written; frozen for the run, never recomputed mid-run.
@@ -27,11 +27,12 @@ export const buildWorklist = async ({ cwd, config, path, all = false }: Params):
 		all,
 		batches: batchFindings({
 			findings: findings.filter((finding) => finding.severity === StandardsSeverity.Finding),
-			// Size advisories only — the executor prompt frames advisories as the
-			// size caps' judgment items; other advisory rules (dead-export)
-			// must not ride in as if they were work (in-pipeline precedent:
+			// Every advisory, not just the size ones: an advisory IS a judgment
+			// call, and each carries its own guidance line for the agent to apply.
+			// A rule whose advisories never reach the agent can never be judged —
+			// it only ever reports to a human (in-pipeline precedent:
 			// selectStandardsFindings).
-			advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size),
+			advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory),
 			packagesDir: config.packagesDir ?? 'packages',
 		}),
 	};

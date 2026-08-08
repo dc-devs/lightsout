@@ -21,7 +21,7 @@ interface Params {
 
 /**
  * The standards-gated refactor loop: iterate until a pass reports complete
- * with zero changed files AND the checks report no gating findings on the
+ * with zero changed files AND the checks report no work-list findings on the
  * changed files — capped at maxRefactorPasses, with a stable-decline early
  * exit (the agent has judged, the checks cannot hear judgment, and a
  * further pass only re-buys the same answer).
@@ -32,7 +32,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		let lastReport: WorkReport | undefined;
 		let cleanExit = false;
 
-		// Gating site-key set of the last no-change pass. When the next pass
+		// Work-list site-key set of the last no-change pass. When the next pass
 		// declines the IDENTICAL set, the disagreement is stable. Reset by any
 		// pass that changes files.
 		let lastDeclined: string | undefined;
@@ -43,9 +43,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 			const check = await standardsWorkList({ run });
 
 			if (check.workList.length > 0 || check.advisories.length > 0) {
-				run.progress(
-					`standards gate: ${check.workList.length} finding(s) + ${check.advisories.length} advisory(ies) on changed files${check.gating.length > 0 ? ` (${check.gating.length} gating)` : ''}`,
-				);
+				run.progress(`standards gate: ${check.workList.length} finding(s) + ${check.advisories.length} advisory(ies) on changed files`);
 			}
 
 			run.progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
@@ -85,31 +83,31 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 			if (report.changedFiles.length === 0) {
 				// No changes this pass, so the top-of-pass check still describes
 				// the tree — no re-check needed to judge the gate.
-				if (check.gating.length === 0) {
+				if (check.workList.length === 0) {
 					run.progress(`refactor pass ${pass}: no changes — loop complete`);
 					cleanExit = true;
 					break;
 				}
 
-				const declined = check.gating
+				const declined = check.workList
 					.map((finding) => finding.siteKey)
 					.sort()
 					.join('\n');
 
 				if (declined === lastDeclined && pass < maxRefactorPasses) {
-					run.progress(`refactor pass ${pass}: agent declined the same gating set twice — escalating without spending the remaining pass(es)`);
+					run.progress(`refactor pass ${pass}: agent declined the same work-list twice — escalating without spending the remaining pass(es)`);
 				}
 
 				if (pass === maxRefactorPasses || declined === lastDeclined) {
 					return run.stop({
 						record: { ...record, report },
 						status: RunStatus.Escalated,
-						error: describePersistingFindings({ gating: check.gating, report, passes: pass }),
+						error: describePersistingFindings({ findings: check.workList, report, passes: pass }),
 					});
 				}
 
 				lastDeclined = declined;
-				run.progress(`refactor pass ${pass}: no changes but the checks still report ${check.gating.length} gating finding(s) — another pass`);
+				run.progress(`refactor pass ${pass}: no changes but the checks still report ${check.workList.length} finding(s) — another pass`);
 				record = { ...record, attempts: record.attempts + 1 };
 				continue;
 			}
@@ -125,11 +123,11 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		if (!cleanExit) {
 			const final = await standardsWorkList({ run });
 
-			if (final.gating.length > 0) {
+			if (final.workList.length > 0) {
 				return run.stop({
 					record: { ...record, report: lastReport },
 					status: RunStatus.Escalated,
-					error: describePersistingFindings({ gating: final.gating, report: lastReport, passes: maxRefactorPasses }),
+					error: describePersistingFindings({ findings: final.workList, report: lastReport, passes: maxRefactorPasses }),
 				});
 			}
 		}

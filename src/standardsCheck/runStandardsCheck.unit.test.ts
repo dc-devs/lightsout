@@ -91,10 +91,10 @@ test('the standards check finds each planted defect and respects the exceptions'
 	// test files never appear in findings
 	expect(findings.every((finding) => finding.files.every((file) => !file.path.includes('.test.')))).toBeTruthy();
 
-	const names = byRule('filename-duplicate');
+	const names = [...byRule('name-duplicate'), ...byRule('name-synonym')];
 
 	// same-name pair
-	expect(names.some((finding) => finding.siteKey === 'name:normalizeRecord')).toBeTruthy();
+	expect(names.some((finding) => finding.siteKey === 'name-duplicate:src/a/normalizeRecord.ts|src/b/normalizeRecord.ts')).toBeTruthy();
 	// synonym pair collapses to one concept
 	expect(names.some((finding) => finding.detail.includes("'fetchUserData'") && finding.detail.includes("'getUserData'"))).toBeTruthy();
 	// to/from opposites are deliberate, not duplicates
@@ -102,7 +102,7 @@ test('the standards check finds each planted defect and respects the exceptions'
 	// component + kebab route pair is a framework pair
 	expect(names.some((finding) => finding.detail.includes('GetStarted'))).toBeFalsy();
 
-	const structure = byRule('structure');
+	const structure = [...byRule('multi-export'), ...byRule('filename-mismatch'), ...byRule('domain-graduation'), ...byRule('folder-census')];
 
 	// multi-export flagged
 	expect(structure.some((finding) => finding.siteKey === 'multi-export:src/a/config.ts')).toBeTruthy();
@@ -113,14 +113,14 @@ test('the standards check finds each planted defect and respects the exceptions'
 	// framework dot-suffix is convention, not a mismatch
 	expect(structure.some((finding) => finding.siteKey === 'filename-mismatch:src/b/session-response.model.ts')).toBeFalsy();
 	// domain-folder candidate
-	expect(structure.some((finding) => finding.siteKey === 'domain:src/a/utils:format')).toBeTruthy();
+	expect(structure.some((finding) => finding.siteKey === 'domain-graduation:src/a/utils/formatCurrency.ts|src/a/utils/formatDate.ts')).toBeTruthy();
 
 	// oversized file flagged
-	expect(byRule('size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
+	expect(byRule('size-file').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
 	// a file over its cap is a rule violation, unlike the per-function size advisory
-	expect(byRule('size').find((finding) => finding.siteKey === 'size:file:src/b/huge.ts')?.severity).toBe('finding');
+	expect(byRule('size-file').find((finding) => finding.siteKey === 'size-file:src/b/huge.ts')?.severity).toBe('finding');
 	// .tsx under its larger cap not flagged
-	expect(byRule('size').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
+	expect(byRule('size-file').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
 
 	const dead = byRule('dead-export');
 
@@ -181,7 +181,7 @@ test('baseline ratchet: --baseline accepts debt explicitly; later runs report on
 	expect(everything.findings.length > third.findings.length).toBeTruthy();
 });
 
-test('the standards check resolves typescript from workspace packages and honors standardsChecks.minCloneTokens', async () => {
+test('the standards check resolves typescript from workspace packages and honors the per-rule settings', async () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-ws-'));
 
 	mkdirSync(join(dir, 'packages/app/src'), { recursive: true });
@@ -192,7 +192,10 @@ test('the standards check resolves typescript from workspace packages and honors
 	writeFileSync(join(dir, 'packages/app/package.json'), '{"name":"@ws/app"}');
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
-		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, standardsChecks: { minCloneTokens: 5000, size: { file: 5 } } }),
+		JSON.stringify({
+			scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+			standardsChecks: { clone: { settings: { minTokens: 5000 } }, 'size-file': { settings: { file: 5 } } },
+		}),
 	);
 
 	writeFileSync(join(dir, 'packages/app/src/sumTotals.ts'), `export const sumTotals = ({ records }: { records: any[] }) => {${bigBody}};\n`);
@@ -207,10 +210,10 @@ test('the standards check resolves typescript from workspace packages and honors
 	expect(notes.some((note) => note.includes('typescript'))).toBeFalsy();
 	// ast tier found the renamed twins
 	expect(findings.some((finding) => finding.rule === 'ast-duplicate')).toBeTruthy();
-	// the per-repo minCloneTokens floor suppressed tier-1 clones
+	// the per-repo clone floor suppressed tier-1 clones
 	expect(findings.some((finding) => finding.rule === 'clone')).toBeFalsy();
-	// the per-repo size.file override (5 lines) flagged an ordinary file
-	expect(findings.some((finding) => finding.siteKey === 'size:file:packages/app/src/sumTotals.ts')).toBeTruthy();
+	// the per-repo size-file cap (5 lines) flagged an ordinary file
+	expect(findings.some((finding) => finding.siteKey === 'size-file:packages/app/src/sumTotals.ts')).toBeTruthy();
 });
 
 test('the standards check degrades honestly without a resolvable typescript', async () => {
@@ -241,14 +244,14 @@ test('dead-export: an entry index (imports, no exports) is a consumer, not a bar
 	writeFileSync(join(dir, 'src/util/index.ts'), "export { helperThing } from './helperThing';\n");
 
 	const { findings } = await runStandardsCheck({ cwd: dir });
-	const dead = findings.filter((finding) => finding.rule === 'dead-export');
+	const dead = findings.filter((finding) => finding.rule.endsWith('-export'));
 
 	// an entry file's imports are consumption:\n${JSON.stringify(dead, undefined,
 	// 1)}
 	expect(dead.some((finding) => finding.detail.includes('runEverything'))).toBeFalsy();
-	// a genuine barrel-only export still flags:\n${JSON.stringify(dead, undefined,
+	// a genuine barrel-only export still flags, under its own rule:\n${JSON.stringify(dead, undefined,
 	// 1)}
-	expect(dead.some((finding) => finding.detail.includes('helperThing') && finding.detail.includes('barrel'))).toBeTruthy();
+	expect(dead.some((finding) => finding.rule === 'barrel-only-export' && finding.detail.includes('helperThing'))).toBeTruthy();
 });
 
 // Parallel adapters legitimately share their import lists — imports are
@@ -376,7 +379,7 @@ test('runStandardsCheck reports stage progress and leaves the evidence file alon
 	// the opening progress line counts the scope: ${messages[0]}
 	expect(messages[0]?.includes('1 source file(s)')).toBeTruthy();
 	// progress is reported through the last stage:\n${messages.join('\n')}
-	expect(messages.some((message) => message.includes('dead exports'))).toBeTruthy();
+	expect(messages.some((message) => message.includes('dead-exports: done'))).toBeTruthy();
 	// the check still reports its findings
 	expect(findings.length > 0).toBeTruthy();
 	// persist: false never clobbers the standalone report
@@ -422,6 +425,40 @@ test('a report dominated by one directory says so, naming the config list that w
 	expect(notes.some((note) => note.includes('"generated" list'))).toBeTruthy();
 	// the diagnosis is an extra note, never a reason to report fewer findings
 	expect(findings.length > 20).toBeTruthy();
+});
+
+/** A crowded report whose dominant tree forks in two, with a minority of findings outside that tree entirely. */
+const setupForkedRepo = () => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-forked-'));
+
+	mkdirSync(join(dir, 'src/generated/alpha'), { recursive: true });
+	mkdirSync(join(dir, 'src/generated/beta'), { recursive: true });
+	mkdirSync(join(dir, 'lib'), { recursive: true });
+
+	for (let index = 0; index < 10; index += 1) {
+		writeFileSync(join(dir, 'src/generated/alpha', `partOne${index}.ts`), `export const openPartOne${index} = () => 1;\nexport const closePartOne${index} = () => 2;\n`);
+		writeFileSync(join(dir, 'src/generated/beta', `sideTwo${index}.ts`), `export const openSideTwo${index} = () => 1;\nexport const closeSideTwo${index} = () => 2;\n`);
+	}
+
+	for (let index = 0; index < 4; index += 1) {
+		writeFileSync(join(dir, 'lib', `thing${index}.ts`), `export const openThing${index} = () => 1;\nexport const closeThing${index} = () => 2;\n`);
+	}
+
+	return dir;
+};
+
+test('the dominant directory is the deepest one still holding the majority, counting the findings that sit outside it', async () => {
+	const dir = setupForkedRepo();
+
+	const { findings, notes } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// the walk descends to the crowded tree:\n${notes.join('\n')}
+	expect(notes.some((note) => note.includes('sit under src/generated/'))).toBe(true);
+	// and stops where it forks — neither branch holds a majority of the whole report
+	expect(notes.some((note) => note.includes('src/generated/alpha') || note.includes('src/generated/beta'))).toBe(false);
+	// the findings outside the tree are real, so the share is a share, not a whole
+	expect(findings.some((finding) => finding.files[0]?.path.startsWith('lib/'))).toBe(true);
+	expect(notes.some((note) => note.includes('100% of findings'))).toBe(false);
 });
 
 test('a directory one segment deep is not a diagnosis — a whole src/ tree is where code lives, not a config gap', async () => {

@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { StandardsFinding } from '@/contracts';
+import { StandardsFinding, StandardsRule, StandardsSeverity } from '@/contracts';
 
 const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
@@ -34,7 +34,25 @@ describe('StandardsFinding', () => {
 	});
 
 	test('every rule the standards check runs is a value a finding may carry', () => {
-		for (const rule of ['filename-duplicate', 'clone', 'ast-duplicate', 'size', 'structure', 'dead-export', 'module-boundary', 'placement', 'barrel-hygiene']) {
+		for (const rule of [
+			'name-duplicate',
+			'name-synonym',
+			'clone',
+			'ast-duplicate',
+			'size-file',
+			'size-function',
+			'multi-export',
+			'filename-mismatch',
+			'domain-graduation',
+			'folder-census',
+			'dead-export',
+			'test-only-export',
+			'barrel-only-export',
+			'module-boundary',
+			'placement',
+			'barrel-star',
+			'barrel-dead-entry',
+		]) {
 			const { finding } = setupFinding({ extra: { rule } });
 
 			const parsed = StandardsFinding.parse(finding);
@@ -43,6 +61,46 @@ describe('StandardsFinding', () => {
 			// work-list batches by — the wire value is the durable name, not the tier it
 			// sits in
 			expect(parsed.rule).toBe(rule);
+		}
+	});
+
+	test('the rule vocabulary is exactly those seventeen ids and nothing else', () => {
+		const rules = [...Object.values(StandardsRule)].sort();
+
+		// a rule id is what a repo writes in its config to switch the rule off and
+		// what the refactor work-list batches by, so an id added or renamed without
+		// being restated here is an unreviewed change to a persisted vocabulary
+		expect(rules).toStrictEqual([
+			'ast-duplicate',
+			'barrel-dead-entry',
+			'barrel-only-export',
+			'barrel-star',
+			'clone',
+			'dead-export',
+			'domain-graduation',
+			'filename-mismatch',
+			'folder-census',
+			'module-boundary',
+			'multi-export',
+			'name-duplicate',
+			'name-synonym',
+			'placement',
+			'size-file',
+			'size-function',
+			'test-only-export',
+		]);
+	});
+
+	test('rejects the pre-split rule ids the seventeen replaced', () => {
+		// `size`, `structure`, `barrel-hygiene` and `filename-duplicate` each became
+		// two or more named rules; a finding still carrying the old id would name a
+		// rule no pass reports and no config can switch off
+		for (const rule of ['filename-duplicate', 'size', 'structure', 'barrel-hygiene']) {
+			const { finding } = setupFinding({ extra: { rule } });
+
+			const result = StandardsFinding.safeParse(finding);
+
+			expect(result.success).toBe(false);
 		}
 	});
 
@@ -70,8 +128,10 @@ describe('StandardsFinding', () => {
 		}
 	});
 
-	test('rejects a severity outside the two-value set', () => {
-		for (const severity of ['warning', 'Finding']) {
+	test('rejects a severity outside the two REPORTING values, `off` included', () => {
+		// `off` is a configuration state — a rule a repo switched off emits nothing,
+		// so a persisted finding carrying it would be a contradiction
+		for (const severity of ['warning', 'Finding', 'off']) {
 			const { finding } = setupFinding({ extra: { severity } });
 
 			const result = StandardsFinding.safeParse(finding);
@@ -80,6 +140,15 @@ describe('StandardsFinding', () => {
 			// read boundary refuses it rather than guessing
 			expect(result.success).toBe(false);
 		}
+	});
+
+	test('the severity vocabulary is three values, only two of which reach a finding', () => {
+		const severities = [...Object.values(StandardsSeverity)].sort();
+
+		// `off` is the third: the value a repo writes against a rule id to stop the
+		// rule running. It belongs to the configuration vocabulary, so widening the
+		// shared list must never widen what a persisted finding may carry
+		expect(severities).toStrictEqual(['advisory', 'finding', 'off']);
 	});
 
 	test('a whole-file finding parses with no line span', () => {

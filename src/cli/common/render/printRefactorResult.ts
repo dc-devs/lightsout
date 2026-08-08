@@ -26,7 +26,7 @@ export const printRefactorResult = ({ result }: Params): void => {
 	for (const step of batchSteps) {
 		const decline = declined.find((entry) => entry.batchId === step.id);
 		const icon = step.status !== RunStatus.Passed ? red('✗') : decline ? yellow('⤫') : green('✓');
-		const label = decline ? `declined (${decline.remainingClusters.length} cluster(s) persist)` : step.status === RunStatus.Passed ? 'resolved' : step.status;
+		const label = decline ? `declined (${decline.remainingSiteKeys.length} site(s) persist)` : step.status === RunStatus.Passed ? 'resolved' : step.status;
 
 		console.log(`${icon} ${step.id.padEnd(48)}${label}${step.changedFiles?.length ? dim(` · ${step.changedFiles.length} file(s)`) : ''}`);
 	}
@@ -38,7 +38,7 @@ export const printRefactorResult = ({ result }: Params): void => {
 			console.log(dim(`  ${line}`));
 		}
 
-		console.log(dim(`  review each cluster — fix by hand, or accept it as debt: lightsout standards-check --baseline`));
+		console.log(dim(`  review each site — fix by hand, or accept it as debt: lightsout standards-check --baseline`));
 	}
 
 	const rules = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();

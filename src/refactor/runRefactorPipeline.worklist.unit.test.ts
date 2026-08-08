@@ -165,9 +165,9 @@ describe('runRefactorPipeline work-list', () => {
 
 		expect(result.ok).toBe(true);
 		// only the in-scope finding counts as work
-		expect(result.before).toStrictEqual({ structure: 1 });
+		expect(result.before).toStrictEqual({ 'multi-export': 1 });
 		// the out-of-scope folder never became a batch
-		expect(result.declined.map((entry) => entry.batchId)).toStrictEqual(['batch-01:structure:alpha']);
+		expect(result.declined.map((entry) => entry.batchId)).toStrictEqual(['batch-01:multi-export:alpha']);
 		// no agent was pointed outside the scope:\n${prompts.join('\n\n')}
 		expect(prompts.every((prompt) => !prompt.includes('beta/multi.ts'))).toBeTruthy();
 
@@ -175,10 +175,10 @@ describe('runRefactorPipeline work-list', () => {
 
 		// the scope is frozen with the work-list, so resume checks the same subtree
 		expect(worklist.path).toBe('alpha');
-		expect(worklist.batches.map((batch) => batch.id)).toStrictEqual(['batch-01:structure:alpha']);
+		expect(worklist.batches.map((batch) => batch.id)).toStrictEqual(['batch-01:multi-export:alpha']);
 	});
 
-	test('the frozen work-list carries Finding-severity work with size advisories as context, nothing else', async () => {
+	test('the frozen work-list carries Finding-severity work with every advisory as context', async () => {
 		const dir = setupConsumerRepo();
 
 		linkTypescript({ dir });
@@ -200,10 +200,9 @@ describe('runRefactorPipeline work-list', () => {
 
 		// the over-cap function rode along as context
 		expect(advisories.length > 0).toBeTruthy();
-		// only size advisories are context — dead-export and filename advisories must
-		// not ride in as if they were work: they'd read as a work-list the agent is
-		// judged against
-		expect([...new Set(advisories.map((advisory) => advisory.rule))]).toStrictEqual(['size']);
+		// EVERY advisory rides along, not just the size ones — each carries its own
+		// guidance, and one the agent never sees is one it can never judge
+		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['dead-export', 'size-function']);
 		// advisories are never batched as work
 		expect([...new Set(worklist.batches.flatMap((batch) => batch.findings.map((finding) => finding.severity)))]).toStrictEqual(['finding']);
 	});
@@ -281,10 +280,10 @@ describe('runRefactorPipeline work-list', () => {
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
 		expect(result.ok).toBe(true);
-		// both findings carry the 'structure' rule and must accumulate under it
-		expect(result.before).toStrictEqual({ structure: 2 });
+		// both findings carry the 'multi-export' rule and must accumulate under it
+		expect(result.before).toStrictEqual({ 'multi-export': 2 });
 		// nothing was resolved, so the closing re-check tallies the same two
-		expect(result.after).toStrictEqual({ structure: 2 });
+		expect(result.after).toStrictEqual({ 'multi-export': 2 });
 	});
 
 	test('a baselined finding is not work — the run completes as a verdict, spawning nothing', async () => {
@@ -307,9 +306,9 @@ describe('runRefactorPipeline work-list', () => {
 
 		expect(result.ok).toBe(true);
 		// the accepted cluster is the work-list in burn-down mode
-		expect(result.before['structure']).toBe(1);
+		expect(result.before['multi-export']).toBe(1);
 		// and it burned down
-		expect(result.after['structure'] ?? 0).toBe(0);
+		expect(result.after['multi-export'] ?? 0).toBe(0);
 		// the batch reached an agent
 		expect(prompts.length > 0).toBeTruthy();
 

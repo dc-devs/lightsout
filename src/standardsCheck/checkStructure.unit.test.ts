@@ -21,6 +21,9 @@ const flatFolder = ({ dir, prefix, count }: { dir: string; prefix: string; count
 		Array.from({ length: count }, (_, index): [string, string] => [`${dir}/${prefix}${index}.ts`, `export const ${prefix}${index} = ${index};\n`]),
 	);
 
+/** The four rules this one pass produces — the filter every case here shares. */
+const structureRules: string[] = ['multi-export', 'filename-mismatch', 'domain-graduation', 'folder-census'];
+
 describe('checkStructure', () => {
 	test('grades a multi-export file as a finding and a filename mismatch as an advisory, never both on one file', async () => {
 		const { dir } = setupStructureRepo({
@@ -32,7 +35,7 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
 		const multi = findings.find((finding) => finding.siteKey === 'multi-export:src/pay/config.ts');
 		const mismatch = findings.find((finding) => finding.siteKey === 'filename-mismatch:src/pay/helpers.ts');
 
@@ -61,7 +64,7 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
 
 		// the discriminated union stays together; a second alias breaks the family
 		expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['multi-export:src/shape/Region.ts']);
@@ -80,7 +83,7 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
 
 		// the lookup map rides along with its constant; an unrelated const does not
 		expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['multi-export:src/order/OrderKind.ts']);
@@ -96,7 +99,7 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
 
 		// a barrel is exempt from both structure rules:\n${JSON.stringify(findings,
 		// undefined, 1)}
@@ -113,11 +116,29 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
 
 		// an export-free file has no contract to mismatch:\n${JSON.stringify(findings,
 		// undefined, 1)}
 		expect(findings.map((finding) => finding.siteKey)).toStrictEqual([]);
+	});
+
+	test('reads a framework dot-suffix as convention, matching the filename on its leading segment', async () => {
+		const { dir } = setupStructureRepo({
+			files: {
+				'src/api/Session.model.ts': 'export interface Session {\n\tid: string;\n}\n',
+				// the dot suffix is convention, not a licence to export anything
+				'src/api/Charge.dto.ts': 'export interface Payload {\n\tamount: number;\n}\n',
+			},
+		});
+
+		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
+
+		// 'Session.model' matches 'Session'; 'Charge.dto' matches nothing it exports
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['filename-mismatch:src/api/Charge.dto.ts']);
+		expect(findings[0]?.detail).toBe("file 'Charge.dto' exports 'Payload'");
 	});
 
 	test('groups repeated first tokens only inside a utils/ folder', async () => {
@@ -135,11 +156,11 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
-		const domain = findings.filter((finding) => finding.siteKey.startsWith('domain:'));
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
+		const domain = findings.filter((finding) => finding.rule === 'domain-graduation');
 
 		// only a repeated verb inside utils/ is a graduation candidate
-		expect(domain.map((finding) => finding.siteKey)).toStrictEqual(['domain:src/a/utils:format']);
+		expect(domain.map((finding) => finding.siteKey)).toStrictEqual(['domain-graduation:src/a/utils/formatCurrency.ts|src/a/utils/formatDate.ts']);
 		// graduation is a heuristic, never a rule violation
 		expect(domain[0]?.severity).toBe('advisory');
 		// the finding lists every file in the group
@@ -161,12 +182,12 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const domain = allFindings.filter((finding) => finding.rule === 'structure' && finding.siteKey.startsWith('domain:'));
+		const domain = allFindings.filter((finding) => finding.rule === 'domain-graduation');
 
 		// is*/resolve* would graduate to `predicates/` and `resolution/` — folders
 		// named for the ROLE of the code they hold, which folder-structure.md bans;
 		// `validation/` names a subject, which is what a domain folder is for
-		expect(domain.map((finding) => finding.siteKey)).toStrictEqual(['domain:src/a/utils:validate']);
+		expect(domain.map((finding) => finding.siteKey)).toStrictEqual(['domain-graduation:src/a/utils/validateEmail.ts|src/a/utils/validatePhone.ts']);
 	});
 
 	test('reads a generator template line as string content, not as a second export', async () => {
@@ -181,7 +202,7 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
 
 		// one real export, whose name the filename already matches — counting the
 		// interpolated placeholder would make this a multi-export violation
@@ -201,16 +222,32 @@ describe('checkStructure', () => {
 
 		const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.rule === 'structure');
-		const census = findings.filter((finding) => finding.siteKey.startsWith('census:'));
+		const findings = allFindings.filter((finding) => structureRules.includes(finding.rule));
+		const census = findings.filter((finding) => finding.rule === 'folder-census');
 
 		// a folder sitting exactly at the cap is not flagged
-		expect(census.map((finding) => finding.siteKey)).toStrictEqual(['census:src/wide']);
+		expect(census.map((finding) => finding.siteKey)).toStrictEqual(['folder-census:src/wide']);
 		// the census is a heuristic, never a rule violation
 		expect(census[0]?.severity).toBe('advisory');
 		// the finding points at the folder, not a file
 		expect(census[0]?.files).toStrictEqual([{ path: 'src/wide' }]);
 		// the detail counts the barrel too: ${census[0]?.detail}
 		expect(census[0]?.detail.includes('21 files')).toBeTruthy();
+	});
+
+	test('the census cap comes from the rule settings, so a repo can set its own', async () => {
+		const { dir } = setupStructureRepo({ files: flatFolder({ dir: 'src/wide', prefix: 'wide', count: 6 }) });
+
+		writeFileSync(
+			join(dir, 'lightsout.config.json'),
+			JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, standardsChecks: { 'folder-census': { settings: { cap: 5 } } } }),
+		);
+
+		const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+		const census = findings.filter((finding) => finding.rule === 'folder-census');
+
+		// six files clear a cap of five, which the default twenty would never catch
+		expect(census.map((finding) => finding.siteKey)).toStrictEqual(['folder-census:src/wide']);
+		expect(census[0]?.detail.includes('census cap ~5')).toBeTruthy();
 	});
 });

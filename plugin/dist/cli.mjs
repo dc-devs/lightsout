@@ -661,6 +661,7 @@ usage:
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
@@ -15206,6 +15207,102 @@ var Permissions = {
   FullAccess: "full-access"
 };
 
+// src/contracts/standardsCheck/StandardsRule.ts
+var StandardsRule = {
+  /** The same export name declared in more than one place. */
+  NameDuplicate: "name-duplicate",
+  /** Export names identical after synonym-collapse and word-order normalization. */
+  NameSynonym: "name-synonym",
+  /** Token-level copy-paste spans (jscpd). */
+  Clone: "clone",
+  /** Function bodies identical after identifier/literal normalization. */
+  AstDuplicate: "ast-duplicate",
+  /** A file over the standards' line cap. */
+  SizeFile: "size-file",
+  /** A function, hook or component over its line cap. */
+  SizeFunction: "size-function",
+  /** More than one export in a file, outside the closed exception list. */
+  MultiExport: "multi-export",
+  /** A filename that does not match the export it holds. */
+  FilenameMismatch: "filename-mismatch",
+  /** Sibling utils sharing a subject verb — a domain-folder graduation candidate. */
+  DomainGraduation: "domain-graduation",
+  /** More files in one flat folder than the census cap allows. */
+  FolderCensus: "folder-census",
+  /** An export nothing else references. */
+  DeadExport: "dead-export",
+  /** An export only its own tests reference. */
+  TestOnlyExport: "test-only-export",
+  /** An export reached only through a barrel, with no consuming module. */
+  BarrelOnlyExport: "barrel-only-export",
+  /** A file deep-imported across a module boundary instead of through its barrel. */
+  ModuleBoundary: "module-boundary",
+  /** Module-internal shared code (under a module's common/) leaking to an outside importer. */
+  Placement: "placement",
+  /** A barrel re-exporting with `export *` instead of named re-exports. */
+  BarrelStar: "barrel-star",
+  /** A barrel entry no file outside the module consumes. */
+  BarrelDeadEntry: "barrel-dead-entry"
+};
+
+// src/contracts/standardsCheck/StandardsSeverity.ts
+var StandardsSeverity = {
+  /** A rule violation — blocks a run when it touches a file that run changed. */
+  Finding: "finding",
+  /** Worth a look, plausibly intentional — reported and judged, never blocking. */
+  Advisory: "advisory",
+  /** Not run. What a repo sets when its own linter already enforces the rule — the only way a rule stops blocking. */
+  Off: "off"
+};
+
+// src/contracts/standardsCheck/StandardsPassId.ts
+var StandardsPassId = {
+  /** Name-level comparison over source files. */
+  FilenameDuplicates: "filename-duplicates",
+  /** jscpd token-span clone detection. */
+  Clones: "clones",
+  /** One AST walk: normalized-body duplicates plus the size audit. */
+  AstFindings: "ast-findings",
+  /** Text-level structure lint: exports per file, filename match, domain grouping, folder census. */
+  Structure: "structure",
+  /** Whole-word reference counting for unreferenced exports. */
+  DeadExports: "dead-exports",
+  /** Barrel parsing: star re-exports and unconsumed entries. */
+  BarrelHygiene: "barrel-hygiene",
+  /** Import-graph boundary crossings. */
+  ModuleBoundaries: "module-boundaries",
+  /** Import-graph leaks out of a module's common/. */
+  Placement: "placement"
+};
+
+// src/contracts/standardsCheck/StandardsFinding.ts
+var StandardsFinding = external_exports.object({
+  rule: external_exports.enum(StandardsRule),
+  /**
+   * Only the two reporting severities. `off` is a CONFIGURATION state — a
+   * rule a repo switched off emits nothing, so a persisted finding at
+   * severity `off` would be a contradiction the schema should refuse.
+   */
+  severity: external_exports.enum([StandardsSeverity.Finding, StandardsSeverity.Advisory]),
+  /** Grouping key — findings sharing a site key are one remediation unit, and it is the identity the debt ledger records. */
+  siteKey: external_exports.string(),
+  files: external_exports.array(
+    external_exports.object({
+      path: external_exports.string(),
+      startLine: external_exports.number().optional(),
+      endLine: external_exports.number().optional()
+    })
+  ),
+  /** What is true of this one site — the measurement, the names, the span. */
+  detail: external_exports.string(),
+  /**
+   * What to do about findings of this kind, and any judgment the rule
+   * cannot make for itself. Constant across every finding a rule emits for
+   * the same reason, so a reader is told once rather than once per site.
+   */
+  guidance: external_exports.string().optional()
+});
+
 // src/contracts/LightsoutConfig.ts
 var commandHarness = external_exports.object({
   /** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
@@ -15336,19 +15433,26 @@ var LightsoutConfig = external_exports.object({
   standardsChannels: external_exports.array(external_exports.string()).optional(),
   /** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
   scan: external_exports.never("`scan` was renamed to `standardsChecks`").optional(),
-  /** `lightsout standards-check` tuning — per-repo floors, not global guesses. */
-  standardsChecks: external_exports.object({
-    /** Minimum jscpd token span for a clone finding (default 50). */
-    minCloneTokens: external_exports.number().int().positive().optional(),
-    /** Line-cap overrides for the size rules (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
-    size: external_exports.object({
-      file: external_exports.number().int().positive().optional(),
-      tsxFile: external_exports.number().int().positive().optional(),
-      function: external_exports.number().int().positive().optional(),
-      hook: external_exports.number().int().positive().optional(),
-      component: external_exports.number().int().positive().optional()
-    }).optional()
-  }).optional()
+  /**
+   * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
+   * value is either a severity, or an object with a severity and/or that
+   * rule's own settings. A rule not named here keeps its default — silence
+   * is never a change. Keyed by the closed rule list rather than a free
+   * string, so a mistyped id fails parsing instead of silently disabling an
+   * override the user believes is active (same reasoning as `commands`
+   * being `.strict()`). Read the live state with
+   * `lightsout standards-check --list`.
+   */
+  standardsChecks: external_exports.partialRecord(
+    external_exports.enum(StandardsRule),
+    external_exports.union([
+      external_exports.enum(StandardsSeverity),
+      external_exports.object({
+        severity: external_exports.enum(StandardsSeverity).optional(),
+        settings: external_exports.record(external_exports.string(), external_exports.number()).optional()
+      }).strict()
+    ])
+  ).optional()
 });
 
 // src/contracts/run/RunStatus.ts
@@ -15553,59 +15657,6 @@ var SupervisorVerdict = external_exports.object({
   /** Root-cause analysis of why the step keeps failing. */
   diagnosis: external_exports.string(),
   /** Concrete instructions injected into the retry invocation. Required when decision is retry. */
-  guidance: external_exports.string().optional()
-});
-
-// src/contracts/standardsCheck/StandardsRule.ts
-var StandardsRule = {
-  /** Tier 0: export names that collide or differ only by synonym/word order. */
-  FilenameDuplicate: "filename-duplicate",
-  /** Tier 1: token-level copy-paste spans (jscpd). */
-  Clone: "clone",
-  /** Tier 2: function bodies identical after identifier/literal normalization. */
-  AstDuplicate: "ast-duplicate",
-  /** Size thresholds from the standards' numeric tables. */
-  Size: "size",
-  /** One-export-per-file, filename↔export match, domain grouping, folder census. */
-  Structure: "structure",
-  /** Exports nothing else references (outside barrels/tests). */
-  DeadExport: "dead-export",
-  /** A file deep-imported across a module boundary instead of through its barrel. */
-  ModuleBoundary: "module-boundary",
-  /** Module-internal shared code (under a module's common/) leaking to an outside importer. */
-  Placement: "placement",
-  /** Barrel violations: `export *`, or a re-export no outside file consumes. */
-  BarrelHygiene: "barrel-hygiene"
-};
-
-// src/contracts/standardsCheck/StandardsSeverity.ts
-var StandardsSeverity = {
-  /** A rule violation — v2 remediation acts on these. */
-  Finding: "finding",
-  /** Worth a look, plausibly intentional — never auto-remediated. */
-  Advisory: "advisory"
-};
-
-// src/contracts/standardsCheck/StandardsFinding.ts
-var StandardsFinding = external_exports.object({
-  rule: external_exports.enum(StandardsRule),
-  severity: external_exports.enum(StandardsSeverity),
-  /** Grouping key — findings sharing a site key are one remediation unit, and it is the identity the debt ledger records. */
-  siteKey: external_exports.string(),
-  files: external_exports.array(
-    external_exports.object({
-      path: external_exports.string(),
-      startLine: external_exports.number().optional(),
-      endLine: external_exports.number().optional()
-    })
-  ),
-  /** What is true of this one site — the measurement, the names, the span. */
-  detail: external_exports.string(),
-  /**
-   * What to do about findings of this kind, and any judgment the rule
-   * cannot make for itself. Constant across every finding a rule emits for
-   * the same reason, so a reader is told once rather than once per site.
-   */
   guidance: external_exports.string().optional()
 });
 
@@ -15836,7 +15887,7 @@ var DedupReport = external_exports.object({
 
 // src/contracts/refactor/RefactorBatch.ts
 var RefactorBatch = external_exports.object({
-  /** Manifest step id: `batch-NN:<rule>:<folder>`. */
+  /** Manifest step id: `batch-NN:<rule>:<folder>` — the rule is one of the standards-check rule ids, not a check function. */
   id: external_exports.string(),
   rule: external_exports.string(),
   /** Grouping folder: `<packagesDir>/<package>` when under it, else the top path segment, else '(root)'. */
@@ -15866,8 +15917,8 @@ var BatchOutcome = {
 // src/contracts/refactor/BatchReport.ts
 var BatchReport = external_exports.object({
   outcome: external_exports.enum(BatchOutcome),
-  /** Cluster ids still present after the batch (empty when resolved). */
-  remainingClusters: external_exports.array(external_exports.string()),
+  /** Site keys still present after the batch (empty when resolved). */
+  remainingSiteKeys: external_exports.array(external_exports.string()),
   /** The executing agent's account of why findings were declined, from its friction entries. */
   rationale: external_exports.array(external_exports.string())
 });
@@ -17288,7 +17339,7 @@ var formatFindingSite = ({ file: file2 }) => `${file2.path}${file2.startLine ? `
 var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \u2014 ${finding.guidance}` : finding.detail;
 
 // src/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you. Entries\n  under its Advisory subsection carry judgment: fix each unless a documented\n  exemption (e.g. orchestration functions) genuinely applies \u2014 never block\n  on them, and note applied exemptions in your summary.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limit below still governs an advisory: never change behavior or a\n  public API. An advisory whose only available fix would do either is REPORTED\n  as a noted exemption with your reason, never applied.\n- Deleting an export is a public-API change by definition. A dead-export-family\n  advisory (`dead-export`, `test-only-export`, `barrel-only-export`) is\n  therefore reported rather than acted on, unless the finding itself proves\n  nothing consumes the export.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // src/agents/buildRefactorExecutorInvocation.ts
 var findingLine = (finding) => {
@@ -18164,15 +18215,15 @@ var withStepFiles = ({ record: record2, reports, gitPrefix }) => ({
 });
 
 // src/pipeline/steps/describePersistingFindings.ts
-var describePersistingFindings = ({ gating, report, passes }) => {
-  const findingLines = gating.map((finding) => {
+var describePersistingFindings = ({ findings, report, passes }) => {
+  const findingLines = findings.map((finding) => {
     const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(", ");
     return `- ${finding.siteKey} \u2014 ${formatFindingText({ finding })}
   at ${where}`;
   });
   const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
   return [
-    `refactor: standards gate \u2014 ${gating.length} finding(s) persist after ${passes} pass(es):`,
+    `refactor: standards gate \u2014 ${findings.length} finding(s) persist after ${passes} pass(es):`,
     ...findingLines,
     ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
   ].join("\n");
@@ -18236,10 +18287,232 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   return void 0;
 };
 
+// src/standardsCheck/common/utils/applyStandardsBaseline.ts
+import { readFile as readFile10, writeFile as writeFile5 } from "node:fs/promises";
+import { join as join21 } from "node:path";
+var StandardsBaseline = external_exports.object({
+  at: external_exports.string(),
+  path: external_exports.string(),
+  siteKeys: external_exports.array(external_exports.string())
+});
+var applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
+  const baselinePath = join21(cwd, "lightsout.standards-baseline.json");
+  const baselineRaw = await readFile10(baselinePath, "utf8").catch(() => void 0);
+  const notes = [];
+  let baselineJson;
+  try {
+    baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
+  } catch {
+    baselineJson = null;
+  }
+  const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
+  if (writeBaseline) {
+    const siteKeys = [...new Set(findings.map((finding) => finding.siteKey))];
+    await writeFile5(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
+`, "utf8");
+    notes.push(
+      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
+    );
+    return { reported: findings, notes };
+  }
+  if (baseline === void 0) {
+    if (findings.some((finding) => finding.severity === StandardsSeverity.Finding)) {
+      notes.push(`no baseline \u2014 \`lightsout standards-check --baseline\` accepts these findings as existing debt so future runs report only what's new`);
+    }
+    return { reported: findings, notes };
+  }
+  if (!baseline.success) {
+    notes.push("lightsout.standards-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
+    return { reported: findings, notes };
+  }
+  const accepted = new Set(baseline.data.siteKeys);
+  const fresh = findings.filter((finding) => !accepted.has(finding.siteKey));
+  const currentSiteKeys = new Set(findings.map((finding) => finding.siteKey));
+  const resolved = baseline.data.siteKeys.filter((siteKey) => !currentSiteKeys.has(siteKey)).length;
+  if (!all && findings.length > fresh.length) {
+    notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
+  }
+  if (resolved > 0) {
+    notes.push(`${resolved} baselined site(s) no longer found \u2014 burn-down progress (--baseline to refresh the ledger)`);
+  }
+  return { reported: all ? findings : fresh, notes };
+};
+
+// src/standardsCheck/standardsRuleRegistry.ts
+var standardsRuleRegistry = {
+  [StandardsRule.NameDuplicate]: {
+    doc: "standards/code/architecture/architecture-decisions.md",
+    summary: "the same export name declared in more than one place",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.FilenameDuplicates,
+    needsTypescript: false
+  },
+  [StandardsRule.NameSynonym]: {
+    doc: "standards/code/style-guide/conventions/naming.md",
+    summary: "export names differing only by synonym or word order",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.FilenameDuplicates,
+    needsTypescript: false
+  },
+  [StandardsRule.Clone]: {
+    doc: "standards/code/architecture/architecture-decisions.md",
+    summary: "token-level copy-paste spans",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.Clones,
+    needsTypescript: false,
+    defaultSettings: { minTokens: 50 }
+  },
+  [StandardsRule.AstDuplicate]: {
+    doc: "standards/code/architecture/architecture-decisions.md",
+    summary: "function bodies identical after identifier normalization",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.AstFindings,
+    needsTypescript: true,
+    defaultSettings: { minBodyTokens: 40 }
+  },
+  [StandardsRule.SizeFile]: {
+    doc: "standards/code/style-guide/patterns/functions.md",
+    summary: "a file over the standards line cap",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.AstFindings,
+    needsTypescript: true,
+    defaultSettings: { file: 250, tsxFile: 300 }
+  },
+  [StandardsRule.SizeFunction]: {
+    doc: "standards/code/style-guide/patterns/functions.md",
+    summary: "a function, hook or component over its line cap",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.AstFindings,
+    needsTypescript: true,
+    defaultSettings: { function: 80, hook: 160, component: 200 }
+  },
+  [StandardsRule.MultiExport]: {
+    doc: "standards/code/style-guide/structure/one-export-per-file.md",
+    summary: "more than one export in a file, outside the closed exception list",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.Structure,
+    needsTypescript: false
+  },
+  [StandardsRule.FilenameMismatch]: {
+    doc: "standards/code/style-guide/conventions/file-naming.md",
+    summary: "a filename that does not match the export it holds",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.Structure,
+    needsTypescript: false
+  },
+  [StandardsRule.DomainGraduation]: {
+    doc: "standards/code/architecture/folder-structure.md",
+    summary: "sibling utils sharing a subject verb \u2014 a domain-folder candidate",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.Structure,
+    needsTypescript: false
+  },
+  [StandardsRule.FolderCensus]: {
+    doc: "standards/code/architecture/folder-structure.md",
+    summary: "more files in one flat folder than the census cap allows",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.Structure,
+    needsTypescript: false,
+    defaultSettings: { cap: 20 }
+  },
+  [StandardsRule.DeadExport]: {
+    doc: "standards/code/architecture/architecture-decisions.md",
+    summary: "an export nothing else references",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.DeadExports,
+    needsTypescript: false
+  },
+  [StandardsRule.TestOnlyExport]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "an export only its own tests reference",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.DeadExports,
+    needsTypescript: false
+  },
+  [StandardsRule.BarrelOnlyExport]: {
+    doc: "standards/code/style-guide/structure/module-api.md",
+    summary: "an export reached only through a barrel, with no consuming module",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.DeadExports,
+    needsTypescript: false
+  },
+  [StandardsRule.ModuleBoundary]: {
+    doc: "standards/code/style-guide/structure/module-api.md",
+    summary: "a file deep-imported across a module boundary instead of through its barrel",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.ModuleBoundaries,
+    needsTypescript: true
+  },
+  [StandardsRule.Placement]: {
+    doc: "standards/code/architecture/folder-structure.md",
+    summary: "module-internal shared code leaking out of its module's common/",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.Placement,
+    needsTypescript: true
+  },
+  [StandardsRule.BarrelStar]: {
+    doc: "standards/code/style-guide/structure/module-api.md",
+    summary: "a barrel re-exporting with `export *` instead of named re-exports",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.BarrelHygiene,
+    needsTypescript: false
+  },
+  [StandardsRule.BarrelDeadEntry]: {
+    doc: "standards/code/style-guide/structure/module-api.md",
+    summary: "a barrel entry no file outside the module consumes",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.BarrelHygiene,
+    needsTypescript: false
+  }
+};
+
+// src/standardsCheck/resolveRuleStates.ts
+var resolveRuleStates = ({ config: config2 }) => {
+  const states = /* @__PURE__ */ new Map();
+  for (const rule of Object.values(StandardsRule)) {
+    const definition = standardsRuleRegistry[rule];
+    const override = config2?.standardsChecks?.[rule];
+    const object2 = typeof override === "object" ? override : void 0;
+    states.set(rule, {
+      severity: (typeof override === "string" ? override : object2?.severity) ?? definition.defaultSeverity,
+      settings: { ...definition.defaultSettings, ...object2?.settings },
+      fromConfig: override !== void 0
+    });
+  }
+  return states;
+};
+
 // src/standardsCheck/checkAstFindings.ts
+import { readFile as readFile11 } from "node:fs/promises";
+import { basename as basename2, join as join22 } from "node:path";
+
+// src/standardsCheck/common/utils/buildSiteKey.ts
+var buildSiteKey = ({ rule, files }) => `${rule}:${[...new Set(files.map((file2) => file2.path))].sort().join("|")}`;
+
+// src/standardsCheck/common/utils/buildFinding.ts
+var buildFinding = ({ rule, files, detail, guidance }) => ({
+  rule,
+  severity: standardsRuleRegistry[rule].defaultSeverity,
+  siteKey: buildSiteKey({ rule, files }),
+  files,
+  detail,
+  guidance
+});
+
+// src/standardsCheck/common/utils/collectFunctionSites.ts
 import { createHash } from "node:crypto";
-import { readFile as readFile10 } from "node:fs/promises";
-import { basename as basename2, join as join21 } from "node:path";
+
+// src/standardsCheck/common/utils/functionNameOf.ts
+var functionNameOf = ({ node, compiler }) => {
+  if ((compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node)) && node.name) {
+    return node.name.getText();
+  }
+  const parent = node.parent;
+  if (parent && compiler.isVariableDeclaration(parent) && compiler.isIdentifier(parent.name)) {
+    return parent.name.getText();
+  }
+  return "(anonymous)";
+};
 
 // src/standardsCheck/common/utils/normalizeFunctionTokens.ts
 var normalizeFunctionTokens = ({ node, compiler }) => {
@@ -18256,44 +18529,7 @@ var normalizeFunctionTokens = ({ node, compiler }) => {
   return children.flatMap((child) => normalizeFunctionTokens({ node: child, compiler }));
 };
 
-// src/standardsCheck/common/utils/functionNameOf.ts
-var functionNameOf = ({ node, compiler }) => {
-  if ((compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node)) && node.name) {
-    return node.name.getText();
-  }
-  const parent = node.parent;
-  if (parent && compiler.isVariableDeclaration(parent) && compiler.isIdentifier(parent.name)) {
-    return parent.name.getText();
-  }
-  return "(anonymous)";
-};
-
-// src/standardsCheck/common/utils/groupDuplicateFunctions.ts
-var groupDuplicateFunctions = ({ sites }) => {
-  const byHash = /* @__PURE__ */ new Map();
-  for (const site of sites) {
-    byHash.set(site.hash, [...byHash.get(site.hash) ?? [], site]);
-  }
-  const findings = [];
-  for (const [hash3, group] of byHash) {
-    if (group.length > 1) {
-      findings.push({
-        rule: StandardsRule.AstDuplicate,
-        severity: StandardsSeverity.Finding,
-        siteKey: `ast:${hash3.slice(0, 12)}`,
-        files: group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine })),
-        detail: `${group.map((site) => `'${site.name}'`).join(", ")} have identical bodies after identifier normalization (${group[0]?.tokenCount} tokens)`,
-        guidance: "Renaming the identifiers did not make these different functions."
-      });
-    }
-  }
-  return findings;
-};
-
-// src/standardsCheck/checkAstFindings.ts
-var minBodyTokens = 40;
-var defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
-var fileLineCap = ({ file: file2, caps }) => file2.endsWith(".tsx") ? caps.tsxFile : caps.file;
+// src/standardsCheck/common/utils/collectFunctionSites.ts
 var functionSizeCaps = ({ name, path, caps }) => {
   if (/^use[A-Z]/.test(name)) {
     return { cap: caps.hook, kind: "hook" };
@@ -18303,69 +18539,270 @@ var functionSizeCaps = ({ name, path, caps }) => {
   }
   return { cap: caps.function, kind: "function" };
 };
-var checkAstFindings = async ({ cwd, files, compiler, size }) => {
-  const caps = { ...defaultSizeCaps, ...size };
+var collectFunctionSites = ({ file: file2, text, compiler, minBodyTokens, caps }) => {
+  const sourceFile = compiler.createSourceFile(file2, text, compiler.ScriptTarget.Latest, true);
+  const sites = [];
+  const oversized = [];
+  const visit = (node) => {
+    const isFunctionLike = compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node) || compiler.isArrowFunction(node) || compiler.isFunctionExpression(node);
+    if (isFunctionLike && node.body) {
+      const body = node.body;
+      const tokens2 = normalizeFunctionTokens({ node: body, compiler });
+      const startLine = sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+      const endLine = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+      const name = functionNameOf({ node, compiler });
+      if (tokens2.length >= minBodyTokens) {
+        sites.push({
+          name,
+          path: file2,
+          startLine,
+          endLine,
+          tokenCount: tokens2.length,
+          hash: createHash("sha1").update(tokens2.join(",")).digest("hex")
+        });
+      }
+      const { cap, kind } = functionSizeCaps({ name, path: file2, caps });
+      const lines = endLine - startLine + 1;
+      if (lines > cap && name !== "(anonymous)") {
+        oversized.push({ name, kind, lines, cap, startLine, endLine });
+      }
+    }
+    node.forEachChild(visit);
+  };
+  visit(sourceFile);
+  return { sites, oversized };
+};
+
+// src/standardsCheck/common/utils/getRuleSettings.ts
+var getRuleSettings = ({ states, rule }) => ({
+  ...standardsRuleRegistry[rule].defaultSettings,
+  ...states.get(rule)?.settings
+});
+
+// src/standardsCheck/common/utils/groupDuplicateFunctions.ts
+var groupDuplicateFunctions = ({ sites }) => {
+  const byHash = /* @__PURE__ */ new Map();
+  for (const site of sites) {
+    byHash.set(site.hash, [...byHash.get(site.hash) ?? [], site]);
+  }
+  const bySite = /* @__PURE__ */ new Map();
+  for (const group of byHash.values()) {
+    if (group.length > 1) {
+      const files = group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine }));
+      const siteKey = buildSiteKey({ rule: StandardsRule.AstDuplicate, files });
+      const entry = bySite.get(siteKey) ?? { files: [], groups: [] };
+      bySite.set(siteKey, {
+        files: [...entry.files, ...files],
+        groups: [...entry.groups, `${group.map((site) => `'${site.name}'`).join(", ")} (${group[0]?.tokenCount} tokens)`]
+      });
+    }
+  }
+  return [...bySite.values()].map(
+    ({ files, groups }) => buildFinding({
+      rule: StandardsRule.AstDuplicate,
+      files,
+      detail: `${groups.join("; ")} have identical bodies after identifier normalization`,
+      guidance: "Renaming the identifiers did not make these different functions."
+    })
+  );
+};
+
+// src/standardsCheck/checkAstFindings.ts
+var checkAstFindings = async ({ cwd, source, states, compiler }) => {
+  if (compiler === void 0) {
+    return [];
+  }
+  const fileCaps = getRuleSettings({ states, rule: StandardsRule.SizeFile });
+  const functionCaps = getRuleSettings({ states, rule: StandardsRule.SizeFunction });
+  const { minBodyTokens } = getRuleSettings({ states, rule: StandardsRule.AstDuplicate });
   const findings = [];
   const sites = [];
-  for (const file2 of files) {
-    const text = await readFile10(join21(cwd, file2), "utf8").catch(() => void 0);
+  const oversizedByFile = /* @__PURE__ */ new Map();
+  for (const file2 of source) {
+    const text = await readFile11(join22(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
     const lineCount = text.split("\n").length;
-    if (lineCount > fileLineCap({ file: file2, caps }) && basename2(file2) !== "index.ts") {
-      findings.push({
-        rule: StandardsRule.Size,
-        severity: StandardsSeverity.Finding,
-        siteKey: `size:file:${file2}`,
-        files: [{ path: file2 }],
-        detail: `${lineCount} lines (cap ~${fileLineCap({ file: file2, caps })})`,
-        guidance: "Split the file, or graduate the concept it has grown into."
-      });
+    const fileCap = file2.endsWith(".tsx") ? fileCaps.tsxFile : fileCaps.file;
+    if (lineCount > fileCap && basename2(file2) !== "index.ts") {
+      findings.push(
+        buildFinding({
+          rule: StandardsRule.SizeFile,
+          files: [{ path: file2 }],
+          detail: `${lineCount} lines (cap ~${fileCap})`,
+          guidance: "Split the file, or graduate the concept it has grown into."
+        })
+      );
     }
-    const source = compiler.createSourceFile(file2, text, compiler.ScriptTarget.Latest, true);
-    const visit = (node) => {
-      const isFunctionLike = compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node) || compiler.isArrowFunction(node) || compiler.isFunctionExpression(node);
-      if (isFunctionLike && node.body) {
-        const body = node.body;
-        const tokens2 = normalizeFunctionTokens({ node: body, compiler });
-        const startLine = source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
-        const endLine = source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
-        const name = functionNameOf({ node, compiler });
-        if (tokens2.length >= minBodyTokens) {
-          sites.push({
-            name,
-            path: file2,
-            startLine,
-            endLine,
-            tokenCount: tokens2.length,
-            hash: createHash("sha1").update(tokens2.join(",")).digest("hex")
-          });
-        }
-        const { cap, kind } = functionSizeCaps({ name, path: file2, caps });
-        const lines = endLine - startLine + 1;
-        if (lines > cap && name !== "(anonymous)") {
-          findings.push({
-            rule: StandardsRule.Size,
-            severity: StandardsSeverity.Advisory,
-            siteKey: `size:${kind}:${file2}:${name}`,
-            files: [{ path: file2, startLine, endLine }],
-            detail: `${kind} '${name}' is ${lines} lines (cap ~${cap})`,
-            guidance: "Extract logic. Orchestration that only sequences step calls is exempt \u2014 judge before acting."
-          });
-        }
-      }
-      node.forEachChild(visit);
-    };
-    visit(source);
+    const walked = collectFunctionSites({ file: file2, text, compiler, minBodyTokens, caps: functionCaps });
+    sites.push(...walked.sites);
+    if (walked.oversized.length > 0) {
+      oversizedByFile.set(file2, walked.oversized);
+    }
+  }
+  for (const [file2, oversized] of oversizedByFile) {
+    findings.push(
+      buildFinding({
+        rule: StandardsRule.SizeFunction,
+        files: oversized.map(({ startLine, endLine }) => ({ path: file2, startLine, endLine })),
+        detail: oversized.map(({ kind, name, lines, cap }) => `${kind} '${name}' is ${lines} lines (cap ~${cap})`).join("; "),
+        guidance: "Extract logic. Orchestration that only sequences step calls is exempt \u2014 judge before acting."
+      })
+    );
   }
   findings.push(...groupDuplicateFunctions({ sites }));
   return findings;
 };
 
+// src/standardsCheck/common/utils/readFileContents.ts
+import { readFile as readFile12 } from "node:fs/promises";
+import { join as join23 } from "node:path";
+var readFileContents = async ({ cwd, files }) => {
+  const contents = /* @__PURE__ */ new Map();
+  for (const file2 of new Set(files)) {
+    contents.set(file2, await readFile12(join23(cwd, file2), "utf8").catch(() => ""));
+  }
+  return contents;
+};
+
+// src/standardsCheck/mapFolderModules.ts
+import { readFile as readFile13 } from "node:fs/promises";
+import { basename as basename3, dirname as dirname3, join as join24 } from "node:path";
+
+// src/standardsCheck/readBarrelExports.ts
+import { posix } from "node:path";
+var starPattern = /^export\s+\*\s+(?:as\s+[A-Za-z0-9_$]+\s+)?from\s+['"]([^'"]+)['"]/;
+var namedPattern = /^export\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/;
+var publicName = (part) => {
+  const withoutType = part.trim().replace(/^type\s+/, "").trim();
+  const aliased = withoutType.match(/\bas\s+([A-Za-z0-9_$]+)$/);
+  return aliased?.[1] ?? withoutType;
+};
+var readBarrelExports = ({
+  barrelPath,
+  text,
+  files
+}) => {
+  const fileSet = new Set(files);
+  const barrelDir = posix.dirname(barrelPath);
+  const resolveTarget = (specifier) => {
+    if (!specifier.startsWith(".")) {
+      return void 0;
+    }
+    const base = posix.normalize(posix.join(barrelDir, specifier));
+    for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
+      if (fileSet.has(candidate)) {
+        return candidate;
+      }
+    }
+    return void 0;
+  };
+  const entries = [];
+  for (const line of text.split("\n")) {
+    const star = line.match(starPattern);
+    if (star?.[1]) {
+      entries.push({ names: [], star: true, specifier: star[1], target: resolveTarget(star[1]) });
+      continue;
+    }
+    const named = line.match(namedPattern);
+    if (named?.[1] !== void 0 && named[2]) {
+      const names = named[1].split(",").map(publicName).filter((name) => name.length > 0);
+      entries.push({ names, star: false, specifier: named[2], target: resolveTarget(named[2]) });
+    }
+  }
+  return entries;
+};
+
+// src/standardsCheck/mapFolderModules.ts
+var isBarrel = (path) => /^index\.tsx?$/.test(basename3(path));
+var isRootBarrelDir = (dir) => basename3(dir) === "src";
+var underCommon = (path) => path.split("/").includes("common");
+var mapFolderModules = async ({
+  cwd,
+  files
+}) => {
+  const barrelDirs = /* @__PURE__ */ new Map();
+  for (const file2 of files) {
+    const dir = dirname3(file2);
+    if (isBarrel(file2) && !isRootBarrelDir(dir) && !underCommon(dir)) {
+      barrelDirs.set(dir, file2);
+    }
+  }
+  const nestedModuleDirs = [...barrelDirs.keys()];
+  const map2 = /* @__PURE__ */ new Map();
+  for (const [folder, barrelPath] of barrelDirs) {
+    const text = await readFile13(join24(cwd, barrelPath), "utf8").catch(() => "");
+    const exportedTargets = new Set(
+      readBarrelExports({ barrelPath, text, files }).map((entry) => entry.target).filter((target) => target !== void 0)
+    );
+    const prefix = `${folder}/`;
+    const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
+    const ownFiles = files.filter((file2) => {
+      if (!file2.startsWith(prefix) || isBarrel(file2) || isTestFile(file2) || !/\.tsx?$/.test(file2)) {
+        return false;
+      }
+      return !nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file2.startsWith(`${other}/`));
+    });
+    const omits = ownFiles.some((file2) => !exportedTargets.has(file2));
+    const status = hasOwnCommon || omits ? "module" : "domainFolder";
+    map2.set(folder, { status, barrelPath, exportedTargets });
+  }
+  return map2;
+};
+
+// src/standardsCheck/checkBarrelHygiene.ts
+var checkBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
+  const modules = await mapFolderModules({ cwd, files });
+  const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles] });
+  const findings = [];
+  for (const [folder, entry] of modules) {
+    const barrelExports = readBarrelExports({ barrelPath: entry.barrelPath, text: contents.get(entry.barrelPath) ?? "", files });
+    const stars = barrelExports.filter((line) => line.star);
+    if (stars.length > 0) {
+      findings.push(
+        buildFinding({
+          rule: StandardsRule.BarrelStar,
+          files: [{ path: entry.barrelPath }],
+          detail: `${stars.map((line) => `'${line.specifier}'`).join(", ")} re-exported with \`export *\``,
+          guidance: "A barrel is a module\u2019s public API \u2014 list named re-exports instead."
+        })
+      );
+    }
+    if (entry.status !== "module") {
+      continue;
+    }
+    const prefix = `${folder}/`;
+    const orphans = [];
+    for (const name of barrelExports.flatMap((line) => line.names)) {
+      if (name.length < 4) {
+        continue;
+      }
+      const pattern = new RegExp(`\\b${name}\\b`);
+      const consumedOutside = [...contents].some(
+        ([file2, text]) => (!file2.startsWith(prefix) || isTestFile(file2) && file2 !== entry.barrelPath) && pattern.test(text)
+      );
+      if (!consumedOutside) {
+        orphans.push(name);
+      }
+    }
+    if (orphans.length > 0) {
+      findings.push(
+        buildFinding({
+          rule: StandardsRule.BarrelDeadEntry,
+          files: [{ path: entry.barrelPath }],
+          detail: `${orphans.map((name) => `'${name}'`).join(", ")} ${orphans.length > 1 ? "are" : "is"} exported from ${entry.barrelPath} but no file outside module '${folder}' consumes ${orphans.length > 1 ? "them" : "it"}`,
+          guidance: "Deliberate public API, or dead? Only the author knows."
+        })
+      );
+    }
+  }
+  return findings;
+};
+
 // src/standardsCheck/checkClones.ts
-import { readFile as readFile11 } from "node:fs/promises";
-import { join as join22 } from "node:path";
+import { readFile as readFile14 } from "node:fs/promises";
+import { join as join25 } from "node:path";
 
 // node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
 var import_index = __toESM(require_eventemitter3(), 1);
@@ -30089,13 +30526,13 @@ var blankImportSpans = ({ text }) => {
 };
 
 // src/standardsCheck/checkClones.ts
-var defaultMinTokens = 50;
 var formatOf = (path) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
-var checkClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
+var checkClones = async ({ cwd, source, states }) => {
+  const { minTokens } = getRuleSettings({ states, rule: StandardsRule.Clone });
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
-  const findings = [];
-  for (const file2 of files) {
-    const text = await readFile11(join22(cwd, file2), "utf8").catch(() => void 0);
+  const bySite = /* @__PURE__ */ new Map();
+  for (const file2 of source) {
+    const text = await readFile14(join25(cwd, file2), "utf8").catch(() => void 0);
     if (text === void 0) {
       continue;
     }
@@ -30103,46 +30540,58 @@ var checkClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
     for (const clone3 of clones) {
       const a = clone3.duplicationA;
       const b = clone3.duplicationB;
-      findings.push({
-        rule: StandardsRule.Clone,
-        severity: StandardsSeverity.Finding,
-        siteKey: `clone:${b.sourceId}:${b.start.line}`,
-        files: [
-          { path: b.sourceId, startLine: b.start.line, endLine: b.end.line },
-          { path: a.sourceId, startLine: a.start.line, endLine: a.end.line }
-        ],
-        detail: `${a.end.line - a.start.line + 1}-line duplicated span`,
-        guidance: "Copy-paste at the token level. Extract the shared span, or justify why the copies must diverge."
+      const spans = [
+        { path: b.sourceId, startLine: b.start.line, endLine: b.end.line },
+        { path: a.sourceId, startLine: a.start.line, endLine: a.end.line }
+      ];
+      const siteKey = buildSiteKey({ rule: StandardsRule.Clone, files: spans });
+      const site = bySite.get(siteKey) ?? { files: [], longest: 0 };
+      bySite.set(siteKey, {
+        files: [...site.files, ...spans],
+        longest: Math.max(site.longest, a.end.line - a.start.line + 1)
       });
     }
   }
-  return findings;
+  return [...bySite.values()].map(
+    ({ files, longest }) => buildFinding({
+      rule: StandardsRule.Clone,
+      files,
+      detail: `${files.length / 2} duplicated span(s), the longest ${longest} lines`,
+      guidance: "Copy-paste at the token level. Extract the shared span, or justify why the copies must diverge."
+    })
+  );
 };
 
 // src/standardsCheck/checkDeadExports.ts
-import { basename as basename3 } from "node:path";
-
-// src/standardsCheck/common/utils/readFileContents.ts
-import { readFile as readFile12 } from "node:fs/promises";
-import { join as join23 } from "node:path";
-var readFileContents = async ({ cwd, files }) => {
-  const contents = /* @__PURE__ */ new Map();
-  for (const file2 of new Set(files)) {
-    contents.set(file2, await readFile12(join23(cwd, file2), "utf8").catch(() => ""));
-  }
-  return contents;
-};
-
-// src/standardsCheck/checkDeadExports.ts
+import { basename as basename4 } from "node:path";
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
-var isBarrel = ({ file: file2, text }) => basename3(file2).startsWith("index.") && /^export\b/m.test(text);
+var isBarrel2 = ({ file: file2, text }) => basename4(file2).startsWith("index.") && /^export\b/m.test(text);
+var verdicts = [
+  {
+    rule: StandardsRule.DeadExport,
+    matches: ({ barrel, test }) => !barrel && !test,
+    detail: "referenced nowhere else",
+    guidance: "A dead code candidate. Delete it \u2014 version control has the history."
+  },
+  {
+    rule: StandardsRule.TestOnlyExport,
+    matches: ({ barrel, test }) => test && !barrel,
+    detail: "referenced only by tests",
+    guidance: "A production-dead candidate: only its own tests keep it alive."
+  },
+  {
+    rule: StandardsRule.BarrelOnlyExport,
+    matches: ({ barrel, test }) => barrel && !test,
+    detail: "exported through a barrel but no module consumes it",
+    guidance: "Deliberate public API, or dead? Only the author knows."
+  }
+];
 var checkDeadExports = async ({ cwd, files, referenceFiles }) => {
-  const findings = [];
-  const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles ?? []] });
+  const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles] });
   const scope = new Set(files);
   const declarations = [];
   for (const [file2, text] of contents) {
-    if (!scope.has(file2) || basename3(file2).startsWith("index.") || isTestFile(file2)) {
+    if (!scope.has(file2) || basename4(file2).startsWith("index.") || isTestFile(file2)) {
       continue;
     }
     for (const line of text.split("\n")) {
@@ -30152,6 +30601,7 @@ var checkDeadExports = async ({ cwd, files, referenceFiles }) => {
       }
     }
   }
+  const grouped = /* @__PURE__ */ new Map();
   for (const { name, file: file2 } of declarations) {
     const pattern = new RegExp(`\\b${name}\\b`);
     const referencedBy = { barrel: false, test: false, source: false };
@@ -30159,7 +30609,7 @@ var checkDeadExports = async ({ cwd, files, referenceFiles }) => {
       if (other === file2 || !pattern.test(text)) {
         continue;
       }
-      if (isBarrel({ file: other, text })) {
+      if (isBarrel2({ file: other, text })) {
         referencedBy.barrel = true;
       } else if (isTestFile(other)) {
         referencedBy.test = true;
@@ -30170,147 +30620,22 @@ var checkDeadExports = async ({ cwd, files, referenceFiles }) => {
     if (referencedBy.source) {
       continue;
     }
-    const siteKey = `dead:${file2}`;
-    const base = { rule: StandardsRule.DeadExport, severity: StandardsSeverity.Advisory, siteKey, files: [{ path: file2 }] };
-    if (!referencedBy.barrel && !referencedBy.test) {
-      findings.push({ ...base, detail: `'${name}' is referenced nowhere else`, guidance: "A dead code candidate. Delete it \u2014 version control has the history." });
-    } else if (!referencedBy.source && referencedBy.test && !referencedBy.barrel) {
-      findings.push({ ...base, detail: `'${name}' is referenced only by tests`, guidance: "A production-dead candidate: only its own tests keep it alive." });
-    } else if (!referencedBy.source && referencedBy.barrel && !referencedBy.test) {
-      findings.push({ ...base, detail: `'${name}' is exported through a barrel but no module consumes it`, guidance: "Deliberate public API, or dead? Only the author knows." });
-    }
-  }
-  return findings;
-};
-
-// src/standardsCheck/mapFolderModules.ts
-import { readFile as readFile13 } from "node:fs/promises";
-import { basename as basename4, dirname as dirname3, join as join24 } from "node:path";
-
-// src/standardsCheck/readBarrelExports.ts
-import { posix } from "node:path";
-var starPattern = /^export\s+\*\s+(?:as\s+[A-Za-z0-9_$]+\s+)?from\s+['"]([^'"]+)['"]/;
-var namedPattern = /^export\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/;
-var publicName = (part) => {
-  const withoutType = part.trim().replace(/^type\s+/, "").trim();
-  const aliased = withoutType.match(/\bas\s+([A-Za-z0-9_$]+)$/);
-  return aliased?.[1] ?? withoutType;
-};
-var readBarrelExports = ({
-  barrelPath,
-  text,
-  files
-}) => {
-  const fileSet = new Set(files);
-  const barrelDir = posix.dirname(barrelPath);
-  const resolveTarget = (specifier) => {
-    if (!specifier.startsWith(".")) {
-      return void 0;
-    }
-    const base = posix.normalize(posix.join(barrelDir, specifier));
-    for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
-      if (fileSet.has(candidate)) {
-        return candidate;
-      }
-    }
-    return void 0;
-  };
-  const entries = [];
-  for (const line of text.split("\n")) {
-    const star = line.match(starPattern);
-    if (star?.[1]) {
-      entries.push({ names: [], star: true, specifier: star[1], target: resolveTarget(star[1]) });
+    const verdict = verdicts.find((entry) => entry.matches(referencedBy));
+    if (verdict === void 0) {
       continue;
     }
-    const named = line.match(namedPattern);
-    if (named?.[1] !== void 0 && named[2]) {
-      const names = named[1].split(",").map(publicName).filter((name) => name.length > 0);
-      entries.push({ names, star: false, specifier: named[2], target: resolveTarget(named[2]) });
-    }
+    const siteKey = buildSiteKey({ rule: verdict.rule, files: [{ path: file2 }] });
+    const group = grouped.get(siteKey) ?? { rule: verdict.rule, file: file2, names: [], detail: verdict.detail, guidance: verdict.guidance };
+    grouped.set(siteKey, { ...group, names: [...group.names, name] });
   }
-  return entries;
-};
-
-// src/standardsCheck/mapFolderModules.ts
-var isBarrel2 = (path) => /^index\.tsx?$/.test(basename4(path));
-var isRootBarrelDir = (dir) => basename4(dir) === "src";
-var underCommon = (path) => path.split("/").includes("common");
-var mapFolderModules = async ({
-  cwd,
-  files
-}) => {
-  const barrelDirs = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
-    const dir = dirname3(file2);
-    if (isBarrel2(file2) && !isRootBarrelDir(dir) && !underCommon(dir)) {
-      barrelDirs.set(dir, file2);
-    }
-  }
-  const nestedModuleDirs = [...barrelDirs.keys()];
-  const map2 = /* @__PURE__ */ new Map();
-  for (const [folder, barrelPath] of barrelDirs) {
-    const text = await readFile13(join24(cwd, barrelPath), "utf8").catch(() => "");
-    const exportedTargets = new Set(
-      readBarrelExports({ barrelPath, text, files }).map((entry) => entry.target).filter((target) => target !== void 0)
-    );
-    const prefix = `${folder}/`;
-    const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
-    const ownFiles = files.filter((file2) => {
-      if (!file2.startsWith(prefix) || isBarrel2(file2) || isTestFile(file2) || !/\.tsx?$/.test(file2)) {
-        return false;
-      }
-      return !nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file2.startsWith(`${other}/`));
-    });
-    const omits = ownFiles.some((file2) => !exportedTargets.has(file2));
-    const status = hasOwnCommon || omits ? "module" : "domainFolder";
-    map2.set(folder, { status, barrelPath, exportedTargets });
-  }
-  return map2;
-};
-
-// src/standardsCheck/checkBarrelHygiene.ts
-var checkBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
-  const modules = await mapFolderModules({ cwd, files });
-  const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles ?? []] });
-  const findings = [];
-  for (const [folder, entry] of modules) {
-    const barrelExports = readBarrelExports({ barrelPath: entry.barrelPath, text: contents.get(entry.barrelPath) ?? "", files });
-    const stars = barrelExports.filter((line) => line.star);
-    if (stars.length > 0) {
-      findings.push({
-        rule: StandardsRule.BarrelHygiene,
-        severity: StandardsSeverity.Finding,
-        siteKey: `barrel-star:${entry.barrelPath}`,
-        files: [{ path: entry.barrelPath }],
-        detail: `${stars.map((line) => `'${line.specifier}'`).join(", ")} re-exported with \`export *\``,
-        guidance: "A barrel is a module\u2019s public API \u2014 list named re-exports instead."
-      });
-    }
-    if (entry.status !== "module") {
-      continue;
-    }
-    const prefix = `${folder}/`;
-    for (const name of barrelExports.flatMap((line) => line.names)) {
-      if (name.length < 4) {
-        continue;
-      }
-      const pattern = new RegExp(`\\b${name}\\b`);
-      const consumedOutside = [...contents].some(
-        ([file2, text]) => (!file2.startsWith(prefix) || isTestFile(file2) && file2 !== entry.barrelPath) && pattern.test(text)
-      );
-      if (!consumedOutside) {
-        findings.push({
-          rule: StandardsRule.BarrelHygiene,
-          severity: StandardsSeverity.Advisory,
-          siteKey: `barrel-dead:${entry.barrelPath}:${name}`,
-          files: [{ path: entry.barrelPath }],
-          detail: `'${name}' is exported from ${entry.barrelPath} but no file outside module '${folder}' consumes it`,
-          guidance: "Deliberate public API, or dead? Only the author knows."
-        });
-      }
-    }
-  }
-  return findings;
+  return [...grouped.values()].map(
+    ({ rule, file: file2, names, detail, guidance }) => buildFinding({
+      rule,
+      files: [{ path: file2 }],
+      detail: `${names.map((name) => `'${name}'`).join(", ")} ${names.length > 1 ? "are" : "is"} ${detail}`,
+      guidance
+    })
+  );
 };
 
 // src/common/naming/collapseCasing.ts
@@ -30341,11 +30666,11 @@ import { basename as basename5 } from "node:path";
 var nameOf = (path) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
 
 // src/standardsCheck/checkFilenameDuplicates.ts
-var checkFilenameDuplicates = ({ files }) => {
+var checkFilenameDuplicates = async ({ source }) => {
   const findings = [];
   const byName = /* @__PURE__ */ new Map();
   const byTokens = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
+  for (const file2 of source) {
     const name = nameOf(file2);
     if (name === "index") {
       continue;
@@ -30358,39 +30683,40 @@ var checkFilenameDuplicates = ({ files }) => {
   }
   for (const [name, paths] of byName) {
     if (paths.length > 1) {
-      findings.push({
-        rule: StandardsRule.FilenameDuplicate,
-        severity: StandardsSeverity.Advisory,
-        siteKey: `name:${name}`,
-        files: paths.map((path) => ({ path })),
-        detail: `'${name}' is declared in ${paths.length} places`,
-        guidance: "One concept implemented twice, or a promotion candidate."
-      });
+      const files = paths.map((path) => ({ path }));
+      findings.push(
+        buildFinding({
+          rule: StandardsRule.NameDuplicate,
+          files,
+          detail: `'${name}' is declared in ${paths.length} places`,
+          guidance: "One concept implemented twice, or a promotion candidate."
+        })
+      );
     }
   }
-  for (const [key, group] of byTokens) {
+  for (const group of byTokens.values()) {
     if (group.size > 1) {
       const names = [...group.keys()];
-      const paths = [...group.values()].flat();
       if (new Set(names.map((name) => collapseCasing(name))).size < 2) {
         continue;
       }
-      findings.push({
-        rule: StandardsRule.FilenameDuplicate,
-        severity: StandardsSeverity.Advisory,
-        siteKey: `tokens:${key}`,
-        files: paths.map((path) => ({ path })),
-        detail: `${names.map((name) => `'${name}'`).join(", ")} differ only by synonym or word order`,
-        guidance: "Likely one concept living under two names."
-      });
+      const files = [...group.values()].flat().map((path) => ({ path }));
+      findings.push(
+        buildFinding({
+          rule: StandardsRule.NameSynonym,
+          files,
+          detail: `${names.map((name) => `'${name}'`).join(", ")} differ only by synonym or word order`,
+          guidance: "Likely one concept living under two names."
+        })
+      );
     }
   }
   return findings;
 };
 
 // src/common/utils/collectImportEdges.ts
-import { readFile as readFile14 } from "node:fs/promises";
-import { join as join25, posix as posix2 } from "node:path";
+import { readFile as readFile15 } from "node:fs/promises";
+import { join as join26, posix as posix2 } from "node:path";
 var stripExtension = (path) => path.replace(/\.(m|c)?[jt]sx?$/i, "");
 var collectImportEdges = async ({ cwd, files, compiler }) => {
   const byStripped = /* @__PURE__ */ new Map();
@@ -30417,7 +30743,7 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   };
   const edges = [];
   for (const from of files) {
-    const content = await readFile14(join25(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile15(join26(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
@@ -30436,11 +30762,13 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
 var depth = (path) => path.split("/").length;
 var inside = ({ file: file2, folder }) => file2.startsWith(`${folder}/`);
 var checkModuleBoundaries = async ({ cwd, files, compiler }) => {
+  if (compiler === void 0) {
+    return [];
+  }
   const modules = await mapFolderModules({ cwd, files });
   const edges = await collectImportEdges({ cwd, files, compiler });
   const moduleFolders = [...modules.entries()].filter(([, entry]) => entry.status === "module").map(([folder]) => folder);
-  const findings = [];
-  const seen = /* @__PURE__ */ new Set();
+  const crossings = /* @__PURE__ */ new Map();
   for (const { from, to } of edges) {
     if (to.split("/").includes("common")) {
       continue;
@@ -30451,21 +30779,22 @@ var checkModuleBoundaries = async ({ cwd, files, compiler }) => {
       continue;
     }
     const barrelPath = modules.get(outermost)?.barrelPath;
-    const key = `${from}\0${to}`;
-    if (to === barrelPath || seen.has(key)) {
+    if (to === barrelPath) {
       continue;
     }
-    seen.add(key);
-    findings.push({
+    const key = `${from}\0${outermost}`;
+    const crossing = crossings.get(key) ?? { from, module: outermost, barrelPath, targets: [] };
+    crossings.set(key, { ...crossing, targets: crossing.targets.includes(to) ? crossing.targets : [...crossing.targets, to] });
+  }
+  return [...crossings.values()].map(({ from, module, barrelPath, targets }) => {
+    const sites = [{ path: from }, ...targets.map((path) => ({ path }))];
+    return buildFinding({
       rule: StandardsRule.ModuleBoundary,
-      severity: StandardsSeverity.Finding,
-      siteKey: `boundary:${from}`,
-      files: [{ path: from }, { path: to }],
-      detail: `deep-imports '${to}' \u2014 an internal of module '${outermost}'; import from its barrel '${barrelPath}' instead`,
+      files: sites,
+      detail: `deep-imports ${targets.map((path) => `'${path}'`).join(", ")} \u2014 ${targets.length > 1 ? "internals" : "an internal"} of module '${module}'; import from its barrel '${barrelPath}' instead`,
       guidance: "A module\u2019s barrel is its public API; everything else is an internal."
     });
-  }
-  return findings;
+  });
 };
 
 // src/standardsCheck/checkPlacement.ts
@@ -30488,6 +30817,9 @@ var lowestCommonAncestor = (paths) => {
   return shared.join("/");
 };
 var checkPlacement = async ({ cwd, files, compiler }) => {
+  if (compiler === void 0) {
+    return [];
+  }
   const edges = await collectImportEdges({ cwd, files, compiler });
   const leaksByFile = /* @__PURE__ */ new Map();
   for (const { from, to } of edges) {
@@ -30501,21 +30833,22 @@ var checkPlacement = async ({ cwd, files, compiler }) => {
   for (const [file2, { owner, consumers: consumerSet }] of leaksByFile) {
     const consumers = [...consumerSet].sort();
     const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname4(consumer))]);
-    findings.push({
-      rule: StandardsRule.Placement,
-      severity: StandardsSeverity.Finding,
-      siteKey: `placement:${file2}`,
-      files: [{ path: file2 }, ...consumers.map((path) => ({ path }))],
-      detail: `'${file2}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(", ")} \u2014 promote to ${lca}/common/`,
-      guidance: "Shared code belongs in the common/ of the lowest folder that contains everyone using it."
-    });
+    const sites = [{ path: file2 }, ...consumers.map((path) => ({ path }))];
+    findings.push(
+      buildFinding({
+        rule: StandardsRule.Placement,
+        files: sites,
+        detail: `'${file2}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(", ")} \u2014 promote to ${lca}/common/`,
+        guidance: "Shared code belongs in the common/ of the lowest folder that contains everyone using it."
+      })
+    );
   }
   return findings;
 };
 
 // src/standardsCheck/checkStructure.ts
-import { readFile as readFile15 } from "node:fs/promises";
-import { basename as basename6, dirname as dirname5, join as join26 } from "node:path";
+import { readFile as readFile16 } from "node:fs/promises";
+import { basename as basename6, dirname as dirname5, join as join27 } from "node:path";
 
 // src/standardsCheck/common/utils/checkFileExports.ts
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+(?!\$\{)([A-Za-z0-9_$]+)/;
@@ -30537,31 +30870,30 @@ var checkFileExports = ({ file: file2, text }) => {
   const namedConstantFamily = constTypeName !== void 0 && exports.every(({ keyword, name, line }) => name === constTypeName || keyword === "const" && line.includes(`Record<${constTypeName}`));
   const unionFamily = keywords("interface").length > 0 && keywords("type").length === 1 && keywords("interface").length + 1 === exports.length;
   if (exports.length > 1 && !namedConstantFamily && !unionFamily) {
-    findings.push({
-      rule: StandardsRule.Structure,
-      severity: StandardsSeverity.Finding,
-      siteKey: `multi-export:${file2}`,
-      files: [{ path: file2 }],
-      detail: `${exports.length} exports (${exports.map(({ name }) => name).join(", ")})`,
-      guidance: "One export per file, outside the closed exception list."
-    });
+    findings.push(
+      buildFinding({
+        rule: StandardsRule.MultiExport,
+        files: [{ path: file2 }],
+        detail: `${exports.length} exports (${exports.map(({ name }) => name).join(", ")})`,
+        guidance: "One export per file, outside the closed exception list."
+      })
+    );
   }
   const primary = exports[0];
   if (primary && exports.length === 1 && !dotPrefixes(nameOf(file2)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
-    findings.push({
-      rule: StandardsRule.Structure,
-      severity: StandardsSeverity.Advisory,
-      siteKey: `filename-mismatch:${file2}`,
-      files: [{ path: file2 }],
-      detail: `file '${nameOf(file2)}' exports '${primary.name}'`,
-      guidance: "The filename should match the export it holds."
-    });
+    findings.push(
+      buildFinding({
+        rule: StandardsRule.FilenameMismatch,
+        files: [{ path: file2 }],
+        detail: `file '${nameOf(file2)}' exports '${primary.name}'`,
+        guidance: "The filename should match the export it holds."
+      })
+    );
   }
   return findings;
 };
 
 // src/standardsCheck/checkStructure.ts
-var folderCensusCap = 20;
 var accessVerbs = /* @__PURE__ */ new Set([
   "is",
   "has",
@@ -30598,11 +30930,11 @@ var accessVerbs = /* @__PURE__ */ new Set([
   "apply"
 ]);
 var firstToken = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/)[0]?.toLowerCase() ?? "";
-var checkStructure = async ({ cwd, files }) => {
+var checkStructure = async ({ cwd, source, states }) => {
   const findings = [];
   const filesPerDir = /* @__PURE__ */ new Map();
   const utilsVerbGroups = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
+  for (const file2 of source) {
     const dir = dirname5(file2);
     filesPerDir.set(dir, [...filesPerDir.get(dir) ?? [], file2]);
     if (basename6(dir) === "utils") {
@@ -30614,88 +30946,51 @@ var checkStructure = async ({ cwd, files }) => {
     if (basename6(file2).startsWith("index.")) {
       continue;
     }
-    const text = await readFile15(join26(cwd, file2), "utf8").catch(() => "");
+    const text = await readFile16(join27(cwd, file2), "utf8").catch(() => "");
     findings.push(...checkFileExports({ file: file2, text }));
   }
   for (const [dir, group] of utilsVerbGroups) {
     for (const [verb, paths] of group) {
       if (paths.length > 1 && verb && !accessVerbs.has(verb)) {
-        findings.push({
-          rule: StandardsRule.Structure,
-          severity: StandardsSeverity.Advisory,
-          siteKey: `domain:${dir}:${verb}`,
-          files: paths.map((path) => ({ path })),
-          detail: `${paths.length} '${verb}*' functions in ${dir}`,
-          guidance: "A domain-folder graduation candidate. Heuristic \u2014 judge before acting."
-        });
+        const files = paths.map((path) => ({ path }));
+        findings.push(
+          buildFinding({
+            rule: StandardsRule.DomainGraduation,
+            files,
+            detail: `${paths.length} '${verb}*' functions in ${dir}`,
+            guidance: "A domain-folder graduation candidate. Heuristic \u2014 judge before acting."
+          })
+        );
       }
     }
   }
+  const { cap } = getRuleSettings({ states, rule: StandardsRule.FolderCensus });
   for (const [dir, paths] of filesPerDir) {
-    if (paths.length > folderCensusCap) {
-      findings.push({
-        rule: StandardsRule.Structure,
-        severity: StandardsSeverity.Advisory,
-        siteKey: `census:${dir}`,
-        files: [{ path: dir }],
-        detail: `${paths.length} files in one flat folder (census cap ~${folderCensusCap})`,
-        guidance: "Group them by domain, or graduate the concepts hiding in the pile."
-      });
+    if (paths.length > cap) {
+      findings.push(
+        buildFinding({
+          rule: StandardsRule.FolderCensus,
+          files: [{ path: dir }],
+          detail: `${paths.length} files in one flat folder (census cap ~${cap})`,
+          guidance: "Group them by domain, or graduate the concepts hiding in the pile."
+        })
+      );
     }
   }
   return findings;
 };
 
-// src/standardsCheck/common/utils/applyStandardsBaseline.ts
-import { readFile as readFile16, writeFile as writeFile5 } from "node:fs/promises";
-import { join as join27 } from "node:path";
-var StandardsBaseline = external_exports.object({
-  at: external_exports.string(),
-  path: external_exports.string(),
-  siteKeys: external_exports.array(external_exports.string())
-});
-var applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
-  const baselinePath = join27(cwd, "lightsout.standards-baseline.json");
-  const baselineRaw = await readFile16(baselinePath, "utf8").catch(() => void 0);
-  const notes = [];
-  let baselineJson;
-  try {
-    baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
-  } catch {
-    baselineJson = null;
-  }
-  const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
-  if (writeBaseline) {
-    const siteKeys = [...new Set(findings.map((finding) => finding.siteKey))];
-    await writeFile5(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
-`, "utf8");
-    notes.push(
-      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
-    );
-    return { reported: findings, notes };
-  }
-  if (baseline === void 0) {
-    if (findings.some((finding) => finding.severity === StandardsSeverity.Finding)) {
-      notes.push(`no baseline \u2014 \`lightsout standards-check --baseline\` accepts these findings as existing debt so future runs report only what's new`);
-    }
-    return { reported: findings, notes };
-  }
-  if (!baseline.success) {
-    notes.push("lightsout.standards-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
-    return { reported: findings, notes };
-  }
-  const accepted = new Set(baseline.data.siteKeys);
-  const fresh = findings.filter((finding) => !accepted.has(finding.siteKey));
-  const currentSiteKeys = new Set(findings.map((finding) => finding.siteKey));
-  const resolved = baseline.data.siteKeys.filter((siteKey) => !currentSiteKeys.has(siteKey)).length;
-  if (!all && findings.length > fresh.length) {
-    notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
-  }
-  if (resolved > 0) {
-    notes.push(`${resolved} baselined site(s) no longer found \u2014 burn-down progress (--baseline to refresh the ledger)`);
-  }
-  return { reported: all ? findings : fresh, notes };
-};
+// src/standardsCheck/standardsPasses.ts
+var standardsPasses = [
+  { id: StandardsPassId.FilenameDuplicates, run: checkFilenameDuplicates },
+  { id: StandardsPassId.Clones, run: checkClones },
+  { id: StandardsPassId.AstFindings, run: checkAstFindings },
+  { id: StandardsPassId.ModuleBoundaries, run: checkModuleBoundaries },
+  { id: StandardsPassId.Placement, run: checkPlacement },
+  { id: StandardsPassId.BarrelHygiene, run: checkBarrelHygiene },
+  { id: StandardsPassId.Structure, run: checkStructure },
+  { id: StandardsPassId.DeadExports, run: checkDeadExports }
+];
 
 // src/standardsCheck/runStandardsCheck.ts
 var dominantPath = ({ findings }) => {
@@ -30725,6 +31020,7 @@ var dominantPath = ({ findings }) => {
   }
   return prefix.split("/").length >= 2 ? { dir: prefix, count, total: paths.length } : void 0;
 };
+var rulesOf = ({ pass }) => Object.values(StandardsRule).filter((rule) => standardsRuleRegistry[rule].pass === pass);
 var runStandardsCheck = async ({
   cwd,
   path,
@@ -30735,33 +31031,39 @@ var runStandardsCheck = async ({
 }) => {
   const progress = onProgress ?? (() => void 0);
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const states = resolveRuleStates({ config: config2 });
   const repoFiles = await listSourceFiles({ cwd, exclude: config2?.generated });
   const allFiles = repoFiles.filter((file2) => !path || file2.startsWith(path));
   const source = allFiles.filter((file2) => !isTestFile(file2));
+  const tests = allFiles.filter((file2) => isTestFile(file2));
   const notes = [];
-  progress(`checking ${source.length} source file(s) (${allFiles.length - source.length} test file(s) excluded from duplication tiers)`);
-  const findings = [];
-  findings.push(...checkFilenameDuplicates({ files: source }));
-  progress(`tier 0 (names): done`);
-  findings.push(...await checkClones({ cwd, files: source, minTokens: config2?.standardsChecks?.minCloneTokens }));
-  progress(`tier 1 (clones): done`);
+  progress(`checking ${source.length} source file(s) (${tests.length} test file(s) excluded from duplication tiers)`);
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2?.packagesDir });
-  if (compiler) {
-    findings.push(...await checkAstFindings({ cwd, files: source, compiler, size: config2?.standardsChecks?.size }));
-    progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
-    findings.push(...await checkModuleBoundaries({ cwd, files: allFiles, compiler }));
-    progress(`module boundaries: done`);
-    findings.push(...await checkPlacement({ cwd, files: allFiles, compiler }));
-    progress(`placement: done`);
-  } else {
-    notes.push("ast tier + function-size audit + module-boundary/placement checks skipped \u2014 no typescript resolvable from the target repo");
+  const emitted = [];
+  const skipped = [];
+  for (const { id, run } of standardsPasses) {
+    const live2 = rulesOf({ pass: id }).filter((rule) => states.get(rule)?.severity !== StandardsSeverity.Off);
+    if (live2.length === 0) {
+      progress(`${id}: off`);
+      continue;
+    }
+    if (compiler === void 0 && live2.every((rule) => standardsRuleRegistry[rule].needsTypescript)) {
+      skipped.push(id);
+      continue;
+    }
+    emitted.push(...await run({ cwd, source, tests, files: allFiles, referenceFiles: repoFiles, states, compiler }));
+    progress(`${id}: done`);
   }
-  findings.push(...await checkBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles }));
-  progress(`barrel hygiene: done`);
-  findings.push(...await checkStructure({ cwd, files: source }));
-  progress(`structure: done`);
-  findings.push(...await checkDeadExports({ cwd, files: allFiles, referenceFiles: repoFiles }));
-  progress(`dead exports: done`);
+  if (skipped.length > 0) {
+    notes.push(`${skipped.join(", ")} skipped \u2014 no typescript resolvable from the target repo`);
+  }
+  const findings = [];
+  for (const finding of emitted) {
+    const severity = states.get(finding.rule)?.severity;
+    if (severity === StandardsSeverity.Finding || severity === StandardsSeverity.Advisory) {
+      findings.push({ ...finding, severity });
+    }
+  }
   const dominant = dominantPath({ findings });
   if (dominant) {
     notes.push(
@@ -30780,18 +31082,25 @@ var runStandardsCheck = async ({
 };
 
 // src/standardsCheck/selectStandardsFindings.ts
-var gatingSiteKeyPattern = /^(ast:|multi-export:|size:file:|boundary:)/;
-var selectStandardsFindings = ({
-  findings,
-  changedFiles
-}) => {
+var selectStandardsFindings = ({ findings, changedFiles }) => {
   const changed = new Set(changedFiles);
   const touchesChanged = (finding) => finding.files.some((file2) => changed.has(file2.path));
-  const workList = findings.filter((finding) => finding.severity === StandardsSeverity.Finding && touchesChanged(finding));
-  const advisories = findings.filter(
-    (finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size && touchesChanged(finding)
-  );
-  return { workList, advisories, gating: workList.filter((finding) => gatingSiteKeyPattern.test(finding.siteKey)) };
+  return {
+    workList: findings.filter((finding) => finding.severity === StandardsSeverity.Finding && touchesChanged(finding)),
+    advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && touchesChanged(finding))
+  };
+};
+
+// src/standardsCheck/listStandardsRules.ts
+var listStandardsRules = ({ config: config2 }) => {
+  return [...resolveRuleStates({ config: config2 })].map(([rule, state]) => ({
+    rule,
+    doc: standardsRuleRegistry[rule].doc,
+    summary: standardsRuleRegistry[rule].summary,
+    severity: state.severity,
+    fromConfig: state.fromConfig,
+    settings: state.settings
+  })).sort((first, second) => first.rule.localeCompare(second.rule));
 };
 
 // src/pipeline/steps/standardsWorkList.ts
@@ -30812,9 +31121,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
       await run.setStep({ record: record2 });
       const check2 = await standardsWorkList({ run });
       if (check2.workList.length > 0 || check2.advisories.length > 0) {
-        run.progress(
-          `standards gate: ${check2.workList.length} finding(s) + ${check2.advisories.length} advisory(ies) on changed files${check2.gating.length > 0 ? ` (${check2.gating.length} gating)` : ""}`
-        );
+        run.progress(`standards gate: ${check2.workList.length} finding(s) + ${check2.advisories.length} advisory(ies) on changed files`);
       }
       run.progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
       const outcome = await invokeRoleOrStop({
@@ -30842,24 +31149,24 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
       await run.setStep({ record: { ...record2, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
       lastReport = report;
       if (report.changedFiles.length === 0) {
-        if (check2.gating.length === 0) {
+        if (check2.workList.length === 0) {
           run.progress(`refactor pass ${pass}: no changes \u2014 loop complete`);
           cleanExit = true;
           break;
         }
-        const declined = check2.gating.map((finding) => finding.siteKey).sort().join("\n");
+        const declined = check2.workList.map((finding) => finding.siteKey).sort().join("\n");
         if (declined === lastDeclined && pass < maxRefactorPasses) {
-          run.progress(`refactor pass ${pass}: agent declined the same gating set twice \u2014 escalating without spending the remaining pass(es)`);
+          run.progress(`refactor pass ${pass}: agent declined the same work-list twice \u2014 escalating without spending the remaining pass(es)`);
         }
         if (pass === maxRefactorPasses || declined === lastDeclined) {
           return run.stop({
             record: { ...record2, report },
             status: RunStatus.Escalated,
-            error: describePersistingFindings({ gating: check2.gating, report, passes: pass })
+            error: describePersistingFindings({ findings: check2.workList, report, passes: pass })
           });
         }
         lastDeclined = declined;
-        run.progress(`refactor pass ${pass}: no changes but the checks still report ${check2.gating.length} gating finding(s) \u2014 another pass`);
+        run.progress(`refactor pass ${pass}: no changes but the checks still report ${check2.workList.length} finding(s) \u2014 another pass`);
         record2 = { ...record2, attempts: record2.attempts + 1 };
         continue;
       }
@@ -30869,11 +31176,11 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
     }
     if (!cleanExit) {
       const final = await standardsWorkList({ run });
-      if (final.gating.length > 0) {
+      if (final.workList.length > 0) {
         return run.stop({
           record: { ...record2, report: lastReport },
           status: RunStatus.Escalated,
-          error: describePersistingFindings({ gating: final.gating, report: lastReport, passes: maxRefactorPasses })
+          error: describePersistingFindings({ findings: final.workList, report: lastReport, passes: maxRefactorPasses })
         });
       }
     }
@@ -32682,8 +32989,8 @@ var runPlanGrade = async ({
 import { join as join47 } from "node:path";
 
 // src/plan/common/utils/matchDedupVerdicts.ts
-var matchDedupVerdicts = ({ candidates, verdicts }) => {
-  const verdictBySymbol = new Map(verdicts.map((verdict) => [verdict.plannedSymbol, verdict]));
+var matchDedupVerdicts = ({ candidates, verdicts: verdicts2 }) => {
+  const verdictBySymbol = new Map(verdicts2.map((verdict) => [verdict.plannedSymbol, verdict]));
   return candidates.flatMap((candidate) => {
     const verdict = verdictBySymbol.get(candidate.plannedSymbol);
     if (!verdict?.isDuplicate) {
@@ -33049,14 +33356,23 @@ import { join as join49 } from "node:path";
 
 // src/refactor/batchFindings.ts
 var rulePriority = [
-  "module-boundary",
-  "structure",
-  "size",
-  "barrel-hygiene",
-  "placement",
-  "ast-duplicate",
-  "clone",
-  "filename-duplicate"
+  StandardsRule.ModuleBoundary,
+  StandardsRule.Placement,
+  StandardsRule.MultiExport,
+  StandardsRule.FilenameMismatch,
+  StandardsRule.BarrelStar,
+  StandardsRule.BarrelDeadEntry,
+  StandardsRule.DeadExport,
+  StandardsRule.TestOnlyExport,
+  StandardsRule.BarrelOnlyExport,
+  StandardsRule.SizeFile,
+  StandardsRule.SizeFunction,
+  StandardsRule.DomainGraduation,
+  StandardsRule.FolderCensus,
+  StandardsRule.AstDuplicate,
+  StandardsRule.Clone,
+  StandardsRule.NameDuplicate,
+  StandardsRule.NameSynonym
 ];
 var maxBatchFindings = 12;
 var priorityOf = (rule) => {
@@ -33115,11 +33431,12 @@ var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
     all,
     batches: batchFindings({
       findings: findings.filter((finding) => finding.severity === StandardsSeverity.Finding),
-      // Size advisories only — the executor prompt frames advisories as the
-      // size caps' judgment items; other advisory rules (dead-export)
-      // must not ride in as if they were work (in-pipeline precedent:
+      // Every advisory, not just the size ones: an advisory IS a judgment
+      // call, and each carries its own guidance line for the agent to apply.
+      // A rule whose advisories never reach the agent can never be judged —
+      // it only ever reports to a human (in-pipeline precedent:
       // selectStandardsFindings).
-      advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size),
+      advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory),
       packagesDir: config2.packagesDir ?? "packages"
     })
   };
@@ -33161,7 +33478,7 @@ var seedResumeState = ({ manifest, batches }) => {
     }
     const parsed = BatchReport.safeParse(step.report);
     if (parsed.success && parsed.data.outcome === BatchOutcome.Declined) {
-      declined.push({ batchId: batch.id, remainingClusters: parsed.data.remainingClusters, rationale: parsed.data.rationale });
+      declined.push({ batchId: batch.id, remainingSiteKeys: parsed.data.remainingSiteKeys, rationale: parsed.data.rationale });
       declineStreak += 1;
     } else {
       declineStreak = 0;
@@ -33238,13 +33555,9 @@ var invokeBatchAgent = async ({
 };
 
 // src/refactor/matchRemainingFindings.ts
-var pathKey = (finding) => [...new Set(finding.files.map((file2) => file2.path))].sort().join("\0");
 var matchRemainingFindings = ({ frozen, live: live2 }) => {
   const liveSiteKeys = new Set(live2.map((finding) => finding.siteKey));
-  const liveClonePathKeys = new Set(live2.filter((finding) => finding.siteKey.startsWith("clone:")).map(pathKey));
-  return frozen.filter(
-    (finding) => finding.siteKey.startsWith("clone:") ? liveClonePathKeys.has(pathKey(finding)) : liveSiteKeys.has(finding.siteKey)
-  ).map((finding) => finding.siteKey);
+  return frozen.filter((finding) => liveSiteKeys.has(finding.siteKey)).map((finding) => finding.siteKey);
 };
 
 // src/refactor/runBatchGates.ts
@@ -33368,19 +33681,19 @@ var runBatch = async ({
   };
   const gates2 = () => runBatchGates({ cwd, config: config2, runId, step: batch.id, onProgress });
   const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
-  const remainingClusters = async ({ frozen }) => {
+  const remainingSiteKeys = async ({ frozen }) => {
     const { findings } = await checkLive();
     return matchRemainingFindings({ frozen, live: findings });
   };
   const batchChangedFiles = () => collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles });
   const preCheck = await checkLive();
   if (matchRemainingFindings({ frozen: batch.findings, live: preCheck.findings }).length === 0) {
-    onProgress(`${batch.id}: clusters already resolved by earlier work \u2014 no agent spent`);
-    return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: [] };
+    onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
+    return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: [] };
   }
   const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file2) => file2.path)));
   const liveAdvisories = preCheck.findings.filter(
-    (finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size && finding.files.some((file2) => batchFiles.has(file2.path))
+    (finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path))
   );
   let workFindings = batch.findings;
   for (let pass = 1; pass <= 2; pass += 1) {
@@ -33401,10 +33714,10 @@ var runBatch = async ({
         return { kind: "parked" };
       }
       const { failure } = attemptOutcome;
-      if ((await remainingClusters({ frozen: workFindings })).length === 0 && !await gates2()) {
-        rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the clusters are resolved and gates are green`);
+      if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates2()) {
+        rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
         onProgress(`${batch.id}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
-        return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+        return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
       }
       return { kind: "failed", error: `${batch.id}: ${failure}` };
     }
@@ -33413,7 +33726,7 @@ var runBatch = async ({
       rationale.push(...report.failures.map((entry) => `[scope] ${entry}`));
       return {
         kind: "done",
-        report: { outcome: BatchOutcome.Declined, remainingClusters: await remainingClusters({ frozen: workFindings }), rationale },
+        report: { outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }), rationale },
         changedFiles: await batchChangedFiles()
       };
     }
@@ -33453,18 +33766,18 @@ var runBatch = async ({
         return { kind: "escalated", error: supervised.error };
       }
     }
-    const remaining = await remainingClusters({ frozen: workFindings });
+    const remaining = await remainingSiteKeys({ frozen: workFindings });
     if (remaining.length === 0) {
-      return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+      return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
     }
     if (report.changedFiles.length === 0 || pass === 2) {
       return {
         kind: "done",
-        report: { outcome: BatchOutcome.Declined, remainingClusters: remaining, rationale },
+        report: { outcome: BatchOutcome.Declined, remainingSiteKeys: remaining, rationale },
         changedFiles: await batchChangedFiles()
       };
     }
-    onProgress(`${batch.id}: ${remaining.length} cluster(s) persist after a changing pass \u2014 one requeue`);
+    onProgress(`${batch.id}: ${remaining.length} site(s) persist after a changing pass \u2014 one requeue`);
     workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
   }
   return { kind: "failed", error: `${batch.id}: batch loop exited without a terminal condition` };
@@ -33575,9 +33888,9 @@ ${gateError}` });
       patch: { changedFiles: [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...outcome.changedFiles])] }
     });
     if (report.outcome === BatchOutcome.Declined) {
-      declined.push({ batchId: batch.id, remainingClusters: report.remainingClusters, rationale: report.rationale });
+      declined.push({ batchId: batch.id, remainingSiteKeys: report.remainingSiteKeys, rationale: report.rationale });
       declineStreak += 1;
-      progress(`${batch.id}: declined (${report.remainingClusters.length} cluster(s) persist)`);
+      progress(`${batch.id}: declined (${report.remainingSiteKeys.length} site(s) persist)`);
       if (declineStreak >= maxConsecutiveDeclines) {
         const error51 = `${maxConsecutiveDeclines} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or a rule bug), not worth further agent spend.`;
         await update({ status: RunStatus.Escalated, currentStep: null });
@@ -33605,7 +33918,7 @@ ${bold(`refactor ${manifest.runId.slice(0, 8)}`)} \u2014 ${statusLabel}`);
   for (const step of batchSteps) {
     const decline = declined.find((entry) => entry.batchId === step.id);
     const icon = step.status !== RunStatus.Passed ? red("\u2717") : decline ? yellow("\u292B") : green("\u2713");
-    const label = decline ? `declined (${decline.remainingClusters.length} cluster(s) persist)` : step.status === RunStatus.Passed ? "resolved" : step.status;
+    const label = decline ? `declined (${decline.remainingSiteKeys.length} site(s) persist)` : step.status === RunStatus.Passed ? "resolved" : step.status;
     console.log(`${icon} ${step.id.padEnd(48)}${label}${step.changedFiles?.length ? dim(` \xB7 ${step.changedFiles.length} file(s)`) : ""}`);
   }
   for (const entry of declined) {
@@ -33614,7 +33927,7 @@ ${yellow("declined")} ${entry.batchId}`);
     for (const line of entry.rationale) {
       console.log(dim(`  ${line}`));
     }
-    console.log(dim(`  review each cluster \u2014 fix by hand, or accept it as debt: lightsout standards-check --baseline`));
+    console.log(dim(`  review each site \u2014 fix by hand, or accept it as debt: lightsout standards-check --baseline`));
   }
   const rules = [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].sort();
   if (!result.ok) {
@@ -33774,8 +34087,43 @@ var printFindingGroups = ({ findings }) => {
   }
 };
 
+// src/cli/common/render/printStandardsRuleList.ts
+var stateLabels = {
+  [StandardsSeverity.Finding]: "blocking",
+  [StandardsSeverity.Advisory]: "advisory",
+  [StandardsSeverity.Off]: "off"
+};
+var countOf = ({ rules, severity }) => rules.filter((rule) => rule.severity === severity).length;
+var describeSettings = ({ settings }) => Object.entries(settings).map(([name, value]) => `${name} ${value}`).join(", ");
+var printStandardsRuleList = ({ rules }) => {
+  const rows = rules.flatMap((rule) => {
+    const settings = describeSettings({ settings: rule.settings });
+    return [
+      {
+        cells: [rule.rule, rule.fromConfig ? `${stateLabels[rule.severity]} (config)` : stateLabels[rule.severity], rule.doc]
+      },
+      {
+        cells: [settings === "" ? rule.summary : `${rule.summary} \u2014 ${settings}`, "", ""],
+        ruleAbove: false,
+        emphasis: dim
+      }
+    ];
+  });
+  const totals = {
+    cells: [
+      `${rules.length} rule(s)`,
+      `${countOf({ rules, severity: StandardsSeverity.Finding })} blocking`,
+      `${countOf({ rules, severity: StandardsSeverity.Advisory })} advisory, ${countOf({ rules, severity: StandardsSeverity.Off })} off`
+    ],
+    emphasis: bold
+  };
+  for (const line of renderTable({ headers: ["rule", "state", "standards doc"], rows: [...rows, totals] })) {
+    console.log(line);
+  }
+};
+
 // src/cli/common/render/printStandardsSummary.ts
-var countOf = ({ findings, rule, severity }) => findings.filter((finding) => finding.rule === rule && finding.severity === severity).length;
+var countOf2 = ({ findings, rule, severity }) => findings.filter((finding) => finding.rule === rule && finding.severity === severity).length;
 var cell = ({ count }) => count === 0 ? "\u2014" : `${count}`;
 var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
   console.log("");
@@ -33788,8 +34136,8 @@ var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
   const rows = rules.map((rule) => ({
     cells: [
       rule,
-      cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Finding }) }),
-      cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Advisory }) })
+      cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Finding }) }),
+      cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Advisory }) })
     ],
     ruleAbove: false
   }));
@@ -33811,6 +34159,11 @@ var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
 // src/cli/standardsCheckCommand.ts
 var reportPath = ".lightsout/standards-check.json";
 var standardsCheckCommand = async ({ flags, cwd }) => {
+  if (flags.get("list") === true) {
+    const config2 = await loadConfig({ cwd }).catch(() => void 0);
+    printStandardsRuleList({ rules: listStandardsRules({ config: config2 }) });
+    process.exit(0);
+  }
   const checkPath = getStringFlag({ flags, name: "path" });
   const { findings, notes } = await runStandardsCheck({
     cwd,

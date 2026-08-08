@@ -1,27 +1,24 @@
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsRule, type StandardsFinding } from '@/contracts';
 import { collapseCasing } from '@/common/naming/collapseCasing';
 import { nameKey } from '@/common/naming/nameKey';
 import { nameOf } from '@/common/naming/nameOf';
-
-interface Params {
-	/** Repo-relative non-test source files. */
-	files: string[];
-}
+import type { StandardsPass } from '@/standardsCheck/common/types/StandardsPass';
+import { buildFinding } from '@/standardsCheck/common/utils/buildFinding';
 
 /**
  * Tier 0 of the duplication ladder: one-export-per-file makes filenames
  * export names, so name-level comparison is nearly free and runs before any
- * AST work. Two findings: the same name declared in multiple places, and
- * names identical after synonym-collapse + word-order normalization
- * (`fetchUserData` vs `getUserData` vs `userDataGet`). Advisory — same-name
- * siblings can be legitimate (per-package analogs).
+ * AST work. Two rules: `name-duplicate` for the same name declared in multiple
+ * places, and `name-synonym` for names identical after synonym-collapse +
+ * word-order normalization (`fetchUserData` vs `getUserData` vs `userDataGet`).
+ * Both advisory — same-name siblings can be legitimate (per-package analogs).
  */
-export const checkFilenameDuplicates = ({ files }: Params): StandardsFinding[] => {
+export const checkFilenameDuplicates: StandardsPass = async ({ source }) => {
 	const findings: StandardsFinding[] = [];
 	const byName = new Map<string, string[]>();
 	const byTokens = new Map<string, Map<string, string[]>>();
 
-	for (const file of files) {
+	for (const file of source) {
 		const name = nameOf(file);
 
 		if (name === 'index') {
@@ -42,21 +39,22 @@ export const checkFilenameDuplicates = ({ files }: Params): StandardsFinding[] =
 
 	for (const [name, paths] of byName) {
 		if (paths.length > 1) {
-			findings.push({
-				rule: StandardsRule.FilenameDuplicate,
-				severity: StandardsSeverity.Advisory,
-				siteKey: `name:${name}`,
-				files: paths.map((path) => ({ path })),
-				detail: `'${name}' is declared in ${paths.length} places`,
-				guidance: 'One concept implemented twice, or a promotion candidate.',
-			});
+			const files = paths.map((path) => ({ path }));
+
+			findings.push(
+				buildFinding({
+					rule: StandardsRule.NameDuplicate,
+					files,
+					detail: `'${name}' is declared in ${paths.length} places`,
+					guidance: 'One concept implemented twice, or a promotion candidate.',
+				}),
+			);
 		}
 	}
 
-	for (const [key, group] of byTokens) {
+	for (const group of byTokens.values()) {
 		if (group.size > 1) {
 			const names = [...group.keys()];
-			const paths = [...group.values()].flat();
 
 			// Names identical up to casing/separators (`GetStarted` vs
 			// `get-started`) are a framework pair (component + kebab route),
@@ -65,14 +63,16 @@ export const checkFilenameDuplicates = ({ files }: Params): StandardsFinding[] =
 				continue;
 			}
 
-			findings.push({
-				rule: StandardsRule.FilenameDuplicate,
-				severity: StandardsSeverity.Advisory,
-				siteKey: `tokens:${key}`,
-				files: paths.map((path) => ({ path })),
-				detail: `${names.map((name) => `'${name}'`).join(', ')} differ only by synonym or word order`,
-				guidance: 'Likely one concept living under two names.',
-			});
+			const files = [...group.values()].flat().map((path) => ({ path }));
+
+			findings.push(
+				buildFinding({
+					rule: StandardsRule.NameSynonym,
+					files,
+					detail: `${names.map((name) => `'${name}'`).join(', ')} differ only by synonym or word order`,
+					guidance: 'Likely one concept living under two names.',
+				}),
+			);
 		}
 	}
 

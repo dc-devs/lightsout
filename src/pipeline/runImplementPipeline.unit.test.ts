@@ -179,8 +179,10 @@ test('standards gate: findings feed the refactor prompt; a fixing pass clears th
 				prompts.push(prompt);
 
 				// First pass fixes the planted multi-export; later passes are clean.
+				// The fixed file exports nothing at all, so no advisory (a filename
+				// mismatch, an unconsumed export) survives to keep the section alive.
 				if (prompts.length === 1) {
-					writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\n');
+					writeFileSync(join(dir, 'src/messy.js'), "import { one } from './index.js';\n\nconsole.log(one);\n");
 
 					return { text: report({ changedFiles: [{ path: 'src/messy.js', summary: 'split exports' }] }), exitCode: 0 };
 				}
@@ -205,12 +207,13 @@ test('standards gate: findings feed the refactor prompt; a fixing pass clears th
 	});
 
 	expect(result.ok).toBe(true);
-	// gate narrated the finding
-	expect(progress.some((line) => line.includes('standards gate: 1 finding(s)') && line.includes('1 gating'))).toBeTruthy();
+	// gate narrated the finding — the work-list count IS the blocking count now,
+	// so there is no second number to print
+	expect(progress.some((line) => line.startsWith('standards gate: 1 finding(s)'))).toBeTruthy();
 	// findings section injected into the refactor prompt
 	expect(prompts[0]?.includes('# Standards findings')).toBeTruthy();
 	// the planted violation named in the work-list
-	expect(prompts[0]?.includes('[structure] src/messy.js')).toBeTruthy();
+	expect(prompts[0]?.includes('[multi-export] src/messy.js')).toBeTruthy();
 	// clean tree injects no findings section
 	expect(prompts[1]?.includes('# Standards findings')).toBeFalsy();
 });

@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsRule, type StandardsFinding } from '@/contracts';
 import { nameOf } from '@/common/naming/nameOf';
+import type { StandardsPass } from '@/standardsCheck/common/types/StandardsPass';
+import { buildFinding } from '@/standardsCheck/common/utils/buildFinding';
 import { checkFileExports } from '@/standardsCheck/common/utils/checkFileExports';
-
-const folderCensusCap = 20;
+import { getRuleSettings } from '@/standardsCheck/common/utils/getRuleSettings';
 
 /**
  * Leading verbs that describe how a value is reached rather than what it is
@@ -26,24 +27,18 @@ const accessVerbs = new Set([
 
 const firstToken = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(/[\s\-_.]+/)[0]?.toLowerCase() ?? '';
 
-interface Params {
-	cwd: string;
-	/** Repo-relative non-test source files. */
-	files: string[];
-}
-
 /**
- * Deterministic structure lint: one-export-per-file outside the closed
- * exception list, filename ↔ export-name match (case-insensitively, so
- * framework kebab-case survives), utils/ domain-grouping candidates, and a
- * folder census. Everything judgment-adjacent is advisory.
+ * Deterministic structure lint, four rules over one walk: `multi-export` and
+ * `filename-mismatch` per file, `domain-graduation` for utils/ siblings sharing
+ * a subject verb, and `folder-census` for a level that has grown into a
+ * directory listing. Everything judgment-adjacent is advisory.
  */
-export const checkStructure = async ({ cwd, files }: Params): Promise<StandardsFinding[]> => {
+export const checkStructure: StandardsPass = async ({ cwd, source, states }) => {
 	const findings: StandardsFinding[] = [];
 	const filesPerDir = new Map<string, string[]>();
 	const utilsVerbGroups = new Map<string, Map<string, string[]>>();
 
-	for (const file of files) {
+	for (const file of source) {
 		const dir = dirname(file);
 
 		filesPerDir.set(dir, [...(filesPerDir.get(dir) ?? []), file]);
@@ -68,28 +63,32 @@ export const checkStructure = async ({ cwd, files }: Params): Promise<StandardsF
 	for (const [dir, group] of utilsVerbGroups) {
 		for (const [verb, paths] of group) {
 			if (paths.length > 1 && verb && !accessVerbs.has(verb)) {
-				findings.push({
-					rule: StandardsRule.Structure,
-					severity: StandardsSeverity.Advisory,
-					siteKey: `domain:${dir}:${verb}`,
-					files: paths.map((path) => ({ path })),
-					detail: `${paths.length} '${verb}*' functions in ${dir}`,
-					guidance: 'A domain-folder graduation candidate. Heuristic — judge before acting.',
-				});
+				const files = paths.map((path) => ({ path }));
+
+				findings.push(
+					buildFinding({
+						rule: StandardsRule.DomainGraduation,
+						files,
+						detail: `${paths.length} '${verb}*' functions in ${dir}`,
+						guidance: 'A domain-folder graduation candidate. Heuristic — judge before acting.',
+					}),
+				);
 			}
 		}
 	}
 
+	const { cap } = getRuleSettings({ states, rule: StandardsRule.FolderCensus });
+
 	for (const [dir, paths] of filesPerDir) {
-		if (paths.length > folderCensusCap) {
-			findings.push({
-				rule: StandardsRule.Structure,
-				severity: StandardsSeverity.Advisory,
-				siteKey: `census:${dir}`,
-				files: [{ path: dir }],
-				detail: `${paths.length} files in one flat folder (census cap ~${folderCensusCap})`,
-				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
-			});
+		if (paths.length > cap) {
+			findings.push(
+				buildFinding({
+					rule: StandardsRule.FolderCensus,
+					files: [{ path: dir }],
+					detail: `${paths.length} files in one flat folder (census cap ~${cap})`,
+					guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
+				}),
+			);
 		}
 	}
 

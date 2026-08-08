@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import type { StandardsFinding } from '@/contracts';
+import { StandardsRule, type StandardsFinding } from '@/contracts';
 import { batchFindings } from '@/refactor';
 
 const finding = ({ rule, path, siteKey }: { rule: StandardsFinding['rule']; path: string; siteKey: string }): StandardsFinding => ({
@@ -16,23 +16,59 @@ test('batchFindings: groups by rule × area, mechanical-first order', () => {
 			finding({ rule: 'clone', path: 'packages/api/src/a.ts', siteKey: 'clone:1' }),
 			finding({ rule: 'module-boundary', path: 'packages/api/src/b.ts', siteKey: 'boundary:b' }),
 			finding({ rule: 'module-boundary', path: 'packages/web/src/c.ts', siteKey: 'boundary:c' }),
-			finding({ rule: 'structure', path: 'src/d.ts', siteKey: 'multi-export:d' }),
-			finding({ rule: 'structure', path: 'loose.ts', siteKey: 'multi-export:loose' }),
+			finding({ rule: 'multi-export', path: 'src/d.ts', siteKey: 'multi-export:d' }),
+			finding({ rule: 'multi-export', path: 'loose.ts', siteKey: 'multi-export:loose' }),
 		],
 		advisories: [],
 		packagesDir: 'packages',
 	});
 
-	// boundary before structure before clone; package dirs, top segments, and
+	// boundary before multi-export before clone; package dirs, top segments, and
 	// (root) as areas
-	expect(batches.map((batch) => `${batch.rule} ${batch.folder}`)).toStrictEqual(['module-boundary packages/api', 'module-boundary packages/web', 'structure (root)', 'structure src', 'clone packages/api']);
+	expect(batches.map((batch) => `${batch.rule} ${batch.folder}`)).toStrictEqual(['module-boundary packages/api', 'module-boundary packages/web', 'multi-export (root)', 'multi-export src', 'clone packages/api']);
 	expect(batches.every((batch, index) => batch.id.startsWith(`batch-${String(index + 1).padStart(2, '0')}:`))).toBeTruthy();
+});
+
+test('batchFindings: every rule batches in the documented mechanical-first order', () => {
+	const batches = batchFindings({
+		// Fed in the rule contract's own declaration order, which is NOT the
+		// priority order — so the result pins the priority table rather than the
+		// input, and a rule the table never named would fall to the end.
+		findings: Object.values(StandardsRule).map((rule) => finding({ rule, path: 'src/a.ts', siteKey: `${rule}:src/a.ts` })),
+		advisories: [],
+		packagesDir: 'packages',
+	});
+
+	// rules an agent can fix in place first, judgment-heavier duplication last
+	expect(batches.map((batch) => batch.rule)).toStrictEqual([
+		'module-boundary',
+		'placement',
+		'multi-export',
+		'filename-mismatch',
+		'barrel-star',
+		'barrel-dead-entry',
+		'dead-export',
+		'test-only-export',
+		'barrel-only-export',
+		'size-file',
+		'size-function',
+		'domain-graduation',
+		'folder-census',
+		'ast-duplicate',
+		'clone',
+		'name-duplicate',
+		'name-synonym',
+	]);
+	// one batch per rule, numbered in that order — the ids an agent is handed
+	expect(batches.map((batch) => batch.id).slice(0, 2)).toStrictEqual(['batch-01:module-boundary:src', 'batch-02:placement:src']);
 });
 
 test('batchFindings: a rule outside the priority list sorts after every listed one', () => {
 	const batches = batchFindings({
 		findings: [
-			finding({ rule: 'dead-export', path: 'src/stale.ts', siteKey: 'dead:stale' }),
+			// A rule id the priority list has never heard of — what a rule added to
+			// the registry without a priority entry looks like here.
+			{ ...finding({ rule: 'clone', path: 'src/stale.ts', siteKey: 'invented:stale' }), rule: 'invented-rule' as unknown as StandardsFinding['rule'] },
 			finding({ rule: 'clone', path: 'src/a.ts', siteKey: 'clone:a' }),
 			finding({ rule: 'module-boundary', path: 'src/b.ts', siteKey: 'boundary:b' }),
 		],
@@ -42,7 +78,7 @@ test('batchFindings: a rule outside the priority list sorts after every listed o
 
 	// an unlisted rule degrades to "after the known ones" — never to an error,
 	// and never ahead of the mechanical work
-	expect(batches.map((batch) => batch.rule)).toStrictEqual(['module-boundary', 'clone', 'dead-export']);
+	expect(batches.map((batch) => batch.rule)).toStrictEqual(['module-boundary', 'clone', 'invented-rule']);
 });
 
 test('batchFindings: an oversized group splits into sorted chunks of 12', () => {
@@ -59,7 +95,7 @@ test('batchFindings: an oversized group splits into sorted chunks of 12', () => 
 });
 
 test('batchFindings: advisories attach to batches whose files overlap, never form batches', () => {
-	const advisory: StandardsFinding = { ...finding({ rule: 'size', path: 'src/a.ts', siteKey: 'size:fn:a' }), severity: 'advisory' };
+	const advisory: StandardsFinding = { ...finding({ rule: 'size-function', path: 'src/a.ts', siteKey: 'size-function:src/a.ts' }), severity: 'advisory' };
 	const batches = batchFindings({
 		findings: [
 			finding({ rule: 'clone', path: 'src/a.ts', siteKey: 'clone:a' }),
@@ -98,12 +134,12 @@ test('batchFindings: a finding spanning folders gets a dedicated cross batch wit
 
 test('batchFindings: a finding naming no file still batches, under (root)', () => {
 	const batches = batchFindings({
-		findings: [{ ...finding({ rule: 'structure', path: 'src/a.ts', siteKey: 'census:src' }), files: [] }],
+		findings: [{ ...finding({ rule: 'folder-census', path: 'src/a.ts', siteKey: 'folder-census:src' }), files: [] }],
 		advisories: [],
 		packagesDir: 'packages',
 	});
 
 	// a file-less finding has no area to group by — it degrades to (root) rather
 	// than an undefined folder in the batch id an agent is handed
-	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:structure:(root)']);
+	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:folder-census:(root)']);
 });

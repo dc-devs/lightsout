@@ -189,9 +189,9 @@ const executeRefactor = async ({
 		});
 
 		if (report.outcome === BatchOutcome.Declined) {
-			declined.push({ batchId: batch.id, remainingClusters: report.remainingClusters, rationale: report.rationale });
+			declined.push({ batchId: batch.id, remainingSiteKeys: report.remainingSiteKeys, rationale: report.rationale });
 			declineStreak += 1;
-			progress(`${batch.id}: declined (${report.remainingClusters.length} cluster(s) persist)`);
+			progress(`${batch.id}: declined (${report.remainingSiteKeys.length} site(s) persist)`);
 
 			if (declineStreak >= maxConsecutiveDeclines) {
 				// The batch's Passed record (outcome + files) is already written —

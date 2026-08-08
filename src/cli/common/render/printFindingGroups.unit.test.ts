@@ -3,7 +3,7 @@ import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contr
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.Size,
+	rule: StandardsRule.SizeFunction,
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts', startLine: 10, endLine: 90 }],
@@ -30,7 +30,7 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({ findings: [finding(), finding({ siteKey: 'size:two' })] });
 
-		expect(logged).toContain('ℹ size · 2 advisories');
+		expect(logged).toContain('ℹ size-function · 2 advisories');
 	});
 
 	test('says finding, singular, for one item of work', () => {
@@ -49,8 +49,8 @@ describe('printFindingGroups', () => {
 		});
 
 		// `size` reports an oversized file as work and an oversized function as advice
-		expect(logged).toContain('⚠ size · 1 finding');
-		expect(logged).toContain('ℹ size · 1 advisory');
+		expect(logged).toContain('⚠ size-function · 1 finding');
+		expect(logged).toContain('ℹ size-function · 1 advisory');
 	});
 
 	test('aligns the single-site rows in a group so their measurements can be compared', () => {

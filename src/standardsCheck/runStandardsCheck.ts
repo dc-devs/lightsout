@@ -1,19 +1,14 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { StandardsFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding, type StandardsPassId } from '@/contracts';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { checkAstFindings } from '@/standardsCheck/checkAstFindings';
-import { checkClones } from '@/standardsCheck/checkClones';
-import { checkDeadExports } from '@/standardsCheck/checkDeadExports';
-import { checkBarrelHygiene } from '@/standardsCheck/checkBarrelHygiene';
-import { checkFilenameDuplicates } from '@/standardsCheck/checkFilenameDuplicates';
-import { checkModuleBoundaries } from '@/standardsCheck/checkModuleBoundaries';
-import { checkPlacement } from '@/standardsCheck/checkPlacement';
-import { checkStructure } from '@/standardsCheck/checkStructure';
 import { applyStandardsBaseline } from '@/standardsCheck/common/utils/applyStandardsBaseline';
+import { resolveRuleStates } from '@/standardsCheck/resolveRuleStates';
+import { standardsPasses } from '@/standardsCheck/standardsPasses';
+import { standardsRuleRegistry } from '@/standardsCheck/standardsRuleRegistry';
 
 /** Deepest directory (depth ≥ 2) holding >50% of findings — a report dominated by one path should diagnose its own config gap (live case: a generated Prisma dir missing from `generated`). */
 const dominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
@@ -54,6 +49,9 @@ const dominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
 	return prefix.split('/').length >= 2 ? { dir: prefix, count, total: paths.length } : undefined;
 };
 
+/** The rules a pass owns, straight from the registry — so a rule added later cannot leave a skip note or an off-check stale. */
+const rulesOf = ({ pass }: { pass: StandardsPassId }) => Object.values(StandardsRule).filter((rule) => standardsRuleRegistry[rule].pass === pass);
+
 interface Params {
 	cwd: string;
 	/** Repo-relative subpath to check (default: the whole repo). */
@@ -69,16 +67,20 @@ interface Params {
 
 /**
  * The structural standards-check suite: detection is code — agents never get
- * asked to "go find problems". Read-only apart from
- * .lightsout/standards-check.json (the typed evidence file, the future
- * remediation pipeline's work-list). Baselining is explicit, never a side
- * effect: `writeBaseline` writes lightsout.standards-baseline.json at the repo
- * root — a COMMITTED debt ledger, like phpstan-baseline.neon or detekt's
+ * asked to "go find problems". Every rule in `standardsRuleRegistry` is walked
+ * through the pass that produces it, in tier order; a pass whose rules the repo
+ * has all switched off never runs, and one whose rules all need TypeScript is
+ * skipped with an honest note when none resolves. Severity comes from the
+ * resolved rule states, not from the pass — which is what makes
+ * `lightsout standards-check --list` the truthful account of what a repo
+ * enforces.
+ *
+ * Read-only apart from .lightsout/standards-check.json (the typed evidence
+ * file, the refactor pipeline's work-list). Baselining is explicit, never a
+ * side effect: `writeBaseline` writes lightsout.standards-baseline.json at the
+ * repo root — a COMMITTED debt ledger, like phpstan-baseline.neon or detekt's
  * baseline.xml — and later runs report only findings whose site key is not in
- * it (`all` overrides). Works with or without a lightsout.config.json (the
- * config contributes `generated` exclusions and `standardsChecks` tuning when
- * present); the AST tier borrows the consumer's TypeScript and reports honestly
- * when it can't.
+ * it (`all` overrides).
  */
 export const runStandardsCheck = async ({
 	cwd,
@@ -90,43 +92,53 @@ export const runStandardsCheck = async ({
 }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
 	const progress = onProgress ?? (() => undefined);
 	const config = await loadConfig({ cwd }).catch(() => undefined);
+	const states = resolveRuleStates({ config });
 	const repoFiles = await listSourceFiles({ cwd, exclude: config?.generated });
 	const allFiles = repoFiles.filter((file) => !path || file.startsWith(path));
 	const source = allFiles.filter((file) => !isTestFile(file));
+	const tests = allFiles.filter((file) => isTestFile(file));
 	const notes: string[] = [];
 
-	progress(`checking ${source.length} source file(s) (${allFiles.length - source.length} test file(s) excluded from duplication tiers)`);
-
-	const findings: StandardsFinding[] = [];
-
-	findings.push(...checkFilenameDuplicates({ files: source }));
-	progress(`tier 0 (names): done`);
-	findings.push(...(await checkClones({ cwd, files: source, minTokens: config?.standardsChecks?.minCloneTokens })));
-	progress(`tier 1 (clones): done`);
+	progress(`checking ${source.length} source file(s) (${tests.length} test file(s) excluded from duplication tiers)`);
 
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config?.packagesDir });
+	const emitted: StandardsFinding[] = [];
+	const skipped: StandardsPassId[] = [];
 
-	if (compiler) {
-		findings.push(...(await checkAstFindings({ cwd, files: source, compiler, size: config?.standardsChecks?.size })));
-		progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
-		findings.push(...(await checkModuleBoundaries({ cwd, files: allFiles, compiler })));
-		progress(`module boundaries: done`);
-		findings.push(...(await checkPlacement({ cwd, files: allFiles, compiler })));
-		progress(`placement: done`);
-	} else {
-		notes.push('ast tier + function-size audit + module-boundary/placement checks skipped — no typescript resolvable from the target repo');
+	for (const { id, run } of standardsPasses) {
+		const live = rulesOf({ pass: id }).filter((rule) => states.get(rule)?.severity !== StandardsSeverity.Off);
+
+		if (live.length === 0) {
+			progress(`${id}: off`);
+			continue;
+		}
+
+		if (compiler === undefined && live.every((rule) => standardsRuleRegistry[rule].needsTypescript)) {
+			skipped.push(id);
+			continue;
+		}
+
+		emitted.push(...(await run({ cwd, source, tests, files: allFiles, referenceFiles: repoFiles, states, compiler })));
+		progress(`${id}: done`);
 	}
 
-	// Barrel hygiene is text-based (barrel parsing + whole-word reference
-	// counting, like dead exports) — no import resolution, so JS-only repos
-	// keep it even when the compiler-gated checks degrade.
-	findings.push(...(await checkBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles })));
-	progress(`barrel hygiene: done`);
+	if (skipped.length > 0) {
+		notes.push(`${skipped.join(', ')} skipped — no typescript resolvable from the target repo`);
+	}
 
-	findings.push(...(await checkStructure({ cwd, files: source })));
-	progress(`structure: done`);
-	findings.push(...(await checkDeadExports({ cwd, files: allFiles, referenceFiles: repoFiles })));
-	progress(`dead exports: done`);
+	// Severity is applied here rather than in the passes: a pass emits its
+	// rule's default and stays ignorant of config, so the repo's policy has
+	// exactly one place it can be read wrong. A rule resolved to `off` drops
+	// out entirely — `off` is a configuration state, never a finding.
+	const findings: StandardsFinding[] = [];
+
+	for (const finding of emitted) {
+		const severity = states.get(finding.rule)?.severity;
+
+		if (severity === StandardsSeverity.Finding || severity === StandardsSeverity.Advisory) {
+			findings.push({ ...finding, severity });
+		}
+	}
 
 	const dominant = dominantPath({ findings });
 

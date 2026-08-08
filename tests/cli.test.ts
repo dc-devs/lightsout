@@ -26,6 +26,7 @@ usage:
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
@@ -635,11 +636,11 @@ test('cli: standards-check prints each finding, the rule breakdown, and exits 0'
 
 	expect(stderr).toBe('');
 	// each rule gets a heading carrying its severity and count
-	expect(stdout).toMatch(/ℹ filename-duplicate · 1 advisory/);
+	expect(stdout).toMatch(/ℹ name-synonym · 1 advisory/);
 	// the shared guidance is stated once, under the rows it covers
 	expect(stdout).toContain('Likely one concept living under two names.');
 	// and the tally is a table, closed off by the report path
-	expect(stdout).toMatch(/│ filename-duplicate │\s+—\s+│\s+1\s+│/);
+	expect(stdout).toMatch(/│ name-synonym │\s+—\s+│\s+1\s+│/);
 	expect(stdout).toMatch(/report: \.lightsout\/standards-check\.json\n$/);
 	// the standards check reports; it never fails the caller
 	expect(code).toBe(0);
@@ -667,7 +668,7 @@ test('cli: standards-check writes its typed report to .lightsout/standards-check
 	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'standards-check.json'), 'utf8'));
 	expect(report.path).toBe('.');
 	// the evidence file carries the findings, not just the printed summary
-	expect(report.findings.some((finding: { rule: string }) => finding.rule === 'filename-duplicate')).toBeTruthy();
+	expect(report.findings.some((finding: { rule: string }) => finding.rule === 'name-synonym')).toBeTruthy();
 	expect(code).toBe(0);
 });
 
@@ -701,7 +702,7 @@ test('cli: standards-check reports nothing new once the findings are baselined',
 	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
 
 	// a baselined finding is accepted debt, not news
-	expect(stdout.includes('filename-duplicate')).toBeFalsy();
+	expect(stdout.includes('name-synonym')).toBeFalsy();
 	// nothing left to report reads as a sentence, not an empty table
 	expect(stdout).toContain('clean — no findings, no advisories');
 	expect(stdout.includes('┌')).toBeFalsy();
@@ -715,8 +716,43 @@ test('cli: standards-check --all reports the findings the baseline already accep
 	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--all', '--cwd', cwd] });
 
 	// a baselined site is printed again under --all
-	expect(stdout).toMatch(/ℹ filename-duplicate · 1 advisory/);
+	expect(stdout).toMatch(/ℹ name-synonym · 1 advisory/);
 	expect(stderr).toBe('');
+	expect(code).toBe(0);
+});
+
+test('cli: standards-check --list prints the enforcement ledger and runs no check', async () => {
+	const { cwd } = await seedStandardsFixture();
+
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--list', '--cwd', cwd] });
+
+	// every rule is listed with the state it runs at and the doc it enforces
+	expect(stdout).toMatch(/│ name-synonym\s+│\s+advisory\s+│\s+standards\/code\/style-guide\/conventions\/naming\.md\s+│/);
+	expect(stdout).toMatch(/│ module-boundary\s+│\s+blocking\s+│/);
+	// a rule's live numbers ride its summary line
+	expect(stdout).toContain('minTokens 50');
+	// the totals close it off
+	expect(stdout).toMatch(/│ 17 rule\(s\)\s+│\s+6 blocking\s+│\s+11 advisory, 0 off\s+│/);
+	// --list answers a question about configuration — it never checks the tree
+	expect(stdout.includes('report: .lightsout/standards-check.json')).toBeFalsy();
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
+});
+
+test('cli: standards-check --list marks the rules this repo configured', async () => {
+	const { cwd } = await seedStandardsFixture();
+
+	await writeFile(
+		join(cwd, 'lightsout.config.json'),
+		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, standardsChecks: { 'name-synonym': 'off' } }),
+		'utf8',
+	);
+
+	const { stdout, code } = await runCli({ args: ['standards-check', '--list', '--cwd', cwd] });
+
+	// "this is our policy" reads apart from "this is the default"
+	expect(stdout).toMatch(/│ name-synonym\s+│\s+off \(config\)\s+│/);
+	expect(stdout).toMatch(/│ 17 rule\(s\)\s+│\s+6 blocking\s+│\s+10 advisory, 1 off\s+│/);
 	expect(code).toBe(0);
 });
 
@@ -727,7 +763,7 @@ test('cli: standards-check --path narrows the run to one subtree', async () => {
 
 	// the synonym pair is split by the narrowed scope, so tier 0 has nothing to
 	// pair
-	expect(stdout.includes('filename-duplicate')).toBeFalsy();
+	expect(stdout.includes('name-synonym')).toBeFalsy();
 	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'standards-check.json'), 'utf8'));
 	// the flag reaches the engine as the checked subpath
 	expect(report.path).toBe('src/a');

@@ -19,6 +19,9 @@ const setup = (contents: Record<string, string>) => {
 	return dir;
 };
 
+/** The three verdicts this one pass produces, each its own rule. */
+const deadRules: string[] = ['dead-export', 'test-only-export', 'barrel-only-export'];
+
 const testOnlyFiles = {
 	// Referenced by its own unit test and nothing else — production-dead.
 	'src/util/onlyTested.ts': 'export const onlyTested = () => 1;\n',
@@ -33,8 +36,8 @@ test('an export referenced only by tests is called production-dead, not dead out
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-	const dead = findings.filter((finding) => finding.rule === 'dead-export');
-	const tested = dead.find((finding) => finding.siteKey === 'dead:src/util/onlyTested.ts');
+	const dead = findings.filter((finding) => deadRules.includes(finding.rule));
+	const tested = dead.find((finding) => finding.siteKey === 'test-only-export:src/util/onlyTested.ts');
 	// a test is not production consumption:\n${JSON.stringify(dead, undefined, 1)}
 	expect(tested?.detail.includes('only by tests')).toBeTruthy();
 	// the finding names the export
@@ -48,12 +51,12 @@ test('export names shorter than four characters are skipped — too common to wo
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-	const dead = findings.filter((finding) => finding.rule === 'dead-export');
+	const dead = findings.filter((finding) => deadRules.includes(finding.rule));
 	// the fixture does produce dead-export findings, so the exclusion below is not
 	// vacuous
 	expect(dead.length > 0).toBeTruthy();
 	// 'tag' is never a candidate:\n${JSON.stringify(dead, undefined, 1)}
-	expect(dead.some((finding) => finding.siteKey === 'dead:src/util/tag.ts')).toBeFalsy();
+	expect(dead.some((finding) => finding.files.some((file) => file.path === 'src/util/tag.ts'))).toBeFalsy();
 });
 
 test('a consumer outside the checked path still counts as consumption', async () => {
@@ -67,11 +70,76 @@ test('a consumer outside the checked path still counts as consumption', async ()
 
 	const { findings } = await runStandardsCheck({ cwd: dir, path: 'src', persist: false });
 
-	const dead = findings.filter((finding) => finding.rule === 'dead-export');
+	const dead = findings.filter((finding) => deadRules.includes(finding.rule));
 	// only the export nothing consumes
-	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['dead:src/api/lonelyThing.ts']);
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['dead-export:src/api/lonelyThing.ts']);
 	// an unreferenced export is a delete candidate: ${dead[0]?.detail}
 	expect(dead[0]?.detail.includes('referenced nowhere else')).toBeTruthy();
 	// the checked path bounds what is reported, not what is searched
 	expect(findings.every((finding) => finding.files.every((file) => file.path.startsWith('src/')))).toBeTruthy();
+});
+
+test('two unconsumed exports in one file are one finding, naming both', async () => {
+	const dir = setup({
+		'src/util/pair.ts': 'export const firstThing = () => 1;\nexport const secondThing = () => 2;\n',
+	});
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+	const dead = findings.filter((finding) => deadRules.includes(finding.rule));
+
+	// one file, one row in the work-list
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['dead-export:src/util/pair.ts']);
+	// both names are carried, and the phrasing follows the count: ${dead[0]?.detail}
+	expect(dead[0]?.detail).toBe("'firstThing', 'secondThing' are referenced nowhere else");
+});
+
+test('a barrel-only export is its own rule — a deliberate public API is not the same claim as dead code', async () => {
+	const dir = setup({
+		// Re-exported and nothing else — the deliberate-public-API case.
+		'src/mod/index.ts': "export { publicThing } from './publicThing';\n",
+		'src/mod/publicThing.ts': 'export const publicThing = () => 1;\n',
+		// Referenced by nothing at all — the plain dead-code case, so the two
+		// verdicts are visibly separate rules rather than one bucket.
+		'src/mod/strayThing.ts': 'export const strayThing = () => 2;\n',
+	});
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+	const barrelOnly = findings.filter((finding) => finding.rule === 'barrel-only-export');
+
+	// switching this rule off must not take the other two verdicts with it
+	expect(barrelOnly.map((finding) => finding.siteKey)).toStrictEqual(['barrel-only-export:src/mod/publicThing.ts']);
+	expect(barrelOnly[0]?.detail.includes('no module consumes it')).toBeTruthy();
+	expect(findings.filter((finding) => finding.rule === 'dead-export').map((finding) => finding.siteKey)).toStrictEqual(['dead-export:src/mod/strayThing.ts']);
+});
+
+test('an index file that only imports and runs is an ordinary consumer, not a barrel', async () => {
+	const dir = setup({
+		// An executable dispatcher: its name starts with `index.` but it exports
+		// nothing, so a name it references is plain production consumption.
+		'src/cli/index.ts': "import { runCommand } from './runCommand';\n\nrunCommand();\n",
+		'src/cli/runCommand.ts': 'export const runCommand = () => 1;\n',
+		// A real barrel, so the exclusion above is not vacuous.
+		'src/mod/index.ts': "export { publicThing } from './publicThing';\n",
+		'src/mod/publicThing.ts': 'export const publicThing = () => 1;\n',
+	});
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+	const dead = findings.filter((finding) => deadRules.includes(finding.rule));
+
+	// counting the dispatcher as a barrel reported every CLI command as
+	// barrel-only — it is a consumer, so runCommand is simply alive
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-only-export:src/mod/publicThing.ts']);
+});
+
+test('an export reached from a barrel AND a test is claimed by no verdict at all', async () => {
+	const dir = setup({
+		'src/mod/index.ts': "export { bothWays } from './bothWays';\n",
+		'src/mod/bothWays.ts': 'export const bothWays = () => 1;\n',
+		'src/mod/bothWays.unit.test.ts': "import { bothWays } from './bothWays';\n\nconsole.log(bothWays());\n",
+	});
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// barrel plus test is neither "nowhere else", nor test-only, nor barrel-only
+	expect(findings.some((finding) => deadRules.includes(finding.rule) && finding.files.some((file) => file.path === 'src/mod/bothWays.ts'))).toBeFalsy();
 });

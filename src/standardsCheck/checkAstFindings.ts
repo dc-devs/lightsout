@@ -1,43 +1,13 @@
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import type ts from 'typescript';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
-import { normalizeFunctionTokens } from '@/standardsCheck/common/utils/normalizeFunctionTokens';
-import { functionNameOf } from '@/standardsCheck/common/utils/functionNameOf';
+import { StandardsRule, type StandardsFinding } from '@/contracts';
 import type { FunctionSite } from '@/standardsCheck/common/types/FunctionSite';
+import type { OversizedFunction } from '@/standardsCheck/common/types/OversizedFunction';
+import type { StandardsPass } from '@/standardsCheck/common/types/StandardsPass';
+import { buildFinding } from '@/standardsCheck/common/utils/buildFinding';
+import { collectFunctionSites } from '@/standardsCheck/common/utils/collectFunctionSites';
+import { getRuleSettings } from '@/standardsCheck/common/utils/getRuleSettings';
 import { groupDuplicateFunctions } from '@/standardsCheck/common/utils/groupDuplicateFunctions';
-
-/** Bodies below this normalized-token count are too small to call duplicates. */
-const minBodyTokens = 40;
-
-/** The standards' numeric tables as code — overridable per repo via config `standardsChecks.size`. .tsx files run larger by nature (JSX + props interfaces around the component budget). */
-const defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
-
-type SizeCaps = typeof defaultSizeCaps;
-
-const fileLineCap = ({ file, caps }: { file: string; caps: SizeCaps }) => (file.endsWith('.tsx') ? caps.tsxFile : caps.file);
-
-const functionSizeCaps = ({ name, path, caps }: { name: string; path: string; caps: SizeCaps }) => {
-	if (/^use[A-Z]/.test(name)) {
-		return { cap: caps.hook, kind: 'hook' };
-	}
-
-	if (path.endsWith('.tsx') && /^[A-Z]/.test(name)) {
-		return { cap: caps.component, kind: 'component' };
-	}
-
-	return { cap: caps.function, kind: 'function' };
-};
-
-interface Params {
-	cwd: string;
-	/** Repo-relative non-test source files. */
-	files: string[];
-	compiler: typeof ts;
-	/** Per-repo line-cap overrides (config `standardsChecks.size`), merged over the defaults. */
-	size?: Partial<SizeCaps>;
-}
 
 /**
  * Tier 2 of the duplication ladder plus the size audit, one AST pass:
@@ -45,14 +15,26 @@ interface Params {
  * structure kept) and hashed — identical hashes across ≥2 sites are
  * systematic-rename duplicates that token-level cloning misses. The same
  * walk measures function/file line counts against the standards' numeric
- * thresholds (function 80 / hook 160 / component 200 / file 250).
+ * tables, which reach the pass as the `size-file` and `size-function` rules'
+ * own settings.
+ *
+ * Every oversized function in one file is ONE `size-function` finding — the
+ * work is "open this file and extract", which does not become three jobs
+ * because three functions in it are long.
  */
-export const checkAstFindings = async ({ cwd, files, compiler, size }: Params): Promise<StandardsFinding[]> => {
-	const caps = { ...defaultSizeCaps, ...size };
+export const checkAstFindings: StandardsPass = async ({ cwd, source, states, compiler }) => {
+	if (compiler === undefined) {
+		return [];
+	}
+
+	const fileCaps = getRuleSettings({ states, rule: StandardsRule.SizeFile });
+	const functionCaps = getRuleSettings({ states, rule: StandardsRule.SizeFunction });
+	const { minBodyTokens } = getRuleSettings({ states, rule: StandardsRule.AstDuplicate });
 	const findings: StandardsFinding[] = [];
 	const sites: FunctionSite[] = [];
+	const oversizedByFile = new Map<string, OversizedFunction[]>();
 
-	for (const file of files) {
+	for (const file of source) {
 		const text = await readFile(join(cwd, file), 'utf8').catch(() => undefined);
 
 		if (text === undefined) {
@@ -60,65 +42,37 @@ export const checkAstFindings = async ({ cwd, files, compiler, size }: Params): 
 		}
 
 		const lineCount = text.split('\n').length;
+		const fileCap = file.endsWith('.tsx') ? fileCaps.tsxFile : fileCaps.file;
 
-		if (lineCount > fileLineCap({ file, caps }) && basename(file) !== 'index.ts') {
-			findings.push({
-				rule: StandardsRule.Size,
-				severity: StandardsSeverity.Finding,
-				siteKey: `size:file:${file}`,
-				files: [{ path: file }],
-				detail: `${lineCount} lines (cap ~${fileLineCap({ file, caps })})`,
-				guidance: 'Split the file, or graduate the concept it has grown into.',
-			});
+		if (lineCount > fileCap && basename(file) !== 'index.ts') {
+			findings.push(
+				buildFinding({
+					rule: StandardsRule.SizeFile,
+					files: [{ path: file }],
+					detail: `${lineCount} lines (cap ~${fileCap})`,
+					guidance: 'Split the file, or graduate the concept it has grown into.',
+				}),
+			);
 		}
 
-		const source = compiler.createSourceFile(file, text, compiler.ScriptTarget.Latest, true);
+		const walked = collectFunctionSites({ file, text, compiler, minBodyTokens, caps: functionCaps });
 
-		const visit = (node: ts.Node) => {
-			const isFunctionLike =
-				compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node) || compiler.isArrowFunction(node) || compiler.isFunctionExpression(node);
+		sites.push(...walked.sites);
 
-			if (isFunctionLike && (node as ts.FunctionLikeDeclaration).body) {
-				const body = (node as ts.FunctionLikeDeclaration).body as ts.Node;
-				const tokens = normalizeFunctionTokens({ node: body, compiler });
+		if (walked.oversized.length > 0) {
+			oversizedByFile.set(file, walked.oversized);
+		}
+	}
 
-				const startLine = source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
-				const endLine = source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
-				const name = functionNameOf({ node, compiler });
-
-				if (tokens.length >= minBodyTokens) {
-					sites.push({
-						name,
-						path: file,
-						startLine,
-						endLine,
-						tokenCount: tokens.length,
-						hash: createHash('sha1').update(tokens.join(',')).digest('hex'),
-					});
-				}
-
-				const { cap, kind } = functionSizeCaps({ name, path: file, caps });
-				const lines = endLine - startLine + 1;
-
-				// Nested function-likes (arrow callbacks) are measured too, but
-				// only named top-ish functions get size findings — callbacks
-				// inherit their parent's budget.
-				if (lines > cap && name !== '(anonymous)') {
-					findings.push({
-						rule: StandardsRule.Size,
-						severity: StandardsSeverity.Advisory,
-						siteKey: `size:${kind}:${file}:${name}`,
-						files: [{ path: file, startLine, endLine }],
-						detail: `${kind} '${name}' is ${lines} lines (cap ~${cap})`,
-						guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
-					});
-				}
-			}
-
-			node.forEachChild(visit);
-		};
-
-		visit(source);
+	for (const [file, oversized] of oversizedByFile) {
+		findings.push(
+			buildFinding({
+				rule: StandardsRule.SizeFunction,
+				files: oversized.map(({ startLine, endLine }) => ({ path: file, startLine, endLine })),
+				detail: oversized.map(({ kind, name, lines, cap }) => `${kind} '${name}' is ${lines} lines (cap ~${cap})`).join('; '),
+				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
+			}),
+		);
 	}
 
 	findings.push(...groupDuplicateFunctions({ sites }));

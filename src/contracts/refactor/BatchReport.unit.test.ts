@@ -4,7 +4,7 @@ import { BatchReport } from '@/contracts';
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const report = {
 		outcome: 'declined',
-		remainingClusters: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
+		remainingSiteKeys: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 		rationale: ['the two blocks read alike but diverge on the detector contract'],
 		...overrides,
 	};
@@ -14,23 +14,23 @@ const setupReport = (overrides: Record<string, unknown> = {}) => {
 
 describe('BatchReport', () => {
 	test('a resolved report parses to exactly the three fields a batch persists', () => {
-		const { report } = setupReport({ outcome: 'resolved', remainingClusters: [], rationale: ['the agent noted the shared helper it extracted'] });
+		const { report } = setupReport({ outcome: 'resolved', remainingSiteKeys: [], rationale: ['the agent noted the shared helper it extracted'] });
 
 		const parsed = BatchReport.parse(report);
 
 		// rationale is tied to neither outcome — runBatch emits it on the resolved
 		// paths too, so the schema must not refuse a resolved report that carries one
-		expect(parsed).toStrictEqual({ outcome: 'resolved', remainingClusters: [], rationale: ['the agent noted the shared helper it extracted'] });
+		expect(parsed).toStrictEqual({ outcome: 'resolved', remainingSiteKeys: [], rationale: ['the agent noted the shared helper it extracted'] });
 	});
 
-	test('a declined report keeps the clusters that persist and the account of why', () => {
+	test('a declined report keeps the site keys that persist and the account of why', () => {
 		const { report } = setupReport();
 
 		const parsed = BatchReport.parse(report);
 
 		expect(parsed).toStrictEqual({
 			outcome: 'declined',
-			remainingClusters: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
+			remainingSiteKeys: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 			rationale: ['the two blocks read alike but diverge on the detector contract'],
 		});
 	});
@@ -67,13 +67,13 @@ describe('BatchReport', () => {
 		expect(result.success).toBe(false);
 	});
 
-	test('every field is required — no default invents an ending, a cluster list, or a rationale', () => {
-		for (const field of ['outcome', 'remainingClusters', 'rationale']) {
+	test('every field is required — no default invents an ending, a site-key list, or a rationale', () => {
+		for (const field of ['outcome', 'remainingSiteKeys', 'rationale']) {
 			const { report } = setupReport({ [field]: undefined });
 
 			const result = BatchReport.safeParse(report);
 
-			// ${field} is required — the pipeline reads remainingClusters.length and hands
+			// ${field} is required — the pipeline reads remainingSiteKeys.length and hands
 			// rationale straight to the human, so an absent field would surface as an
 			// empty decline reason rather than a bad report
 			expect(result.success).toBe(false);
@@ -81,7 +81,7 @@ describe('BatchReport', () => {
 	});
 
 	test('rejects a bare string where a list belongs', () => {
-		for (const overrides of [{ remainingClusters: 'clone:src/standardsCheck/checkClones.ts' }, { rationale: 'the duplication is intentional' }]) {
+		for (const overrides of [{ remainingSiteKeys: 'clone:src/standardsCheck/checkClones.ts' }, { rationale: 'the duplication is intentional' }]) {
 			const { report } = setupReport(overrides);
 
 			const result = BatchReport.safeParse(report);
@@ -93,7 +93,7 @@ describe('BatchReport', () => {
 	});
 
 	test('rejects a non-string entry inside either list', () => {
-		for (const overrides of [{ remainingClusters: [{ id: 'clone:src/standardsCheck/checkClones.ts' }] }, { rationale: [42] }]) {
+		for (const overrides of [{ remainingSiteKeys: [{ id: 'clone:src/standardsCheck/checkClones.ts' }] }, { rationale: [42] }]) {
 			const { report } = setupReport(overrides);
 
 			const result = BatchReport.safeParse(report);
@@ -105,13 +105,13 @@ describe('BatchReport', () => {
 	});
 
 	test('empty lists parse — a batch that resolved everything and offered no account is still a report', () => {
-		const { report } = setupReport({ outcome: 'resolved', remainingClusters: [], rationale: [] });
+		const { report } = setupReport({ outcome: 'resolved', remainingSiteKeys: [], rationale: [] });
 
 		const parsed = BatchReport.parse(report);
 
 		// the arrays carry no minimum — an agent that reported complete with nothing
 		// to say writes two empty lists
-		expect(parsed).toStrictEqual({ outcome: 'resolved', remainingClusters: [], rationale: [] });
+		expect(parsed).toStrictEqual({ outcome: 'resolved', remainingSiteKeys: [], rationale: [] });
 	});
 
 	test('keys the schema does not declare are stripped when a persisted step report is read back', () => {
@@ -123,9 +123,20 @@ describe('BatchReport', () => {
 		// holds only the fields the contract declares
 		expect(parsed).toStrictEqual({
 			outcome: 'declined',
-			remainingClusters: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
+			remainingSiteKeys: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 			rationale: ['the two blocks read alike but diverge on the detector contract'],
 		});
+	});
+
+	test('a report written under the old remainingClusters name is refused, not read as nothing remaining', () => {
+		const { report } = setupReport({ remainingSiteKeys: undefined });
+
+		const result = BatchReport.safeParse({ ...report, remainingClusters: ['clone:src/standardsCheck/checkClones.ts'] });
+
+		// the old key is stripped as undeclared and the new one is still missing —
+		// the two must combine to a refusal, because a silently accepted stale report
+		// would read as a declined batch with zero sites persisting
+		expect(result.success).toBe(false);
 	});
 
 	test('safeParse refuses a step report that is not an object at all', () => {

@@ -10,7 +10,7 @@ const step = ({ id, outcome, status = RunStatus.Passed }: { id: string; outcome?
 	id,
 	status,
 	attempts: 1,
-	report: outcome === undefined ? undefined : { outcome, remainingClusters: outcome === BatchOutcome.Declined ? [`${id}-cluster`] : [], rationale: [`${id} says so`] },
+	report: outcome === undefined ? undefined : { outcome, remainingSiteKeys: outcome === BatchOutcome.Declined ? [`${id}-site`] : [], rationale: [`${id} says so`] },
 });
 
 const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({

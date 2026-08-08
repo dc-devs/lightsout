@@ -35,17 +35,18 @@ test('checkBarrelHygiene flags export * and module barrel entries no outside fil
 	const dir = setup(files);
 
 	const { findings: allFindings } = await runStandardsCheck({ cwd: dir, persist: false });
-	const findings = allFindings.filter((finding) => finding.rule === 'barrel-hygiene');
+	const findings = allFindings.filter((finding) => finding.rule === 'barrel-star' || finding.rule === 'barrel-dead-entry');
 
-	const star = findings.filter((finding) => finding.siteKey.startsWith('barrel-star:'));
+	const star = findings.filter((finding) => finding.rule === 'barrel-star');
 	// export * flagged, root barrel excluded
 	expect(star.map((finding) => finding.siteKey)).toStrictEqual(['barrel-star:src/m/index.ts']);
 	// star violations are findings
 	expect(star.every((finding) => finding.severity === 'finding')).toBeTruthy();
 
-	const dead = findings.filter((finding) => finding.siteKey.startsWith('barrel-dead:'));
-	// only the module entry no outside file consumes
-	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-dead:src/m/index.ts:orphan']);
+	const dead = findings.filter((finding) => finding.rule === 'barrel-dead-entry');
+	// only the module entry no outside file consumes — keyed on the barrel, so a
+	// second orphan later joins this finding rather than minting a new identity
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-dead-entry:src/m/index.ts']);
 	// barrel-dead is advisory
 	expect(dead[0]?.severity === 'advisory').toBeTruthy();
 	// the fact is the finding; what to do about it is the rule's guidance
@@ -53,7 +54,7 @@ test('checkBarrelHygiene flags export * and module barrel entries no outside fil
 	// phrasing mirrors checkDeadExports
 	expect(dead[0]?.guidance?.includes('public API') && dead[0].guidance.includes('dead')).toBeTruthy();
 	// an externally consumed entry is live
-	expect(dead.some((finding) => finding.siteKey.includes(':used'))).toBeFalsy();
+	expect(dead.some((finding) => finding.detail.includes("'used'"))).toBeFalsy();
 	// domain-folder entries are not boundary entries
 	expect(dead.some((finding) => finding.siteKey.includes('src/dom'))).toBeFalsy();
 });
@@ -71,12 +72,12 @@ test('checkBarrelHygiene: a co-located test is a consumer of its own module barr
 	const dir = setup(files);
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
-	const dead = findings.filter((finding) => finding.siteKey.startsWith('barrel-dead:'));
+	const dead = findings.filter((finding) => finding.rule === 'barrel-dead-entry');
 
 	// a test-consumed entry is live:\n${JSON.stringify(dead, undefined, 1)}
-	expect(dead.some((finding) => finding.siteKey.includes(':tested'))).toBeFalsy();
+	expect(dead.some((finding) => finding.detail.includes("'tested'"))).toBeFalsy();
 	// an entry nothing consumes still flags
-	expect(dead.some((finding) => finding.siteKey.includes(':orphan'))).toBeTruthy();
+	expect(dead.some((finding) => finding.detail.includes("'orphan'"))).toBeTruthy();
 });
 
 test('checkBarrelHygiene skips barrel entries too short to word-match honestly', async () => {
@@ -94,7 +95,28 @@ test('checkBarrelHygiene skips barrel entries too short to word-match honestly',
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
-	const dead = findings.filter((finding) => finding.siteKey.startsWith('barrel-dead:'));
+	const dead = findings.filter((finding) => finding.rule === 'barrel-dead-entry');
 	// the short entry is skipped, the long one flags
-	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-dead:src/m/index.ts:orphanEntry']);
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-dead-entry:src/m/index.ts']);
+	expect(dead[0]?.detail.startsWith("'orphanEntry' is exported from")).toBeTruthy();
+});
+
+test('checkBarrelHygiene: every unconsumed entry of one barrel is a single finding', async () => {
+	const dir = setup({
+		'src/m/index.ts': "export { usedThing } from './usedThing';\nexport { firstOrphan } from './firstOrphan';\nexport { secondOrphan } from './secondOrphan';\n",
+		'src/m/usedThing.ts': 'export const usedThing = 1;\n',
+		'src/m/firstOrphan.ts': 'export const firstOrphan = 2;\n',
+		'src/m/secondOrphan.ts': 'export const secondOrphan = 3;\n',
+		'src/m/internal.ts': 'export const internal = 4;\n',
+		'src/consumer.ts': "import { usedThing } from './m';\nexport const consumer = usedThing;\n",
+	});
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+	const dead = findings.filter((finding) => finding.rule === 'barrel-dead-entry');
+
+	// reviewing a barrel's surface is one job, not one per entry
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-dead-entry:src/m/index.ts']);
+	// both orphans are named, and the phrasing follows the count: ${dead[0]?.detail}
+	expect(dead[0]?.detail.startsWith("'firstOrphan', 'secondOrphan' are exported from")).toBeTruthy();
+	expect(dead[0]?.detail.endsWith("consumes them")).toBeTruthy();
 });

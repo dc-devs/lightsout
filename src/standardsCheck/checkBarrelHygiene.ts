@@ -1,31 +1,26 @@
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsRule, type StandardsFinding } from '@/contracts';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { readFileContents } from '@/standardsCheck/common/utils/readFileContents';
 import { mapFolderModules } from '@/standardsCheck/mapFolderModules';
 import { readBarrelExports } from '@/standardsCheck/readBarrelExports';
-
-interface Params {
-	cwd: string;
-	/** Repo-relative source files — the universe of barrels to check. */
-	files: string[];
-	/** Files searched for outside references — the whole repo, so an entry consumed beyond a scoped path is not called dead. */
-	referenceFiles?: string[];
-}
+import type { StandardsPass } from '@/standardsCheck/common/types/StandardsPass';
+import { buildFinding } from '@/standardsCheck/common/utils/buildFinding';
 
 /**
- * Barrel-hygiene check over every internal (non-root) barrel: (1) an
- * `export *` line is a Finding — barrels must be named re-exports; (2) a named
- * entry of a `module`-status barrel that NO file outside the module references
- * — via the barrel or otherwise — is an Advisory, "deliberate public API, or
- * dead?", by whole-word reference counting exactly like checkDeadExports
- * (short names skipped, conservative by construction). Package-root barrels
- * are excluded from both checks (their consumers are other packages, invisible
- * to path resolution). Text-based throughout — needs no compiler, so unlike
- * the other compiler-gated checks it runs even in JS-only repos.
+ * Barrel hygiene over every internal (non-root) barrel, two rules: `barrel-star`
+ * for an `export *` line — barrels must be named re-exports — and
+ * `barrel-dead-entry` for a named entry of a `module`-status barrel that NO file
+ * outside the module references, by whole-word reference counting exactly like
+ * checkDeadExports (short names skipped, conservative by construction). Every
+ * unconsumed entry of one barrel is ONE finding: the work is a single pass over
+ * that barrel's surface. Package-root barrels are excluded from both rules
+ * (their consumers are other packages, invisible to path resolution).
+ * Text-based throughout — needs no compiler, so unlike the compiler-gated
+ * passes it runs even in JS-only repos.
  */
-export const checkBarrelHygiene = async ({ cwd, files, referenceFiles }: Params): Promise<StandardsFinding[]> => {
+export const checkBarrelHygiene: StandardsPass = async ({ cwd, files, referenceFiles }) => {
 	const modules = await mapFolderModules({ cwd, files });
-	const contents = await readFileContents({ cwd, files: [...files, ...(referenceFiles ?? [])] });
+	const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles] });
 
 	const findings: StandardsFinding[] = [];
 
@@ -34,14 +29,14 @@ export const checkBarrelHygiene = async ({ cwd, files, referenceFiles }: Params)
 		const stars = barrelExports.filter((line) => line.star);
 
 		if (stars.length > 0) {
-			findings.push({
-				rule: StandardsRule.BarrelHygiene,
-				severity: StandardsSeverity.Finding,
-				siteKey: `barrel-star:${entry.barrelPath}`,
-				files: [{ path: entry.barrelPath }],
-				detail: `${stars.map((line) => `'${line.specifier}'`).join(', ')} re-exported with \`export *\``,
-				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
-			});
+			findings.push(
+				buildFinding({
+					rule: StandardsRule.BarrelStar,
+					files: [{ path: entry.barrelPath }],
+					detail: `${stars.map((line) => `'${line.specifier}'`).join(', ')} re-exported with \`export *\``,
+					guidance: 'A barrel is a module’s public API — list named re-exports instead.',
+				}),
+			);
 		}
 
 		if (entry.status !== 'module') {
@@ -49,6 +44,7 @@ export const checkBarrelHygiene = async ({ cwd, files, referenceFiles }: Params)
 		}
 
 		const prefix = `${folder}/`;
+		const orphans: string[] = [];
 
 		for (const name of barrelExports.flatMap((line) => line.names)) {
 			if (name.length < 4) {
@@ -63,15 +59,19 @@ export const checkBarrelHygiene = async ({ cwd, files, referenceFiles }: Params)
 			);
 
 			if (!consumedOutside) {
-				findings.push({
-					rule: StandardsRule.BarrelHygiene,
-					severity: StandardsSeverity.Advisory,
-					siteKey: `barrel-dead:${entry.barrelPath}:${name}`,
-					files: [{ path: entry.barrelPath }],
-					detail: `'${name}' is exported from ${entry.barrelPath} but no file outside module '${folder}' consumes it`,
-					guidance: 'Deliberate public API, or dead? Only the author knows.',
-				});
+				orphans.push(name);
 			}
+		}
+
+		if (orphans.length > 0) {
+			findings.push(
+				buildFinding({
+					rule: StandardsRule.BarrelDeadEntry,
+					files: [{ path: entry.barrelPath }],
+					detail: `${orphans.map((name) => `'${name}'`).join(', ')} ${orphans.length > 1 ? 'are' : 'is'} exported from ${entry.barrelPath} but no file outside module '${folder}' consumes ${orphans.length > 1 ? 'them' : 'it'}`,
+					guidance: 'Deliberate public API, or dead? Only the author knows.',
+				}),
+			);
 		}
 	}
 
