@@ -30,10 +30,10 @@ usage:
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
-  lightsout plan draft --name <n> [--scope single|phased] [--plans <dir>] [--cwd <path>]
-  lightsout plan lint --name <n> [--plans <dir>] [--cwd <path>]
-  lightsout plan dedup --name <n> [--plans <dir>] [--cwd <path>]
-  lightsout plan grade --name <n> [--plans <dir>] [--cwd <path>]
+  lightsout plan draft --name <n> [--scope single|phased] [--cwd <path>]
+  lightsout plan lint --name <n> [--cwd <path>]
+  lightsout plan dedup --name <n> [--cwd <path>]
+  lightsout plan grade --name <n> [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
 `;
@@ -268,20 +268,20 @@ Re-export \`newThing\`.
 None — standalone plan.
 `;
 
-// A consumer repo with a committed plan deliverable and deliberately NO
+// A consumer repo with a plan deliverable and deliberately NO
 // lightsout.config.json: `plan lint` is deterministic and must route before
 // resolveConfigAndDriver, so it works where a config-dependent command would
-// fail. `plansDir` defaults to .claude/plans unless the caller relocates it.
-const seedPlanLintFixture = async ({ body, plansSubdir = join('.claude', 'plans') }: { body: string; plansSubdir?: string }) => {
+// fail. The plan lives in its own folder, derived from cwd and name alone.
+const seedPlanLintFixture = async ({ body }: { body: string }) => {
 	const cwd = await freshCwd();
-	const plansDir = join(cwd, plansSubdir);
+	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
 
 	await mkdir(join(cwd, 'src'), { recursive: true });
-	await mkdir(plansDir, { recursive: true });
+	await mkdir(planDir, { recursive: true });
 	await writeFile(join(cwd, 'src', 'index.js'), 'export const one = 1;\n', 'utf8');
-	await writeFile(join(plansDir, 'demo.md'), body, 'utf8');
+	await writeFile(join(planDir, 'plan.md'), body, 'utf8');
 
-	return { cwd, plansDir };
+	return { cwd };
 };
 
 test('cli: plan lint without --name prints usage to stderr and exits 1', async () => {
@@ -314,19 +314,9 @@ test('cli: plan lint on a plan with a placeholder prints the finding and exits 1
 
 	expect(stderr).toBe('');
 	expect(stdout).toMatch(/plan lint demo — 1 structural finding\(s\) \(1 file\(s\)\)/);
-	expect(stdout).toMatch(/⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present/);
+	expect(stdout).toMatch(/⚠ \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present/);
 	expect(stdout).toMatch(/fix: resolve 'TBD'/);
 	expect(code).toBe(1);
-});
-
-test('cli: plan lint reads the plan deliverable from --plans and exits 0 when clean', async () => {
-	const { cwd, plansDir } = await seedPlanLintFixture({ body: cleanPlanBody, plansSubdir: 'elsewhere' });
-
-	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--plans', plansDir, '--cwd', cwd] });
-
-	expect(stderr).toBe('');
-	expect(stdout).toMatch(/plan lint demo — clean \(1 file\(s\)\)/);
-	expect(code).toBe(0);
 });
 
 test('cli: plan lint without a plan deliverable reports the error and exits 1', async () => {

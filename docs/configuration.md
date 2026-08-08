@@ -161,7 +161,6 @@ Set `standards` or `testStandards` to `false` to disable that category entirely.
 | `generated`                  |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                   |
 | `packageScripts`             |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](docs/monorepos.md).                                                                                                                    |
 | `packagesDir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                           |
-| `plansDir`                   |       no | The directory where `/plan` writes the committed `plan.md`. Defaults to `.claude/plans`.                                                                                                                                                                                                  |
 | `standards`                  |       no | Standards injected into code-writing agents. When omitted, the bundled JavaScript and TypeScript standards are used. Set to `false` to disable code standards, or provide an array of Markdown files or folders — a folder loads every `.md` file under it, recursively, in sorted path order. Include `lightsout:code-defaults` to keep the bundled standards alongside your own. |
 | `testStandards`              |       no | Standards injected into the test-writing agent. The behavior matches `standards`. Use `lightsout:test-defaults` to include the bundled test standards alongside your own.                                                                                                                 |
 | `standardsChannels`          |       no | Controls which framework-specific bundled standards are loaded, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base standards.                                    |
@@ -250,9 +249,6 @@ The following example shows how the optional configuration fields fit together:
     "build": "pnpm --filter {package} build",
   },
 
-  // Where completed plans are written
-  "plansDir": ".claude/plans",
-
   // Commands implementation agents may run
   "agentCommands": ["pnpm --filter api run prisma:migrate:dev:name"],
 
@@ -283,6 +279,7 @@ Commit your configuration and standards. Ignore the state produced by individual
 
 ```gitignore
 .lightsout/runs/
+.lightsout/plans/
 .lightsout/friction.jsonl
 .lightsout/lock.json
 ```

@@ -18,10 +18,8 @@ const defaultDraftTimeoutMs = 30 * 60 * 1000;
 interface Params {
 	cwd: string;
 	driver: Driver;
-	/** Kebab plan name — the workspace key and the deliverable's basename. */
+	/** Kebab plan name — the folder the plan's own files live in. */
 	name: string;
-	/** Resolved absolute directory where committed plan deliverables live. */
-	plansDir: string;
 	/** Force a variant; otherwise it is estimated from the facts' touched-file count. */
 	scope?: PlanVariant;
 	/** Supplemental code standards, threaded into the plan-writer invocation. */
@@ -47,8 +45,9 @@ type RunPlanDraftResult =
  * `structural-issues` with the draft path intact. The engine owns the *path*
  * (told to the agent) and *verifies* the write; the agent owns the content. A
  * phased plan is a single spawn that authors `overview.md` plus every
- * `phase<N>-<slug>.md` into `<plansDir>/<name>/` (the agent chooses the
- * breakdown; the engine reads the paths back from the report and verifies each).
+ * `phase<N>-<slug>.md` into `.lightsout/plans/<name>/` — the same folder the
+ * plan's workspace files live in (the agent chooses the breakdown; the engine
+ * reads the paths back from the report and verifies each).
  * `plan draft` overwrites an existing deliverable — it is the from-scratch
  * authoring step, never re-run mid-convergence.
  */
@@ -56,7 +55,6 @@ export const runPlanDraft = async ({
 	cwd,
 	driver,
 	name,
-	plansDir,
 	scope,
 	standards,
 	model,
@@ -75,13 +73,11 @@ export const runPlanDraft = async ({
 	const config = await loadConfig({ cwd }).catch(() => undefined);
 	const variant = scope ?? estimatePlanScope({ facts });
 
-	const { outputs, dir } = planDraftOutputs({ plansDir, name, variant });
-
-	await mkdir(dir, { recursive: true });
+	const outputs = planDraftOutputs({ cwd, name, variant });
 
 	progress(`plan draft ${name}: variant ${variant} (${scope ? 'scope flag' : 'estimated'})`);
 
-	const lint = buildPlanLintCommand({ cwd, name, plansDir });
+	const lint = buildPlanLintCommand({ cwd, name });
 	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'draft', model, effort, permissions, timeoutMs });
 	const outcome = await invokePlanAgent({
 		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand: lint.command }),

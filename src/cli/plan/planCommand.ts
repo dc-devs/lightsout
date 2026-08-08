@@ -1,7 +1,5 @@
-import { resolvePlansDir } from '@/plan';
 import { getPositionals } from '@/cli/common/args/getPositionals';
 import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { usage } from '@/cli/common/constants/usage';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
@@ -30,20 +28,19 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 	if (subcommand === 'draft' || subcommand === 'dedup' || subcommand === 'grade') {
 		const name = getRequiredFlag({ flags, name: 'name' });
 		const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
-		const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: 'plans' }), config });
 		const standards = await loadPlanningStandards({ cwd, config });
 
 		if (subcommand === 'draft') {
-			await planDraftCommand({ cwd, driver, name, plansDir, standards, config, flags });
+			await planDraftCommand({ cwd, driver, name, standards, config, flags });
 			return;
 		}
 
 		if (subcommand === 'dedup') {
-			await planDedupCommand({ cwd, driver, name, plansDir, standards, config });
+			await planDedupCommand({ cwd, driver, name, standards, config });
 			return;
 		}
 
-		await planGradeCommand({ cwd, driver, name, plansDir, standards, config });
+		await planGradeCommand({ cwd, driver, name, standards, config });
 		return;
 	}
 

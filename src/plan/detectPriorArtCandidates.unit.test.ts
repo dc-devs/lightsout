@@ -16,12 +16,12 @@ const setup = ({ existing, creates }: { existing: string[]; creates: string[] })
 		writeFileSync(abs, 'export const x = 1;\n');
 	}
 
-	const plansDir = join(cwd, '.claude', 'plans');
+	const dir = join(cwd, '.lightsout', 'plans', 'p');
 
-	mkdirSync(plansDir, { recursive: true });
+	mkdirSync(dir, { recursive: true });
 
 	const body = `# Plan\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`;
-	const planPath = join(plansDir, 'p.md');
+	const planPath = join(dir, 'plan.md');
 
 	writeFileSync(planPath, body);
 
@@ -76,7 +76,7 @@ test('detectPriorArtCandidates: collisions against a test file or index.* are ex
 
 test('detectPriorArtCandidates: a plan path that cannot be read is skipped, not fatal', async () => {
 	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
-	const ghost = join(cwd, '.claude', 'plans', 'ghost.md');
+	const ghost = join(cwd, '.lightsout', 'plans', 'ghost', 'plan.md');
 
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths: [ghost, ...planPaths] });
 

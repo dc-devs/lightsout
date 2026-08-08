@@ -104,9 +104,12 @@ phase files** into that file's directory:
   same directory, where `<N>` is the phase number and `<slug>` is a short kebab
   name.
 
-These names are **required**, not stylistic — `plan grade` rediscovers the files
-by glob and keys `overview.md` as context-only. Choose the phase breakdown and
-slugs yourself, and report **every** written path in `filesWritten`.
+These names are **required**, not stylistic — `plan grade` finds the files **by
+name**: `overview.md` is read as context, and each `phase<N>-<slug>.md` is
+graded. That directory also holds the plan's working files (notes, facts,
+decisions, records), so anything not matching those names is ignored. Choose the
+phase breakdown and slugs yourself, and report **every** written path in
+`filesWritten`.
 
 ## Report — your entire final message is one JSON object
 

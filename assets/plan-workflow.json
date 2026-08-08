@@ -61,9 +61,9 @@
       ],
       "note": "Creates the specification the implementation agent will follow",
       "saved": [
-        "<plans>/<name>.md",
-        "<plans>/<name>/overview.md",
-        "<plans>/<name>/phase-*.md"
+        ".lightsout/plans/<name>/plan.md",
+        ".lightsout/plans/<name>/overview.md",
+        ".lightsout/plans/<name>/phase<N>-<slug>.md"
       ]
     },
     {

@@ -1,4 +1,3 @@
-import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { planLintCommand } from '@/cli/plan/planLintCommand';
@@ -10,29 +9,15 @@ import { writePlanDeliverable } from '@tests/helpers/writePlanDeliverable';
 // plan lint is deterministic — no agent, no driver — so the arrangement is a
 // real consumer repo with a real committed deliverable, linted through the same
 // pass the CLI runs.
-const setupLint = ({
-	
-	body,
-	args,
-	name = 'demo',
-	plansSubdir,
-}: {
-	body?: string;
-	args: string[];
-	name?: string;
-	plansSubdir?: string;
-}) => {
+const setupLint = ({ body, args, name = 'demo' }: { body?: string; args: string[]; name?: string }) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ git: false });
-	const plansDir = plansSubdir === undefined ? undefined : join(cwd, plansSubdir);
 
 	if (body !== undefined) {
-		writePlanDeliverable({ cwd, name, body, ...(plansDir === undefined ? {} : { plansDir }) });
+		writePlanDeliverable({ cwd, name, body });
 	}
 
-	const flags = parseFlags({ args: plansDir === undefined ? args : [...args, '--plans', plansDir] });
-
-	return { context: { flags, rest: [], cwd }, cwd, ...captured };
+	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
 
 test('planLintCommand: a clean plan reports clean with its file count and exits 0', async () => {
@@ -58,13 +43,13 @@ test('planLintCommand: a placeholder in the plan prints the finding with its fix
 	await expect(planLintCommand(context)).rejects.toThrow(/process\.exit/);
 
 	expect(logged[1]).toBe('\nplan lint demo — 1 structural finding(s) (1 file(s))');
-	expect(logged[2] ?? '').toMatch(/^⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present$/);
+	expect(logged[2] ?? '').toMatch(/^⚠ \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present$/);
 	expect(logged[3] ?? '').toMatch(/^ {3}fix: resolve 'TBD'/);
 	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('planLintCommand: an explicit --plans directory is where the deliverable is read from', async () => {
-	const { context, logged, exitCodes } = setupLint({ body: cleanPlanBody(), args: ['--name', 'demo'], plansSubdir: 'elsewhere' });
+test('planLintCommand: a --plans directory no longer redirects anything — the plan is read from the one folder under .lightsout/plans', async () => {
+	const { context, logged, exitCodes } = setupLint({ body: cleanPlanBody(), args: ['--name', 'demo', '--plans', 'elsewhere'] });
 
 	await expect(planLintCommand(context)).rejects.toThrow(/process\.exit/);
 

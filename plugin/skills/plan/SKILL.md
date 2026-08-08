@@ -247,7 +247,11 @@ Read `.lightsout/plans/<name>/grade.json`:
 
 **8. Handoff.** Relay the final grade and:
 ```
-Next: /implement --plan <plansDir>/<name>.md
+Next: /implement --plan .lightsout/plans/<name>/plan.md
 ```
-(or the phased equivalent). List any decisions left unresolved. The grade is
+For a phased plan:
+```
+Next: /implement --plan .lightsout/plans/<name>/phase1-<slug>.md --overview .lightsout/plans/<name>/overview.md
+```
+List any decisions left unresolved. The grade is
 advisory — `/implement` runs whatever plan it is given.

@@ -7,7 +7,6 @@ import { green } from '@/cli/common/terminal/green';
 import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
-import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
 import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
 import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
 
@@ -15,13 +14,12 @@ interface Params {
 	cwd: string;
 	driver: Driver;
 	name: string;
-	plansDir: string;
 	standards: string | undefined;
 	config: LightsoutConfig | undefined;
 }
 
-export const planGradeCommand = async ({ cwd, driver, name, plansDir, standards, config }: Params): Promise<void> => {
-	const result = await runPlanGrade(planRunOptions({ cwd, driver, name, plansDir, standards, config }));
+export const planGradeCommand = async ({ cwd, driver, name, standards, config }: Params): Promise<void> => {
+	const result = await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config }));
 
 	exitOnPlanFailure(result);
 

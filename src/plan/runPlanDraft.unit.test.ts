@@ -171,17 +171,17 @@ test('plan draft: writes plan.md and returns a valid PlanDraftReport', async () 
 
 	seedWorkspace({ cwd, name: 'draft-me' });
 
-	const plansDir = join(cwd, '.claude', 'plans');
-	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'draft-me', plansDir });
+	const planDir = join(cwd, '.lightsout', 'plans', 'draft-me');
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'draft-me' });
 
 	expectStatus(result, 'complete');
-	// plan.md written at <plansDir>/<name>.md
-	expect(existsSync(join(plansDir, 'draft-me.md'))).toBeTruthy();
+	// plan.md written into the plan's own folder, beside its workspace files
+	expect(existsSync(join(planDir, 'plan.md'))).toBeTruthy();
 	expect('report' in result && result.report).toBeTruthy();
 	expect(() => PlanDraftReport.parse(result.report)).not.toThrow();
 	expect('planPaths' in result).toBeTruthy();
 	// the verified deliverable path comes back for the session to grade
-	expect(result.planPaths).toStrictEqual([join(plansDir, 'draft-me.md')]);
+	expect(result.planPaths).toStrictEqual([join(planDir, 'plan.md')]);
 });
 
 test('plan draft: the writer is handed the self-lint command and granted exactly the prefix it starts with', async () => {
@@ -189,10 +189,9 @@ test('plan draft: the writer is handed the self-lint command and granted exactly
 
 	seedWorkspace({ cwd, name: 'self-lint' });
 
-	const plansDir = join(cwd, '.claude', 'plans');
 	const invocations: DriverInvocation[] = [];
 	const driver = draftDriver({ bodies: [cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
-	const result = await runPlanDraft({ cwd, driver, name: 'self-lint', plansDir });
+	const result = await runPlanDraft({ cwd, driver, name: 'self-lint' });
 
 	expectStatus(result, 'complete');
 
@@ -207,9 +206,9 @@ test('plan draft: the writer is handed the self-lint command and granted exactly
 	expect(prefix.endsWith(' plan lint')).toBeTruthy();
 	// the granted prefix is unquoted — the harness matches it literally
 	expect(prefix.includes('"')).toBeFalsy();
-	// the embedded command extends the granted prefix verbatim, consumer paths
+	// the embedded command extends the granted prefix verbatim, the consumer path
 	// quoted, got: ${writer.prompt}
-	expect(writer.prompt.includes(`${prefix} --name self-lint --plans "${plansDir}" --cwd "${cwd}"`)).toBeTruthy();
+	expect(writer.prompt.includes(`${prefix} --name self-lint --cwd "${cwd}"`)).toBeTruthy();
 });
 
 test('plan draft: the repair invocation gets no self-lint command and no command grant', async () => {
@@ -219,7 +218,7 @@ test('plan draft: the repair invocation gets no self-lint command and no command
 
 	const invocations: DriverInvocation[] = [];
 	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
-	const result = await runPlanDraft({ cwd, driver, name: 'repair-ungranted', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'repair-ungranted' });
 
 	expectStatus(result, 'complete');
 
@@ -240,7 +239,7 @@ test('plan draft: the repair invocation references the workspace facts/decisions
 
 	const invocations: DriverInvocation[] = [];
 	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
-	const result = await runPlanDraft({ cwd, driver, name: 'repair-refs', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'repair-refs' });
 
 	expectStatus(result, 'complete');
 
@@ -272,7 +271,6 @@ test('plan draft: the resolved effort and permissions ride the writer and every 
 		cwd,
 		driver,
 		name: 'effort-threaded',
-		plansDir: join(cwd, '.claude', 'plans'),
 		effort: Effort.High,
 		permissions: Permissions.FullAccess,
 	});
@@ -292,7 +290,7 @@ test('plan draft: an unset effort and permissions reach the driver undefined —
 
 	const invocations: DriverInvocation[] = [];
 	const driver = draftDriver({ bodies: [cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
-	const result = await runPlanDraft({ cwd, driver, name: 'no-effort', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'no-effort' });
 
 	expectStatus(result, 'complete');
 	// the caller resolves the level; this role never substitutes one of its own
@@ -306,7 +304,7 @@ test('plan draft: a TBD author then a clean repair proves the repair loop conver
 
 	const prompts: string[] = [];
 	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onCall: (prompt) => prompts.push(prompt) });
-	const result = await runPlanDraft({ cwd, driver, name: 'converge', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'converge' });
 
 	expectStatus(result, 'complete');
 	// the dirty author forced exactly one repair
@@ -336,7 +334,7 @@ test('plan draft: repairs that shrink but never clear the findings exhaust the b
 		],
 		onCall: () => (calls += 1),
 	});
-	const result = await runPlanDraft({ cwd, driver, name: 'exhaust', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'exhaust' });
 
 	expectStatus(result, 'structural-issues');
 	// 1 author + exactly 3 repairs
@@ -353,7 +351,7 @@ test('plan draft: a repair that leaves the finding set identical stops the loop 
 
 	let calls = 0;
 	const driver = draftDriver({ bodies: [dirtyPlan()], onCall: () => (calls += 1) });
-	const result = await runPlanDraft({ cwd, driver, name: 'no-progress', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'no-progress' });
 
 	expectStatus(result, 'structural-issues');
 	// 1 author + 1 repair — the identical re-linted set breaks before a second
@@ -375,7 +373,7 @@ test('plan draft: a surviving finding that merely drifted lines is not progress'
 		bodies: [dirtyPlan(), `Extra context prose that shifts every later line down.\n\n${dirtyPlan()}`],
 		onCall: () => (calls += 1),
 	});
-	const result = await runPlanDraft({ cwd, driver, name: 'drift', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'drift' });
 
 	expectStatus(result, 'structural-issues');
 	// line drift alone never buys another repair
@@ -393,7 +391,7 @@ test('plan draft: a repairer error stops the loop after one repair', async () =>
 		onCall: () => (calls += 1),
 		repair: () => JSON.stringify({ status: 'error', filesEdited: [], discrepancies: ['finding X unresolvable'] }),
 	});
-	const result = await runPlanDraft({ cwd, driver, name: 'declined', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'declined' });
 
 	expectStatus(result, 'structural-issues');
 	// no further repairs burned after the decline
@@ -415,7 +413,7 @@ test('plan draft: a declined repair still re-lints, so partial fixes leave only 
 			return JSON.stringify({ status: 'error', filesEdited: [path], discrepancies: ["'TBD' unresolvable from the inputs"] });
 		},
 	});
-	const result = await runPlanDraft({ cwd, driver, name: 'partial', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'partial' });
 
 	expectStatus(result, 'structural-issues');
 	expect('findings' in result).toBeTruthy();
@@ -440,7 +438,7 @@ test('plan draft: a declined repair whose edits cleaned the plan returns complet
 			return JSON.stringify({ status: 'error', filesEdited: [path], discrepancies: ['declared unresolvable, yet fixed'] });
 		},
 	});
-	const result = await runPlanDraft({ cwd, driver, name: 'declined-clean', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'declined-clean' });
 
 	expectStatus(result, 'complete');
 	// the decline still stops the loop after its re-lint
@@ -465,12 +463,12 @@ test('plan draft: a report.status of error returns facts-error and writes no pla
 			exitCode: 0,
 		}),
 	};
-	const result = await runPlanDraft({ cwd, driver, name: 'bad-facts', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'bad-facts' });
 
 	expectStatus(result, 'facts-error');
 	expect('discrepancies' in result && result.discrepancies.length === 1).toBeTruthy();
 	// no plan written on facts-error
-	expect(existsSync(join(cwd, '.claude', 'plans', 'bad-facts.md'))).toBeFalsy();
+	expect(existsSync(join(cwd, '.lightsout', 'plans', 'bad-facts', 'plan.md'))).toBeFalsy();
 });
 
 test('plan draft: a missing decisions.json makes readDecisions throw', async () => {
@@ -489,14 +487,14 @@ test('plan draft: a missing decisions.json makes readDecisions throw', async () 
 		}),
 	);
 
-	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-decisions', plansDir: join(cwd, '.claude', 'plans') })).rejects.toThrow(/no decisions found/);
+	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-decisions' })).rejects.toThrow(/no decisions found/);
 });
 
 test('plan draft: a missing facts.json rejects pointing at plan verify-facts', async () => {
 	const cwd = setupConsumerRepo();
 
 	// No workspace seeded at all — readPlanFacts must throw before any invocation.
-	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-facts', plansDir: join(cwd, '.claude', 'plans') })).rejects.toThrow(/no facts found[\s\S]*plan verify-facts --name no-facts/);
+	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-facts' })).rejects.toThrow(/no facts found[\s\S]*plan verify-facts --name no-facts/);
 });
 
 test('plan draft: a corrupt facts.json rejects rather than reading as empty facts', async () => {
@@ -505,7 +503,7 @@ test('plan draft: a corrupt facts.json rejects rather than reading as empty fact
 	seedWorkspace({ cwd, name: 'corrupt-facts' });
 	writeFileSync(join(cwd, '.lightsout', 'plans', 'corrupt-facts', 'facts.json'), '{ not json');
 
-	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'corrupt-facts', plansDir: join(cwd, '.claude', 'plans') })).rejects.toThrow(SyntaxError);
+	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'corrupt-facts' })).rejects.toThrow(SyntaxError);
 });
 
 test('plan draft: a decisions.json that fails the contract rejects rather than drafting from it', async () => {
@@ -515,7 +513,7 @@ test('plan draft: a decisions.json that fails the contract rejects rather than d
 	writeFileSync(join(cwd, '.lightsout', 'plans', 'bad-decisions', 'decisions.json'), JSON.stringify({ planName: 7, decisions: [] }));
 
 	const error = await getRejectionError({
-		promise: runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'bad-decisions', plansDir: join(cwd, '.claude', 'plans') }),
+		promise: runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'bad-decisions' }),
 	});
 
 	// a schema violation is its own hard error, not the missing-file message
@@ -545,14 +543,13 @@ test('plan draft: facts touching more paths than the phased threshold draft the 
 
 	seedWorkspace({ cwd, name: 'big', areas: [areaTouching({ modify: paths(41) })] });
 
-	const plansDir = join(cwd, '.claude', 'plans');
-	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanOverview()] }), name: 'big', plansDir });
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanOverview()] }), name: 'big' });
 
 	expectStatus(result, 'complete');
 	expect('variant' in result).toBeTruthy();
 	expect(result.variant).toBe('overview');
-	// the phased deliverable is authored under <plansDir>/<name>/
-	expect(existsSync(join(plansDir, 'big', 'overview.md'))).toBeTruthy();
+	// the phased deliverable is authored into the plan's own folder
+	expect(existsSync(join(cwd, '.lightsout', 'plans', 'big', 'overview.md'))).toBeTruthy();
 });
 
 test('plan draft: facts at the phased threshold stay single', async () => {
@@ -560,8 +557,7 @@ test('plan draft: facts at the phased threshold stay single', async () => {
 
 	seedWorkspace({ cwd, name: 'at-threshold', areas: [areaTouching({ modify: paths(40) })] });
 
-	const plansDir = join(cwd, '.claude', 'plans');
-	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'at-threshold', plansDir });
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'at-threshold' });
 
 	expectStatus(result, 'complete');
 	expect('variant' in result).toBeTruthy();
@@ -573,8 +569,7 @@ test('plan draft: a path both modified and mirrored counts once toward the scope
 
 	seedWorkspace({ cwd, name: 'overlapping', areas: [areaTouching({ modify: paths(40), mirror: ['src/mod0.ts'] })] });
 
-	const plansDir = join(cwd, '.claude', 'plans');
-	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'overlapping', plansDir });
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'overlapping' });
 
 	expectStatus(result, 'complete');
 	expect('variant' in result).toBeTruthy();
@@ -587,12 +582,10 @@ test('plan draft: an explicit scope flag overrides the estimate', async () => {
 
 	seedWorkspace({ cwd, name: 'forced', areas: [areaTouching({ modify: paths(41) })] });
 
-	const plansDir = join(cwd, '.claude', 'plans');
 	const result = await runPlanDraft({
 		cwd,
 		driver: draftDriver({ bodies: [cleanPlan()] }),
 		name: 'forced',
-		plansDir,
 		scope: PlanVariant.Single,
 	});
 
@@ -616,7 +609,7 @@ test('plan draft: a rate-limited author parks the run before any repair', async 
 			return { text: '', exitCode: 1, rateLimited: true };
 		},
 	};
-	const result = await runPlanDraft({ cwd, driver, name: 'parked-author', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'parked-author' });
 
 	expectStatus(result, 'paused-rate-limit');
 	// no re-emit retry and no repair after a rate limit
@@ -649,13 +642,13 @@ test('plan draft: a rate-limited repair parks the run with the draft intact', as
 			return { text: draftedReport({ path }), exitCode: 0 };
 		},
 	};
-	const result = await runPlanDraft({ cwd, driver, name: 'parked-repair', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'parked-repair' });
 
 	expectStatus(result, 'paused-rate-limit');
 	// the rate limit surfaced on the first repair
 	expect(calls).toBe(2);
 	// the draft survives on disk for the re-run to overwrite
-	expect(existsSync(join(cwd, '.claude', 'plans', 'parked-repair.md'))).toBeTruthy();
+	expect(existsSync(join(cwd, '.lightsout', 'plans', 'parked-repair', 'plan.md'))).toBeTruthy();
 });
 
 test('plan draft: an author invocation failure returns failed with the driver error', async () => {
@@ -669,7 +662,7 @@ test('plan draft: an author invocation failure returns failed with the driver er
 			throw new Error('spawn failed');
 		},
 	};
-	const result = await runPlanDraft({ cwd, driver, name: 'author-spawn-fail', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'author-spawn-fail' });
 
 	expectStatus(result, 'failed');
 	// the driver error reaches the caller
@@ -689,7 +682,7 @@ test('plan draft: a repair invocation failure returns failed instead of looping'
 			throw new Error('spawn failed');
 		},
 	});
-	const result = await runPlanDraft({ cwd, driver, name: 'repair-spawn-fail', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'repair-spawn-fail' });
 
 	expectStatus(result, 'failed');
 	// no further repairs burned after the failure
@@ -710,7 +703,7 @@ test('plan draft: a drafted report listing no files returns failed', async () =>
 			exitCode: 0,
 		}),
 	};
-	const result = await runPlanDraft({ cwd, driver, name: 'no-files', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDraft({ cwd, driver, name: 'no-files' });
 
 	expectStatus(result, 'failed');
 	expect('error' in result && /no files written/.test(result.error)).toBeTruthy();
@@ -721,14 +714,13 @@ test('plan draft: a drafted report naming an unwritten file returns failed', asy
 
 	seedWorkspace({ cwd, name: 'ghost-file' });
 
-	const plansDir = join(cwd, '.claude', 'plans');
-	const ghostPath = join(plansDir, 'ghost-file.md');
+	const ghostPath = join(cwd, '.lightsout', 'plans', 'ghost-file', 'plan.md');
 	const driver: Driver = {
 		name: 'stub',
 		// Reports the file as written without ever writing it.
 		invoke: async () => ({ text: draftedReport({ path: ghostPath }), exitCode: 0 }),
 	};
-	const result = await runPlanDraft({ cwd, driver, name: 'ghost-file', plansDir });
+	const result = await runPlanDraft({ cwd, driver, name: 'ghost-file' });
 
 	expectStatus(result, 'failed');
 	// the error names the missing file

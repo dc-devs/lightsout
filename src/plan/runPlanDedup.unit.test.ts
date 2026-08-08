@@ -7,8 +7,8 @@ import type { Driver, DriverInvocation } from '@/drivers';
 import { runPlanDedup } from '@/plan';
 import { expectStatus } from '@tests/helpers/expectStatus';
 
-/** A temp repo with the given existing source files and a single-file plan at <plansDir>/<name>.md. */
-const setup = ({ existing, creates, name = 'p' }: { existing: string[]; creates: string[]; name?: string }) => {
+/** A temp repo holding the given existing source files, each a one-export module. */
+const seedRepo = ({ existing }: { existing: string[] }) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-dedup-run-'));
 
 	for (const rel of existing) {
@@ -18,15 +18,43 @@ const setup = ({ existing, creates, name = 'p' }: { existing: string[]; creates:
 		writeFileSync(abs, 'export const x = 1;\n');
 	}
 
-	const plansDir = join(cwd, '.claude', 'plans');
+	return cwd;
+};
 
-	mkdirSync(plansDir, { recursive: true });
+/** A plan body whose Files to Create names each given path. */
+const planBody = ({ title, creates }: { title: string; creates: string[] }) =>
+	`# ${title}\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`;
 
-	const body = `# Plan\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`;
+/** A temp repo with the given existing source files and a single-file plan at `.lightsout/plans/<name>/plan.md`. */
+const setup = ({ existing, creates, name = 'p' }: { existing: string[]; creates: string[]; name?: string }) => {
+	const cwd = seedRepo({ existing });
+	const dir = join(cwd, '.lightsout', 'plans', name);
 
-	writeFileSync(join(plansDir, `${name}.md`), body);
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, 'plan.md'), planBody({ title: 'Plan', creates }));
 
-	return { cwd, plansDir, name };
+	return { cwd, name };
+};
+
+/** The one line only the overview carries, so a prompt can be told apart from the phases it fronts. */
+const overviewMarker = 'Phase 2 follows phase 1.';
+
+/**
+ * A temp repo whose plan is phased: an `overview.md` fronting one
+ * `phase<N>-part.md` per entry in `phases`, all in the plan's own folder.
+ */
+const setupPhased = ({ existing, phases, name = 'p' }: { existing: string[]; phases: string[][]; name?: string }) => {
+	const cwd = seedRepo({ existing });
+	const dir = join(cwd, '.lightsout', 'plans', name);
+
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, 'overview.md'), `# Plan — Overview\n\n## Cross-Phase Dependencies\n\n- ${overviewMarker}\n`);
+
+	phases.forEach((creates, index) => {
+		writeFileSync(join(dir, `phase${index + 1}-part.md`), planBody({ title: `Phase ${index + 1}`, creates }));
+	});
+
+	return { cwd, name };
 };
 
 /** A dedup-judge stub returning a fixed verdict set, counting its invocations. */
@@ -44,21 +72,21 @@ const judgeDriver = (verdicts: unknown[], calls: { count: number }): Driver => (
 	},
 });
 
-/** A dedup-judge stub that records every invocation it is handed, judging nothing a duplicate. */
-const recordingJudgeDriver = (invocations: DriverInvocation[]): Driver => ({
+/** A dedup-judge stub that records every invocation it is handed, returning the given verdicts (none by default). */
+const recordingJudgeDriver = (invocations: DriverInvocation[], verdicts: unknown[] = []): Driver => ({
 	name: 'stub',
 	invoke: async (invocation) => {
 		invocations.push(invocation);
 
-		return { text: JSON.stringify({ verdicts: [] }), exitCode: 0 };
+		return { text: JSON.stringify({ verdicts }), exitCode: 0 };
 	},
 });
 
 test('plan dedup: a confirmed duplicate becomes a DedupFinding', async () => {
-	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const calls = { count: 0 };
 	const verdict = { plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' };
-	const result = await runPlanDedup({ cwd, driver: judgeDriver([verdict], calls), name, plansDir });
+	const result = await runPlanDedup({ cwd, driver: judgeDriver([verdict], calls), name });
 
 	expectStatus(result, 'complete');
 	expect('dedup' in result).toBeTruthy();
@@ -85,10 +113,10 @@ test('plan dedup: a confirmed duplicate becomes a DedupFinding', async () => {
 });
 
 test('plan dedup: an isDuplicate:false verdict is dropped', async () => {
-	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const calls = { count: 0 };
 	const verdict = { plannedSymbol: 'getUser', isDuplicate: false, recommendation: 'distinct', rationale: 'different concept' };
-	const result = await runPlanDedup({ cwd, driver: judgeDriver([verdict], calls), name, plansDir });
+	const result = await runPlanDedup({ cwd, driver: judgeDriver([verdict], calls), name });
 
 	expectStatus(result, 'complete');
 	expect('dedup' in result).toBeTruthy();
@@ -96,15 +124,41 @@ test('plan dedup: an isDuplicate:false verdict is dropped', async () => {
 	expect(result.dedup.findings).toStrictEqual([]);
 });
 
+test('plan dedup: a phased plan is judged once, every phase together with the overview as context', async () => {
+	const { cwd, name } = setupPhased({
+		existing: ['src/fetchUser.ts', 'src/fetchOrder.ts'],
+		phases: [['src/getUser.ts'], ['src/getOrder.ts']],
+	});
+	const invocations: DriverInvocation[] = [];
+	const verdicts = [
+		{ plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' },
+		{ plannedSymbol: 'getOrder', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchOrder already does this' },
+	];
+	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations, verdicts), name });
+
+	expectStatus(result, 'complete');
+	// a phased plan is one plan: every phase in the folder is judged in a single
+	// spawn, not one spawn per phase
+	expect(invocations.length).toBe(1);
+	// both phases' planned symbols reached the judge and came back as findings
+	expect(result.dedup.findings.map(({ plannedSymbol }) => plannedSymbol)).toStrictEqual(['getUser', 'getOrder']);
+	// the overview rides the system prompt as context, never the text under judgment,
+	// got: ${invocations[0]?.prompt}
+	expect((invocations[0].systemPrompt ?? '').includes(overviewMarker)).toBeTruthy();
+	expect(invocations[0].prompt.includes(overviewMarker)).toBeFalsy();
+	// the report lands in the plan's own folder, beside the phases it judged
+	expect(result.dedupPath).toBe(join(cwd, '.lightsout', 'plans', name, 'dedup.json'));
+});
+
 test('plan dedup: no candidates → empty report and no agent call', async () => {
-	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/brandNewWidget.ts'] });
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/brandNewWidget.ts'] });
 	const failIfCalled: Driver = {
 		name: 'stub',
 		invoke: async () => {
 			throw new Error('the judge must not be invoked when there are no candidates');
 		},
 	};
-	const result = await runPlanDedup({ cwd, driver: failIfCalled, name, plansDir });
+	const result = await runPlanDedup({ cwd, driver: failIfCalled, name });
 
 	expectStatus(result, 'complete');
 	expect('dedup' in result).toBeTruthy();
@@ -131,7 +185,7 @@ test('plan dedup: a missing deliverable fails with the plan workspace already cr
 			throw new Error('the judge must not be invoked when the deliverable does not resolve');
 		},
 	};
-	const result = await runPlanDedup({ cwd, driver: failIfCalled, name: 'ghost', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanDedup({ cwd, driver: failIfCalled, name: 'ghost' });
 
 	expectStatus(result, 'failed');
 	// the resolve error propagates
@@ -143,13 +197,12 @@ test('plan dedup: a missing deliverable fails with the plan workspace already cr
 });
 
 test('plan dedup: the resolved model, effort and permissions reach the harness', async () => {
-	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const invocations: DriverInvocation[] = [];
 	const result = await runPlanDedup({
 		cwd,
 		driver: recordingJudgeDriver(invocations),
 		name,
-		plansDir,
 		model: 'gpt-5.2',
 		effort: Effort.XHigh,
 		permissions: Permissions.FullAccess,
@@ -160,23 +213,23 @@ test('plan dedup: the resolved model, effort and permissions reach the harness',
 });
 
 test('plan dedup: an unset effort or permissions is forwarded absent — this role invents no default', async () => {
-	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const invocations: DriverInvocation[] = [];
-	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations), name, plansDir });
+	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations), name });
 
 	expectStatus(result, 'complete');
 	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
 });
 
 test('plan dedup: no deliverable on disk fails before any detection or judging', async () => {
-	const { cwd, plansDir } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const failIfCalled: Driver = {
 		name: 'stub',
 		invoke: async () => {
 			throw new Error('the judge must not be invoked when the plan cannot be resolved');
 		},
 	};
-	const result = await runPlanDedup({ cwd, driver: failIfCalled, name: 'ghost', plansDir });
+	const result = await runPlanDedup({ cwd, driver: failIfCalled, name: 'ghost' });
 
 	expectStatus(result, 'failed');
 	// the resolve error propagates, got: ${result.error}
@@ -184,7 +237,7 @@ test('plan dedup: no deliverable on disk fails before any detection or judging',
 });
 
 test('plan dedup: a rate-limited judge parks the run and writes no report', async () => {
-	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	let calls = 0;
 	const driver: Driver = {
 		name: 'stub',
@@ -194,7 +247,7 @@ test('plan dedup: a rate-limited judge parks the run and writes no report', asyn
 			return { text: '', exitCode: 1, rateLimited: true };
 		},
 	};
-	const result = await runPlanDedup({ cwd, driver, name, plansDir });
+	const result = await runPlanDedup({ cwd, driver, name });
 
 	expectStatus(result, 'paused-rate-limit');
 	// a rate limit buys no re-emit retry
@@ -206,7 +259,7 @@ test('plan dedup: a rate-limited judge parks the run and writes no report', asyn
 });
 
 test('plan dedup: a judge whose output never satisfies the contract fails and writes no report', async () => {
-	const { cwd, plansDir, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	let calls = 0;
 	const driver: Driver = {
 		name: 'stub',
@@ -216,7 +269,7 @@ test('plan dedup: a judge whose output never satisfies the contract fails and wr
 			return { text: 'they all look distinct to me', exitCode: 0 };
 		},
 	};
-	const result = await runPlanDedup({ cwd, driver, name, plansDir });
+	const result = await runPlanDedup({ cwd, driver, name });
 
 	expectStatus(result, 'failed');
 	// the rejected report bought exactly one re-emit retry

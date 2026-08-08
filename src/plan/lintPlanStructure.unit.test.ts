@@ -5,9 +5,9 @@ import { LightsoutConfig, StructuralCheck } from '@/contracts';
 import { lintPlanStructure } from '@/plan';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
-/** Write a plan file into the repo and return its absolute path. */
+/** Write a plan file into a plan's own folder and return its absolute path. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
-	const dir = join(cwd, '.claude', 'plans');
+	const dir = join(cwd, '.lightsout', 'plans', 'demo');
 
 	mkdirSync(dir, { recursive: true });
 

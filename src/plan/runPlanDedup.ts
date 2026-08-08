@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { DedupJudgment, DedupReport, type DedupFinding, type Effort, type Permissions } from '@/contracts';
+import { DedupJudgment, type DedupFinding, type DedupReport, type Effort, type Permissions } from '@/contracts';
 import { buildPlanDedupInvocation } from '@/agents';
 import type { Driver } from '@/drivers';
 import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
@@ -13,10 +13,8 @@ const defaultDedupTimeoutMs = 30 * 60 * 1000;
 interface Params {
 	cwd: string;
 	driver: Driver;
-	/** Kebab plan name — the workspace key and the deliverable's basename. */
+	/** Kebab plan name — the folder the plan's own files live in. */
 	name: string;
-	/** Resolved absolute directory where committed plan deliverables live. */
-	plansDir: string;
 	/** Supplemental code standards, threaded into the judge so extract/reuse recs can honor them. */
 	standards?: string;
 	model?: string;
@@ -26,6 +24,11 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
+type RunPlanDedupResult =
+	| { status: 'complete'; workspaceDir: string; dedup: DedupReport; dedupPath: string }
+	| { status: 'failed'; workspaceDir: string; error: string }
+	| { status: 'paused-rate-limit'; workspaceDir: string; error: string };
+
 /**
  * Read-only prior-art detector for the interactive Dedup Review pass:
  * deterministically detect every planned new symbol that name-collides with an
@@ -34,23 +37,22 @@ interface Params {
  * never edits the plan — it detects, judges, and writes `dedup.json`, the typed
  * findings the ignition skill reads to conduct the human resolution. No
  * candidates → no agent call, an empty report. A single plan is
- * `<plansDir>/<name>.md`; a phased plan is `<plansDir>/<name>/*.md` where
- * `overview.md` is context and each `phase<N>-<slug>.md` is judged together.
+ * `.lightsout/plans/<name>/plan.md`; a phased plan is `overview.md` as context
+ * plus each `phase<N>-<slug>.md` in that same folder, judged together.
  */
 export const runPlanDedup = async ({
 	cwd,
 	driver,
 	name,
-	plansDir,
 	standards,
 	model,
 	effort,
 	permissions,
 	timeoutMs = defaultDedupTimeoutMs,
 	onProgress,
-}: Params) => {
+}: Params): Promise<RunPlanDedupResult> => {
 	const progress = onProgress ?? (() => undefined);
-	const { workspaceDir, overviewText, files: planFiles, planPaths, config, error } = await getPlanDetectionPass({ cwd, name, plansDir });
+	const { workspaceDir, overviewText, files: planFiles, planPaths, config, error } = await getPlanDetectionPass({ cwd, name });
 
 	if (error) {
 		return { status: 'failed' as const, workspaceDir, error };

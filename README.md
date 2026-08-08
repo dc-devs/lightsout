@@ -114,7 +114,7 @@ Deterministic gates run between every stage. If a test, lint, type-check, or cov
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
-/implement .claude/plans/rate-limiting/plan.md
+/implement .lightsout/plans/rate-limiting/plan.md
 ```
 
 ### /refactor

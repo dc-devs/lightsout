@@ -2,7 +2,7 @@ import { runCommand } from '@/common/utils/runCommand';
 import { probeTimeoutMs } from '@/doctor/common/constants/probeTimeoutMs';
 import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
 
-const gitignoreEntries = ['.lightsout/runs/', '.lightsout/friction.jsonl', '.lightsout/lock.json'];
+const gitignoreEntries = ['.lightsout/runs/', '.lightsout/plans/', '.lightsout/friction.jsonl', '.lightsout/lock.json'];
 
 interface Params {
 	cwd: string;

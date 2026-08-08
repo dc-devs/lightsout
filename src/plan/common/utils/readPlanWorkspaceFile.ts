@@ -5,9 +5,9 @@ import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
 
 interface Params<Shape> {
 	cwd: string;
-	/** Kebab plan name — the workspace key. */
+	/** Kebab plan name — the folder the plan's own files live in. */
 	name: string;
-	/** File within the workspace, e.g. `decisions.json`. */
+	/** File within that folder, e.g. `decisions.json`. */
 	fileName: string;
 	/** Boundary schema the parsed JSON must satisfy. */
 	schema: z.ZodType<Shape>;
@@ -16,9 +16,10 @@ interface Params<Shape> {
 }
 
 /**
- * Read and validate a plan workspace's JSON file (parse-don't-cast at the
- * boundary): a missing or corrupt file is a hard error via `notFound`, never a
- * silent empty result. The shared reader behind `readDecisions`/`readPlanFacts`.
+ * Read and validate a JSON file from the plan's own folder — the same folder
+ * that holds its drafted plan text (parse-don't-cast at the boundary): a missing
+ * or corrupt file is a hard error via `notFound`, never a silent empty result.
+ * The shared reader behind `readDecisions`/`readPlanFacts`.
  */
 export const readPlanWorkspaceFile = async <Shape>({ cwd, name, fileName, schema, notFound }: Params<Shape>): Promise<Shape> => {
 	const filePath = join(planWorkspaceDir({ cwd, name }), fileName);

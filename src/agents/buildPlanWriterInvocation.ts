@@ -30,7 +30,8 @@ export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards
 
 	// A phased draft is a single spawn that authors the overview plus every phase
 	// file into one directory — name the directory explicitly so the agent's hard
-	// naming rule (overview.md + phase<N>-<slug>.md) lands where grade globs.
+	// naming rule (overview.md + phase<N>-<slug>.md) lands where grade looks the
+	// files up by name.
 	const overview = outputs.find((output) => output.variant === 'overview');
 
 	if (overview) {

@@ -13,6 +13,18 @@ test('LightsoutConfig: a stale traverse key parses without error and is stripped
 	expect('traverse' in parsed).toBe(false);
 });
 
+test('LightsoutConfig: a leftover plansDir key parses without error and is stripped from the result', () => {
+	const parsed = LightsoutConfig.parse({ ...base, plansDir: 'docs/plans' });
+
+	// unlike driver and scan, the removed plans root gets no explicit rejection: a
+	// plan now always lives in its own workspace folder, so a config still carrying
+	// the old key keeps parsing instead of failing the run
+	expect(LightsoutConfig.safeParse({ ...base, plansDir: 'docs/plans' }).success).toBe(true);
+	// the removed field leaves no plansDir key on the parsed config, so nothing
+	// downstream can read a plans root back out of it
+	expect('plansDir' in parsed).toBe(false);
+});
+
 test('LightsoutConfig: a commands block parses — full entries, partial entries, and absence all valid', () => {
 	const commands = {
 		implement: { harness: 'codex', model: 'gpt-5.2' },
