@@ -33,23 +33,23 @@ describe('printFindingGroups', () => {
 		expect(logged).toContain('ℹ size-function · 2 advisories');
 	});
 
-	test('says finding, singular, for one item of work', () => {
+	test('names the severity, not a noun, for a blocking group', () => {
 		const { logged } = setupPrinter();
 
-		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Finding, rule: StandardsRule.Clone })] });
+		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone })] });
 
-		expect(logged).toContain('⚠ clone · 1 finding');
+		expect(logged).toContain('⚠ clone · 1 blocking');
 	});
 
-	test('splits one rule by severity, because a size finding and a size advisory are not one tally', () => {
+	test('splits one rule by severity, because a size violation and a size advisory are not one tally', () => {
 		const { logged } = setupPrinter();
 
 		printFindingGroups({
-			findings: [finding({ severity: StandardsSeverity.Finding, detail: '300 lines (cap ~250)' }), finding({ siteKey: 'size:two' })],
+			findings: [finding({ severity: StandardsSeverity.Blocking, detail: '300 lines (cap ~250)' }), finding({ siteKey: 'size:two' })],
 		});
 
 		// `size` reports an oversized file as work and an oversized function as advice
-		expect(logged).toContain('⚠ size-function · 1 finding');
+		expect(logged).toContain('⚠ size-function · 1 blocking');
 		expect(logged).toContain('ℹ size-function · 1 advisory');
 	});
 
@@ -145,17 +145,21 @@ describe('printFindingGroups', () => {
 		expect(logged).toStrictEqual([]);
 	});
 
-	test('pluralises the count, because one finding and four read differently', () => {
+	test('pluralises the advisory count but not the blocking one, because only one of the two words has a plural', () => {
 		const { logged } = setupPrinter();
 
 		printFindingGroups({
 			findings: [
-				finding({ severity: StandardsSeverity.Finding, rule: StandardsRule.Clone }),
-				finding({ severity: StandardsSeverity.Finding, rule: StandardsRule.Clone, siteKey: 'clone:two' }),
+				finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone }),
+				finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone, siteKey: 'clone:two' }),
+				finding({ siteKey: 'size:one' }),
+				finding({ siteKey: 'size:two' }),
 			],
 		});
 
-		expect(logged).toContain('⚠ clone · 2 findings');
+		// `blocking` is the severity's name, so it reads the same at any count
+		expect(logged).toContain('⚠ clone · 2 blocking');
+		expect(logged).toContain('ℹ size-function · 2 advisories');
 	});
 
 	test('a single-line span is rendered as one number, not a range onto itself', () => {

@@ -33,7 +33,7 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 	// Findings lead: they are the work, and an advisory read first would set the
 	// wrong expectation about what the run is asking for.
 	const ordered = [
-		...findings.filter((entry) => entry.severity === StandardsSeverity.Finding),
+		...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
 		...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory),
 	];
 

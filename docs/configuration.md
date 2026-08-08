@@ -176,17 +176,17 @@ Every rule the standards check enforces ships with a default severity and, where
   "standardsChecks": {
     // A severity on its own.
     "filename-mismatch": "off",
-    "clone": "finding",
+    "clone": "blocking",
     // Or an object, to change the severity, the rule's settings, or both.
     "size-file": { "settings": { "file": 300, "tsxFile": 400 } },
-    "folder-census": { "severity": "finding", "settings": { "cap": 15 } },
+    "folder-census": { "severity": "blocking", "settings": { "cap": 15 } },
   },
 }
 ```
 
 The three severities are:
 
-- `finding` — a violation. It blocks a run when it touches a file that run changed.
+- `blocking` — a violation. It stops a run when it touches a file that run changed.
 - `advisory` — reported, and handed to the refactor agent as a judgment call. Never blocks.
 - `off` — not run at all. This is what you set when your own linter already enforces the rule.
 

@@ -49,7 +49,7 @@ test('checkModuleBoundaries flags deep imports across a module boundary, allowin
 	const siteKeys = findings.map((finding) => finding.siteKey);
 
 	// every module-boundary finding carries the finding severity
-	expect(findings.every((finding) => finding.severity === 'finding')).toBeTruthy();
+	expect(findings.every((finding) => finding.severity === 'blocking')).toBeTruthy();
 	// only the deep cross-boundary import flags
 	expect(siteKeys.sort()).toStrictEqual(['module-boundary:src/a/internal.ts|src/b/b.ts']);
 

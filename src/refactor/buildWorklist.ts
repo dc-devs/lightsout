@@ -26,7 +26,7 @@ export const buildWorklist = async ({ cwd, config, path, all = false }: Params):
 		path: path ?? '.',
 		all,
 		batches: batchFindings({
-			findings: findings.filter((finding) => finding.severity === StandardsSeverity.Finding),
+			blocking: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking),
 			// Every advisory, not just the size ones: an advisory IS a judgment
 			// call, and each carries its own guidance line for the agent to apply.
 			// A rule whose advisories never reach the agent can never be judged —

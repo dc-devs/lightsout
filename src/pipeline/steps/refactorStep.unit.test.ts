@@ -177,7 +177,7 @@ test("refactor: the escalation carries the agent's reported friction as its acco
 	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
 });
 
-test('refactor: a first decline narrates how many findings the checks still report before buying another pass', async () => {
+test('refactor: a first decline narrates how much the checks still report before buying another pass', async () => {
 	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
 		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
 		// A no-change pass whose work-list is the first one seen — the loop has
@@ -187,7 +187,7 @@ test('refactor: a first decline narrates how many findings the checks still repo
 
 	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress });
 
-	expect(progress.some((line) => /^refactor pass 1: no changes but the checks still report [1-9]\d* finding\(s\) — another pass$/.test(line))).toBe(true);
+	expect(progress.some((line) => /^refactor pass 1: no changes but the checks still report [1-9]\d* blocking — another pass$/.test(line))).toBe(true);
 });
 
 test('refactor: a star re-export blocks the loop on its own — severity is the whole gate, with no allow-list of blockable rules', async () => {
@@ -211,7 +211,7 @@ test('refactor: a star re-export blocks the loop on its own — severity is the 
 	expect(result.error ?? '').toMatch(/barrel-star:src\/widget\/index\.ts/);
 	expect(result.error ?? '').toMatch(/at src\/widget\/index\.ts/);
 	// it carried the escalation alone — no other finding was blocking
-	expect(result.error ?? '').toMatch(/1 finding\(s\) persist/);
+	expect(result.error ?? '').toMatch(/1 blocking persist/);
 });
 
 test('refactor: the gate narration counts the work-list and the advisories, and nothing else', async () => {
@@ -227,7 +227,7 @@ test('refactor: the gate narration counts the work-list and the advisories, and 
 
 	// anchored at both ends: the work-list count IS the blocking count, so the
 	// line carries no separate blocking tally
-	expect(progress.some((line) => /^standards gate: [1-9]\d* finding\(s\) \+ [1-9]\d* advisory\(ies\) on changed files$/.test(line))).toBe(true);
+	expect(progress.some((line) => /^standards gate: [1-9]\d* blocking \+ [1-9]\d* advisory on changed files$/.test(line))).toBe(true);
 });
 
 test('refactor: a loop that spends every pass on a tree the checks find clean passes at the post-loop check', async () => {

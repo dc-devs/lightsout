@@ -14,7 +14,7 @@ export const StandardsFinding = z.object({
 	 * rule a repo switched off emits nothing, so a persisted finding at
 	 * severity `off` would be a contradiction the schema should refuse.
 	 */
-	severity: z.enum([StandardsSeverity.Finding, StandardsSeverity.Advisory]),
+	severity: z.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]),
 	/** Grouping key — findings sharing a site key are one remediation unit, and it is the identity the debt ledger records. */
 	siteKey: z.string(),
 	files: z.array(

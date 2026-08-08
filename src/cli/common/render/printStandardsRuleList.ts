@@ -4,12 +4,6 @@ import { renderTable } from '@/cli/common/render/renderTable';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 
-const stateLabels: Record<StandardsSeverity, string> = {
-	[StandardsSeverity.Finding]: 'blocking',
-	[StandardsSeverity.Advisory]: 'advisory',
-	[StandardsSeverity.Off]: 'off',
-};
-
 const countOf = ({ rules, severity }: { rules: StandardsRuleListing[]; severity: StandardsSeverity }) =>
 	rules.filter((rule) => rule.severity === severity).length;
 
@@ -39,7 +33,8 @@ export const printStandardsRuleList = ({ rules }: Params): void => {
 
 		return [
 			{
-				cells: [rule.rule, rule.fromConfig ? `${stateLabels[rule.severity]} (config)` : stateLabels[rule.severity], rule.doc],
+				// The severity IS the state label — nothing to translate, which is the point of naming it `blocking`.
+				cells: [rule.rule, rule.fromConfig ? `${rule.severity} (config)` : rule.severity, rule.doc],
 			},
 			{
 				cells: [settings === '' ? rule.summary : `${rule.summary} — ${settings}`, '', ''],
@@ -51,7 +46,7 @@ export const printStandardsRuleList = ({ rules }: Params): void => {
 	const totals = {
 		cells: [
 			`${rules.length} rule(s)`,
-			`${countOf({ rules, severity: StandardsSeverity.Finding })} blocking`,
+			`${countOf({ rules, severity: StandardsSeverity.Blocking })} blocking`,
 			`${countOf({ rules, severity: StandardsSeverity.Advisory })} advisory, ${countOf({ rules, severity: StandardsSeverity.Off })} off`,
 		],
 		emphasis: bold,

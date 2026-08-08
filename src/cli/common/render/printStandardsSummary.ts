@@ -18,16 +18,16 @@ const cell = ({ count }: { count: number }) => (count === 0 ? '—' : `${count}`
 /**
  * The per-rule tally, as a table.
  *
- * Findings and advisories are separate columns rather than one total, because
- * they ask for different things: a finding is work, an advisory is guidance
- * someone has to judge in context. A repo carrying only advisories is clean,
- * and a single summed number would report it as indebted.
+ * Blocking and advisory are separate columns rather than one total, because
+ * they ask for different things: a blocking finding is work, an advisory is
+ * guidance someone has to judge in context. A repo carrying only advisories is
+ * clean, and a single summed number would report it as indebted.
  */
 export const printStandardsSummary = ({ findings, reportPath }: Params): void => {
 	console.log('');
 
 	if (findings.length === 0) {
-		console.log(green('clean — no findings, no advisories'));
+		console.log(green('clean — nothing blocking, no advisories'));
 		console.log(dim(`report: ${reportPath}`));
 
 		return;
@@ -37,7 +37,7 @@ export const printStandardsSummary = ({ findings, reportPath }: Params): void =>
 	const rows = rules.map((rule) => ({
 		cells: [
 			rule,
-			cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Finding }) }),
+			cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Blocking }) }),
 			cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Advisory }) }),
 		],
 		ruleAbove: false,
@@ -45,13 +45,13 @@ export const printStandardsSummary = ({ findings, reportPath }: Params): void =>
 	const totals = {
 		cells: [
 			'total',
-			cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Finding).length }),
+			cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking).length }),
 			cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory).length }),
 		],
 		emphasis: bold,
 	};
 
-	for (const line of renderTable({ headers: ['rule', 'findings', 'advisories'], rows: [...rows, totals] })) {
+	for (const line of renderTable({ headers: ['rule', 'blocking', 'advisories'], rows: [...rows, totals] })) {
 		console.log(line);
 	}
 

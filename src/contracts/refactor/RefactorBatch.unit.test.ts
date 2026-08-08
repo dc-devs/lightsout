@@ -4,7 +4,7 @@ import { RefactorBatch } from '@/contracts';
 const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding = {
 		rule: 'clone',
-		severity: 'finding',
+		severity: 'blocking',
 		siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
 		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 		detail: 'a 36-line span repeated across two files',
@@ -20,7 +20,7 @@ const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string
 		id: 'batch-01:clone:src/standardsCheck',
 		rule: 'clone',
 		folder: 'src/standardsCheck',
-		findings: [finding],
+		blocking: [finding],
 		advisories: [advisory],
 		...extra,
 	};
@@ -42,7 +42,7 @@ describe('RefactorBatch', () => {
 			id: 'batch-01:clone:src/standardsCheck',
 			rule: 'clone',
 			folder: 'src/standardsCheck',
-			findings: [finding],
+			blocking: [finding],
 			advisories: [advisory],
 		});
 	});
@@ -60,7 +60,7 @@ describe('RefactorBatch', () => {
 	});
 
 	test('findings and advisories are required rather than defaulting to empty', () => {
-		for (const field of ['findings', 'advisories']) {
+		for (const field of ['blocking', 'advisories']) {
 			const { batch } = setupBatch({ omit: field });
 
 			const result = RefactorBatch.safeParse(batch);
@@ -81,31 +81,31 @@ describe('RefactorBatch', () => {
 	});
 
 	test('an empty findings list parses — nothing in the schema forbids a batch with no must-address work', () => {
-		const { batch } = setupBatch({ extra: { findings: [] } });
+		const { batch } = setupBatch({ extra: { blocking: [] } });
 
 		const parsed = RefactorBatch.parse(batch);
 
 		// the contract admits the shape; whether such a batch is ever built is the
 		// work-list builder's decision, not the schema's
-		expect(parsed.findings).toStrictEqual([]);
+		expect(parsed.blocking).toStrictEqual([]);
 	});
 
 	test('the two arrays are split by membership, not by the severity each entry carries', () => {
 		const { batch, advisory } = setupBatch();
 
-		const parsed = RefactorBatch.parse({ ...batch, advisories: [{ ...advisory, severity: 'finding' }] });
+		const parsed = RefactorBatch.parse({ ...batch, advisories: [{ ...advisory, severity: 'blocking' }] });
 
 		// the schema never cross-checks severity against the array — which list an
 		// entry sits in is what decides whether the re-check blocks on it
-		expect(parsed.advisories[0]?.severity).toBe('finding');
+		expect(parsed.advisories[0]?.severity).toBe('blocking');
 		// the must-address list is untouched by what the advisory list holds
-		expect(parsed.findings[0]?.siteKey).toBe('clone:src/standardsCheck/runStandardsCheck.ts:12');
+		expect(parsed.blocking[0]?.siteKey).toBe('clone:src/standardsCheck/runStandardsCheck.ts:12');
 	});
 
 	test('one malformed finding rejects the whole batch', () => {
 		const { batch, finding } = setupBatch();
 
-		const result = RefactorBatch.safeParse({ ...batch, findings: [{ ...finding, rule: 'complexity' }] });
+		const result = RefactorBatch.safeParse({ ...batch, blocking: [{ ...finding, rule: 'complexity' }] });
 
 		// a batch is dispatched whole, so a half-readable work-list is refused at the
 		// read boundary rather than sending an agent at work no re-check could verify
@@ -125,7 +125,7 @@ describe('RefactorBatch', () => {
 	test('rejects a findings or advisories value that is not an array', () => {
 		const { batch, finding, advisory } = setupBatch();
 
-		for (const malformed of [{ ...batch, findings: finding }, { ...batch, advisories: advisory }]) {
+		for (const malformed of [{ ...batch, blocking: finding }, { ...batch, advisories: advisory }]) {
 			const result = RefactorBatch.safeParse(malformed);
 
 			// a single entry in place of the list is a malformed batch
@@ -134,7 +134,7 @@ describe('RefactorBatch', () => {
 	});
 
 	test('the batch rule is a plain label, so a batch groups whatever the standards check named', () => {
-		const { batch } = setupBatch({ extra: { rule: 'barrel-hygiene', findings: [] } });
+		const { batch } = setupBatch({ extra: { rule: 'barrel-hygiene', blocking: [] } });
 
 		const parsed = RefactorBatch.parse(batch);
 
@@ -168,7 +168,7 @@ describe('RefactorBatch', () => {
 	test('keys the contract does not declare are stripped from the batch and from its findings', () => {
 		const { batch, finding, advisory } = setupBatch();
 
-		const parsed = RefactorBatch.parse({ ...batch, attempts: 2, findings: [{ ...finding, tokens: 180 }] });
+		const parsed = RefactorBatch.parse({ ...batch, attempts: 2, blocking: [{ ...finding, tokens: 180 }] });
 
 		// the persisted work-list holds the fields the contract declares — batch
 		// progress lives in the manifest step, never smuggled onto the frozen batch
@@ -176,10 +176,10 @@ describe('RefactorBatch', () => {
 			id: 'batch-01:clone:src/standardsCheck',
 			rule: 'clone',
 			folder: 'src/standardsCheck',
-			findings: [
+			blocking: [
 				{
 					rule: 'clone',
-					severity: 'finding',
+					severity: 'blocking',
 					siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
 					files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 					detail: 'a 36-line span repeated across two files',

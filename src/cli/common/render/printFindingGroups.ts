@@ -25,9 +25,10 @@ const locationOf = ({ file }: { file: StandardsFinding['files'][number] }) => {
 };
 
 const headingOf = ({ rule, severity, count }: { rule: string; severity: StandardsSeverity; count: number }) => {
-	const finding = severity === StandardsSeverity.Finding;
-	const icon = finding ? yellow('⚠') : dim('ℹ');
-	const noun = finding ? (count === 1 ? 'finding' : 'findings') : count === 1 ? 'advisory' : 'advisories';
+	const blocking = severity === StandardsSeverity.Blocking;
+	const icon = blocking ? yellow('⚠') : dim('ℹ');
+	// `blocking` reads the same at any count, so only the advisory noun pluralizes.
+	const noun = blocking ? 'blocking' : count === 1 ? 'advisory' : 'advisories';
 
 	return `${icon} ${bold(rule)} ${dim('·')} ${dim(`${count} ${noun}`)}`;
 };

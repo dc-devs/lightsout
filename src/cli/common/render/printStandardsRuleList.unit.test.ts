@@ -7,7 +7,7 @@ const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleLi
 	rule: 'multi-export',
 	doc: 'standards/code/style-guide/structure/one-export-per-file.md',
 	summary: 'more than one export in a file',
-	severity: StandardsSeverity.Finding,
+	severity: StandardsSeverity.Blocking,
 	fromConfig: false,
 	settings: {},
 	...overrides,

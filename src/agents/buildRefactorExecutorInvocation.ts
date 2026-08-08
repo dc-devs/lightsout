@@ -44,7 +44,7 @@ export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, sta
 
 		if (findings && findings.length > 0) {
 			parts.push(
-				`The engine's standards checks found these on the changed files. Address each one first — they are re-checked after you report — or state in your summary why one must stay:\n\n${findings.map(findingLine).join('\n')}`,
+				`Blocking — the engine's standards checks found these on the changed files. Address each one first, they are re-checked after you report, or state in your summary why one must stay:\n\n${findings.map(findingLine).join('\n')}`,
 			);
 		}
 

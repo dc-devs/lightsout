@@ -41,7 +41,7 @@ test('checkBarrelHygiene flags export * and module barrel entries no outside fil
 	// export * flagged, root barrel excluded
 	expect(star.map((finding) => finding.siteKey)).toStrictEqual(['barrel-star:src/m/index.ts']);
 	// star violations are findings
-	expect(star.every((finding) => finding.severity === 'finding')).toBeTruthy();
+	expect(star.every((finding) => finding.severity === 'blocking')).toBeTruthy();
 
 	const dead = findings.filter((finding) => finding.rule === 'barrel-dead-entry');
 	// only the module entry no outside file consumes — keyed on the barrel, so a

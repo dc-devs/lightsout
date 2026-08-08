@@ -704,7 +704,7 @@ test('cli: standards-check reports nothing new once the findings are baselined',
 	// a baselined finding is accepted debt, not news
 	expect(stdout.includes('name-synonym')).toBeFalsy();
 	// nothing left to report reads as a sentence, not an empty table
-	expect(stdout).toContain('clean — no findings, no advisories');
+	expect(stdout).toContain('clean — nothing blocking, no advisories');
 	expect(stdout.includes('┌')).toBeFalsy();
 	expect(stderr).toBe('');
 	expect(code).toBe(0);

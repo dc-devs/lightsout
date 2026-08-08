@@ -43,7 +43,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 			const check = await standardsWorkList({ run });
 
 			if (check.workList.length > 0 || check.advisories.length > 0) {
-				run.progress(`standards gate: ${check.workList.length} finding(s) + ${check.advisories.length} advisory(ies) on changed files`);
+				run.progress(`standards gate: ${check.workList.length} blocking + ${check.advisories.length} advisory on changed files`);
 			}
 
 			run.progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
@@ -107,7 +107,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 				}
 
 				lastDeclined = declined;
-				run.progress(`refactor pass ${pass}: no changes but the checks still report ${check.workList.length} finding(s) — another pass`);
+				run.progress(`refactor pass ${pass}: no changes but the checks still report ${check.workList.length} blocking — another pass`);
 				record = { ...record, attempts: record.attempts + 1 };
 				continue;
 			}

@@ -169,12 +169,12 @@ describe('runStandardsCheck against the rule registry', () => {
 	});
 
 	test('a rule raised to finding starts blocking', async () => {
-		const dir = setupRegistryRepo({ standardsChecks: { 'filename-mismatch': 'finding' } });
+		const dir = setupRegistryRepo({ standardsChecks: { 'filename-mismatch': 'blocking' } });
 
 		const { findings } = await check(dir);
 		const selected = selectStandardsFindings({ findings, changedFiles: ['src/pay/helpers.ts'] });
 
-		expect(findings.find((finding) => finding.rule === 'filename-mismatch')?.severity).toBe(StandardsSeverity.Finding);
+		expect(findings.find((finding) => finding.rule === 'filename-mismatch')?.severity).toBe(StandardsSeverity.Blocking);
 		expect(selected.workList.map((finding) => finding.rule)).toContain('filename-mismatch');
 	});
 

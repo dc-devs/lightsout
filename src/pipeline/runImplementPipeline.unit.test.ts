@@ -209,7 +209,7 @@ test('standards gate: findings feed the refactor prompt; a fixing pass clears th
 	expect(result.ok).toBe(true);
 	// gate narrated the finding — the work-list count IS the blocking count now,
 	// so there is no second number to print
-	expect(progress.some((line) => line.startsWith('standards gate: 1 finding(s)'))).toBeTruthy();
+	expect(progress.some((line) => line.startsWith('standards gate: 1 blocking'))).toBeTruthy();
 	// findings section injected into the refactor prompt
 	expect(prompts[0]?.includes('# Standards findings')).toBeTruthy();
 	// the planted violation named in the work-list
@@ -256,7 +256,7 @@ test('standards gate: two identical declined passes escalate early — the third
 	expect(result.manifest.status).toBe('escalated');
 	// the second identical decline settles it — no third invocation
 	expect(refactorInvocations).toBe(2);
-	expect(result.error ?? '').toMatch(/standards gate — 1 finding\(s\) persist after 2 pass\(es\)/);
+	expect(result.error ?? '').toMatch(/standards gate — 1 blocking persist after 2 pass\(es\)/);
 	expect(result.error ?? '').toMatch(/multi-export:src\/messy\.js/);
 	// The escalation carries the evidence a human needs: the finding's detail
 	// with its location, and the agent's own account of why it was left.

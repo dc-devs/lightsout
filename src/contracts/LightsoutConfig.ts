@@ -6,6 +6,18 @@ import { Permissions } from '@/contracts/Permissions';
 // under it reads the config.
 import { StandardsRule, StandardsSeverity } from '@/contracts/standardsCheck';
 
+/**
+ * A rule's severity, with the pre-rename spelling called out by name.
+ *
+ * `finding` was this severity's value until it collided with the umbrella noun
+ * — every hit the check reports is a finding, at any severity. A config written
+ * against the older docs gets told what happened rather than a bare list of
+ * valid options, the same courtesy the renamed `scan` key gets below.
+ */
+const standardsSeverityValue = z.enum(StandardsSeverity, {
+	error: (issue) => (issue.input === 'finding' ? 'severity `finding` was renamed to `blocking`' : undefined),
+});
+
 /** One command's harness override: harness, model, and/or effort, each falling back to the global field. */
 const commandHarness = z
 	.object({
@@ -166,10 +178,10 @@ export const LightsoutConfig = z.object({
 		.partialRecord(
 			z.enum(StandardsRule),
 			z.union([
-				z.enum(StandardsSeverity),
+				standardsSeverityValue,
 				z
 					.object({
-						severity: z.enum(StandardsSeverity).optional(),
+						severity: standardsSeverityValue.optional(),
 						settings: z.record(z.string(), z.number()).optional(),
 					})
 					.strict(),

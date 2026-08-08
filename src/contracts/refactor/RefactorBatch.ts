@@ -12,8 +12,8 @@ export const RefactorBatch = z.object({
 	rule: z.string(),
 	/** Grouping folder: `<packagesDir>/<package>` when under it, else the top path segment, else '(root)'. */
 	folder: z.string(),
-	/** Finding-severity work — must-address, re-checked after the agent reports. */
-	findings: z.array(StandardsFinding),
+	/** Blocking-severity work — must-address, re-checked after the agent reports. */
+	blocking: z.array(StandardsFinding),
 	/** Judgment-carrying advisories whose files overlap this batch — context, never blocking. */
 	advisories: z.array(StandardsFinding),
 });

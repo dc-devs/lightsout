@@ -204,7 +204,7 @@ describe('runRefactorPipeline work-list', () => {
 		// guidance, and one the agent never sees is one it can never judge
 		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['dead-export', 'size-function']);
 		// advisories are never batched as work
-		expect([...new Set(worklist.batches.flatMap((batch) => batch.findings.map((finding) => finding.severity)))]).toStrictEqual(['finding']);
+		expect([...new Set(worklist.batches.flatMap((batch) => batch.blocking.map((finding) => finding.severity)))]).toStrictEqual(['blocking']);
 	});
 
 	test('a configured packagesDir batches by package rather than by the shared parent folder', async () => {

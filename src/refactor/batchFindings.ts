@@ -60,8 +60,8 @@ const priorityOf = (rule: StandardsRule) => {
 };
 
 interface Params {
-	/** Finding-severity check results — the work. */
-	findings: StandardsFinding[];
+	/** Blocking-severity check results — the work. */
+	blocking: StandardsFinding[];
 	/** Advisory-severity results, every rule — attached to batches whose files overlap, never work on their own. */
 	advisories: StandardsFinding[];
 	/** Monorepo package parent dir, for the grouping folder. */
@@ -77,7 +77,7 @@ interface Params {
  * module barrel deliberately: its ordering/cap edge cases are combinatorial
  * — the test standards' promotion signal — so it carries direct tests.
  */
-export const batchFindings = ({ findings, advisories, packagesDir }: Params): RefactorBatch[] => {
+export const batchFindings = ({ blocking, advisories, packagesDir }: Params): RefactorBatch[] => {
 	const areaOf = (path: string) => {
 		const segments = path.split('/');
 
@@ -100,7 +100,7 @@ export const batchFindings = ({ findings, advisories, packagesDir }: Params): Re
 
 	const groups = new Map<string, { rule: StandardsRule; folder: string; findings: StandardsFinding[] }>();
 
-	for (const finding of findings) {
+	for (const finding of blocking) {
 		const folder = folderOf(finding);
 		const key = `${finding.rule}\0${folder}`;
 		const group = groups.get(key) ?? { rule: finding.rule, folder, findings: [] };
@@ -132,7 +132,7 @@ export const batchFindings = ({ findings, advisories, packagesDir }: Params): Re
 				id: `batch-${number}:${group.rule}:${group.folder}`,
 				rule: group.rule,
 				folder: group.folder,
-				findings: chunk,
+				blocking: chunk,
 				advisories: advisories.filter((advisory) => advisory.files.some((file) => chunkFiles.has(file.path))),
 			});
 		}

@@ -24,7 +24,7 @@ export const selectStandardsFindings = ({ findings, changedFiles }: Params): { w
 	const touchesChanged = (finding: StandardsFinding) => finding.files.some((file) => changed.has(file.path));
 
 	return {
-		workList: findings.filter((finding) => finding.severity === StandardsSeverity.Finding && touchesChanged(finding)),
+		workList: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking && touchesChanged(finding)),
 		advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && touchesChanged(finding)),
 	};
 };

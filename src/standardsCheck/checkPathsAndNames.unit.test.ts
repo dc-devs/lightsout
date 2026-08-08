@@ -44,7 +44,7 @@ describe('checkPathsAndNames folder rules', () => {
 			'path-banned-module-name:src/billing/utils',
 		]);
 		// a closed list from the doc, so a hit is a violation and not a judgment call
-		expect(findings.find((finding) => finding.rule === 'path-banned-module-name')?.severity).toBe('finding');
+		expect(findings.find((finding) => finding.rule === 'path-banned-module-name')?.severity).toBe('blocking');
 		expect(findings.find((finding) => finding.rule === 'path-banned-module-name')?.detail).toBe("folder 'helpers' names the role of the code it holds");
 	});
 
@@ -204,7 +204,7 @@ describe('checkPathsAndNames folder rules', () => {
 			'path-common-barrel:src/billing/common/index.ts',
 			'path-common-barrel:src/billing/common/utils/index.ts',
 		]);
-		expect(findings.find((finding) => finding.rule === 'path-common-barrel')?.severity).toBe('finding');
+		expect(findings.find((finding) => finding.rule === 'path-common-barrel')?.severity).toBe('blocking');
 		expect(findings.find((finding) => finding.rule === 'path-common-flat')?.detail).toBe("'rate.ts' sits directly in src/billing/common");
 	});
 

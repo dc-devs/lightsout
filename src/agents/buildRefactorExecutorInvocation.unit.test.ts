@@ -6,7 +6,7 @@ const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
 	rule: StandardsRule.MultiExport,
-	severity: StandardsSeverity.Finding,
+	severity: StandardsSeverity.Blocking,
 	siteKey: 'widget',
 	files: [{ path: 'src/widget.ts' }],
 	detail: 'file exceeds the size cap',

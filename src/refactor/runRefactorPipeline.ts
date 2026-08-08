@@ -85,7 +85,7 @@ const executeRefactor = async ({
 	// are rebuilt from persisted step reports, never process memory.
 	const seeded = seedResumeState({ manifest, batches: worklist.batches });
 	const declined = seeded.declined;
-	const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.findings) });
+	const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.blocking) });
 
 	const stop = async ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }): Promise<RefactorResult> => {
 		await setStep({ record: { ...record, status, error }, patch: { status } });
@@ -149,7 +149,7 @@ const executeRefactor = async ({
 		const record: StepRecord = { id: batch.id, status: RunStatus.Running, attempts: (prior?.attempts ?? 0) + 1 };
 
 		await setStep({ record });
-		progress(`${batch.id} — ${batch.findings.length} finding(s)`);
+		progress(`${batch.id} — ${batch.blocking.length} blocking`);
 
 		const outcome = await runBatch({
 			cwd,
@@ -217,7 +217,7 @@ const executeRefactor = async ({
 
 	// Finding severity only, mirroring the worklist filter — the burn-down
 	// compares work against work, never advisories.
-	return { ok: true, manifest, declined, before, after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Finding) }) };
+	return { ok: true, manifest, declined, before, after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Blocking) }) };
 };
 
 /**

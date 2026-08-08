@@ -164,6 +164,24 @@ test('LightsoutConfig: the removed scan key is refused with a message naming sta
 	expect(LightsoutConfig.safeParse({ ...base, scan: {} }).success).toBe(false);
 });
 
+test('LightsoutConfig: the renamed finding severity is refused with a message naming blocking', () => {
+	const bare = LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: 'finding' } });
+
+	// a value copied from the pre-rename docs is told what happened, rather than
+	// being handed a bare list of the three valid options
+	expect(bare.success).toBe(false);
+	expect(bare.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
+
+	// the object form takes the same value in a different position — both reject
+	const nested = LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: { severity: 'finding' } } });
+
+	expect(nested.success).toBe(false);
+	expect(nested.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
+
+	// an ordinary typo keeps the ordinary enum error — only the retired spelling is called out
+	expect(LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: 'blockign' } }).error?.message ?? '').not.toMatch(/was renamed/);
+});
+
 test('LightsoutConfig: standardsChecks carries both override forms through parsing intact', () => {
 	const standardsChecks = {
 		clone: 'off',
@@ -189,7 +207,7 @@ test('LightsoutConfig: a rule the map never names is left alone entirely', () =>
 });
 
 test.each([
-	{ severity: 'finding' },
+	{ severity: 'blocking' },
 	{ severity: 'advisory' },
 	{ severity: 'off' },
 ])('LightsoutConfig: standardsChecks accepts $severity as a bare value and inside an override object', ({ severity }) => {

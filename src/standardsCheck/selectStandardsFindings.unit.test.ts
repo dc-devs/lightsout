@@ -4,7 +4,7 @@ import { selectStandardsFindings } from '@/standardsCheck';
 
 const finding = (overrides: Partial<StandardsFinding>): StandardsFinding => ({
 	rule: 'multi-export',
-	severity: 'finding',
+	severity: 'blocking',
 	siteKey: 'multi-export:src/a.ts',
 	files: [{ path: 'src/a.ts' }],
 	detail: 'x',

@@ -135,7 +135,7 @@ export const runStandardsCheck = async ({
 	for (const finding of emitted) {
 		const severity = states.get(finding.rule)?.severity;
 
-		if (severity === StandardsSeverity.Finding || severity === StandardsSeverity.Advisory) {
+		if (severity === StandardsSeverity.Blocking || severity === StandardsSeverity.Advisory) {
 			findings.push({ ...finding, severity });
 		}
 	}

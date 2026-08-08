@@ -64,12 +64,12 @@ describe('listStandardsRules', () => {
 		// rest on judgment the rule can only approximate, or offer the repo more
 		// than one legitimate remedy
 		expect(severities).toStrictEqual({
-			'path-banned-module-name': StandardsSeverity.Finding,
-			'path-common-flat': StandardsSeverity.Finding,
-			'path-common-barrel': StandardsSeverity.Finding,
-			'path-test-in-tests-folder': StandardsSeverity.Finding,
-			'path-test-not-colocated': StandardsSeverity.Finding,
-			'path-test-support-in-src': StandardsSeverity.Finding,
+			'path-banned-module-name': StandardsSeverity.Blocking,
+			'path-common-flat': StandardsSeverity.Blocking,
+			'path-common-barrel': StandardsSeverity.Blocking,
+			'path-test-in-tests-folder': StandardsSeverity.Blocking,
+			'path-test-not-colocated': StandardsSeverity.Blocking,
+			'path-test-support-in-src': StandardsSeverity.Blocking,
 			'path-test-untested-subject-not-public': StandardsSeverity.Advisory,
 			'path-folder-casing': StandardsSeverity.Advisory,
 			'path-domain-folder-single-file': StandardsSeverity.Advisory,

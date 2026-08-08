@@ -26,12 +26,12 @@ const cellsOf = ({ logged }: { logged: string[] }) =>
 	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
 
 describe('printStandardsSummary', () => {
-	test('counts findings and advisories in separate columns', () => {
+	test('counts blocking and advisory entries in separate columns', () => {
 		const { logged } = setupPrinter();
 
 		printStandardsSummary({
 			findings: [
-				finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Finding }),
+				finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Blocking }),
 				finding(),
 				finding({ siteKey: 'size:two' }),
 			],
@@ -39,14 +39,14 @@ describe('printStandardsSummary', () => {
 		});
 
 		expect(cellsOf({ logged })).toStrictEqual([
-			['rule', 'findings', 'advisories'],
+			['rule', 'blocking', 'advisories'],
 			['module-boundary', '1', '—'],
 			['size-function', '—', '2'],
 			['total', '1', '2'],
 		]);
 	});
 
-	test('a repo carrying only advisories reports zero findings rather than a summed total', () => {
+	test('a repo carrying only advisories reports zero blocking rather than a summed total', () => {
 		const { logged } = setupPrinter();
 
 		printStandardsSummary({ findings: [finding(), finding({ siteKey: 'size:two' })], reportPath: '.lightsout/standards-check.json' });
@@ -60,7 +60,7 @@ describe('printStandardsSummary', () => {
 
 		printStandardsSummary({ findings: [], reportPath: '.lightsout/standards-check.json' });
 
-		expect(logged.some((line) => line.includes('clean — no findings, no advisories'))).toBe(true);
+		expect(logged.some((line) => line.includes('clean — nothing blocking, no advisories'))).toBe(true);
 		expect(logged.some((line) => line.startsWith('┌'))).toBe(false);
 	});
 

@@ -4,7 +4,7 @@ import { matchRemainingFindings } from '@/refactor';
 
 const finding = ({ rule, siteKey, paths }: { rule: StandardsFinding['rule']; siteKey: string; paths: string[] }): StandardsFinding => ({
 	rule,
-	severity: 'finding',
+	severity: 'blocking',
 	siteKey,
 	files: paths.map((path) => ({ path })),
 	detail: 'stub',

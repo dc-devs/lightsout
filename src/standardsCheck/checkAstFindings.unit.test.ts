@@ -51,7 +51,7 @@ test('ast-duplicate: wrappers binding DIFFERENT use* hooks are not duplicates; i
 	// bodies distinct
 	expect(duplicates[0]?.files.map((file) => file.path).sort()).toStrictEqual(['copyA.ts', 'copyB.ts']);
 	// identical bodies are a rule violation the refactor pipeline acts on
-	expect(duplicates[0]?.severity).toBe('finding');
+	expect(duplicates[0]?.severity).toBe('blocking');
 	// the site key is the rule and the paths — a hash would re-mint the identity
 	// on any edit, which is what the debt ledger and the gate cannot survive
 	expect(duplicates[0]?.siteKey).toBe('ast-duplicate:copyA.ts|copyB.ts');

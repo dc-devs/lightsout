@@ -33,7 +33,7 @@ describe('checkPathsAndNames test-path rules', () => {
 		const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
 		expect(keysFor({ findings, rule: 'path-test-in-tests-folder' })).toStrictEqual(['path-test-in-tests-folder:src/auth/__tests__/Legacy.unit.test.ts']);
-		expect(findings.find((finding) => finding.rule === 'path-test-in-tests-folder')?.severity).toBe('finding');
+		expect(findings.find((finding) => finding.rule === 'path-test-in-tests-folder')?.severity).toBe('blocking');
 		expect(findings.find((finding) => finding.rule === 'path-test-in-tests-folder')?.detail).toBe('a unit test in src/auth/__tests__');
 	});
 
@@ -75,7 +75,7 @@ describe('checkPathsAndNames test-path rules', () => {
 		const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
 		expect(keysFor({ findings, rule: 'path-test-not-colocated' })).toStrictEqual(['path-test-not-colocated:src/auth/Ghost.unit.test.ts']);
-		expect(findings.find((finding) => finding.rule === 'path-test-not-colocated')?.severity).toBe('finding');
+		expect(findings.find((finding) => finding.rule === 'path-test-not-colocated')?.severity).toBe('blocking');
 		expect(findings.find((finding) => finding.rule === 'path-test-not-colocated')?.detail).toBe("no source file named 'Ghost' in src/auth");
 	});
 

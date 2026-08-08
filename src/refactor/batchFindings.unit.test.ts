@@ -4,7 +4,7 @@ import { batchFindings } from '@/refactor';
 
 const finding = ({ rule, path, siteKey }: { rule: StandardsFinding['rule']; path: string; siteKey: string }): StandardsFinding => ({
 	rule,
-	severity: 'finding',
+	severity: 'blocking',
 	siteKey,
 	files: [{ path }],
 	detail: 'stub',
@@ -12,7 +12,7 @@ const finding = ({ rule, path, siteKey }: { rule: StandardsFinding['rule']; path
 
 test('batchFindings: groups by rule × area, mechanical-first order', () => {
 	const batches = batchFindings({
-		findings: [
+		blocking: [
 			finding({ rule: 'clone', path: 'packages/api/src/a.ts', siteKey: 'clone:1' }),
 			finding({ rule: 'module-boundary', path: 'packages/api/src/b.ts', siteKey: 'boundary:b' }),
 			finding({ rule: 'module-boundary', path: 'packages/web/src/c.ts', siteKey: 'boundary:c' }),
@@ -34,7 +34,7 @@ test('batchFindings: every rule batches in the documented mechanical-first order
 		// Fed in the rule contract's own declaration order, which is NOT the
 		// priority order — so the result pins the priority table rather than the
 		// input, and a rule the table never named would fall to the end.
-		findings: Object.values(StandardsRule).map((rule) => finding({ rule, path: 'src/a.ts', siteKey: `${rule}:src/a.ts` })),
+		blocking: Object.values(StandardsRule).map((rule) => finding({ rule, path: 'src/a.ts', siteKey: `${rule}:src/a.ts` })),
 		advisories: [],
 		packagesDir: 'packages',
 	});
@@ -85,7 +85,7 @@ test('batchFindings: every rule batches in the documented mechanical-first order
 
 test('batchFindings: a rule outside the priority list sorts after every listed one', () => {
 	const batches = batchFindings({
-		findings: [
+		blocking: [
 			// A rule id the priority list has never heard of — what a rule added to
 			// the registry without a priority entry looks like here.
 			{ ...finding({ rule: 'clone', path: 'src/stale.ts', siteKey: 'invented:stale' }), rule: 'invented-rule' as unknown as StandardsFinding['rule'] },
@@ -105,19 +105,19 @@ test('batchFindings: an oversized group splits into sorted chunks of 12', () => 
 	const findings = Array.from({ length: 13 }, (_, index) =>
 		finding({ rule: 'clone', path: `src/file${index}.ts`, siteKey: `clone:${String(index).padStart(2, '0')}` }),
 	);
-	const batches = batchFindings({ findings, advisories: [], packagesDir: 'packages' });
+	const batches = batchFindings({ blocking: findings, advisories: [], packagesDir: 'packages' });
 
 	expect(batches.length).toBe(2);
-	expect(batches[0]?.findings.length).toBe(12);
-	expect(batches[1]?.findings.length).toBe(1);
+	expect(batches[0]?.blocking.length).toBe(12);
+	expect(batches[1]?.blocking.length).toBe(1);
 	// chunks split in site-key order
-	expect(batches[1]?.findings[0]?.siteKey).toBe('clone:12');
+	expect(batches[1]?.blocking[0]?.siteKey).toBe('clone:12');
 });
 
 test('batchFindings: advisories attach to batches whose files overlap, never form batches', () => {
 	const advisory: StandardsFinding = { ...finding({ rule: 'size-function', path: 'src/a.ts', siteKey: 'size-function:src/a.ts' }), severity: 'advisory' };
 	const batches = batchFindings({
-		findings: [
+		blocking: [
 			finding({ rule: 'clone', path: 'src/a.ts', siteKey: 'clone:a' }),
 			finding({ rule: 'clone', path: 'lib/b.ts', siteKey: 'clone:b' }),
 		],
@@ -132,7 +132,7 @@ test('batchFindings: advisories attach to batches whose files overlap, never for
 
 test('batchFindings: a finding spanning folders gets a dedicated cross batch with every side in scope', () => {
 	const batches = batchFindings({
-		findings: [
+		blocking: [
 			finding({ rule: 'clone', path: 'packages/api/src/a.ts', siteKey: 'clone:a' }),
 			{
 				...finding({ rule: 'clone', path: 'packages/api/src/b.ts', siteKey: 'clone:x' }),
@@ -147,14 +147,14 @@ test('batchFindings: a finding spanning folders gets a dedicated cross batch wit
 
 	// multi-folder finding forms its own (cross) batch
 	expect(cross).toBeTruthy();
-	expect(cross?.findings.map((entry) => entry.siteKey)).toStrictEqual(['clone:x']);
+	expect(cross?.blocking.map((entry) => entry.siteKey)).toStrictEqual(['clone:x']);
 	// cross batches run after single-folder batches of the same rule
 	expect(batches.at(-1)?.folder).toBe('(cross)');
 });
 
 test('batchFindings: a finding naming no file still batches, under (root)', () => {
 	const batches = batchFindings({
-		findings: [{ ...finding({ rule: 'folder-census', path: 'src/a.ts', siteKey: 'folder-census:src' }), files: [] }],
+		blocking: [{ ...finding({ rule: 'folder-census', path: 'src/a.ts', siteKey: 'folder-census:src' }), files: [] }],
 		advisories: [],
 		packagesDir: 'packages',
 	});

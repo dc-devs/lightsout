@@ -23,7 +23,7 @@ export const describePersistingFindings = ({ findings, report, passes }: Params)
 	const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
 
 	return [
-		`refactor: standards gate — ${findings.length} finding(s) persist after ${passes} pass(es):`,
+		`refactor: standards gate — ${findings.length} blocking persist after ${passes} pass(es):`,
 		...findingLines,
 		...(rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []),
 	].join('\n');

@@ -69,7 +69,7 @@ export const applyStandardsBaseline = async ({ cwd, path, findings, all, writeBa
 		// Offered for findings only. An advisory is guidance to judge in place,
 		// not debt to accept, and inviting a repo to ledger its advice would turn
 		// the hint into a way to stop hearing it.
-		if (findings.some((finding) => finding.severity === StandardsSeverity.Finding)) {
+		if (findings.some((finding) => finding.severity === StandardsSeverity.Blocking)) {
 			notes.push(`no baseline — \`lightsout standards-check --baseline\` accepts these findings as existing debt so future runs report only what's new`);
 		}
 

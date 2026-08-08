@@ -4,7 +4,7 @@ import { StandardsFinding, StandardsRule, StandardsSeverity } from '@/contracts'
 const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
 		rule: 'clone',
-		severity: 'finding',
+		severity: 'blocking',
 		siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
 		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 		detail: 'a 36-line span repeated across two files',
@@ -26,7 +26,7 @@ describe('StandardsFinding', () => {
 
 		expect(parsed).toStrictEqual({
 			rule: 'clone',
-			severity: 'finding',
+			severity: 'blocking',
 			siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
 			files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 			detail: 'a 36-line span repeated across two files',
@@ -157,7 +157,7 @@ describe('StandardsFinding', () => {
 	});
 
 	test('both severities parse — the split the remediation loop reads', () => {
-		for (const severity of ['finding', 'advisory']) {
+		for (const severity of ['blocking', 'advisory']) {
 			const { finding } = setupFinding({ extra: { severity } });
 
 			const parsed = StandardsFinding.parse(finding);
@@ -188,7 +188,7 @@ describe('StandardsFinding', () => {
 		// `off` is the third: the value a repo writes against a rule id to stop the
 		// rule running. It belongs to the configuration vocabulary, so widening the
 		// shared list must never widen what a persisted finding may carry
-		expect(severities).toStrictEqual(['advisory', 'finding', 'off']);
+		expect(severities).toStrictEqual(['advisory', 'blocking', 'off']);
 	});
 
 	test('a whole-file finding parses with no line span', () => {
@@ -327,7 +327,7 @@ describe('StandardsFinding', () => {
 		// versions
 		expect(parsed).toStrictEqual({
 			rule: 'clone',
-			severity: 'finding',
+			severity: 'blocking',
 			siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
 			files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 			detail: 'a 36-line span repeated across two files',

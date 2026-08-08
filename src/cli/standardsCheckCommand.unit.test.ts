@@ -66,7 +66,7 @@ const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleLi
 	rule: StandardsRule.MultiExport,
 	doc: 'standards/code/style-guide/structure/one-export-per-file.md',
 	summary: 'more than one export in a file',
-	severity: StandardsSeverity.Finding,
+	severity: StandardsSeverity.Blocking,
 	fromConfig: false,
 	settings: {},
 	...overrides,
@@ -99,20 +99,20 @@ const checkParams = () => mockRunStandardsCheck.mock.calls[0]?.[0];
 const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];
 
 describe('standardsCheckCommand', () => {
-	test('findings are printed before advisories, whatever order the check returned them in', async () => {
+	test('blocking is printed before advisories, whatever order the check returned them in', async () => {
 		const { context, logged } = setupCheck({
-			findings: [finding(), finding({ rule: StandardsRule.Clone, severity: StandardsSeverity.Finding, siteKey: 'clone:src/a.ts:1' })],
+			findings: [finding(), finding({ rule: StandardsRule.Clone, severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })],
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		// an advisory read first would set the wrong expectation about the work
-		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 finding', 'ℹ size-function · 1 advisory']);
+		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 blocking', 'ℹ size-function · 1 advisory']);
 	});
 
 	test('the same findings-first order carries into the summary table', async () => {
 		const { context, logged } = setupCheck({
-			findings: [finding(), finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Finding, siteKey: 'boundary:src/a.ts' })],
+			findings: [finding(), finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Blocking, siteKey: 'boundary:src/a.ts' })],
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
@@ -178,7 +178,7 @@ describe('standardsCheckCommand', () => {
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged).toContain('clean — no findings, no advisories');
+		expect(logged).toContain('clean — nothing blocking, no advisories');
 		expect(logged.some((line) => line.startsWith('ℹ'))).toBe(false);
 		expect(exitCodes).toStrictEqual([0]);
 	});

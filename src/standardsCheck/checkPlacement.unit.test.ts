@@ -37,7 +37,7 @@ test('checkPlacement flags a module-internal common file leaking to outside impo
 	const findings = allFindings.filter((finding) => finding.rule === 'placement');
 
 	// every placement finding carries the finding severity
-	expect(findings.every((finding) => finding.severity === 'finding')).toBeTruthy();
+	expect(findings.every((finding) => finding.severity === 'blocking')).toBeTruthy();
 	// only the leaked module-internal common file
 	expect(findings.map((finding) => finding.siteKey).sort()).toStrictEqual(['placement:src/bill/bill.ts|src/ledger/ledger.ts|src/pay/common/utils/round.ts']);
 

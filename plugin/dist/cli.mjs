@@ -15287,8 +15287,8 @@ var StandardsRule = {
 
 // src/contracts/standardsCheck/StandardsSeverity.ts
 var StandardsSeverity = {
-  /** A rule violation — blocks a run when it touches a file that run changed. */
-  Finding: "finding",
+  /** A violation that stops a run when it touches a file that run changed. */
+  Blocking: "blocking",
   /** Worth a look, plausibly intentional — reported and judged, never blocking. */
   Advisory: "advisory",
   /** Not run. What a repo sets when its own linter already enforces the rule — the only way a rule stops blocking. */
@@ -15327,7 +15327,7 @@ var StandardsFinding = external_exports.object({
    * rule a repo switched off emits nothing, so a persisted finding at
    * severity `off` would be a contradiction the schema should refuse.
    */
-  severity: external_exports.enum([StandardsSeverity.Finding, StandardsSeverity.Advisory]),
+  severity: external_exports.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]),
   /** Grouping key — findings sharing a site key are one remediation unit, and it is the identity the debt ledger records. */
   siteKey: external_exports.string(),
   files: external_exports.array(
@@ -15348,6 +15348,9 @@ var StandardsFinding = external_exports.object({
 });
 
 // src/contracts/LightsoutConfig.ts
+var standardsSeverityValue = external_exports.enum(StandardsSeverity, {
+  error: (issue2) => issue2.input === "finding" ? "severity `finding` was renamed to `blocking`" : void 0
+});
 var commandHarness = external_exports.object({
   /** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
   harness: external_exports.string().optional(),
@@ -15490,9 +15493,9 @@ var LightsoutConfig = external_exports.object({
   standardsChecks: external_exports.partialRecord(
     external_exports.enum(StandardsRule),
     external_exports.union([
-      external_exports.enum(StandardsSeverity),
+      standardsSeverityValue,
       external_exports.object({
-        severity: external_exports.enum(StandardsSeverity).optional(),
+        severity: standardsSeverityValue.optional(),
         settings: external_exports.record(external_exports.string(), external_exports.number()).optional()
       }).strict()
     ])
@@ -15936,8 +15939,8 @@ var RefactorBatch = external_exports.object({
   rule: external_exports.string(),
   /** Grouping folder: `<packagesDir>/<package>` when under it, else the top path segment, else '(root)'. */
   folder: external_exports.string(),
-  /** Finding-severity work — must-address, re-checked after the agent reports. */
-  findings: external_exports.array(StandardsFinding),
+  /** Blocking-severity work — must-address, re-checked after the agent reports. */
+  blocking: external_exports.array(StandardsFinding),
   /** Judgment-carrying advisories whose files overlap this batch — context, never blocking. */
   advisories: external_exports.array(StandardsFinding)
 });
@@ -17408,7 +17411,7 @@ ${changedFiles.map((file2) => `- ${file2}`).join("\n")}`];
     const parts = ["# Standards findings (deterministic checks)"];
     if (findings && findings.length > 0) {
       parts.push(
-        `The engine's standards checks found these on the changed files. Address each one first \u2014 they are re-checked after you report \u2014 or state in your summary why one must stay:
+        `Blocking \u2014 the engine's standards checks found these on the changed files. Address each one first, they are re-checked after you report, or state in your summary why one must stay:
 
 ${findings.map(findingLine).join("\n")}`
       );
@@ -18267,7 +18270,7 @@ var describePersistingFindings = ({ findings, report, passes }) => {
   });
   const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
   return [
-    `refactor: standards gate \u2014 ${findings.length} finding(s) persist after ${passes} pass(es):`,
+    `refactor: standards gate \u2014 ${findings.length} blocking persist after ${passes} pass(es):`,
     ...findingLines,
     ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
   ].join("\n");
@@ -18360,7 +18363,7 @@ var applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline })
     return { reported: findings, notes };
   }
   if (baseline === void 0) {
-    if (findings.some((finding) => finding.severity === StandardsSeverity.Finding)) {
+    if (findings.some((finding) => finding.severity === StandardsSeverity.Blocking)) {
       notes.push(`no baseline \u2014 \`lightsout standards-check --baseline\` accepts these findings as existing debt so future runs report only what's new`);
     }
     return { reported: findings, notes };
@@ -18409,7 +18412,7 @@ var codeRuleDefinitions = {
   [StandardsRule.AstDuplicate]: {
     doc: "standards/code/architecture/architecture-decisions.md",
     summary: "function bodies identical after identifier normalization",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.AstFindings,
     needsTypescript: true,
     defaultSettings: { minBodyTokens: 40 }
@@ -18417,7 +18420,7 @@ var codeRuleDefinitions = {
   [StandardsRule.SizeFile]: {
     doc: "standards/code/style-guide/patterns/functions.md",
     summary: "a file over the standards line cap",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.AstFindings,
     needsTypescript: true,
     defaultSettings: { file: 250, tsxFile: 300 }
@@ -18433,7 +18436,7 @@ var codeRuleDefinitions = {
   [StandardsRule.MultiExport]: {
     doc: "standards/code/style-guide/structure/one-export-per-file.md",
     summary: "more than one export in a file, outside the closed exception list",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.Structure,
     needsTypescript: false
   },
@@ -18476,21 +18479,21 @@ var codeRuleDefinitions = {
   [StandardsRule.ModuleBoundary]: {
     doc: "standards/code/style-guide/structure/module-api.md",
     summary: "a file deep-imported across a module boundary instead of through its barrel",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.ModuleBoundaries,
     needsTypescript: true
   },
   [StandardsRule.Placement]: {
     doc: "standards/code/architecture/folder-structure.md",
     summary: "module-internal shared code leaking out of its module's common/",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.Placement,
     needsTypescript: true
   },
   [StandardsRule.BarrelStar]: {
     doc: "standards/code/style-guide/structure/module-api.md",
     summary: "a barrel re-exporting with `export *` instead of named re-exports",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.BarrelHygiene,
     needsTypescript: false
   },
@@ -18504,21 +18507,21 @@ var codeRuleDefinitions = {
   [StandardsRule.PathBannedModuleName]: {
     doc: "standards/code/architecture/folder-structure.md",
     summary: "a folder named for the role of the code it holds",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.PathsAndNames,
     needsTypescript: false
   },
   [StandardsRule.PathCommonFlat]: {
     doc: "standards/code/architecture/folder-structure.md",
     summary: "a file placed directly in `common/` instead of under a type folder",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.PathsAndNames,
     needsTypescript: false
   },
   [StandardsRule.PathCommonBarrel]: {
     doc: "standards/code/style-guide/structure/module-api.md",
     summary: "a barrel under `common/`, which is definitionally boundary-less",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.PathsAndNames,
     needsTypescript: false
   },
@@ -18550,63 +18553,63 @@ var testRuleDefinitions = {
   [StandardsRule.TestMockPrefix]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a module-scope mock variable without the `mock` prefix Jest hoisting needs",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestMockReturnInHook]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a mock return value set in a beforeEach instead of the setup factory",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestMockUntyped]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a `jest.fn()` with no generic, so the spy does not match the real signature",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestMockWrapperUntyped]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a `jest.mock` factory wrapper that discards the arguments it is called with",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestSharedLet]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a `let` reassigned in a beforeEach \u2014 mutable state shared across tests",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestAssertInHook]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "an assertion in a beforeEach instead of the test body",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestNestedDescribe]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a nested `describe` outside the `when \u2026` / `for \u2026` exception",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestManualMockCleanup]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "manual mock cleanup in a lifecycle hook, which the Jest config already does",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
   [StandardsRule.TestStrictEqualMatcher]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "`toStrictEqual` with an asymmetric matcher \u2014 strict in name only",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.TestShape,
     needsTypescript: false
   },
@@ -18628,21 +18631,21 @@ var testRuleDefinitions = {
   [StandardsRule.PathTestInTestsFolder]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a unit test in a separate tests directory instead of beside its subject",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.PathsAndNames,
     needsTypescript: false
   },
   [StandardsRule.PathTestNotColocated]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "a co-located test whose first name segment names no source file in its folder",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.PathsAndNames,
     needsTypescript: false
   },
   [StandardsRule.PathTestSupportInSrc]: {
     doc: "standards/tests/unit/jest/unit-testing.md",
     summary: "shared test fixtures or mocks living under `src/`",
-    defaultSeverity: StandardsSeverity.Finding,
+    defaultSeverity: StandardsSeverity.Blocking,
     pass: StandardsPassId.PathsAndNames,
     needsTypescript: false
   },
@@ -31795,7 +31798,7 @@ var runStandardsCheck = async ({
   const findings = [];
   for (const finding of emitted) {
     const severity = states.get(finding.rule)?.severity;
-    if (severity === StandardsSeverity.Finding || severity === StandardsSeverity.Advisory) {
+    if (severity === StandardsSeverity.Blocking || severity === StandardsSeverity.Advisory) {
       findings.push({ ...finding, severity });
     }
   }
@@ -31821,7 +31824,7 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
   const changed = new Set(changedFiles);
   const touchesChanged = (finding) => finding.files.some((file2) => changed.has(file2.path));
   return {
-    workList: findings.filter((finding) => finding.severity === StandardsSeverity.Finding && touchesChanged(finding)),
+    workList: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking && touchesChanged(finding)),
     advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && touchesChanged(finding))
   };
 };
@@ -31856,7 +31859,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
       await run.setStep({ record: record2 });
       const check2 = await standardsWorkList({ run });
       if (check2.workList.length > 0 || check2.advisories.length > 0) {
-        run.progress(`standards gate: ${check2.workList.length} finding(s) + ${check2.advisories.length} advisory(ies) on changed files`);
+        run.progress(`standards gate: ${check2.workList.length} blocking + ${check2.advisories.length} advisory on changed files`);
       }
       run.progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
       const outcome = await invokeRoleOrStop({
@@ -31901,7 +31904,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
           });
         }
         lastDeclined = declined;
-        run.progress(`refactor pass ${pass}: no changes but the checks still report ${check2.workList.length} finding(s) \u2014 another pass`);
+        run.progress(`refactor pass ${pass}: no changes but the checks still report ${check2.workList.length} blocking \u2014 another pass`);
         record2 = { ...record2, attempts: record2.attempts + 1 };
         continue;
       }
@@ -34136,7 +34139,7 @@ var priorityOf = (rule) => {
   const index = rulePriority.indexOf(rule);
   return index === -1 ? rulePriority.length : index;
 };
-var batchFindings = ({ findings, advisories, packagesDir }) => {
+var batchFindings = ({ blocking, advisories, packagesDir }) => {
   const areaOf = (path) => {
     const segments = path.split("/");
     if (segments[0] === packagesDir && segments.length > 2 && segments[1]) {
@@ -34149,7 +34152,7 @@ var batchFindings = ({ findings, advisories, packagesDir }) => {
     return areas.size > 1 ? "(cross)" : [...areas][0] ?? "(root)";
   };
   const groups = /* @__PURE__ */ new Map();
-  for (const finding of findings) {
+  for (const finding of blocking) {
     const folder = folderOf(finding);
     const key = `${finding.rule}\0${folder}`;
     const group = groups.get(key) ?? { rule: finding.rule, folder, findings: [] };
@@ -34171,7 +34174,7 @@ var batchFindings = ({ findings, advisories, packagesDir }) => {
         id: `batch-${number4}:${group.rule}:${group.folder}`,
         rule: group.rule,
         folder: group.folder,
-        findings: chunk,
+        blocking: chunk,
         advisories: advisories.filter((advisory) => advisory.files.some((file2) => chunkFiles.has(file2.path)))
       });
     }
@@ -34187,7 +34190,7 @@ var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
     path: path ?? ".",
     all,
     batches: batchFindings({
-      findings: findings.filter((finding) => finding.severity === StandardsSeverity.Finding),
+      blocking: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking),
       // Every advisory, not just the size ones: an advisory IS a judgment
       // call, and each carries its own guidance line for the agent to apply.
       // A rule whose advisories never reach the agent can never be judged —
@@ -34444,15 +34447,15 @@ var runBatch = async ({
   };
   const batchChangedFiles = () => collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles });
   const preCheck = await checkLive();
-  if (matchRemainingFindings({ frozen: batch.findings, live: preCheck.findings }).length === 0) {
+  if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
     onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
     return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: [] };
   }
-  const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file2) => file2.path)));
+  const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
   const liveAdvisories = preCheck.findings.filter(
     (finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path))
   );
-  let workFindings = batch.findings;
+  let workFindings = batch.blocking;
   for (let pass = 1; pass <= 2; pass += 1) {
     const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
     const buildFixInvocation = ({ gateError: gateError2, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories: liveAdvisories, gateError: gateError2, guidance });
@@ -34569,7 +34572,7 @@ var executeRefactor = async ({
   };
   const seeded = seedResumeState({ manifest, batches: worklist.batches });
   const declined = seeded.declined;
-  const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.findings) });
+  const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.blocking) });
   const stop = async ({ record: record2, status, error: error51 }) => {
     await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
     progress(`refactor run stopped at ${record2.id} \u2014 ${status}`);
@@ -34612,7 +34615,7 @@ ${gateError}` });
     }
     const record2 = { id: batch.id, status: RunStatus.Running, attempts: (prior?.attempts ?? 0) + 1 };
     await setStep({ record: record2 });
-    progress(`${batch.id} \u2014 ${batch.findings.length} finding(s)`);
+    progress(`${batch.id} \u2014 ${batch.blocking.length} blocking`);
     const outcome = await runBatch({
       cwd,
       runId: manifest.runId,
@@ -34661,7 +34664,7 @@ ${gateError}` });
   }
   const finalCheck = await runStandardsCheck({ cwd, path: worklist.path === "." ? void 0 : worklist.path, all: worklist.all, persist: false });
   await update({ status: RunStatus.Passed, currentStep: null });
-  return { ok: true, manifest, declined, before, after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Finding) }) };
+  return { ok: true, manifest, declined, before, after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Blocking) }) };
 };
 var runRefactorPipeline = (params) => withRunLock({ params, run: executeRefactor });
 
@@ -34795,9 +34798,9 @@ var locationOf = ({ file: file2 }) => {
   return `${file2.path}:${file2.startLine}${span}`;
 };
 var headingOf = ({ rule, severity, count }) => {
-  const finding = severity === StandardsSeverity.Finding;
-  const icon = finding ? yellow("\u26A0") : dim("\u2139");
-  const noun = finding ? count === 1 ? "finding" : "findings" : count === 1 ? "advisory" : "advisories";
+  const blocking = severity === StandardsSeverity.Blocking;
+  const icon = blocking ? yellow("\u26A0") : dim("\u2139");
+  const noun = blocking ? "blocking" : count === 1 ? "advisory" : "advisories";
   return `${icon} ${bold(rule)} ${dim("\xB7")} ${dim(`${count} ${noun}`)}`;
 };
 var printFindingGroups = ({ findings }) => {
@@ -34845,11 +34848,6 @@ var printFindingGroups = ({ findings }) => {
 };
 
 // src/cli/common/render/printStandardsRuleList.ts
-var stateLabels = {
-  [StandardsSeverity.Finding]: "blocking",
-  [StandardsSeverity.Advisory]: "advisory",
-  [StandardsSeverity.Off]: "off"
-};
 var countOf = ({ rules, severity }) => rules.filter((rule) => rule.severity === severity).length;
 var describeSettings = ({ settings }) => Object.entries(settings).map(([name, value]) => `${name} ${value}`).join(", ");
 var printStandardsRuleList = ({ rules }) => {
@@ -34857,7 +34855,8 @@ var printStandardsRuleList = ({ rules }) => {
     const settings = describeSettings({ settings: rule.settings });
     return [
       {
-        cells: [rule.rule, rule.fromConfig ? `${stateLabels[rule.severity]} (config)` : stateLabels[rule.severity], rule.doc]
+        // The severity IS the state label — nothing to translate, which is the point of naming it `blocking`.
+        cells: [rule.rule, rule.fromConfig ? `${rule.severity} (config)` : rule.severity, rule.doc]
       },
       {
         cells: [settings === "" ? rule.summary : `${rule.summary} \u2014 ${settings}`, "", ""],
@@ -34869,7 +34868,7 @@ var printStandardsRuleList = ({ rules }) => {
   const totals = {
     cells: [
       `${rules.length} rule(s)`,
-      `${countOf({ rules, severity: StandardsSeverity.Finding })} blocking`,
+      `${countOf({ rules, severity: StandardsSeverity.Blocking })} blocking`,
       `${countOf({ rules, severity: StandardsSeverity.Advisory })} advisory, ${countOf({ rules, severity: StandardsSeverity.Off })} off`
     ],
     emphasis: bold
@@ -34885,7 +34884,7 @@ var cell = ({ count }) => count === 0 ? "\u2014" : `${count}`;
 var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
   console.log("");
   if (findings.length === 0) {
-    console.log(green("clean \u2014 no findings, no advisories"));
+    console.log(green("clean \u2014 nothing blocking, no advisories"));
     console.log(dim(`report: ${reportPath2}`));
     return;
   }
@@ -34893,7 +34892,7 @@ var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
   const rows = rules.map((rule) => ({
     cells: [
       rule,
-      cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Finding }) }),
+      cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Blocking }) }),
       cell({ count: countOf2({ findings, rule, severity: StandardsSeverity.Advisory }) })
     ],
     ruleAbove: false
@@ -34901,12 +34900,12 @@ var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
   const totals = {
     cells: [
       "total",
-      cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Finding).length }),
+      cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking).length }),
       cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory).length })
     ],
     emphasis: bold
   };
-  for (const line of renderTable({ headers: ["rule", "findings", "advisories"], rows: [...rows, totals] })) {
+  for (const line of renderTable({ headers: ["rule", "blocking", "advisories"], rows: [...rows, totals] })) {
     console.log(line);
   }
   console.log("");
@@ -34930,7 +34929,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
     onProgress: (message) => console.log(dim(message))
   });
   const ordered = [
-    ...findings.filter((entry) => entry.severity === StandardsSeverity.Finding),
+    ...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
     ...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory)
   ];
   printFindingGroups({ findings: ordered });

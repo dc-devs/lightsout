@@ -16,7 +16,7 @@ describe('resolveRuleStates', () => {
 
 		// silence is never a change
 		expect(states.get(StandardsRule.Clone)).toStrictEqual({ severity: StandardsSeverity.Advisory, settings: { minTokens: 50 }, fromConfig: false });
-		expect(states.get(StandardsRule.ModuleBoundary)).toStrictEqual({ severity: StandardsSeverity.Finding, settings: {}, fromConfig: false });
+		expect(states.get(StandardsRule.ModuleBoundary)).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: {}, fromConfig: false });
 	});
 
 	test('a bare severity string replaces the severity and leaves the settings alone', () => {
@@ -26,23 +26,23 @@ describe('resolveRuleStates', () => {
 	});
 
 	test('an object with only a severity leaves the settings at their defaults', () => {
-		const { states } = setupStates({ standardsChecks: { clone: { severity: 'finding' } } });
+		const { states } = setupStates({ standardsChecks: { clone: { severity: 'blocking' } } });
 
-		expect(states.get(StandardsRule.Clone)).toStrictEqual({ severity: StandardsSeverity.Finding, settings: { minTokens: 50 }, fromConfig: true });
+		expect(states.get(StandardsRule.Clone)).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: { minTokens: 50 }, fromConfig: true });
 	});
 
 	test('an object with only settings keeps the default severity and merges what it names', () => {
 		const { states } = setupStates({ standardsChecks: { 'size-file': { settings: { file: 400 } } } });
 
 		// tsxFile is untouched — a partial override is a merge, never a replacement
-		expect(states.get(StandardsRule.SizeFile)).toStrictEqual({ severity: StandardsSeverity.Finding, settings: { file: 400, tsxFile: 300 }, fromConfig: true });
+		expect(states.get(StandardsRule.SizeFile)).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: { file: 400, tsxFile: 300 }, fromConfig: true });
 	});
 
 	test('an object carrying both applies both', () => {
-		const { states } = setupStates({ standardsChecks: { 'size-function': { severity: 'finding', settings: { function: 40 } } } });
+		const { states } = setupStates({ standardsChecks: { 'size-function': { severity: 'blocking', settings: { function: 40 } } } });
 
 		expect(states.get(StandardsRule.SizeFunction)).toStrictEqual({
-			severity: StandardsSeverity.Finding,
+			severity: StandardsSeverity.Blocking,
 			settings: { function: 40, hook: 160, component: 200 },
 			fromConfig: true,
 		});

@@ -21,7 +21,7 @@ describe('checkTestShape mock rules', () => {
 		// factoryLocalMock.unit.test.ts declares an unprefixed `getProfile` too —
 		// inside a setup factory, where Jest's hoisting cannot reach it anyway
 		expect(matched.map((finding) => finding.siteKey)).toStrictEqual(['test-mock-prefix:unprefixedMock.unit.test.ts']);
-		expect(matched[0]?.severity).toBe('finding');
+		expect(matched[0]?.severity).toBe('blocking');
 		expect(matched[0]?.detail).toBe("'getProfile' (line 3) declared at module scope without a 'mock' prefix");
 		expect(matched[0]?.files).toStrictEqual([{ path: 'unprefixedMock.unit.test.ts', startLine: 3, endLine: 3 }]);
 	});
@@ -31,7 +31,7 @@ describe('checkTestShape mock rules', () => {
 
 		// returnInFactory.unit.test.ts sets the same value where the doc puts it
 		expect(matched.map((finding) => finding.siteKey)).toStrictEqual(['test-mock-return-in-hook:returnInHook.unit.test.ts']);
-		expect(matched[0]?.severity).toBe('finding');
+		expect(matched[0]?.severity).toBe('blocking');
 		expect(matched[0]?.detail).toBe('beforeEach at line 6 sets a mock return value');
 		expect(matched[0]?.files).toStrictEqual([{ path: 'returnInHook.unit.test.ts', startLine: 6, endLine: 8 }]);
 	});
@@ -42,7 +42,7 @@ describe('checkTestShape mock rules', () => {
 		// frameworkCastSpy.unit.test.ts keeps its `as unknown as` three lines below
 		// the jest.fn() it wraps, which is why the statement carries the carve-out
 		expect(matched.map((finding) => finding.siteKey)).toStrictEqual(['test-mock-untyped:untypedSpy.unit.test.ts']);
-		expect(matched[0]?.severity).toBe('finding');
+		expect(matched[0]?.severity).toBe('blocking');
 		expect(matched[0]?.detail).toBe('jest.fn() with no generic at line(s) 3');
 	});
 
@@ -59,7 +59,7 @@ describe('checkTestShape mock rules', () => {
 			'a `(...args: unknown[])` wrapper (line 5)',
 			"'getProfile' forwards no arguments to mockGetProfile (line 5)",
 		]);
-		expect(matched[0]?.severity).toBe('finding');
+		expect(matched[0]?.severity).toBe('blocking');
 	});
 
 	test('flags manual cleanup in a hook, and never the same reset inside a setup factory', async () => {
@@ -68,7 +68,7 @@ describe('checkTestShape mock rules', () => {
 		// resetInFactory.unit.test.ts is the doc's own fallback for a package that
 		// cannot adopt clearMocks — flagging it would punish its own advice
 		expect(matched.map((finding) => finding.siteKey)).toStrictEqual(['test-manual-mock-cleanup:manualCleanup.unit.test.ts']);
-		expect(matched[0]?.severity).toBe('finding');
+		expect(matched[0]?.severity).toBe('blocking');
 		expect(matched[0]?.detail).toBe('beforeEach at line 6 clears mocks by hand');
 	});
 });

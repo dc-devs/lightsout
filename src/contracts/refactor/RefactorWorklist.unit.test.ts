@@ -6,10 +6,10 @@ const setupWorklist = ({ omit, extra = {} }: { omit?: string; extra?: Record<str
 		id: 'batch-01:clone:src/standardsCheck',
 		rule: 'clone',
 		folder: 'src/standardsCheck',
-		findings: [
+		blocking: [
 			{
 				rule: 'clone',
-				severity: 'finding',
+				severity: 'blocking',
 				siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
 				files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 				detail: 'a 36-line span repeated across two files',
@@ -133,7 +133,7 @@ describe('RefactorWorklist', () => {
 	test('a batch carrying a malformed finding rejects the work-list through the nesting', () => {
 		const { worklist, batch } = setupWorklist();
 
-		const result = RefactorWorklist.safeParse({ ...worklist, batches: [{ ...batch, findings: [{ ...batch.findings[0], severity: 'warning' }] }] });
+		const result = RefactorWorklist.safeParse({ ...worklist, batches: [{ ...batch, blocking: [{ ...batch.blocking[0], severity: 'warning' }] }] });
 
 		// validation reaches all the way down — the site keys the post-batch re-check
 		// looks for come from these findings

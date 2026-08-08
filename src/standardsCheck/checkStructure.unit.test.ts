@@ -40,7 +40,7 @@ describe('checkStructure', () => {
 		const mismatch = findings.find((finding) => finding.siteKey === 'filename-mismatch:src/pay/helpers.ts');
 
 		// one-export-per-file is a rule violation
-		expect(multi?.severity).toBe('finding');
+		expect(multi?.severity).toBe('blocking');
 		// the detail names the competing exports: ${multi?.detail}
 		expect(multi?.detail.includes('loadConfig') && multi.detail.includes('saveConfig')).toBeTruthy();
 		// the finding points at the offending file

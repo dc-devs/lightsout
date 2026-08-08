@@ -101,13 +101,13 @@ export const runBatch = async ({
 	// live lesson from run 50d4ab35, where the agent flagged the drift).
 	const preCheck = await checkLive();
 
-	if (matchRemainingFindings({ frozen: batch.findings, live: preCheck.findings }).length === 0) {
+	if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
 		onProgress(`${batch.id}: sites already resolved by earlier work — no agent spent`);
 
 		return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: [] };
 	}
 
-	const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file) => file.path)));
+	const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file) => file.path)));
 	// Every advisory touching the batch's files, not just the size ones: each
 	// carries its own guidance, and one the agent never sees is one it can
 	// never judge.
@@ -117,7 +117,7 @@ export const runBatch = async ({
 
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever sites survived a pass that DID change the tree (a partial).
-	let workFindings: StandardsFinding[] = batch.findings;
+	let workFindings: StandardsFinding[] = batch.blocking;
 
 	for (let pass = 1; pass <= 2; pass += 1) {
 		const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file) => file.path)))];
