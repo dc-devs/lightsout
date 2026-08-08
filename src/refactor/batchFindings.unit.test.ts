@@ -41,6 +41,12 @@ test('batchFindings: every rule batches in the documented mechanical-first order
 
 	// rules an agent can fix in place first, judgment-heavier duplication last
 	expect(batches.map((batch) => batch.rule)).toStrictEqual([
+		'path-banned-module-name',
+		'path-common-flat',
+		'path-common-barrel',
+		'path-test-in-tests-folder',
+		'path-test-not-colocated',
+		'path-test-support-in-src',
 		'module-boundary',
 		'placement',
 		'multi-export',
@@ -62,6 +68,9 @@ test('batchFindings: every rule batches in the documented mechanical-first order
 		'size-file',
 		'size-function',
 		'domain-graduation',
+		'path-domain-folder-single-file',
+		'path-folder-casing',
+		'path-test-untested-subject-not-public',
 		'test-multiple-setups',
 		'test-mega-factory',
 		'folder-census',
@@ -71,7 +80,7 @@ test('batchFindings: every rule batches in the documented mechanical-first order
 		'name-synonym',
 	]);
 	// one batch per rule, numbered in that order — the ids an agent is handed
-	expect(batches.map((batch) => batch.id).slice(0, 2)).toStrictEqual(['batch-01:module-boundary:src', 'batch-02:placement:src']);
+	expect(batches.map((batch) => batch.id).slice(0, 2)).toStrictEqual(['batch-01:path-banned-module-name:src', 'batch-02:path-common-flat:src']);
 });
 
 test('batchFindings: a rule outside the priority list sorts after every listed one', () => {

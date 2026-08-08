@@ -63,6 +63,15 @@ describe('StandardsFinding', () => {
 			'test-strict-equal-matcher',
 			'test-multiple-setups',
 			'test-mega-factory',
+			'path-banned-module-name',
+			'path-common-flat',
+			'path-common-barrel',
+			'path-test-in-tests-folder',
+			'path-test-not-colocated',
+			'path-test-support-in-src',
+			'path-test-untested-subject-not-public',
+			'path-folder-casing',
+			'path-domain-folder-single-file',
 		]) {
 			const { finding } = setupFinding({ extra: { rule } });
 
@@ -75,7 +84,7 @@ describe('StandardsFinding', () => {
 		}
 	});
 
-	test('the rule vocabulary is exactly those twenty-eight ids and nothing else', () => {
+	test('the rule vocabulary is exactly those thirty-seven ids and nothing else', () => {
 		const rules = [...Object.values(StandardsRule)].sort();
 
 		// a rule id is what a repo writes in its config to switch the rule off and
@@ -95,6 +104,15 @@ describe('StandardsFinding', () => {
 			'multi-export',
 			'name-duplicate',
 			'name-synonym',
+			'path-banned-module-name',
+			'path-common-barrel',
+			'path-common-flat',
+			'path-domain-folder-single-file',
+			'path-folder-casing',
+			'path-test-in-tests-folder',
+			'path-test-not-colocated',
+			'path-test-support-in-src',
+			'path-test-untested-subject-not-public',
 			'placement',
 			'size-file',
 			'size-function',

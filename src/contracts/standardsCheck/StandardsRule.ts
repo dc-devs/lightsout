@@ -55,6 +55,24 @@ export const StandardsRule = {
 	TestMultipleSetups: 'test-multiple-setups',
 	/** A setup factory grown past its parameter cap. */
 	TestMegaFactory: 'test-mega-factory',
+	/** A folder named for the role of the code it holds, outside its framework's carve-out. */
+	PathBannedModuleName: 'path-banned-module-name',
+	/** A file placed directly in `common/` instead of under one of its type folders. */
+	PathCommonFlat: 'path-common-flat',
+	/** A barrel under `common/`, which is definitionally boundary-less. */
+	PathCommonBarrel: 'path-common-barrel',
+	/** A unit test in a separate tests directory instead of beside its subject. */
+	PathTestInTestsFolder: 'path-test-in-tests-folder',
+	/** A co-located test whose first name segment names no source file in its folder. */
+	PathTestNotColocated: 'path-test-not-colocated',
+	/** Shared test fixtures or mocks living under `src/`, where they read as production source. */
+	PathTestSupportInSrc: 'path-test-support-in-src',
+	/** A test file whose subject its module's barrel does not export — a direct test is a promotion, so the subject belongs in the barrel. */
+	PathTestUntestedSubjectNotPublic: 'path-test-untested-subject-not-public',
+	/** A folder whose casing matches none of the doc's three resolutions. */
+	PathFolderCasing: 'path-folder-casing',
+	/** A graduated domain folder holding one file. */
+	PathDomainFolderSingleFile: 'path-domain-folder-single-file',
 } as const;
 
 export type StandardsRule = (typeof StandardsRule)[keyof typeof StandardsRule];

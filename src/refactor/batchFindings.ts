@@ -9,6 +9,14 @@ import { StandardsRule, type RefactorBatch, type StandardsFinding } from '@/cont
  * rule fails to compile here instead of silently sorting itself last.
  */
 const rulePriority: StandardsRule[] = [
+	// A path rule is a file move or a rename — the most mechanical fix there is,
+	// so these lead.
+	StandardsRule.PathBannedModuleName,
+	StandardsRule.PathCommonFlat,
+	StandardsRule.PathCommonBarrel,
+	StandardsRule.PathTestInTestsFolder,
+	StandardsRule.PathTestNotColocated,
+	StandardsRule.PathTestSupportInSrc,
 	StandardsRule.ModuleBoundary,
 	StandardsRule.Placement,
 	StandardsRule.MultiExport,
@@ -30,6 +38,9 @@ const rulePriority: StandardsRule[] = [
 	StandardsRule.SizeFile,
 	StandardsRule.SizeFunction,
 	StandardsRule.DomainGraduation,
+	StandardsRule.PathDomainFolderSingleFile,
+	StandardsRule.PathFolderCasing,
+	StandardsRule.PathTestUntestedSubjectNotPublic,
 	StandardsRule.TestMultipleSetups,
 	StandardsRule.TestMegaFactory,
 	StandardsRule.FolderCensus,

@@ -76,10 +76,12 @@ describe('runStandardsCheck against the rule registry', () => {
 
 		await runStandardsCheck({ cwd: dir, persist: false, onProgress: (message) => messages.push(message) });
 
-		// the order is part of the contract: the cheap name-level work first, the
+		// the order is part of the contract: the file-list pass first (it opens no
+		// source file at all), then the cheap name-level work, then the
 		// compiler-gated work once typescript has resolved, and the test-file pass
 		// last
 		expect(messages.filter((message) => message.endsWith(': done'))).toStrictEqual([
+			'paths-and-names: done',
 			'filename-duplicates: done',
 			'clones: done',
 			'ast-findings: done',
@@ -95,7 +97,7 @@ describe('runStandardsCheck against the rule registry', () => {
 		expect(messages.some((message) => message.endsWith(': off'))).toBe(false);
 	});
 
-	test('the pass vocabulary is exactly those nine ids and nothing else', () => {
+	test('the pass vocabulary is exactly those ten ids and nothing else', () => {
 		const passes = [...Object.values(StandardsPassId)].sort();
 
 		// a pass id is what every rule in the registry names as its producer, what
@@ -108,6 +110,7 @@ describe('runStandardsCheck against the rule registry', () => {
 			'dead-exports',
 			'filename-duplicates',
 			'module-boundaries',
+			'paths-and-names',
 			'placement',
 			'structure',
 			'test-shape',

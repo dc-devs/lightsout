@@ -17,6 +17,8 @@ export const StandardsPassId = {
 	Placement: 'placement',
 	/** Text-level shape rules over test files. */
 	TestShape: 'test-shape',
+	/** File-list rules: folder names, folder casing, `common/` shape, test locations. */
+	PathsAndNames: 'paths-and-names',
 } as const;
 
 export type StandardsPassId = (typeof StandardsPassId)[keyof typeof StandardsPassId];

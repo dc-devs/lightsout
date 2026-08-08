@@ -1,4 +1,6 @@
-import { StandardsPassId, StandardsRule, StandardsSeverity } from '@/contracts';
+import type { StandardsRule } from '@/contracts';
+import { codeRuleDefinitions } from '@/standardsCheck/common/constants/codeRuleDefinitions';
+import { testRuleDefinitions } from '@/standardsCheck/common/constants/testRuleDefinitions';
 import type { StandardsRuleDefinition } from '@/standardsCheck/common/types/StandardsRuleDefinition';
 
 /**
@@ -7,210 +9,16 @@ import type { StandardsRuleDefinition } from '@/standardsCheck/common/types/Stan
  * knobs. Imports no pass function, so `--list` and the config resolver can read
  * the whole ledger without loading the compiler-gated passes.
  *
- * Adding a rule is one entry here plus one line in the pass that emits it —
- * there is no second place a rule has to be registered.
+ * The entries themselves live in two halves, split by the standards document
+ * they cite — `codeRuleDefinitions` for `standards/code/…`, `testRuleDefinitions`
+ * for `standards/tests/…`. Adding a rule is still one entry plus one line in
+ * the pass that emits it, and which half takes the entry is read off its `doc`.
+ *
+ * The annotation here is what enforces the ledger: a rule added to the contract
+ * with no entry in either half, or an entry whose shape has drifted, fails to
+ * compile on this line.
  */
 export const standardsRuleRegistry: Record<StandardsRule, StandardsRuleDefinition> = {
-	[StandardsRule.NameDuplicate]: {
-		doc: 'standards/code/architecture/architecture-decisions.md',
-		summary: 'the same export name declared in more than one place',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.FilenameDuplicates,
-		needsTypescript: false,
-	},
-	[StandardsRule.NameSynonym]: {
-		doc: 'standards/code/style-guide/conventions/naming.md',
-		summary: 'export names differing only by synonym or word order',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.FilenameDuplicates,
-		needsTypescript: false,
-	},
-	[StandardsRule.Clone]: {
-		doc: 'standards/code/architecture/architecture-decisions.md',
-		summary: 'token-level copy-paste spans',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.Clones,
-		needsTypescript: false,
-		defaultSettings: { minTokens: 50 },
-	},
-	[StandardsRule.AstDuplicate]: {
-		doc: 'standards/code/architecture/architecture-decisions.md',
-		summary: 'function bodies identical after identifier normalization',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.AstFindings,
-		needsTypescript: true,
-		defaultSettings: { minBodyTokens: 40 },
-	},
-	[StandardsRule.SizeFile]: {
-		doc: 'standards/code/style-guide/patterns/functions.md',
-		summary: 'a file over the standards line cap',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.AstFindings,
-		needsTypescript: true,
-		defaultSettings: { file: 250, tsxFile: 300 },
-	},
-	[StandardsRule.SizeFunction]: {
-		doc: 'standards/code/style-guide/patterns/functions.md',
-		summary: 'a function, hook or component over its line cap',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.AstFindings,
-		needsTypescript: true,
-		defaultSettings: { function: 80, hook: 160, component: 200 },
-	},
-	[StandardsRule.MultiExport]: {
-		doc: 'standards/code/style-guide/structure/one-export-per-file.md',
-		summary: 'more than one export in a file, outside the closed exception list',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.Structure,
-		needsTypescript: false,
-	},
-	[StandardsRule.FilenameMismatch]: {
-		doc: 'standards/code/style-guide/conventions/file-naming.md',
-		summary: 'a filename that does not match the export it holds',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.Structure,
-		needsTypescript: false,
-	},
-	[StandardsRule.DomainGraduation]: {
-		doc: 'standards/code/architecture/folder-structure.md',
-		summary: 'sibling utils sharing a subject verb — a domain-folder candidate',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.Structure,
-		needsTypescript: false,
-	},
-	[StandardsRule.FolderCensus]: {
-		doc: 'standards/code/architecture/folder-structure.md',
-		summary: 'more files in one flat folder than the census cap allows',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.Structure,
-		needsTypescript: false,
-		defaultSettings: { cap: 20 },
-	},
-	[StandardsRule.DeadExport]: {
-		doc: 'standards/code/architecture/architecture-decisions.md',
-		summary: 'an export nothing else references',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.DeadExports,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestOnlyExport]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'an export only its own tests reference',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.DeadExports,
-		needsTypescript: false,
-	},
-	[StandardsRule.BarrelOnlyExport]: {
-		doc: 'standards/code/style-guide/structure/module-api.md',
-		summary: 'an export reached only through a barrel, with no consuming module',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.DeadExports,
-		needsTypescript: false,
-	},
-	[StandardsRule.ModuleBoundary]: {
-		doc: 'standards/code/style-guide/structure/module-api.md',
-		summary: 'a file deep-imported across a module boundary instead of through its barrel',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.ModuleBoundaries,
-		needsTypescript: true,
-	},
-	[StandardsRule.Placement]: {
-		doc: 'standards/code/architecture/folder-structure.md',
-		summary: "module-internal shared code leaking out of its module's common/",
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.Placement,
-		needsTypescript: true,
-	},
-	[StandardsRule.BarrelStar]: {
-		doc: 'standards/code/style-guide/structure/module-api.md',
-		summary: 'a barrel re-exporting with `export *` instead of named re-exports',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.BarrelHygiene,
-		needsTypescript: false,
-	},
-	[StandardsRule.BarrelDeadEntry]: {
-		doc: 'standards/code/style-guide/structure/module-api.md',
-		summary: 'a barrel entry no file outside the module consumes',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.BarrelHygiene,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestMockPrefix]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'a module-scope mock variable without the `mock` prefix Jest hoisting needs',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestMockReturnInHook]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'a mock return value set in a beforeEach instead of the setup factory',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestMockUntyped]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'a `jest.fn()` with no generic, so the spy does not match the real signature',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestMockWrapperUntyped]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'a `jest.mock` factory wrapper that discards the arguments it is called with',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestSharedLet]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'a `let` reassigned in a beforeEach — mutable state shared across tests',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestAssertInHook]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'an assertion in a beforeEach instead of the test body',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestNestedDescribe]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'a nested `describe` outside the `when …` / `for …` exception',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestManualMockCleanup]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'manual mock cleanup in a lifecycle hook, which the Jest config already does',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestStrictEqualMatcher]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: '`toStrictEqual` with an asymmetric matcher — strict in name only',
-		defaultSeverity: StandardsSeverity.Finding,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestMultipleSetups]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'more than one setup factory call in one test',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-	},
-	[StandardsRule.TestMegaFactory]: {
-		doc: 'standards/tests/unit/jest/unit-testing.md',
-		summary: 'a setup factory grown past its parameter cap',
-		defaultSeverity: StandardsSeverity.Advisory,
-		pass: StandardsPassId.TestShape,
-		needsTypescript: false,
-		defaultSettings: { maxParams: 6 },
-	},
+	...codeRuleDefinitions,
+	...testRuleDefinitions,
 };

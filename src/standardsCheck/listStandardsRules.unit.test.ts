@@ -34,6 +34,58 @@ describe('listStandardsRules', () => {
 		expect(new Set(rules.map((rule) => rule.summary)).size).toBe(rules.length);
 	});
 
+	test('each path rule names the doc that actually states it', () => {
+		const rules = listStandardsRules({});
+		const docs = Object.fromEntries(rules.filter((rule) => rule.rule.startsWith('path-')).map((rule) => [rule.rule, rule.doc]));
+
+		// the check above proves a doc path resolves, not that it is the right one:
+		// the no-barrels-under-common rule comes from module-api.md, the four
+		// test-location rules from unit-testing.md, and the rest from
+		// folder-structure.md
+		expect(docs).toStrictEqual({
+			'path-banned-module-name': 'standards/code/architecture/folder-structure.md',
+			'path-common-flat': 'standards/code/architecture/folder-structure.md',
+			'path-common-barrel': 'standards/code/style-guide/structure/module-api.md',
+			'path-test-in-tests-folder': 'standards/tests/unit/jest/unit-testing.md',
+			'path-test-not-colocated': 'standards/tests/unit/jest/unit-testing.md',
+			'path-test-support-in-src': 'standards/tests/unit/jest/unit-testing.md',
+			'path-test-untested-subject-not-public': 'standards/tests/unit/jest/unit-testing.md',
+			'path-folder-casing': 'standards/code/architecture/folder-structure.md',
+			'path-domain-folder-single-file': 'standards/code/architecture/folder-structure.md',
+		});
+	});
+
+	test('the path rules ship at the severity each was designed for', () => {
+		const rules = listStandardsRules({});
+		const severities = Object.fromEntries(rules.filter((rule) => rule.rule.startsWith('path-')).map((rule) => [rule.rule, rule.severity]));
+
+		// six blocking and three advisory, from day one. The blocking six are each a
+		// file move or a rename against a closed list from a doc; the advisory three
+		// rest on judgment the rule can only approximate, or offer the repo more
+		// than one legitimate remedy
+		expect(severities).toStrictEqual({
+			'path-banned-module-name': StandardsSeverity.Finding,
+			'path-common-flat': StandardsSeverity.Finding,
+			'path-common-barrel': StandardsSeverity.Finding,
+			'path-test-in-tests-folder': StandardsSeverity.Finding,
+			'path-test-not-colocated': StandardsSeverity.Finding,
+			'path-test-support-in-src': StandardsSeverity.Finding,
+			'path-test-untested-subject-not-public': StandardsSeverity.Advisory,
+			'path-folder-casing': StandardsSeverity.Advisory,
+			'path-domain-folder-single-file': StandardsSeverity.Advisory,
+		});
+	});
+
+	test('no path rule carries a number a repo could tune', () => {
+		const rules = listStandardsRules({});
+		const tunable = rules.filter((rule) => rule.rule.startsWith('path-') && Object.keys(rule.settings).length > 0);
+
+		// every threshold in this group is a closed list of names from a doc, never a
+		// count — a knob here would be a rule that can be quietly widened until it
+		// stops firing
+		expect(tunable.map((rule) => rule.rule)).toStrictEqual([]);
+	});
+
 	test('a repo that says nothing sees the defaults, unmarked', () => {
 		const rules = listStandardsRules({ config: LightsoutConfig.parse(baseConfig) });
 		const clone = rules.find((rule) => rule.rule === StandardsRule.Clone);

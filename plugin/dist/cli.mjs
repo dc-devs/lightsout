@@ -15264,7 +15264,25 @@ var StandardsRule = {
   /** More than one setup factory call in one test. */
   TestMultipleSetups: "test-multiple-setups",
   /** A setup factory grown past its parameter cap. */
-  TestMegaFactory: "test-mega-factory"
+  TestMegaFactory: "test-mega-factory",
+  /** A folder named for the role of the code it holds, outside its framework's carve-out. */
+  PathBannedModuleName: "path-banned-module-name",
+  /** A file placed directly in `common/` instead of under one of its type folders. */
+  PathCommonFlat: "path-common-flat",
+  /** A barrel under `common/`, which is definitionally boundary-less. */
+  PathCommonBarrel: "path-common-barrel",
+  /** A unit test in a separate tests directory instead of beside its subject. */
+  PathTestInTestsFolder: "path-test-in-tests-folder",
+  /** A co-located test whose first name segment names no source file in its folder. */
+  PathTestNotColocated: "path-test-not-colocated",
+  /** Shared test fixtures or mocks living under `src/`, where they read as production source. */
+  PathTestSupportInSrc: "path-test-support-in-src",
+  /** A test file whose subject its module's barrel does not export — a direct test is a promotion, so the subject belongs in the barrel. */
+  PathTestUntestedSubjectNotPublic: "path-test-untested-subject-not-public",
+  /** A folder whose casing matches none of the doc's three resolutions. */
+  PathFolderCasing: "path-folder-casing",
+  /** A graduated domain folder holding one file. */
+  PathDomainFolderSingleFile: "path-domain-folder-single-file"
 };
 
 // src/contracts/standardsCheck/StandardsSeverity.ts
@@ -15296,7 +15314,9 @@ var StandardsPassId = {
   /** Import-graph leaks out of a module's common/. */
   Placement: "placement",
   /** Text-level shape rules over test files. */
-  TestShape: "test-shape"
+  TestShape: "test-shape",
+  /** File-list rules: folder names, folder casing, `common/` shape, test locations. */
+  PathsAndNames: "paths-and-names"
 };
 
 // src/contracts/standardsCheck/StandardsFinding.ts
@@ -18255,7 +18275,7 @@ var describePersistingFindings = ({ findings, report, passes }) => {
 
 // src/standardsCheck/runStandardsCheck.ts
 import { mkdir as mkdir6, writeFile as writeFile6 } from "node:fs/promises";
-import { join as join28 } from "node:path";
+import { join as join29 } from "node:path";
 
 // src/common/utils/listSourceFiles.ts
 import { readdir as readdir5 } from "node:fs/promises";
@@ -18362,8 +18382,8 @@ var applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline })
   return { reported: all ? findings : fresh, notes };
 };
 
-// src/standardsCheck/standardsRuleRegistry.ts
-var standardsRuleRegistry = {
+// src/standardsCheck/common/constants/codeRuleDefinitions.ts
+var codeRuleDefinitions = {
   [StandardsRule.NameDuplicate]: {
     doc: "standards/code/architecture/architecture-decisions.md",
     summary: "the same export name declared in more than one place",
@@ -18446,13 +18466,6 @@ var standardsRuleRegistry = {
     pass: StandardsPassId.DeadExports,
     needsTypescript: false
   },
-  [StandardsRule.TestOnlyExport]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "an export only its own tests reference",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.DeadExports,
-    needsTypescript: false
-  },
   [StandardsRule.BarrelOnlyExport]: {
     doc: "standards/code/style-guide/structure/module-api.md",
     summary: "an export reached only through a barrel, with no consuming module",
@@ -18486,6 +18499,52 @@ var standardsRuleRegistry = {
     summary: "a barrel entry no file outside the module consumes",
     defaultSeverity: StandardsSeverity.Advisory,
     pass: StandardsPassId.BarrelHygiene,
+    needsTypescript: false
+  },
+  [StandardsRule.PathBannedModuleName]: {
+    doc: "standards/code/architecture/folder-structure.md",
+    summary: "a folder named for the role of the code it holds",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  },
+  [StandardsRule.PathCommonFlat]: {
+    doc: "standards/code/architecture/folder-structure.md",
+    summary: "a file placed directly in `common/` instead of under a type folder",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  },
+  [StandardsRule.PathCommonBarrel]: {
+    doc: "standards/code/style-guide/structure/module-api.md",
+    summary: "a barrel under `common/`, which is definitionally boundary-less",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  },
+  [StandardsRule.PathFolderCasing]: {
+    doc: "standards/code/architecture/folder-structure.md",
+    summary: "a folder whose casing matches none of the doc's three resolutions",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  },
+  [StandardsRule.PathDomainFolderSingleFile]: {
+    doc: "standards/code/architecture/folder-structure.md",
+    summary: "a graduated domain folder holding one file",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  }
+};
+
+// src/standardsCheck/common/constants/testRuleDefinitions.ts
+var testRuleDefinitions = {
+  [StandardsRule.TestOnlyExport]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "an export only its own tests reference",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.DeadExports,
     needsTypescript: false
   },
   [StandardsRule.TestMockPrefix]: {
@@ -18565,7 +18624,41 @@ var standardsRuleRegistry = {
     pass: StandardsPassId.TestShape,
     needsTypescript: false,
     defaultSettings: { maxParams: 6 }
+  },
+  [StandardsRule.PathTestInTestsFolder]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a unit test in a separate tests directory instead of beside its subject",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  },
+  [StandardsRule.PathTestNotColocated]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a co-located test whose first name segment names no source file in its folder",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  },
+  [StandardsRule.PathTestSupportInSrc]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "shared test fixtures or mocks living under `src/`",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
+  },
+  [StandardsRule.PathTestUntestedSubjectNotPublic]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a test file whose subject its module's barrel does not export",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.PathsAndNames,
+    needsTypescript: false
   }
+};
+
+// src/standardsCheck/standardsRuleRegistry.ts
+var standardsRuleRegistry = {
+  ...codeRuleDefinitions,
+  ...testRuleDefinitions
 };
 
 // src/standardsCheck/resolveRuleStates.ts
@@ -30899,8 +30992,254 @@ var checkModuleBoundaries = async ({ cwd, files, compiler }) => {
   });
 };
 
-// src/standardsCheck/checkPlacement.ts
+// src/standardsCheck/common/utils/checkFolderRules.ts
+import { basename as basename6, dirname as dirname5 } from "node:path";
+
+// src/standardsCheck/common/utils/collectDirectories.ts
 import { dirname as dirname4 } from "node:path";
+var collectDirectories = ({ files }) => {
+  const directories = /* @__PURE__ */ new Set();
+  for (const file2 of files) {
+    let directory = dirname4(file2);
+    while (directory !== "." && !directories.has(directory)) {
+      directories.add(directory);
+      directory = dirname4(directory);
+    }
+  }
+  return directories;
+};
+
+// src/standardsCheck/common/utils/checkFolderRules.ts
+var bannedAnywhere = /* @__PURE__ */ new Set(["helpers", "lib", "core", "misc", "shared", "controllers", "models", "hooks", "components"]);
+var commonTypeFolders = /* @__PURE__ */ new Set(["utils", "types", "constants", "services"]);
+var camelCase = /^[a-z][A-Za-z0-9]*$/;
+var pascalCase = /^[A-Z][A-Za-z0-9]*$/;
+var frameworkFolder = /^__[A-Za-z0-9]+__$/;
+var barrelName = /^index\.(m|c)?[jt]sx?$/;
+var noCarveOut = { exemptFolderNames: [], kebabCase: false, routerRoots: [] };
+var casingStyle = ({ segment }) => {
+  if (camelCase.test(segment)) {
+    return "camelCase";
+  }
+  if (pascalCase.test(segment)) {
+    return "PascalCase";
+  }
+  if (segment.includes("-")) {
+    return "kebab-case";
+  }
+  if (segment.includes("_")) {
+    return "snake_case";
+  }
+  return "none of the three casings";
+};
+var bannedNameFinding = ({ directory, carveOut }) => {
+  const name = basename6(directory);
+  const insideCommon = directory.split("/").slice(0, -1).includes("common");
+  const banned = bannedAnywhere.has(name) || commonTypeFolders.has(name) && !insideCommon;
+  return !banned || carveOut.exemptFolderNames.includes(name) ? void 0 : buildFinding({
+    rule: StandardsRule.PathBannedModuleName,
+    files: [{ path: directory }],
+    detail: `folder '${name}' names the role of the code it holds`,
+    guidance: "Name the folder for the domain it serves, or fold its files into the module that owns them \u2014 the only privileged folder name at any level is `common/`."
+  });
+};
+var casingFinding = ({
+  directory,
+  carveOut,
+  sourceRoot,
+  siblingNames
+}) => {
+  const name = basename6(directory);
+  const style = casingStyle({ segment: name });
+  if (style === "camelCase" || style === "PascalCase") {
+    return void 0;
+  }
+  const sharing = siblingNames.filter((sibling) => casingStyle({ segment: sibling }) === style);
+  const settled2 = siblingNames.length >= 2 && sharing.length * 2 > siblingNames.length;
+  const topSegment = directory.slice(sourceRoot.length).replace(/\/.*$/, "");
+  const mandated = carveOut.kebabCase || carveOut.routerRoots.includes(topSegment) || frameworkFolder.test(name);
+  return settled2 || mandated ? void 0 : buildFinding({
+    rule: StandardsRule.PathFolderCasing,
+    files: [{ path: directory }],
+    detail: `folder '${name}' is ${style}`,
+    guidance: "Category folders are camelCase; a folder graduated from one class or component takes that item's PascalCase name. An established convention in the directory or the package's framework doc outranks both \u2014 heuristic, judge before acting."
+  });
+};
+var commonShapeFinding = ({ file: file2 }) => {
+  const parent = dirname5(file2);
+  const name = basename6(file2);
+  if (barrelName.test(name) && parent.split("/").includes("common")) {
+    return buildFinding({
+      rule: StandardsRule.PathCommonBarrel,
+      files: [{ path: file2 }],
+      detail: `a barrel under ${parent}`,
+      guidance: "A barrel marks a boundary and `common/` is definitionally boundary-less \u2014 delete it and import the files directly."
+    });
+  }
+  return basename6(parent) === "common" ? buildFinding({
+    rule: StandardsRule.PathCommonFlat,
+    files: [{ path: file2 }],
+    detail: `'${name}' sits directly in ${parent}`,
+    guidance: "Move it under the type folder for what it is \u2014 `utils/`, `types/`, `constants/`, `services/`, or a graduated domain folder. `common/` is always typed, never flat."
+  }) : void 0;
+};
+var domainFolderFinding = ({ directory, files }) => {
+  const name = basename6(directory);
+  if (basename6(dirname5(directory)) !== "common" || commonTypeFolders.has(name)) {
+    return void 0;
+  }
+  const own = files.filter((file2) => dirname5(file2) === directory && !isTestFile(file2));
+  return own.length === 1 ? buildFinding({
+    rule: StandardsRule.PathDomainFolderSingleFile,
+    files: [{ path: directory }],
+    detail: `domain folder '${name}' holds one file`,
+    guidance: "A domain folder graduates when a SECOND related function appears \u2014 until then the file belongs in `utils/`. Heuristic \u2014 judge before acting."
+  }) : void 0;
+};
+var checkFolderRules = ({ files, carveOuts }) => {
+  const packageEntries = [...carveOuts].sort(([first], [second]) => second.length - first.length);
+  const contextOf = ({ path }) => {
+    const owner = packageEntries.find(([directory]) => directory === "." || path.startsWith(`${directory}/`));
+    if (owner === void 0) {
+      return { carveOut: noCarveOut, sourceRoot: "src/" };
+    }
+    return { carveOut: owner[1], sourceRoot: owner[0] === "." ? "src/" : `${owner[0]}/src/` };
+  };
+  const directories = [...collectDirectories({ files })].sort();
+  const namesByParent = /* @__PURE__ */ new Map();
+  for (const directory of directories) {
+    const parent = dirname5(directory);
+    namesByParent.set(parent, [...namesByParent.get(parent) ?? [], basename6(directory)]);
+  }
+  return [
+    ...directories.flatMap((directory) => {
+      const { carveOut, sourceRoot } = contextOf({ path: directory });
+      if (!directory.startsWith(sourceRoot)) {
+        return [];
+      }
+      const name = basename6(directory);
+      const siblingNames = (namesByParent.get(dirname5(directory)) ?? []).filter((sibling) => sibling !== name);
+      return [bannedNameFinding({ directory, carveOut }), casingFinding({ directory, carveOut, sourceRoot, siblingNames })];
+    }),
+    ...files.map((file2) => commonShapeFinding({ file: file2 })),
+    ...directories.map((directory) => domainFolderFinding({ directory, files }))
+  ].filter((finding) => finding !== void 0);
+};
+
+// src/standardsCheck/common/utils/checkTestPathRules.ts
+import { basename as basename7, dirname as dirname6 } from "node:path";
+var testDirectories = /* @__PURE__ */ new Set(["__tests__", "tests", "test"]);
+var testSupportDirectories = /* @__PURE__ */ new Set(["fixtures", "mocks", "testUtils", "test-utils"]);
+var sourceExtensions = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+var underSrc = ({ path }) => dirname6(path).split("/").includes("src");
+var subjectName = ({ test }) => basename7(test).replace(/\..*$/, "");
+var underRootLayerCommon = ({ path }) => {
+  const segments = path.split("/");
+  return segments.some((segment, index) => segment === "common" && segments[index - 1] === "src");
+};
+var subjectOf = ({ test, files }) => {
+  const stem = `${dirname6(test)}/${subjectName({ test })}`;
+  return sourceExtensions.map((extension) => `${stem}${extension}`).find((candidate) => files.has(candidate));
+};
+var inTestsFolderFinding = ({ test }) => dirname6(test).split("/").some((segment) => testDirectories.has(segment)) ? buildFinding({
+  rule: StandardsRule.PathTestInTestsFolder,
+  files: [{ path: test }],
+  detail: `a unit test in ${dirname6(test)}`,
+  guidance: "Unit tests are co-located with the file they test \u2014 move it beside its subject rather than into a separate directory."
+}) : void 0;
+var notColocatedFinding = ({ test, files }) => subjectOf({ test, files }) === void 0 ? buildFinding({
+  rule: StandardsRule.PathTestNotColocated,
+  files: [{ path: test }],
+  detail: `no source file named '${subjectName({ test })}' in ${dirname6(test)}`,
+  guidance: "The first name segment must name a real source file in the same folder; a scenario suite qualifies it as `<File>.<scenario>.unit.test.ts` with a camelCase qualifier."
+}) : void 0;
+var supportFolderFindings = ({ files }) => [...collectDirectories({ files })].filter((directory) => testSupportDirectories.has(basename7(directory)) && underSrc({ path: directory })).sort().map(
+  (directory) => buildFinding({
+    rule: StandardsRule.PathTestSupportInSrc,
+    files: [{ path: directory }],
+    detail: `test-support folder '${basename7(directory)}' under src/`,
+    guidance: "Shared helpers, mocks and fixtures live in the package's test-support directories outside `src/` \u2014 under `src/` they read as production source to scanners and humans alike. A co-located `__mocks__/` is the one exception."
+  })
+);
+var subjectNotPublicFinding = ({ test, files, moduleFolders }) => {
+  const subject = subjectOf({ test, files });
+  if (subject === void 0 || underRootLayerCommon({ path: subject })) {
+    return void 0;
+  }
+  const ancestors = moduleFolders.filter(([folder]) => subject.startsWith(`${folder}/`));
+  const nearest = ancestors[0];
+  if (nearest === void 0) {
+    return void 0;
+  }
+  return ancestors.some(([, module]) => module.exportedTargets.has(subject)) ? void 0 : buildFinding({
+    rule: StandardsRule.PathTestUntestedSubjectNotPublic,
+    files: [{ path: test }],
+    detail: `'${basename7(subject)}' is not re-exported from ${nearest[1].barrelPath}`,
+    guidance: "A direct test is a promotion, not an exception: add the subject to its module's barrel, or drive its coverage through the module's boundary instead. Existing ones are migration debt to leave in place \u2014 judge before acting."
+  });
+};
+var checkTestPathRules = ({ tests, files, modules }) => {
+  const fileSet = new Set(files);
+  const inSrc = tests.filter((test) => underSrc({ path: test }));
+  const moduleFolders = [...modules].filter(([, module]) => module.status === "module").sort(([first], [second]) => second.length - first.length);
+  return [
+    ...inSrc.map((test) => inTestsFolderFinding({ test })),
+    ...inSrc.map((test) => notColocatedFinding({ test, files: fileSet })),
+    ...supportFolderFindings({ files }),
+    ...inSrc.map((test) => subjectNotPublicFinding({ test, files: fileSet, moduleFolders }))
+  ].filter((finding) => finding !== void 0);
+};
+
+// src/standardsCheck/common/utils/readFrameworkCarveOuts.ts
+import { readFile as readFile16 } from "node:fs/promises";
+import { join as join27 } from "node:path";
+var Manifest = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var carveOutSignals = {
+  react: { exemptFolderNames: ["components", "hooks"] },
+  "react-dom": { exemptFolderNames: ["components", "hooks"] },
+  "@nestjs/core": { exemptFolderNames: ["controllers", "models", "services"], kebabCase: true },
+  next: { routerRoots: ["app", "pages"] },
+  "@tanstack/react-router": { routerRoots: ["routes"] },
+  "@remix-run/react": { routerRoots: ["routes"] },
+  "expo-router": { routerRoots: ["app"] }
+};
+var readDependencyNames = async ({ path }) => {
+  try {
+    const manifest = Manifest.parse(JSON.parse(await readFile16(path, "utf8")));
+    return [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {})];
+  } catch {
+    return void 0;
+  }
+};
+var readFrameworkCarveOuts = async ({ cwd, files }) => {
+  const carveOuts = /* @__PURE__ */ new Map();
+  for (const directory of [".", ...collectDirectories({ files })].sort()) {
+    const dependencies = await readDependencyNames({ path: join27(cwd, directory, "package.json") });
+    if (dependencies === void 0) {
+      continue;
+    }
+    const signals = Object.entries(carveOutSignals).filter(([name]) => dependencies.includes(name));
+    carveOuts.set(directory, {
+      exemptFolderNames: [...new Set(signals.flatMap(([, carveOut]) => carveOut.exemptFolderNames ?? []))],
+      kebabCase: signals.some(([, carveOut]) => carveOut.kebabCase === true),
+      routerRoots: [...new Set(signals.flatMap(([, carveOut]) => carveOut.routerRoots ?? []))]
+    });
+  }
+  return carveOuts;
+};
+
+// src/standardsCheck/checkPathsAndNames.ts
+var checkPathsAndNames = async ({ cwd, files, tests }) => {
+  const carveOuts = await readFrameworkCarveOuts({ cwd, files });
+  const modules = await mapFolderModules({ cwd, files });
+  return [...checkFolderRules({ files, carveOuts }), ...checkTestPathRules({ tests, files, modules })];
+};
+
+// src/standardsCheck/checkPlacement.ts
+import { dirname as dirname7 } from "node:path";
 var commonOwner = (path) => {
   const segments = path.split("/");
   const index = segments.lastIndexOf("common");
@@ -30934,7 +31273,7 @@ var checkPlacement = async ({ cwd, files, compiler }) => {
   const findings = [];
   for (const [file2, { owner, consumers: consumerSet }] of leaksByFile) {
     const consumers = [...consumerSet].sort();
-    const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname4(consumer))]);
+    const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname7(consumer))]);
     const sites = [{ path: file2 }, ...consumers.map((path) => ({ path }))];
     findings.push(
       buildFinding({
@@ -30949,8 +31288,8 @@ var checkPlacement = async ({ cwd, files, compiler }) => {
 };
 
 // src/standardsCheck/checkStructure.ts
-import { readFile as readFile16 } from "node:fs/promises";
-import { basename as basename6, dirname as dirname5, join as join27 } from "node:path";
+import { readFile as readFile17 } from "node:fs/promises";
+import { basename as basename8, dirname as dirname8, join as join28 } from "node:path";
 
 // src/standardsCheck/common/utils/checkFileExports.ts
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+(?!\$\{)([A-Za-z0-9_$]+)/;
@@ -31037,18 +31376,18 @@ var checkStructure = async ({ cwd, source, states }) => {
   const filesPerDir = /* @__PURE__ */ new Map();
   const utilsVerbGroups = /* @__PURE__ */ new Map();
   for (const file2 of source) {
-    const dir = dirname5(file2);
+    const dir = dirname8(file2);
     filesPerDir.set(dir, [...filesPerDir.get(dir) ?? [], file2]);
-    if (basename6(dir) === "utils") {
+    if (basename8(dir) === "utils") {
       const group = utilsVerbGroups.get(dir) ?? /* @__PURE__ */ new Map();
       const verb = firstToken(nameOf(file2));
       group.set(verb, [...group.get(verb) ?? [], file2]);
       utilsVerbGroups.set(dir, group);
     }
-    if (basename6(file2).startsWith("index.")) {
+    if (basename8(file2).startsWith("index.")) {
       continue;
     }
-    const text = await readFile16(join27(cwd, file2), "utf8").catch(() => "");
+    const text = await readFile17(join28(cwd, file2), "utf8").catch(() => "");
     findings.push(...checkFileExports({ file: file2, text }));
   }
   for (const [dir, group] of utilsVerbGroups) {
@@ -31376,6 +31715,7 @@ var checkTestShape = async ({ cwd, tests, states }) => {
 
 // src/standardsCheck/standardsPasses.ts
 var standardsPasses = [
+  { id: StandardsPassId.PathsAndNames, run: checkPathsAndNames },
   { id: StandardsPassId.FilenameDuplicates, run: checkFilenameDuplicates },
   { id: StandardsPassId.Clones, run: checkClones },
   { id: StandardsPassId.AstFindings, run: checkAstFindings },
@@ -31465,12 +31805,12 @@ var runStandardsCheck = async ({
       `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`
     );
   }
-  const dir = join28(cwd, ".lightsout");
+  const dir = join29(cwd, ".lightsout");
   await mkdir6(dir, { recursive: true });
   const baseline = await applyStandardsBaseline({ cwd, path, findings, all, writeBaseline });
   notes.push(...baseline.notes);
   if (persist) {
-    await writeFile6(join28(dir, "standards-check.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
+    await writeFile6(join29(dir, "standards-check.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
   }
   return { findings: baseline.reported, notes };
@@ -31886,8 +32226,8 @@ var runWriterBatches = async ({
 };
 
 // src/pipeline/steps/selectTestTargets.ts
-import { readFile as readFile17, stat as stat2 } from "node:fs/promises";
-import { join as join29 } from "node:path";
+import { readFile as readFile18, stat as stat2 } from "node:fs/promises";
+import { join as join30 } from "node:path";
 
 // src/common/utils/isInertSourceFile.ts
 var isInertSourceFile = ({ path, content, compiler }) => {
@@ -31908,9 +32248,9 @@ var selectTestTargets = async ({
   const inert = [];
   const deleted = [];
   for (const file2 of candidates) {
-    const content = await readFile17(join29(run.cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile18(join30(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists = await stat2(join29(run.cwd, file2)).then(
+      const exists = await stat2(join30(run.cwd, file2)).then(
         () => true,
         () => false
       );
@@ -32034,19 +32374,19 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
 };
 
 // src/pipeline/common/utils/readPlanSources.ts
-import { readFile as readFile18 } from "node:fs/promises";
-import { join as join30 } from "node:path";
+import { readFile as readFile19 } from "node:fs/promises";
+import { join as join31 } from "node:path";
 var readPlanSources = async ({ cwd, plan, overview }) => {
-  const planPath = join30(cwd, plan);
-  const planContent = await readFile18(planPath, "utf8").catch(() => void 0);
+  const planPath = join31(cwd, plan);
+  const planContent = await readFile19(planPath, "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return { error: `plan file not found: ${planPath}` };
   }
   if (overview === void 0) {
     return { planContent };
   }
-  const overviewPath = join30(cwd, overview);
-  const overviewContent = await readFile18(overviewPath, "utf8").catch(() => void 0);
+  const overviewPath = join31(cwd, overview);
+  const overviewContent = await readFile19(overviewPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     return { error: `overview file not found: ${overviewPath}` };
   }
@@ -32119,8 +32459,8 @@ var resolvePackageScope = ({
 };
 
 // src/standards/readStandards.ts
-import { readdir as readdir6, readFile as readFile19, stat as stat3 } from "node:fs/promises";
-import { join as join31 } from "node:path";
+import { readdir as readdir6, readFile as readFile20, stat as stat3 } from "node:fs/promises";
+import { join as join32 } from "node:path";
 
 // standards/code/architecture/architecture-decisions.md
 var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing \u2192 the concept is primitives; its files belong in `common/<type>/`. Hides internals \u2192 it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n4. Test imports obey the same boundary: a test OUTSIDE a module imports its `index.ts`, never its internals \u2014 including in repos that keep tests in a separate directory. (A boundary test living beside its file is inside the module; its deep import is correct.)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules \u2014 shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
@@ -32267,7 +32607,7 @@ var listMarkdownFiles = async ({ dir, prefix }) => {
     for (const entry of entries) {
       const entryDisplayPath = `${displayPath}/${entry.name}`;
       if (entry.isDirectory()) {
-        await walk({ current: join31(current, entry.name), displayPath: entryDisplayPath });
+        await walk({ current: join32(current, entry.name), displayPath: entryDisplayPath });
         continue;
       }
       if (entry.isFile() && entry.name.endsWith(".md")) {
@@ -32288,7 +32628,7 @@ var readStandards = async ({ cwd, paths, channels = [] }) => {
       if (bundled) {
         return [bundled.base, ...channels.map((channel) => bundled[channel])].filter(Boolean).join("\n\n");
       }
-      const absolutePath = join31(cwd, path);
+      const absolutePath = join32(cwd, path);
       const stats = await stat3(absolutePath).catch(() => {
         throw new Error(`standards file not found: ${absolutePath}`);
       });
@@ -32299,11 +32639,11 @@ var readStandards = async ({ cwd, paths, channels = [] }) => {
         }
         const docs = await Promise.all(
           files.map(async (file2) => `<!-- ${file2} -->
-${await readFile19(join31(cwd, file2), "utf8")}`)
+${await readFile20(join32(cwd, file2), "utf8")}`)
         );
         return docs.join("\n\n");
       }
-      const raw = await readFile19(absolutePath, "utf8");
+      const raw = await readFile20(absolutePath, "utf8");
       return `<!-- ${path} -->
 ${raw}`;
     })
@@ -32312,9 +32652,9 @@ ${raw}`;
 };
 
 // src/standards/detectStandardsChannels.ts
-import { readFile as readFile20 } from "node:fs/promises";
-import { join as join32 } from "node:path";
-var Manifest = external_exports.object({
+import { readFile as readFile21 } from "node:fs/promises";
+import { join as join33 } from "node:path";
+var Manifest2 = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
@@ -32324,11 +32664,11 @@ var channelSignals = {
   tanstack: ["@tanstack/react-start", "@tanstack/start"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join32(cwd, packagesDir, name, "package.json")) : [join32(cwd, "package.json")];
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join33(cwd, packagesDir, name, "package.json")) : [join33(cwd, "package.json")];
   const dependencies = /* @__PURE__ */ new Set();
   for (const path of manifestPaths) {
     try {
-      const parsed = Manifest.parse(JSON.parse(await readFile20(path, "utf8")));
+      const parsed = Manifest2.parse(JSON.parse(await readFile21(path, "utf8")));
       for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
         for (const name of Object.keys(record2 ?? {})) {
           dependencies.add(name);
@@ -32515,7 +32855,7 @@ var implementCommand = async ({ flags, cwd }) => {
 
 // src/runPromptImprovement.ts
 import { readdir as readdir7 } from "node:fs/promises";
-import { join as join33 } from "node:path";
+import { join as join34 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
@@ -32523,8 +32863,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effor
   if (friction.length === 0) {
     return { status: "no-friction", friction };
   }
-  const files = await readdir7(join33(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join33(promptsDir, file2));
+  const files = await readdir7(join34(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join34(promptsDir, file2));
   const outcome = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -32540,9 +32880,9 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effor
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat4 } from "node:fs/promises";
-import { join as join34 } from "node:path";
+import { join as join35 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join34(cwd, "lightsout.config.json");
+  const configPath = join35(cwd, "lightsout.config.json");
   const present = await stat4(configPath).then(
     () => true,
     () => false
@@ -32587,26 +32927,26 @@ review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
 
 // src/plan/runPlanVerifyFacts.ts
 import { access, copyFile, mkdir as mkdir7, writeFile as writeFile7 } from "node:fs/promises";
-import { join as join38, resolve as resolve2 } from "node:path";
+import { join as join39, resolve as resolve2 } from "node:path";
 
 // src/plan/planWorkspaceDir.ts
-import { join as join35 } from "node:path";
-var planWorkspaceDir = ({ cwd, name }) => join35(cwd, ".lightsout", "plans", name);
+import { join as join36 } from "node:path";
+var planWorkspaceDir = ({ cwd, name }) => join36(cwd, ".lightsout", "plans", name);
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
-import { readFile as readFile21 } from "node:fs/promises";
-import { join as join36 } from "node:path";
+import { readFile as readFile22 } from "node:fs/promises";
+import { join as join37 } from "node:path";
 var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join36(planWorkspaceDir({ cwd, name }), fileName);
-  const raw = await readFile21(filePath, "utf8").catch(() => {
+  const filePath = join37(planWorkspaceDir({ cwd, name }), fileName);
+  const raw = await readFile22(filePath, "utf8").catch(() => {
     throw new Error(notFound(filePath));
   });
   return schema.parse(JSON.parse(raw));
 };
 
 // src/plan/verifyFacts.ts
-import { readFile as readFile22 } from "node:fs/promises";
-import { join as join37 } from "node:path";
+import { readFile as readFile23 } from "node:fs/promises";
+import { join as join38 } from "node:path";
 
 // src/plan/common/paths/pathExists.ts
 import { stat as stat5 } from "node:fs/promises";
@@ -32628,7 +32968,7 @@ var verifyFacts = async ({ cwd, facts }) => {
   const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join37(cwd, path) });
+    const exists = await pathExists({ path: join38(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
@@ -32639,10 +32979,10 @@ var verifyFacts = async ({ cwd, facts }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join37(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join37(cwd, pkg, "package.json"))];
+    const manifestPaths = [join38(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join38(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile22(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile23(manifestPath, "utf8").catch(() => void 0);
       if (raw) {
         for (const key of scriptKeysOf(raw)) {
           available.add(key);
@@ -32675,7 +33015,7 @@ var snapshotNotes = async ({
   progress
 }) => {
   const source = resolve2(cwd, notesFile);
-  const destination = join38(workspaceDir, "notes.md");
+  const destination = join39(workspaceDir, "notes.md");
   const alreadyFrozen = await access(destination).then(
     () => true,
     () => false
@@ -32696,7 +33036,7 @@ var snapshotNotes = async ({
 var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  const factsPath = join38(workspaceDir, "facts.json");
+  const factsPath = join39(workspaceDir, "facts.json");
   if (notesFile !== void 0) {
     const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
     if (snapshot.error !== void 0) {
@@ -32736,9 +33076,9 @@ import { mkdir as mkdir8 } from "node:fs/promises";
 
 // src/plan/common/utils/createPlanAgentRunner.ts
 import { writeFile as writeFile8 } from "node:fs/promises";
-import { join as join39 } from "node:path";
+import { join as join40 } from "node:path";
 var createPlanAgentRunner = ({ cwd, driver, workspaceDir, step, model, effort, permissions, timeoutMs }) => {
-  const onEvent = createEventFileSink({ path: join39(workspaceDir, `${step}-stream.jsonl`) });
+  const onEvent = createEventFileSink({ path: join40(workspaceDir, `${step}-stream.jsonl`) });
   return ({ invocation, contract, label, allowedCommands }) => invokeAgentWithContract({
     driver,
     cwd,
@@ -32752,7 +33092,7 @@ var createPlanAgentRunner = ({ cwd, driver, workspaceDir, step, model, effort, p
     onEvent,
     onRejectedOutput: async ({ text, attempt }) => {
       const name = `${step}-rejected-${label === void 0 ? "" : `${label}-`}${attempt}.txt`;
-      await writeFile8(join39(workspaceDir, name), text, "utf8").catch(() => void 0);
+      await writeFile8(join40(workspaceDir, name), text, "utf8").catch(() => void 0);
     }
   });
 };
@@ -32773,12 +33113,12 @@ var estimatePlanScope = ({ facts }) => {
 };
 
 // src/plan/common/paths/planDraftOutputs.ts
-import { join as join40 } from "node:path";
+import { join as join41 } from "node:path";
 var planDraftOutputs = ({ plansDir, name, variant }) => {
   if (variant === PlanVariant.Single) {
-    return { outputs: [{ path: join40(plansDir, `${name}.md`), variant: PlanVariant.Single }], dir: plansDir };
+    return { outputs: [{ path: join41(plansDir, `${name}.md`), variant: PlanVariant.Single }], dir: plansDir };
   }
-  return { outputs: [{ path: join40(plansDir, name, "overview.md"), variant: PlanVariant.Overview }], dir: join40(plansDir, name) };
+  return { outputs: [{ path: join41(plansDir, name, "overview.md"), variant: PlanVariant.Overview }], dir: join41(plansDir, name) };
 };
 
 // src/plan/common/utils/buildPlanLintCommand.ts
@@ -32788,9 +33128,9 @@ var buildPlanLintCommand = ({ cwd, name, plansDir }) => {
 };
 
 // src/plan/common/paths/verifyDraftedFiles.ts
-import { isAbsolute, join as join41 } from "node:path";
+import { isAbsolute, join as join42 } from "node:path";
 var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
-  const planPaths = filesWritten.map((file2) => isAbsolute(file2.path) ? file2.path : join41(cwd, file2.path));
+  const planPaths = filesWritten.map((file2) => isAbsolute(file2.path) ? file2.path : join42(cwd, file2.path));
   if (planPaths.length === 0) {
     return { error: "plan-writer reported drafted but listed no files written" };
   }
@@ -32829,32 +33169,32 @@ var readPlanFacts = async ({ cwd, name }) => {
 };
 
 // src/plan/repairPlanStructure.ts
-import { join as join44 } from "node:path";
+import { join as join45 } from "node:path";
 
 // src/plan/lintPlanStructure.ts
-import { readFile as readFile24 } from "node:fs/promises";
-import { basename as basename9 } from "node:path";
+import { readFile as readFile25 } from "node:fs/promises";
+import { basename as basename11 } from "node:path";
 
 // src/plan/checkPlanPaths.ts
-import { basename as basename7, join as join42 } from "node:path";
+import { basename as basename9, join as join43 } from "node:path";
 var checkPlanPaths = async ({ plan, cwd, planPath }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join42(cwd, path) })) {
+    if (!await pathExists({ path: join43(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `referenced path does not exist: ${path}`,
-        location: `${basename7(planPath)} \u2192 ${path}`,
+        location: `${basename9(planPath)} \u2192 ${path}`,
         fix: `correct the path or move it under Files to Create if it does not exist yet`
       });
     }
   }
   for (const path of plan.createPaths) {
-    if (await pathExists({ path: join42(cwd, path) })) {
+    if (await pathExists({ path: join43(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `Files to Create path already exists: ${path}`,
-        location: `${basename7(planPath)} \u2192 ${path}`,
+        location: `${basename9(planPath)} \u2192 ${path}`,
         fix: `move it to Files to Modify, or choose a new path`
       });
     }
@@ -32863,8 +33203,8 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
 };
 
 // src/plan/checkVerificationScripts.ts
-import { readFile as readFile23 } from "node:fs/promises";
-import { basename as basename8, join as join43 } from "node:path";
+import { readFile as readFile24 } from "node:fs/promises";
+import { basename as basename10, join as join44 } from "node:path";
 var scriptNameOf = (command) => {
   const runScript = extractRunScriptName({ command });
   if (runScript !== void 0) {
@@ -32894,10 +33234,10 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       }
     }
   }
-  const manifestPaths = [join43(cwd, "package.json"), ...[...packageDirs].map((dir) => join43(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join44(cwd, "package.json"), ...[...packageDirs].map((dir) => join44(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
-    const raw = await readFile23(manifestPath, "utf8").catch(() => void 0);
+    const raw = await readFile24(manifestPath, "utf8").catch(() => void 0);
     if (!raw) {
       continue;
     }
@@ -32921,7 +33261,7 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       findings.push({
         check: StructuralCheck.ScriptExists,
         issue: `verification command '${command}' references package script '${scriptName}' which is not in any target package.json`,
-        location: `${basename8(planPath)} \u2192 Verification`,
+        location: `${basename10(planPath)} \u2192 Verification`,
         fix: `use a script that exists, or add '${scriptName}' to the package.json`
       });
     }
@@ -33068,7 +33408,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const packagesDir = config2?.packagesDir ?? "packages";
   const configCommands = new Set(Object.values(config2?.scripts ?? {}).filter((value) => typeof value === "string"));
   for (const planPath of planPaths) {
-    const content = await readFile24(planPath, "utf8").catch(() => void 0);
+    const content = await readFile25(planPath, "utf8").catch(() => void 0);
     if (content === void 0) {
       findings.push({
         check: StructuralCheck.SectionsPresent,
@@ -33078,13 +33418,13 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       });
       continue;
     }
-    const plan = parsePlan({ content, base: basename9(planPath) });
+    const plan = parsePlan({ content, base: basename11(planPath) });
     for (const section of requiredSections[plan.variant]) {
       if (!plan.sections.has(section)) {
         findings.push({
           check: StructuralCheck.SectionsPresent,
           issue: `missing required section '## ${section}' (${plan.variant} plan)`,
-          location: basename9(planPath),
+          location: basename11(planPath),
           fix: `add a '## ${section}' section`
         });
       }
@@ -33095,7 +33435,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       findings.push({
         check: StructuralCheck.NoPlaceholders,
         issue: `unresolved placeholder '${label}' present`,
-        location: `${basename9(planPath)}:${line}`,
+        location: `${basename11(planPath)}:${line}`,
         fix: `resolve '${label}' \u2014 every open question must be decided before the plan is written`
       });
     }
@@ -33104,7 +33444,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       findings.push({
         check: StructuralCheck.ScopeWithinGuardrail,
         issue: `plan touches ${sourceCount} source files, over the ${scopeGuardrail}-file executor guardrail`,
-        location: basename9(planPath),
+        location: basename11(planPath),
         fix: `split into phases so each stays under ${scopeGuardrail} source files`
       });
     }
@@ -33113,7 +33453,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
         findings.push({
           check: StructuralCheck.PackagesIdentifiable,
           issue: `path '${path}' is directly under ${packagesDir}/ with no package segment`,
-          location: `${basename9(planPath)} \u2192 ${path}`,
+          location: `${basename11(planPath)} \u2192 ${path}`,
           fix: `place the file under ${packagesDir}/<package>/\u2026`
         });
       }
@@ -33135,8 +33475,8 @@ var repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, c
       invocation: buildPlanRepairInvocation({
         findings,
         planPaths,
-        decisionsPath: join44(workspaceDir, "decisions.json"),
-        factsPath: join44(workspaceDir, "facts.json")
+        decisionsPath: join45(workspaceDir, "decisions.json"),
+        factsPath: join45(workspaceDir, "facts.json")
       }),
       contract: PlanFixReport
     });
@@ -33221,15 +33561,15 @@ var runPlanDraft = async ({
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename10, join as join46 } from "node:path";
+import { basename as basename12, join as join47 } from "node:path";
 
 // src/plan/detectPriorArtCandidates.ts
-import { readFile as readFile25 } from "node:fs/promises";
+import { readFile as readFile26 } from "node:fs/promises";
 var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   const planned = [];
   const plannedPaths = /* @__PURE__ */ new Set();
   for (const planPath of planPaths) {
-    const planText = await readFile25(planPath, "utf8").catch(() => void 0);
+    const planText = await readFile26(planPath, "utf8").catch(() => void 0);
     if (planText === void 0) {
       continue;
     }
@@ -33269,21 +33609,21 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
 import { mkdir as mkdir9 } from "node:fs/promises";
 
 // src/plan/common/utils/resolvePlanDeliverable.ts
-import { readFile as readFile26, readdir as readdir8 } from "node:fs/promises";
-import { join as join45 } from "node:path";
+import { readFile as readFile27, readdir as readdir8 } from "node:fs/promises";
+import { join as join46 } from "node:path";
 var resolvePlanDeliverable = async ({ name, plansDir }) => {
-  const singlePath = join45(plansDir, `${name}.md`);
-  const phaseDir = join45(plansDir, name);
+  const singlePath = join46(plansDir, `${name}.md`);
+  const phaseDir = join46(plansDir, name);
   let overviewPath;
   let overviewText;
   const files = [];
   if (await pathExists({ path: singlePath })) {
-    files.push({ path: singlePath, text: await readFile26(singlePath, "utf8") });
+    files.push({ path: singlePath, text: await readFile27(singlePath, "utf8") });
   } else {
     const entries = (await readdir8(phaseDir).catch(() => [])).filter((entry) => entry.endsWith(".md")).sort();
     for (const entry of entries) {
-      const path = join45(phaseDir, entry);
-      const text = await readFile26(path, "utf8");
+      const path = join46(phaseDir, entry);
+      const text = await readFile27(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
         overviewText = text;
@@ -33358,10 +33698,10 @@ var runPlanGrade = async ({
     const outcome = await invokePlanAgent({
       invocation: buildPlanGapCheckInvocation({ planText: phase.text, overviewText, standards }),
       contract: GapCheckReport,
-      label: basename10(phase.path)
+      label: basename12(phase.path)
     });
     if (!outcome.ok) {
-      return outcome.rateLimited ? { status: "paused-rate-limit", workspaceDir, error: `rate limit reached \u2014 re-run: lightsout plan grade --name ${name}` } : { status: "failed", workspaceDir, error: `gap-check failed for ${basename10(phase.path)}: ${outcome.failure}` };
+      return outcome.rateLimited ? { status: "paused-rate-limit", workspaceDir, error: `rate limit reached \u2014 re-run: lightsout plan grade --name ${name}` } : { status: "failed", workspaceDir, error: `gap-check failed for ${basename12(phase.path)}: ${outcome.failure}` };
     }
     gaps.push(...outcome.report.gaps);
   }
@@ -33374,14 +33714,14 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join46(workspaceDir, "grade.json");
+  const gradePath = join47(workspaceDir, "grade.json");
   await writeJsonFile({ path: gradePath, value: report });
   progress(`plan grade ${name}: ${grade} (${structural.length} structural, ${gaps.length} gap(s))`);
   return { status: "complete", workspaceDir, grade: report, gradePath };
 };
 
 // src/plan/runPlanDedup.ts
-import { join as join47 } from "node:path";
+import { join as join48 } from "node:path";
 
 // src/plan/common/utils/matchDedupVerdicts.ts
 var matchDedupVerdicts = ({ candidates, verdicts: verdicts2 }) => {
@@ -33427,7 +33767,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join47(workspaceDir, "dedup.json");
+    const dedupPath2 = join48(workspaceDir, "dedup.json");
     await writeJsonFile({ path: dedupPath2, value: dedup2 });
     return { dedup: dedup2, dedupPath: dedupPath2 };
   };
@@ -33466,10 +33806,10 @@ var runPlanLint = async ({ cwd, name, plansDir, onProgress }) => {
 };
 
 // src/plan/resolvePlansDir.ts
-import { isAbsolute as isAbsolute2, join as join48 } from "node:path";
+import { isAbsolute as isAbsolute2, join as join49 } from "node:path";
 var resolvePlansDir = ({ cwd, flag, config: config2 }) => {
   const dir = flag ?? config2?.plansDir ?? ".claude/plans";
-  return isAbsolute2(dir) ? dir : join48(cwd, dir);
+  return isAbsolute2(dir) ? dir : join49(cwd, dir);
 };
 
 // src/cli/common/args/getPositionals.ts
@@ -33746,11 +34086,19 @@ var countByRule = ({ findings }) => {
 };
 
 // src/refactor/initializeRun.ts
-import { readFile as readFile27, writeFile as writeFile10 } from "node:fs/promises";
-import { join as join49 } from "node:path";
+import { readFile as readFile28, writeFile as writeFile10 } from "node:fs/promises";
+import { join as join50 } from "node:path";
 
 // src/refactor/batchFindings.ts
 var rulePriority = [
+  // A path rule is a file move or a rename — the most mechanical fix there is,
+  // so these lead.
+  StandardsRule.PathBannedModuleName,
+  StandardsRule.PathCommonFlat,
+  StandardsRule.PathCommonBarrel,
+  StandardsRule.PathTestInTestsFolder,
+  StandardsRule.PathTestNotColocated,
+  StandardsRule.PathTestSupportInSrc,
   StandardsRule.ModuleBoundary,
   StandardsRule.Placement,
   StandardsRule.MultiExport,
@@ -33772,6 +34120,9 @@ var rulePriority = [
   StandardsRule.SizeFile,
   StandardsRule.SizeFunction,
   StandardsRule.DomainGraduation,
+  StandardsRule.PathDomainFolderSingleFile,
+  StandardsRule.PathFolderCasing,
+  StandardsRule.PathTestUntestedSubjectNotPublic,
   StandardsRule.TestMultipleSetups,
   StandardsRule.TestMegaFactory,
   StandardsRule.FolderCensus,
@@ -33854,7 +34205,7 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile27(join49(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile28(join50(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -33865,9 +34216,9 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
 ${dirty.map((file2) => `  ${file2}`).join("\n")}`);
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join49(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join50(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2 });
-  await writeFile10(join49(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile10(join50(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -33912,7 +34263,7 @@ var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attribut
 
 // src/refactor/invokeBatchAgent.ts
 import { mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join50 } from "node:path";
+import { join as join51 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -33927,9 +34278,9 @@ var invokeBatchAgent = async ({
   rationale,
   recordUsage
 }) => {
-  const agentsDir = join50(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join51(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join50(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join51(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir10(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -33943,7 +34294,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2.agentCommands,
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile11(join50(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile11(join51(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
@@ -33992,7 +34343,7 @@ var runBatchGates = async ({ cwd, config: config2, runId, step, onProgress }) =>
 
 // src/refactor/superviseBatch.ts
 import { mkdir as mkdir11, writeFile as writeFile12 } from "node:fs/promises";
-import { join as join51 } from "node:path";
+import { join as join52 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -34009,7 +34360,7 @@ var superviseBatch = async ({
   gates: gates2
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries3} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join51(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join52(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir11(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -34020,9 +34371,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join51(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join52(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile12(join51(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile12(join52(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
@@ -34595,9 +34946,9 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
 
 // src/cli/statusCommand.ts
 import { readdir as readdir9 } from "node:fs/promises";
-import { join as join52 } from "node:path";
+import { join as join53 } from "node:path";
 var statusCommand = async ({ cwd }) => {
-  const runsDir = join52(cwd, ".lightsout", "runs");
+  const runsDir = join53(cwd, ".lightsout", "runs");
   const runIds = await readdir9(runsDir).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");
