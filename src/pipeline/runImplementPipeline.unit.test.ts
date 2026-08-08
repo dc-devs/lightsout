@@ -159,7 +159,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
 });
 
-test('scan gate: findings feed the refactor prompt; a fixing pass clears the gate', async () => {
+test('standards gate: findings feed the refactor prompt; a fixing pass clears the gate', async () => {
 	const dir = setupConsumerRepo();
 	const prompts: string[] = [];
 
@@ -188,7 +188,7 @@ test('scan gate: findings feed the refactor prompt; a fixing pass clears the gat
 				return { text: report(), exitCode: 0 };
 			}
 
-			// Implement plants a multi-export violation — the scan gate's target.
+			// Implement plants a multi-export violation — the standards gate's target.
 			writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
 
 			return { text: report({ changedFiles: [{ path: 'src/messy.js', summary: 'feature' }] }), exitCode: 0 };
@@ -206,16 +206,16 @@ test('scan gate: findings feed the refactor prompt; a fixing pass clears the gat
 
 	expect(result.ok).toBe(true);
 	// gate narrated the finding
-	expect(progress.some((line) => line.includes('scan gate: 1 finding(s)') && line.includes('1 gating'))).toBeTruthy();
+	expect(progress.some((line) => line.includes('standards gate: 1 finding(s)') && line.includes('1 gating'))).toBeTruthy();
 	// findings section injected into the refactor prompt
-	expect(prompts[0]?.includes('# Scan findings')).toBeTruthy();
+	expect(prompts[0]?.includes('# Standards findings')).toBeTruthy();
 	// the planted violation named in the work-list
 	expect(prompts[0]?.includes('[structure] src/messy.js')).toBeTruthy();
 	// clean tree injects no findings section
-	expect(prompts[1]?.includes('# Scan findings')).toBeFalsy();
+	expect(prompts[1]?.includes('# Standards findings')).toBeFalsy();
 });
 
-test('scan gate: two identical declined passes escalate early — the third pass is never bought', async () => {
+test('standards gate: two identical declined passes escalate early — the third pass is never bought', async () => {
 	const dir = setupConsumerRepo();
 	let refactorInvocations = 0;
 
@@ -253,7 +253,7 @@ test('scan gate: two identical declined passes escalate early — the third pass
 	expect(result.manifest.status).toBe('escalated');
 	// the second identical decline settles it — no third invocation
 	expect(refactorInvocations).toBe(2);
-	expect(result.error ?? '').toMatch(/scan gate — 1 finding\(s\) persist after 2 pass\(es\)/);
+	expect(result.error ?? '').toMatch(/standards gate — 1 finding\(s\) persist after 2 pass\(es\)/);
 	expect(result.error ?? '').toMatch(/multi-export:src\/messy\.js/);
 	// The escalation carries the evidence a human needs: the finding's detail
 	// with its location, and the agent's own account of why it was left.
@@ -262,7 +262,7 @@ test('scan gate: two identical declined passes escalate early — the third pass
 	expect(result.error ?? '').toMatch(/finding kept: the split would break the public API/);
 });
 
-test('scan gate: a declined pass that still CHANGED the gating set earns the next pass', async () => {
+test('standards gate: a declined pass that still CHANGED the gating set earns the next pass', async () => {
 	const dir = setupConsumerRepo();
 	let refactorInvocations = 0;
 

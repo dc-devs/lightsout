@@ -119,9 +119,9 @@ Deterministic gates run between every stage. If a test, lint, type-check, or cov
 
 ### /refactor
 
-Turn existing technical debt into a gated refactoring run. `/refactor` scans for duplicated logic, oversized files, structural violations, and opportunities to replace repeated code with shared abstractions.
+Turn existing technical debt into a gated refactoring run. `/refactor` runs the standards checks for duplicated logic, oversized files, structural violations, and opportunities to replace repeated code with shared abstractions.
 
-By default, it scans the entire repository. Use --path to target a specific directory and --max-batches to limit how many refactoring batches it completes. Agents fix each batch, and your deterministic gates verify the changes before the run continues.
+By default, it checks the entire repository. Use --path to target a specific directory and --max-batches to limit how many refactoring batches it completes. Agents fix each batch, and your deterministic gates verify the changes before the run continues.
 
 Verified changes remain in your worktree for review and commit, and the complete record is written to `.lightsout/runs/<id>/`.
 

@@ -29,13 +29,13 @@ interface Params {
 /**
  * Read-only prior-art detector for the interactive Dedup Review pass:
  * deterministically detect every planned new symbol that name-collides with an
- * existing export (reusing scan's tier-0 comparator), then have the judge agent
- * rule which are real duplicates and how to resolve each. It never edits the
- * plan — it detects, judges, and writes `dedup.json`, the typed findings the
- * ignition skill reads to conduct the human resolution. No candidates → no agent
- * call, an empty report. A single plan is `<plansDir>/<name>.md`; a phased plan
- * is `<plansDir>/<name>/*.md` where `overview.md` is context and each
- * `phase<N>-<slug>.md` is judged together.
+ * existing export (reusing the standards check's tier-0 comparator), then have
+ * the judge agent rule which are real duplicates and how to resolve each. It
+ * never edits the plan — it detects, judges, and writes `dedup.json`, the typed
+ * findings the ignition skill reads to conduct the human resolution. No
+ * candidates → no agent call, an empty report. A single plan is
+ * `<plansDir>/<name>.md`; a phased plan is `<plansDir>/<name>/*.md` where
+ * `overview.md` is context and each `phase<N>-<slug>.md` is judged together.
  */
 export const runPlanDedup = async ({
 	cwd,

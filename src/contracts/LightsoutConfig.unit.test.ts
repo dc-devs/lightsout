@@ -151,3 +151,57 @@ test('LightsoutConfig: a non-string standards entry fails parsing', () => {
 	// a bare string in place of the array is a hard error
 	expect(LightsoutConfig.safeParse({ ...base, testStandards: 'standards/tests' }).success).toBe(false);
 });
+
+test('LightsoutConfig: the removed scan key is refused with a message naming standardsChecks', () => {
+	const scanResult = LightsoutConfig.safeParse({ ...base, scan: { minCloneTokens: 40 } });
+
+	// the top level is not strict, so the retired key must be refused explicitly or
+	// a repo's tuning would be silently discarded and the defaults used instead
+	expect(scanResult.success).toBe(false);
+	// the message is the whole point of the rejection — it names the new key
+	expect(scanResult.error?.message ?? '').toMatch(/renamed to `standardsChecks`/);
+	// the rejection is about the key, not its contents: even an empty block fails
+	expect(LightsoutConfig.safeParse({ ...base, scan: {} }).success).toBe(false);
+});
+
+test('LightsoutConfig: standardsChecks carries both knobs through parsing intact', () => {
+	const standardsChecks = {
+		minCloneTokens: 80,
+		size: { file: 200, tsxFile: 260, function: 60, hook: 120, component: 180 },
+	};
+
+	const parsed = LightsoutConfig.parse({ ...base, standardsChecks });
+
+	// standardsChecks is a recognized schema field, so both knobs survive rather
+	// than being stripped as an unknown key
+	expect(parsed.standardsChecks).toStrictEqual(standardsChecks);
+});
+
+test('LightsoutConfig: standardsChecks and each of its fields stay optional', () => {
+	const parsed = LightsoutConfig.parse({ ...base, standardsChecks: { size: { function: 40 } } });
+
+	// a partial block overriding one size cap parses, leaving the rest to defaults
+	expect(parsed.standardsChecks).toStrictEqual({ size: { function: 40 } });
+	// only the clone floor, with no size block at all
+	expect(LightsoutConfig.parse({ ...base, standardsChecks: { minCloneTokens: 50 } }).standardsChecks).toStrictEqual({ minCloneTokens: 50 });
+	// an empty block is valid — every knob has a default
+	expect(LightsoutConfig.parse({ ...base, standardsChecks: {} }).standardsChecks).toStrictEqual({});
+	// an absent block leaves no key on the parsed config
+	expect('standardsChecks' in LightsoutConfig.parse(base)).toBe(false);
+});
+
+test.each([
+	{ label: 'a zero clone floor', standardsChecks: { minCloneTokens: 0 } },
+	{ label: 'a negative clone floor', standardsChecks: { minCloneTokens: -1 } },
+	{ label: 'a fractional clone floor', standardsChecks: { minCloneTokens: 50.5 } },
+	{ label: 'a non-numeric clone floor', standardsChecks: { minCloneTokens: '50' } },
+	{ label: 'a zero size cap', standardsChecks: { size: { file: 0 } } },
+	{ label: 'a fractional size cap', standardsChecks: { size: { function: 80.5 } } },
+	{ label: 'a non-numeric size cap', standardsChecks: { size: { component: '200' } } },
+	{ label: 'a size block that is not an object', standardsChecks: { size: 250 } },
+	{ label: 'a standardsChecks that is not an object', standardsChecks: true },
+])('LightsoutConfig: $label fails parsing', ({ standardsChecks }) => {
+	// every knob is a positive integer line count — a floor of zero or a fraction
+	// would silently disable or corrupt the rule it tunes
+	expect(LightsoutConfig.safeParse({ ...base, standardsChecks }).success).toBe(false);
+});

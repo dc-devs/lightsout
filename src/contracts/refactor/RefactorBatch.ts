@@ -4,7 +4,7 @@ import { StandardsFinding } from '@/contracts/standardsCheck';
 /**
  * One refactor-run batch: one kind of finding in one area of the repo — a
  * single agent job. Frozen into the run's worklist at start; the batch's
- * site keys are what the post-batch re-scan checks for resolution.
+ * site keys are what the post-batch re-check looks for.
  */
 export const RefactorBatch = z.object({
 	/** Manifest step id: `batch-NN:<rule>:<folder>`. */

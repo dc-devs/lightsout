@@ -25,7 +25,7 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
-  lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline]
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
@@ -611,9 +611,9 @@ test('cli: refactor reports an unknown --run and exits 1 before starting anythin
 
 // A repo with a planted tier-0 synonym pair split across two folders, and no
 // node_modules — so the compiler-gated tiers degrade to a note, which is the
-// other rendering path `scan` owns. `baseline` accepts the findings as debt
+// other rendering path `standards-check` owns. `baseline` accepts the findings as debt
 // first, so the suppression and --all paths are reachable.
-const seedScanFixture = async ({ baseline = false }: { baseline?: boolean } = {}) => {
+const seedStandardsFixture = async ({ baseline = false }: { baseline?: boolean } = {}) => {
 	const cwd = await freshCwd();
 
 	await mkdir(join(cwd, 'src', 'a'), { recursive: true });
@@ -622,16 +622,16 @@ const seedScanFixture = async ({ baseline = false }: { baseline?: boolean } = {}
 	await writeFile(join(cwd, 'src', 'b', 'fetchUserData.ts'), 'export const fetchUserData = () => 2;\n', 'utf8');
 
 	if (baseline) {
-		await runCli({ args: ['scan', '--baseline', '--cwd', cwd] });
+		await runCli({ args: ['standards-check', '--baseline', '--cwd', cwd] });
 	}
 
 	return { cwd };
 };
 
-test('cli: scan prints each finding, the rule breakdown, and exits 0', async () => {
-	const { cwd } = await seedScanFixture();
+test('cli: standards-check prints each finding, the rule breakdown, and exits 0', async () => {
+	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
 	// each rule gets a heading carrying its severity and count
@@ -640,15 +640,15 @@ test('cli: scan prints each finding, the rule breakdown, and exits 0', async () 
 	expect(stdout).toContain('Likely one concept living under two names.');
 	// and the tally is a table, closed off by the report path
 	expect(stdout).toMatch(/│ filename-duplicate │\s+—\s+│\s+1\s+│/);
-	expect(stdout).toMatch(/report: \.lightsout\/scan\.json\n$/);
-	// scan reports; it never fails the caller
+	expect(stdout).toMatch(/report: \.lightsout\/standards-check\.json\n$/);
+	// the standards check reports; it never fails the caller
 	expect(code).toBe(0);
 });
 
-test('cli: scan counts advisories apart from findings and does not call them debt', async () => {
-	const { cwd } = await seedScanFixture();
+test('cli: standards-check counts advisories apart from findings and does not call them debt', async () => {
+	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
 
 	// the fixture plants a synonym pair and the two unreferenced exports behind
 	// it — all advice to weigh, none of it work
@@ -659,46 +659,46 @@ test('cli: scan counts advisories apart from findings and does not call them deb
 	expect(code).toBe(0);
 });
 
-test('cli: scan writes its typed report to .lightsout/scan.json', async () => {
-	const { cwd } = await seedScanFixture();
+test('cli: standards-check writes its typed report to .lightsout/standards-check.json', async () => {
+	const { cwd } = await seedStandardsFixture();
 
-	const { code } = await runCli({ args: ['scan', '--cwd', cwd] });
+	const { code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
 
-	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'scan.json'), 'utf8'));
+	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'standards-check.json'), 'utf8'));
 	expect(report.path).toBe('.');
 	// the evidence file carries the findings, not just the printed summary
 	expect(report.findings.some((finding: { rule: string }) => finding.rule === 'filename-duplicate')).toBeTruthy();
 	expect(code).toBe(0);
 });
 
-test('cli: scan renders a degraded tier as a note instead of failing', async () => {
-	const { cwd } = await seedScanFixture();
+test('cli: standards-check renders a degraded check tier as a note instead of failing', async () => {
+	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
 
 	expect(stdout).toMatch(/ℹ [^\n]*no typescript resolvable from the target repo/);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
 
-test('cli: scan --baseline writes the debt ledger and exits 0', async () => {
-	const { cwd } = await seedScanFixture();
+test('cli: standards-check --baseline writes the debt ledger and exits 0', async () => {
+	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['scan', '--baseline', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--baseline', '--cwd', cwd] });
 
-	const ledger = JSON.parse(await readFile(join(cwd, 'lightsout.scan-baseline.json'), 'utf8'));
+	const ledger = JSON.parse(await readFile(join(cwd, 'lightsout.standards-baseline.json'), 'utf8'));
 	expect(ledger.path).toBe('.');
-	// the accepted sites are what future scans measure against
+	// the accepted sites are what future runs measure against
 	expect(ledger.siteKeys.length > 0).toBeTruthy();
 	expect(stdout).toMatch(/ℹ baseline written: \d+ site\(s\) accepted as existing debt/);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
 
-test('cli: scan reports nothing new once the findings are baselined', async () => {
-	const { cwd } = await seedScanFixture({ baseline: true });
+test('cli: standards-check reports nothing new once the findings are baselined', async () => {
+	const { cwd } = await seedStandardsFixture({ baseline: true });
 
-	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
 
 	// a baselined finding is accepted debt, not news
 	expect(stdout.includes('filename-duplicate')).toBeFalsy();
@@ -709,10 +709,10 @@ test('cli: scan reports nothing new once the findings are baselined', async () =
 	expect(code).toBe(0);
 });
 
-test('cli: scan --all reports the findings the baseline already accepted', async () => {
-	const { cwd } = await seedScanFixture({ baseline: true });
+test('cli: standards-check --all reports the findings the baseline already accepted', async () => {
+	const { cwd } = await seedStandardsFixture({ baseline: true });
 
-	const { stdout, stderr, code } = await runCli({ args: ['scan', '--all', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--all', '--cwd', cwd] });
 
 	// a baselined site is printed again under --all
 	expect(stdout).toMatch(/ℹ filename-duplicate · 1 advisory/);
@@ -720,16 +720,16 @@ test('cli: scan --all reports the findings the baseline already accepted', async
 	expect(code).toBe(0);
 });
 
-test('cli: scan --path narrows the scan to one subtree', async () => {
-	const { cwd } = await seedScanFixture();
+test('cli: standards-check --path narrows the run to one subtree', async () => {
+	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['scan', '--path', 'src/a', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--path', 'src/a', '--cwd', cwd] });
 
 	// the synonym pair is split by the narrowed scope, so tier 0 has nothing to
 	// pair
 	expect(stdout.includes('filename-duplicate')).toBeFalsy();
-	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'scan.json'), 'utf8'));
-	// the flag reaches the engine as the scanned subpath
+	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'standards-check.json'), 'utf8'));
+	// the flag reaches the engine as the checked subpath
 	expect(report.path).toBe('src/a');
 	expect(stderr).toBe('');
 	expect(code).toBe(0);

@@ -13,8 +13,8 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 	const resumeRunId = getStringFlag({ flags, name: 'run' });
 	const maxBatchesFlag = getStringFlag({ flags, name: 'max-batches' });
 
-	// Unlike scan, refactor MUTATES code — a missing config (no gates) is a
-	// hard error, never a fallback.
+	// Unlike the standards check, refactor MUTATES code — a missing config (no
+	// gates) is a hard error, never a fallback.
 	const loaded = await loadConfig({ cwd });
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: 'refactor' });
 	const driver = getDriver({ name: driverName });

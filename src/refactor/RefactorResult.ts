@@ -10,6 +10,6 @@ export interface RefactorResult {
 	declined: Array<{ batchId: string; remainingClusters: string[]; rationale: string[] }>;
 	/** Finding counts per rule at run start (from the frozen worklist). */
 	before: Record<string, number>;
-	/** Finding counts per rule from the final whole-scope re-scan. */
+	/** Finding counts per rule from the final whole-scope re-check. */
 	after: Record<string, number>;
 }

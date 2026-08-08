@@ -660,7 +660,7 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
-  lightsout scan [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline]
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
@@ -15334,11 +15334,13 @@ var LightsoutConfig = external_exports.object({
    * docs only).
    */
   standardsChannels: external_exports.array(external_exports.string()).optional(),
-  /** `lightsout scan` tuning — per-repo floors, not global guesses. */
-  scan: external_exports.object({
-    /** Minimum jscpd token span for a tier-1 clone finding (default 50). */
+  /** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  scan: external_exports.never("`scan` was renamed to `standardsChecks`").optional(),
+  /** `lightsout standards-check` tuning — per-repo floors, not global guesses. */
+  standardsChecks: external_exports.object({
+    /** Minimum jscpd token span for a clone finding (default 50). */
     minCloneTokens: external_exports.number().int().positive().optional(),
-    /** Line-cap overrides for the size detector (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
+    /** Line-cap overrides for the size rules (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
     size: external_exports.object({
       file: external_exports.number().int().positive().optional(),
       tsxFile: external_exports.number().int().positive().optional(),
@@ -15848,7 +15850,7 @@ var RefactorBatch = external_exports.object({
 // src/contracts/refactor/RefactorWorklist.ts
 var RefactorWorklist = external_exports.object({
   at: external_exports.string(),
-  /** Scan scope subpath, '.' for the whole repo. */
+  /** Standards-check scope subpath, '.' for the whole repo. */
   path: external_exports.string(),
   /** Whether baselined findings were included (burn-down mode). */
   all: external_exports.boolean(),
@@ -17286,14 +17288,14 @@ var formatFindingSite = ({ file: file2 }) => `${file2.path}${file2.startLine ? `
 var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \u2014 ${finding.guidance}` : finding.detail;
 
 // src/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, scan findings, and\nany verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Scan findings section is provided, those are deterministic detector\n  results on the changed files \u2014 address them FIRST; the engine re-runs the\n  scanner after you report, and unresolved findings re-invoke you. Entries\n  under its Advisory subsection carry judgment: fix each unless a documented\n  exemption (e.g. orchestration functions) genuinely applies \u2014 never block\n  on them, and note applied exemptions in your summary.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you. Entries\n  under its Advisory subsection carry judgment: fix each unless a documented\n  exemption (e.g. orchestration functions) genuinely applies \u2014 never block\n  on them, and note applied exemptions in your summary.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // src/agents/buildRefactorExecutorInvocation.ts
 var findingLine = (finding) => {
   const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(" \u2194 ");
   return `- [${finding.rule}] ${where} \u2014 ${formatFindingText({ finding })}`;
 };
-var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }) => {
+var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, findings, advisories, errorContext }) => {
   const roleSections = [refactorExecutor_default, `# Plan (context for what these changes were for)
 
 ${planContent}`];
@@ -17307,20 +17309,20 @@ ${standards}`);
   const sections = [`# Changed files to review
 
 ${changedFiles.map((file2) => `- ${file2}`).join("\n")}`];
-  if (scanFindings && scanFindings.length > 0 || scanAdvisories && scanAdvisories.length > 0) {
-    const parts = ["# Scan findings (deterministic detectors)"];
-    if (scanFindings && scanFindings.length > 0) {
+  if (findings && findings.length > 0 || advisories && advisories.length > 0) {
+    const parts = ["# Standards findings (deterministic checks)"];
+    if (findings && findings.length > 0) {
       parts.push(
-        `The engine's scanner found these on the changed files. Address each one first \u2014 they are re-checked after you report \u2014 or state in your summary why one must stay:
+        `The engine's standards checks found these on the changed files. Address each one first \u2014 they are re-checked after you report \u2014 or state in your summary why one must stay:
 
-${scanFindings.map(findingLine).join("\n")}`
+${findings.map(findingLine).join("\n")}`
       );
     }
-    if (scanAdvisories && scanAdvisories.length > 0) {
+    if (advisories && advisories.length > 0) {
       parts.push(
         `Advisory \u2014 judge each against the standards' documented exemptions (e.g. orchestration functions that only sequence step calls); fix it unless an exemption genuinely applies, and these never block the run:
 
-${scanAdvisories.map(findingLine).join("\n")}`
+${advisories.map(findingLine).join("\n")}`
       );
     }
     sections.push(parts.join("\n\n"));
@@ -18170,13 +18172,13 @@ var describePersistingFindings = ({ gating, report, passes }) => {
   });
   const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
   return [
-    `refactor: scan gate \u2014 ${gating.length} finding(s) persist after ${passes} pass(es):`,
+    `refactor: standards gate \u2014 ${gating.length} finding(s) persist after ${passes} pass(es):`,
     ...findingLines,
     ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
   ].join("\n");
 };
 
-// src/scan/runScan.ts
+// src/standardsCheck/runStandardsCheck.ts
 import { mkdir as mkdir6, writeFile as writeFile6 } from "node:fs/promises";
 import { join as join28 } from "node:path";
 
@@ -18234,12 +18236,12 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
   return void 0;
 };
 
-// src/scan/scanAstFindings.ts
+// src/standardsCheck/checkAstFindings.ts
 import { createHash } from "node:crypto";
 import { readFile as readFile10 } from "node:fs/promises";
 import { basename as basename2, join as join21 } from "node:path";
 
-// src/scan/common/utils/normalizeFunctionTokens.ts
+// src/standardsCheck/common/utils/normalizeFunctionTokens.ts
 var normalizeFunctionTokens = ({ node, compiler }) => {
   if (compiler.isIdentifier(node) || compiler.isPrivateIdentifier(node)) {
     return /^use[A-Z]/.test(node.text) ? [node.text] : ["ID"];
@@ -18254,7 +18256,7 @@ var normalizeFunctionTokens = ({ node, compiler }) => {
   return children.flatMap((child) => normalizeFunctionTokens({ node: child, compiler }));
 };
 
-// src/scan/common/utils/functionNameOf.ts
+// src/standardsCheck/common/utils/functionNameOf.ts
 var functionNameOf = ({ node, compiler }) => {
   if ((compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node)) && node.name) {
     return node.name.getText();
@@ -18266,7 +18268,7 @@ var functionNameOf = ({ node, compiler }) => {
   return "(anonymous)";
 };
 
-// src/scan/common/utils/groupDuplicateFunctions.ts
+// src/standardsCheck/common/utils/groupDuplicateFunctions.ts
 var groupDuplicateFunctions = ({ sites }) => {
   const byHash = /* @__PURE__ */ new Map();
   for (const site of sites) {
@@ -18288,7 +18290,7 @@ var groupDuplicateFunctions = ({ sites }) => {
   return findings;
 };
 
-// src/scan/scanAstFindings.ts
+// src/standardsCheck/checkAstFindings.ts
 var minBodyTokens = 40;
 var defaultSizeCaps = { file: 250, tsxFile: 300, function: 80, hook: 160, component: 200 };
 var fileLineCap = ({ file: file2, caps }) => file2.endsWith(".tsx") ? caps.tsxFile : caps.file;
@@ -18301,7 +18303,7 @@ var functionSizeCaps = ({ name, path, caps }) => {
   }
   return { cap: caps.function, kind: "function" };
 };
-var scanAstFindings = async ({ cwd, files, compiler, size }) => {
+var checkAstFindings = async ({ cwd, files, compiler, size }) => {
   const caps = { ...defaultSizeCaps, ...size };
   const findings = [];
   const sites = [];
@@ -18361,7 +18363,7 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
   return findings;
 };
 
-// src/scan/scanClones.ts
+// src/standardsCheck/checkClones.ts
 import { readFile as readFile11 } from "node:fs/promises";
 import { join as join22 } from "node:path";
 
@@ -30080,16 +30082,16 @@ var Tokenizer = class {
   }
 };
 
-// src/scan/blankImportSpans.ts
+// src/standardsCheck/blankImportSpans.ts
 var importSpan = /^[ \t]*import\b(?:[^;'"]*?from\s*)?(['"])[^'"\n]+\1\s*;?/gm;
 var blankImportSpans = ({ text }) => {
   return text.replace(importSpan, (span) => span.replace(/[^\n]/g, ""));
 };
 
-// src/scan/scanClones.ts
+// src/standardsCheck/checkClones.ts
 var defaultMinTokens = 50;
 var formatOf = (path) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
-var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
+var checkClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
   const findings = [];
   for (const file2 of files) {
@@ -30117,10 +30119,10 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
   return findings;
 };
 
-// src/scan/scanDeadExports.ts
+// src/standardsCheck/checkDeadExports.ts
 import { basename as basename3 } from "node:path";
 
-// src/scan/common/utils/readFileContents.ts
+// src/standardsCheck/common/utils/readFileContents.ts
 import { readFile as readFile12 } from "node:fs/promises";
 import { join as join23 } from "node:path";
 var readFileContents = async ({ cwd, files }) => {
@@ -30131,10 +30133,10 @@ var readFileContents = async ({ cwd, files }) => {
   return contents;
 };
 
-// src/scan/scanDeadExports.ts
+// src/standardsCheck/checkDeadExports.ts
 var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
 var isBarrel = ({ file: file2, text }) => basename3(file2).startsWith("index.") && /^export\b/m.test(text);
-var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
+var checkDeadExports = async ({ cwd, files, referenceFiles }) => {
   const findings = [];
   const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles ?? []] });
   const scope = new Set(files);
@@ -30181,11 +30183,11 @@ var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
   return findings;
 };
 
-// src/scan/mapFolderModules.ts
+// src/standardsCheck/mapFolderModules.ts
 import { readFile as readFile13 } from "node:fs/promises";
 import { basename as basename4, dirname as dirname3, join as join24 } from "node:path";
 
-// src/scan/readBarrelExports.ts
+// src/standardsCheck/readBarrelExports.ts
 import { posix } from "node:path";
 var starPattern = /^export\s+\*\s+(?:as\s+[A-Za-z0-9_$]+\s+)?from\s+['"]([^'"]+)['"]/;
 var namedPattern = /^export\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/;
@@ -30229,7 +30231,7 @@ var readBarrelExports = ({
   return entries;
 };
 
-// src/scan/mapFolderModules.ts
+// src/standardsCheck/mapFolderModules.ts
 var isBarrel2 = (path) => /^index\.tsx?$/.test(basename4(path));
 var isRootBarrelDir = (dir) => basename4(dir) === "src";
 var underCommon = (path) => path.split("/").includes("common");
@@ -30266,8 +30268,8 @@ var mapFolderModules = async ({
   return map2;
 };
 
-// src/scan/scanBarrelHygiene.ts
-var scanBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
+// src/standardsCheck/checkBarrelHygiene.ts
+var checkBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
   const modules = await mapFolderModules({ cwd, files });
   const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles ?? []] });
   const findings = [];
@@ -30338,8 +30340,8 @@ var nameKey = ({ name }) => {
 import { basename as basename5 } from "node:path";
 var nameOf = (path) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
 
-// src/scan/scanFilenameDuplicates.ts
-var scanFilenameDuplicates = ({ files }) => {
+// src/standardsCheck/checkFilenameDuplicates.ts
+var checkFilenameDuplicates = ({ files }) => {
   const findings = [];
   const byName = /* @__PURE__ */ new Map();
   const byTokens = /* @__PURE__ */ new Map();
@@ -30430,10 +30432,10 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   return edges;
 };
 
-// src/scan/scanModuleBoundaries.ts
+// src/standardsCheck/checkModuleBoundaries.ts
 var depth = (path) => path.split("/").length;
 var inside = ({ file: file2, folder }) => file2.startsWith(`${folder}/`);
-var scanModuleBoundaries = async ({ cwd, files, compiler }) => {
+var checkModuleBoundaries = async ({ cwd, files, compiler }) => {
   const modules = await mapFolderModules({ cwd, files });
   const edges = await collectImportEdges({ cwd, files, compiler });
   const moduleFolders = [...modules.entries()].filter(([, entry]) => entry.status === "module").map(([folder]) => folder);
@@ -30466,7 +30468,7 @@ var scanModuleBoundaries = async ({ cwd, files, compiler }) => {
   return findings;
 };
 
-// src/scan/scanPlacement.ts
+// src/standardsCheck/checkPlacement.ts
 import { dirname as dirname4 } from "node:path";
 var commonOwner = (path) => {
   const segments = path.split("/");
@@ -30485,7 +30487,7 @@ var lowestCommonAncestor = (paths) => {
   }
   return shared.join("/");
 };
-var scanPlacement = async ({ cwd, files, compiler }) => {
+var checkPlacement = async ({ cwd, files, compiler }) => {
   const edges = await collectImportEdges({ cwd, files, compiler });
   const leaksByFile = /* @__PURE__ */ new Map();
   for (const { from, to } of edges) {
@@ -30511,14 +30513,14 @@ var scanPlacement = async ({ cwd, files, compiler }) => {
   return findings;
 };
 
-// src/scan/scanStructure.ts
+// src/standardsCheck/checkStructure.ts
 import { readFile as readFile15 } from "node:fs/promises";
 import { basename as basename6, dirname as dirname5, join as join26 } from "node:path";
 
-// src/scan/common/utils/scanFileExports.ts
+// src/standardsCheck/common/utils/checkFileExports.ts
 var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+(?!\$\{)([A-Za-z0-9_$]+)/;
 var dotPrefixes = (name) => name.split(".").map((_, index, segments) => segments.slice(0, index + 1).join("."));
-var scanFileExports = ({ file: file2, text }) => {
+var checkFileExports = ({ file: file2, text }) => {
   const findings = [];
   const exports = [];
   for (const line of text.split("\n")) {
@@ -30558,7 +30560,7 @@ var scanFileExports = ({ file: file2, text }) => {
   return findings;
 };
 
-// src/scan/scanStructure.ts
+// src/standardsCheck/checkStructure.ts
 var folderCensusCap = 20;
 var accessVerbs = /* @__PURE__ */ new Set([
   "is",
@@ -30596,7 +30598,7 @@ var accessVerbs = /* @__PURE__ */ new Set([
   "apply"
 ]);
 var firstToken = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/)[0]?.toLowerCase() ?? "";
-var scanStructure = async ({ cwd, files }) => {
+var checkStructure = async ({ cwd, files }) => {
   const findings = [];
   const filesPerDir = /* @__PURE__ */ new Map();
   const utilsVerbGroups = /* @__PURE__ */ new Map();
@@ -30613,7 +30615,7 @@ var scanStructure = async ({ cwd, files }) => {
       continue;
     }
     const text = await readFile15(join26(cwd, file2), "utf8").catch(() => "");
-    findings.push(...scanFileExports({ file: file2, text }));
+    findings.push(...checkFileExports({ file: file2, text }));
   }
   for (const [dir, group] of utilsVerbGroups) {
     for (const [verb, paths] of group) {
@@ -30644,16 +30646,16 @@ var scanStructure = async ({ cwd, files }) => {
   return findings;
 };
 
-// src/scan/common/utils/applyScanBaseline.ts
+// src/standardsCheck/common/utils/applyStandardsBaseline.ts
 import { readFile as readFile16, writeFile as writeFile5 } from "node:fs/promises";
 import { join as join27 } from "node:path";
-var ScanBaseline = external_exports.object({
+var StandardsBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
   siteKeys: external_exports.array(external_exports.string())
 });
-var applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
-  const baselinePath = join27(cwd, "lightsout.scan-baseline.json");
+var applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
+  const baselinePath = join27(cwd, "lightsout.standards-baseline.json");
   const baselineRaw = await readFile16(baselinePath, "utf8").catch(() => void 0);
   const notes = [];
   let baselineJson;
@@ -30662,24 +30664,24 @@ var applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
   } catch {
     baselineJson = null;
   }
-  const baseline = baselineRaw === void 0 ? void 0 : ScanBaseline.safeParse(baselineJson);
+  const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
   if (writeBaseline) {
     const siteKeys = [...new Set(findings.map((finding) => finding.siteKey))];
     await writeFile5(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
 `, "utf8");
     notes.push(
-      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`
+      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
     );
     return { reported: findings, notes };
   }
   if (baseline === void 0) {
     if (findings.some((finding) => finding.severity === StandardsSeverity.Finding)) {
-      notes.push(`no baseline \u2014 \`lightsout scan --baseline\` accepts these findings as existing debt so future scans report only what's new`);
+      notes.push(`no baseline \u2014 \`lightsout standards-check --baseline\` accepts these findings as existing debt so future runs report only what's new`);
     }
     return { reported: findings, notes };
   }
   if (!baseline.success) {
-    notes.push("lightsout.scan-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
+    notes.push("lightsout.standards-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
     return { reported: findings, notes };
   }
   const accepted = new Set(baseline.data.siteKeys);
@@ -30695,7 +30697,7 @@ var applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
   return { reported: all ? findings : fresh, notes };
 };
 
-// src/scan/runScan.ts
+// src/standardsCheck/runStandardsCheck.ts
 var dominantPath = ({ findings }) => {
   const paths = findings.map((finding) => finding.files[0]?.path).filter((path) => path !== void 0);
   if (paths.length < 20) {
@@ -30723,35 +30725,42 @@ var dominantPath = ({ findings }) => {
   }
   return prefix.split("/").length >= 2 ? { dir: prefix, count, total: paths.length } : void 0;
 };
-var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = true, onProgress }) => {
+var runStandardsCheck = async ({
+  cwd,
+  path,
+  all = false,
+  writeBaseline = false,
+  persist = true,
+  onProgress
+}) => {
   const progress = onProgress ?? (() => void 0);
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const repoFiles = await listSourceFiles({ cwd, exclude: config2?.generated });
   const allFiles = repoFiles.filter((file2) => !path || file2.startsWith(path));
   const source = allFiles.filter((file2) => !isTestFile(file2));
   const notes = [];
-  progress(`scanning ${source.length} source file(s) (${allFiles.length - source.length} test file(s) excluded from duplication tiers)`);
+  progress(`checking ${source.length} source file(s) (${allFiles.length - source.length} test file(s) excluded from duplication tiers)`);
   const findings = [];
-  findings.push(...scanFilenameDuplicates({ files: source }));
+  findings.push(...checkFilenameDuplicates({ files: source }));
   progress(`tier 0 (names): done`);
-  findings.push(...await scanClones({ cwd, files: source, minTokens: config2?.scan?.minCloneTokens }));
+  findings.push(...await checkClones({ cwd, files: source, minTokens: config2?.standardsChecks?.minCloneTokens }));
   progress(`tier 1 (clones): done`);
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2?.packagesDir });
   if (compiler) {
-    findings.push(...await scanAstFindings({ cwd, files: source, compiler, size: config2?.scan?.size }));
+    findings.push(...await checkAstFindings({ cwd, files: source, compiler, size: config2?.standardsChecks?.size }));
     progress(`tier 2 (ast) + size: done (typescript ${compiler.version})`);
-    findings.push(...await scanModuleBoundaries({ cwd, files: allFiles, compiler }));
+    findings.push(...await checkModuleBoundaries({ cwd, files: allFiles, compiler }));
     progress(`module boundaries: done`);
-    findings.push(...await scanPlacement({ cwd, files: allFiles, compiler }));
+    findings.push(...await checkPlacement({ cwd, files: allFiles, compiler }));
     progress(`placement: done`);
   } else {
-    notes.push("tier 2 (ast) + function-size audit + module-boundary/placement detectors skipped \u2014 no typescript resolvable from the target repo");
+    notes.push("ast tier + function-size audit + module-boundary/placement checks skipped \u2014 no typescript resolvable from the target repo");
   }
-  findings.push(...await scanBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles }));
+  findings.push(...await checkBarrelHygiene({ cwd, files: allFiles, referenceFiles: repoFiles }));
   progress(`barrel hygiene: done`);
-  findings.push(...await scanStructure({ cwd, files: source }));
+  findings.push(...await checkStructure({ cwd, files: source }));
   progress(`structure: done`);
-  findings.push(...await scanDeadExports({ cwd, files: allFiles, referenceFiles: repoFiles }));
+  findings.push(...await checkDeadExports({ cwd, files: allFiles, referenceFiles: repoFiles }));
   progress(`dead exports: done`);
   const dominant = dominantPath({ findings });
   if (dominant) {
@@ -30761,18 +30770,18 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
   }
   const dir = join28(cwd, ".lightsout");
   await mkdir6(dir, { recursive: true });
-  const baseline = await applyScanBaseline({ cwd, path, findings, all, writeBaseline });
+  const baseline = await applyStandardsBaseline({ cwd, path, findings, all, writeBaseline });
   notes.push(...baseline.notes);
   if (persist) {
-    await writeFile6(join28(dir, "scan.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
+    await writeFile6(join28(dir, "standards-check.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
   }
   return { findings: baseline.reported, notes };
 };
 
-// src/scan/selectScanFindings.ts
+// src/standardsCheck/selectStandardsFindings.ts
 var gatingSiteKeyPattern = /^(ast:|multi-export:|size:file:|boundary:)/;
-var selectScanFindings = ({
+var selectStandardsFindings = ({
   findings,
   changedFiles
 }) => {
@@ -30785,10 +30794,10 @@ var selectScanFindings = ({
   return { workList, advisories, gating: workList.filter((finding) => gatingSiteKeyPattern.test(finding.siteKey)) };
 };
 
-// src/pipeline/steps/scanWorkList.ts
-var scanWorkList = async ({ run }) => {
-  const { findings } = await runScan({ cwd: run.cwd, persist: false });
-  return selectScanFindings({ findings, changedFiles: sourceFiles({ run }) });
+// src/pipeline/steps/standardsWorkList.ts
+var standardsWorkList = async ({ run }) => {
+  const { findings } = await runStandardsCheck({ cwd: run.cwd, persist: false });
+  return selectStandardsFindings({ findings, changedFiles: sourceFiles({ run }) });
 };
 
 // src/pipeline/steps/refactorStep.ts
@@ -30801,10 +30810,10 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
     let lastDeclined;
     for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
       await run.setStep({ record: record2 });
-      const scan = await scanWorkList({ run });
-      if (scan.workList.length > 0 || scan.advisories.length > 0) {
+      const check2 = await standardsWorkList({ run });
+      if (check2.workList.length > 0 || check2.advisories.length > 0) {
         run.progress(
-          `scan gate: ${scan.workList.length} finding(s) + ${scan.advisories.length} advisory(ies) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ""}`
+          `standards gate: ${check2.workList.length} finding(s) + ${check2.advisories.length} advisory(ies) on changed files${check2.gating.length > 0 ? ` (${check2.gating.length} gating)` : ""}`
         );
       }
       run.progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
@@ -30815,8 +30824,8 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
           planContent,
           changedFiles: sourceFiles({ run }),
           standards,
-          scanFindings: scan.workList,
-          scanAdvisories: scan.advisories
+          findings: check2.workList,
+          advisories: check2.advisories
         }),
         step: "refactor"
       });
@@ -30833,12 +30842,12 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
       await run.setStep({ record: { ...record2, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
       lastReport = report;
       if (report.changedFiles.length === 0) {
-        if (scan.gating.length === 0) {
+        if (check2.gating.length === 0) {
           run.progress(`refactor pass ${pass}: no changes \u2014 loop complete`);
           cleanExit = true;
           break;
         }
-        const declined = scan.gating.map((finding) => finding.siteKey).sort().join("\n");
+        const declined = check2.gating.map((finding) => finding.siteKey).sort().join("\n");
         if (declined === lastDeclined && pass < maxRefactorPasses) {
           run.progress(`refactor pass ${pass}: agent declined the same gating set twice \u2014 escalating without spending the remaining pass(es)`);
         }
@@ -30846,11 +30855,11 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
           return run.stop({
             record: { ...record2, report },
             status: RunStatus.Escalated,
-            error: describePersistingFindings({ gating: scan.gating, report, passes: pass })
+            error: describePersistingFindings({ gating: check2.gating, report, passes: pass })
           });
         }
         lastDeclined = declined;
-        run.progress(`refactor pass ${pass}: no changes but scanner still reports ${scan.gating.length} gating finding(s) \u2014 another pass`);
+        run.progress(`refactor pass ${pass}: no changes but the checks still report ${check2.gating.length} gating finding(s) \u2014 another pass`);
         record2 = { ...record2, attempts: record2.attempts + 1 };
         continue;
       }
@@ -30859,7 +30868,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
       record2 = { ...record2, attempts: record2.attempts + 1 };
     }
     if (!cleanExit) {
-      const final = await scanWorkList({ run });
+      const final = await standardsWorkList({ run });
       if (final.gating.length > 0) {
         return run.stop({
           record: { ...record2, report: lastReport },
@@ -33099,7 +33108,7 @@ var batchFindings = ({ findings, advisories, packagesDir }) => {
 
 // src/refactor/buildWorklist.ts
 var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
-  const { findings } = await runScan({ cwd, path, all, persist: false });
+  const { findings } = await runStandardsCheck({ cwd, path, all, persist: false });
   return {
     at: (/* @__PURE__ */ new Date()).toISOString(),
     path: path ?? ".",
@@ -33109,7 +33118,7 @@ var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
       // Size advisories only — the executor prompt frames advisories as the
       // size caps' judgment items; other advisory rules (dead-export)
       // must not ride in as if they were work (in-pipeline precedent:
-      // selectScanFindings).
+      // selectStandardsFindings).
       advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size),
       packagesDir: config2.packagesDir ?? "packages"
     })
@@ -33162,12 +33171,12 @@ var seedResumeState = ({ manifest, batches }) => {
 };
 
 // src/refactor/buildBatchFixInvocation.ts
-var buildBatchFixInvocation = ({ planContent, files, standards, testStandards, scanFindings, scanAdvisories, gateError, guidance }) => {
+var buildBatchFixInvocation = ({ planContent, files, standards, testStandards, findings, advisories, gateError, guidance }) => {
   const errorContext = guidance ? `${gateError}
 
 ${guidance}` : gateError;
   const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
-  return coverageRed ? buildUnitTestWriterInvocation({ planContent, changedFiles: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, scanFindings, scanAdvisories, errorContext });
+  return coverageRed ? buildUnitTestWriterInvocation({ planContent, changedFiles: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, errorContext });
 };
 
 // src/refactor/collectBatchChanges.ts
@@ -33334,15 +33343,15 @@ ${remainingError}`
 
 // src/refactor/runBatch.ts
 var maxCheapFixRetries2 = 2;
-var standaloneBanner = "Standalone refactor run \u2014 there is no feature plan. The scan findings below are the entire work-list; nothing else about the repo is being changed.";
+var standaloneBanner = "Standalone refactor run \u2014 there is no feature plan. The standards findings below are the entire work-list; nothing else about the repo is being changed.";
 var runBatch = async ({
   cwd,
   runId,
   driver,
   config: config2,
   batch,
-  scanPath,
-  scanAll,
+  checkPath,
+  checkAll,
   standards,
   testStandards,
   agentTimeoutMs,
@@ -33358,33 +33367,33 @@ var runBatch = async ({
     return invokeBatchAgent({ cwd, runId, driver, config: config2, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, recordUsage });
   };
   const gates2 = () => runBatchGates({ cwd, config: config2, runId, step: batch.id, onProgress });
-  const scanLive = () => runScan({ cwd, path: scanPath, all: scanAll, persist: false });
+  const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
   const remainingClusters = async ({ frozen }) => {
-    const { findings } = await scanLive();
+    const { findings } = await checkLive();
     return matchRemainingFindings({ frozen, live: findings });
   };
   const batchChangedFiles = () => collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles });
-  const preScan = await scanLive();
-  if (matchRemainingFindings({ frozen: batch.findings, live: preScan.findings }).length === 0) {
+  const preCheck = await checkLive();
+  if (matchRemainingFindings({ frozen: batch.findings, live: preCheck.findings }).length === 0) {
     onProgress(`${batch.id}: clusters already resolved by earlier work \u2014 no agent spent`);
     return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: [] };
   }
   const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file2) => file2.path)));
-  const liveAdvisories = preScan.findings.filter(
+  const liveAdvisories = preCheck.findings.filter(
     (finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size && finding.files.some((file2) => batchFiles.has(file2.path))
   );
   let workFindings = batch.findings;
   for (let pass = 1; pass <= 2; pass += 1) {
     const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
-    const buildFixInvocation = ({ gateError: gateError2, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, scanFindings: workFindings, scanAdvisories: liveAdvisories, gateError: gateError2, guidance });
+    const buildFixInvocation = ({ gateError: gateError2, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories: liveAdvisories, gateError: gateError2, guidance });
     const attemptOutcome = await invoke({
       label: pass === 1 ? "" : "requeue",
       invocation: buildRefactorExecutorInvocation({
         planContent: standaloneBanner,
         changedFiles: files,
         standards,
-        scanFindings: workFindings,
-        scanAdvisories: liveAdvisories
+        findings: workFindings,
+        advisories: liveAdvisories
       })
     });
     if (!attemptOutcome.ok) {
@@ -33540,8 +33549,8 @@ ${gateError}` });
       driver,
       config: config2,
       batch,
-      scanPath: worklist.path === "." ? void 0 : worklist.path,
-      scanAll: worklist.all,
+      checkPath: worklist.path === "." ? void 0 : worklist.path,
+      checkAll: worklist.all,
       standards,
       testStandards,
       agentTimeoutMs,
@@ -33570,7 +33579,7 @@ ${gateError}` });
       declineStreak += 1;
       progress(`${batch.id}: declined (${report.remainingClusters.length} cluster(s) persist)`);
       if (declineStreak >= maxConsecutiveDeclines) {
-        const error51 = `${maxConsecutiveDeclines} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or a detector bug), not worth further agent spend.`;
+        const error51 = `${maxConsecutiveDeclines} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or a rule bug), not worth further agent spend.`;
         await update({ status: RunStatus.Escalated, currentStep: null });
         progress(`refactor run stopped after ${batch.id} \u2014 ${RunStatus.Escalated}`);
         return { ok: false, manifest, error: error51, declined, before, after: before };
@@ -33580,9 +33589,9 @@ ${gateError}` });
     declineStreak = 0;
     progress(`${batch.id}: resolved`);
   }
-  const finalScan = await runScan({ cwd, path: worklist.path === "." ? void 0 : worklist.path, all: worklist.all, persist: false });
+  const finalCheck = await runStandardsCheck({ cwd, path: worklist.path === "." ? void 0 : worklist.path, all: worklist.all, persist: false });
   await update({ status: RunStatus.Passed, currentStep: null });
-  return { ok: true, manifest, declined, before, after: countByRule({ findings: finalScan.findings.filter((finding) => finding.severity === StandardsSeverity.Finding) }) };
+  return { ok: true, manifest, declined, before, after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Finding) }) };
 };
 var runRefactorPipeline = (params) => withRunLock({ params, run: executeRefactor });
 
@@ -33605,7 +33614,7 @@ ${yellow("declined")} ${entry.batchId}`);
     for (const line of entry.rationale) {
       console.log(dim(`  ${line}`));
     }
-    console.log(dim(`  review each cluster \u2014 fix by hand, or accept it as debt: lightsout scan --baseline`));
+    console.log(dim(`  review each cluster \u2014 fix by hand, or accept it as debt: lightsout standards-check --baseline`));
   }
   const rules = [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].sort();
   if (!result.ok) {
@@ -33765,10 +33774,10 @@ var printFindingGroups = ({ findings }) => {
   }
 };
 
-// src/cli/common/render/printScanSummary.ts
+// src/cli/common/render/printStandardsSummary.ts
 var countOf = ({ findings, rule, severity }) => findings.filter((finding) => finding.rule === rule && finding.severity === severity).length;
 var cell = ({ count }) => count === 0 ? "\u2014" : `${count}`;
-var printScanSummary = ({ findings, reportPath: reportPath2 }) => {
+var printStandardsSummary = ({ findings, reportPath: reportPath2 }) => {
   console.log("");
   if (findings.length === 0) {
     console.log(green("clean \u2014 no findings, no advisories"));
@@ -33799,13 +33808,13 @@ var printScanSummary = ({ findings, reportPath: reportPath2 }) => {
   console.log(dim(`report: ${reportPath2}`));
 };
 
-// src/cli/scanCommand.ts
-var reportPath = ".lightsout/scan.json";
-var scanCommand = async ({ flags, cwd }) => {
-  const scanPath = getStringFlag({ flags, name: "path" });
-  const { findings, notes } = await runScan({
+// src/cli/standardsCheckCommand.ts
+var reportPath = ".lightsout/standards-check.json";
+var standardsCheckCommand = async ({ flags, cwd }) => {
+  const checkPath = getStringFlag({ flags, name: "path" });
+  const { findings, notes } = await runStandardsCheck({
     cwd,
-    path: scanPath,
+    path: checkPath,
     all: flags.get("all") === true,
     writeBaseline: flags.get("baseline") === true,
     onProgress: (message) => console.log(dim(message))
@@ -33821,7 +33830,7 @@ var scanCommand = async ({ flags, cwd }) => {
   for (const note of notes) {
     console.log(`${dim("\u2139")} ${dim(note)}`);
   }
-  printScanSummary({ findings: ordered, reportPath });
+  printStandardsSummary({ findings: ordered, reportPath });
   process.exit(0);
 };
 
@@ -33853,7 +33862,7 @@ var commands = {
   resume: resumeCommand,
   status: statusCommand,
   doctor: doctorCommand,
-  scan: scanCommand,
+  "standards-check": standardsCheckCommand,
   refactor: refactorCommand,
   plan: planCommand,
   friction: frictionCommand,

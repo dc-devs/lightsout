@@ -165,8 +165,8 @@ Set `standards` or `testStandards` to `false` to disable that category entirely.
 | `standards`                  |       no | Standards injected into code-writing agents. When omitted, the bundled JavaScript and TypeScript standards are used. Set to `false` to disable code standards, or provide an array of Markdown files or folders — a folder loads every `.md` file under it, recursively, in sorted path order. Include `lightsout:code-defaults` to keep the bundled standards alongside your own. |
 | `testStandards`              |       no | Standards injected into the test-writing agent. The behavior matches `standards`. Use `lightsout:test-defaults` to include the bundled test standards alongside your own.                                                                                                                 |
 | `standardsChannels`          |       no | Controls which framework-specific bundled standards are loaded, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base standards.                                    |
-| `scan.minCloneTokens`        |       no | The minimum clone size reported by `lightsout scan`. Defaults to `50` tokens.                                                                                                                                                                                                             |
-| `scan.size`                  |       no | Overrides the line limits used by the size detector. Defaults are `file: 250`, `tsxFile: 300`, `function: 80`, `hook: 160`, and `component: 200`.                                                                                                                                         |
+| `standardsChecks.minCloneTokens` |   no | The minimum clone size reported by `lightsout standards-check`. Defaults to `50` tokens.                                                                                                                                                                                                             |
+| `standardsChecks.size`       |       no | Overrides the line limits used by the size rules. Defaults are `file: 250`, `tsxFile: 300`, `function: 80`, `hook: 160`, and `component: 200`.                                                                                                                                         |
 
 ### Harness-neutral keys
 
@@ -239,8 +239,8 @@ The following example shows how the optional configuration fields fit together:
     "supervisorMinutes": 15,
   },
 
-  // Duplication and file-size detection
-  "scan": {
+  // Standards-check tuning
+  "standardsChecks": {
     "minCloneTokens": 70,
     "size": {
       "file": 250,

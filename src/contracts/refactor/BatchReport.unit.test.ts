@@ -4,7 +4,7 @@ import { BatchReport } from '@/contracts';
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const report = {
 		outcome: 'declined',
-		remainingClusters: ['clone:src/scan/scanClones.ts', 'size:src/pipeline/runGates.ts'],
+		remainingClusters: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 		rationale: ['the two blocks read alike but diverge on the detector contract'],
 		...overrides,
 	};
@@ -30,7 +30,7 @@ describe('BatchReport', () => {
 
 		expect(parsed).toStrictEqual({
 			outcome: 'declined',
-			remainingClusters: ['clone:src/scan/scanClones.ts', 'size:src/pipeline/runGates.ts'],
+			remainingClusters: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 			rationale: ['the two blocks read alike but diverge on the detector contract'],
 		});
 	});
@@ -81,7 +81,7 @@ describe('BatchReport', () => {
 	});
 
 	test('rejects a bare string where a list belongs', () => {
-		for (const overrides of [{ remainingClusters: 'clone:src/scan/scanClones.ts' }, { rationale: 'the duplication is intentional' }]) {
+		for (const overrides of [{ remainingClusters: 'clone:src/standardsCheck/checkClones.ts' }, { rationale: 'the duplication is intentional' }]) {
 			const { report } = setupReport(overrides);
 
 			const result = BatchReport.safeParse(report);
@@ -93,7 +93,7 @@ describe('BatchReport', () => {
 	});
 
 	test('rejects a non-string entry inside either list', () => {
-		for (const overrides of [{ remainingClusters: [{ id: 'clone:src/scan/scanClones.ts' }] }, { rationale: [42] }]) {
+		for (const overrides of [{ remainingClusters: [{ id: 'clone:src/standardsCheck/checkClones.ts' }] }, { rationale: [42] }]) {
 			const { report } = setupReport(overrides);
 
 			const result = BatchReport.safeParse(report);
@@ -117,13 +117,13 @@ describe('BatchReport', () => {
 	test('keys the schema does not declare are stripped when a persisted step report is read back', () => {
 		const { report } = setupReport();
 
-		const parsed = BatchReport.parse({ ...report, changedFiles: ['src/scan/scanClones.ts'], batchId: 'batch-01:clones:src' });
+		const parsed = BatchReport.parse({ ...report, changedFiles: ['src/standardsCheck/checkClones.ts'], batchId: 'batch-01:clones:src' });
 
 		// the step record keeps changedFiles beside the report; parsing the payload
 		// holds only the fields the contract declares
 		expect(parsed).toStrictEqual({
 			outcome: 'declined',
-			remainingClusters: ['clone:src/scan/scanClones.ts', 'size:src/pipeline/runGates.ts'],
+			remainingClusters: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 			rationale: ['the two blocks read alike but diverge on the detector contract'],
 		});
 	});

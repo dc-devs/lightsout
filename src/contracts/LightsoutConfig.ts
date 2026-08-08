@@ -146,12 +146,14 @@ export const LightsoutConfig = z.object({
 	 * docs only).
 	 */
 	standardsChannels: z.array(z.string()).optional(),
-	/** `lightsout scan` tuning — per-repo floors, not global guesses. */
-	scan: z
+	/** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
+	scan: z.never('`scan` was renamed to `standardsChecks`').optional(),
+	/** `lightsout standards-check` tuning — per-repo floors, not global guesses. */
+	standardsChecks: z
 		.object({
-			/** Minimum jscpd token span for a tier-1 clone finding (default 50). */
+			/** Minimum jscpd token span for a clone finding (default 50). */
 			minCloneTokens: z.number().int().positive().optional(),
-			/** Line-cap overrides for the size detector (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
+			/** Line-cap overrides for the size rules (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
 			size: z
 				.object({
 					file: z.number().int().positive().optional(),

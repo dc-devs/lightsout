@@ -38,13 +38,13 @@ export const printRefactorResult = ({ result }: Params): void => {
 			console.log(dim(`  ${line}`));
 		}
 
-		console.log(dim(`  review each cluster — fix by hand, or accept it as debt: lightsout scan --baseline`));
+		console.log(dim(`  review each cluster — fix by hand, or accept it as debt: lightsout standards-check --baseline`));
 	}
 
 	const rules = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
 
-	// A parked run takes no final scan — its `after` merely echoes `before`,
-	// and printing that as a burn-down reads as "nothing improved".
+	// A parked run takes no final standards check — its `after` merely echoes
+	// `before`, and printing that as a burn-down reads as "nothing improved".
 	if (!result.ok) {
 		console.log(dim(`\nno burn-down until the run completes — resume to finish and measure`));
 	} else if (rules.length > 0) {

@@ -12,9 +12,12 @@ import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
  * A consumer repo whose implement step lands `source` at `src/subject.js` and
  * whose writers drop one stub test, leaving the refactor role — answered by
  * `onRefactor`, once per pass — as the only thing left to decide the run.
+ * `onProgress` collects the run's narration into `progress` for the tests that
+ * assert on what a watching human is told.
  */
 const setupRefactorRun = async ({ source, onRefactor }: { source: string; onRefactor: (params: { pass: number; cwd: string }) => string }) => {
 	const dir = setupConsumerRepo();
+	const progress: string[] = [];
 	let passes = 0;
 	const driver: Driver = {
 		name: 'stub',
@@ -40,7 +43,14 @@ const setupRefactorRun = async ({ source, onRefactor }: { source: string; onRefa
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), passesRun: () => passes };
+	return {
+		dir,
+		driver,
+		config: await loadConfig({ cwd: dir }),
+		passesRun: () => passes,
+		progress,
+		onProgress: (message: string) => progress.push(message),
+	};
 };
 
 test('refactor: a failed report stops the run as failed, carrying the failure text the agent reported', async () => {
@@ -77,7 +87,7 @@ test('refactor: a terminated report escalates rather than failing — it needs a
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('escalated');
 });
 
-test('refactor: a loop that spends every pass still changing files cannot walk past the scan gate', async () => {
+test('refactor: a loop that spends every pass still changing files cannot walk past the standards gate', async () => {
 	const { dir, driver, config, passesRun } = await setupRefactorRun({
 		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
 		onRefactor: ({ pass, cwd }) => {
@@ -96,7 +106,7 @@ test('refactor: a loop that spends every pass still changing files cannot walk p
 	// a pass that changes files always earns the next one — the budget is spent in
 	// full
 	expect(passesRun()).toBe(3);
-	// the post-loop scan escalates on the findings that survived
+	// the post-loop check escalates on the findings that survived
 	expect(result.error ?? '').toMatch(/persist after 3 pass\(es\)/);
 	// the surviving cluster is named
 	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
@@ -110,7 +120,7 @@ test('refactor: a pass declining the identical gating set escalates early rather
 	const { dir, driver, config, passesRun } = await setupRefactorRun({
 		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
 		// Every pass judges the findings not worth acting on and reports no
-		// changes, so the site keys the scanner reports are identical each pass.
+		// changes, so the site keys the checks report are identical each pass.
 		onRefactor: () => report({ changedFiles: [] }),
 	});
 
@@ -143,4 +153,17 @@ test("refactor: the escalation carries the agent's reported friction as its acco
 	expect(result.error ?? '').toMatch(/- \[plan\] SPLIT-WOULD-BREAK-THE-BARREL/);
 	// and the persisting site key still leads the message
 	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
+});
+
+test('refactor: a first decline narrates how many gating findings the checks still report before buying another pass', async () => {
+	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		// A no-change pass whose gating set is the first one seen — the loop has
+		// nothing to compare it against yet, so it narrates and spends another pass.
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress });
+
+	expect(progress.some((line) => /^refactor pass 1: no changes but the checks still report [1-9]\d* gating finding\(s\) — another pass$/.test(line))).toBe(true);
 });

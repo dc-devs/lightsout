@@ -18,7 +18,7 @@ describe('DedupVerdict', () => {
 		const { verdict } = setupVerdict({
 			recommendation: 'extract',
 			suggestedLocation: 'src/common/utils/formatDate.ts',
-			migrateCallers: ['src/plan/runPlanDraft.ts', 'src/scan/runScan.ts'],
+			migrateCallers: ['src/plan/runPlanDraft.ts', 'src/standardsCheck/runStandardsCheck.ts'],
 		});
 
 		const parsed = DedupVerdict.parse(verdict);
@@ -29,7 +29,7 @@ describe('DedupVerdict', () => {
 			recommendation: 'extract',
 			rationale: 'the planned symbol restates an existing utility',
 			suggestedLocation: 'src/common/utils/formatDate.ts',
-			migrateCallers: ['src/plan/runPlanDraft.ts', 'src/scan/runScan.ts'],
+			migrateCallers: ['src/plan/runPlanDraft.ts', 'src/standardsCheck/runStandardsCheck.ts'],
 		});
 	});
 

@@ -18,7 +18,7 @@ describe('DedupFinding', () => {
 		const { finding } = setupFinding({
 			collidesWith: [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }],
 			suggestedLocation: 'src/common/utils/formatDate.ts',
-			migrateCallers: ['src/scan/runScan.ts'],
+			migrateCallers: ['src/standardsCheck/runStandardsCheck.ts'],
 		});
 
 		const parsed = DedupFinding.parse(finding);
@@ -30,7 +30,7 @@ describe('DedupFinding', () => {
 			rationale: 'the planned symbol restates an existing utility',
 			collidesWith: [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }],
 			suggestedLocation: 'src/common/utils/formatDate.ts',
-			migrateCallers: ['src/scan/runScan.ts'],
+			migrateCallers: ['src/standardsCheck/runStandardsCheck.ts'],
 		});
 	});
 

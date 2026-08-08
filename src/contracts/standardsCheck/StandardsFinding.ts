@@ -3,9 +3,9 @@ import { StandardsRule } from '@/contracts/standardsCheck/StandardsRule';
 import { StandardsSeverity } from '@/contracts/standardsCheck/StandardsSeverity';
 
 /**
- * One structural defect found by `lightsout scan`. Typed because this is
- * v2's remediation work-list: a refactor agent gets handed a grouped set of
- * findings, never "go find problems".
+ * One structural defect found by `lightsout standards-check`. Typed because
+ * this is v2's remediation work-list: a refactor agent gets handed a grouped
+ * set of findings, never "go find problems".
  */
 export const StandardsFinding = z.object({
 	rule: z.enum(StandardsRule),

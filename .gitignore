@@ -21,7 +21,7 @@ fixtures/*/.lightsout/friction.jsonl
 # own run state (this repo is its own lightsout consumer)
 .lightsout/runs/
 .lightsout/plans/
-.lightsout/scan.json
+.lightsout/standards-check.json
 .lightsout/lock.json
 .lightsout/friction.jsonl
 

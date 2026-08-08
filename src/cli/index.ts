@@ -9,7 +9,7 @@ import { improveCommand } from '@/cli/improveCommand';
 import { planCommand } from '@/cli/plan';
 import { resumeCommand } from '@/cli/resumeCommand';
 import { refactorCommand } from '@/cli/refactorCommand';
-import { scanCommand } from '@/cli/scanCommand';
+import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
 import { statusCommand } from '@/cli/statusCommand';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
@@ -17,7 +17,7 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	resume: resumeCommand,
 	status: statusCommand,
 	doctor: doctorCommand,
-	scan: scanCommand,
+	'standards-check': standardsCheckCommand,
 	refactor: refactorCommand,
 	plan: planCommand,
 	friction: frictionCommand,

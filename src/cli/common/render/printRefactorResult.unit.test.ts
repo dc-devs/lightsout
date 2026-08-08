@@ -77,6 +77,33 @@ test('printRefactorResult: a decline is a judgment — it rides in the status li
 	expect(output()).toContain('[scope] the cap is the wrong signal here');
 });
 
+test('printRefactorResult: every decline offers the escape hatch, naming the command exactly as it is typed', () => {
+	const { result, output } = setupResult({
+		declined: [
+			{ batchId: 'batch-1', remainingClusters: ['size:file:src/a.ts'], rationale: ['[scope] the cap is the wrong signal here'] },
+			{ batchId: 'batch-2', remainingClusters: ['clone:x'], rationale: ['[risk] the duplication is deliberate'] },
+		],
+		manifest: {
+			steps: [
+				{ id: 'batch-1', status: RunStatus.Passed, attempts: 1 },
+				{ id: 'batch-2', status: RunStatus.Passed, attempts: 1 },
+			],
+		},
+	});
+
+	printRefactorResult({ result });
+
+	// a hint a reader retypes is a contract: a stale command word sends them nowhere
+	const hints = output()
+		.split('\n')
+		.filter((line) => line.includes('accept it as debt'));
+
+	expect(hints).toStrictEqual([
+		'  review each cluster — fix by hand, or accept it as debt: lightsout standards-check --baseline',
+		'  review each cluster — fix by hand, or accept it as debt: lightsout standards-check --baseline',
+	]);
+});
+
 test('printRefactorResult: a parked run prints no burn-down, because its after merely echoes before', () => {
 	const { result, output, errors } = setupResult({
 		ok: false,

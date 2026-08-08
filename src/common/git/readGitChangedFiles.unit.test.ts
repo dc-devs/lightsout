@@ -58,7 +58,7 @@ describe('readGitChangedFiles', () => {
 
 	test('run state under .lightsout/ is never reported as a changed file', async () => {
 		const { cwd } = setupChangedRepo({
-			write: { '.lightsout/runs/r1/manifest.json': '{}\n', '.lightsout/scan.json': '{}\n', 'src/added.ts': 'export const added = 1;\n' },
+			write: { '.lightsout/runs/r1/manifest.json': '{}\n', '.lightsout/standards-check.json': '{}\n', 'src/added.ts': 'export const added = 1;\n' },
 		});
 
 		const changed = await readGitChangedFiles({ cwd });

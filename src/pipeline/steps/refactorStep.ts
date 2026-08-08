@@ -8,7 +8,7 @@ import { invokeRoleOrStop } from '@/pipeline/common/utils/invokeRoleOrStop';
 import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
 import { withStepFiles } from '@/pipeline/common/utils/withStepFiles';
 import { describePersistingFindings } from '@/pipeline/steps/describePersistingFindings';
-import { scanWorkList } from '@/pipeline/steps/scanWorkList';
+import { standardsWorkList } from '@/pipeline/steps/standardsWorkList';
 
 const maxRefactorPasses = 3;
 
@@ -20,10 +20,10 @@ interface Params {
 }
 
 /**
- * The scan-gated refactor loop: iterate until a pass reports complete with
- * zero changed files AND the scanner reports no gating findings on the
+ * The standards-gated refactor loop: iterate until a pass reports complete
+ * with zero changed files AND the checks report no gating findings on the
  * changed files — capped at maxRefactorPasses, with a stable-decline early
- * exit (the agent has judged, the scanner cannot hear judgment, and a
+ * exit (the agent has judged, the checks cannot hear judgment, and a
  * further pass only re-buys the same answer).
  */
 export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params): PipelineStep['run'] => {
@@ -40,11 +40,11 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
 			await run.setStep({ record });
 
-			const scan = await scanWorkList({ run });
+			const check = await standardsWorkList({ run });
 
-			if (scan.workList.length > 0 || scan.advisories.length > 0) {
+			if (check.workList.length > 0 || check.advisories.length > 0) {
 				run.progress(
-					`scan gate: ${scan.workList.length} finding(s) + ${scan.advisories.length} advisory(ies) on changed files${scan.gating.length > 0 ? ` (${scan.gating.length} gating)` : ''}`,
+					`standards gate: ${check.workList.length} finding(s) + ${check.advisories.length} advisory(ies) on changed files${check.gating.length > 0 ? ` (${check.gating.length} gating)` : ''}`,
 				);
 			}
 
@@ -57,8 +57,8 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 					planContent,
 					changedFiles: sourceFiles({ run }),
 					standards,
-					scanFindings: scan.workList,
-					scanAdvisories: scan.advisories,
+					findings: check.workList,
+					advisories: check.advisories,
 				}),
 				step: 'refactor',
 			});
@@ -83,15 +83,15 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 			lastReport = report;
 
 			if (report.changedFiles.length === 0) {
-				// No changes this pass, so the top-of-pass scan still describes
-				// the tree — no re-scan needed to judge the gate.
-				if (scan.gating.length === 0) {
+				// No changes this pass, so the top-of-pass check still describes
+				// the tree — no re-check needed to judge the gate.
+				if (check.gating.length === 0) {
 					run.progress(`refactor pass ${pass}: no changes — loop complete`);
 					cleanExit = true;
 					break;
 				}
 
-				const declined = scan.gating
+				const declined = check.gating
 					.map((finding) => finding.siteKey)
 					.sort()
 					.join('\n');
@@ -104,17 +104,17 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 					return run.stop({
 						record: { ...record, report },
 						status: RunStatus.Escalated,
-						error: describePersistingFindings({ gating: scan.gating, report, passes: pass }),
+						error: describePersistingFindings({ gating: check.gating, report, passes: pass }),
 					});
 				}
 
 				lastDeclined = declined;
-				run.progress(`refactor pass ${pass}: no changes but scanner still reports ${scan.gating.length} gating finding(s) — another pass`);
+				run.progress(`refactor pass ${pass}: no changes but the checks still report ${check.gating.length} gating finding(s) — another pass`);
 				record = { ...record, attempts: record.attempts + 1 };
 				continue;
 			}
 
-			// The tree changed — the next scan is a fresh question, not a repeat.
+			// The tree changed — the next check is a fresh question, not a repeat.
 			lastDeclined = undefined;
 			run.progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
 			record = { ...record, attempts: record.attempts + 1 };
@@ -123,7 +123,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		// The loop can also exhaust its passes while still reporting changes —
 		// the gate must not be escapable through that exit.
 		if (!cleanExit) {
-			const final = await scanWorkList({ run });
+			const final = await standardsWorkList({ run });
 
 			if (final.gating.length > 0) {
 				return run.stop({

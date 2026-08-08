@@ -16,10 +16,11 @@ interface Params {
 }
 
 /**
- * Deterministic plan-time prior-art detection — no agent. Reuses scan's tier-0
- * comparator (`nameKey`) to check every planned new symbol (each Files-to-Create
- * basename, `index` excluded) against the repo's existing export census
- * (non-test, non-`index` source files, minus the not-yet-created planned paths).
+ * Deterministic plan-time prior-art detection — no agent. Reuses the standards
+ * check's tier-0 comparator (`nameKey`) to check every planned new symbol (each
+ * Files-to-Create basename, `index` excluded) against the repo's existing
+ * export census (non-test, non-`index` source files, minus the not-yet-created
+ * planned paths).
  * A planned symbol whose name-key bucket holds a real match — same name, or a
  * synonym/word-order twin, but excluding a pure component+route casing pair — is
  * a candidate. Pure and unit-testable; the doctrine's "grep, not the agent's

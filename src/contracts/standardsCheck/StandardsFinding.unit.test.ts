@@ -5,8 +5,8 @@ const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<stri
 	const finding: Record<string, unknown> = {
 		rule: 'clone',
 		severity: 'finding',
-		siteKey: 'clone:src/scan/runScan.ts:12',
-		files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
+		siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 		detail: 'a 36-line span repeated across two files',
 		...extra,
 	};
@@ -27,13 +27,13 @@ describe('StandardsFinding', () => {
 		expect(parsed).toStrictEqual({
 			rule: 'clone',
 			severity: 'finding',
-			siteKey: 'clone:src/scan/runScan.ts:12',
-			files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
+			siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+			files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 			detail: 'a 36-line span repeated across two files',
 		});
 	});
 
-	test('every rule the scan runs is a value a finding may carry', () => {
+	test('every rule the standards check runs is a value a finding may carry', () => {
 		for (const rule of ['filename-duplicate', 'clone', 'ast-duplicate', 'size', 'structure', 'dead-export', 'module-boundary', 'placement', 'barrel-hygiene']) {
 			const { finding } = setupFinding({ extra: { rule } });
 
@@ -46,14 +46,14 @@ describe('StandardsFinding', () => {
 		}
 	});
 
-	test('rejects a rule outside the scanner\'s set', () => {
+	test('rejects a rule outside the check suite\'s set', () => {
 		for (const rule of ['complexity', 'Clone', '']) {
 			const { finding } = setupFinding({ extra: { rule } });
 
 			const result = StandardsFinding.safeParse(finding);
 
 			// the enum closes the set — a finding naming a rule nothing runs would
-			// batch into work no re-scan could ever resolve
+			// batch into work no re-check could ever resolve
 			expect(result.success).toBe(false);
 		}
 	});
@@ -83,20 +83,20 @@ describe('StandardsFinding', () => {
 	});
 
 	test('a whole-file finding parses with no line span', () => {
-		const { finding } = setupFinding({ extra: { rule: 'dead-export', files: [{ path: 'src/scan/runScan.ts' }] } });
+		const { finding } = setupFinding({ extra: { rule: 'dead-export', files: [{ path: 'src/standardsCheck/runStandardsCheck.ts' }] } });
 
 		const parsed = StandardsFinding.parse(finding);
 
 		// startLine and endLine stay absent rather than defaulting to zero — a
 		// structure or dead-export finding names a file, not a span
-		expect(parsed.files).toStrictEqual([{ path: 'src/scan/runScan.ts' }]);
+		expect(parsed.files).toStrictEqual([{ path: 'src/standardsCheck/runStandardsCheck.ts' }]);
 	});
 
 	test('a finding spanning several files keeps every site in order', () => {
 		const { finding } = setupFinding({
 			extra: {
 				files: [
-					{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 },
+					{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 },
 					{ path: 'src/refactor/runBatch.ts', startLine: 90, endLine: 126 },
 				],
 			},
@@ -107,7 +107,7 @@ describe('StandardsFinding', () => {
 		// a clone is only actionable with every site it appears at — the agent is
 		// handed all of them
 		expect(parsed.files).toStrictEqual([
-			{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 },
+			{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 },
 			{ path: 'src/refactor/runBatch.ts', startLine: 90, endLine: 126 },
 		]);
 	});
@@ -132,7 +132,7 @@ describe('StandardsFinding', () => {
 	});
 
 	test('rejects line numbers given as numeric strings rather than coercing them', () => {
-		for (const files of [[{ path: 'src/scan/runScan.ts', startLine: '12' }], [{ path: 'src/scan/runScan.ts', endLine: '48' }]]) {
+		for (const files of [[{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: '12' }], [{ path: 'src/standardsCheck/runStandardsCheck.ts', endLine: '48' }]]) {
 			const { finding } = setupFinding({ extra: { files } });
 
 			const result = StandardsFinding.safeParse(finding);
@@ -144,11 +144,21 @@ describe('StandardsFinding', () => {
 	});
 
 	test('rejects a files value that is not an array', () => {
-		const { finding } = setupFinding({ extra: { files: { path: 'src/scan/runScan.ts' } } });
+		const { finding } = setupFinding({ extra: { files: { path: 'src/standardsCheck/runStandardsCheck.ts' } } });
 
 		const result = StandardsFinding.safeParse(finding);
 
 		// a single site object in place of the list is a malformed finding
+		expect(result.success).toBe(false);
+	});
+
+	test('rejects a finding with no files list at all', () => {
+		const { finding } = setupFinding({ omit: 'files' });
+
+		const result = StandardsFinding.safeParse(finding);
+
+		// the list is required even when it is empty — readers iterate it
+		// unconditionally, so an absent one would throw at the first site render
 		expect(result.success).toBe(false);
 	});
 
@@ -158,7 +168,7 @@ describe('StandardsFinding', () => {
 
 			const result = StandardsFinding.safeParse(finding);
 
-			// ${field} is required — the site key is the grouping key a re-scan checks for
+			// ${field} is required — the site key is the grouping key a re-check looks for
 			// resolution, and the detail is the only prose a human or agent reads
 			expect(result.success).toBe(false);
 		}
@@ -199,7 +209,7 @@ describe('StandardsFinding', () => {
 	});
 
 	test('keys the contract does not declare are stripped from the finding and from each site', () => {
-		const { finding } = setupFinding({ extra: { tier: 1, files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48, tokens: 180 }] } });
+		const { finding } = setupFinding({ extra: { tier: 1, files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48, tokens: 180 }] } });
 
 		const parsed = StandardsFinding.parse(finding);
 
@@ -209,8 +219,8 @@ describe('StandardsFinding', () => {
 		expect(parsed).toStrictEqual({
 			rule: 'clone',
 			severity: 'finding',
-			siteKey: 'clone:src/scan/runScan.ts:12',
-			files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
+			siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+			files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 			detail: 'a 36-line span repeated across two files',
 		});
 	});

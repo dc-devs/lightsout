@@ -5,21 +5,21 @@ const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string
 	const finding = {
 		rule: 'clone',
 		severity: 'finding',
-		siteKey: 'clone:src/scan/runScan.ts:12',
-		files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
+		siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 		detail: 'a 36-line span repeated across two files',
 	};
 	const advisory = {
 		rule: 'size',
 		severity: 'advisory',
-		siteKey: 'size:src/scan/runScan.ts',
-		files: [{ path: 'src/scan/runScan.ts' }],
+		siteKey: 'size:src/standardsCheck/runStandardsCheck.ts',
+		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts' }],
 		detail: 'the file is 240 lines against a 200-line guideline',
 	};
 	const batch: Record<string, unknown> = {
-		id: 'batch-01:clone:src/scan',
+		id: 'batch-01:clone:src/standardsCheck',
 		rule: 'clone',
-		folder: 'src/scan',
+		folder: 'src/standardsCheck',
 		findings: [finding],
 		advisories: [advisory],
 		...extra,
@@ -39,9 +39,9 @@ describe('RefactorBatch', () => {
 		const parsed = RefactorBatch.parse(batch);
 
 		expect(parsed).toStrictEqual({
-			id: 'batch-01:clone:src/scan',
+			id: 'batch-01:clone:src/standardsCheck',
 			rule: 'clone',
-			folder: 'src/scan',
+			folder: 'src/standardsCheck',
 			findings: [finding],
 			advisories: [advisory],
 		});
@@ -96,10 +96,10 @@ describe('RefactorBatch', () => {
 		const parsed = RefactorBatch.parse({ ...batch, advisories: [{ ...advisory, severity: 'finding' }] });
 
 		// the schema never cross-checks severity against the array — which list an
-		// entry sits in is what decides whether the re-scan blocks on it
+		// entry sits in is what decides whether the re-check blocks on it
 		expect(parsed.advisories[0]?.severity).toBe('finding');
 		// the must-address list is untouched by what the advisory list holds
-		expect(parsed.findings[0]?.siteKey).toBe('clone:src/scan/runScan.ts:12');
+		expect(parsed.findings[0]?.siteKey).toBe('clone:src/standardsCheck/runStandardsCheck.ts:12');
 	});
 
 	test('one malformed finding rejects the whole batch', () => {
@@ -108,12 +108,12 @@ describe('RefactorBatch', () => {
 		const result = RefactorBatch.safeParse({ ...batch, findings: [{ ...finding, rule: 'complexity' }] });
 
 		// a batch is dispatched whole, so a half-readable work-list is refused at the
-		// read boundary rather than sending an agent at work no re-scan could check
+		// read boundary rather than sending an agent at work no re-check could verify
 		expect(result.success).toBe(false);
 	});
 
 	test('a malformed advisory rejects the batch just as a malformed finding does', () => {
-		const { batch } = setupBatch({ extra: { advisories: [{ rule: 'size', severity: 'advisory', siteKey: 'size:src/scan/runScan.ts' }] } });
+		const { batch } = setupBatch({ extra: { advisories: [{ rule: 'size', severity: 'advisory', siteKey: 'size:src/standardsCheck/runStandardsCheck.ts' }] } });
 
 		const result = RefactorBatch.safeParse(batch);
 
@@ -133,7 +133,7 @@ describe('RefactorBatch', () => {
 		}
 	});
 
-	test('the batch rule is a plain label, so a batch groups whatever the scan named', () => {
+	test('the batch rule is a plain label, so a batch groups whatever the standards check named', () => {
 		const { batch } = setupBatch({ extra: { rule: 'barrel-hygiene', findings: [] } });
 
 		const parsed = RefactorBatch.parse(batch);
@@ -173,15 +173,15 @@ describe('RefactorBatch', () => {
 		// the persisted work-list holds the fields the contract declares — batch
 		// progress lives in the manifest step, never smuggled onto the frozen batch
 		expect(parsed).toStrictEqual({
-			id: 'batch-01:clone:src/scan',
+			id: 'batch-01:clone:src/standardsCheck',
 			rule: 'clone',
-			folder: 'src/scan',
+			folder: 'src/standardsCheck',
 			findings: [
 				{
 					rule: 'clone',
 					severity: 'finding',
-					siteKey: 'clone:src/scan/runScan.ts:12',
-					files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
+					siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+					files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 					detail: 'a 36-line span repeated across two files',
 				},
 			],

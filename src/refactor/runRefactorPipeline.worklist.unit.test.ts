@@ -62,7 +62,7 @@ const setupBaselinedRun = async () => {
 
 	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
 	writeFileSync(
-		join(dir, 'lightsout.scan-baseline.json'),
+		join(dir, 'lightsout.standards-baseline.json'),
 		`${JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', siteKeys: ['multi-export:src/multi.ts'] })}\n`,
 	);
 	commitAll(dir);
@@ -101,11 +101,64 @@ const setupTwoFindingFolder = async () => {
 	return { dir, driver, config: await loadConfig({ cwd: dir }) };
 };
 
+/** A standalone `lightsout standards-check` report already on disk when the run starts. */
+const priorReport = `${JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', findings: [], notes: [] })}\n`;
+
+/**
+ * One multi-export finding, optionally a report file left by an earlier
+ * standalone check, and a driver that must never be reached — the run parks at
+ * the budget ceiling, so what the work-list build did is observable before any
+ * batch touches the tree.
+ */
+const setupParkedRun = async ({ report }: { report?: string } = {}) => {
+	const dir = setupConsumerRepo();
+
+	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	commitAll(dir);
+
+	if (report) {
+		mkdirSync(join(dir, '.lightsout'), { recursive: true });
+		writeFileSync(join(dir, '.lightsout/standards-check.json'), report);
+	}
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			throw new Error('the budget ceiling must be reached before any agent is spawned');
+		},
+	};
+
+	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+};
+
+/**
+ * Two findings, one per package under the DEFAULT packages dir — the other arm
+ * of the grouping the configured-packagesDir test covers.
+ */
+const setupDefaultPackagesRun = async () => {
+	const dir = setupConsumerRepo();
+
+	mkdirSync(join(dir, 'packages/api'), { recursive: true });
+	mkdirSync(join(dir, 'packages/web'), { recursive: true });
+	writeFileSync(join(dir, 'packages/api/multi.ts'), multiExport);
+	writeFileSync(join(dir, 'packages/web/pair.ts'), 'export const gammaThing = 3;\nexport const deltaThing = 4;\n');
+	commitAll(dir);
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			throw new Error('the budget ceiling must be reached before any agent is spawned');
+		},
+	};
+
+	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+};
+
 /** The frozen work-list the run wrote into its run dir, re-read through its contract. */
 const readWorklist = ({ dir, plan }: { dir: string; plan: string }) => RefactorWorklist.parse(JSON.parse(readFileSync(join(dir, plan), 'utf8')));
 
 describe('runRefactorPipeline work-list', () => {
-	test('a scan scope confines the run to that subtree and is frozen with the work-list', async () => {
+	test('a check scope confines the run to that subtree and is frozen with the work-list', async () => {
 		const { dir, driver, prompts, config } = await setupTwoFolderRun();
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config, path: 'alpha' });
@@ -120,7 +173,7 @@ describe('runRefactorPipeline work-list', () => {
 
 		const worklist = readWorklist({ dir, plan: result.manifest.plan });
 
-		// the scope is frozen with the work-list, so resume scans the same subtree
+		// the scope is frozen with the work-list, so resume checks the same subtree
 		expect(worklist.path).toBe('alpha');
 		expect(worklist.batches.map((batch) => batch.id)).toStrictEqual(['batch-01:structure:alpha']);
 	});
@@ -182,6 +235,46 @@ describe('runRefactorPipeline work-list', () => {
 		expect([...new Set(worklist.batches.map((batch) => batch.folder))].filter((folder) => folder.startsWith('modules'))).toStrictEqual(['modules/api', 'modules/web']);
 	});
 
+	test('an unconfigured packagesDir still batches per package under packages/', async () => {
+		const { dir, driver, config } = await setupDefaultPackagesRun();
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config, maxBatches: 0 });
+
+		expect(result.manifest.status).toBe('paused-budget');
+
+		const worklist = readWorklist({ dir, plan: result.manifest.plan });
+
+		// 'packages' is the default the work-list supplies — without it both
+		// findings would share one `packages` batch, pointing one agent at two
+		// packages
+		expect([...new Set(worklist.batches.map((batch) => batch.folder))].filter((folder) => folder.startsWith('packages'))).toStrictEqual(['packages/api', 'packages/web']);
+	});
+
+	test('a run given no scope and no mode freezes the whole repo, baseline-filtered', async () => {
+		const { dir, driver, config } = await setupParkedRun();
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config, maxBatches: 0 });
+
+		expect(result.manifest.status).toBe('paused-budget');
+
+		const worklist = readWorklist({ dir, plan: result.manifest.plan });
+
+		// '.' is the exact value a resumed run reads back to decide it has no
+		// subpath scope, and `all: false` is what keeps accepted debt out of it
+		expect(worklist).toEqual(expect.objectContaining({ path: '.', all: false }));
+	});
+
+	test('building the work-list leaves an existing standards-check report untouched', async () => {
+		const { dir, driver, config } = await setupParkedRun({ report: priorReport });
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config, maxBatches: 0 });
+
+		expect(result.manifest.status).toBe('paused-budget');
+		// the work-list's check persists nothing: a refactor run must not clobber
+		// the report the user's own `lightsout standards-check` left behind
+		expect(readFileSync(join(dir, '.lightsout/standards-check.json'), 'utf8')).toBe(priorReport);
+	});
+
 	test('the burn-down tally adds up every finding of a rule, not one entry per rule', async () => {
 		const { dir, driver, config } = await setupTwoFindingFolder();
 
@@ -190,7 +283,7 @@ describe('runRefactorPipeline work-list', () => {
 		expect(result.ok).toBe(true);
 		// both findings carry the 'structure' rule and must accumulate under it
 		expect(result.before).toStrictEqual({ structure: 2 });
-		// nothing was resolved, so the closing re-scan tallies the same two
+		// nothing was resolved, so the closing re-check tallies the same two
 		expect(result.after).toStrictEqual({ structure: 2 });
 	});
 
@@ -222,7 +315,7 @@ describe('runRefactorPipeline work-list', () => {
 
 		const worklist = readWorklist({ dir, plan: result.manifest.plan });
 
-		// the mode is frozen with the work-list, so resume re-scans the same way
+		// the mode is frozen with the work-list, so resume re-checks the same way
 		expect(worklist.all).toBe(true);
 	});
 

@@ -73,7 +73,15 @@ test('plan dedup: a confirmed duplicate becomes a DedupFinding', async () => {
 
 	// dedup.json written
 	expect(existsSync(dedupPath)).toBeTruthy();
-	expect(() => DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')))).not.toThrow();
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')));
+
+	// the file on disk is what the ignition skill reads, so it carries the plan's
+	// name and the confirmed duplication — not merely a schema-valid shape
+	expect(persisted.planName).toBe('p');
+	expect(persisted.findings.map(({ plannedSymbol, recommendation }) => ({ plannedSymbol, recommendation }))).toStrictEqual([
+		{ plannedSymbol: 'getUser', recommendation: 'reuse' },
+	]);
 });
 
 test('plan dedup: an isDuplicate:false verdict is dropped', async () => {
@@ -106,6 +114,13 @@ test('plan dedup: no candidates → empty report and no agent call', async () =>
 
 	// dedup.json still written on the no-op path
 	expect(existsSync(dedupPath)).toBeTruthy();
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')));
+
+	// a clean result is a real report naming the plan with no findings, never an
+	// empty or absent file the skill would have to special-case
+	expect(persisted.planName).toBe('p');
+	expect(persisted.findings).toStrictEqual([]);
 });
 
 test('plan dedup: a missing deliverable fails with the plan workspace already created', async () => {
