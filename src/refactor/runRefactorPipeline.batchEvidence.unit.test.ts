@@ -11,7 +11,7 @@ import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
 
-/** The single batch a one-finding repo produces: `batch-NN:<detector>:<folder>`. */
+/** The single batch a one-finding repo produces: `batch-NN:<rule>:<folder>`. */
 const batchId = 'batch-01:structure:src';
 
 /** A final message carrying no report at all — the shape the contract rejects. */

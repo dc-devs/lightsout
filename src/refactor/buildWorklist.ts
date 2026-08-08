@@ -1,4 +1,4 @@
-import { ScanDetector, ScanSeverity, type LightsoutConfig, type RefactorWorklist } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type LightsoutConfig, type RefactorWorklist } from '@/contracts';
 import { runScan } from '@/scan';
 import { batchFindings } from '@/refactor/batchFindings';
 
@@ -26,12 +26,12 @@ export const buildWorklist = async ({ cwd, config, path, all = false }: Params):
 		path: path ?? '.',
 		all,
 		batches: batchFindings({
-			findings: findings.filter((finding) => finding.severity === ScanSeverity.Finding),
+			findings: findings.filter((finding) => finding.severity === StandardsSeverity.Finding),
 			// Size advisories only — the executor prompt frames advisories as the
-			// size caps' judgment items; other advisory detectors (dead-export)
+			// size caps' judgment items; other advisory rules (dead-export)
 			// must not ride in as if they were work (in-pipeline precedent:
 			// selectScanFindings).
-			advisories: findings.filter((finding) => finding.severity === ScanSeverity.Advisory && finding.detector === ScanDetector.Size),
+			advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size),
 			packagesDir: config.packagesDir ?? 'packages',
 		}),
 	};

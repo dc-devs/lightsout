@@ -1,8 +1,8 @@
-import type { ScanFinding } from '@/contracts';
+import type { StandardsFinding } from '@/contracts';
 
 interface Params {
 	/** One location of a scan finding. */
-	file: ScanFinding['files'][number];
+	file: StandardsFinding['files'][number];
 }
 
 /**

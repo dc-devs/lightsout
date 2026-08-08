@@ -13,7 +13,7 @@ import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
 
-/** An over-cap function body — the size detector's advisory, which needs the AST tier. */
+/** An over-cap function body — the size rule's advisory, which needs the AST tier. */
 const bigFunction = `export const bigThing = () => {\n${Array.from({ length: 85 }, (_, index) => `\tconst v${index} = ${index};`).join('\n')}\n\treturn v0;\n};\n`;
 
 const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
@@ -63,7 +63,7 @@ const setupBaselinedRun = async () => {
 	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
 	writeFileSync(
 		join(dir, 'lightsout.scan-baseline.json'),
-		`${JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', clusters: ['multi-export:src/multi.ts'] })}\n`,
+		`${JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', siteKeys: ['multi-export:src/multi.ts'] })}\n`,
 	);
 	commitAll(dir);
 
@@ -79,6 +79,26 @@ const setupBaselinedRun = async () => {
 	};
 
 	return { dir, driver, prompts, config: await loadConfig({ cwd: dir }) };
+};
+
+/**
+ * Two multi-export findings in ONE folder — two findings of the SAME rule, so
+ * the burn-down tally has something to add up rather than merely list. The
+ * driver judges the batch fine as-is, leaving both findings standing.
+ */
+const setupTwoFindingFolder = async () => {
+	const dir = setupConsumerRepo();
+
+	writeFileSync(join(dir, 'src/one.ts'), 'export const alphaOne = 1;\nexport const betaOne = 2;\n');
+	writeFileSync(join(dir, 'src/two.ts'), 'export const alphaTwo = 1;\nexport const betaTwo = 2;\n');
+	commitAll(dir);
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => ({ text: report({ friction: [{ area: 'other', kind: 'decision', detail: 'left as-is: exempt by design' }] }), exitCode: 0 }),
+	};
+
+	return { dir, driver, config: await loadConfig({ cwd: dir }) };
 };
 
 /** The frozen work-list the run wrote into its run dir, re-read through its contract. */
@@ -130,9 +150,48 @@ describe('runRefactorPipeline work-list', () => {
 		// only size advisories are context — dead-export and filename advisories must
 		// not ride in as if they were work: they'd read as a work-list the agent is
 		// judged against
-		expect([...new Set(advisories.map((advisory) => advisory.detector))]).toStrictEqual(['size']);
+		expect([...new Set(advisories.map((advisory) => advisory.rule))]).toStrictEqual(['size']);
 		// advisories are never batched as work
 		expect([...new Set(worklist.batches.flatMap((batch) => batch.findings.map((finding) => finding.severity)))]).toStrictEqual(['finding']);
+	});
+
+	test('a configured packagesDir batches by package rather than by the shared parent folder', async () => {
+		const dir = setupConsumerRepo({ config: { packagesDir: 'modules' } });
+
+		mkdirSync(join(dir, 'modules/api'), { recursive: true });
+		mkdirSync(join(dir, 'modules/web'), { recursive: true });
+		writeFileSync(join(dir, 'modules/api/multi.ts'), multiExport);
+		writeFileSync(join(dir, 'modules/web/pair.ts'), 'export const gammaThing = 3;\nexport const deltaThing = 4;\n');
+		commitAll(dir);
+
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async () => {
+				throw new Error('the budget ceiling must be reached before any agent is spawned');
+			},
+		};
+		const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), maxBatches: 0 });
+
+		expect(result.manifest.status).toBe('paused-budget');
+
+		const worklist = readWorklist({ dir, plan: result.manifest.plan });
+
+		// each package is its own batch area — on the default packagesDir both
+		// findings would collapse into a single `modules` batch, pointing one agent
+		// at two packages
+		expect([...new Set(worklist.batches.map((batch) => batch.folder))].filter((folder) => folder.startsWith('modules'))).toStrictEqual(['modules/api', 'modules/web']);
+	});
+
+	test('the burn-down tally adds up every finding of a rule, not one entry per rule', async () => {
+		const { dir, driver, config } = await setupTwoFindingFolder();
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config });
+
+		expect(result.ok).toBe(true);
+		// both findings carry the 'structure' rule and must accumulate under it
+		expect(result.before).toStrictEqual({ structure: 2 });
+		// nothing was resolved, so the closing re-scan tallies the same two
+		expect(result.after).toStrictEqual({ structure: 2 });
 	});
 
 	test('a baselined finding is not work — the run completes as a verdict, spawning nothing', async () => {

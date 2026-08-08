@@ -33,8 +33,8 @@ test('an export referenced only by tests is called production-dead, not dead out
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
-	const dead = findings.filter((finding) => finding.detector === 'dead-export');
-	const tested = dead.find((finding) => finding.cluster === 'dead:src/util/onlyTested.ts');
+	const dead = findings.filter((finding) => finding.rule === 'dead-export');
+	const tested = dead.find((finding) => finding.siteKey === 'dead:src/util/onlyTested.ts');
 	// a test is not production consumption:\n${JSON.stringify(dead, undefined, 1)}
 	expect(tested?.detail.includes('only by tests')).toBeTruthy();
 	// the finding names the export
@@ -48,12 +48,12 @@ test('export names shorter than four characters are skipped — too common to wo
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
-	const dead = findings.filter((finding) => finding.detector === 'dead-export');
+	const dead = findings.filter((finding) => finding.rule === 'dead-export');
 	// the fixture does produce dead-export findings, so the exclusion below is not
 	// vacuous
 	expect(dead.length > 0).toBeTruthy();
 	// 'tag' is never a candidate:\n${JSON.stringify(dead, undefined, 1)}
-	expect(dead.some((finding) => finding.cluster === 'dead:src/util/tag.ts')).toBeFalsy();
+	expect(dead.some((finding) => finding.siteKey === 'dead:src/util/tag.ts')).toBeFalsy();
 });
 
 test('a consumer outside the scanned path still counts as consumption', async () => {
@@ -67,9 +67,9 @@ test('a consumer outside the scanned path still counts as consumption', async ()
 
 	const { findings } = await runScan({ cwd: dir, path: 'src', persist: false });
 
-	const dead = findings.filter((finding) => finding.detector === 'dead-export');
+	const dead = findings.filter((finding) => finding.rule === 'dead-export');
 	// only the export nothing consumes
-	expect(dead.map((finding) => finding.cluster)).toStrictEqual(['dead:src/api/lonelyThing.ts']);
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['dead:src/api/lonelyThing.ts']);
 	// an unreferenced export is a delete candidate: ${dead[0]?.detail}
 	expect(dead[0]?.detail.includes('referenced nowhere else')).toBeTruthy();
 	// the scanned path bounds what is reported, not what is searched

@@ -1,13 +1,13 @@
 import { expect, test } from '@jest/globals';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { buildRefactorExecutorInvocation } from '@/agents';
 
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';
-const finding = (overrides: Partial<ScanFinding> = {}): ScanFinding => ({
-	detector: ScanDetector.Structure,
-	severity: ScanSeverity.Finding,
-	cluster: 'widget',
+const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
+	rule: StandardsRule.Structure,
+	severity: StandardsSeverity.Finding,
+	siteKey: 'widget',
 	files: [{ path: 'src/widget.ts' }],
 	detail: 'file exceeds the size cap',
 	...overrides,
@@ -36,7 +36,7 @@ test('buildRefactorExecutorInvocation: the system prompt is byte-identical acros
 		changedFiles: ['src/widget.ts', 'src/other.ts'],
 		standards,
 		scanFindings: [finding()],
-		scanAdvisories: [finding({ detector: ScanDetector.Size, severity: ScanSeverity.Advisory })],
+		scanAdvisories: [finding({ rule: StandardsRule.Size, severity: StandardsSeverity.Advisory })],
 		errorContext: 'check failed',
 	});
 
@@ -55,12 +55,12 @@ test('buildRefactorExecutorInvocation: the user prompt leads with the review lis
 	expect(prompt.includes('one JSON report object')).toBeTruthy();
 });
 
-test('buildRefactorExecutorInvocation: findings and advisories render as detector bullets under one scan section', () => {
+test('buildRefactorExecutorInvocation: findings and advisories render as rule bullets under one scan section', () => {
 	const { prompt } = buildRefactorExecutorInvocation({
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		scanFindings: [finding()],
-		scanAdvisories: [finding({ detector: ScanDetector.Size, severity: ScanSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		scanAdvisories: [finding({ rule: StandardsRule.Size, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Scan findings (deterministic detectors)')).toBeTruthy();
@@ -70,14 +70,33 @@ test('buildRefactorExecutorInvocation: findings and advisories render as detecto
 	expect(prompt.includes('Advisory — judge each against')).toBeTruthy();
 });
 
+test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, after the measurement", () => {
+	const { prompt } = buildRefactorExecutorInvocation({
+		planContent,
+		changedFiles: ['src/widget.ts'],
+		scanAdvisories: [
+			finding({
+				rule: StandardsRule.Size,
+				severity: StandardsSeverity.Advisory,
+				detail: "function 'one' is 114 lines (cap ~80)",
+				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt.',
+			}),
+		],
+	});
+
+	// without the guidance the agent reads a bare line count and rewrites the
+	// orchestration the rule meant to spare
+	expect(prompt.includes("- [size] src/widget.ts — function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt.")).toBeTruthy();
+});
+
 test('buildRefactorExecutorInvocation: a multi-site finding renders every location with its line span, joined by the clone marker', () => {
 	const { prompt } = buildRefactorExecutorInvocation({
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		scanFindings: [
 			finding({
-				detector: ScanDetector.Clone,
-				cluster: 'widget-clone',
+				rule: StandardsRule.Clone,
+				siteKey: 'widget-clone',
 				files: [
 					{ path: 'src/widget.ts', startLine: 12, endLine: 40 },
 					{ path: 'src/other.ts', startLine: 7 },
@@ -95,7 +114,7 @@ test('buildRefactorExecutorInvocation: each finding gets its own bullet line', (
 	const { prompt } = buildRefactorExecutorInvocation({
 		planContent,
 		changedFiles: ['src/widget.ts', 'src/other.ts'],
-		scanFindings: [finding(), finding({ cluster: 'other', files: [{ path: 'src/other.ts', startLine: 3 }], detail: 'export name collides' })],
+		scanFindings: [finding(), finding({ siteKey: 'other', files: [{ path: 'src/other.ts', startLine: 3 }], detail: 'export name collides' })],
 	});
 
 	// the work-list is one finding per line, in the order handed in
@@ -116,7 +135,7 @@ test('buildRefactorExecutorInvocation: an advisories-only scan renders without t
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		scanFindings: [],
-		scanAdvisories: [finding({ detector: ScanDetector.Size, severity: ScanSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		scanAdvisories: [finding({ rule: StandardsRule.Size, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Scan findings (deterministic detectors)')).toBeTruthy();

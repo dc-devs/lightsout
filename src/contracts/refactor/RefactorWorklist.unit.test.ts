@@ -4,13 +4,13 @@ import { RefactorWorklist } from '@/contracts';
 const setupWorklist = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const batch = {
 		id: 'batch-01:clone:src/scan',
-		detector: 'clone',
+		rule: 'clone',
 		folder: 'src/scan',
 		findings: [
 			{
-				detector: 'clone',
+				rule: 'clone',
 				severity: 'finding',
-				cluster: 'clone:src/scan/runScan.ts:12',
+				siteKey: 'clone:src/scan/runScan.ts:12',
 				files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
 				detail: 'a 36-line span repeated across two files',
 			},
@@ -112,7 +112,7 @@ describe('RefactorWorklist', () => {
 
 	test('several batches keep the order the work-list froze them in', () => {
 		const { worklist, batch } = setupWorklist();
-		const second = { ...batch, id: 'batch-02:structure:src/cli', detector: 'structure', folder: 'src/cli' };
+		const second = { ...batch, id: 'batch-02:structure:src/cli', rule: 'structure', folder: 'src/cli' };
 
 		const parsed = RefactorWorklist.parse({ ...worklist, batches: [batch, second] });
 
@@ -123,7 +123,7 @@ describe('RefactorWorklist', () => {
 	test('one malformed batch rejects the whole work-list', () => {
 		const { worklist, batch } = setupWorklist();
 
-		const result = RefactorWorklist.safeParse({ ...worklist, batches: [batch, { id: 'batch-02:size:src/cli', detector: 'size' }] });
+		const result = RefactorWorklist.safeParse({ ...worklist, batches: [batch, { id: 'batch-02:size:src/cli', rule: 'size' }] });
 
 		// a partly readable work-list is refused at the read boundary rather than
 		// resuming into a run that would skip the unreadable batches

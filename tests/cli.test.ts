@@ -628,13 +628,13 @@ const seedScanFixture = async ({ baseline = false }: { baseline?: boolean } = {}
 	return { cwd };
 };
 
-test('cli: scan prints each finding, the detector breakdown, and exits 0', async () => {
+test('cli: scan prints each finding, the rule breakdown, and exits 0', async () => {
 	const { cwd } = await seedScanFixture();
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
-	// each detector gets a heading carrying its severity and count
+	// each rule gets a heading carrying its severity and count
 	expect(stdout).toMatch(/ℹ filename-duplicate · 1 advisory/);
 	// the shared guidance is stated once, under the rows it covers
 	expect(stdout).toContain('Likely one concept living under two names.');
@@ -667,11 +667,11 @@ test('cli: scan writes its typed report to .lightsout/scan.json', async () => {
 	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'scan.json'), 'utf8'));
 	expect(report.path).toBe('.');
 	// the evidence file carries the findings, not just the printed summary
-	expect(report.findings.some((finding: { detector: string }) => finding.detector === 'filename-duplicate')).toBeTruthy();
+	expect(report.findings.some((finding: { rule: string }) => finding.rule === 'filename-duplicate')).toBeTruthy();
 	expect(code).toBe(0);
 });
 
-test('cli: scan renders a degraded detector tier as a note instead of failing', async () => {
+test('cli: scan renders a degraded tier as a note instead of failing', async () => {
 	const { cwd } = await seedScanFixture();
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--cwd', cwd] });
@@ -688,9 +688,9 @@ test('cli: scan --baseline writes the debt ledger and exits 0', async () => {
 
 	const ledger = JSON.parse(await readFile(join(cwd, 'lightsout.scan-baseline.json'), 'utf8'));
 	expect(ledger.path).toBe('.');
-	// the accepted clusters are what future scans measure against
-	expect(ledger.clusters.length > 0).toBeTruthy();
-	expect(stdout).toMatch(/ℹ baseline written: \d+ cluster\(s\) accepted as existing debt/);
+	// the accepted sites are what future scans measure against
+	expect(ledger.siteKeys.length > 0).toBeTruthy();
+	expect(stdout).toMatch(/ℹ baseline written: \d+ site\(s\) accepted as existing debt/);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });
@@ -714,7 +714,7 @@ test('cli: scan --all reports the findings the baseline already accepted', async
 
 	const { stdout, stderr, code } = await runCli({ args: ['scan', '--all', '--cwd', cwd] });
 
-	// a baselined cluster is printed again under --all
+	// a baselined site is printed again under --all
 	expect(stdout).toMatch(/ℹ filename-duplicate · 1 advisory/);
 	expect(stderr).toBe('');
 	expect(code).toBe(0);

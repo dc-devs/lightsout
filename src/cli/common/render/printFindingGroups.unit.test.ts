@@ -1,11 +1,11 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
 
-const finding = (overrides: Partial<ScanFinding> = {}): ScanFinding => ({
-	detector: ScanDetector.Size,
-	severity: ScanSeverity.Advisory,
-	cluster: 'size:one',
+const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
+	rule: StandardsRule.Size,
+	severity: StandardsSeverity.Advisory,
+	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts', startLine: 10, endLine: 90 }],
 	detail: "function 'one' is 81 lines (cap ~80)",
 	...overrides,
@@ -25,10 +25,10 @@ const setupPrinter = () => {
 };
 
 describe('printFindingGroups', () => {
-	test('heads each detector with its severity and count', () => {
+	test('heads each rule with its severity and count', () => {
 		const { logged } = setupPrinter();
 
-		printFindingGroups({ findings: [finding(), finding({ cluster: 'size:two' })] });
+		printFindingGroups({ findings: [finding(), finding({ siteKey: 'size:two' })] });
 
 		expect(logged).toContain('ℹ size · 2 advisories');
 	});
@@ -36,16 +36,16 @@ describe('printFindingGroups', () => {
 	test('says finding, singular, for one item of work', () => {
 		const { logged } = setupPrinter();
 
-		printFindingGroups({ findings: [finding({ severity: ScanSeverity.Finding, detector: ScanDetector.Clone })] });
+		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Finding, rule: StandardsRule.Clone })] });
 
 		expect(logged).toContain('⚠ clone · 1 finding');
 	});
 
-	test('splits one detector by severity, because a size finding and a size advisory are not one tally', () => {
+	test('splits one rule by severity, because a size finding and a size advisory are not one tally', () => {
 		const { logged } = setupPrinter();
 
 		printFindingGroups({
-			findings: [finding({ severity: ScanSeverity.Finding, detail: '300 lines (cap ~250)' }), finding({ cluster: 'size:two' })],
+			findings: [finding({ severity: StandardsSeverity.Finding, detail: '300 lines (cap ~250)' }), finding({ siteKey: 'size:two' })],
 		});
 
 		// `size` reports an oversized file as work and an oversized function as advice
@@ -59,7 +59,7 @@ describe('printFindingGroups', () => {
 		printFindingGroups({
 			findings: [
 				finding({ files: [{ path: 'src/short.ts', startLine: 1, endLine: 90 }], detail: '90 lines' }),
-				finding({ cluster: 'size:two', files: [{ path: 'src/a/much/longer/path.ts', startLine: 1, endLine: 99 }], detail: '99 lines' }),
+				finding({ siteKey: 'size:two', files: [{ path: 'src/a/much/longer/path.ts', startLine: 1, endLine: 99 }], detail: '99 lines' }),
 			],
 		});
 
@@ -68,11 +68,27 @@ describe('printFindingGroups', () => {
 		expect(rows.map((row) => row.indexOf('lines'))).toStrictEqual([rows[1]?.indexOf('lines') ?? -1, rows[1]?.indexOf('lines') ?? -1]);
 	});
 
+	test('a location too wide for the column drops its detail to the next line rather than pushing the column out', () => {
+		const { logged } = setupPrinter();
+
+		printFindingGroups({
+			findings: [
+				finding({
+					files: [{ path: 'src/features/onboarding/common/utils/buildInitialChecklist.ts', startLine: 1, endLine: 300 }],
+					detail: '300 lines (cap ~250)',
+				}),
+			],
+		});
+
+		expect(logged).toContain('    src/features/onboarding/common/utils/buildInitialChecklist.ts:1-300');
+		expect(logged).toContain('      300 lines (cap ~250)');
+	});
+
 	test('prints the shared guidance once beneath the rows it covers', () => {
 		const { logged, textOf } = setupPrinter();
 
 		printFindingGroups({
-			findings: [finding({ guidance: 'Extract logic.' }), finding({ cluster: 'size:two', guidance: 'Extract logic.' })],
+			findings: [finding({ guidance: 'Extract logic.' }), finding({ siteKey: 'size:two', guidance: 'Extract logic.' })],
 		});
 
 		expect(logged.filter((line) => line.includes('Extract logic.')).length).toBe(1);
@@ -85,8 +101,8 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({
 			findings: [
-				finding({ detector: ScanDetector.DeadExport, detail: "'a' is referenced nowhere else", guidance: 'Delete it.' }),
-				finding({ detector: ScanDetector.DeadExport, cluster: 'dead:b', detail: "'b' is referenced only by tests", guidance: 'Production-dead.' }),
+				finding({ rule: StandardsRule.DeadExport, detail: "'a' is referenced nowhere else", guidance: 'Delete it.' }),
+				finding({ rule: StandardsRule.DeadExport, siteKey: 'dead:b', detail: "'b' is referenced only by tests", guidance: 'Production-dead.' }),
 			],
 		});
 
@@ -100,7 +116,7 @@ describe('printFindingGroups', () => {
 		printFindingGroups({
 			findings: [
 				finding({
-					detector: ScanDetector.Clone,
+					rule: StandardsRule.Clone,
 					files: [{ path: 'src/a.ts', startLine: 1, endLine: 60 }, { path: 'src/b.ts', startLine: 5, endLine: 64 }],
 					detail: '60-line duplicated span',
 				}),
@@ -134,8 +150,8 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({
 			findings: [
-				finding({ severity: ScanSeverity.Finding, detector: ScanDetector.Clone }),
-				finding({ severity: ScanSeverity.Finding, detector: ScanDetector.Clone, cluster: 'clone:two' }),
+				finding({ severity: StandardsSeverity.Finding, rule: StandardsRule.Clone }),
+				finding({ severity: StandardsSeverity.Finding, rule: StandardsRule.Clone, siteKey: 'clone:two' }),
 			],
 		});
 

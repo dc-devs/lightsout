@@ -1,12 +1,12 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 
 const ScanBaseline = z.object({
 	at: z.string(),
 	path: z.string(),
-	clusters: z.array(z.string()),
+	siteKeys: z.array(z.string()),
 });
 
 interface Params {
@@ -14,7 +14,7 @@ interface Params {
 	/** The scan's scope, recorded in a freshly written ledger. */
 	path?: string;
 	/** Everything the detectors found this run. */
-	findings: ScanFinding[];
+	findings: StandardsFinding[];
 	/** Report baselined findings too, instead of only what is new. */
 	all: boolean;
 	/** Accept the current findings as existing debt, writing or refreshing the ledger. */
@@ -38,7 +38,7 @@ interface Params {
  * which findings a repo has already accepted is policy, not detection. A module
  * internal — its behaviour is pinned through `runScan`'s own baseline tests.
  */
-export const applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }: Params): Promise<{ reported: ScanFinding[]; notes: string[] }> => {
+export const applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }: Params): Promise<{ reported: StandardsFinding[]; notes: string[] }> => {
 	const baselinePath = join(cwd, 'lightsout.scan-baseline.json');
 	const baselineRaw = await readFile(baselinePath, 'utf8').catch(() => undefined);
 	const notes: string[] = [];
@@ -54,11 +54,11 @@ export const applyScanBaseline = async ({ cwd, path, findings, all, writeBaselin
 	const baseline = baselineRaw === undefined ? undefined : ScanBaseline.safeParse(baselineJson);
 
 	if (writeBaseline) {
-		const clusters = [...new Set(findings.map((finding) => finding.cluster))];
+		const siteKeys = [...new Set(findings.map((finding) => finding.siteKey))];
 
-		await writeFile(baselinePath, `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', clusters }, undefined, '\t')}\n`, 'utf8');
+		await writeFile(baselinePath, `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', siteKeys }, undefined, '\t')}\n`, 'utf8');
 		notes.push(
-			`baseline ${baseline === undefined ? 'written' : 'refreshed'}: ${clusters.length} cluster(s) accepted as existing debt — commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`,
+			`baseline ${baseline === undefined ? 'written' : 'refreshed'}: ${siteKeys.length} site(s) accepted as existing debt — commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`,
 		);
 
 		return { reported: findings, notes };
@@ -68,7 +68,7 @@ export const applyScanBaseline = async ({ cwd, path, findings, all, writeBaselin
 		// Offered for findings only. An advisory is guidance to judge in place,
 		// not debt to accept, and inviting a repo to ledger its advice would turn
 		// the hint into a way to stop hearing it.
-		if (findings.some((finding) => finding.severity === ScanSeverity.Finding)) {
+		if (findings.some((finding) => finding.severity === StandardsSeverity.Finding)) {
 			notes.push(`no baseline — \`lightsout scan --baseline\` accepts these findings as existing debt so future scans report only what's new`);
 		}
 
@@ -81,17 +81,17 @@ export const applyScanBaseline = async ({ cwd, path, findings, all, writeBaselin
 		return { reported: findings, notes };
 	}
 
-	const accepted = new Set(baseline.data.clusters);
-	const fresh = findings.filter((finding) => !accepted.has(finding.cluster));
-	const currentClusters = new Set(findings.map((finding) => finding.cluster));
-	const resolved = baseline.data.clusters.filter((cluster) => !currentClusters.has(cluster)).length;
+	const accepted = new Set(baseline.data.siteKeys);
+	const fresh = findings.filter((finding) => !accepted.has(finding.siteKey));
+	const currentSiteKeys = new Set(findings.map((finding) => finding.siteKey));
+	const resolved = baseline.data.siteKeys.filter((siteKey) => !currentSiteKeys.has(siteKey)).length;
 
 	if (!all && findings.length > fresh.length) {
 		notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
 	}
 
 	if (resolved > 0) {
-		notes.push(`${resolved} baselined cluster(s) no longer found — burn-down progress (--baseline to refresh the ledger)`);
+		notes.push(`${resolved} baselined site(s) no longer found — burn-down progress (--baseline to refresh the ledger)`);
 	}
 
 	return { reported: all ? findings : fresh, notes };

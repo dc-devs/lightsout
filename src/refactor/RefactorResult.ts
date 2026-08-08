@@ -8,8 +8,8 @@ export interface RefactorResult {
 	error?: string;
 	/** Declined batches: step id → the agent's rationale lines. */
 	declined: Array<{ batchId: string; remainingClusters: string[]; rationale: string[] }>;
-	/** Finding counts per detector at run start (from the frozen worklist). */
+	/** Finding counts per rule at run start (from the frozen worklist). */
 	before: Record<string, number>;
-	/** Finding counts per detector from the final whole-scope re-scan. */
+	/** Finding counts per rule from the final whole-scope re-scan. */
 	after: Record<string, number>;
 }

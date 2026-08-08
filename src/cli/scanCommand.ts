@@ -1,4 +1,4 @@
-import { ScanSeverity } from '@/contracts';
+import { StandardsSeverity } from '@/contracts';
 import { runScan } from '@/scan';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
@@ -21,8 +21,8 @@ export const scanCommand = async ({ flags, cwd }: CommandContext): Promise<void>
 	// Findings lead: they are the work, and an advisory read first would set the
 	// wrong expectation about what the run is asking for.
 	const ordered = [
-		...findings.filter((entry) => entry.severity === ScanSeverity.Finding),
-		...findings.filter((entry) => entry.severity === ScanSeverity.Advisory),
+		...findings.filter((entry) => entry.severity === StandardsSeverity.Finding),
+		...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory),
 	];
 
 	printFindingGroups({ findings: ordered });

@@ -95,6 +95,21 @@ test('printRefactorResult: a parked run prints no burn-down, because its after m
 	expect(errors.join('\n')).toContain('run parked: harness rate limit reached');
 });
 
+test('printRefactorResult: the burn-down lists every rule in either count map, alphabetically, treating an absent side as zero', () => {
+	const { result, output } = setupResult({
+		before: { size: 4 },
+		after: { clone: 1 },
+	});
+
+	printRefactorResult({ result });
+
+	// a rule the run fully cleared drops out of `after`, and one the work
+	// introduced never appeared in `before` — both still owe a burn-down row
+	expect(output()).toMatch(/size\s+4 → 0/);
+	expect(output()).toMatch(/clone\s+0 → 1/);
+	expect(output().indexOf('clone')).toBeLessThan(output().indexOf('size'));
+});
+
 test('printRefactorResult: a run with no batches still reports its status and evidence path', () => {
 	const { result, output } = setupResult();
 

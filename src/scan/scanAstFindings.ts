@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type ts from 'typescript';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { normalizeFunctionTokens } from '@/scan/common/utils/normalizeFunctionTokens';
 import { functionNameOf } from '@/scan/common/utils/functionNameOf';
 import type { FunctionSite } from '@/scan/common/types/FunctionSite';
@@ -47,9 +47,9 @@ interface Params {
  * walk measures function/file line counts against the standards' numeric
  * thresholds (function 80 / hook 160 / component 200 / file 250).
  */
-export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) => {
+export const scanAstFindings = async ({ cwd, files, compiler, size }: Params): Promise<StandardsFinding[]> => {
 	const caps = { ...defaultSizeCaps, ...size };
-	const findings: ScanFinding[] = [];
+	const findings: StandardsFinding[] = [];
 	const sites: FunctionSite[] = [];
 
 	for (const file of files) {
@@ -63,9 +63,9 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 
 		if (lineCount > fileLineCap({ file, caps }) && basename(file) !== 'index.ts') {
 			findings.push({
-				detector: ScanDetector.Size,
-				severity: ScanSeverity.Finding,
-				cluster: `size:file:${file}`,
+				rule: StandardsRule.Size,
+				severity: StandardsSeverity.Finding,
+				siteKey: `size:file:${file}`,
 				files: [{ path: file }],
 				detail: `${lineCount} lines (cap ~${fileLineCap({ file, caps })})`,
 				guidance: 'Split the file, or graduate the concept it has grown into.',
@@ -105,9 +105,9 @@ export const scanAstFindings = async ({ cwd, files, compiler, size }: Params) =>
 				// inherit their parent's budget.
 				if (lines > cap && name !== '(anonymous)') {
 					findings.push({
-						detector: ScanDetector.Size,
-						severity: ScanSeverity.Advisory,
-						cluster: `size:${kind}:${file}:${name}`,
+						rule: StandardsRule.Size,
+						severity: StandardsSeverity.Advisory,
+						siteKey: `size:${kind}:${file}:${name}`,
 						files: [{ path: file, startLine, endLine }],
 						detail: `${kind} '${name}' is ${lines} lines (cap ~${cap})`,
 						guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',

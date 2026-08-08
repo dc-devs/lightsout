@@ -3,22 +3,22 @@ import { RefactorBatch } from '@/contracts';
 
 const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding = {
-		detector: 'clone',
+		rule: 'clone',
 		severity: 'finding',
-		cluster: 'clone:src/scan/runScan.ts:12',
+		siteKey: 'clone:src/scan/runScan.ts:12',
 		files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
 		detail: 'a 36-line span repeated across two files',
 	};
 	const advisory = {
-		detector: 'size',
+		rule: 'size',
 		severity: 'advisory',
-		cluster: 'size:src/scan/runScan.ts',
+		siteKey: 'size:src/scan/runScan.ts',
 		files: [{ path: 'src/scan/runScan.ts' }],
 		detail: 'the file is 240 lines against a 200-line guideline',
 	};
 	const batch: Record<string, unknown> = {
 		id: 'batch-01:clone:src/scan',
-		detector: 'clone',
+		rule: 'clone',
 		folder: 'src/scan',
 		findings: [finding],
 		advisories: [advisory],
@@ -40,21 +40,21 @@ describe('RefactorBatch', () => {
 
 		expect(parsed).toStrictEqual({
 			id: 'batch-01:clone:src/scan',
-			detector: 'clone',
+			rule: 'clone',
 			folder: 'src/scan',
 			findings: [finding],
 			advisories: [advisory],
 		});
 	});
 
-	test('id, detector, and folder are each required', () => {
-		for (const field of ['id', 'detector', 'folder']) {
+	test('id, rule, and folder are each required', () => {
+		for (const field of ['id', 'rule', 'folder']) {
 			const { batch } = setupBatch({ omit: field });
 
 			const result = RefactorBatch.safeParse(batch);
 
 			// ${field} is required — the id is the manifest step a resume keys on, and the
-			// detector and folder are what make the batch one agent job
+			// rule and folder are what make the batch one agent job
 			expect(result.success).toBe(false);
 		}
 	});
@@ -99,13 +99,13 @@ describe('RefactorBatch', () => {
 		// entry sits in is what decides whether the re-scan blocks on it
 		expect(parsed.advisories[0]?.severity).toBe('finding');
 		// the must-address list is untouched by what the advisory list holds
-		expect(parsed.findings[0]?.cluster).toBe('clone:src/scan/runScan.ts:12');
+		expect(parsed.findings[0]?.siteKey).toBe('clone:src/scan/runScan.ts:12');
 	});
 
 	test('one malformed finding rejects the whole batch', () => {
 		const { batch, finding } = setupBatch();
 
-		const result = RefactorBatch.safeParse({ ...batch, findings: [{ ...finding, detector: 'complexity' }] });
+		const result = RefactorBatch.safeParse({ ...batch, findings: [{ ...finding, rule: 'complexity' }] });
 
 		// a batch is dispatched whole, so a half-readable work-list is refused at the
 		// read boundary rather than sending an agent at work no re-scan could check
@@ -113,7 +113,7 @@ describe('RefactorBatch', () => {
 	});
 
 	test('a malformed advisory rejects the batch just as a malformed finding does', () => {
-		const { batch } = setupBatch({ extra: { advisories: [{ detector: 'size', severity: 'advisory', cluster: 'size:src/scan/runScan.ts' }] } });
+		const { batch } = setupBatch({ extra: { advisories: [{ rule: 'size', severity: 'advisory', siteKey: 'size:src/scan/runScan.ts' }] } });
 
 		const result = RefactorBatch.safeParse(batch);
 
@@ -133,14 +133,14 @@ describe('RefactorBatch', () => {
 		}
 	});
 
-	test('the batch detector is a plain label, so a batch groups whatever the scan named', () => {
-		const { batch } = setupBatch({ extra: { detector: 'barrel-hygiene', findings: [] } });
+	test('the batch rule is a plain label, so a batch groups whatever the scan named', () => {
+		const { batch } = setupBatch({ extra: { rule: 'barrel-hygiene', findings: [] } });
 
 		const parsed = RefactorBatch.parse(batch);
 
-		// the detector is echoed into the step id as text; the closed detector set is
+		// the rule is echoed into the step id as text; the closed rule set is
 		// enforced on the findings themselves
-		expect(parsed.detector).toBe('barrel-hygiene');
+		expect(parsed.rule).toBe('barrel-hygiene');
 	});
 
 	test('the (root) sentinel folder parses like any other grouping folder', () => {
@@ -153,8 +153,8 @@ describe('RefactorBatch', () => {
 		expect(parsed.folder).toBe('(root)');
 	});
 
-	test('id, detector, and folder are strings, not coerced from other types', () => {
-		for (const extra of [{ id: 1 }, { detector: ['clone'] }, { folder: null }]) {
+	test('id, rule, and folder are strings, not coerced from other types', () => {
+		for (const extra of [{ id: 1 }, { rule: ['clone'] }, { folder: null }]) {
 			const { batch } = setupBatch({ extra });
 
 			const result = RefactorBatch.safeParse(batch);
@@ -174,13 +174,13 @@ describe('RefactorBatch', () => {
 		// progress lives in the manifest step, never smuggled onto the frozen batch
 		expect(parsed).toStrictEqual({
 			id: 'batch-01:clone:src/scan',
-			detector: 'clone',
+			rule: 'clone',
 			folder: 'src/scan',
 			findings: [
 				{
-					detector: 'clone',
+					rule: 'clone',
 					severity: 'finding',
-					cluster: 'clone:src/scan/runScan.ts:12',
+					siteKey: 'clone:src/scan/runScan.ts:12',
 					files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
 					detail: 'a 36-line span repeated across two files',
 				},

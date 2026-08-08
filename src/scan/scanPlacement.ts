@@ -1,6 +1,6 @@
 import { dirname } from 'node:path';
 import type ts from 'typescript';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { collectImportEdges } from '@/common/utils/collectImportEdges';
 
 /** The module that owns a common file: everything before its LAST `common` segment. */
@@ -46,7 +46,7 @@ interface Params {
  * file move, so it informs the work-list rather than blocking. Runs only when
  * TypeScript resolves (import resolution required).
  */
-export const scanPlacement = async ({ cwd, files, compiler }: Params): Promise<ScanFinding[]> => {
+export const scanPlacement = async ({ cwd, files, compiler }: Params): Promise<StandardsFinding[]> => {
 	const edges = await collectImportEdges({ cwd, files, compiler });
 	const leaksByFile = new Map<string, { owner: string; consumers: Set<string> }>();
 
@@ -64,16 +64,16 @@ export const scanPlacement = async ({ cwd, files, compiler }: Params): Promise<S
 		leaksByFile.set(to, { owner, consumers: (leaksByFile.get(to)?.consumers ?? new Set()).add(from) });
 	}
 
-	const findings: ScanFinding[] = [];
+	const findings: StandardsFinding[] = [];
 
 	for (const [file, { owner, consumers: consumerSet }] of leaksByFile) {
 		const consumers = [...consumerSet].sort();
 		const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname(consumer))]);
 
 		findings.push({
-			detector: ScanDetector.Placement,
-			severity: ScanSeverity.Finding,
-			cluster: `placement:${file}`,
+			rule: StandardsRule.Placement,
+			severity: StandardsSeverity.Finding,
+			siteKey: `placement:${file}`,
 			files: [{ path: file }, ...consumers.map((path) => ({ path }))],
 			detail: `'${file}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(', ')} — promote to ${lca}/common/`,
 			guidance: 'Shared code belongs in the common/ of the lowest folder that contains everyone using it.',

@@ -32,7 +32,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		let lastReport: WorkReport | undefined;
 		let cleanExit = false;
 
-		// Gating cluster set of the last no-change pass. When the next pass
+		// Gating site-key set of the last no-change pass. When the next pass
 		// declines the IDENTICAL set, the disagreement is stable. Reset by any
 		// pass that changes files.
 		let lastDeclined: string | undefined;
@@ -92,7 +92,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 				}
 
 				const declined = scan.gating
-					.map((finding) => finding.cluster)
+					.map((finding) => finding.siteKey)
 					.sort()
 					.join('\n');
 

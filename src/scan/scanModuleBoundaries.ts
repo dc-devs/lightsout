@@ -1,5 +1,5 @@
 import type ts from 'typescript';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { collectImportEdges } from '@/common/utils/collectImportEdges';
 import { mapFolderModules } from '@/scan/mapFolderModules';
 
@@ -25,12 +25,12 @@ interface Params {
  * resolves (import resolution required); runScan reports the honest skip
  * otherwise.
  */
-export const scanModuleBoundaries = async ({ cwd, files, compiler }: Params): Promise<ScanFinding[]> => {
+export const scanModuleBoundaries = async ({ cwd, files, compiler }: Params): Promise<StandardsFinding[]> => {
 	const modules = await mapFolderModules({ cwd, files });
 	const edges = await collectImportEdges({ cwd, files, compiler });
 	const moduleFolders = [...modules.entries()].filter(([, entry]) => entry.status === 'module').map(([folder]) => folder);
 
-	const findings: ScanFinding[] = [];
+	const findings: StandardsFinding[] = [];
 	const seen = new Set<string>();
 
 	for (const { from, to } of edges) {
@@ -54,9 +54,9 @@ export const scanModuleBoundaries = async ({ cwd, files, compiler }: Params): Pr
 
 		seen.add(key);
 		findings.push({
-			detector: ScanDetector.ModuleBoundary,
-			severity: ScanSeverity.Finding,
-			cluster: `boundary:${from}`,
+			rule: StandardsRule.ModuleBoundary,
+			severity: StandardsSeverity.Finding,
+			siteKey: `boundary:${from}`,
 			files: [{ path: from }, { path: to }],
 			detail: `deep-imports '${to}' — an internal of module '${outermost}'; import from its barrel '${barrelPath}' instead`,
 			guidance: 'A module’s barrel is its public API; everything else is an internal.',

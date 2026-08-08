@@ -1,11 +1,11 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { printScanSummary } from '@/cli/common/render/printScanSummary';
 
-const finding = (overrides: Partial<ScanFinding> = {}): ScanFinding => ({
-	detector: ScanDetector.Size,
-	severity: ScanSeverity.Advisory,
-	cluster: 'size:one',
+const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
+	rule: StandardsRule.Size,
+	severity: StandardsSeverity.Advisory,
+	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
 	detail: '81 lines',
 	...overrides,
@@ -31,15 +31,15 @@ describe('printScanSummary', () => {
 
 		printScanSummary({
 			findings: [
-				finding({ detector: ScanDetector.ModuleBoundary, severity: ScanSeverity.Finding }),
+				finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Finding }),
 				finding(),
-				finding({ cluster: 'size:two' }),
+				finding({ siteKey: 'size:two' }),
 			],
 			reportPath: '.lightsout/scan.json',
 		});
 
 		expect(cellsOf({ logged })).toStrictEqual([
-			['detector', 'findings', 'advisories'],
+			['rule', 'findings', 'advisories'],
 			['module-boundary', '1', '—'],
 			['size', '—', '2'],
 			['total', '1', '2'],
@@ -49,7 +49,7 @@ describe('printScanSummary', () => {
 	test('a repo carrying only advisories reports zero findings rather than a summed total', () => {
 		const { logged } = setupPrinter();
 
-		printScanSummary({ findings: [finding(), finding({ cluster: 'size:two' })], reportPath: '.lightsout/scan.json' });
+		printScanSummary({ findings: [finding(), finding({ siteKey: 'size:two' })], reportPath: '.lightsout/scan.json' });
 
 		// an advisory is guidance to judge, not work outstanding
 		expect(cellsOf({ logged }).at(-1)).toStrictEqual(['total', '—', '2']);

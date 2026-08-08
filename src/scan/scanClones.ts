@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Detector, MemoryStore } from '@jscpd/core';
 import { Tokenizer } from '@jscpd/tokenizer';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { blankImportSpans } from '@/scan/blankImportSpans';
 
 const defaultMinTokens = 50;
@@ -22,9 +22,9 @@ interface Params {
  * sub-function spans the AST tier can't see. Misses systematic identifier
  * renames (that's tier 2's job).
  */
-export const scanClones = async ({ cwd, files, minTokens = defaultMinTokens }: Params) => {
+export const scanClones = async ({ cwd, files, minTokens = defaultMinTokens }: Params): Promise<StandardsFinding[]> => {
 	const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
-	const findings: ScanFinding[] = [];
+	const findings: StandardsFinding[] = [];
 
 	for (const file of files) {
 		const text = await readFile(join(cwd, file), 'utf8').catch(() => undefined);
@@ -42,9 +42,9 @@ export const scanClones = async ({ cwd, files, minTokens = defaultMinTokens }: P
 			const b = clone.duplicationB;
 
 			findings.push({
-				detector: ScanDetector.Clone,
-				severity: ScanSeverity.Finding,
-				cluster: `clone:${b.sourceId}:${b.start.line}`,
+				rule: StandardsRule.Clone,
+				severity: StandardsSeverity.Finding,
+				siteKey: `clone:${b.sourceId}:${b.start.line}`,
 				files: [
 					{ path: b.sourceId, startLine: b.start.line, endLine: b.end.line },
 					{ path: a.sourceId, startLine: a.start.line, endLine: a.end.line },

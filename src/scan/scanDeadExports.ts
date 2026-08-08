@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { readFileContents } from '@/scan/common/utils/readFileContents';
 import { isTestFile } from '@/common/utils/isTestFile';
 
@@ -32,8 +32,8 @@ interface Params {
  * string still counts as a reference, so false "dead" calls are rare.
  * Barrel-only and test-only references get their own callouts.
  */
-export const scanDeadExports = async ({ cwd, files, referenceFiles }: Params) => {
-	const findings: ScanFinding[] = [];
+export const scanDeadExports = async ({ cwd, files, referenceFiles }: Params): Promise<StandardsFinding[]> => {
+	const findings: StandardsFinding[] = [];
 	const contents = await readFileContents({ cwd, files: [...files, ...(referenceFiles ?? [])] });
 
 	const scope = new Set(files);
@@ -75,8 +75,8 @@ export const scanDeadExports = async ({ cwd, files, referenceFiles }: Params) =>
 			continue;
 		}
 
-		const cluster = `dead:${file}`;
-		const base = { detector: ScanDetector.DeadExport, severity: ScanSeverity.Advisory, cluster, files: [{ path: file }] };
+		const siteKey = `dead:${file}`;
+		const base = { rule: StandardsRule.DeadExport, severity: StandardsSeverity.Advisory, siteKey, files: [{ path: file }] };
 
 		if (!referencedBy.barrel && !referencedBy.test) {
 			findings.push({ ...base, detail: `'${name}' is referenced nowhere else`, guidance: 'A dead code candidate. Delete it — version control has the history.' });

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ScanFinding } from '@/contracts';
+import type { StandardsFinding } from '@/contracts';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import { loadConfig } from '@/common/utils/loadConfig';
@@ -16,7 +16,7 @@ import { scanStructure } from '@/scan/scanStructure';
 import { applyScanBaseline } from '@/scan/common/utils/applyScanBaseline';
 
 /** Deepest directory (depth ≥ 2) holding >50% of findings — a report dominated by one path should diagnose its own config gap (live case: a generated Prisma dir missing from `generated`). */
-const dominantPath = ({ findings }: { findings: ScanFinding[] }) => {
+const dominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
 	const paths = findings.map((finding) => finding.files[0]?.path).filter((path): path is string => path !== undefined);
 
 	if (paths.length < 20) {
@@ -74,7 +74,7 @@ interface Params {
  * Baselining is explicit, never a side effect: `writeBaseline` writes
  * lightsout.scan-baseline.json at the repo root — a COMMITTED debt ledger,
  * like phpstan-baseline.neon or detekt's baseline.xml — and later scans
- * report only findings whose cluster is not in it (`all` overrides). Works
+ * report only findings whose site key is not in it (`all` overrides). Works
  * with or without a lightsout.config.json (the config contributes
  * `generated` exclusions and `scan` tuning when present); the AST tier
  * borrows the consumer's TypeScript and reports honestly when it can't.
@@ -89,7 +89,7 @@ export const runScan = async ({ cwd, path, all = false, writeBaseline = false, p
 
 	progress(`scanning ${source.length} source file(s) (${allFiles.length - source.length} test file(s) excluded from duplication tiers)`);
 
-	const findings: ScanFinding[] = [];
+	const findings: StandardsFinding[] = [];
 
 	findings.push(...scanFilenameDuplicates({ files: source }));
 	progress(`tier 0 (names): done`);

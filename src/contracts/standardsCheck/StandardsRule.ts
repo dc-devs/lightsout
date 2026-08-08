@@ -1,4 +1,4 @@
-export const ScanDetector = {
+export const StandardsRule = {
 	/** Tier 0: export names that collide or differ only by synonym/word order. */
 	FilenameDuplicate: 'filename-duplicate',
 	/** Tier 1: token-level copy-paste spans (jscpd). */
@@ -19,4 +19,4 @@ export const ScanDetector = {
 	BarrelHygiene: 'barrel-hygiene',
 } as const;
 
-export type ScanDetector = (typeof ScanDetector)[keyof typeof ScanDetector];
+export type StandardsRule = (typeof StandardsRule)[keyof typeof StandardsRule];

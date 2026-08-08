@@ -18,7 +18,7 @@ const bigBody = `
 	return total * 100;
 `;
 
-/** A consumer repo with one planted defect per detector. */
+/** A consumer repo with one planted defect per rule. */
 const setupScanRepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-scan-test-'));
 
@@ -73,28 +73,28 @@ const setupScanRepo = () => {
 test('scan finds each planted defect and respects the exceptions', async () => {
 	const dir = setupScanRepo();
 	const { findings, notes } = await runScan({ cwd: dir });
-	const byDetector = (detector: string) => findings.filter((finding) => finding.detector === detector);
+	const byRule = (rule: string) => findings.filter((finding) => finding.rule === rule);
 
 	// typescript resolved for the AST tier: ${notes.join('; ')}
 	expect(notes.some((note) => note.includes('typescript'))).toBeFalsy();
 	// without a baseline the accept-debt hint is offered
 	expect(notes.some((note) => note.includes('--baseline'))).toBeTruthy();
 
-	const astDups = byDetector('ast-duplicate');
+	const astDups = byRule('ast-duplicate');
 
 	expect(astDups.length).toBe(1);
 	// renamed twins caught by normalization
 	expect(astDups[0]?.files.map((file) => file.path).sort()).toStrictEqual(['src/a/sumTotals.ts', 'src/b/tallyItems.ts']);
 
 	// token-level clone reported
-	expect(byDetector('clone').length >= 1).toBeTruthy();
+	expect(byRule('clone').length >= 1).toBeTruthy();
 	// test files never appear in findings
 	expect(findings.every((finding) => finding.files.every((file) => !file.path.includes('.test.')))).toBeTruthy();
 
-	const names = byDetector('filename-duplicate');
+	const names = byRule('filename-duplicate');
 
 	// same-name pair
-	expect(names.some((finding) => finding.cluster === 'name:normalizeRecord')).toBeTruthy();
+	expect(names.some((finding) => finding.siteKey === 'name:normalizeRecord')).toBeTruthy();
 	// synonym pair collapses to one concept
 	expect(names.some((finding) => finding.detail.includes("'fetchUserData'") && finding.detail.includes("'getUserData'"))).toBeTruthy();
 	// to/from opposites are deliberate, not duplicates
@@ -102,25 +102,27 @@ test('scan finds each planted defect and respects the exceptions', async () => {
 	// component + kebab route pair is a framework pair
 	expect(names.some((finding) => finding.detail.includes('GetStarted'))).toBeFalsy();
 
-	const structure = byDetector('structure');
+	const structure = byRule('structure');
 
 	// multi-export flagged
-	expect(structure.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeTruthy();
+	expect(structure.some((finding) => finding.siteKey === 'multi-export:src/a/config.ts')).toBeTruthy();
 	// const+type named constant is exempt
-	expect(structure.some((finding) => finding.cluster.includes('Action.ts'))).toBeFalsy();
+	expect(structure.some((finding) => finding.siteKey.includes('Action.ts'))).toBeFalsy();
 	// misnamed file flagged
-	expect(structure.some((finding) => finding.cluster === 'filename-mismatch:src/a/helpers.ts')).toBeTruthy();
+	expect(structure.some((finding) => finding.siteKey === 'filename-mismatch:src/a/helpers.ts')).toBeTruthy();
 	// framework dot-suffix is convention, not a mismatch
-	expect(structure.some((finding) => finding.cluster === 'filename-mismatch:src/b/session-response.model.ts')).toBeFalsy();
+	expect(structure.some((finding) => finding.siteKey === 'filename-mismatch:src/b/session-response.model.ts')).toBeFalsy();
 	// domain-folder candidate
-	expect(structure.some((finding) => finding.cluster === 'domain:src/a/utils:format')).toBeTruthy();
+	expect(structure.some((finding) => finding.siteKey === 'domain:src/a/utils:format')).toBeTruthy();
 
 	// oversized file flagged
-	expect(byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
+	expect(byRule('size').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
+	// a file over its cap is a rule violation, unlike the per-function size advisory
+	expect(byRule('size').find((finding) => finding.siteKey === 'size:file:src/b/huge.ts')?.severity).toBe('finding');
 	// .tsx under its larger cap not flagged
-	expect(byDetector('size').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
+	expect(byRule('size').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
 
-	const dead = byDetector('dead-export');
+	const dead = byRule('dead-export');
 
 	// dead export flagged
 	expect(dead.some((finding) => finding.detail.includes("'unusedThing'"))).toBeTruthy();
@@ -146,10 +148,19 @@ test('scan baseline ratchet: --baseline accepts debt explicitly; later scans rep
 	// the accepting run still reports everything
 	expect(accepting.findings.length).toBe(first.findings.length);
 
+	const ledger = JSON.parse(readFileSync(join(dir, 'lightsout.scan-baseline.json'), 'utf8')) as { path: string; siteKeys: string[] };
+
+	// the ledger records the scope it accepted debt for
+	expect(ledger.path).toBe('.');
+	// it holds one entry per distinct site — the identities later scans measure against
+	expect([...ledger.siteKeys].sort()).toStrictEqual([...new Set(accepting.findings.map((finding) => finding.siteKey))].sort());
+	// accepting debt says how much of it was accepted:\n${accepting.notes.join('\n')}
+	expect(accepting.notes.some((note) => note.includes(`baseline written: ${ledger.siteKeys.length} site(s)`))).toBeTruthy();
+
 	const second = await runScan({ cwd: dir });
 
 	// clean re-scan is silent: ${second.findings.map((finding) =>
-	// finding.cluster).join(', ')}
+	// finding.siteKey).join(', ')}
 	expect(second.findings.length).toBe(0);
 	// suppression is stated, not silent
 	expect(second.notes.some((note) => note.includes('suppressed'))).toBeTruthy();
@@ -160,9 +171,9 @@ test('scan baseline ratchet: --baseline accepts debt explicitly; later scans rep
 	const third = await runScan({ cwd: dir });
 
 	// the new finding is reported
-	expect(third.findings.some((finding) => finding.cluster === 'multi-export:src/b/config.ts')).toBeTruthy();
-	// the baselined cluster stays suppressed
-	expect(third.findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeFalsy();
+	expect(third.findings.some((finding) => finding.siteKey === 'multi-export:src/b/config.ts')).toBeTruthy();
+	// the baselined site stays suppressed
+	expect(third.findings.some((finding) => finding.siteKey === 'multi-export:src/a/config.ts')).toBeFalsy();
 
 	const everything = await runScan({ cwd: dir, all: true });
 
@@ -195,11 +206,11 @@ test('scan resolves typescript from workspace packages and honors scan.minCloneT
 	// tier 2 ran via the workspace fallback:\n${notes.join('\n')}
 	expect(notes.some((note) => note.includes('typescript'))).toBeFalsy();
 	// ast tier found the renamed twins
-	expect(findings.some((finding) => finding.detector === 'ast-duplicate')).toBeTruthy();
+	expect(findings.some((finding) => finding.rule === 'ast-duplicate')).toBeTruthy();
 	// the per-repo minCloneTokens floor suppressed tier-1 clones
-	expect(findings.some((finding) => finding.detector === 'clone')).toBeFalsy();
+	expect(findings.some((finding) => finding.rule === 'clone')).toBeFalsy();
 	// the per-repo size.file override (5 lines) flagged an ordinary file
-	expect(findings.some((finding) => finding.cluster === 'size:file:packages/app/src/sumTotals.ts')).toBeTruthy();
+	expect(findings.some((finding) => finding.siteKey === 'size:file:packages/app/src/sumTotals.ts')).toBeTruthy();
 });
 
 test('scan degrades honestly without a resolvable typescript', async () => {
@@ -230,7 +241,7 @@ test('dead-export: an entry index (imports, no exports) is a consumer, not a bar
 	writeFileSync(join(dir, 'src/util/index.ts'), "export { helperThing } from './helperThing';\n");
 
 	const { findings } = await runScan({ cwd: dir });
-	const dead = findings.filter((finding) => finding.detector === 'dead-export');
+	const dead = findings.filter((finding) => finding.rule === 'dead-export');
 
 	// an entry file's imports are consumption:\n${JSON.stringify(dead, undefined,
 	// 1)}
@@ -277,7 +288,7 @@ test('clone detection ignores import spans but keeps real clones on their true l
 	writeFileSync(join(dir, 'src/b/offsetTwo.ts'), `${importBlock}\nexport const offsetTwo = ({ records }: { records: any[] }) => {${bigBody}};\n`);
 
 	const { findings } = await runScan({ cwd: dir });
-	const clones = findings.filter((finding) => finding.detector === 'clone');
+	const clones = findings.filter((finding) => finding.rule === 'clone');
 
 	// shared import blocks reported as clones:\n${JSON.stringify(clones,
 	// undefined, 1)}
@@ -293,7 +304,7 @@ test('clone detection ignores import spans but keeps real clones on their true l
 	expect(offset.every((finding) => finding.files.every((file) => (file.startLine ?? 0) > importBlockLines))).toBeTruthy();
 });
 
-/** The smallest repo that still yields one known, stable finding cluster. */
+/** The smallest repo that still yields one known, stable finding site. */
 const setupLedgerRepo = ({ ledger }: { ledger?: string } = {}) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-scan-ledger-'));
 
@@ -315,24 +326,45 @@ test('an unreadable baseline is called out and ignored — nothing is silently s
 	// a corrupt ledger states itself:\n${notes.join('\n')}
 	expect(notes.some((note) => note.includes('unreadable'))).toBeTruthy();
 	// a ledger that could not be read suppresses nothing
-	expect(findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeTruthy();
+	expect(findings.some((finding) => finding.siteKey === 'multi-export:src/a/config.ts')).toBeTruthy();
 });
 
-test('a baselined cluster that no longer exists is reported as burn-down progress', async () => {
+test('a baselined site that no longer exists is reported as burn-down progress', async () => {
 	const dir = setupLedgerRepo({
 		ledger: JSON.stringify({
 			at: '2026-01-01T00:00:00.000Z',
 			path: '.',
-			clusters: ['multi-export:src/a/config.ts', 'multi-export:src/gone/removed.ts'],
+			siteKeys: ['multi-export:src/a/config.ts', 'multi-export:src/gone/removed.ts'],
 		}),
 	});
 
 	const { findings, notes } = await runScan({ cwd: dir, persist: false });
 
-	// the cluster still present stays suppressed
-	expect(findings.some((finding) => finding.cluster === 'multi-export:src/a/config.ts')).toBeFalsy();
-	// the resolved cluster is counted as progress:\n${notes.join('\n')}
-	expect(notes.some((note) => note.includes('1 baselined cluster(s) no longer found'))).toBeTruthy();
+	// the site still present stays suppressed
+	expect(findings.some((finding) => finding.siteKey === 'multi-export:src/a/config.ts')).toBeFalsy();
+	// the resolved site is counted as progress:\n${notes.join('\n')}
+	expect(notes.some((note) => note.includes('1 baselined site(s) no longer found'))).toBeTruthy();
+});
+
+test('re-accepting debt refreshes the ledger to what is true now, dropping the sites already burned down', async () => {
+	const dir = setupLedgerRepo({
+		ledger: JSON.stringify({
+			at: '2026-01-01T00:00:00.000Z',
+			path: '.',
+			siteKeys: ['multi-export:src/a/config.ts', 'multi-export:src/gone/removed.ts'],
+		}),
+	});
+
+	const { findings, notes } = await runScan({ cwd: dir, writeBaseline: true, persist: false });
+
+	const ledger = JSON.parse(readFileSync(join(dir, 'lightsout.scan-baseline.json'), 'utf8')) as { path: string; siteKeys: string[] };
+
+	// the rewritten ledger holds exactly the sites this run found
+	expect([...ledger.siteKeys].sort()).toStrictEqual([...new Set(findings.map((finding) => finding.siteKey))].sort());
+	// a site that no longer exists is not carried forward
+	expect(ledger.siteKeys.includes('multi-export:src/gone/removed.ts')).toBeFalsy();
+	// an existing ledger is refreshed, not written for the first time:\n${notes.join('\n')}
+	expect(notes.some((note) => note.includes('baseline refreshed'))).toBeTruthy();
 });
 
 test('runScan reports stage progress and leaves the evidence file alone when told not to persist', async () => {
@@ -357,11 +389,11 @@ test('a persisting scan writes the typed evidence file it returns', async () => 
 	const { findings, notes } = await runScan({ cwd: dir });
 
 	const raw = readFileSync(join(dir, '.lightsout/scan.json'), 'utf8');
-	const report = JSON.parse(raw) as { path: string; findings: Array<{ cluster: string }>; notes: string[] };
+	const report = JSON.parse(raw) as { path: string; findings: Array<{ siteKey: string }>; notes: string[] };
 	// a whole-repo scan records the root as its scope
 	expect(report.path).toBe('.');
 	// the file holds what the caller got
-	expect(report.findings.map((finding) => finding.cluster).sort()).toStrictEqual(findings.map((finding) => finding.cluster).sort());
+	expect(report.findings.map((finding) => finding.siteKey).sort()).toStrictEqual(findings.map((finding) => finding.siteKey).sort());
 	// the notes travel with the findings
 	expect(report.notes).toStrictEqual(notes);
 });

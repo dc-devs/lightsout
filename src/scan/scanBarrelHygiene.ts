@@ -1,4 +1,4 @@
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { readFileContents } from '@/scan/common/utils/readFileContents';
 import { mapFolderModules } from '@/scan/mapFolderModules';
@@ -23,11 +23,11 @@ interface Params {
  * to path resolution). Text-based throughout — needs no compiler, so unlike
  * the other architecture detectors it runs even in JS-only repos.
  */
-export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params): Promise<ScanFinding[]> => {
+export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params): Promise<StandardsFinding[]> => {
 	const modules = await mapFolderModules({ cwd, files });
 	const contents = await readFileContents({ cwd, files: [...files, ...(referenceFiles ?? [])] });
 
-	const findings: ScanFinding[] = [];
+	const findings: StandardsFinding[] = [];
 
 	for (const [folder, entry] of modules) {
 		const barrelExports = readBarrelExports({ barrelPath: entry.barrelPath, text: contents.get(entry.barrelPath) ?? '', files });
@@ -35,9 +35,9 @@ export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params):
 
 		if (stars.length > 0) {
 			findings.push({
-				detector: ScanDetector.BarrelHygiene,
-				severity: ScanSeverity.Finding,
-				cluster: `barrel-star:${entry.barrelPath}`,
+				rule: StandardsRule.BarrelHygiene,
+				severity: StandardsSeverity.Finding,
+				siteKey: `barrel-star:${entry.barrelPath}`,
 				files: [{ path: entry.barrelPath }],
 				detail: `${stars.map((line) => `'${line.specifier}'`).join(', ')} re-exported with \`export *\``,
 				guidance: 'A barrel is a module’s public API — list named re-exports instead.',
@@ -64,9 +64,9 @@ export const scanBarrelHygiene = async ({ cwd, files, referenceFiles }: Params):
 
 			if (!consumedOutside) {
 				findings.push({
-					detector: ScanDetector.BarrelHygiene,
-					severity: ScanSeverity.Advisory,
-					cluster: `barrel-dead:${entry.barrelPath}:${name}`,
+					rule: StandardsRule.BarrelHygiene,
+					severity: StandardsSeverity.Advisory,
+					siteKey: `barrel-dead:${entry.barrelPath}:${name}`,
 					files: [{ path: entry.barrelPath }],
 					detail: `'${name}' is exported from ${entry.barrelPath} but no file outside module '${folder}' consumes it`,
 					guidance: 'Deliberate public API, or dead? Only the author knows.',

@@ -1,4 +1,4 @@
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { collapseCasing } from '@/common/naming/collapseCasing';
 import { nameOf } from '@/common/naming/nameOf';
 
@@ -16,7 +16,7 @@ const exportPattern = /^export\s+(?:async\s+)?(const|class|function|interface|ty
 const dotPrefixes = (name: string) => name.split('.').map((_, index, segments) => segments.slice(0, index + 1).join('.'));
 
 interface Params {
-	/** Repo-relative path, used for the finding's cluster and filename comparison. */
+	/** Repo-relative path, used for the finding's site key and filename comparison. */
 	file: string;
 	/** The file's contents. */
 	text: string;
@@ -30,8 +30,8 @@ interface Params {
  * passes rather than carrying this logic inline. A module internal — covered
  * through `scanStructure`'s own tests, which is where its behaviour is pinned.
  */
-export const scanFileExports = ({ file, text }: Params): ScanFinding[] => {
-	const findings: ScanFinding[] = [];
+export const scanFileExports = ({ file, text }: Params): StandardsFinding[] => {
+	const findings: StandardsFinding[] = [];
 	const exports: Array<{ keyword: string; name: string; line: string }> = [];
 
 	for (const line of text.split('\n')) {
@@ -59,9 +59,9 @@ export const scanFileExports = ({ file, text }: Params): ScanFinding[] => {
 
 	if (exports.length > 1 && !namedConstantFamily && !unionFamily) {
 		findings.push({
-			detector: ScanDetector.Structure,
-			severity: ScanSeverity.Finding,
-			cluster: `multi-export:${file}`,
+			rule: StandardsRule.Structure,
+			severity: StandardsSeverity.Finding,
+			siteKey: `multi-export:${file}`,
 			files: [{ path: file }],
 			detail: `${exports.length} exports (${exports.map(({ name }) => name).join(', ')})`,
 			guidance: 'One export per file, outside the closed exception list.',
@@ -72,9 +72,9 @@ export const scanFileExports = ({ file, text }: Params): ScanFinding[] => {
 
 	if (primary && exports.length === 1 && !dotPrefixes(nameOf(file)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
 		findings.push({
-			detector: ScanDetector.Structure,
-			severity: ScanSeverity.Advisory,
-			cluster: `filename-mismatch:${file}`,
+			rule: StandardsRule.Structure,
+			severity: StandardsSeverity.Advisory,
+			siteKey: `filename-mismatch:${file}`,
 			files: [{ path: file }],
 			detail: `file '${nameOf(file)}' exports '${primary.name}'`,
 			guidance: 'The filename should match the export it holds.',

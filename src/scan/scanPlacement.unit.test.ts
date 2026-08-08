@@ -34,14 +34,14 @@ test('scanPlacement flags a module-internal common file leaking to outside impor
 	const dir = setup(files);
 
 	const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
-	const findings = allFindings.filter((finding) => finding.detector === 'placement');
+	const findings = allFindings.filter((finding) => finding.rule === 'placement');
 
 	// every placement finding carries the finding severity
 	expect(findings.every((finding) => finding.severity === 'finding')).toBeTruthy();
 	// only the leaked module-internal common file
-	expect(findings.map((finding) => finding.cluster).sort()).toStrictEqual(['placement:src/pay/common/utils/round.ts']);
+	expect(findings.map((finding) => finding.siteKey).sort()).toStrictEqual(['placement:src/pay/common/utils/round.ts']);
 
-	const leak = findings.find((finding) => finding.cluster === 'placement:src/pay/common/utils/round.ts');
+	const leak = findings.find((finding) => finding.siteKey === 'placement:src/pay/common/utils/round.ts');
 	// detail lists the outside consumers
 	expect(leak?.detail.includes('src/bill/bill.ts') && leak.detail.includes('src/ledger/ledger.ts')).toBeTruthy();
 	// detail points at the lowest common ancestor common/
@@ -63,7 +63,7 @@ test('a leak whose owner and consumer share no ancestor promotes to the repo roo
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
-	const leak = findings.find((finding) => finding.cluster === 'placement:pay/common/utils/round.ts');
+	const leak = findings.find((finding) => finding.siteKey === 'placement:pay/common/utils/round.ts');
 	// the outside consumer is named:\n${JSON.stringify(findings, undefined, 1)}
 	expect(leak?.detail.includes('billing/bill.ts')).toBeTruthy();
 	// no shared ancestor puts the promotion target at the root: ${leak?.detail}

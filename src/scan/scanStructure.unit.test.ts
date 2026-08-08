@@ -32,9 +32,9 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
-		const multi = findings.find((finding) => finding.cluster === 'multi-export:src/pay/config.ts');
-		const mismatch = findings.find((finding) => finding.cluster === 'filename-mismatch:src/pay/helpers.ts');
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const multi = findings.find((finding) => finding.siteKey === 'multi-export:src/pay/config.ts');
+		const mismatch = findings.find((finding) => finding.siteKey === 'filename-mismatch:src/pay/helpers.ts');
 
 		// one-export-per-file is a rule violation
 		expect(multi?.severity).toBe('finding');
@@ -47,7 +47,7 @@ describe('scanStructure', () => {
 		// the detail names the export the filename should follow: ${mismatch?.detail}
 		expect(mismatch?.detail.includes('buildLabel')).toBeTruthy();
 		// a file with several exports has no single export its filename could match
-		expect(findings.some((finding) => finding.cluster === 'filename-mismatch:src/pay/config.ts')).toBeFalsy();
+		expect(findings.some((finding) => finding.siteKey === 'filename-mismatch:src/pay/config.ts')).toBeFalsy();
 	});
 
 	test('exempts a union family — interfaces plus exactly one type alias — from one-export-per-file', async () => {
@@ -61,10 +61,10 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
 
 		// the discriminated union stays together; a second alias breaks the family
-		expect(findings.map((finding) => finding.cluster)).toStrictEqual(['multi-export:src/shape/Region.ts']);
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['multi-export:src/shape/Region.ts']);
 	});
 
 	test('exempts a named constant with its derived type and Record lookup maps', async () => {
@@ -80,10 +80,10 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
 
 		// the lookup map rides along with its constant; an unrelated const does not
-		expect(findings.map((finding) => finding.cluster)).toStrictEqual(['multi-export:src/order/OrderKind.ts']);
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['multi-export:src/order/OrderKind.ts']);
 	});
 
 	test('skips barrels — an index file is judged on neither export count nor filename', async () => {
@@ -96,11 +96,11 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
 
 		// a barrel is exempt from both structure rules:\n${JSON.stringify(findings,
 		// undefined, 1)}
-		expect(findings.map((finding) => finding.cluster)).toStrictEqual([]);
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual([]);
 	});
 
 	test('skips a file that exports nothing rather than matching its filename against no export', async () => {
@@ -113,11 +113,11 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
 
 		// an export-free file has no contract to mismatch:\n${JSON.stringify(findings,
 		// undefined, 1)}
-		expect(findings.map((finding) => finding.cluster)).toStrictEqual([]);
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual([]);
 	});
 
 	test('groups repeated first tokens only inside a utils/ folder', async () => {
@@ -135,11 +135,11 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
-		const domain = findings.filter((finding) => finding.cluster.startsWith('domain:'));
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const domain = findings.filter((finding) => finding.siteKey.startsWith('domain:'));
 
 		// only a repeated verb inside utils/ is a graduation candidate
-		expect(domain.map((finding) => finding.cluster)).toStrictEqual(['domain:src/a/utils:format']);
+		expect(domain.map((finding) => finding.siteKey)).toStrictEqual(['domain:src/a/utils:format']);
 		// graduation is a heuristic, never a rule violation
 		expect(domain[0]?.severity).toBe('advisory');
 		// the finding lists every file in the group
@@ -161,12 +161,12 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const domain = allFindings.filter((finding) => finding.detector === 'structure' && finding.cluster.startsWith('domain:'));
+		const domain = allFindings.filter((finding) => finding.rule === 'structure' && finding.siteKey.startsWith('domain:'));
 
 		// is*/resolve* would graduate to `predicates/` and `resolution/` — folders
 		// named for the ROLE of the code they hold, which folder-structure.md bans;
 		// `validation/` names a subject, which is what a domain folder is for
-		expect(domain.map((finding) => finding.cluster)).toStrictEqual(['domain:src/a/utils:validate']);
+		expect(domain.map((finding) => finding.siteKey)).toStrictEqual(['domain:src/a/utils:validate']);
 	});
 
 	test('reads a generator template line as string content, not as a second export', async () => {
@@ -181,11 +181,11 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
 
 		// one real export, whose name the filename already matches — counting the
 		// interpolated placeholder would make this a multi-export violation
-		expect(findings.map((finding) => finding.cluster)).toStrictEqual([]);
+		expect(findings.map((finding) => finding.siteKey)).toStrictEqual([]);
 	});
 
 	test('flags a folder over the census cap, counting every file including its barrel', async () => {
@@ -201,11 +201,11 @@ describe('scanStructure', () => {
 
 		const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
 
-		const findings = allFindings.filter((finding) => finding.detector === 'structure');
-		const census = findings.filter((finding) => finding.cluster.startsWith('census:'));
+		const findings = allFindings.filter((finding) => finding.rule === 'structure');
+		const census = findings.filter((finding) => finding.siteKey.startsWith('census:'));
 
 		// a folder sitting exactly at the cap is not flagged
-		expect(census.map((finding) => finding.cluster)).toStrictEqual(['census:src/wide']);
+		expect(census.map((finding) => finding.siteKey)).toStrictEqual(['census:src/wide']);
 		// the census is a heuristic, never a rule violation
 		expect(census[0]?.severity).toBe('advisory');
 		// the finding points at the folder, not a file

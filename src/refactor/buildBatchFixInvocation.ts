@@ -1,13 +1,13 @@
 import { buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '@/agents';
-import type { ScanFinding } from '@/contracts';
+import type { StandardsFinding } from '@/contracts';
 
 interface Params {
 	planContent: string;
 	files: string[];
 	standards?: string;
 	testStandards?: string;
-	scanFindings: ScanFinding[];
-	scanAdvisories: ScanFinding[];
+	scanFindings: StandardsFinding[];
+	scanAdvisories: StandardsFinding[];
 	/** The red gate output handed to the fixing role. */
 	gateError: string;
 	/** Supervisor diagnosis + guidance sections, appended on the guided retry. */

@@ -1,4 +1,4 @@
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { collapseCasing } from '@/common/naming/collapseCasing';
 import { nameKey } from '@/common/naming/nameKey';
 import { nameOf } from '@/common/naming/nameOf';
@@ -16,8 +16,8 @@ interface Params {
  * (`fetchUserData` vs `getUserData` vs `userDataGet`). Advisory — same-name
  * siblings can be legitimate (per-package analogs).
  */
-export const scanFilenameDuplicates = ({ files }: Params) => {
-	const findings: ScanFinding[] = [];
+export const scanFilenameDuplicates = ({ files }: Params): StandardsFinding[] => {
+	const findings: StandardsFinding[] = [];
 	const byName = new Map<string, string[]>();
 	const byTokens = new Map<string, Map<string, string[]>>();
 
@@ -43,9 +43,9 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 	for (const [name, paths] of byName) {
 		if (paths.length > 1) {
 			findings.push({
-				detector: ScanDetector.FilenameDuplicate,
-				severity: ScanSeverity.Advisory,
-				cluster: `name:${name}`,
+				rule: StandardsRule.FilenameDuplicate,
+				severity: StandardsSeverity.Advisory,
+				siteKey: `name:${name}`,
 				files: paths.map((path) => ({ path })),
 				detail: `'${name}' is declared in ${paths.length} places`,
 				guidance: 'One concept implemented twice, or a promotion candidate.',
@@ -66,9 +66,9 @@ export const scanFilenameDuplicates = ({ files }: Params) => {
 			}
 
 			findings.push({
-				detector: ScanDetector.FilenameDuplicate,
-				severity: ScanSeverity.Advisory,
-				cluster: `tokens:${key}`,
+				rule: StandardsRule.FilenameDuplicate,
+				severity: StandardsSeverity.Advisory,
+				siteKey: `tokens:${key}`,
 				files: paths.map((path) => ({ path })),
 				detail: `${names.map((name) => `'${name}'`).join(', ')} differ only by synonym or word order`,
 				guidance: 'Likely one concept living under two names.',

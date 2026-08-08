@@ -56,11 +56,11 @@ test('folder classification surfaces through boundary and barrel-star findings; 
 	const dir = setup(files);
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
-	const boundary = findings.filter((finding) => finding.detector === 'module-boundary');
-	const star = findings.filter((finding) => finding.detector === 'barrel-hygiene' && finding.cluster.startsWith('barrel-star:'));
+	const boundary = findings.filter((finding) => finding.rule === 'module-boundary');
+	const star = findings.filter((finding) => finding.rule === 'barrel-hygiene' && finding.siteKey.startsWith('barrel-star:'));
 
 	// module: feat's barrel omits internal.ts, so the deep import flags — naming the module and its barrel
-	const feat = boundary.find((finding) => finding.cluster === 'boundary:src/useInternal/u.ts');
+	const feat = boundary.find((finding) => finding.siteKey === 'boundary:src/useInternal/u.ts');
 	// feat is classified a module — its internal deep import flags
 	expect(feat?.detail.includes("module 'src/feat'")).toBeTruthy();
 	// the finding names feat’s barrel path
@@ -68,16 +68,16 @@ test('folder classification surfaces through boundary and barrel-star findings; 
 
 	// domainFolder: fmt's barrel re-exports both files, hiding nothing → the deep import does NOT flag
 	// fmt is a domainFolder — deep import allowed, no boundary finding
-	expect(boundary.some((finding) => finding.cluster === 'boundary:src/useFmt/u.ts')).toBeFalsy();
+	expect(boundary.some((finding) => finding.siteKey === 'boundary:src/useFmt/u.ts')).toBeFalsy();
 
 	// module via own common/: box's barrel covers box.ts, yet owning common/ forces module status
 	// box is a module because it owns a common/ subfolder
-	expect(boundary.some((finding) => finding.cluster === 'boundary:src/useBox/u.ts' && finding.detail.includes("module 'src/box'"))).toBeTruthy();
+	expect(boundary.some((finding) => finding.siteKey === 'boundary:src/useBox/u.ts' && finding.detail.includes("module 'src/box'"))).toBeTruthy();
 
 	// common-segment and src-root barrels are excluded from the module map, so their
 	// export * raises no star — only the genuine module barrel (box) does
 	// excluded folders raise no barrel-star; the module barrel does
-	expect(star.map((finding) => finding.cluster)).toStrictEqual(['barrel-star:src/box/index.ts']);
+	expect(star.map((finding) => finding.siteKey)).toStrictEqual(['barrel-star:src/box/index.ts']);
 });
 
 test('nested-module chains defer the parent to domainFolder — the OUTERMOST crossed module is the child', async () => {
@@ -93,8 +93,8 @@ test('nested-module chains defer the parent to domainFolder — the OUTERMOST cr
 	const dir = setup(files);
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
-	const boundary = findings.filter((finding) => finding.detector === 'module-boundary');
-	const nested = boundary.find((finding) => finding.cluster === 'boundary:src/useNested/u.ts');
+	const boundary = findings.filter((finding) => finding.rule === 'module-boundary');
+	const nested = boundary.find((finding) => finding.siteKey === 'boundary:src/useNested/u.ts');
 
 	// child still hides hidden.ts → it is a module; group's only descendants live in
 	// child, so with the nested subtree removed group omits nothing → domainFolder.

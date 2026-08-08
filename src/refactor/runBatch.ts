@@ -1,14 +1,14 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
 import {
 	BatchOutcome,
-	ScanDetector,
-	ScanSeverity,
+	StandardsRule,
+	StandardsSeverity,
 	WorkReportStatus,
 	type AgentUsage,
 	type BatchReport,
 	type LightsoutConfig,
 	type RefactorBatch,
-	type ScanFinding,
+	type StandardsFinding,
 } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { runScan } from '@/scan';
@@ -88,7 +88,7 @@ export const runBatch = async ({
 
 	const scanLive = () => runScan({ cwd, path: scanPath, all: scanAll, persist: false });
 
-	const remainingClusters = async ({ frozen }: { frozen: ScanFinding[] }) => {
+	const remainingClusters = async ({ frozen }: { frozen: StandardsFinding[] }) => {
 		const { findings } = await scanLive();
 
 		return matchRemainingFindings({ frozen, live: findings });
@@ -111,14 +111,14 @@ export const runBatch = async ({
 	const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file) => file.path)));
 	const liveAdvisories = preScan.findings.filter(
 		(finding) =>
-			finding.severity === ScanSeverity.Advisory &&
-			finding.detector === ScanDetector.Size &&
+			finding.severity === StandardsSeverity.Advisory &&
+			finding.rule === StandardsRule.Size &&
 			finding.files.some((file) => batchFiles.has(file.path)),
 	);
 
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever clusters survived a pass that DID change the tree (a partial).
-	let workFindings: ScanFinding[] = batch.findings;
+	let workFindings: StandardsFinding[] = batch.findings;
 
 	for (let pass = 1; pass <= 2; pass += 1) {
 		const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file) => file.path)))];
@@ -235,7 +235,7 @@ export const runBatch = async ({
 		}
 
 		onProgress(`${batch.id}: ${remaining.length} cluster(s) persist after a changing pass — one requeue`);
-		workFindings = workFindings.filter((finding) => remaining.includes(finding.cluster));
+		workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
 	}
 
 	// Unreachable: the pass-2 branch above always returns.

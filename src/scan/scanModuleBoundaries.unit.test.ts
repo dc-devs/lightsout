@@ -22,7 +22,7 @@ const setup = (files: Record<string, string>) => {
 const boundaryFindings = async (dir: string) => {
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
-	return findings.filter((finding) => finding.detector === 'module-boundary');
+	return findings.filter((finding) => finding.rule === 'module-boundary');
 };
 
 test('scanModuleBoundaries flags deep imports across a module boundary, allowing barrel / domain / common / same-module', async () => {
@@ -46,14 +46,14 @@ test('scanModuleBoundaries flags deep imports across a module boundary, allowing
 	const dir = setup(files);
 
 	const findings = await boundaryFindings(dir);
-	const clusters = findings.map((finding) => finding.cluster);
+	const siteKeys = findings.map((finding) => finding.siteKey);
 
 	// every module-boundary finding carries the finding severity
 	expect(findings.every((finding) => finding.severity === 'finding')).toBeTruthy();
 	// only the deep cross-boundary import flags
-	expect(clusters.sort()).toStrictEqual(['boundary:src/b/b.ts']);
+	expect(siteKeys.sort()).toStrictEqual(['boundary:src/b/b.ts']);
 
-	const flagged = findings.find((finding) => finding.cluster === 'boundary:src/b/b.ts');
+	const flagged = findings.find((finding) => finding.siteKey === 'boundary:src/b/b.ts');
 	// files list is [importer, imported]
 	expect(flagged?.files.map((file) => file.path)).toStrictEqual(['src/b/b.ts', 'src/a/internal.ts']);
 	// detail names the module and its barrel
@@ -75,14 +75,14 @@ test('scanModuleBoundaries picks the OUTERMOST crossed module for nested modules
 	const dir = setup(files);
 
 	const findings = await boundaryFindings(dir);
-	const byCluster = (cluster: string) => findings.find((finding) => finding.cluster === cluster);
+	const bySiteKey = (siteKey: string) => findings.find((finding) => finding.siteKey === siteKey);
 
 	// outsider crosses the OUTERMOST module first
-	expect(byCluster('boundary:src/ext/ext.ts')?.detail.includes("module 'src/outer'")).toBeTruthy();
+	expect(bySiteKey('boundary:src/ext/ext.ts')?.detail.includes("module 'src/outer'")).toBeTruthy();
 	// not the inner module
-	expect(byCluster('boundary:src/ext/ext.ts')?.detail.includes("module 'src/outer/inner'")).toBeFalsy();
+	expect(bySiteKey('boundary:src/ext/ext.ts')?.detail.includes("module 'src/outer/inner'")).toBeFalsy();
 	// a file inside outer crosses only into inner
-	expect(byCluster('boundary:src/outer/mid.ts')?.detail.includes("module 'src/outer/inner'")).toBeTruthy();
+	expect(bySiteKey('boundary:src/outer/mid.ts')?.detail.includes("module 'src/outer/inner'")).toBeTruthy();
 });
 
 test('two spellings of the same deep import are one violation, not two', async () => {
@@ -99,7 +99,7 @@ test('two spellings of the same deep import are one violation, not two', async (
 	const findings = await boundaryFindings(dir);
 
 	// the repeated edge is deduplicated
-	expect(findings.map((finding) => finding.cluster)).toStrictEqual(['boundary:src/b/b.ts']);
+	expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['boundary:src/b/b.ts']);
 	// files list is [importer, imported]
 	expect(findings[0]?.files.map((file) => file.path)).toStrictEqual(['src/b/b.ts', 'src/a/internal.ts']);
 });

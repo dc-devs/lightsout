@@ -105,3 +105,42 @@ test('refactor: a loop that spends every pass still changing files cannot walk p
 	// an agent that reported no friction contributes no rationale block
 	expect(result.error ?? '').not.toMatch(/account of its final pass/);
 });
+
+test('refactor: a pass declining the identical gating set escalates early rather than re-buying the same answer', async () => {
+	const { dir, driver, config, passesRun } = await setupRefactorRun({
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		// Every pass judges the findings not worth acting on and reports no
+		// changes, so the site keys the scanner reports are identical each pass.
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('escalated');
+	// the disagreement is stable by the second pass — the third is never spent
+	expect(passesRun()).toBe(2);
+	expect(result.error ?? '').toMatch(/persist after 2 pass\(es\)/);
+	// the site key that came back unchanged across both passes is named
+	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
+	expect(result.error ?? '').toMatch(/at src\/subject\.js/);
+});
+
+test("refactor: the escalation carries the agent's reported friction as its account of the final pass", async () => {
+	const { dir, driver, config } = await setupRefactorRun({
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		onRefactor: () =>
+			report({
+				changedFiles: [],
+				friction: [{ kind: 'decision', area: 'plan', detail: 'SPLIT-WOULD-BREAK-THE-BARREL' }],
+			}),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// the human reading the escalation gets the agent's reasoning, not just the sites
+	expect(result.error ?? '').toMatch(/account of its final pass/);
+	expect(result.error ?? '').toMatch(/- \[plan\] SPLIT-WOULD-BREAK-THE-BARREL/);
+	// and the persisting site key still leads the message
+	expect(result.error ?? '').toMatch(/multi-export:src\/subject\.js/);
+});

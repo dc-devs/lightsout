@@ -60,7 +60,7 @@ test('refactor: a batch the executor fixes is resolved, with a burn-down', async
 
 	const batch = result.manifest.steps.find((step) => step.id.startsWith('batch-'));
 
-	// batch id names the detector
+	// batch id names the rule
 	expect(batch?.id.includes('structure')).toBeTruthy();
 	expect(batch?.status).toBe('passed');
 });

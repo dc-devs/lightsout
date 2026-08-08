@@ -252,6 +252,29 @@ describe('runRefactorPipeline batch outcomes', () => {
 		expect(prompts.every((prompt) => !prompt.includes('# Failing step'))).toBeTruthy();
 	});
 
+	test('an invocation failure whose work is done but whose gates are red is not salvaged', async () => {
+		const { dir, config } = await setupRedGateBatch();
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async () => {
+				splitFile({ dir, file: 'src/multi.ts', first: 'alphaThing', second: 'betaThing' });
+				writeFileSync(join(dir, 'broken.flag'), 'red\n');
+
+				return { text: 'no json here — the process died mid-report', exitCode: 1 };
+			},
+		};
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config });
+
+		// the clusters are gone from the tree, but a red gate is not "work verified"
+		expect(result.ok).toBe(false);
+		expect(result.manifest.status).toBe('failed');
+		// the failure names the batch it stopped at
+		expect(result.error ?? '').toMatch(/batch-01:structure:src: /);
+		// and is never re-labelled as a resolution
+		expect(JSON.stringify(result.manifest.steps).includes('salvaged')).toBeFalsy();
+	});
+
 	test('a rate-limited cheap fix parks the run instead of failing it', async () => {
 		const { dir, prompts, gateBreakingExecutor, config } = await setupRedGateBatch();
 		const driver: Driver = {

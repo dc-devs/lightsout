@@ -44,7 +44,7 @@ test('tier 1 reports the duplicated span across both files', async () => {
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
-	const clones = findings.filter((finding) => finding.detector === 'clone');
+	const clones = findings.filter((finding) => finding.rule === 'clone');
 	// the copied body clones:\n${JSON.stringify(clones, undefined, 1)}
 	expect(clones.some((finding) => {
 		const paths = finding.files.map((file) => file.path).sort();
@@ -53,6 +53,10 @@ test('tier 1 reports the duplicated span across both files', async () => {
 	})).toBeTruthy();
 	// every clone carries a real line span
 	expect(clones.every((finding) => finding.files.every((file) => (file.startLine ?? 0) >= 1 && (file.endLine ?? 0) >= (file.startLine ?? 0)))).toBeTruthy();
+	// a copied span is a rule violation the refactor pipeline acts on, never an advisory
+	expect(clones.every((finding) => finding.severity === 'finding')).toBeTruthy();
+	// the site key names the duplicated span — file and start line:\n${JSON.stringify(clones, undefined, 1)}
+	expect(clones.every((finding) => /^clone:src\/[ab]\/(alpha|beta)\.ts:\d+$/.test(finding.siteKey))).toBeTruthy();
 });
 
 test('a listed file that cannot be read is skipped, never fatal', async () => {

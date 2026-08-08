@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { nameOf } from '@/common/naming/nameOf';
 import { scanFileExports } from '@/scan/common/utils/scanFileExports';
 
@@ -38,8 +38,8 @@ interface Params {
  * framework kebab-case survives), utils/ domain-grouping candidates, and a
  * folder census. Everything judgment-adjacent is advisory.
  */
-export const scanStructure = async ({ cwd, files }: Params) => {
-	const findings: ScanFinding[] = [];
+export const scanStructure = async ({ cwd, files }: Params): Promise<StandardsFinding[]> => {
+	const findings: StandardsFinding[] = [];
 	const filesPerDir = new Map<string, string[]>();
 	const utilsVerbGroups = new Map<string, Map<string, string[]>>();
 
@@ -69,9 +69,9 @@ export const scanStructure = async ({ cwd, files }: Params) => {
 		for (const [verb, paths] of group) {
 			if (paths.length > 1 && verb && !accessVerbs.has(verb)) {
 				findings.push({
-					detector: ScanDetector.Structure,
-					severity: ScanSeverity.Advisory,
-					cluster: `domain:${dir}:${verb}`,
+					rule: StandardsRule.Structure,
+					severity: StandardsSeverity.Advisory,
+					siteKey: `domain:${dir}:${verb}`,
 					files: paths.map((path) => ({ path })),
 					detail: `${paths.length} '${verb}*' functions in ${dir}`,
 					guidance: 'A domain-folder graduation candidate. Heuristic — judge before acting.',
@@ -83,9 +83,9 @@ export const scanStructure = async ({ cwd, files }: Params) => {
 	for (const [dir, paths] of filesPerDir) {
 		if (paths.length > folderCensusCap) {
 			findings.push({
-				detector: ScanDetector.Structure,
-				severity: ScanSeverity.Advisory,
-				cluster: `census:${dir}`,
+				rule: StandardsRule.Structure,
+				severity: StandardsSeverity.Advisory,
+				siteKey: `census:${dir}`,
 				files: [{ path: dir }],
 				detail: `${paths.length} files in one flat folder (census cap ~${folderCensusCap})`,
 				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',

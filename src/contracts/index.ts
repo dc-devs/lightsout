@@ -4,7 +4,7 @@ export { Permissions } from '@/contracts/Permissions';
 export { RunStatus, RunManifest, RunLock, AgentUsage, RunUsage, StepRecord, PackagesSource } from '@/contracts/run';
 export { WorkReport, WorkReportStatus, SupervisorDecision, SupervisorVerdict } from '@/contracts/work';
 export { FrictionArea, FrictionEntry, FrictionRecord } from '@/contracts/friction';
-export { ScanDetector, ScanSeverity, ScanFinding } from '@/contracts/scan';
+export { StandardsRule, StandardsSeverity, StandardsFinding } from '@/contracts/standardsCheck';
 export {
 	PlanDraftStatus,
 	PlanVariant,

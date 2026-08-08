@@ -35,27 +35,27 @@ test('scanBarrelHygiene flags export * and module barrel entries no outside file
 	const dir = setup(files);
 
 	const { findings: allFindings } = await runScan({ cwd: dir, persist: false });
-	const findings = allFindings.filter((finding) => finding.detector === 'barrel-hygiene');
+	const findings = allFindings.filter((finding) => finding.rule === 'barrel-hygiene');
 
-	const star = findings.filter((finding) => finding.cluster.startsWith('barrel-star:'));
+	const star = findings.filter((finding) => finding.siteKey.startsWith('barrel-star:'));
 	// export * flagged, root barrel excluded
-	expect(star.map((finding) => finding.cluster)).toStrictEqual(['barrel-star:src/m/index.ts']);
+	expect(star.map((finding) => finding.siteKey)).toStrictEqual(['barrel-star:src/m/index.ts']);
 	// star violations are findings
 	expect(star.every((finding) => finding.severity === 'finding')).toBeTruthy();
 
-	const dead = findings.filter((finding) => finding.cluster.startsWith('barrel-dead:'));
+	const dead = findings.filter((finding) => finding.siteKey.startsWith('barrel-dead:'));
 	// only the module entry no outside file consumes
-	expect(dead.map((finding) => finding.cluster)).toStrictEqual(['barrel-dead:src/m/index.ts:orphan']);
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-dead:src/m/index.ts:orphan']);
 	// barrel-dead is advisory
 	expect(dead[0]?.severity === 'advisory').toBeTruthy();
-	// the fact is the finding; what to do about it is the detector's guidance
+	// the fact is the finding; what to do about it is the rule's guidance
 	expect(dead[0]?.detail.includes('no file outside module')).toBeTruthy();
 	// phrasing mirrors scanDeadExports
 	expect(dead[0]?.guidance?.includes('public API') && dead[0].guidance.includes('dead')).toBeTruthy();
 	// an externally consumed entry is live
-	expect(dead.some((finding) => finding.cluster.includes(':used'))).toBeFalsy();
+	expect(dead.some((finding) => finding.siteKey.includes(':used'))).toBeFalsy();
 	// domain-folder entries are not boundary entries
-	expect(dead.some((finding) => finding.cluster.includes('src/dom'))).toBeFalsy();
+	expect(dead.some((finding) => finding.siteKey.includes('src/dom'))).toBeFalsy();
 });
 
 test('scanBarrelHygiene: a co-located test is a consumer of its own module barrel', async () => {
@@ -71,12 +71,12 @@ test('scanBarrelHygiene: a co-located test is a consumer of its own module barre
 	const dir = setup(files);
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
-	const dead = findings.filter((finding) => finding.cluster.startsWith('barrel-dead:'));
+	const dead = findings.filter((finding) => finding.siteKey.startsWith('barrel-dead:'));
 
 	// a test-consumed entry is live:\n${JSON.stringify(dead, undefined, 1)}
-	expect(dead.some((finding) => finding.cluster.includes(':tested'))).toBeFalsy();
+	expect(dead.some((finding) => finding.siteKey.includes(':tested'))).toBeFalsy();
 	// an entry nothing consumes still flags
-	expect(dead.some((finding) => finding.cluster.includes(':orphan'))).toBeTruthy();
+	expect(dead.some((finding) => finding.siteKey.includes(':orphan'))).toBeTruthy();
 });
 
 test('scanBarrelHygiene skips barrel entries too short to word-match honestly', async () => {
@@ -94,7 +94,7 @@ test('scanBarrelHygiene skips barrel entries too short to word-match honestly', 
 
 	const { findings } = await runScan({ cwd: dir, persist: false });
 
-	const dead = findings.filter((finding) => finding.cluster.startsWith('barrel-dead:'));
+	const dead = findings.filter((finding) => finding.siteKey.startsWith('barrel-dead:'));
 	// the short entry is skipped, the long one flags
-	expect(dead.map((finding) => finding.cluster)).toStrictEqual(['barrel-dead:src/m/index.ts:orphanEntry']);
+	expect(dead.map((finding) => finding.siteKey)).toStrictEqual(['barrel-dead:src/m/index.ts:orphanEntry']);
 });

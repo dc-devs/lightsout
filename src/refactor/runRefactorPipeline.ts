@@ -2,7 +2,7 @@ import {
 	BatchOutcome,
 	BatchReport,
 	RunStatus,
-	ScanSeverity,
+	StandardsSeverity,
 	type AgentUsage,
 	type LightsoutConfig,
 	type RunManifest,
@@ -13,7 +13,7 @@ import { runGates } from '@/pipeline';
 import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '@/runState';
 import { runScan } from '@/scan';
 import { resolveStandards } from '@/standards';
-import { countByDetector } from '@/refactor/countByDetector';
+import { countByRule } from '@/refactor/countByRule';
 import { initializeRun } from '@/refactor/initializeRun';
 import { seedResumeState } from '@/refactor/seedResumeState';
 import { runBatch } from '@/refactor/runBatch';
@@ -85,7 +85,7 @@ const executeRefactor = async ({
 	// are rebuilt from persisted step reports, never process memory.
 	const seeded = seedResumeState({ manifest, batches: worklist.batches });
 	const declined = seeded.declined;
-	const before = countByDetector({ findings: worklist.batches.flatMap((batch) => batch.findings) });
+	const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.findings) });
 
 	const stop = async ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }): Promise<RefactorResult> => {
 		await setStep({ record: { ...record, status, error }, patch: { status } });
@@ -217,7 +217,7 @@ const executeRefactor = async ({
 
 	// Finding severity only, mirroring the worklist filter — the burn-down
 	// compares work against work, never advisories.
-	return { ok: true, manifest, declined, before, after: countByDetector({ findings: finalScan.findings.filter((finding) => finding.severity === ScanSeverity.Finding) }) };
+	return { ok: true, manifest, declined, before, after: countByRule({ findings: finalScan.findings.filter((finding) => finding.severity === StandardsSeverity.Finding) }) };
 };
 
 /**

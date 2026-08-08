@@ -1,8 +1,8 @@
 import { formatFindingSite, formatFindingText } from '@/agents';
-import type { ScanFinding, WorkReport } from '@/contracts';
+import type { StandardsFinding, WorkReport } from '@/contracts';
 
 interface Params {
-	gating: ScanFinding[];
+	gating: StandardsFinding[];
 	report?: WorkReport;
 	passes: number;
 }
@@ -10,14 +10,14 @@ interface Params {
 /**
  * Escalations are read by a human deciding what to do next — the message
  * must carry the evidence (what persists, where) and the agent's own
- * account of why it left the findings, not just opaque cluster ids that
+ * account of why it left the findings, not just opaque site keys that
  * send the reader digging through friction.jsonl.
  */
 export const describePersistingFindings = ({ gating, report, passes }: Params): string => {
 	const findingLines = gating.map((finding) => {
 		const where = finding.files.map((file) => formatFindingSite({ file })).join(', ');
 
-		return `- ${finding.cluster} — ${formatFindingText({ finding })}\n  at ${where}`;
+		return `- ${finding.siteKey} — ${formatFindingText({ finding })}\n  at ${where}`;
 	});
 	const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
 

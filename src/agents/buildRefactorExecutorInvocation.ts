@@ -1,4 +1,4 @@
-import type { ScanFinding } from '@/contracts';
+import type { StandardsFinding } from '@/contracts';
 import { formatFindingSite } from '@/agents/formatFindingSite';
 import { formatFindingText } from '@/agents/formatFindingText';
 import refactorExecutorPrompt from '@/agents/prompts/refactorExecutor.md';
@@ -10,18 +10,18 @@ interface Params {
 	/** Optional consumer standards content (style card), inlined verbatim. */
 	standards?: string;
 	/** Deterministic scanner findings on the changed files — the typed work-list. */
-	scanFindings?: ScanFinding[];
+	scanFindings?: StandardsFinding[];
 	/** Judgment-carrying scanner advisories (function/hook/component size) — fix unless a documented exemption applies. */
-	scanAdvisories?: ScanFinding[];
+	scanAdvisories?: StandardsFinding[];
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
 	errorContext?: string;
 }
 
 /** Render one scanner finding as a markdown bullet with its formatted site(s). */
-const findingLine = (finding: ScanFinding) => {
+const findingLine = (finding: StandardsFinding) => {
 	const where = finding.files.map((file) => formatFindingSite({ file })).join(' ↔ ');
 
-	return `- [${finding.detector}] ${where} — ${formatFindingText({ finding })}`;
+	return `- [${finding.rule}] ${where} — ${formatFindingText({ finding })}`;
 };
 
 /**

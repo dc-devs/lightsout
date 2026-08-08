@@ -4,7 +4,7 @@ import { seedResumeState } from '@/refactor/seedResumeState';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
 
-const batch = (id: string): RefactorBatch => ({ id, detector: 'clone', folder: 'src', findings: [], advisories: [] });
+const batch = (id: string): RefactorBatch => ({ id, rule: 'clone', folder: 'src', findings: [], advisories: [] });
 
 const step = ({ id, outcome, status = RunStatus.Passed }: { id: string; outcome?: BatchOutcome; status?: RunStatus }): StepRecord => ({
 	id,

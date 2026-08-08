@@ -15554,8 +15554,8 @@ var SupervisorVerdict = external_exports.object({
   guidance: external_exports.string().optional()
 });
 
-// src/contracts/scan/ScanDetector.ts
-var ScanDetector = {
+// src/contracts/standardsCheck/StandardsRule.ts
+var StandardsRule = {
   /** Tier 0: export names that collide or differ only by synonym/word order. */
   FilenameDuplicate: "filename-duplicate",
   /** Tier 1: token-level copy-paste spans (jscpd). */
@@ -15576,20 +15576,20 @@ var ScanDetector = {
   BarrelHygiene: "barrel-hygiene"
 };
 
-// src/contracts/scan/ScanSeverity.ts
-var ScanSeverity = {
+// src/contracts/standardsCheck/StandardsSeverity.ts
+var StandardsSeverity = {
   /** A rule violation — v2 remediation acts on these. */
   Finding: "finding",
   /** Worth a look, plausibly intentional — never auto-remediated. */
   Advisory: "advisory"
 };
 
-// src/contracts/scan/ScanFinding.ts
-var ScanFinding = external_exports.object({
-  detector: external_exports.enum(ScanDetector),
-  severity: external_exports.enum(ScanSeverity),
-  /** Grouping key — findings sharing a cluster are one remediation unit. */
-  cluster: external_exports.string(),
+// src/contracts/standardsCheck/StandardsFinding.ts
+var StandardsFinding = external_exports.object({
+  rule: external_exports.enum(StandardsRule),
+  severity: external_exports.enum(StandardsSeverity),
+  /** Grouping key — findings sharing a site key are one remediation unit, and it is the identity the debt ledger records. */
+  siteKey: external_exports.string(),
   files: external_exports.array(
     external_exports.object({
       path: external_exports.string(),
@@ -15600,8 +15600,8 @@ var ScanFinding = external_exports.object({
   /** What is true of this one site — the measurement, the names, the span. */
   detail: external_exports.string(),
   /**
-   * What to do about findings of this kind, and any judgment the detector
-   * cannot make for itself. Constant across every finding a detector emits for
+   * What to do about findings of this kind, and any judgment the rule
+   * cannot make for itself. Constant across every finding a rule emits for
    * the same reason, so a reader is told once rather than once per site.
    */
   guidance: external_exports.string().optional()
@@ -15834,15 +15834,15 @@ var DedupReport = external_exports.object({
 
 // src/contracts/refactor/RefactorBatch.ts
 var RefactorBatch = external_exports.object({
-  /** Manifest step id: `batch-NN:<detector>:<folder>`. */
+  /** Manifest step id: `batch-NN:<rule>:<folder>`. */
   id: external_exports.string(),
-  detector: external_exports.string(),
+  rule: external_exports.string(),
   /** Grouping folder: `<packagesDir>/<package>` when under it, else the top path segment, else '(root)'. */
   folder: external_exports.string(),
   /** Finding-severity work — must-address, re-checked after the agent reports. */
-  findings: external_exports.array(ScanFinding),
+  findings: external_exports.array(StandardsFinding),
   /** Judgment-carrying advisories whose files overlap this batch — context, never blocking. */
-  advisories: external_exports.array(ScanFinding)
+  advisories: external_exports.array(StandardsFinding)
 });
 
 // src/contracts/refactor/RefactorWorklist.ts
@@ -17291,7 +17291,7 @@ var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal
 // src/agents/buildRefactorExecutorInvocation.ts
 var findingLine = (finding) => {
   const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(" \u2194 ");
-  return `- [${finding.detector}] ${where} \u2014 ${formatFindingText({ finding })}`;
+  return `- [${finding.rule}] ${where} \u2014 ${formatFindingText({ finding })}`;
 };
 var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, scanFindings, scanAdvisories, errorContext }) => {
   const roleSections = [refactorExecutor_default, `# Plan (context for what these changes were for)
@@ -18165,7 +18165,7 @@ var withStepFiles = ({ record: record2, reports, gitPrefix }) => ({
 var describePersistingFindings = ({ gating, report, passes }) => {
   const findingLines = gating.map((finding) => {
     const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(", ");
-    return `- ${finding.cluster} \u2014 ${formatFindingText({ finding })}
+    return `- ${finding.siteKey} \u2014 ${formatFindingText({ finding })}
   at ${where}`;
   });
   const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
@@ -18276,9 +18276,9 @@ var groupDuplicateFunctions = ({ sites }) => {
   for (const [hash3, group] of byHash) {
     if (group.length > 1) {
       findings.push({
-        detector: ScanDetector.AstDuplicate,
-        severity: ScanSeverity.Finding,
-        cluster: `ast:${hash3.slice(0, 12)}`,
+        rule: StandardsRule.AstDuplicate,
+        severity: StandardsSeverity.Finding,
+        siteKey: `ast:${hash3.slice(0, 12)}`,
         files: group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine })),
         detail: `${group.map((site) => `'${site.name}'`).join(", ")} have identical bodies after identifier normalization (${group[0]?.tokenCount} tokens)`,
         guidance: "Renaming the identifiers did not make these different functions."
@@ -18313,9 +18313,9 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
     const lineCount = text.split("\n").length;
     if (lineCount > fileLineCap({ file: file2, caps }) && basename2(file2) !== "index.ts") {
       findings.push({
-        detector: ScanDetector.Size,
-        severity: ScanSeverity.Finding,
-        cluster: `size:file:${file2}`,
+        rule: StandardsRule.Size,
+        severity: StandardsSeverity.Finding,
+        siteKey: `size:file:${file2}`,
         files: [{ path: file2 }],
         detail: `${lineCount} lines (cap ~${fileLineCap({ file: file2, caps })})`,
         guidance: "Split the file, or graduate the concept it has grown into."
@@ -18344,9 +18344,9 @@ var scanAstFindings = async ({ cwd, files, compiler, size }) => {
         const lines = endLine - startLine + 1;
         if (lines > cap && name !== "(anonymous)") {
           findings.push({
-            detector: ScanDetector.Size,
-            severity: ScanSeverity.Advisory,
-            cluster: `size:${kind}:${file2}:${name}`,
+            rule: StandardsRule.Size,
+            severity: StandardsSeverity.Advisory,
+            siteKey: `size:${kind}:${file2}:${name}`,
             files: [{ path: file2, startLine, endLine }],
             detail: `${kind} '${name}' is ${lines} lines (cap ~${cap})`,
             guidance: "Extract logic. Orchestration that only sequences step calls is exempt \u2014 judge before acting."
@@ -30102,9 +30102,9 @@ var scanClones = async ({ cwd, files, minTokens = defaultMinTokens }) => {
       const a = clone3.duplicationA;
       const b = clone3.duplicationB;
       findings.push({
-        detector: ScanDetector.Clone,
-        severity: ScanSeverity.Finding,
-        cluster: `clone:${b.sourceId}:${b.start.line}`,
+        rule: StandardsRule.Clone,
+        severity: StandardsSeverity.Finding,
+        siteKey: `clone:${b.sourceId}:${b.start.line}`,
         files: [
           { path: b.sourceId, startLine: b.start.line, endLine: b.end.line },
           { path: a.sourceId, startLine: a.start.line, endLine: a.end.line }
@@ -30168,8 +30168,8 @@ var scanDeadExports = async ({ cwd, files, referenceFiles }) => {
     if (referencedBy.source) {
       continue;
     }
-    const cluster = `dead:${file2}`;
-    const base = { detector: ScanDetector.DeadExport, severity: ScanSeverity.Advisory, cluster, files: [{ path: file2 }] };
+    const siteKey = `dead:${file2}`;
+    const base = { rule: StandardsRule.DeadExport, severity: StandardsSeverity.Advisory, siteKey, files: [{ path: file2 }] };
     if (!referencedBy.barrel && !referencedBy.test) {
       findings.push({ ...base, detail: `'${name}' is referenced nowhere else`, guidance: "A dead code candidate. Delete it \u2014 version control has the history." });
     } else if (!referencedBy.source && referencedBy.test && !referencedBy.barrel) {
@@ -30276,9 +30276,9 @@ var scanBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
     const stars = barrelExports.filter((line) => line.star);
     if (stars.length > 0) {
       findings.push({
-        detector: ScanDetector.BarrelHygiene,
-        severity: ScanSeverity.Finding,
-        cluster: `barrel-star:${entry.barrelPath}`,
+        rule: StandardsRule.BarrelHygiene,
+        severity: StandardsSeverity.Finding,
+        siteKey: `barrel-star:${entry.barrelPath}`,
         files: [{ path: entry.barrelPath }],
         detail: `${stars.map((line) => `'${line.specifier}'`).join(", ")} re-exported with \`export *\``,
         guidance: "A barrel is a module\u2019s public API \u2014 list named re-exports instead."
@@ -30298,9 +30298,9 @@ var scanBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
       );
       if (!consumedOutside) {
         findings.push({
-          detector: ScanDetector.BarrelHygiene,
-          severity: ScanSeverity.Advisory,
-          cluster: `barrel-dead:${entry.barrelPath}:${name}`,
+          rule: StandardsRule.BarrelHygiene,
+          severity: StandardsSeverity.Advisory,
+          siteKey: `barrel-dead:${entry.barrelPath}:${name}`,
           files: [{ path: entry.barrelPath }],
           detail: `'${name}' is exported from ${entry.barrelPath} but no file outside module '${folder}' consumes it`,
           guidance: "Deliberate public API, or dead? Only the author knows."
@@ -30357,9 +30357,9 @@ var scanFilenameDuplicates = ({ files }) => {
   for (const [name, paths] of byName) {
     if (paths.length > 1) {
       findings.push({
-        detector: ScanDetector.FilenameDuplicate,
-        severity: ScanSeverity.Advisory,
-        cluster: `name:${name}`,
+        rule: StandardsRule.FilenameDuplicate,
+        severity: StandardsSeverity.Advisory,
+        siteKey: `name:${name}`,
         files: paths.map((path) => ({ path })),
         detail: `'${name}' is declared in ${paths.length} places`,
         guidance: "One concept implemented twice, or a promotion candidate."
@@ -30374,9 +30374,9 @@ var scanFilenameDuplicates = ({ files }) => {
         continue;
       }
       findings.push({
-        detector: ScanDetector.FilenameDuplicate,
-        severity: ScanSeverity.Advisory,
-        cluster: `tokens:${key}`,
+        rule: StandardsRule.FilenameDuplicate,
+        severity: StandardsSeverity.Advisory,
+        siteKey: `tokens:${key}`,
         files: paths.map((path) => ({ path })),
         detail: `${names.map((name) => `'${name}'`).join(", ")} differ only by synonym or word order`,
         guidance: "Likely one concept living under two names."
@@ -30455,9 +30455,9 @@ var scanModuleBoundaries = async ({ cwd, files, compiler }) => {
     }
     seen.add(key);
     findings.push({
-      detector: ScanDetector.ModuleBoundary,
-      severity: ScanSeverity.Finding,
-      cluster: `boundary:${from}`,
+      rule: StandardsRule.ModuleBoundary,
+      severity: StandardsSeverity.Finding,
+      siteKey: `boundary:${from}`,
       files: [{ path: from }, { path: to }],
       detail: `deep-imports '${to}' \u2014 an internal of module '${outermost}'; import from its barrel '${barrelPath}' instead`,
       guidance: "A module\u2019s barrel is its public API; everything else is an internal."
@@ -30500,9 +30500,9 @@ var scanPlacement = async ({ cwd, files, compiler }) => {
     const consumers = [...consumerSet].sort();
     const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname4(consumer))]);
     findings.push({
-      detector: ScanDetector.Placement,
-      severity: ScanSeverity.Finding,
-      cluster: `placement:${file2}`,
+      rule: StandardsRule.Placement,
+      severity: StandardsSeverity.Finding,
+      siteKey: `placement:${file2}`,
       files: [{ path: file2 }, ...consumers.map((path) => ({ path }))],
       detail: `'${file2}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(", ")} \u2014 promote to ${lca}/common/`,
       guidance: "Shared code belongs in the common/ of the lowest folder that contains everyone using it."
@@ -30536,9 +30536,9 @@ var scanFileExports = ({ file: file2, text }) => {
   const unionFamily = keywords("interface").length > 0 && keywords("type").length === 1 && keywords("interface").length + 1 === exports.length;
   if (exports.length > 1 && !namedConstantFamily && !unionFamily) {
     findings.push({
-      detector: ScanDetector.Structure,
-      severity: ScanSeverity.Finding,
-      cluster: `multi-export:${file2}`,
+      rule: StandardsRule.Structure,
+      severity: StandardsSeverity.Finding,
+      siteKey: `multi-export:${file2}`,
       files: [{ path: file2 }],
       detail: `${exports.length} exports (${exports.map(({ name }) => name).join(", ")})`,
       guidance: "One export per file, outside the closed exception list."
@@ -30547,9 +30547,9 @@ var scanFileExports = ({ file: file2, text }) => {
   const primary = exports[0];
   if (primary && exports.length === 1 && !dotPrefixes(nameOf(file2)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
     findings.push({
-      detector: ScanDetector.Structure,
-      severity: ScanSeverity.Advisory,
-      cluster: `filename-mismatch:${file2}`,
+      rule: StandardsRule.Structure,
+      severity: StandardsSeverity.Advisory,
+      siteKey: `filename-mismatch:${file2}`,
       files: [{ path: file2 }],
       detail: `file '${nameOf(file2)}' exports '${primary.name}'`,
       guidance: "The filename should match the export it holds."
@@ -30619,9 +30619,9 @@ var scanStructure = async ({ cwd, files }) => {
     for (const [verb, paths] of group) {
       if (paths.length > 1 && verb && !accessVerbs.has(verb)) {
         findings.push({
-          detector: ScanDetector.Structure,
-          severity: ScanSeverity.Advisory,
-          cluster: `domain:${dir}:${verb}`,
+          rule: StandardsRule.Structure,
+          severity: StandardsSeverity.Advisory,
+          siteKey: `domain:${dir}:${verb}`,
           files: paths.map((path) => ({ path })),
           detail: `${paths.length} '${verb}*' functions in ${dir}`,
           guidance: "A domain-folder graduation candidate. Heuristic \u2014 judge before acting."
@@ -30632,9 +30632,9 @@ var scanStructure = async ({ cwd, files }) => {
   for (const [dir, paths] of filesPerDir) {
     if (paths.length > folderCensusCap) {
       findings.push({
-        detector: ScanDetector.Structure,
-        severity: ScanSeverity.Advisory,
-        cluster: `census:${dir}`,
+        rule: StandardsRule.Structure,
+        severity: StandardsSeverity.Advisory,
+        siteKey: `census:${dir}`,
         files: [{ path: dir }],
         detail: `${paths.length} files in one flat folder (census cap ~${folderCensusCap})`,
         guidance: "Group them by domain, or graduate the concepts hiding in the pile."
@@ -30650,7 +30650,7 @@ import { join as join27 } from "node:path";
 var ScanBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
-  clusters: external_exports.array(external_exports.string())
+  siteKeys: external_exports.array(external_exports.string())
 });
 var applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
   const baselinePath = join27(cwd, "lightsout.scan-baseline.json");
@@ -30664,16 +30664,16 @@ var applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
   }
   const baseline = baselineRaw === void 0 ? void 0 : ScanBaseline.safeParse(baselineJson);
   if (writeBaseline) {
-    const clusters = [...new Set(findings.map((finding) => finding.cluster))];
-    await writeFile5(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", clusters }, void 0, "	")}
+    const siteKeys = [...new Set(findings.map((finding) => finding.siteKey))];
+    await writeFile5(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
 `, "utf8");
     notes.push(
-      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${clusters.length} cluster(s) accepted as existing debt \u2014 commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`
+      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.scan-baseline.json; future scans report only NEW findings (--all shows everything)`
     );
     return { reported: findings, notes };
   }
   if (baseline === void 0) {
-    if (findings.some((finding) => finding.severity === ScanSeverity.Finding)) {
+    if (findings.some((finding) => finding.severity === StandardsSeverity.Finding)) {
       notes.push(`no baseline \u2014 \`lightsout scan --baseline\` accepts these findings as existing debt so future scans report only what's new`);
     }
     return { reported: findings, notes };
@@ -30682,15 +30682,15 @@ var applyScanBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
     notes.push("lightsout.scan-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
     return { reported: findings, notes };
   }
-  const accepted = new Set(baseline.data.clusters);
-  const fresh = findings.filter((finding) => !accepted.has(finding.cluster));
-  const currentClusters = new Set(findings.map((finding) => finding.cluster));
-  const resolved = baseline.data.clusters.filter((cluster) => !currentClusters.has(cluster)).length;
+  const accepted = new Set(baseline.data.siteKeys);
+  const fresh = findings.filter((finding) => !accepted.has(finding.siteKey));
+  const currentSiteKeys = new Set(findings.map((finding) => finding.siteKey));
+  const resolved = baseline.data.siteKeys.filter((siteKey) => !currentSiteKeys.has(siteKey)).length;
   if (!all && findings.length > fresh.length) {
     notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
   }
   if (resolved > 0) {
-    notes.push(`${resolved} baselined cluster(s) no longer found \u2014 burn-down progress (--baseline to refresh the ledger)`);
+    notes.push(`${resolved} baselined site(s) no longer found \u2014 burn-down progress (--baseline to refresh the ledger)`);
   }
   return { reported: all ? findings : fresh, notes };
 };
@@ -30771,15 +30771,18 @@ var runScan = async ({ cwd, path, all = false, writeBaseline = false, persist = 
 };
 
 // src/scan/selectScanFindings.ts
-var gatingClusterPattern = /^(ast:|multi-export:|size:file:|boundary:)/;
-var selectScanFindings = ({ findings, changedFiles }) => {
+var gatingSiteKeyPattern = /^(ast:|multi-export:|size:file:|boundary:)/;
+var selectScanFindings = ({
+  findings,
+  changedFiles
+}) => {
   const changed = new Set(changedFiles);
   const touchesChanged = (finding) => finding.files.some((file2) => changed.has(file2.path));
-  const workList = findings.filter((finding) => finding.severity === ScanSeverity.Finding && touchesChanged(finding));
+  const workList = findings.filter((finding) => finding.severity === StandardsSeverity.Finding && touchesChanged(finding));
   const advisories = findings.filter(
-    (finding) => finding.severity === ScanSeverity.Advisory && finding.detector === ScanDetector.Size && touchesChanged(finding)
+    (finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size && touchesChanged(finding)
   );
-  return { workList, advisories, gating: workList.filter((finding) => gatingClusterPattern.test(finding.cluster)) };
+  return { workList, advisories, gating: workList.filter((finding) => gatingSiteKeyPattern.test(finding.siteKey)) };
 };
 
 // src/pipeline/steps/scanWorkList.ts
@@ -30835,7 +30838,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
           cleanExit = true;
           break;
         }
-        const declined = scan.gating.map((finding) => finding.cluster).sort().join("\n");
+        const declined = scan.gating.map((finding) => finding.siteKey).sort().join("\n");
         if (declined === lastDeclined && pass < maxRefactorPasses) {
           run.progress(`refactor pass ${pass}: agent declined the same gating set twice \u2014 escalating without spending the remaining pass(es)`);
         }
@@ -33022,11 +33025,11 @@ var resumeCommand = async ({ flags, cwd }) => {
   process.exit(result.ok ? 0 : 1);
 };
 
-// src/refactor/countByDetector.ts
-var countByDetector = ({ findings }) => {
+// src/refactor/countByRule.ts
+var countByRule = ({ findings }) => {
   const counts = {};
   for (const finding of findings) {
-    counts[finding.detector] = (counts[finding.detector] ?? 0) + 1;
+    counts[finding.rule] = (counts[finding.rule] ?? 0) + 1;
   }
   return counts;
 };
@@ -33036,7 +33039,7 @@ import { readFile as readFile27, writeFile as writeFile10 } from "node:fs/promis
 import { join as join49 } from "node:path";
 
 // src/refactor/batchFindings.ts
-var detectorPriority = [
+var rulePriority = [
   "module-boundary",
   "structure",
   "size",
@@ -33047,9 +33050,9 @@ var detectorPriority = [
   "filename-duplicate"
 ];
 var maxBatchFindings = 12;
-var priorityOf = (detector) => {
-  const index = detectorPriority.indexOf(detector);
-  return index === -1 ? detectorPriority.length : index;
+var priorityOf = (rule) => {
+  const index = rulePriority.indexOf(rule);
+  return index === -1 ? rulePriority.length : index;
 };
 var batchFindings = ({ findings, advisories, packagesDir }) => {
   const areaOf = (path) => {
@@ -33066,25 +33069,25 @@ var batchFindings = ({ findings, advisories, packagesDir }) => {
   const groups = /* @__PURE__ */ new Map();
   for (const finding of findings) {
     const folder = folderOf(finding);
-    const key = `${finding.detector}\0${folder}`;
-    const group = groups.get(key) ?? { detector: finding.detector, folder, findings: [] };
+    const key = `${finding.rule}\0${folder}`;
+    const group = groups.get(key) ?? { rule: finding.rule, folder, findings: [] };
     group.findings.push(finding);
     groups.set(key, group);
   }
   const crossLast = (folder) => folder === "(cross)" ? 1 : 0;
   const ordered = [...groups.values()].sort(
-    (a, b) => priorityOf(a.detector) - priorityOf(b.detector) || a.detector.localeCompare(b.detector) || crossLast(a.folder) - crossLast(b.folder) || a.folder.localeCompare(b.folder)
+    (a, b) => priorityOf(a.rule) - priorityOf(b.rule) || a.rule.localeCompare(b.rule) || crossLast(a.folder) - crossLast(b.folder) || a.folder.localeCompare(b.folder)
   );
   const batches = [];
   for (const group of ordered) {
-    const sorted = [...group.findings].sort((a, b) => a.cluster.localeCompare(b.cluster));
+    const sorted = [...group.findings].sort((a, b) => a.siteKey.localeCompare(b.siteKey));
     for (let start = 0; start < sorted.length; start += maxBatchFindings) {
       const chunk = sorted.slice(start, start + maxBatchFindings);
       const chunkFiles = new Set(chunk.flatMap((finding) => finding.files.map((file2) => file2.path)));
       const number4 = String(batches.length + 1).padStart(2, "0");
       batches.push({
-        id: `batch-${number4}:${group.detector}:${group.folder}`,
-        detector: group.detector,
+        id: `batch-${number4}:${group.rule}:${group.folder}`,
+        rule: group.rule,
         folder: group.folder,
         findings: chunk,
         advisories: advisories.filter((advisory) => advisory.files.some((file2) => chunkFiles.has(file2.path)))
@@ -33102,12 +33105,12 @@ var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
     path: path ?? ".",
     all,
     batches: batchFindings({
-      findings: findings.filter((finding) => finding.severity === ScanSeverity.Finding),
+      findings: findings.filter((finding) => finding.severity === StandardsSeverity.Finding),
       // Size advisories only — the executor prompt frames advisories as the
-      // size caps' judgment items; other advisory detectors (dead-export)
+      // size caps' judgment items; other advisory rules (dead-export)
       // must not ride in as if they were work (in-pipeline precedent:
       // selectScanFindings).
-      advisories: findings.filter((finding) => finding.severity === ScanSeverity.Advisory && finding.detector === ScanDetector.Size),
+      advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size),
       packagesDir: config2.packagesDir ?? "packages"
     })
   };
@@ -33228,11 +33231,11 @@ var invokeBatchAgent = async ({
 // src/refactor/matchRemainingFindings.ts
 var pathKey = (finding) => [...new Set(finding.files.map((file2) => file2.path))].sort().join("\0");
 var matchRemainingFindings = ({ frozen, live: live2 }) => {
-  const liveClusters = new Set(live2.map((finding) => finding.cluster));
-  const liveClonePathKeys = new Set(live2.filter((finding) => finding.cluster.startsWith("clone:")).map(pathKey));
+  const liveSiteKeys = new Set(live2.map((finding) => finding.siteKey));
+  const liveClonePathKeys = new Set(live2.filter((finding) => finding.siteKey.startsWith("clone:")).map(pathKey));
   return frozen.filter(
-    (finding) => finding.cluster.startsWith("clone:") ? liveClonePathKeys.has(pathKey(finding)) : liveClusters.has(finding.cluster)
-  ).map((finding) => finding.cluster);
+    (finding) => finding.siteKey.startsWith("clone:") ? liveClonePathKeys.has(pathKey(finding)) : liveSiteKeys.has(finding.siteKey)
+  ).map((finding) => finding.siteKey);
 };
 
 // src/refactor/runBatchGates.ts
@@ -33368,7 +33371,7 @@ var runBatch = async ({
   }
   const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file2) => file2.path)));
   const liveAdvisories = preScan.findings.filter(
-    (finding) => finding.severity === ScanSeverity.Advisory && finding.detector === ScanDetector.Size && finding.files.some((file2) => batchFiles.has(file2.path))
+    (finding) => finding.severity === StandardsSeverity.Advisory && finding.rule === StandardsRule.Size && finding.files.some((file2) => batchFiles.has(file2.path))
   );
   let workFindings = batch.findings;
   for (let pass = 1; pass <= 2; pass += 1) {
@@ -33453,7 +33456,7 @@ var runBatch = async ({
       };
     }
     onProgress(`${batch.id}: ${remaining.length} cluster(s) persist after a changing pass \u2014 one requeue`);
-    workFindings = workFindings.filter((finding) => remaining.includes(finding.cluster));
+    workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
   }
   return { kind: "failed", error: `${batch.id}: batch loop exited without a terminal condition` };
 };
@@ -33487,7 +33490,7 @@ var executeRefactor = async ({
   };
   const seeded = seedResumeState({ manifest, batches: worklist.batches });
   const declined = seeded.declined;
-  const before = countByDetector({ findings: worklist.batches.flatMap((batch) => batch.findings) });
+  const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.findings) });
   const stop = async ({ record: record2, status, error: error51 }) => {
     await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
     progress(`refactor run stopped at ${record2.id} \u2014 ${status}`);
@@ -33579,7 +33582,7 @@ ${gateError}` });
   }
   const finalScan = await runScan({ cwd, path: worklist.path === "." ? void 0 : worklist.path, all: worklist.all, persist: false });
   await update({ status: RunStatus.Passed, currentStep: null });
-  return { ok: true, manifest, declined, before, after: countByDetector({ findings: finalScan.findings.filter((finding) => finding.severity === ScanSeverity.Finding) }) };
+  return { ok: true, manifest, declined, before, after: countByRule({ findings: finalScan.findings.filter((finding) => finding.severity === StandardsSeverity.Finding) }) };
 };
 var runRefactorPipeline = (params) => withRunLock({ params, run: executeRefactor });
 
@@ -33604,15 +33607,15 @@ ${yellow("declined")} ${entry.batchId}`);
     }
     console.log(dim(`  review each cluster \u2014 fix by hand, or accept it as debt: lightsout scan --baseline`));
   }
-  const detectors = [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].sort();
+  const rules = [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].sort();
   if (!result.ok) {
     console.log(dim(`
 no burn-down until the run completes \u2014 resume to finish and measure`));
-  } else if (detectors.length > 0) {
+  } else if (rules.length > 0) {
     console.log(`
 burn-down (findings before \u2192 after):`);
-    for (const detector of detectors) {
-      console.log(`  ${detector.padEnd(20)}${before[detector] ?? 0} \u2192 ${after[detector] ?? 0}`);
+    for (const rule of rules) {
+      console.log(`  ${rule.padEnd(20)}${before[rule] ?? 0} \u2192 ${after[rule] ?? 0}`);
     }
   }
   if (manifest.changedFiles.length > 0) {
@@ -33712,24 +33715,24 @@ var locationOf = ({ file: file2 }) => {
   const span = file2.endLine !== void 0 && file2.endLine !== file2.startLine ? `-${file2.endLine}` : "";
   return `${file2.path}:${file2.startLine}${span}`;
 };
-var headingOf = ({ detector, severity, count }) => {
-  const finding = severity === ScanSeverity.Finding;
+var headingOf = ({ rule, severity, count }) => {
+  const finding = severity === StandardsSeverity.Finding;
   const icon = finding ? yellow("\u26A0") : dim("\u2139");
   const noun = finding ? count === 1 ? "finding" : "findings" : count === 1 ? "advisory" : "advisories";
-  return `${icon} ${bold(detector)} ${dim("\xB7")} ${dim(`${count} ${noun}`)}`;
+  return `${icon} ${bold(rule)} ${dim("\xB7")} ${dim(`${count} ${noun}`)}`;
 };
 var printFindingGroups = ({ findings }) => {
   const width = terminalWidth();
   const groups = /* @__PURE__ */ new Map();
   for (const finding of findings) {
-    const key = `${finding.severity}:${finding.detector}`;
-    const group = groups.get(key) ?? { detector: finding.detector, severity: finding.severity, findings: [] };
+    const key = `${finding.severity}:${finding.rule}`;
+    const group = groups.get(key) ?? { rule: finding.rule, severity: finding.severity, findings: [] };
     group.findings.push(finding);
     groups.set(key, group);
   }
-  for (const { detector, severity, findings: group } of groups.values()) {
+  for (const { rule, severity, findings: group } of groups.values()) {
     console.log("");
-    console.log(headingOf({ detector, severity, count: group.length }));
+    console.log(headingOf({ rule, severity, count: group.length }));
     const singleWidths = group.flatMap((finding) => finding.files.length === 1 ? finding.files.map((file2) => locationOf({ file: file2 }).length) : []);
     const column = Math.min(Math.max(0, ...singleWidths), locationColumnCap);
     const byGuidance = /* @__PURE__ */ new Map();
@@ -33763,7 +33766,7 @@ var printFindingGroups = ({ findings }) => {
 };
 
 // src/cli/common/render/printScanSummary.ts
-var countOf = ({ findings, detector, severity }) => findings.filter((finding) => finding.detector === detector && finding.severity === severity).length;
+var countOf = ({ findings, rule, severity }) => findings.filter((finding) => finding.rule === rule && finding.severity === severity).length;
 var cell = ({ count }) => count === 0 ? "\u2014" : `${count}`;
 var printScanSummary = ({ findings, reportPath: reportPath2 }) => {
   console.log("");
@@ -33772,24 +33775,24 @@ var printScanSummary = ({ findings, reportPath: reportPath2 }) => {
     console.log(dim(`report: ${reportPath2}`));
     return;
   }
-  const detectors = [...new Set(findings.map((finding) => finding.detector))];
-  const rows = detectors.map((detector) => ({
+  const rules = [...new Set(findings.map((finding) => finding.rule))];
+  const rows = rules.map((rule) => ({
     cells: [
-      detector,
-      cell({ count: countOf({ findings, detector, severity: ScanSeverity.Finding }) }),
-      cell({ count: countOf({ findings, detector, severity: ScanSeverity.Advisory }) })
+      rule,
+      cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Finding }) }),
+      cell({ count: countOf({ findings, rule, severity: StandardsSeverity.Advisory }) })
     ],
     ruleAbove: false
   }));
   const totals = {
     cells: [
       "total",
-      cell({ count: findings.filter((finding) => finding.severity === ScanSeverity.Finding).length }),
-      cell({ count: findings.filter((finding) => finding.severity === ScanSeverity.Advisory).length })
+      cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Finding).length }),
+      cell({ count: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory).length })
     ],
     emphasis: bold
   };
-  for (const line of renderTable({ headers: ["detector", "findings", "advisories"], rows: [...rows, totals] })) {
+  for (const line of renderTable({ headers: ["rule", "findings", "advisories"], rows: [...rows, totals] })) {
     console.log(line);
   }
   console.log("");
@@ -33808,8 +33811,8 @@ var scanCommand = async ({ flags, cwd }) => {
     onProgress: (message) => console.log(dim(message))
   });
   const ordered = [
-    ...findings.filter((entry) => entry.severity === ScanSeverity.Finding),
-    ...findings.filter((entry) => entry.severity === ScanSeverity.Advisory)
+    ...findings.filter((entry) => entry.severity === StandardsSeverity.Finding),
+    ...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory)
   ];
   printFindingGroups({ findings: ordered });
   if (notes.length > 0) {
