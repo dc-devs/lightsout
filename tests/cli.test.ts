@@ -732,7 +732,9 @@ test('cli: standards-check --list prints the enforcement ledger and runs no chec
 	// a rule's live numbers ride its summary line
 	expect(stdout).toContain('minTokens 50');
 	// the totals close it off
-	expect(stdout).toMatch(/│ 17 rule\(s\)\s+│\s+6 blocking\s+│\s+11 advisory, 0 off\s+│/);
+	expect(stdout).toMatch(/│ 28 rule\(s\)\s+│\s+15 blocking\s+│\s+13 advisory, 0 off\s+│/);
+	// the eleven test-shape rules name the document they enforce
+	expect(stdout).toMatch(/│ test-nested-describe\s+│\s+blocking\s+│\s+standards\/tests\/unit\/jest\/unit-testing\.md\s+│/);
 	// --list answers a question about configuration — it never checks the tree
 	expect(stdout.includes('report: .lightsout/standards-check.json')).toBeFalsy();
 	expect(stderr).toBe('');
@@ -752,7 +754,7 @@ test('cli: standards-check --list marks the rules this repo configured', async (
 
 	// "this is our policy" reads apart from "this is the default"
 	expect(stdout).toMatch(/│ name-synonym\s+│\s+off \(config\)\s+│/);
-	expect(stdout).toMatch(/│ 17 rule\(s\)\s+│\s+6 blocking\s+│\s+10 advisory, 1 off\s+│/);
+	expect(stdout).toMatch(/│ 28 rule\(s\)\s+│\s+15 blocking\s+│\s+12 advisory, 1 off\s+│/);
 	expect(code).toBe(0);
 });
 

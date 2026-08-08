@@ -77,7 +77,8 @@ describe('runStandardsCheck against the rule registry', () => {
 		await runStandardsCheck({ cwd: dir, persist: false, onProgress: (message) => messages.push(message) });
 
 		// the order is part of the contract: the cheap name-level work first, the
-		// compiler-gated work once typescript has resolved
+		// compiler-gated work once typescript has resolved, and the test-file pass
+		// last
 		expect(messages.filter((message) => message.endsWith(': done'))).toStrictEqual([
 			'filename-duplicates: done',
 			'clones: done',
@@ -87,10 +88,43 @@ describe('runStandardsCheck against the rule registry', () => {
 			'barrel-hygiene: done',
 			'structure: done',
 			'dead-exports: done',
+			'test-shape: done',
 		]);
 		// nothing sat out — a pass no rule maps to would report itself off here and
 		// then silently never run
 		expect(messages.some((message) => message.endsWith(': off'))).toBe(false);
+	});
+
+	test('the pass vocabulary is exactly those nine ids and nothing else', () => {
+		const passes = [...Object.values(StandardsPassId)].sort();
+
+		// a pass id is what every rule in the registry names as its producer, what
+		// the progress output prints, and what the typescript skip note lists — an
+		// id added or renamed without being restated here changes all three at once
+		expect(passes).toStrictEqual([
+			'ast-findings',
+			'barrel-hygiene',
+			'clones',
+			'dead-exports',
+			'filename-duplicates',
+			'module-boundaries',
+			'placement',
+			'structure',
+			'test-shape',
+		]);
+	});
+
+	test('every id in the vocabulary is walked by a run, exactly once', async () => {
+		const dir = setupRegistryRepo();
+		const messages: string[] = [];
+
+		await runStandardsCheck({ cwd: dir, persist: false, onProgress: (message) => messages.push(message) });
+		const walked = messages.filter((message) => message.endsWith(': done') || message.endsWith(': off')).map((message) => message.split(':')[0]);
+
+		// the pass table is the only thing that turns an id into work: an id declared
+		// here and left out of the table is a pass that never runs and never says so,
+		// and one listed twice runs its rules twice:\n${messages.join('\n')}
+		expect(walked.sort()).toStrictEqual([...Object.values(StandardsPassId)].sort());
 	});
 
 	test('the typescript skip note names the passes actually skipped, not a hard-coded list', async () => {

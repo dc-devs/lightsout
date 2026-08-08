@@ -33,6 +33,28 @@ export const StandardsRule = {
 	BarrelStar: 'barrel-star',
 	/** A barrel entry no file outside the module consumes. */
 	BarrelDeadEntry: 'barrel-dead-entry',
+	/** A module-scope mock variable Jest's hoisting cannot reach, because its name is not `mock`-prefixed. */
+	TestMockPrefix: 'test-mock-prefix',
+	/** A mock return value set in a lifecycle hook instead of the setup factory. */
+	TestMockReturnInHook: 'test-mock-return-in-hook',
+	/** A `jest.fn()` with no generic — the spy does not match the real signature. */
+	TestMockUntyped: 'test-mock-untyped',
+	/** A `jest.mock` factory wrapper that discards its arguments. */
+	TestMockWrapperUntyped: 'test-mock-wrapper-untyped',
+	/** A subject held in a `let` reassigned across hooks — mutable test state. */
+	TestSharedLet: 'test-shared-let',
+	/** An assertion in a lifecycle hook instead of the test body. */
+	TestAssertInHook: 'test-assert-in-hook',
+	/** A nested `describe` outside the `when …` / `for …` exception. */
+	TestNestedDescribe: 'test-nested-describe',
+	/** Manual mock cleanup in a hook, which the Jest config already does. */
+	TestManualMockCleanup: 'test-manual-mock-cleanup',
+	/** `toStrictEqual` with an asymmetric matcher — strict in name only. */
+	TestStrictEqualMatcher: 'test-strict-equal-matcher',
+	/** More than one setup factory call in one test. */
+	TestMultipleSetups: 'test-multiple-setups',
+	/** A setup factory grown past its parameter cap. */
+	TestMegaFactory: 'test-mega-factory',
 } as const;
 
 export type StandardsRule = (typeof StandardsRule)[keyof typeof StandardsRule];

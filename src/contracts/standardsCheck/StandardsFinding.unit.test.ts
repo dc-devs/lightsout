@@ -52,6 +52,17 @@ describe('StandardsFinding', () => {
 			'placement',
 			'barrel-star',
 			'barrel-dead-entry',
+			'test-mock-prefix',
+			'test-mock-return-in-hook',
+			'test-mock-untyped',
+			'test-mock-wrapper-untyped',
+			'test-shared-let',
+			'test-assert-in-hook',
+			'test-nested-describe',
+			'test-manual-mock-cleanup',
+			'test-strict-equal-matcher',
+			'test-multiple-setups',
+			'test-mega-factory',
 		]) {
 			const { finding } = setupFinding({ extra: { rule } });
 
@@ -64,7 +75,7 @@ describe('StandardsFinding', () => {
 		}
 	});
 
-	test('the rule vocabulary is exactly those seventeen ids and nothing else', () => {
+	test('the rule vocabulary is exactly those twenty-eight ids and nothing else', () => {
 		const rules = [...Object.values(StandardsRule)].sort();
 
 		// a rule id is what a repo writes in its config to switch the rule off and
@@ -87,7 +98,18 @@ describe('StandardsFinding', () => {
 			'placement',
 			'size-file',
 			'size-function',
+			'test-assert-in-hook',
+			'test-manual-mock-cleanup',
+			'test-mega-factory',
+			'test-mock-prefix',
+			'test-mock-return-in-hook',
+			'test-mock-untyped',
+			'test-mock-wrapper-untyped',
+			'test-multiple-setups',
+			'test-nested-describe',
 			'test-only-export',
+			'test-shared-let',
+			'test-strict-equal-matcher',
 		]);
 	});
 

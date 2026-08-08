@@ -15242,7 +15242,29 @@ var StandardsRule = {
   /** A barrel re-exporting with `export *` instead of named re-exports. */
   BarrelStar: "barrel-star",
   /** A barrel entry no file outside the module consumes. */
-  BarrelDeadEntry: "barrel-dead-entry"
+  BarrelDeadEntry: "barrel-dead-entry",
+  /** A module-scope mock variable Jest's hoisting cannot reach, because its name is not `mock`-prefixed. */
+  TestMockPrefix: "test-mock-prefix",
+  /** A mock return value set in a lifecycle hook instead of the setup factory. */
+  TestMockReturnInHook: "test-mock-return-in-hook",
+  /** A `jest.fn()` with no generic — the spy does not match the real signature. */
+  TestMockUntyped: "test-mock-untyped",
+  /** A `jest.mock` factory wrapper that discards its arguments. */
+  TestMockWrapperUntyped: "test-mock-wrapper-untyped",
+  /** A subject held in a `let` reassigned across hooks — mutable test state. */
+  TestSharedLet: "test-shared-let",
+  /** An assertion in a lifecycle hook instead of the test body. */
+  TestAssertInHook: "test-assert-in-hook",
+  /** A nested `describe` outside the `when …` / `for …` exception. */
+  TestNestedDescribe: "test-nested-describe",
+  /** Manual mock cleanup in a hook, which the Jest config already does. */
+  TestManualMockCleanup: "test-manual-mock-cleanup",
+  /** `toStrictEqual` with an asymmetric matcher — strict in name only. */
+  TestStrictEqualMatcher: "test-strict-equal-matcher",
+  /** More than one setup factory call in one test. */
+  TestMultipleSetups: "test-multiple-setups",
+  /** A setup factory grown past its parameter cap. */
+  TestMegaFactory: "test-mega-factory"
 };
 
 // src/contracts/standardsCheck/StandardsSeverity.ts
@@ -15272,7 +15294,9 @@ var StandardsPassId = {
   /** Import-graph boundary crossings. */
   ModuleBoundaries: "module-boundaries",
   /** Import-graph leaks out of a module's common/. */
-  Placement: "placement"
+  Placement: "placement",
+  /** Text-level shape rules over test files. */
+  TestShape: "test-shape"
 };
 
 // src/contracts/standardsCheck/StandardsFinding.ts
@@ -18463,6 +18487,84 @@ var standardsRuleRegistry = {
     defaultSeverity: StandardsSeverity.Advisory,
     pass: StandardsPassId.BarrelHygiene,
     needsTypescript: false
+  },
+  [StandardsRule.TestMockPrefix]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a module-scope mock variable without the `mock` prefix Jest hoisting needs",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestMockReturnInHook]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a mock return value set in a beforeEach instead of the setup factory",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestMockUntyped]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a `jest.fn()` with no generic, so the spy does not match the real signature",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestMockWrapperUntyped]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a `jest.mock` factory wrapper that discards the arguments it is called with",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestSharedLet]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a `let` reassigned in a beforeEach \u2014 mutable state shared across tests",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestAssertInHook]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "an assertion in a beforeEach instead of the test body",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestNestedDescribe]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a nested `describe` outside the `when \u2026` / `for \u2026` exception",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestManualMockCleanup]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "manual mock cleanup in a lifecycle hook, which the Jest config already does",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestStrictEqualMatcher]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "`toStrictEqual` with an asymmetric matcher \u2014 strict in name only",
+    defaultSeverity: StandardsSeverity.Finding,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestMultipleSetups]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "more than one setup factory call in one test",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false
+  },
+  [StandardsRule.TestMegaFactory]: {
+    doc: "standards/tests/unit/jest/unit-testing.md",
+    summary: "a setup factory grown past its parameter cap",
+    defaultSeverity: StandardsSeverity.Advisory,
+    pass: StandardsPassId.TestShape,
+    needsTypescript: false,
+    defaultSettings: { maxParams: 6 }
   }
 };
 
@@ -30980,6 +31082,298 @@ var checkStructure = async ({ cwd, source, states }) => {
   return findings;
 };
 
+// src/standardsCheck/common/utils/buildLineSites.ts
+var buildLineSites = ({ file: file2, spans }) => spans.map(({ startLine, endLine }) => ({ path: file2, startLine, endLine }));
+
+// src/standardsCheck/common/utils/buildHookFinding.ts
+var buildHookFinding = ({ file: file2, blocks, rule, pattern, detailSuffix, guidance }) => {
+  const hooks2 = blocks.filter((block) => pattern.test(block.body));
+  return hooks2.length === 0 ? void 0 : buildFinding({
+    rule,
+    files: buildLineSites({ file: file2, spans: hooks2 }),
+    detail: `${hooks2.map((block) => `${block.callee} at line ${block.startLine}`).join(", ")} ${detailSuffix}`,
+    guidance
+  });
+};
+
+// src/standardsCheck/common/utils/getLineNumber.ts
+var getLineNumber = ({ text, index }) => text.slice(0, index).split("\n").length;
+
+// src/standardsCheck/common/utils/readCallBlocks.ts
+var inertSpan = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g;
+var titleSpan = /^\s*(['"`])((?:\\.|[^\\])*?)\1/;
+var maskInert = (text) => text.replace(inertSpan, (span) => span.replace(/[^\n]/g, " "));
+var closeIndexOf = ({ mask, open, closeChar }) => {
+  const openChar = mask.charAt(open);
+  let depth2 = 0;
+  let cursor = open;
+  for (; cursor < mask.length; cursor += 1) {
+    const char = mask.charAt(cursor);
+    depth2 += char === openChar ? 1 : char === closeChar ? -1 : 0;
+    if (depth2 === 0) {
+      break;
+    }
+  }
+  return cursor;
+};
+var arrowEnd = ({ mask }) => {
+  let depth2 = 0;
+  let end = 0;
+  for (let cursor = 0; cursor < mask.length && end === 0; cursor += 1) {
+    const char = mask.charAt(cursor);
+    depth2 += "([{".includes(char) ? 1 : ")]}".includes(char) ? -1 : 0;
+    end = depth2 === 0 && char === "=" && mask.charAt(cursor + 1) === ">" ? cursor + 2 : 0;
+  }
+  return end;
+};
+var readCallBlocks = ({ text, callees }) => {
+  const mask = maskInert(text);
+  const found = [];
+  for (const callee of callees) {
+    const pattern = new RegExp(`(?:^|[^A-Za-z0-9_$])${callee.replace(/\./g, "\\.")}\\s*\\(`, "g");
+    for (const match of mask.matchAll(pattern)) {
+      const matched = match[0];
+      const start = match.index + matched.indexOf(callee);
+      const open = match.index + matched.length - 1;
+      const close = closeIndexOf({ mask, open, closeChar: ")" });
+      const argSpan = text.slice(open + 1, close);
+      const argMask = mask.slice(open + 1, close);
+      const tailFrom = arrowEnd({ mask: argMask });
+      const tail = argSpan.slice(tailFrom);
+      const tailMask = argMask.slice(tailFrom);
+      const brace = tailMask.search(/\S/);
+      const opensBlock = tailMask.charAt(brace) === "{";
+      found.push({
+        start,
+        end: close,
+        block: {
+          callee,
+          title: argSpan.match(titleSpan)?.[2] ?? "",
+          body: opensBlock ? tail.slice(brace + 1, closeIndexOf({ mask: tailMask, open: brace, closeChar: "}" })) : tail,
+          startLine: getLineNumber({ text, index: start }),
+          endLine: getLineNumber({ text, index: close })
+        }
+      });
+    }
+  }
+  const ordered = [...found].sort((first, second) => first.start - second.start);
+  return ordered.map((entry) => ({
+    ...entry.block,
+    depth: ordered.filter((other) => other.start < entry.start && entry.end <= other.end).length
+  }));
+};
+
+// src/standardsCheck/common/utils/checkTestMockRules.ts
+var moduleScopeMock = /^const\s+([A-Za-z0-9_$]+)\s*=\s*jest\.fn\b/;
+var returnSetter = /\.mock(?:ReturnValue|ResolvedValue|RejectedValue|Implementation)\s*\(/;
+var spyCall = /jest\.fn\s*([<(])/g;
+var frameworkCast = /as unknown as|as Record</;
+var discardingWrapper = /\(\s*\.\.\.\s*[A-Za-z0-9_$]+\s*:\s*unknown\s*\[\s*\]/;
+var zeroArgWrapper = /([A-Za-z0-9_$]+)\s*:\s*\(\s*\)\s*=>\s*(mock[A-Za-z0-9_$]*)\s*\(/g;
+var manualCleanup = /jest\.(?:clearAllMocks|resetAllMocks|restoreAllMocks)\s*\(|\.mock(?:Clear|Reset)\s*\(/;
+var mockPrefixFinding = ({ file: file2, text }) => {
+  const unprefixed = [];
+  text.split("\n").forEach((line, index) => {
+    const name = line.match(moduleScopeMock)?.[1] ?? "";
+    if (name !== "" && !name.startsWith("mock")) {
+      unprefixed.push({ name, line: index + 1 });
+    }
+  });
+  return unprefixed.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestMockPrefix,
+    files: buildLineSites({ file: file2, spans: unprefixed.map(({ line }) => ({ startLine: line, endLine: line })) }),
+    detail: `${unprefixed.map(({ name, line }) => `'${name}' (line ${line})`).join(", ")} declared at module scope without a 'mock' prefix`,
+    guidance: "Jest hoists `jest.mock()` above module variables \u2014 only `mock`-prefixed names are reachable inside the factory."
+  });
+};
+var untypedSpyFinding = ({ file: file2, text }) => {
+  const terminated = `${text};`;
+  const lines = [];
+  for (const match of text.matchAll(spyCall)) {
+    const statement = terminated.slice(terminated.lastIndexOf(";", match.index) + 1, terminated.indexOf(";", match.index));
+    if (match[1] === "(" && !frameworkCast.test(statement)) {
+      lines.push(getLineNumber({ text, index: match.index }));
+    }
+  }
+  return lines.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestMockUntyped,
+    files: buildLineSites({ file: file2, spans: lines.map((line) => ({ startLine: line, endLine: line })) }),
+    detail: `jest.fn() with no generic at line(s) ${lines.join(", ")}`,
+    guidance: "Type every `jest.fn()` to the real signature \u2014 read the source first, and include the Promise wrapper for an async one."
+  });
+};
+var wrapperFinding = ({ file: file2, text }) => {
+  const wrappers = [];
+  for (const block of readCallBlocks({ text, callees: ["jest.mock"] })) {
+    const reasons = discardingWrapper.test(block.body) ? ["a `(...args: unknown[])` wrapper"] : [];
+    for (const forward of block.body.matchAll(zeroArgWrapper)) {
+      if (new RegExp(`expect\\(\\s*${forward[2]}\\s*\\)[^;]*toHaveBeenCalledWith`).test(text)) {
+        reasons.push(`'${forward[1]}' forwards no arguments to ${forward[2]}`);
+      }
+    }
+    if (reasons.length > 0) {
+      wrappers.push({ block, reasons });
+    }
+  }
+  return wrappers.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestMockWrapperUntyped,
+    files: buildLineSites({ file: file2, spans: wrappers.map(({ block }) => block) }),
+    detail: wrappers.map(({ block, reasons }) => `${reasons.join("; ")} (line ${block.startLine})`).join(", "),
+    guidance: "Type the factory wrapper to the real parameters \u2014 a discarded argument makes `toHaveBeenCalledWith` fail on a call that was correct."
+  });
+};
+var checkTestMockRules = ({ file: file2, text }) => {
+  const hookBlocks = readCallBlocks({ text, callees: ["beforeEach", "beforeAll", "afterEach", "afterAll"] });
+  const beforeEachBlocks = hookBlocks.filter((block) => block.callee === "beforeEach");
+  return [
+    mockPrefixFinding({ file: file2, text }),
+    // `test-mock-return-in-hook`. `beforeEach` only, the single hook line 136
+    // names — and the sanctioned home for a return value is the `setup()`
+    // factory, which is not a hook at all.
+    buildHookFinding({
+      file: file2,
+      blocks: beforeEachBlocks,
+      rule: StandardsRule.TestMockReturnInHook,
+      pattern: returnSetter,
+      detailSuffix: "sets a mock return value",
+      guidance: "Set mock return values in the `setup()` factory, so each test states its own arrangement."
+    }),
+    untypedSpyFinding({ file: file2, text }),
+    wrapperFinding({ file: file2, text }),
+    // `test-manual-mock-cleanup`. Hook bodies only, which is what makes line
+    // 192's fallback structural: the same `.mockReset()` at the top of a
+    // `setup()` factory is the doc's own advice and never reaches this rule.
+    buildHookFinding({
+      file: file2,
+      blocks: hookBlocks,
+      rule: StandardsRule.TestManualMockCleanup,
+      pattern: manualCleanup,
+      detailSuffix: "clears mocks by hand",
+      guidance: "Mock cleanup belongs in the package's Jest config (`clearMocks`, `restoreMocks`), not in a per-file hook."
+    })
+  ].filter((finding) => finding !== void 0);
+};
+
+// src/standardsCheck/common/utils/checkTestStructureRules.ts
+var letDeclaration = /^\s*let\s+([A-Za-z0-9_$]+)/;
+var assertion = /\bexpect\s*\(/;
+var nestingException = /^(when|for)\s/;
+var asymmetricMatcher = /expect\.(?:objectContaining|arrayContaining|any|stringContaining|stringMatching)\s*\(/;
+var setupCall = /\bsetup[A-Za-z0-9_$]*\s*\(/g;
+var setupFactory = /\bconst\s+(setup[A-Za-z0-9_$]*)\s*=\s*(?:async\s+)?\(\s*\{([^{}]*)\}/g;
+var declaredProperties = ({ inner }) => {
+  const parts = [];
+  let depth2 = 0;
+  let current = "";
+  for (const char of inner) {
+    depth2 += "([".includes(char) ? 1 : ")]".includes(char) ? -1 : 0;
+    if (char === "," && depth2 === 0) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  return [...parts, current].filter((part) => part.trim() !== "");
+};
+var sharedLetFinding = ({ file: file2, text, blocks, beforeEachBlocks }) => {
+  const shared = [];
+  text.split("\n").forEach((line, index) => {
+    const name = line.match(letDeclaration)?.[1] ?? "";
+    const number4 = index + 1;
+    const local = blocks.some((block) => block.startLine <= number4 && number4 <= block.endLine);
+    if (name !== "" && !local && beforeEachBlocks.some((block) => new RegExp(`\\b${name}\\s*=(?![=>])`).test(block.body))) {
+      shared.push({ name, line: number4 });
+    }
+  });
+  return shared.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestSharedLet,
+    files: buildLineSites({ file: file2, spans: shared.map(({ line }) => ({ startLine: line, endLine: line })) }),
+    detail: `${shared.map(({ name, line }) => `'${name}' (line ${line})`).join(", ")} reassigned in a beforeEach`,
+    guidance: "Arrange in a `setup()` factory that returns its locals as consts, so no test depends on what another left behind."
+  });
+};
+var nestedDescribeFinding = ({ file: file2, text }) => {
+  const nested = readCallBlocks({ text, callees: ["describe"] }).filter((block) => block.depth > 0 && !nestingException.test(block.title));
+  return nested.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestNestedDescribe,
+    files: buildLineSites({ file: file2, spans: nested }),
+    detail: `${nested.map((block) => `'${block.title}' (line ${block.startLine})`).join(", ")} nested inside another describe`,
+    guidance: "Keep describe blocks flat \u2014 scenario variants come from `setup()` parameters, or from a `when \u2026` / `for \u2026` title."
+  });
+};
+var strictEqualFinding = ({ file: file2, text }) => {
+  const misleading = readCallBlocks({ text, callees: ["toStrictEqual"] }).filter((block) => asymmetricMatcher.test(block.body));
+  return misleading.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestStrictEqualMatcher,
+    files: buildLineSites({ file: file2, spans: misleading }),
+    detail: `toStrictEqual with an asymmetric matcher at line(s) ${misleading.map((block) => block.startLine).join(", ")}`,
+    guidance: "Jest runs only the matcher, so the strict extra-property checks never fire \u2014 write `toEqual`, or assert a concrete object."
+  });
+};
+var multipleSetupsFinding = ({ file: file2, blocks }) => {
+  const overArranged = blocks.filter((block) => (block.callee === "test" || block.callee === "it") && [...block.body.matchAll(setupCall)].length > 1);
+  return overArranged.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestMultipleSetups,
+    files: buildLineSites({ file: file2, spans: overArranged }),
+    detail: `${overArranged.map((block) => `'${block.title}' (line ${block.startLine})`).join(", ")} calls more than one setup factory`,
+    guidance: "Two setups means two tests. Heuristic \u2014 judge before acting."
+  });
+};
+var megaFactoryFinding = ({ file: file2, text, maxParams }) => {
+  const sprawling = [];
+  for (const match of text.matchAll(setupFactory)) {
+    const properties = declaredProperties({ inner: match[2] });
+    if (properties.length > maxParams) {
+      sprawling.push({
+        name: match[1],
+        count: properties.length,
+        startLine: getLineNumber({ text, index: match.index }),
+        endLine: getLineNumber({ text, index: match.index + match[0].length })
+      });
+    }
+  }
+  return sprawling.length === 0 ? void 0 : buildFinding({
+    rule: StandardsRule.TestMegaFactory,
+    files: buildLineSites({ file: file2, spans: sprawling }),
+    detail: `${sprawling.map((factory) => `'${factory.name}' takes ${factory.count} parameters (line ${factory.startLine})`).join(", ")}, over the cap of ${maxParams}`,
+    guidance: "A substantially different arrangement gets a second named factory. Heuristic \u2014 judge before acting."
+  });
+};
+var checkTestStructureRules = ({ file: file2, text, settings }) => {
+  const blocks = readCallBlocks({ text, callees: ["beforeEach", "beforeAll", "afterEach", "afterAll", "test", "it"] });
+  const beforeEachBlocks = blocks.filter((block) => block.callee === "beforeEach");
+  return [
+    sharedLetFinding({ file: file2, text, blocks, beforeEachBlocks }),
+    // `test-assert-in-hook`. `beforeEach` only, the single hook line 94 names —
+    // an `expect` in an `afterEach` is an ordinary leak check the doc never
+    // bans.
+    buildHookFinding({
+      file: file2,
+      blocks: beforeEachBlocks,
+      rule: StandardsRule.TestAssertInHook,
+      pattern: assertion,
+      detailSuffix: "asserts",
+      guidance: "Act and assert live in the `test`; a hook only arranges."
+    }),
+    nestedDescribeFinding({ file: file2, text }),
+    strictEqualFinding({ file: file2, text }),
+    multipleSetupsFinding({ file: file2, blocks }),
+    megaFactoryFinding({ file: file2, text, maxParams: settings.maxParams })
+  ].filter((finding) => finding !== void 0);
+};
+
+// src/standardsCheck/checkTestShape.ts
+var checkTestShape = async ({ cwd, tests, states }) => {
+  const contents = await readFileContents({ cwd, files: tests });
+  const settings = getRuleSettings({ states, rule: StandardsRule.TestMegaFactory });
+  const findings = [];
+  for (const [file2, text] of contents) {
+    findings.push(...checkTestMockRules({ file: file2, text }), ...checkTestStructureRules({ file: file2, text, settings }));
+  }
+  return findings;
+};
+
 // src/standardsCheck/standardsPasses.ts
 var standardsPasses = [
   { id: StandardsPassId.FilenameDuplicates, run: checkFilenameDuplicates },
@@ -30989,7 +31383,8 @@ var standardsPasses = [
   { id: StandardsPassId.Placement, run: checkPlacement },
   { id: StandardsPassId.BarrelHygiene, run: checkBarrelHygiene },
   { id: StandardsPassId.Structure, run: checkStructure },
-  { id: StandardsPassId.DeadExports, run: checkDeadExports }
+  { id: StandardsPassId.DeadExports, run: checkDeadExports },
+  { id: StandardsPassId.TestShape, run: checkTestShape }
 ];
 
 // src/standardsCheck/runStandardsCheck.ts
@@ -31037,7 +31432,7 @@ var runStandardsCheck = async ({
   const source = allFiles.filter((file2) => !isTestFile(file2));
   const tests = allFiles.filter((file2) => isTestFile(file2));
   const notes = [];
-  progress(`checking ${source.length} source file(s) (${tests.length} test file(s) excluded from duplication tiers)`);
+  progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2?.packagesDir });
   const emitted = [];
   const skipped = [];
@@ -33360,6 +33755,15 @@ var rulePriority = [
   StandardsRule.Placement,
   StandardsRule.MultiExport,
   StandardsRule.FilenameMismatch,
+  StandardsRule.TestMockPrefix,
+  StandardsRule.TestMockReturnInHook,
+  StandardsRule.TestMockUntyped,
+  StandardsRule.TestMockWrapperUntyped,
+  StandardsRule.TestSharedLet,
+  StandardsRule.TestAssertInHook,
+  StandardsRule.TestNestedDescribe,
+  StandardsRule.TestManualMockCleanup,
+  StandardsRule.TestStrictEqualMatcher,
   StandardsRule.BarrelStar,
   StandardsRule.BarrelDeadEntry,
   StandardsRule.DeadExport,
@@ -33368,6 +33772,8 @@ var rulePriority = [
   StandardsRule.SizeFile,
   StandardsRule.SizeFunction,
   StandardsRule.DomainGraduation,
+  StandardsRule.TestMultipleSetups,
+  StandardsRule.TestMegaFactory,
   StandardsRule.FolderCensus,
   StandardsRule.AstDuplicate,
   StandardsRule.Clone,

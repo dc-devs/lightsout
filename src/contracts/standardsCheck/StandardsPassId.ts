@@ -15,6 +15,8 @@ export const StandardsPassId = {
 	ModuleBoundaries: 'module-boundaries',
 	/** Import-graph leaks out of a module's common/. */
 	Placement: 'placement',
+	/** Text-level shape rules over test files. */
+	TestShape: 'test-shape',
 } as const;
 
 export type StandardsPassId = (typeof StandardsPassId)[keyof typeof StandardsPassId];

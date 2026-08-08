@@ -99,7 +99,7 @@ export const runStandardsCheck = async ({
 	const tests = allFiles.filter((file) => isTestFile(file));
 	const notes: string[] = [];
 
-	progress(`checking ${source.length} source file(s) (${tests.length} test file(s) excluded from duplication tiers)`);
+	progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
 
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config?.packagesDir });
 	const emitted: StandardsFinding[] = [];
