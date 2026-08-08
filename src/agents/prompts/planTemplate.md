@@ -53,8 +53,7 @@ an edge-case handling — skip pure confirmations.
 |---|--------|---------------------|--------------------|--------|-----------|
 | 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |
 
-<!-- Source is one of: Elicitation, Grill, Converge. If a decision was assumed
-rather than confirmed by the user, append "(assumption)" to the Choice cell. -->
+<!-- Source is one of: Brainstorm, Elicitation, Grill, Converge. If a decision was assumed rather than confirmed by the user, append "(assumption)" to the Choice cell. -->
 
 ## Global Constraints
 
@@ -147,7 +146,7 @@ decision or an edge-case handling — skip pure confirmations.
 |---|--------|---------------------|--------------------|--------|-----------|
 | 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |
 
-<!-- Source is one of: Elicitation, Grill, Converge. -->
+<!-- Source is one of: Brainstorm, Elicitation, Grill, Converge. -->
 
 ## Global Constraints
 

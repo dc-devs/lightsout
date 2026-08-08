@@ -16,6 +16,8 @@ interface Params {
 	planPaths: string[];
 	/** The plan's workspace dir: repair transcripts land here, as do the facts/decisions the repairer is pointed at. */
 	workspaceDir: string;
+	/** Absolute path of the workspace's brainstorm-decisions.json when one exists — the repairer Reads it alongside the plan's own decisions. */
+	brainstormDecisionsPath?: string;
 	config?: LightsoutConfig;
 	model?: string;
 	effort?: Effort;
@@ -49,7 +51,7 @@ const findingSetKey = ({ findings }: { findings: StructuralFinding[] }) =>
  * result carries the surviving findings — empty when the plan converged — so
  * the caller decides what a survivor means.
  */
-export const repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, config, model, effort, permissions, timeoutMs, progress }: Params): Promise<RepairPlanStructureResult> => {
+export const repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, brainstormDecisionsPath, config, model, effort, permissions, timeoutMs, progress }: Params): Promise<RepairPlanStructureResult> => {
 	let findings = await lintPlanStructure({ cwd, planPaths, config });
 
 	for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {
@@ -65,6 +67,7 @@ export const repairPlanStructure = async ({ cwd, driver, name, planPaths, worksp
 				findings,
 				planPaths,
 				decisionsPath: join(workspaceDir, 'decisions.json'),
+				brainstormDecisionsPath,
 				factsPath: join(workspaceDir, 'facts.json'),
 			}),
 			contract: PlanFixReport,

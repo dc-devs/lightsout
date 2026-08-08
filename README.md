@@ -78,7 +78,7 @@ Use `/implement`, then walk away. The implementation agent follows the finished 
 
 Design before you build. `/brainstorm` turns a rough idea into a clear direction through dialogue. It asks questions, explores alternative approaches, explains the tradeoffs, and recommends a path forward.
 
-Once the direction is settled, it saves the design and hands it to `/plan`. For small, obvious changes, it can also exit directly to implementation.
+Once the direction is settled, it saves two things — the design write-up, and the list of decisions that were settled, in a form `/plan` honors — and hands them to `/plan`. For small, obvious changes, it can also exit directly to implementation.
 
 ```text
 /brainstorm add rate limiting to the public API
@@ -89,6 +89,8 @@ Once the direction is settled, it saves the design and hands it to `/plan`. For 
 Turn the design into an executable spec. `/plan` explores the codebase, searches for existing helpers and similar implementations, and works through the scope, architecture, files touched, constraints, edge cases, abstractions, and acceptance criteria.
 
 The plan is graded and revised until nothing is left for the implementation agent to guess, invent, or decide on its own.
+
+When a plan starts from a `/brainstorm` hand-off, the decisions already settled there are carried straight into the plan rather than asked again; a settled decision is re-opened only when exploring the code turns up a concrete conflict.
 
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 

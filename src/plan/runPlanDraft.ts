@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
-import { PlanDraftReport, PlanDraftStatus, type Effort, type Permissions, type PlanVariant, type StructuralFinding } from '@/contracts';
+import { join } from 'node:path';
+import { PlanDraftReport, PlanDraftStatus, type DecisionsRecord, type Effort, type Permissions, type PlanVariant, type StructuralFinding } from '@/contracts';
 import { buildPlanWriterInvocation } from '@/agents';
 import type { Driver } from '@/drivers';
 import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
@@ -9,6 +10,7 @@ import { planDraftOutputs } from '@/plan/common/paths/planDraftOutputs';
 import { buildPlanLintCommand } from '@/plan/common/utils/buildPlanLintCommand';
 import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
 import { verifyDraftedFiles } from '@/plan/common/paths/verifyDraftedFiles';
+import { readBrainstormDecisions } from '@/plan/readBrainstormDecisions';
 import { readDecisions } from '@/plan/readDecisions';
 import { readPlanFacts } from '@/plan/readPlanFacts';
 import { repairPlanStructure } from '@/plan/repairPlanStructure';
@@ -49,7 +51,8 @@ type RunPlanDraftResult =
  * plan's workspace files live in (the agent chooses the breakdown; the engine
  * reads the paths back from the report and verifies each).
  * `plan draft` overwrites an existing deliverable — it is the from-scratch
- * authoring step, never re-run mid-convergence.
+ * authoring step, never re-run mid-convergence. Brainstorm's settled rows are
+ * merged in at read time, so the plan's own `decisions.json` stays plan-owned.
  */
 export const runPlanDraft = async ({
 	cwd,
@@ -70,6 +73,17 @@ export const runPlanDraft = async ({
 
 	const facts = await readPlanFacts({ cwd, name });
 	const decisions = await readDecisions({ cwd, name });
+	// Brainstorm rows come first: they were settled first, and the writer renders
+	// the Decision Log in the order it receives.
+	const brainstorm = await readBrainstormDecisions({ cwd, name });
+	const merged: DecisionsRecord = brainstorm ? { ...decisions, decisions: [...brainstorm.decisions, ...decisions.decisions] } : decisions;
+
+	progress(
+		brainstorm
+			? `plan draft ${name}: ${brainstorm.decisions.length} brainstorm decision(s) carried in`
+			: `plan draft ${name}: no brainstorm decisions — drafting from the plan's own rows`,
+	);
+
 	const config = await loadConfig({ cwd }).catch(() => undefined);
 	const variant = scope ?? estimatePlanScope({ facts });
 
@@ -80,7 +94,7 @@ export const runPlanDraft = async ({
 	const lint = buildPlanLintCommand({ cwd, name });
 	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'draft', model, effort, permissions, timeoutMs });
 	const outcome = await invokePlanAgent({
-		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand: lint.command }),
+		invocation: buildPlanWriterInvocation({ facts, decisions: merged, outputs, standards, lintCommand: lint.command }),
 		contract: PlanDraftReport,
 		allowedCommands: [lint.prefix],
 	});
@@ -106,7 +120,20 @@ export const runPlanDraft = async ({
 	}
 
 	const { planPaths } = drafted;
-	const repaired = await repairPlanStructure({ cwd, driver, name, planPaths, workspaceDir, config, model, effort, permissions, timeoutMs, progress });
+	const repaired = await repairPlanStructure({
+		cwd,
+		driver,
+		name,
+		planPaths,
+		workspaceDir,
+		brainstormDecisionsPath: brainstorm ? join(workspaceDir, 'brainstorm-decisions.json') : undefined,
+		config,
+		model,
+		effort,
+		permissions,
+		timeoutMs,
+		progress,
+	});
 
 	if (repaired.status === 'paused-rate-limit') {
 		return { status: 'paused-rate-limit' as const, workspaceDir, error: repaired.error };

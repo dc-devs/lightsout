@@ -17,6 +17,7 @@ export {
 	PlanFacts,
 	DecisionRow,
 	DecisionsRecord,
+	BrainstormDecisions,
 	PlanDraftReport,
 	PlanFixStatus,
 	PlanFixReport,

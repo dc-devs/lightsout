@@ -9,8 +9,8 @@ import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { expectStatus } from '@tests/helpers/expectStatus';
 import { expectDefined } from '@tests/helpers/expectDefined';
 
-/** Seed the plan workspace with the facts + decisions `plan draft` reads. */
-const seedWorkspace = ({ cwd, name, areas = [] }: { cwd: string; name: string; areas?: unknown[] }) => {
+/** Seed the plan workspace with the facts + decisions `plan draft` reads, plus an optional brainstorm hand-off. */
+const seedWorkspace = ({ cwd, name, areas = [], brainstormDecisions }: { cwd: string; name: string; areas?: unknown[]; brainstormDecisions?: unknown }) => {
 	const dir = join(cwd, '.lightsout', 'plans', name);
 
 	mkdirSync(dir, { recursive: true });
@@ -24,6 +24,10 @@ const seedWorkspace = ({ cwd, name, areas = [] }: { cwd: string; name: string; a
 		}),
 	);
 	writeFileSync(join(dir, 'decisions.json'), JSON.stringify({ planName: name, decisions: [] }));
+
+	if (brainstormDecisions !== undefined) {
+		writeFileSync(join(dir, 'brainstorm-decisions.json'), JSON.stringify(brainstormDecisions));
+	}
 };
 
 /** One explorer area whose facts touch the given modify and mirror paths. */
@@ -254,6 +258,8 @@ test('plan draft: the repair invocation references the workspace facts/decisions
 	expect(repairInvocation.prompt.includes(`- Decisions record: ${join(workspaceDir, 'decisions.json')}`)).toBeTruthy();
 	// the facts reference is the workspace path
 	expect(repairInvocation.prompt.includes(`- Verified facts: ${join(workspaceDir, 'facts.json')}`)).toBeTruthy();
+	// no brainstorm file was seeded, so no brainstorm reference line appears
+	expect(repairInvocation.prompt.includes('brainstorm-decisions.json')).toBeFalsy();
 	// the seeded facts content never rides the prompt
 	expect(repairInvocation.prompt.includes('do a thing')).toBeFalsy();
 	// no fenced JSON reference block survives in the prompt
@@ -518,6 +524,112 @@ test('plan draft: a decisions.json that fails the contract rejects rather than d
 
 	// a schema violation is its own hard error, not the missing-file message
 	expect(error.message).not.toMatch(/no decisions found/);
+});
+
+/** One brainstorm-settled row, as `/brainstorm` writes it into brainstorm-decisions.json. */
+const brainstormRow = { source: 'Brainstorm', question: 'which shape?', options: 'a / b', choice: 'a', rationale: 'settled during brainstorm', assumption: false };
+
+/** One plan-owned Elicitation row, as the session writes it into decisions.json. */
+const elicitationRow = { source: 'Elicitation', question: 'which route?', options: 'x / y', choice: 'x', rationale: 'shortest path', assumption: false };
+
+test('plan draft: a seeded brainstorm record rides the draft prompt with its rows ahead of the plan\'s own', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'handed-off', brainstormDecisions: { planName: 'handed-off', decisions: [brainstormRow] } });
+	writeFileSync(join(cwd, '.lightsout', 'plans', 'handed-off', 'decisions.json'), JSON.stringify({ planName: 'handed-off', decisions: [elicitationRow] }));
+
+	const prompts: string[] = [];
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()], onCall: (prompt) => prompts.push(prompt) }), name: 'handed-off' });
+
+	expectStatus(result, 'complete');
+
+	const [draftPrompt] = prompts;
+
+	// both rows reach the writer in one merged decisions record
+	expect(draftPrompt.includes('"question": "which shape?"')).toBeTruthy();
+	expect(draftPrompt.includes('"question": "which route?"')).toBeTruthy();
+	// brainstorm rows were settled first, so they render first in the Decision Log
+	expect(draftPrompt.indexOf('"source": "Brainstorm"') < draftPrompt.indexOf('"source": "Elicitation"')).toBeTruthy();
+});
+
+test('plan draft: no brainstorm file drafts from the plan\'s own rows exactly as today', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'no-handoff' });
+	writeFileSync(join(cwd, '.lightsout', 'plans', 'no-handoff', 'decisions.json'), JSON.stringify({ planName: 'no-handoff', decisions: [elicitationRow] }));
+
+	const prompts: string[] = [];
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()], onCall: (prompt) => prompts.push(prompt) }), name: 'no-handoff' });
+
+	expectStatus(result, 'complete');
+
+	const [draftPrompt] = prompts;
+
+	// the plan's own rows still ride the prompt
+	expect(draftPrompt.includes('"question": "which route?"')).toBeTruthy();
+	// no brainstorm rows appear from nowhere
+	expect(draftPrompt.includes('"source": "Brainstorm"')).toBeFalsy();
+});
+
+test('plan draft: a malformed brainstorm-decisions.json rejects the draft rather than dropping the rows', async () => {
+	const cwd = setupConsumerRepo();
+
+	// a row under a plan-dialogue origin violates the brainstorm contract
+	seedWorkspace({ cwd, name: 'bad-brainstorm', brainstormDecisions: { planName: 'bad-brainstorm', decisions: [elicitationRow] } });
+
+	const error = await getRejectionError({
+		promise: runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'bad-brainstorm' }),
+	});
+
+	// settled decisions the engine cannot read are a hard error, never silently dropped
+	expect(error.message).toMatch(/source/);
+});
+
+test('plan draft: a brainstorm hand-off rides the repair invocation as a reference path', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'handoff-repair', brainstormDecisions: { planName: 'handoff-repair', decisions: [brainstormRow] } });
+
+	const invocations: DriverInvocation[] = [];
+	const driver = draftDriver({ bodies: [dirtyPlan(), cleanPlan()], onInvoke: (invocation) => invocations.push(invocation) });
+	const result = await runPlanDraft({ cwd, driver, name: 'handoff-repair' });
+
+	expectStatus(result, 'complete');
+
+	const repairInvocation = invocations.find((invocation) => invocation.prompt.includes('# Repair input'));
+
+	// the dirty author forced a repair
+	expectDefined(repairInvocation);
+	// the brainstorm reference is the workspace path — a rebuilt Global Constraints
+	// section must draw on the rows settled during brainstorm
+	expect(repairInvocation.prompt.includes(join(cwd, '.lightsout', 'plans', 'handoff-repair', 'brainstorm-decisions.json'))).toBeTruthy();
+});
+
+test('plan draft: progress narrates how many brainstorm decisions were carried in', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'narrated-handoff', brainstormDecisions: { planName: 'narrated-handoff', decisions: [brainstormRow] } });
+
+	const messages: string[] = [];
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'narrated-handoff', onProgress: (message) => messages.push(message) });
+
+	expectStatus(result, 'complete');
+	// one message either way, so a run never leaves the reader guessing whether a
+	// hand-off was found
+	expect(messages).toEqual(expect.arrayContaining([expect.stringMatching(/1 brainstorm decision/)]));
+});
+
+test('plan draft: progress narrates the no-brainstorm path rather than staying silent', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedWorkspace({ cwd, name: 'narrated-no-handoff' });
+
+	const messages: string[] = [];
+	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'narrated-no-handoff', onProgress: (message) => messages.push(message) });
+
+	expectStatus(result, 'complete');
+	// the absence is narrated too, never silently skipped
+	expect(messages).toEqual(expect.arrayContaining([expect.stringMatching(/no brainstorm decisions/)]));
 });
 
 /** A structurally clean overview file — the overview variant's own required section set. */

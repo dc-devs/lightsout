@@ -6,5 +6,6 @@ export { runPlanLint } from '@/plan/runPlanLint';
 export { lintPlanStructure } from '@/plan/lintPlanStructure';
 export { verifyFacts } from '@/plan/verifyFacts';
 export { readDecisions } from '@/plan/readDecisions';
+export { readBrainstormDecisions } from '@/plan/readBrainstormDecisions';
 export { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 export type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';

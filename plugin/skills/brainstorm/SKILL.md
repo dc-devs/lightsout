@@ -10,6 +10,9 @@ allowed-tools: Read, Write, Grep, Glob
 deterministic decisions — no gates, retries, caps, state, or contract parsing.
 It runs no engine subcommands and needs no bundle. Triggering is gentle: the
 description above is the only trigger — no hook, no forced invocation.
+Writing the settled-decisions file below changes nothing about this standing —
+the skill still runs no engine subcommand, needs no bundle, and never reads
+the file back; the engine validates it at draft time.
 
 ## Question format
 
@@ -83,15 +86,41 @@ matches what they meant.
   converged design in the conversation is the deliverable; the user takes it
   from here.
 - **"Plan it"** → derive a kebab `<name>` from the idea (offer it for
-  override), write the notes to `.lightsout/plans/<name>/notes.md`, then hand
-  off with the exact next command:
+  override). Before writing anything, show the settled decisions back to the
+  user as a small table — question, choice, one-line why, and whether it is an
+  assumption — and get approval: these rows make `/plan` skip questions, so a
+  row that overstates the agreement is expensive. Then write the notes to
+  `.lightsout/plans/<name>/notes.md`, plus
+  `.lightsout/plans/<name>/brainstorm-decisions.json` in this exact shape:
+
+  ```json
+  {
+    "planName": "<name>",
+    "decisions": [
+      { "source": "Brainstorm", "question": "<q>", "options": "<A / B>",
+        "choice": "<chosen>", "rationale": "<one line>", "assumption": false }
+    ]
+  }
+  ```
+
+  - `source` is exactly `"Brainstorm"` on every row — the engine rejects the
+    file otherwise.
+  - Every project-wide rule the user stated gets its own row whose `question`
+    begins exactly `Global constraint:` — that prefix is what carries it into
+    the plan's constraints section.
+  - A choice the user never explicitly confirmed is written with
+    `"assumption": true`.
+  - One row per decision that establishes or changes a design choice or an
+    edge-case handling — not per exchange.
+
+  Then hand off with the exact next command:
 
   ```
   Next: /plan .lightsout/plans/<name>/notes.md
   ```
 
-  If notes already exist at that name (a previous brainstorm), say so and
-  agree a different name — never overwrite silently.
+  If either file already exists at that name (a previous brainstorm), say so
+  and agree a different name — never overwrite silently.
 
 ## Notes file content
 
