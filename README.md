@@ -93,8 +93,16 @@ The plan is graded and revised until nothing is left for the implementation agen
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
 
+Start from the notes `/brainstorm` saved:
+
 ```text
 /plan .lightsout/plans/rate-limiting/notes.md
+```
+
+Or start from a plain description:
+
+```text
+/plan add rate limiting to the public API
 ```
 
 ### /implement
