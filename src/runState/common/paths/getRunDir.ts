@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { getRunsDir } from '@/runState/common/paths/getRunsDir';
 
 interface Params {
 	cwd: string;
@@ -7,5 +8,5 @@ interface Params {
 
 /** Run state lives inside the target repo: `<repo>/.lightsout/runs/<runId>`. */
 export const getRunDir = ({ cwd, runId }: Params) => {
-	return join(cwd, '.lightsout', 'runs', runId);
+	return join(getRunsDir({ cwd }), runId);
 };

@@ -1,6 +1,6 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { getRunDir } from '@/runState/getRunDir';
+import { getRunDir } from '@/runState/common/paths/getRunDir';
 
 interface Params {
 	cwd: string;

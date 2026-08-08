@@ -569,6 +569,28 @@ test('cli: resume refuses a run that already passed', async () => {
 	expect(code).toBe(1);
 });
 
+test('cli: resume takes the shortened run id a report prints, not just the full one', async () => {
+	const { cwd, runId } = await seedRunFixture({ status: 'passed' });
+
+	// printResult shows eight characters; that is what a user copies back
+	const { stdout, stderr, code } = await runCli({ args: ['resume', '--run', runId.slice(0, 8), '--cwd', cwd] });
+
+	// reaching the already-passed refusal proves the short id found the run
+	expect(stdout).toBe('');
+	expect(stderr).toBe(`run ${runId} already passed — nothing to resume\n`);
+	expect(code).toBe(1);
+});
+
+test('cli: resume names an unknown run id instead of failing on the file it tried to open', async () => {
+	const { cwd } = await seedRunFixture({ status: 'failed' });
+
+	const { stdout, stderr, code } = await runCli({ args: ['resume', '--run', 'ghost', '--cwd', cwd] });
+
+	expect(stdout).toBe('');
+	expect(stderr).toBe(`no run matching 'ghost' — list the runs this repo has with: lightsout status\n`);
+	expect(code).toBe(1);
+});
+
 test('cli: refactor rejects a --max-batches below one and exits 1', async () => {
 	const cwd = await seedConfiguredCwd();
 
@@ -596,7 +618,7 @@ test('cli: refactor reports an unknown --run and exits 1 before starting anythin
 
 	// the refusal lands before the "resuming run" line is printed
 	expect(stdout).toBe('');
-	expect(stderr).toBe('no run found for --run ghost\n');
+	expect(stderr).toBe(`no run matching 'ghost' — list the runs this repo has with: lightsout status\n`);
 	expect(code).toBe(1);
 });
 

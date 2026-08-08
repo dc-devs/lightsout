@@ -136,7 +136,8 @@ describe('refactorCommand', () => {
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors).toStrictEqual(['no run found for --run ghost']);
+		// the id the user typed, and where to look up the real ones
+		expect(errors).toStrictEqual([`no run matching 'ghost' — list the runs this repo has with: lightsout status`]);
 		expect(mockRunRefactorPipeline).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, symlinkSync, writeFileSync } from '
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
-import { readRunManifest } from '@/runState';
+import { readRunManifest, RunNotFoundError } from '@/runState';
 import { createRun, getRunDir, writeRunManifest } from '@/runState';
 import { readStandards } from '@/standards';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -48,10 +48,19 @@ test('writeRunManifest leaves no temporary file beside the manifest it swapped i
 	expect(readdirSync(runDir)).toStrictEqual(['manifest.json']);
 });
 
-test('a run with no manifest on disk is rejected at the read boundary', async () => {
+test('a run id no directory answers to is rejected before any file is opened', async () => {
 	const cwd = setupConsumerRepo({ git: false });
 
-	await expect(readRunManifest({ cwd, runId: 'never-created' })).rejects.toThrow(/ENOENT/);
+	await expect(readRunManifest({ cwd, runId: 'never-created' })).rejects.toThrow(RunNotFoundError);
+});
+
+test('a run directory left without its manifest is rejected at the read boundary', async () => {
+	const cwd = setupConsumerRepo({ git: false });
+
+	// an interrupted create leaves the directory but no manifest inside it
+	mkdirSync(getRunDir({ cwd, runId: 'half-created' }), { recursive: true });
+
+	await expect(readRunManifest({ cwd, runId: 'half-created' })).rejects.toThrow(/ENOENT/);
 });
 
 test('corrupted manifest is rejected at the read boundary', async () => {
