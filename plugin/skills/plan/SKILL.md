@@ -72,7 +72,10 @@ question body — never squeezed into option labels.
 rate-limit banner" → `rate-limit-banner`). When the request is a rough-notes
 file path (given by the user, or a `/brainstorm` handoff), read it before
 anything else; when it already lives at `.lightsout/plans/<name>/notes.md`,
-take `<name>` from its folder instead of deriving a new one.
+take `<name>` from its folder instead of deriving a new one. Also read
+`.lightsout/plans/<name>/brainstorm-decisions.json` when it exists — its rows
+are decisions already settled with the user. Absent → nothing changes; that is
+the normal path for a plan that started from a direct request.
 
 **1. Explore (in-context) + verify.** Explore the codebase yourself: read the
 files the request touches, follow the integration points, and note real
@@ -110,6 +113,10 @@ It deterministically checks every claimed path/script on disk and stamps the
 verification into facts.json. Relay the summary; fix any genuinely wrong path
 in facts.json and re-run verify-facts, and carry remaining missing-path
 warnings into Elicitation.
+- While exploring, deliberately check each settled brainstorm decision against
+  the code you are reading. The value of the hand-off is that the plan trusts
+  these rows without asking, and trust that is never verified is a guess. Note
+  any conflict with the exact `file:line`.
 
 **2. Elicitation** — drain the user's *conscious* knowledge (interactive):
 - **Scope check first.** Before any detail question, judge the request's
@@ -123,11 +130,31 @@ warnings into Elicitation.
   stays frozen"). Record each as its own decisions row whose `question`
   begins exactly `Global constraint:` — the drafted plan's Global
   Constraints section is built from these rows. None stated → no rows; the
-  section will read "None".
+  section will read "None". Constraints already recorded as brainstorm rows
+  carry their own `Global constraint:` prefix and flow through untouched —
+  ask only for rules not already settled.
 - **Harvest the session first.** If the feature was discussed in this
   conversation before the skill was invoked, record each decision the user
   already made as a decisions row (`Source = "Elicitation"`) before asking
   anything. Settled in-session means settled — never re-ask it.
+- **Honor the brainstorm hand-off.** The rows in
+  `brainstorm-decisions.json` are decisions already settled with the user:
+  - Settled in brainstorm means settled — never re-ask it.
+  - Re-open a row only for a contradiction you can name in a specific file
+    and line. A preference for a different approach is not a contradiction.
+  - A re-opened row is asked in the Question format, with the contradicting
+    `file:line` stated in the Context. Record the corrected answer as a
+    **new** row in `decisions.json` with `source: "Elicitation"`,
+    **repeating the brainstorm row's `question` text verbatim**, and a
+    rationale naming the `file:line` and saying it supersedes the brainstorm
+    row. The repeated question text is what marks the supersession: the plan
+    writer treats the last row sharing a question as the live one, so the
+    corrected answer wins while both rows stay in the Decision Log. This
+    matters most for `Global constraint:` rows, where the live row alone
+    becomes a binding bullet. Never edit `brainstorm-decisions.json` —
+    brainstorm owns it, and both rows belong in the log.
+  - Do not copy brainstorm rows into `decisions.json`; `plan draft` reads
+    both files and merges them.
 - Ask in the Question format above — at most 2 full-format questions per
   message. Resolve the decision tree branch by branch, reflect each answer
   back to converge on a shared understanding. Never ask what the codebase can
@@ -138,7 +165,10 @@ warnings into Elicitation.
   the design shape, and the kinds of implementation detail you will decide
   yourself from here (best practice only). The user's explicit confirmation
   licenses Grill's self-answer routing (step 5); without it, every grill
-  question escalates to the user.
+  question escalates to the user. A brainstorm hand-off does not stand in for
+  this checkpoint: the plan reads the code after brainstorm ended and may
+  surface things brainstorm could not have known, so the licence to
+  self-answer is still earned here.
 - Author `.lightsout/plans/<name>/decisions.json`. Write this **exact** shape
   (the engine hard-parses it; a wrong field name blocks drafting):
   ```json
@@ -156,9 +186,10 @@ warnings into Elicitation.
 
 **3. Approaches** — settle the design shape before drafting (interactive,
 conditional). Run this step when the design shape is not already settled by
-the session discussion or the Elicitation answers. When it is settled, say so
-in one line ("Design shape settled during Elicitation — skipping approaches")
-and move on — never skip silently. Present 2–3 genuinely different approaches
+the session discussion, the Elicitation answers, or a brainstorm decision
+naming the chosen approach. When it is settled, say so in one line ("Design
+shape settled during Elicitation — skipping approaches", or "Approach settled
+during brainstorm — skipping approaches") and move on — never skip silently. Present 2–3 genuinely different approaches
 in the Question format: Context states the design problem in everyday words,
 Trade-offs gives each approach's wins and costs, Question asks which to build,
 Recommendation names one with the one-line why. Record the chosen approach as

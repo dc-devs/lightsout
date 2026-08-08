@@ -15811,6 +15811,7 @@ var PlanFacts = external_exports.object({
 
 // src/contracts/plan/DecisionSource.ts
 var DecisionSource = {
+  Brainstorm: "Brainstorm",
   Elicitation: "Elicitation",
   Grill: "Grill",
   Dedup: "Dedup",
@@ -15831,6 +15832,12 @@ var DecisionRow = external_exports.object({
 var DecisionsRecord = external_exports.object({
   planName: external_exports.string(),
   decisions: external_exports.array(DecisionRow).default([])
+});
+
+// src/contracts/plan/BrainstormDecisions.ts
+var BrainstormDecisions = external_exports.object({
+  planName: external_exports.string(),
+  decisions: external_exports.array(DecisionRow.extend({ source: external_exports.literal(DecisionSource.Brainstorm) })).default([])
 });
 
 // src/contracts/plan/PlanDraftReport.ts
@@ -17541,10 +17548,10 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 import { dirname as dirname2 } from "node:path";
 
 // src/agents/prompts/planWriter.md
-var planWriter_default = '# Role: Plan Writer\n\nYou draft implementation plan file(s) that a fresh-context agent can implement\nwithout guessing. You work autonomously from the task message; you write the\nplan file(s) to disk and your final message is machine-parsed \u2014 one JSON report,\nnot prose for a human.\n\nYou deliberately receive **only** a decisions record and a verified facts list \u2014\nno planning conversation. If you cannot draft the plan from those inputs alone,\nthe inputs are incomplete: report what is missing and terminate. Do not fill\ngaps with guesses \u2014 a gap you paper over becomes a failure in the implementing\nagent.\n\n## Input\n\nThe task message provides:\n\n- **Feature request** \u2014 what is being built.\n- **Output files** \u2014 where to write each plan file (absolute paths) and which\n  template variant (`single`, `overview`, or `phase`) applies to each.\n- **Decisions record** \u2014 the design decisions (JSON), with chosen answers and\n  rationale.\n- **Verified facts** \u2014 codebase facts already verified on disk (JSON): affected\n  packages, files to modify, patterns to mirror, integration points, scripts,\n  naming conventions.\n- **Code standards** (optional) \u2014 supplemental conventions the plan\'s file\n  placements, naming, signatures, and patterns should conform to. Absence is\n  fine; this is not a hard gate.\n\nThe plan template is inlined in your system prompt below. Follow the variant\nthat each output file names.\n\n## Workflow\n\n### 1. Validate inputs\n\nConfirm the message carries a feature request, output path(s) with variants, a\ndecisions record, and a facts list. If any is missing, report the error result\nbelow and terminate \u2014 write no files.\n\n### 2. Ground the facts\n\nBefore writing, read each `filesToModify` and `patternsToMirror` path and\nextract the real exported names, signatures, and integration points the plan\nwill reference. Do not transcribe signatures from the facts list without\nchecking them against the source. Verify each file you plan to create does\n**not** already exist. If a referenced path is missing, a script does not exist,\nor a stated integration point is not in the source, report the discrepancies and\nterminate.\n\n### 3. Prior art (dedup)\n\nBefore proposing any newly-created exported symbol, search the existing exports\n(glob/grep over the facts\' affected packages and the patterns to mirror). If a\nmatch exists, mirror or extend it rather than duplicating. Record the searches\nin the plan\'s `## Prior Art` section \u2014 one line per new symbol: the terms you\nsearched and that none matched, or the existing symbol it mirrors.\n\n### 4. Write the plan\n\nWrite each output file following its template variant exactly. While writing:\n\n- Resolve every detail from the decisions record, the facts, and the source\n  files you read in step 2. No `???`, `TBD`, `TODO`, or unresolved `{tokens}` \u2014\n  if a detail cannot be resolved from your inputs, that is a step 1/2 failure:\n  report and terminate.\n- Define methods and signatures for every service/module the plan creates.\n- Make the dependency graph explicit: imports/exports per created file,\n  cross-module wiring stated (exports match imports).\n- Make scope boundaries concrete \u2014 name the adjacent work the implementing agent\n  must NOT do.\n- For multi-phase plans, chain the contract: each phase\'s "What Next Plan\n  Expects" must list exactly what the next phase\'s Prerequisites claim.\n- Author `## Global Constraints` from the decisions rows whose `question` begins\n  with the exact prefix `Global constraint:` (the same prefix the `/plan`\n  skill\'s collection bullet mandates) \u2014 one bullet per row, stating the row\'s\n  choice in plain words. With no such rows, the section\'s single bullet is\n  `None`.\n- Keep each plan (or phase) within 40 source files to create/modify.\n\n### 5. Self-review\n\nIf the task message includes a `## Self-lint` section, run its command first\n(Bash). Fix every finding it prints in the plan file(s) and re-run until it\nexits 0; if a re-run prints the identical findings twice, stop looping and\ncontinue. If the command itself cannot be executed, skip it \u2014 the engine runs\nthe same lint on your output either way.\n\nThen check each written file against the grading criteria: every\nreferenced existing path verified; every created file listed with signatures and\nimports/exports; no placeholders; scope boundaries explicit; prerequisites\nstated; verification commands resolvable; "What Next Plan Expects" present; a\n`## Global Constraints` section present in every written file; a\n`## Prior Art` line for every new symbol. If a "Code standards" section was\nprovided, confirm the plan\'s placements and naming conform to it.\n\n## Phased plans \u2014 hard naming rule\n\nWhen an output file\'s variant is `overview`, you author **one overview plus all\nphase files** into that file\'s directory:\n\n- The overview goes to `overview.md`.\n- Each phase goes to `phase<N>-<slug>.md` (e.g. `phase1-contracts.md`) in the\n  same directory, where `<N>` is the phase number and `<slug>` is a short kebab\n  name.\n\nThese names are **required**, not stylistic \u2014 `plan grade` finds the files **by\nname**: `overview.md` is read as context, and each `phase<N>-<slug>.md` is\ngraded. That directory also holds the plan\'s working files (notes, facts,\ndecisions, records), so anything not matching those names is ignored. Choose the\nphase breakdown and slugs yourself, and report **every** written path in\n`filesWritten`.\n\n## Report \u2014 your entire final message is one JSON object\n\nWrite the plan file(s) to disk at the given paths **first**, then emit exactly\none JSON `PlanDraftReport` object as your entire final message. Output ONLY the\nJSON \u2014 no fences, no surrounding text. Your message starts with `{` and ends\nwith `}`.\n\n```\n{\n	"status": "drafted",\n	"filesWritten": [\n		{ "path": "<absolute path written>", "variant": "single|overview|phase", "scope": "<phase slug, or \'single\'>" }\n	],\n	"decisionsApplied": <number>,\n	"assumptions": ["<any input you had to treat as an assumption>"],\n	"discrepancies": []\n}\n```\n\nIf inputs were invalid or facts failed verification, write **no** files and\nreport the error result \u2014 `status` is `"error"` and `discrepancies` lists what\nis wrong:\n\n```\n{\n	"status": "error",\n	"filesWritten": [],\n	"decisionsApplied": 0,\n	"assumptions": [],\n	"discrepancies": ["facts reference src/x.ts \u2014 does not exist on disk", "..."]\n}\n```\n\n## Operational rules\n\n- Do not ask clarifying questions \u2014 proceed immediately; unresolvable inputs are\n  reported via the error result, not asked about.\n- Write **only** the plan files at the provided output paths. Do not create or\n  modify source files, tests, or anything else.\n- Do not implement any part of the feature. Do not create commits or branches.\n- Respect all instructions in the project\'s CLAUDE.md files.\n';
+var planWriter_default = '# Role: Plan Writer\n\nYou draft implementation plan file(s) that a fresh-context agent can implement\nwithout guessing. You work autonomously from the task message; you write the\nplan file(s) to disk and your final message is machine-parsed \u2014 one JSON report,\nnot prose for a human.\n\nYou deliberately receive **only** a decisions record and a verified facts list \u2014\nno planning conversation. If you cannot draft the plan from those inputs alone,\nthe inputs are incomplete: report what is missing and terminate. Do not fill\ngaps with guesses \u2014 a gap you paper over becomes a failure in the implementing\nagent.\n\n## Input\n\nThe task message provides:\n\n- **Feature request** \u2014 what is being built.\n- **Output files** \u2014 where to write each plan file (absolute paths) and which\n  template variant (`single`, `overview`, or `phase`) applies to each.\n- **Decisions record** \u2014 the design decisions (JSON), with chosen answers and\n  rationale. Each row carries a `source` naming where the decision came from;\n  `Brainstorm` rows were settled in a separate design conversation before\n  planning began \u2014 the engine merges them in, and they are as binding as the\n  plan\'s own.\n- **Verified facts** \u2014 codebase facts already verified on disk (JSON): affected\n  packages, files to modify, patterns to mirror, integration points, scripts,\n  naming conventions.\n- **Code standards** (optional) \u2014 supplemental conventions the plan\'s file\n  placements, naming, signatures, and patterns should conform to. Absence is\n  fine; this is not a hard gate.\n\nThe plan template is inlined in your system prompt below. Follow the variant\nthat each output file names.\n\n## Workflow\n\n### 1. Validate inputs\n\nConfirm the message carries a feature request, output path(s) with variants, a\ndecisions record, and a facts list. If any is missing, report the error result\nbelow and terminate \u2014 write no files.\n\n### 2. Ground the facts\n\nBefore writing, read each `filesToModify` and `patternsToMirror` path and\nextract the real exported names, signatures, and integration points the plan\nwill reference. Do not transcribe signatures from the facts list without\nchecking them against the source. Verify each file you plan to create does\n**not** already exist. If a referenced path is missing, a script does not exist,\nor a stated integration point is not in the source, report the discrepancies and\nterminate.\n\n### 3. Prior art (dedup)\n\nBefore proposing any newly-created exported symbol, search the existing exports\n(glob/grep over the facts\' affected packages and the patterns to mirror). If a\nmatch exists, mirror or extend it rather than duplicating. Record the searches\nin the plan\'s `## Prior Art` section \u2014 one line per new symbol: the terms you\nsearched and that none matched, or the existing symbol it mirrors.\n\n### 4. Write the plan\n\nWrite each output file following its template variant exactly. While writing:\n\n- Resolve every detail from the decisions record, the facts, and the source\n  files you read in step 2. No `???`, `TBD`, `TODO`, or unresolved `{tokens}` \u2014\n  if a detail cannot be resolved from your inputs, that is a step 1/2 failure:\n  report and terminate.\n- Define methods and signatures for every service/module the plan creates.\n- Make the dependency graph explicit: imports/exports per created file,\n  cross-module wiring stated (exports match imports).\n- Make scope boundaries concrete \u2014 name the adjacent work the implementing agent\n  must NOT do.\n- For multi-phase plans, chain the contract: each phase\'s "What Next Plan\n  Expects" must list exactly what the next phase\'s Prerequisites claim.\n- Render every row\'s `source` verbatim in the Decision Log\'s `Source` column \u2014\n  never relabel a `Brainstorm` row as `Elicitation`, because the log is the\n  audit trail of when each decision was made.\n- Author `## Global Constraints` from the decisions rows whose `question` begins\n  with the exact prefix `Global constraint:` (the same prefix the `/plan`\n  skill\'s collection bullet mandates) \u2014 one bullet per row, stating the row\'s\n  choice in plain words. With no such rows, the section\'s single bullet is\n  `None`. Constraint rows may arrive under either origin \u2014 the\n  `Global constraint:` prefix is what selects them, not the source. Supersession:\n  when two or more rows share the same `question` text, the **last** one in the\n  decisions array is the live decision and every earlier one is superseded.\n  Every row still gets its own Decision Log line \u2014 the log is the history \u2014 but\n  only the live row produces a Global Constraints bullet, and only its choice is\n  treated as binding anywhere else in the plan. Because the engine merges\n  brainstorm rows ahead of the plan\'s own, a plan row that repeats a brainstorm\n  row\'s question naturally lands later and wins.\n- Keep each plan (or phase) within 40 source files to create/modify.\n\n### 5. Self-review\n\nIf the task message includes a `## Self-lint` section, run its command first\n(Bash). Fix every finding it prints in the plan file(s) and re-run until it\nexits 0; if a re-run prints the identical findings twice, stop looping and\ncontinue. If the command itself cannot be executed, skip it \u2014 the engine runs\nthe same lint on your output either way.\n\nThen check each written file against the grading criteria: every\nreferenced existing path verified; every created file listed with signatures and\nimports/exports; no placeholders; scope boundaries explicit; prerequisites\nstated; verification commands resolvable; "What Next Plan Expects" present; a\n`## Global Constraints` section present in every written file; a\n`## Prior Art` line for every new symbol. If a "Code standards" section was\nprovided, confirm the plan\'s placements and naming conform to it.\n\n## Phased plans \u2014 hard naming rule\n\nWhen an output file\'s variant is `overview`, you author **one overview plus all\nphase files** into that file\'s directory:\n\n- The overview goes to `overview.md`.\n- Each phase goes to `phase<N>-<slug>.md` (e.g. `phase1-contracts.md`) in the\n  same directory, where `<N>` is the phase number and `<slug>` is a short kebab\n  name.\n\nThese names are **required**, not stylistic \u2014 `plan grade` finds the files **by\nname**: `overview.md` is read as context, and each `phase<N>-<slug>.md` is\ngraded. That directory also holds the plan\'s working files (notes, facts,\ndecisions, records), so anything not matching those names is ignored. Choose the\nphase breakdown and slugs yourself, and report **every** written path in\n`filesWritten`.\n\n## Report \u2014 your entire final message is one JSON object\n\nWrite the plan file(s) to disk at the given paths **first**, then emit exactly\none JSON `PlanDraftReport` object as your entire final message. Output ONLY the\nJSON \u2014 no fences, no surrounding text. Your message starts with `{` and ends\nwith `}`.\n\n```\n{\n	"status": "drafted",\n	"filesWritten": [\n		{ "path": "<absolute path written>", "variant": "single|overview|phase", "scope": "<phase slug, or \'single\'>" }\n	],\n	"decisionsApplied": <number>,\n	"assumptions": ["<any input you had to treat as an assumption>"],\n	"discrepancies": []\n}\n```\n\nIf inputs were invalid or facts failed verification, write **no** files and\nreport the error result \u2014 `status` is `"error"` and `discrepancies` lists what\nis wrong:\n\n```\n{\n	"status": "error",\n	"filesWritten": [],\n	"decisionsApplied": 0,\n	"assumptions": [],\n	"discrepancies": ["facts reference src/x.ts \u2014 does not exist on disk", "..."]\n}\n```\n\n## Operational rules\n\n- Do not ask clarifying questions \u2014 proceed immediately; unresolvable inputs are\n  reported via the error result, not asked about.\n- Write **only** the plan files at the provided output paths. Do not create or\n  modify source files, tests, or anything else.\n- Do not implement any part of the feature. Do not create commits or branches.\n- Respect all instructions in the project\'s CLAUDE.md files.\n';
 
 // src/agents/prompts/planTemplate.md
-var planTemplate_default = '# Plan Template\n\nTemplates for plans consumed by `lightsout implement` and graded by the\ndeterministic structural lint (`plan grade`, structure) and the gap-check agent\n(`plan grade`, decisions). Three variants: **Single Plan** (standalone feature),\n**Overview Plan** (multi-phase context), and **Phase Plan** (one implementation\nscope under an overview).\n\n## Rules (all variants)\n\nThese mirror the structural-lint and gap-check rubrics \u2014 a plan violating them\nwill not reach A:\n\n- **No placeholders.** No `???`, `TBD`, `TODO`, or unresolved `{tokens}`. Every\n  open question must be resolved before the plan is written.\n- **Every referenced path verified.** Files listed under Files to Modify and\n  Patterns to Mirror must exist on disk at write time. Files to Create must not.\n- **Signatures, not vibes.** Services and modules define their methods and\n  signatures \u2014 never "create a service for X" without saying what it exposes.\n- **Explicit dependency graph.** Module definitions include imports/exports;\n  cross-module wiring is stated (exports match imports).\n- **Real script names.** Verification commands reference scripts that exist in\n  the target `package.json` (or the configured `scripts` overrides).\n- **Within executor scope.** Each plan (or each phase) stays within the\n  executor\'s 50-file guardrail \u2014 target 40 or fewer source files.\n- **Prior art recorded.** Every newly-created exported symbol is justified in a\n  `## Prior Art` section: the searches run against existing exports that prove it\n  is new, or the existing symbol it mirrors/extends.\n- **Global constraints have a home.** Every variant carries a\n  `## Global Constraints` section for session-stated project-wide constraints;\n  `None` is valid content. Phases inherit the overview\'s \u2014 a phase may write\n  "See overview."\n\n---\n\n## Single Plan\n\n```markdown\n# <Feature Name>\n\n## Context\n\n<1\u20132 paragraphs: what this feature does, why it is needed, and the relevant\ncurrent state of the codebase.>\n\n## Decision Log\n\nEvery meaningful decision and the road not taken, tagged with the phase that\nsurfaced it. Log a row only when an answer establishes or changes a decision or\nan edge-case handling \u2014 skip pure confirmations.\n\n| # | Source | Decision / Question | Options Considered | Choice | Rationale |\n|---|--------|---------------------|--------------------|--------|-----------|\n| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |\n\n<!-- Source is one of: Elicitation, Grill, Converge. If a decision was assumed\nrather than confirmed by the user, append "(assumption)" to the Choice cell. -->\n\n## Global Constraints\n\nProject-wide constraints the user stated for this work \u2014 rules every part of\nthe implementation must respect. Write `None` when none were stated.\n\n- <constraint, or "None">\n\n## Prerequisites\n\n- <required state before implementation begins, or "None">\n\n## Affected Packages\n\n- `<packagesDir>/<name>` \u2014 <why this package is touched>\n\n<!-- Single-package repos: state "Single-package repository." packagesDir is the\nrepo\'s package directory convention (default `packages`). -->\n\n## Files to Create\n\n### `<packagesDir>/<name>/src/path/to/file.ts`\n\n<Purpose. Key contents: exported functions/classes with full signatures,\nmethods, imports it needs, what it exports. Enough detail that a fresh-context\nagent writes the right code without guessing.>\n\n## Files to Modify\n\n### `<packagesDir>/<name>/src/path/to/existing.ts`\n\n<What changes and where: which function/section, what is added/removed/changed,\nand how it integrates with the created files.>\n\n## Patterns to Mirror\n\n- `<packagesDir>/<name>/src/path/to/analogous.ts` \u2014 <what to take from it:\n  structure, naming, error handling, etc.>\n\n## Prior Art\n\nOne line per newly-created exported symbol, recording the dedup search that\njustifies its newness:\n\n- `<symbol>` \u2014 searched <terms>, found none (new)\n- `<symbol>` \u2014 mirrors `<existing export>` (extends, does not duplicate)\n\n## Scope Boundaries\n\n**Do:**\n- <in-scope item>\n\n**Do NOT:**\n- <explicitly out-of-scope item \u2014 adjacent work the agent might be tempted to do>\n\n## Verification\n\n- `<resolved check command>` \u2014 types clean\n- `<resolved test-unit command>` \u2014 tests pass\n\n## What Next Plan Expects\n\n<For a standalone plan: "None \u2014 standalone plan." Otherwise: the exact state a\nfollow-up plan can rely on \u2014 files that exist, exports available, behavior\nguaranteed.>\n```\n\n---\n\n## Overview Plan\n\nThe overview carries context shared by all phases. It is **not implemented\ndirectly** \u2014 it is passed alongside each phase to `lightsout implement` and to\n`plan grade` as context.\n\n```markdown\n# <Feature Name> \u2014 Overview\n\n## Context\n\n<What this feature does, why, and the relevant current state.>\n\n## Decision Log\n\nCross-cutting decisions shared by all phases (phase-specific decisions live in\neach phase file). Log a row only when an answer establishes or changes a\ndecision or an edge-case handling \u2014 skip pure confirmations.\n\n| # | Source | Decision / Question | Options Considered | Choice | Rationale |\n|---|--------|---------------------|--------------------|--------|-----------|\n| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |\n\n<!-- Source is one of: Elicitation, Grill, Converge. -->\n\n## Global Constraints\n\nProject-wide constraints the user stated for this work \u2014 rules every part of\nthe implementation must respect. Write `None` when none were stated.\n\n- <constraint, or "None">\n\n## Architecture\n\n<How the pieces fit together across phases: data flow, module boundaries,\nshared types. A diagram or short prose map.>\n\n## Affected Packages\n\n- `<packagesDir>/<name>` \u2014 <role in this feature>\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1-<slug>.md` | <one-line scope> |\n| 2 | `phase2-<slug>.md` | <one-line scope> |\n\n## Cross-Phase Dependencies\n\n- Phase 2 depends on Phase 1\'s <export/file/behavior>.\n```\n\n---\n\n## Phase Plan\n\nIdentical to the Single Plan with these adjustments:\n\n- Title: `# <Feature Name> \u2014 Phase <N>: <Phase Name>`\n- **Prerequisites** states the prior phase\'s end state: "Phase <N-1> complete:\n  <files/exports that now exist>." Phase 1 states the pre-feature codebase state.\n- **Decision Log** may be omitted if fully covered by the overview \u2014 reference\n  it: "See overview." Phase-specific decisions (including Grill rows raised\n  against this phase) still go in this section.\n- **Global Constraints** is required in every phase; when the overview\'s section\n  covers it, the content may be "See overview." Phase-specific constraints are\n  added as their own bullets.\n- **Prior Art** is still mandatory \u2014 one line per newly-created exported symbol.\n- **What Next Plan Expects** is mandatory and chains: it must list exactly what\n  the next phase\'s Prerequisites will claim. The final phase states "None \u2014\n  final phase."\n';
+var planTemplate_default = '# Plan Template\n\nTemplates for plans consumed by `lightsout implement` and graded by the\ndeterministic structural lint (`plan grade`, structure) and the gap-check agent\n(`plan grade`, decisions). Three variants: **Single Plan** (standalone feature),\n**Overview Plan** (multi-phase context), and **Phase Plan** (one implementation\nscope under an overview).\n\n## Rules (all variants)\n\nThese mirror the structural-lint and gap-check rubrics \u2014 a plan violating them\nwill not reach A:\n\n- **No placeholders.** No `???`, `TBD`, `TODO`, or unresolved `{tokens}`. Every\n  open question must be resolved before the plan is written.\n- **Every referenced path verified.** Files listed under Files to Modify and\n  Patterns to Mirror must exist on disk at write time. Files to Create must not.\n- **Signatures, not vibes.** Services and modules define their methods and\n  signatures \u2014 never "create a service for X" without saying what it exposes.\n- **Explicit dependency graph.** Module definitions include imports/exports;\n  cross-module wiring is stated (exports match imports).\n- **Real script names.** Verification commands reference scripts that exist in\n  the target `package.json` (or the configured `scripts` overrides).\n- **Within executor scope.** Each plan (or each phase) stays within the\n  executor\'s 50-file guardrail \u2014 target 40 or fewer source files.\n- **Prior art recorded.** Every newly-created exported symbol is justified in a\n  `## Prior Art` section: the searches run against existing exports that prove it\n  is new, or the existing symbol it mirrors/extends.\n- **Global constraints have a home.** Every variant carries a\n  `## Global Constraints` section for session-stated project-wide constraints;\n  `None` is valid content. Phases inherit the overview\'s \u2014 a phase may write\n  "See overview."\n\n---\n\n## Single Plan\n\n```markdown\n# <Feature Name>\n\n## Context\n\n<1\u20132 paragraphs: what this feature does, why it is needed, and the relevant\ncurrent state of the codebase.>\n\n## Decision Log\n\nEvery meaningful decision and the road not taken, tagged with the phase that\nsurfaced it. Log a row only when an answer establishes or changes a decision or\nan edge-case handling \u2014 skip pure confirmations.\n\n| # | Source | Decision / Question | Options Considered | Choice | Rationale |\n|---|--------|---------------------|--------------------|--------|-----------|\n| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |\n\n<!-- Source is one of: Brainstorm, Elicitation, Grill, Converge. If a decision was assumed rather than confirmed by the user, append "(assumption)" to the Choice cell. -->\n\n## Global Constraints\n\nProject-wide constraints the user stated for this work \u2014 rules every part of\nthe implementation must respect. Write `None` when none were stated.\n\n- <constraint, or "None">\n\n## Prerequisites\n\n- <required state before implementation begins, or "None">\n\n## Affected Packages\n\n- `<packagesDir>/<name>` \u2014 <why this package is touched>\n\n<!-- Single-package repos: state "Single-package repository." packagesDir is the\nrepo\'s package directory convention (default `packages`). -->\n\n## Files to Create\n\n### `<packagesDir>/<name>/src/path/to/file.ts`\n\n<Purpose. Key contents: exported functions/classes with full signatures,\nmethods, imports it needs, what it exports. Enough detail that a fresh-context\nagent writes the right code without guessing.>\n\n## Files to Modify\n\n### `<packagesDir>/<name>/src/path/to/existing.ts`\n\n<What changes and where: which function/section, what is added/removed/changed,\nand how it integrates with the created files.>\n\n## Patterns to Mirror\n\n- `<packagesDir>/<name>/src/path/to/analogous.ts` \u2014 <what to take from it:\n  structure, naming, error handling, etc.>\n\n## Prior Art\n\nOne line per newly-created exported symbol, recording the dedup search that\njustifies its newness:\n\n- `<symbol>` \u2014 searched <terms>, found none (new)\n- `<symbol>` \u2014 mirrors `<existing export>` (extends, does not duplicate)\n\n## Scope Boundaries\n\n**Do:**\n- <in-scope item>\n\n**Do NOT:**\n- <explicitly out-of-scope item \u2014 adjacent work the agent might be tempted to do>\n\n## Verification\n\n- `<resolved check command>` \u2014 types clean\n- `<resolved test-unit command>` \u2014 tests pass\n\n## What Next Plan Expects\n\n<For a standalone plan: "None \u2014 standalone plan." Otherwise: the exact state a\nfollow-up plan can rely on \u2014 files that exist, exports available, behavior\nguaranteed.>\n```\n\n---\n\n## Overview Plan\n\nThe overview carries context shared by all phases. It is **not implemented\ndirectly** \u2014 it is passed alongside each phase to `lightsout implement` and to\n`plan grade` as context.\n\n```markdown\n# <Feature Name> \u2014 Overview\n\n## Context\n\n<What this feature does, why, and the relevant current state.>\n\n## Decision Log\n\nCross-cutting decisions shared by all phases (phase-specific decisions live in\neach phase file). Log a row only when an answer establishes or changes a\ndecision or an edge-case handling \u2014 skip pure confirmations.\n\n| # | Source | Decision / Question | Options Considered | Choice | Rationale |\n|---|--------|---------------------|--------------------|--------|-----------|\n| 1 | Elicitation | <decision> | <A / B> | <chosen> | <one line> |\n\n<!-- Source is one of: Brainstorm, Elicitation, Grill, Converge. -->\n\n## Global Constraints\n\nProject-wide constraints the user stated for this work \u2014 rules every part of\nthe implementation must respect. Write `None` when none were stated.\n\n- <constraint, or "None">\n\n## Architecture\n\n<How the pieces fit together across phases: data flow, module boundaries,\nshared types. A diagram or short prose map.>\n\n## Affected Packages\n\n- `<packagesDir>/<name>` \u2014 <role in this feature>\n\n## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| 1 | `phase1-<slug>.md` | <one-line scope> |\n| 2 | `phase2-<slug>.md` | <one-line scope> |\n\n## Cross-Phase Dependencies\n\n- Phase 2 depends on Phase 1\'s <export/file/behavior>.\n```\n\n---\n\n## Phase Plan\n\nIdentical to the Single Plan with these adjustments:\n\n- Title: `# <Feature Name> \u2014 Phase <N>: <Phase Name>`\n- **Prerequisites** states the prior phase\'s end state: "Phase <N-1> complete:\n  <files/exports that now exist>." Phase 1 states the pre-feature codebase state.\n- **Decision Log** may be omitted if fully covered by the overview \u2014 reference\n  it: "See overview." Phase-specific decisions (including Grill rows raised\n  against this phase) still go in this section.\n- **Global Constraints** is required in every phase; when the overview\'s section\n  covers it, the content may be "See overview." Phase-specific constraints are\n  added as their own bullets.\n- **Prior Art** is still mandatory \u2014 one line per newly-created exported symbol.\n- **What Next Plan Expects** is mandatory and chains: it must list exactly what\n  the next phase\'s Prerequisites will claim. The final phase states "None \u2014\n  final phase."\n';
 
 // src/agents/buildPlanWriterInvocation.ts
 var buildPlanWriterInvocation = ({ facts, decisions, outputs, standards, lintCommand }) => {
@@ -17602,12 +17609,17 @@ ${planTemplate_default}`,
 };
 
 // src/agents/prompts/planRepair.md
-var planRepair_default = '# Role: Plan Repairer\n\nYou fix an existing drafted plan in place. You do NOT re-author it. You work\nautonomously from the task message; you Edit the listed plan file(s) and your\nfinal message is machine-parsed \u2014 one JSON report, not prose for a human.\n\n## Input\n\nThe task message provides:\n\n- **Plan files to repair** \u2014 the absolute path(s) of the drafted plan file(s)\n  to Read and Edit in place.\n- **Structural findings to resolve** \u2014 the typed structural defects the\n  deterministic lint flagged, each with its exact `fix` string.\n- **Reference files** (Read on demand) \u2014 absolute paths of the decisions\n  record (`decisions.json`, the design decisions) and the verified facts\n  (`facts.json`, codebase facts already verified on disk). When a finding\'s\n  fix requires content \u2014 a placeholder to fill, a missing section to write \u2014\n  the content MUST come from Reading these files, never from a guess.\n  Findings whose `fix` string is complete need no Read at all.\n\n## Workflow\n\n1. Read each listed plan file.\n2. For each finding, apply the smallest edit that resolves it \u2014 apply the\n   finding\'s `fix` string literally where it is concrete; where the fix\n   requires content (a placeholder to fill, a missing section to write),\n   resolve it by Reading the reference files.\n3. Hard rule: **minimal edits resolving only the flagged findings \u2014 do not\n   restructure, re-order, re-word, or touch any content the findings do not\n   name.**\n4. If a finding cannot be resolved from the inputs, stop and report status\n   `error` with the reason per finding in `discrepancies` \u2014 never paper over\n   it.\n\n## Report \u2014 your entire final message is one JSON object\n\nEmit exactly one JSON `PlanFixReport` object as your entire final message.\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts\nwith `{` and ends with `}`.\n\n```\n{\n	"status": "fixed",\n	"filesEdited": ["<absolute path edited>"],\n	"discrepancies": []\n}\n```\n\nIf a finding cannot be resolved from the inputs, report the error result \u2014\n`status` is `"error"` and `discrepancies` states why, per finding:\n\n```\n{\n	"status": "error",\n	"filesEdited": [],\n	"discrepancies": ["<finding> \u2014 cannot be resolved because <reason>", "..."]\n}\n```\n\n## Operational rules\n\n- Edit **only** the listed plan files; never source files, tests, or anything\n  else.\n- Do not implement any part of the feature. Do not create commits or branches.\n- Do not ask clarifying questions \u2014 proceed immediately; unresolvable findings\n  are reported via the error result, not asked about.\n- Respect all instructions in the project\'s CLAUDE.md files.\n';
+var planRepair_default = '# Role: Plan Repairer\n\nYou fix an existing drafted plan in place. You do NOT re-author it. You work\nautonomously from the task message; you Edit the listed plan file(s) and your\nfinal message is machine-parsed \u2014 one JSON report, not prose for a human.\n\n## Input\n\nThe task message provides:\n\n- **Plan files to repair** \u2014 the absolute path(s) of the drafted plan file(s)\n  to Read and Edit in place.\n- **Structural findings to resolve** \u2014 the typed structural defects the\n  deterministic lint flagged, each with its exact `fix` string.\n- **Reference files** (Read on demand) \u2014 absolute paths of the plan\'s own\n  decisions (`decisions.json`, the design decisions), the brainstorm decisions\n  (`brainstorm-decisions.json` \u2014 present only when the work came from a\n  `/brainstorm` hand-off, holding decisions settled before planning began),\n  and the verified facts (`facts.json`, codebase facts already verified on\n  disk). The two decision files together are the decisions record: a fix that\n  rebuilds a section derived from decisions (Global Constraints above all)\n  must draw on the rows in both, and the last row sharing a `question` is the\n  live one. When a finding\'s fix requires content \u2014 a placeholder to fill, a\n  missing section to write \u2014 the content MUST come from Reading these files,\n  never from a guess. Findings whose `fix` string is complete need no Read at\n  all.\n\n## Workflow\n\n1. Read each listed plan file.\n2. For each finding, apply the smallest edit that resolves it \u2014 apply the\n   finding\'s `fix` string literally where it is concrete; where the fix\n   requires content (a placeholder to fill, a missing section to write),\n   resolve it by Reading the reference files.\n3. Hard rule: **minimal edits resolving only the flagged findings \u2014 do not\n   restructure, re-order, re-word, or touch any content the findings do not\n   name.**\n4. If a finding cannot be resolved from the inputs, stop and report status\n   `error` with the reason per finding in `discrepancies` \u2014 never paper over\n   it.\n\n## Report \u2014 your entire final message is one JSON object\n\nEmit exactly one JSON `PlanFixReport` object as your entire final message.\nOutput ONLY the JSON \u2014 no fences, no surrounding text. Your message starts\nwith `{` and ends with `}`.\n\n```\n{\n	"status": "fixed",\n	"filesEdited": ["<absolute path edited>"],\n	"discrepancies": []\n}\n```\n\nIf a finding cannot be resolved from the inputs, report the error result \u2014\n`status` is `"error"` and `discrepancies` states why, per finding:\n\n```\n{\n	"status": "error",\n	"filesEdited": [],\n	"discrepancies": ["<finding> \u2014 cannot be resolved because <reason>", "..."]\n}\n```\n\n## Operational rules\n\n- Edit **only** the listed plan files; never source files, tests, or anything\n  else.\n- Do not implement any part of the feature. Do not create commits or branches.\n- Do not ask clarifying questions \u2014 proceed immediately; unresolvable findings\n  are reported via the error result, not asked about.\n- Respect all instructions in the project\'s CLAUDE.md files.\n';
 
 // src/agents/buildPlanRepairInvocation.ts
-var buildPlanRepairInvocation = ({ findings, planPaths, decisionsPath, factsPath }) => {
+var buildPlanRepairInvocation = ({ findings, planPaths, decisionsPath, brainstormDecisionsPath, factsPath }) => {
   const findingLines = findings.map((finding) => `- [${finding.check}] ${finding.location} \u2014 ${finding.issue}
   fix: ${finding.fix}`);
+  const referenceLines = [
+    `- Decisions record: ${decisionsPath}`,
+    ...brainstormDecisionsPath ? [`- Brainstorm decisions (settled during brainstorm, before planning began): ${brainstormDecisionsPath}`] : [],
+    `- Verified facts: ${factsPath}`
+  ];
   const sections = [
     `# Repair input`,
     `## Plan files to repair (Edit in place)
@@ -17618,8 +17630,7 @@ var buildPlanRepairInvocation = ({ findings, planPaths, decisionsPath, factsPath
 ${findingLines.join("\n")}`,
     `## Reference files (Read on demand)
 
-- Decisions record: ${decisionsPath}
-- Verified facts: ${factsPath}`,
+${referenceLines.join("\n")}`,
     "Remember: minimal edits resolving only the flagged findings, then your entire final message must be exactly one JSON PlanFixReport object \u2014 nothing else."
   ];
   return {
@@ -33152,6 +33163,7 @@ var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
 
 // src/plan/runPlanDraft.ts
 import { mkdir as mkdir8 } from "node:fs/promises";
+import { join as join48 } from "node:path";
 
 // src/plan/common/utils/createPlanAgentRunner.ts
 import { writeFile as writeFile8 } from "node:fs/promises";
@@ -33223,6 +33235,28 @@ var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
   return { planPaths };
 };
 
+// src/plan/readBrainstormDecisions.ts
+import { access as access2 } from "node:fs/promises";
+import { join as join44 } from "node:path";
+var brainstormDecisionsFile = "brainstorm-decisions.json";
+var readBrainstormDecisions = async ({ cwd, name }) => {
+  const filePath = join44(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
+  const present = await access2(filePath).then(
+    () => true,
+    () => false
+  );
+  if (!present) {
+    return void 0;
+  }
+  return readPlanWorkspaceFile({
+    cwd,
+    name,
+    fileName: brainstormDecisionsFile,
+    schema: BrainstormDecisions,
+    notFound: (path) => `brainstorm decisions for plan ${name} at ${path} became unreadable during drafting`
+  });
+};
+
 // src/plan/readDecisions.ts
 var readDecisions = async ({ cwd, name }) => {
   return readPlanWorkspaceFile({
@@ -33246,18 +33280,18 @@ var readPlanFacts = async ({ cwd, name }) => {
 };
 
 // src/plan/repairPlanStructure.ts
-import { join as join46 } from "node:path";
+import { join as join47 } from "node:path";
 
 // src/plan/lintPlanStructure.ts
 import { readFile as readFile25 } from "node:fs/promises";
 import { basename as basename11 } from "node:path";
 
 // src/plan/checkPlanPaths.ts
-import { basename as basename9, join as join44 } from "node:path";
+import { basename as basename9, join as join45 } from "node:path";
 var checkPlanPaths = async ({ plan, cwd, planPath }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join44(cwd, path) })) {
+    if (!await pathExists({ path: join45(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `referenced path does not exist: ${path}`,
@@ -33267,7 +33301,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
     }
   }
   for (const path of plan.createPaths) {
-    if (await pathExists({ path: join44(cwd, path) })) {
+    if (await pathExists({ path: join45(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `Files to Create path already exists: ${path}`,
@@ -33281,7 +33315,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
 
 // src/plan/checkVerificationScripts.ts
 import { readFile as readFile24 } from "node:fs/promises";
-import { basename as basename10, join as join45 } from "node:path";
+import { basename as basename10, join as join46 } from "node:path";
 var scriptNameOf = (command) => {
   const runScript = extractRunScriptName({ command });
   if (runScript !== void 0) {
@@ -33311,7 +33345,7 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       }
     }
   }
-  const manifestPaths = [join45(cwd, "package.json"), ...[...packageDirs].map((dir) => join45(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join46(cwd, "package.json"), ...[...packageDirs].map((dir) => join46(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     const raw = await readFile24(manifestPath, "utf8").catch(() => void 0);
@@ -33542,7 +33576,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
 // src/plan/repairPlanStructure.ts
 var maxRepairAttempts = 3;
 var findingSetKey = ({ findings }) => findings.map((finding) => [finding.check, finding.issue].join("|")).sort().join("\n");
-var repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, config: config2, model, effort, permissions, timeoutMs, progress }) => {
+var repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, brainstormDecisionsPath, config: config2, model, effort, permissions, timeoutMs, progress }) => {
   let findings = await lintPlanStructure({ cwd, planPaths, config: config2 });
   for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {
     progress(`plan draft ${name}: ${findings.length} structural finding(s) \u2014 repair ${repair}/${maxRepairAttempts}`);
@@ -33552,8 +33586,9 @@ var repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, c
       invocation: buildPlanRepairInvocation({
         findings,
         planPaths,
-        decisionsPath: join46(workspaceDir, "decisions.json"),
-        factsPath: join46(workspaceDir, "facts.json")
+        decisionsPath: join47(workspaceDir, "decisions.json"),
+        brainstormDecisionsPath,
+        factsPath: join47(workspaceDir, "facts.json")
       }),
       contract: PlanFixReport
     });
@@ -33598,6 +33633,11 @@ var runPlanDraft = async ({
   await mkdir8(workspaceDir, { recursive: true });
   const facts = await readPlanFacts({ cwd, name });
   const decisions = await readDecisions({ cwd, name });
+  const brainstorm = await readBrainstormDecisions({ cwd, name });
+  const merged = brainstorm ? { ...decisions, decisions: [...brainstorm.decisions, ...decisions.decisions] } : decisions;
+  progress(
+    brainstorm ? `plan draft ${name}: ${brainstorm.decisions.length} brainstorm decision(s) carried in` : `plan draft ${name}: no brainstorm decisions \u2014 drafting from the plan's own rows`
+  );
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const variant = scope ?? estimatePlanScope({ facts });
   const outputs = planDraftOutputs({ cwd, name, variant });
@@ -33605,7 +33645,7 @@ var runPlanDraft = async ({
   const lint = buildPlanLintCommand({ cwd, name });
   const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: "draft", model, effort, permissions, timeoutMs });
   const outcome = await invokePlanAgent({
-    invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand: lint.command }),
+    invocation: buildPlanWriterInvocation({ facts, decisions: merged, outputs, standards, lintCommand: lint.command }),
     contract: PlanDraftReport,
     allowedCommands: [lint.prefix]
   });
@@ -33621,7 +33661,20 @@ var runPlanDraft = async ({
     return { status: "failed", workspaceDir, error: drafted.error };
   }
   const { planPaths } = drafted;
-  const repaired = await repairPlanStructure({ cwd, driver, name, planPaths, workspaceDir, config: config2, model, effort, permissions, timeoutMs, progress });
+  const repaired = await repairPlanStructure({
+    cwd,
+    driver,
+    name,
+    planPaths,
+    workspaceDir,
+    brainstormDecisionsPath: brainstorm ? join48(workspaceDir, "brainstorm-decisions.json") : void 0,
+    config: config2,
+    model,
+    effort,
+    permissions,
+    timeoutMs,
+    progress
+  });
   if (repaired.status === "paused-rate-limit") {
     return { status: "paused-rate-limit", workspaceDir, error: repaired.error };
   }
@@ -33636,7 +33689,7 @@ var runPlanDraft = async ({
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename12, join as join48 } from "node:path";
+import { basename as basename12, join as join50 } from "node:path";
 
 // src/plan/detectPriorArtCandidates.ts
 import { readFile as readFile26 } from "node:fs/promises";
@@ -33685,10 +33738,10 @@ import { mkdir as mkdir9 } from "node:fs/promises";
 
 // src/plan/common/utils/resolvePlanDeliverable.ts
 import { readFile as readFile27, readdir as readdir9 } from "node:fs/promises";
-import { join as join47 } from "node:path";
+import { join as join49 } from "node:path";
 var resolvePlanDeliverable = async ({ cwd, name }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  const singlePath = join47(dir, "plan.md");
+  const singlePath = join49(dir, "plan.md");
   let overviewPath;
   let overviewText;
   const files = [];
@@ -33697,7 +33750,7 @@ var resolvePlanDeliverable = async ({ cwd, name }) => {
   } else {
     const entries = (await readdir9(dir).catch(() => [])).filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
     for (const entry of entries) {
-      const path = join47(dir, entry);
+      const path = join49(dir, entry);
       const text = await readFile27(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -33788,14 +33841,14 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join48(workspaceDir, "grade.json");
+  const gradePath = join50(workspaceDir, "grade.json");
   await writeJsonFile({ path: gradePath, value: report });
   progress(`plan grade ${name}: ${grade} (${structural.length} structural, ${gaps.length} gap(s))`);
   return { status: "complete", workspaceDir, grade: report, gradePath };
 };
 
 // src/plan/runPlanDedup.ts
-import { join as join49 } from "node:path";
+import { join as join51 } from "node:path";
 
 // src/plan/common/utils/matchDedupVerdicts.ts
 var matchDedupVerdicts = ({ candidates, verdicts: verdicts2 }) => {
@@ -33840,7 +33893,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join49(workspaceDir, "dedup.json");
+    const dedupPath2 = join51(workspaceDir, "dedup.json");
     await writeJsonFile({ path: dedupPath2, value: dedup2 });
     return { dedup: dedup2, dedupPath: dedupPath2 };
   };
@@ -34114,7 +34167,7 @@ var countByRule = ({ findings }) => {
 
 // src/refactor/initializeRun.ts
 import { readFile as readFile28, writeFile as writeFile10 } from "node:fs/promises";
-import { join as join50 } from "node:path";
+import { join as join52 } from "node:path";
 
 // src/refactor/batchFindings.ts
 var rulePriority = [
@@ -34232,7 +34285,7 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile28(join50(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile28(join52(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -34243,9 +34296,9 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
 ${dirty.map((file2) => `  ${file2}`).join("\n")}`);
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join50(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join52(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2 });
-  await writeFile10(join50(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile10(join52(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -34290,7 +34343,7 @@ var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attribut
 
 // src/refactor/invokeBatchAgent.ts
 import { mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join51 } from "node:path";
+import { join as join53 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -34305,9 +34358,9 @@ var invokeBatchAgent = async ({
   rationale,
   recordUsage
 }) => {
-  const agentsDir = join51(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join53(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join51(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join53(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir10(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -34321,7 +34374,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2.agentCommands,
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile11(join51(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile11(join53(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
@@ -34370,7 +34423,7 @@ var runBatchGates = async ({ cwd, config: config2, runId, step, onProgress }) =>
 
 // src/refactor/superviseBatch.ts
 import { mkdir as mkdir11, writeFile as writeFile12 } from "node:fs/promises";
-import { join as join52 } from "node:path";
+import { join as join54 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -34387,7 +34440,7 @@ var superviseBatch = async ({
   gates: gates2
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries3} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join52(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join54(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir11(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -34398,9 +34451,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join52(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join54(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile12(join52(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile12(join54(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });

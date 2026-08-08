@@ -70,6 +70,15 @@ test('buildPlanWriterInvocation: system prompt is the stable role prompt with th
 	expect(first.systemPrompt).toBe(second.systemPrompt);
 });
 
+test('buildPlanWriterInvocation: the system prompt documents the Brainstorm origin as engine-merged rows', () => {
+	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput() });
+
+	// the role prompt names the origin the merged rows arrive under
+	expect(invocation.systemPrompt).toMatch(/`Brainstorm` rows/);
+	// and states the engine merges them in — the writer never fetches them itself
+	expect(invocation.systemPrompt).toMatch(/the engine merges them in/);
+});
+
 test('buildPlanWriterInvocation: an overview output adds the phased-authoring section naming the overview path and its directory', () => {
 	const invocation = buildPlanWriterInvocation({
 		facts: facts(),

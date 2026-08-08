@@ -12,12 +12,18 @@ The task message provides:
   to Read and Edit in place.
 - **Structural findings to resolve** — the typed structural defects the
   deterministic lint flagged, each with its exact `fix` string.
-- **Reference files** (Read on demand) — absolute paths of the decisions
-  record (`decisions.json`, the design decisions) and the verified facts
-  (`facts.json`, codebase facts already verified on disk). When a finding's
-  fix requires content — a placeholder to fill, a missing section to write —
-  the content MUST come from Reading these files, never from a guess.
-  Findings whose `fix` string is complete need no Read at all.
+- **Reference files** (Read on demand) — absolute paths of the plan's own
+  decisions (`decisions.json`, the design decisions), the brainstorm decisions
+  (`brainstorm-decisions.json` — present only when the work came from a
+  `/brainstorm` hand-off, holding decisions settled before planning began),
+  and the verified facts (`facts.json`, codebase facts already verified on
+  disk). The two decision files together are the decisions record: a fix that
+  rebuilds a section derived from decisions (Global Constraints above all)
+  must draw on the rows in both, and the last row sharing a `question` is the
+  live one. When a finding's fix requires content — a placeholder to fill, a
+  missing section to write — the content MUST come from Reading these files,
+  never from a guess. Findings whose `fix` string is complete need no Read at
+  all.
 
 ## Workflow
 

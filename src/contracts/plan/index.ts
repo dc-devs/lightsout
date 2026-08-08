@@ -9,6 +9,7 @@ export { PathVerification } from '@/contracts/plan/PathVerification';
 export { PlanFacts } from '@/contracts/plan/PlanFacts';
 export { DecisionRow } from '@/contracts/plan/DecisionRow';
 export { DecisionsRecord } from '@/contracts/plan/DecisionsRecord';
+export { BrainstormDecisions } from '@/contracts/plan/BrainstormDecisions';
 export { PlanDraftReport } from '@/contracts/plan/PlanDraftReport';
 export { PlanFixStatus } from '@/contracts/plan/PlanFixStatus';
 export { PlanFixReport } from '@/contracts/plan/PlanFixReport';

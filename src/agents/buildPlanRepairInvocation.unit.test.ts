@@ -14,6 +14,7 @@ const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding 
 /** The workspace reference paths the repairer Reads on demand. */
 const setupRepair = () => ({
 	decisionsPath: '/tmp/.lightsout/plans/widget-flag/decisions.json',
+	brainstormDecisionsPath: '/tmp/.lightsout/plans/widget-flag/brainstorm-decisions.json',
 	factsPath: '/tmp/.lightsout/plans/widget-flag/facts.json',
 });
 
@@ -73,6 +74,29 @@ test('buildPlanRepairInvocation: decisions and facts arrive as paths to Read, ne
 	// no reference content rides the prompt — a mechanical repair never pays for
 	// it
 	expect(prompt.includes('```json')).toBeFalsy();
+});
+
+test('buildPlanRepairInvocation: a brainstorm path lists both decision files, labelling the brainstorm one as settled before planning', () => {
+	const { decisionsPath, brainstormDecisionsPath, factsPath } = setupRepair();
+
+	const { prompt } = buildPlanRepairInvocation({ findings: [finding()], planPaths: ['/tmp/plans/widget-flag.md'], decisionsPath, brainstormDecisionsPath, factsPath });
+
+	// the full section pins the order: plan decisions first, brainstorm second, facts closing
+	expect(
+		prompt.includes(
+			`## Reference files (Read on demand)\n\n- Decisions record: ${decisionsPath}\n- Brainstorm decisions (settled during brainstorm, before planning began): ${brainstormDecisionsPath}\n- Verified facts: ${factsPath}`,
+		),
+	).toBeTruthy();
+});
+
+test('buildPlanRepairInvocation: without a brainstorm path the reference section is exactly what it is today', () => {
+	const { decisionsPath, factsPath } = setupRepair();
+
+	const { prompt } = buildPlanRepairInvocation({ findings: [finding()], planPaths: ['/tmp/plans/widget-flag.md'], decisionsPath, factsPath });
+
+	// no brainstorm hand-off → the section is byte-identical to the two-file form
+	expect(prompt.includes(`## Reference files (Read on demand)\n\n- Decisions record: ${decisionsPath}\n- Verified facts: ${factsPath}`)).toBeTruthy();
+	expect(prompt.includes('Brainstorm decisions')).toBeFalsy();
 });
 
 test('buildPlanRepairInvocation: the system prompt is the repairer role and the plan template is absent — edit, never re-author', () => {

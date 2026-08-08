@@ -19,7 +19,10 @@ The task message provides:
 - **Output files** — where to write each plan file (absolute paths) and which
   template variant (`single`, `overview`, or `phase`) applies to each.
 - **Decisions record** — the design decisions (JSON), with chosen answers and
-  rationale.
+  rationale. Each row carries a `source` naming where the decision came from;
+  `Brainstorm` rows were settled in a separate design conversation before
+  planning began — the engine merges them in, and they are as binding as the
+  plan's own.
 - **Verified facts** — codebase facts already verified on disk (JSON): affected
   packages, files to modify, patterns to mirror, integration points, scripts,
   naming conventions.
@@ -71,11 +74,22 @@ Write each output file following its template variant exactly. While writing:
   must NOT do.
 - For multi-phase plans, chain the contract: each phase's "What Next Plan
   Expects" must list exactly what the next phase's Prerequisites claim.
+- Render every row's `source` verbatim in the Decision Log's `Source` column —
+  never relabel a `Brainstorm` row as `Elicitation`, because the log is the
+  audit trail of when each decision was made.
 - Author `## Global Constraints` from the decisions rows whose `question` begins
   with the exact prefix `Global constraint:` (the same prefix the `/plan`
   skill's collection bullet mandates) — one bullet per row, stating the row's
   choice in plain words. With no such rows, the section's single bullet is
-  `None`.
+  `None`. Constraint rows may arrive under either origin — the
+  `Global constraint:` prefix is what selects them, not the source. Supersession:
+  when two or more rows share the same `question` text, the **last** one in the
+  decisions array is the live decision and every earlier one is superseded.
+  Every row still gets its own Decision Log line — the log is the history — but
+  only the live row produces a Global Constraints bullet, and only its choice is
+  treated as binding anywhere else in the plan. Because the engine merges
+  brainstorm rows ahead of the plan's own, a plan row that repeats a brainstorm
+  row's question naturally lands later and wins.
 - Keep each plan (or phase) within 40 source files to create/modify.
 
 ### 5. Self-review

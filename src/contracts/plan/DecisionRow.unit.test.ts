@@ -51,7 +51,7 @@ describe('DecisionRow', () => {
 	});
 
 	test('source accepts each stage of the planning dialogue', () => {
-		for (const source of ['Elicitation', 'Grill', 'Dedup', 'Converge']) {
+		for (const source of ['Brainstorm', 'Elicitation', 'Grill', 'Dedup', 'Converge']) {
 			const { row } = setupRow({ source });
 
 			const parsed = DecisionRow.parse(row);
