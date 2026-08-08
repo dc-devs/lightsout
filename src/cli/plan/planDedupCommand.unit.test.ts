@@ -19,33 +19,39 @@ const judgeDriver = ({ verdicts, calls }: { verdicts: unknown[]; calls: { count:
 	},
 });
 
+/** A judge stub whose harness reports it hit its subscription rate limit. */
+const rateLimitedDriver = (): Driver => ({
+	name: 'stub',
+	invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }),
+});
+
 // A temp repo holding the given existing source files and a plan that creates
 // the given paths — the same arrangement the deterministic prior-art detector
 // is exercised with, so the collisions the judge rules on are real ones.
 const setupDedup = ({ existing = [], creates = [], plan = true }: { existing?: string[]; creates?: string[]; plan?: boolean } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-dedup-command-'));
-	const plansDir = join(cwd, '.claude', 'plans');
+	const planDir = join(cwd, '.lightsout', 'plans', 'demo');
 
 	for (const relative of existing) {
 		mkdirSync(dirname(join(cwd, relative)), { recursive: true });
 		writeFileSync(join(cwd, relative), 'export const x = 1;\n');
 	}
 
-	mkdirSync(plansDir, { recursive: true });
+	mkdirSync(planDir, { recursive: true });
 
 	if (plan) {
-		writeFileSync(join(plansDir, 'demo.md'), `# Plan\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`);
+		writeFileSync(join(planDir, 'plan.md'), `# Plan\n\n## Files to Create\n\n${creates.map((path) => `### \`${path}\`\n\nnew.\n`).join('\n')}\n`);
 	}
 
-	return { cwd, plansDir, name: 'demo', ...captured };
+	return { cwd, name: 'demo', ...captured };
 };
 
 test('planDedupCommand: a plan with no colliding symbols reports no duplication, never calls the judge, and exits 0', async () => {
-	const { cwd, plansDir, name, logged, errors, exitCodes } = setupDedup({ existing: ['src/index.ts'], creates: ['src/brandNewWidget.ts'] });
+	const { cwd, name, logged, errors, exitCodes } = setupDedup({ existing: ['src/index.ts'], creates: ['src/brandNewWidget.ts'] });
 	const calls = { count: 0 };
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -58,11 +64,11 @@ test('planDedupCommand: a plan with no colliding symbols reports no duplication,
 });
 
 test('planDedupCommand: a confirmed duplicate prints its recommendation, what it collides with, its rationale, and exits 0', async () => {
-	const { cwd, plansDir, name, logged, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name, logged, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const calls = { count: 0 };
 	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' }];
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -76,11 +82,11 @@ test('planDedupCommand: a confirmed duplicate prints its recommendation, what it
 });
 
 test('planDedupCommand: a verdict that rules the collision distinct leaves no finding to review', async () => {
-	const { cwd, plansDir, name, logged, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const { cwd, name, logged, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const calls = { count: 0 };
 	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: false, recommendation: 'distinct', rationale: 'different concept' }];
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -92,12 +98,22 @@ test('planDedupCommand: a verdict that rules the collision distinct leaves no fi
 });
 
 test('planDedupCommand: an unresolvable deliverable reports the error on stderr and exits 1', async () => {
-	const { cwd, plansDir, name, logged, errors, exitCodes } = setupDedup({ plan: false });
+	const { cwd, name, logged, errors, exitCodes } = setupDedup({ plan: false });
 	const calls = { count: 0 };
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	expect(printedLines({ logged })).toStrictEqual([]);
 	expect(errors[0] ?? '').toMatch(/no plan found for 'demo'/);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('planDedupCommand: a rate-limited harness prints the exact re-run command and exits 1 rather than reporting an empty review', async () => {
+	const { cwd, name, logged, errors, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+
+	await expect(planDedupCommand({ cwd, driver: rateLimitedDriver(), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+
+	expect(printedLines({ logged })).toStrictEqual([]);
+	expect(errors[0] ?? '').toMatch(/rate limit reached — re-run: lightsout plan dedup --name demo$/);
 	expect(exitCodes).toStrictEqual([1]);
 });

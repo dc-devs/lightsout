@@ -23,7 +23,7 @@ interface Params {
  * - `inert` — barrels and type-only files provably hold no executable code,
  *   so a writer is a guaranteed no-op (or an implementation-coupled test the
  *   standards forbid). Classification borrows the consumer's TypeScript,
- *   exactly like the scan's AST tier; without one, nothing is inert.
+ *   exactly like the standards check's AST tier; without one, nothing is inert.
  * - `targets` — everything with runtime code to cover.
  *
  * Deletion filtering runs regardless of the compiler; only inert

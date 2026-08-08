@@ -1,11 +1,11 @@
 import { expect, describe, test } from '@jest/globals';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
-import { formatFindingText } from '@/agents/formatFindingText';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { formatFindingText } from '@/agents';
 
-const finding = (overrides: Partial<ScanFinding> = {}): ScanFinding => ({
-	detector: ScanDetector.Size,
-	severity: ScanSeverity.Advisory,
-	cluster: 'size:one',
+const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
+	rule: StandardsRule.SizeFunction,
+	severity: StandardsSeverity.Advisory,
+	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
 	detail: "function 'one' is 114 lines (cap ~80)",
 	...overrides,
@@ -18,11 +18,11 @@ describe('formatFindingText', () => {
 		});
 
 		// without this the refactor agent reads "114 lines" with no exemption rule
-		// and rewrites the orchestration the detector meant to spare
+		// and rewrites the orchestration the rule meant to spare
 		expect(text).toBe("function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.");
 	});
 
-	test('a detector with nothing to advise contributes no trailing separator', () => {
+	test('a rule with nothing to advise contributes no trailing separator', () => {
 		expect(formatFindingText({ finding: finding() })).toBe("function 'one' is 114 lines (cap ~80)");
 	});
 });

@@ -4,9 +4,9 @@ import { GapCheckReport } from '@/contracts';
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const gap = {
 		area: 'unwired-dependency',
-		gap: 'the plan adds a scan detector but never says which command runs it',
+		gap: 'the plan adds a standards rule but never says which command runs it',
 		decision: 'name the command that invokes the new detector',
-		options: ['lightsout scan', 'lightsout verify'],
+		options: ['lightsout standards-check', 'lightsout verify'],
 	};
 	const report = {
 		gaps: [gap],
@@ -26,9 +26,9 @@ describe('GapCheckReport', () => {
 			gaps: [
 				{
 					area: 'unwired-dependency',
-					gap: 'the plan adds a scan detector but never says which command runs it',
+					gap: 'the plan adds a standards rule but never says which command runs it',
 					decision: 'name the command that invokes the new detector',
-					options: ['lightsout scan', 'lightsout verify'],
+					options: ['lightsout standards-check', 'lightsout verify'],
 				},
 			],
 		});

@@ -2,7 +2,7 @@ import {
 	BatchOutcome,
 	BatchReport,
 	RunStatus,
-	ScanSeverity,
+	StandardsSeverity,
 	type AgentUsage,
 	type LightsoutConfig,
 	type RunManifest,
@@ -11,9 +11,9 @@ import {
 import type { Driver } from '@/drivers';
 import { runGates } from '@/pipeline';
 import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '@/runState';
-import { runScan } from '@/scan';
+import { runStandardsCheck } from '@/standardsCheck';
 import { resolveStandards } from '@/standards';
-import { countByDetector } from '@/refactor/countByDetector';
+import { countByRule } from '@/refactor/countByRule';
 import { initializeRun } from '@/refactor/initializeRun';
 import { seedResumeState } from '@/refactor/seedResumeState';
 import { runBatch } from '@/refactor/runBatch';
@@ -26,7 +26,7 @@ interface Params {
 	cwd: string;
 	driver: Driver;
 	config: LightsoutConfig;
-	/** Repo-relative scan scope (default: the whole repo). */
+	/** Repo-relative check scope (default: the whole repo). */
 	path?: string;
 	/** Include baselined findings — burn-down mode. */
 	all?: boolean;
@@ -40,8 +40,8 @@ interface Params {
 /**
  * The refactor pipeline body — always entered holding the run lock (the
  * exported wrapper acquires and releases it). Pre-flight green gate →
- * serial batches (invoke → verify with gate-kind routing → re-scan →
- * resolved/declined) → final whole-scope re-scan for the burn-down. Every
+ * serial batches (invoke → verify with gate-kind routing → re-check →
+ * resolved/declined) → final whole-scope re-check for the burn-down. Every
  * state transition persists before the next action; rate limits park, a
  * budget ceiling parks, three consecutive declines stop the run as systemic.
  * The engine never commits and never baselines — the run ends with changes
@@ -85,7 +85,7 @@ const executeRefactor = async ({
 	// are rebuilt from persisted step reports, never process memory.
 	const seeded = seedResumeState({ manifest, batches: worklist.batches });
 	const declined = seeded.declined;
-	const before = countByDetector({ findings: worklist.batches.flatMap((batch) => batch.findings) });
+	const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.blocking) });
 
 	const stop = async ({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }): Promise<RefactorResult> => {
 		await setStep({ record: { ...record, status, error }, patch: { status } });
@@ -149,7 +149,7 @@ const executeRefactor = async ({
 		const record: StepRecord = { id: batch.id, status: RunStatus.Running, attempts: (prior?.attempts ?? 0) + 1 };
 
 		await setStep({ record });
-		progress(`${batch.id} — ${batch.findings.length} finding(s)`);
+		progress(`${batch.id} — ${batch.blocking.length} blocking`);
 
 		const outcome = await runBatch({
 			cwd,
@@ -157,8 +157,8 @@ const executeRefactor = async ({
 			driver,
 			config,
 			batch,
-			scanPath: worklist.path === '.' ? undefined : worklist.path,
-			scanAll: worklist.all,
+			checkPath: worklist.path === '.' ? undefined : worklist.path,
+			checkAll: worklist.all,
 			standards,
 			testStandards,
 			agentTimeoutMs,
@@ -189,14 +189,14 @@ const executeRefactor = async ({
 		});
 
 		if (report.outcome === BatchOutcome.Declined) {
-			declined.push({ batchId: batch.id, remainingClusters: report.remainingClusters, rationale: report.rationale });
+			declined.push({ batchId: batch.id, remainingSiteKeys: report.remainingSiteKeys, rationale: report.rationale });
 			declineStreak += 1;
-			progress(`${batch.id}: declined (${report.remainingClusters.length} cluster(s) persist)`);
+			progress(`${batch.id}: declined (${report.remainingSiteKeys.length} site(s) persist)`);
 
 			if (declineStreak >= maxConsecutiveDeclines) {
 				// The batch's Passed record (outcome + files) is already written —
 				// only the RUN escalates, so resume never re-spends on it.
-				const error = `${maxConsecutiveDeclines} consecutive batches declined — likely systemic (standards injection, gate config, or a detector bug), not worth further agent spend.`;
+				const error = `${maxConsecutiveDeclines} consecutive batches declined — likely systemic (standards injection, gate config, or a rule bug), not worth further agent spend.`;
 
 				await update({ status: RunStatus.Escalated, currentStep: null });
 				progress(`refactor run stopped after ${batch.id} — ${RunStatus.Escalated}`);
@@ -211,13 +211,13 @@ const executeRefactor = async ({
 		progress(`${batch.id}: resolved`);
 	}
 
-	const finalScan = await runScan({ cwd, path: worklist.path === '.' ? undefined : worklist.path, all: worklist.all, persist: false });
+	const finalCheck = await runStandardsCheck({ cwd, path: worklist.path === '.' ? undefined : worklist.path, all: worklist.all, persist: false });
 
 	await update({ status: RunStatus.Passed, currentStep: null });
 
 	// Finding severity only, mirroring the worklist filter — the burn-down
 	// compares work against work, never advisories.
-	return { ok: true, manifest, declined, before, after: countByDetector({ findings: finalScan.findings.filter((finding) => finding.severity === ScanSeverity.Finding) }) };
+	return { ok: true, manifest, declined, before, after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Blocking) }) };
 };
 
 /**

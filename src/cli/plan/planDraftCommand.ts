@@ -8,7 +8,6 @@ import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
-import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
 import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
 import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
 
@@ -16,16 +15,15 @@ interface Params {
 	cwd: string;
 	driver: Driver;
 	name: string;
-	plansDir: string;
 	standards: string | undefined;
 	config: LightsoutConfig | undefined;
 	flags: Map<string, string | true>;
 }
 
-export const planDraftCommand = async ({ cwd, driver, name, plansDir, standards, config, flags }: Params): Promise<void> => {
+export const planDraftCommand = async ({ cwd, driver, name, standards, config, flags }: Params): Promise<void> => {
 	const scopeFlag = getStringFlag({ flags, name: 'scope' });
 	const scope = scopeFlag === 'phased' ? PlanVariant.Overview : scopeFlag === 'single' ? PlanVariant.Single : undefined;
-	const result = await runPlanDraft({ ...planRunOptions({ cwd, driver, name, plansDir, standards, config }), scope });
+	const result = await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config }), scope });
 
 	exitOnPlanFailure(result);
 

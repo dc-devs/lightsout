@@ -106,13 +106,13 @@ describe('runRefactorPipeline batch outcomes', () => {
 		expect(result.ok).toBe(true);
 		// the second batch was verified resolved on disk, not re-sent to an agent
 		expect(invocations.length).toBe(1);
-		expect(result.after['structure'] ?? 0).toBe(0);
+		expect(result.after['multi-export'] ?? 0).toBe(0);
 
-		const beta = result.manifest.steps.find((step) => step.id === 'batch-02:structure:beta');
+		const beta = result.manifest.steps.find((step) => step.id === 'batch-02:multi-export:beta');
 
 		expect(beta?.status).toBe('passed');
 		// the skipped batch is still recorded as resolved
-		expect(beta?.report).toStrictEqual({ outcome: 'resolved', remainingClusters: [], rationale: [] });
+		expect(beta?.report).toStrictEqual({ outcome: 'resolved', remainingSiteKeys: [], rationale: [] });
 		// and attributes nothing — the earlier batch already owns those files
 		expect(beta?.changedFiles).toStrictEqual([]);
 	});
@@ -139,13 +139,15 @@ describe('runRefactorPipeline batch outcomes', () => {
 
 		expect(result.ok).toBe(true);
 		// the requeue finished the batch
-		expect(result.after['structure'] ?? 0).toBe(0);
+		expect(result.after['multi-export'] ?? 0).toBe(0);
 		// exactly one requeue — the executor pass, then the remainder
 		expect(prompts.length).toBe(2);
 		// the requeue carries the surviving finding:\n${prompts[1]}
 		expect(prompts[1]?.includes('src/two.ts')).toBeTruthy();
-		// and never re-sends resolved work:\n${prompts[1]}
-		expect(prompts[1]?.includes('src/one.ts')).toBeFalsy();
+		// and never re-sends resolved work — read off the work-list itself, since
+		// the advisory context beneath it legitimately spans the whole batch:
+		// \n${prompts[1]}
+		expect(prompts[1]?.split('Advisory —')[0]?.includes('src/one.ts')).toBeFalsy();
 	});
 
 	test('a requeue that resolves nothing declines with the surviving clusters named', async () => {
@@ -175,9 +177,9 @@ describe('runRefactorPipeline batch outcomes', () => {
 		// the requeue is not repeated once spent
 		expect(prompts.length).toBe(2);
 		// what survived is named for the human, not swallowed
-		expect(result.declined.map(({ batchId, remainingClusters }) => ({ batchId, remainingClusters }))).toStrictEqual([{ batchId: 'batch-01:structure:src', remainingClusters: ['multi-export:src/two.ts'] }]);
+		expect(result.declined.map(({ batchId, remainingSiteKeys }) => ({ batchId, remainingSiteKeys }))).toStrictEqual([{ batchId: 'batch-01:multi-export:src', remainingSiteKeys: ['multi-export:src/two.ts'] }]);
 		// the resolved half still burned down
-		expect(result.after['structure'] ?? 0).toBe(1);
+		expect(result.after['multi-export'] ?? 0).toBe(1);
 	});
 
 	test('an invocation that produces no report and no verifiable work fails the run', async () => {
@@ -196,10 +198,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 		expect(result.ok).toBe(false);
 		expect(result.manifest.status).toBe('failed');
 		// the failure names the batch it stopped at
-		expect(result.error ?? '').toMatch(/batch-01:structure:src: /);
+		expect(result.error ?? '').toMatch(/batch-01:multi-export:src: /);
 		expect(result.error ?? '').toMatch(/did not match contract/);
 		// nothing burned down
-		expect(result.after['structure'] ?? 0).toBe(1);
+		expect(result.after['multi-export'] ?? 0).toBe(1);
 	});
 
 	for (const { status, expected } of [
@@ -245,11 +247,34 @@ describe('runRefactorPipeline batch outcomes', () => {
 
 		expect(result.ok).toBe(true);
 		// the batch resolved once the gate went green
-		expect(result.after['structure'] ?? 0).toBe(0);
+		expect(result.after['multi-export'] ?? 0).toBe(0);
 		// one executor pass plus one cheap fix
 		expect(prompts.length).toBe(2);
 		// judgment is only bought when the mechanical retries are exhausted
 		expect(prompts.every((prompt) => !prompt.includes('# Failing step'))).toBeTruthy();
+	});
+
+	test('an invocation failure whose work is done but whose gates are red is not salvaged', async () => {
+		const { dir, config } = await setupRedGateBatch();
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async () => {
+				splitFile({ dir, file: 'src/multi.ts', first: 'alphaThing', second: 'betaThing' });
+				writeFileSync(join(dir, 'broken.flag'), 'red\n');
+
+				return { text: 'no json here — the process died mid-report', exitCode: 1 };
+			},
+		};
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config });
+
+		// the clusters are gone from the tree, but a red gate is not "work verified"
+		expect(result.ok).toBe(false);
+		expect(result.manifest.status).toBe('failed');
+		// the failure names the batch it stopped at
+		expect(result.error ?? '').toMatch(/batch-01:multi-export:src: /);
+		// and is never re-labelled as a resolution
+		expect(JSON.stringify(result.manifest.steps).includes('salvaged')).toBeFalsy();
 	});
 
 	test('a rate-limited cheap fix parks the run instead of failing it', async () => {

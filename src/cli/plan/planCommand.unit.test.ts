@@ -38,7 +38,7 @@ const stubDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exit
 const setupPlan = ({ args }: { args: string[] }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-command-'));
-	const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false }, plansDir: 'docs/plans' };
+	const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
 
 	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver });
 	mockLoadPlanningStandards.mockResolvedValue('STANDARDS');
@@ -66,49 +66,49 @@ describe('planCommand', () => {
 	});
 
 	test('routes lint without resolving a harness either', async () => {
-		const { context } = setupPlan({ args: ['lint', '--name', 'demo'] });
+		const { context, cwd } = setupPlan({ args: ['lint', '--name', 'demo'] });
 
 		await planCommand(context);
 
 		expect(mockPlanLintCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanLintCommand)?.cwd).toBe(cwd);
 		expect(mockResolveConfigAndDriver).not.toHaveBeenCalled();
 	});
 
-	test('routes draft with the resolved harness, plans directory, and standards', async () => {
+	test('routes draft with the resolved harness and standards', async () => {
 		const { context, cwd, config } = setupPlan({ args: ['draft', '--name', 'demo'] });
 
 		await planCommand(context);
 
 		expect(mockPlanDraftCommand).toHaveBeenCalledTimes(1);
 		expect(argsOf(mockPlanDraftCommand)).toMatchObject({ cwd, name: 'demo', standards: 'STANDARDS', config, driver: stubDriver });
-		// the config's plansDir is resolved to an absolute path before dispatch
-		expect(argsOf(mockPlanDraftCommand)?.plansDir).toBe(join(cwd, 'docs/plans'));
+		// there is one plans root, derived from cwd and name — nothing relocatable
+		// rides the dispatch, got: ${JSON.stringify(Object.keys(argsOf(mockPlanDraftCommand) ?? {}))}
+		expect(argsOf(mockPlanDraftCommand)).not.toHaveProperty('plansDir');
 	});
 
 	test('routes dedup', async () => {
-		const { context } = setupPlan({ args: ['dedup', '--name', 'demo'] });
+		const { context, cwd, config } = setupPlan({ args: ['dedup', '--name', 'demo'] });
 
 		await planCommand(context);
 
 		expect(mockPlanDedupCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanDedupCommand)).toMatchObject({ cwd, name: 'demo', standards: 'STANDARDS', config, driver: stubDriver });
+		// dedup finds the plan from cwd and name alone, got: ${JSON.stringify(Object.keys(argsOf(mockPlanDedupCommand) ?? {}))}
+		expect(argsOf(mockPlanDedupCommand)).not.toHaveProperty('plansDir');
 		expect(mockPlanDraftCommand).not.toHaveBeenCalled();
 	});
 
 	test('routes grade', async () => {
-		const { context } = setupPlan({ args: ['grade', '--name', 'demo'] });
+		const { context, cwd, config } = setupPlan({ args: ['grade', '--name', 'demo'] });
 
 		await planCommand(context);
 
 		expect(mockPlanGradeCommand).toHaveBeenCalledTimes(1);
+		expect(argsOf(mockPlanGradeCommand)).toMatchObject({ cwd, name: 'demo', standards: 'STANDARDS', config, driver: stubDriver });
+		// grade finds the plan from cwd and name alone, got: ${JSON.stringify(Object.keys(argsOf(mockPlanGradeCommand) ?? {}))}
+		expect(argsOf(mockPlanGradeCommand)).not.toHaveProperty('plansDir');
 		expect(mockPlanDedupCommand).not.toHaveBeenCalled();
-	});
-
-	test('a --plans flag overrides the configured plans directory', async () => {
-		const { context, cwd } = setupPlan({ args: ['draft', '--name', 'demo', '--plans', 'custom/plans'] });
-
-		await planCommand(context);
-
-		expect(argsOf(mockPlanDraftCommand)?.plansDir).toBe(join(cwd, 'custom/plans'));
 	});
 
 	test('an unknown subcommand prints the usage text and exits 1', async () => {

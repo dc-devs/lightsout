@@ -1,7 +1,5 @@
-import { loadConfig } from '@/common/utils/loadConfig';
-import { resolvePlansDir, runPlanLint } from '@/plan';
+import { runPlanLint } from '@/plan';
 import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
 import { bold } from '@/cli/common/terminal/bold';
 import { green } from '@/cli/common/terminal/green';
@@ -11,9 +9,7 @@ import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter'
 
 export const planLintCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = getRequiredFlag({ flags, name: 'name' });
-	const config = await loadConfig({ cwd }).catch(() => undefined);
-	const plansDir = resolvePlansDir({ cwd, flag: getStringFlag({ flags, name: 'plans' }), config });
-	const result = await runPlanLint({ cwd, name, plansDir, onProgress: createProgressPrinter() });
+	const result = await runPlanLint({ cwd, name, onProgress: createProgressPrinter() });
 
 	if (result.status === 'failed') {
 		console.error(`\n${result.error}`);

@@ -54,14 +54,14 @@ test('refactor: a batch the executor fixes is resolved, with a burn-down', async
 
 	expect(result.ok).toBe(true);
 	expect(result.declined.length).toBe(0);
-	expect(result.before['structure']).toBe(1);
+	expect(result.before['multi-export']).toBe(1);
 	// the multi-export finding burned down
-	expect(result.after['structure'] ?? 0).toBe(0);
+	expect(result.after['multi-export'] ?? 0).toBe(0);
 
 	const batch = result.manifest.steps.find((step) => step.id.startsWith('batch-'));
 
-	// batch id names the detector
-	expect(batch?.id.includes('structure')).toBeTruthy();
+	// batch id names the rule
+	expect(batch?.id.includes('multi-export')).toBeTruthy();
 	expect(batch?.status).toBe('passed');
 });
 
@@ -76,7 +76,7 @@ test('refactor: zero changes with persisting clusters is a decline — recorded,
 	expect(result.ok).toBe(true);
 	expect(result.declined.length).toBe(1);
 	// the persisting cluster is named
-	expect(result.declined[0]?.remainingClusters[0]?.startsWith('multi-export:')).toBeTruthy();
+	expect(result.declined[0]?.remainingSiteKeys[0]?.startsWith('multi-export:')).toBeTruthy();
 	// the agent's rationale rides along
 	expect(result.declined[0]?.rationale[0]?.includes('left as-is')).toBeTruthy();
 });
@@ -182,7 +182,7 @@ test('refactor: a rate limit parks the run; resume finishes it', async () => {
 	expect(resumed.ok).toBe(true);
 	// resume continues the same run
 	expect(resumed.manifest.runId).toBe(parked.manifest.runId);
-	expect(resumed.after['structure'] ?? 0).toBe(0);
+	expect(resumed.after['multi-export'] ?? 0).toBe(0);
 });
 
 test('refactor: --max-batches parks resumable at the budget ceiling', async () => {
@@ -221,7 +221,7 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
-			if (invocation.prompt.includes('alpha/multi.ts')) {
+			if (invocation.prompt.includes('- [multi-export] alpha/multi.ts')) {
 				return { text: report({ friction: [{ area: 'other', kind: 'decision', detail: 'alpha left as-is' }] }), exitCode: 0 };
 			}
 
@@ -253,6 +253,9 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 	expect(resumed.declined.length).toBe(1);
 	expect(resumed.declined[0]?.batchId.includes('alpha')).toBeTruthy();
 	expect(resumed.declined[0]?.rationale[0]?.includes('alpha left as-is')).toBeTruthy();
+	// and names what still persists, read back off the persisted report rather
+	// than process memory — a decline the human cannot locate is not reviewable
+	expect(resumed.declined[0]?.remainingSiteKeys).toStrictEqual(['multi-export:alpha/multi.ts']);
 });
 
 test('refactor: an implement-pipeline manifest is refused with a pointer to the right command', async () => {
@@ -289,7 +292,7 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
-			if (invocation.prompt.includes('alpha/multi.ts')) {
+			if (invocation.prompt.includes('- [multi-export] alpha/multi.ts')) {
 				return { text: report({ status: 'terminated:scope', failures: ['cannot be resolved in scope'] }), exitCode: 0 };
 			}
 
@@ -309,7 +312,7 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 	// the refusal reason rides the decline
 	expect(result.declined[0]?.rationale.some((line) => line.includes('cannot be resolved in scope'))).toBeTruthy();
 	// the other batch still ran and resolved
-	expect(result.after['structure'] ?? 0).toBe(1);
+	expect(result.after['multi-export'] ?? 0).toBe(1);
 });
 
 test('refactor: an invocation failure whose work is verifiably done is salvaged as resolved', async () => {
@@ -335,7 +338,7 @@ test('refactor: an invocation failure whose work is verifiably done is salvaged 
 	// verified work must be salvaged, not failed: ${result.error}
 	expect(result.ok).toBe(true);
 	// the finding is gone
-	expect(result.after['structure'] ?? 0).toBe(0);
+	expect(result.after['multi-export'] ?? 0).toBe(0);
 
 	const batch = result.manifest.steps.find((step) => step.id.startsWith('batch-'));
 
@@ -390,8 +393,47 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 	expect(resumed.ok).toBe(true);
 	// the advisory in the prompt cites the LIVE line (12), not the frozen one (2)
 	// — got:\n${prompts[0]?.split('\n').filter((line) =>
-	// line.includes('[size]')).join('\n')}
+	// line.includes('[size-function]')).join('\n')}
 	expect(prompts[0]?.includes('alpha/multi.ts:12')).toBeTruthy();
+});
+
+test('refactor: every advisory on the batch’s files rides the executor prompt, not only the size ones', async () => {
+	const dir = setupConsumerRepo();
+
+	mkdirSync(join(dir, 'alpha'), { recursive: true });
+	mkdirSync(join(dir, 'beta'), { recursive: true });
+
+	// Each file carries a multi-export FINDING plus a dead-export ADVISORY (its
+	// exports are referenced nowhere). Distinct filenames keep the name rules
+	// from producing an advisory that spans both folders.
+	writeFileSync(join(dir, 'alpha/widget.ts'), 'export const alphaThing = 1;\nexport const betaThing = 2;\n');
+	writeFileSync(join(dir, 'beta/gadget.ts'), 'export const gammaThing = 3;\nexport const deltaThing = 4;\n');
+	commitAll(dir);
+
+	const prompts: string[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			prompts.push(prompt);
+
+			return { text: report({ friction: [{ area: 'other', kind: 'decision', detail: 'left as-is: exempt by design' }] }), exitCode: 0 };
+		},
+	};
+
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+
+	expect(result.ok).toBe(true);
+
+	const advisorySection = prompts.find((prompt) => prompt.includes('alpha/widget.ts'))?.split('Advisory —')[1] ?? '';
+
+	// a dead-export advisory is not a size advisory, and an advisory the agent
+	// never sees is one it can never judge:\n${advisorySection}
+	expect(advisorySection.includes('[dead-export] alpha/widget.ts')).toBeTruthy();
+	// its own guidance rides with it — each advisory rule asks for something
+	// different, so a blanket instruction cannot stand in for it
+	expect(advisorySection.includes('A dead code candidate.')).toBeTruthy();
+	// and only the batch's own files: beta's advisory belongs to beta's batch
+	expect(advisorySection.includes('beta/gadget.ts')).toBeFalsy();
 });
 
 // v1.2 — supervisor consult on the red-gate exception path. The fixture's
@@ -458,7 +500,7 @@ test('refactor: supervisor guidance rescues a red-gated batch', async () => {
 	// the guided retry must rescue the batch: ${result.error}
 	expect(result.ok).toBe(true);
 	// the finding burned down
-	expect(result.after['structure'] ?? 0).toBe(0);
+	expect(result.after['multi-export'] ?? 0).toBe(0);
 
 	const guided = prompts.find((prompt) => prompt.includes('# Supervisor guidance'));
 

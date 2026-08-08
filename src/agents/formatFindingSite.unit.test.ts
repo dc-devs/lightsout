@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import type { ScanFinding } from '@/contracts';
+import type { StandardsFinding } from '@/contracts';
 import { formatFindingSite } from '@/agents';
 
 interface SetupParams {
@@ -9,7 +9,7 @@ interface SetupParams {
 }
 
 const setupSite = ({ startLine, endLine }: SetupParams = {}) => {
-	const file: ScanFinding['files'][number] = { path: 'src/widget/widget.ts', startLine, endLine };
+	const file: StandardsFinding['files'][number] = { path: 'src/widget/widget.ts', startLine, endLine };
 
 	return { file };
 };

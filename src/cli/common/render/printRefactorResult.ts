@@ -12,7 +12,7 @@ interface Params {
 
 /**
  * Render a finished refactor run: the status line, one line per batch, the
- * agent's own rationale for every decline, the per-detector burn-down, and
+ * agent's own rationale for every decline, the per-rule burn-down, and
  * where the evidence landed. Reporting only — the command owns the exit code,
  * so this stays callable from a test without ending the process.
  */
@@ -26,7 +26,7 @@ export const printRefactorResult = ({ result }: Params): void => {
 	for (const step of batchSteps) {
 		const decline = declined.find((entry) => entry.batchId === step.id);
 		const icon = step.status !== RunStatus.Passed ? red('✗') : decline ? yellow('⤫') : green('✓');
-		const label = decline ? `declined (${decline.remainingClusters.length} cluster(s) persist)` : step.status === RunStatus.Passed ? 'resolved' : step.status;
+		const label = decline ? `declined (${decline.remainingSiteKeys.length} site(s) persist)` : step.status === RunStatus.Passed ? 'resolved' : step.status;
 
 		console.log(`${icon} ${step.id.padEnd(48)}${label}${step.changedFiles?.length ? dim(` · ${step.changedFiles.length} file(s)`) : ''}`);
 	}
@@ -38,20 +38,20 @@ export const printRefactorResult = ({ result }: Params): void => {
 			console.log(dim(`  ${line}`));
 		}
 
-		console.log(dim(`  review each cluster — fix by hand, or accept it as debt: lightsout scan --baseline`));
+		console.log(dim(`  review each site — fix by hand, or accept it as debt: lightsout standards-check --baseline`));
 	}
 
-	const detectors = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
+	const rules = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
 
-	// A parked run takes no final scan — its `after` merely echoes `before`,
-	// and printing that as a burn-down reads as "nothing improved".
+	// A parked run takes no final standards check — its `after` merely echoes
+	// `before`, and printing that as a burn-down reads as "nothing improved".
 	if (!result.ok) {
 		console.log(dim(`\nno burn-down until the run completes — resume to finish and measure`));
-	} else if (detectors.length > 0) {
+	} else if (rules.length > 0) {
 		console.log(`\nburn-down (findings before → after):`);
 
-		for (const detector of detectors) {
-			console.log(`  ${detector.padEnd(20)}${before[detector] ?? 0} → ${after[detector] ?? 0}`);
+		for (const rule of rules) {
+			console.log(`  ${rule.padEnd(20)}${before[rule] ?? 0} → ${after[rule] ?? 0}`);
 		}
 	}
 

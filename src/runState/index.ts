@@ -1,7 +1,10 @@
 export { createRun } from '@/runState/createRun';
 export { readRunManifest } from '@/runState/readRunManifest';
 export { writeRunManifest } from '@/runState/writeRunManifest';
-export { getRunDir } from '@/runState/getRunDir';
+export { getRunDir } from '@/runState/common/paths/getRunDir';
+export { getRunsDir } from '@/runState/common/paths/getRunsDir';
+export { resolveRunId } from '@/runState/common/paths/resolveRunId';
+export { RunNotFoundError } from '@/runState/RunNotFoundError';
 export { appendCommandLog } from '@/runState/appendCommandLog';
 export { appendFriction } from '@/runState/appendFriction';
 export { readFriction } from '@/runState/readFriction';

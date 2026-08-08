@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { RunStatus, type LightsoutConfig, type RunManifest } from '@/contracts';
-import { getRunDir } from '@/runState/getRunDir';
+import { getRunDir } from '@/runState/common/paths/getRunDir';
 import { writeRunManifest } from '@/runState/writeRunManifest';
 
 interface Params {

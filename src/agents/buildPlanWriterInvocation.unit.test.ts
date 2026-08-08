@@ -91,7 +91,7 @@ test('buildPlanWriterInvocation: an overview output adds the phased-authoring se
 });
 
 test('buildPlanWriterInvocation: a lint command adds the self-lint section verbatim, before the report-contract reminder', () => {
-	const lintCommand = 'node /repo/plugin/dist/cli.mjs plan lint --name foo-endpoint --plans /repo/.claude/plans --cwd /repo';
+	const lintCommand = 'node /repo/plugin/dist/cli.mjs plan lint --name foo-endpoint --cwd /repo';
 
 	const invocation = buildPlanWriterInvocation({ facts: facts(), decisions: decisions(), outputs: singleOutput(), lintCommand });
 

@@ -13,6 +13,18 @@ test('LightsoutConfig: a stale traverse key parses without error and is stripped
 	expect('traverse' in parsed).toBe(false);
 });
 
+test('LightsoutConfig: a leftover plansDir key parses without error and is stripped from the result', () => {
+	const parsed = LightsoutConfig.parse({ ...base, plansDir: 'docs/plans' });
+
+	// unlike driver and scan, the removed plans root gets no explicit rejection: a
+	// plan now always lives in its own workspace folder, so a config still carrying
+	// the old key keeps parsing instead of failing the run
+	expect(LightsoutConfig.safeParse({ ...base, plansDir: 'docs/plans' }).success).toBe(true);
+	// the removed field leaves no plansDir key on the parsed config, so nothing
+	// downstream can read a plans root back out of it
+	expect('plansDir' in parsed).toBe(false);
+});
+
 test('LightsoutConfig: a commands block parses — full entries, partial entries, and absence all valid', () => {
 	const commands = {
 		implement: { harness: 'codex', model: 'gpt-5.2' },
@@ -150,4 +162,116 @@ test('LightsoutConfig: a non-string standards entry fails parsing', () => {
 	expect(LightsoutConfig.safeParse({ ...base, standards: [{ path: 'standards/code' }] }).success).toBe(false);
 	// a bare string in place of the array is a hard error
 	expect(LightsoutConfig.safeParse({ ...base, testStandards: 'standards/tests' }).success).toBe(false);
+});
+
+test('LightsoutConfig: the removed scan key is refused with a message naming standardsChecks', () => {
+	const scanResult = LightsoutConfig.safeParse({ ...base, scan: { minCloneTokens: 40 } });
+
+	// the top level is not strict, so the retired key must be refused explicitly or
+	// a repo's tuning would be silently discarded and the defaults used instead
+	expect(scanResult.success).toBe(false);
+	// the message is the whole point of the rejection — it names the new key
+	expect(scanResult.error?.message ?? '').toMatch(/renamed to `standardsChecks`/);
+	// the rejection is about the key, not its contents: even an empty block fails
+	expect(LightsoutConfig.safeParse({ ...base, scan: {} }).success).toBe(false);
+});
+
+test('LightsoutConfig: the renamed finding severity is refused with a message naming blocking', () => {
+	const bare = LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: 'finding' } });
+
+	// a value copied from the pre-rename docs is told what happened, rather than
+	// being handed a bare list of the three valid options
+	expect(bare.success).toBe(false);
+	expect(bare.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
+
+	// the object form takes the same value in a different position — both reject
+	const nested = LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: { severity: 'finding' } } });
+
+	expect(nested.success).toBe(false);
+	expect(nested.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
+
+	// an ordinary typo keeps the ordinary enum error — only the retired spelling is called out
+	expect(LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: 'blockign' } }).error?.message ?? '').not.toMatch(/was renamed/);
+});
+
+test('LightsoutConfig: standardsChecks carries both override forms through parsing intact', () => {
+	const standardsChecks = {
+		clone: 'off',
+		'size-file': { severity: 'advisory', settings: { file: 200, tsxFile: 260 } },
+	};
+
+	const parsed = LightsoutConfig.parse({ ...base, standardsChecks });
+
+	// a bare severity and a full object are both recognized, so neither is
+	// stripped as an unknown shape
+	expect(parsed.standardsChecks).toStrictEqual(standardsChecks);
+});
+
+test('LightsoutConfig: a rule the map never names is left alone entirely', () => {
+	const parsed = LightsoutConfig.parse({ ...base, standardsChecks: { 'size-function': { settings: { function: 40 } } } });
+
+	// naming one rule says nothing about the other sixteen — silence is never a change
+	expect(parsed.standardsChecks).toStrictEqual({ 'size-function': { settings: { function: 40 } } });
+	// an empty map is valid — every rule already has a default
+	expect(LightsoutConfig.parse({ ...base, standardsChecks: {} }).standardsChecks).toStrictEqual({});
+	// an absent map leaves no key on the parsed config
+	expect('standardsChecks' in LightsoutConfig.parse(base)).toBe(false);
+});
+
+test.each([
+	{ severity: 'blocking' },
+	{ severity: 'advisory' },
+	{ severity: 'off' },
+])('LightsoutConfig: standardsChecks accepts $severity as a bare value and inside an override object', ({ severity }) => {
+	const bare = LightsoutConfig.parse({ ...base, standardsChecks: { clone: severity } });
+	const wrapped = LightsoutConfig.parse({ ...base, standardsChecks: { clone: { severity } } });
+
+	// all three states are settable, including off — the only way a repo stops a
+	// rule blocking is by naming it here
+	expect(bare.standardsChecks).toStrictEqual({ clone: severity });
+	// the object form reaches the same state, so a repo adding settings later
+	// never has to restate the severity in a different vocabulary
+	expect(wrapped.standardsChecks).toStrictEqual({ clone: { severity } });
+});
+
+test('LightsoutConfig: an override object may carry severity alone, settings alone, or neither', () => {
+	const parsed = LightsoutConfig.parse({
+		...base,
+		standardsChecks: {
+			clone: { severity: 'advisory' },
+			'folder-census': { settings: { cap: 30 } },
+			'barrel-star': {},
+		},
+	});
+
+	// both fields are independently optional: severity without settings keeps the
+	// rule's default knobs, settings without severity keeps its default severity,
+	// and an empty object changes nothing at all
+	expect(parsed.standardsChecks).toStrictEqual({
+		clone: { severity: 'advisory' },
+		'folder-census': { settings: { cap: 30 } },
+		'barrel-star': {},
+	});
+});
+
+test('LightsoutConfig: a settings value is checked as a number and nothing more', () => {
+	const parsed = LightsoutConfig.parse({ ...base, standardsChecks: { clone: { settings: { minTokens: 0, ratio: 1.5 } } } });
+
+	// settings keys belong to the rule, not the config schema, so a zero or a
+	// fraction parses here — whether a value makes sense is the rule's own
+	// business, not this schema's
+	expect(parsed.standardsChecks).toStrictEqual({ clone: { settings: { minTokens: 0, ratio: 1.5 } } });
+});
+
+test.each([
+	{ label: 'a rule id that is not in the closed list', standardsChecks: { 'size-fil': 'off' } },
+	{ label: 'a severity outside the three states', standardsChecks: { clone: 'warn' } },
+	{ label: 'a severity outside the three states inside an object', standardsChecks: { clone: { severity: 'warn' } } },
+	{ label: 'a settings key that is not a number', standardsChecks: { clone: { settings: { minTokens: '50' } } } },
+	{ label: 'an override object carrying a key the shape does not declare', standardsChecks: { clone: { severty: 'off' } } },
+	{ label: 'a standardsChecks that is not an object', standardsChecks: true },
+])('LightsoutConfig: $label fails parsing', ({ standardsChecks }) => {
+	// a mistyped rule id or severity would silently disable an override the user
+	// believes is active — the same reason the commands block is strict
+	expect(LightsoutConfig.safeParse({ ...base, standardsChecks }).success).toBe(false);
 });

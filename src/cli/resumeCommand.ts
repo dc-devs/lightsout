@@ -1,7 +1,7 @@
 import { RunStatus } from '@/contracts';
 import { getDriver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
-import { readRunManifest } from '@/runState';
+import { readRunManifest, RunNotFoundError } from '@/runState';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { usage } from '@/cli/common/constants/usage';
 import { printResult } from '@/cli/common/render/printResult';
@@ -21,15 +21,26 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 		process.exit(1);
 	}
 
-	const manifest = await readRunManifest({ cwd, runId });
+	// A run id the user typed is theirs to get wrong: an unknown one is a
+	// message, never the stack of the manifest path we tried to open.
+	const manifest = await readRunManifest({ cwd, runId }).catch((error: unknown) => {
+		if (error instanceof RunNotFoundError) {
+			console.error(error.message);
+			process.exit(1);
+		}
+
+		throw error;
+	});
 
 	if ((manifest.pipeline ?? 'implement') !== 'implement') {
-		console.error(`run ${runId} belongs to the ${manifest.pipeline} pipeline — resume it with: lightsout refactor --run ${runId}`);
+		console.error(
+			`run ${manifest.runId} belongs to the ${manifest.pipeline} pipeline — resume it with: lightsout refactor --run ${manifest.runId}`,
+		);
 		process.exit(1);
 	}
 
 	if (manifest.status === RunStatus.Passed) {
-		console.error(`run ${runId} already passed — nothing to resume`);
+		console.error(`run ${manifest.runId} already passed — nothing to resume`);
 		process.exit(1);
 	}
 
@@ -46,7 +57,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 		effort: resolved.effort,
 	};
 
-	console.log(`lightsout: resuming run ${runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
+	console.log(`lightsout: resuming run ${manifest.runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
 	printRunHeader({ config, driver, cwd });
 
 	const result = await runPipelineOrFailFast({

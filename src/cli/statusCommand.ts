@@ -1,12 +1,10 @@
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { RunStatus } from '@/contracts';
-import { isPidAlive, readRunLock, readRunManifest } from '@/runState';
+import { getRunsDir, isPidAlive, readRunLock, readRunManifest } from '@/runState';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 
 export const statusCommand = async ({ cwd }: CommandContext): Promise<void> => {
-	const runsDir = join(cwd, '.lightsout', 'runs');
-	const runIds = await readdir(runsDir).catch(() => []);
+	const runIds = await readdir(getRunsDir({ cwd })).catch(() => []);
 
 	if (runIds.length === 0) {
 		console.log('no runs found');

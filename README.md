@@ -93,8 +93,16 @@ The plan is graded and revised until nothing is left for the implementation agen
 [![How /plan turns a request into an implementation-ready spec](assets/plan-workflow-light.svg)](assets/plan-workflow-light.svg)
 
 
+Start from the notes `/brainstorm` saved:
+
 ```text
 /plan .lightsout/plans/rate-limiting/notes.md
+```
+
+Or start from a plain description:
+
+```text
+/plan add rate limiting to the public API
 ```
 
 ### /implement
@@ -106,14 +114,14 @@ Deterministic gates run between every stage. If a test, lint, type-check, or cov
 [![How /implement turns the spec into verified code](assets/implement-workflow-light.svg)](assets/implement-workflow-light.svg)
 
 ```text
-/implement .claude/plans/rate-limiting/plan.md
+/implement .lightsout/plans/rate-limiting/plan.md
 ```
 
 ### /refactor
 
-Turn existing technical debt into a gated refactoring run. `/refactor` scans for duplicated logic, oversized files, structural violations, and opportunities to replace repeated code with shared abstractions.
+Turn existing technical debt into a gated refactoring run. `/refactor` runs the standards checks for duplicated logic, oversized files, structural violations, the shape of your test files, where folders and files sit and what they are called, and opportunities to replace repeated code with shared abstractions.
 
-By default, it scans the entire repository. Use --path to target a specific directory and --max-batches to limit how many refactoring batches it completes. Agents fix each batch, and your deterministic gates verify the changes before the run continues.
+By default, it checks the entire repository. Use --path to target a specific directory and --max-batches to limit how many refactoring batches it completes. Agents fix each batch, and your deterministic gates verify the changes before the run continues.
 
 Verified changes remain in your worktree for review and commit, and the complete record is written to `.lightsout/runs/<id>/`.
 

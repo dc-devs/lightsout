@@ -3,10 +3,8 @@ import { resolvePlanDeliverable } from '@/plan/common/utils/resolvePlanDeliverab
 
 interface Params {
 	cwd: string;
-	/** Kebab plan name — the deliverable's basename. */
+	/** Kebab plan name — the folder the plan's own files live in. */
 	name: string;
-	/** Resolved absolute directory where committed plan deliverables live. */
-	plansDir: string;
 }
 
 interface PlanDetectionInputs {
@@ -23,11 +21,11 @@ interface PlanDetectionInputs {
 /**
  * Resolve a plan deliverable and derive the shared inputs every read-only
  * detection pass (dedup, grade) needs: the plan files, the full path list the
- * deterministic detectors scan, and the target repo config. The dedup and grade
- * passes prepare these identically.
+ * deterministic plan detectors read, and the target repo config. The dedup and
+ * grade passes prepare these identically.
  */
-export const getPlanDetectionInputs = async ({ cwd, name, plansDir }: Params): Promise<PlanDetectionInputs> => {
-	const deliverable = await resolvePlanDeliverable({ name, plansDir });
+export const getPlanDetectionInputs = async ({ cwd, name }: Params): Promise<PlanDetectionInputs> => {
+	const deliverable = await resolvePlanDeliverable({ cwd, name });
 
 	if (deliverable.error) {
 		return { files: [], planPaths: [], error: deliverable.error };

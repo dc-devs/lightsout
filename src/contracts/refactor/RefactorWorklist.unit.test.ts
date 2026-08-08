@@ -3,15 +3,15 @@ import { RefactorWorklist } from '@/contracts';
 
 const setupWorklist = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const batch = {
-		id: 'batch-01:clone:src/scan',
-		detector: 'clone',
-		folder: 'src/scan',
-		findings: [
+		id: 'batch-01:clone:src/standardsCheck',
+		rule: 'clone',
+		folder: 'src/standardsCheck',
+		blocking: [
 			{
-				detector: 'clone',
-				severity: 'finding',
-				cluster: 'clone:src/scan/runScan.ts:12',
-				files: [{ path: 'src/scan/runScan.ts', startLine: 12, endLine: 48 }],
+				rule: 'clone',
+				severity: 'blocking',
+				siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+				files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 				detail: 'a 36-line span repeated across two files',
 			},
 		],
@@ -59,13 +59,13 @@ describe('RefactorWorklist', () => {
 	});
 
 	test('a scoped run records its subpath rather than the whole-repo sentinel', () => {
-		const { worklist } = setupWorklist({ extra: { path: 'src/scan' } });
+		const { worklist } = setupWorklist({ extra: { path: 'src/standardsCheck' } });
 
 		const parsed = RefactorWorklist.parse(worklist);
 
-		// the persisted scope is what a resumed run re-scans against — it is read
+		// the persisted scope is what a resumed run re-checks against — it is read
 		// back, not recomputed from flags
-		expect(parsed.path).toBe('src/scan');
+		expect(parsed.path).toBe('src/standardsCheck');
 	});
 
 	test('all records burn-down mode as a boolean on both sides', () => {
@@ -106,24 +106,24 @@ describe('RefactorWorklist', () => {
 
 		const parsed = RefactorWorklist.parse(worklist);
 
-		// a clean scan produces a work-list with nothing to do, not a missing file
+		// a clean check produces a work-list with nothing to do, not a missing file
 		expect(parsed.batches).toStrictEqual([]);
 	});
 
 	test('several batches keep the order the work-list froze them in', () => {
 		const { worklist, batch } = setupWorklist();
-		const second = { ...batch, id: 'batch-02:structure:src/cli', detector: 'structure', folder: 'src/cli' };
+		const second = { ...batch, id: 'batch-02:structure:src/cli', rule: 'structure', folder: 'src/cli' };
 
 		const parsed = RefactorWorklist.parse({ ...worklist, batches: [batch, second] });
 
 		// the numbered step ids are positional — a resume walks the list as persisted
-		expect(parsed.batches.map((entry) => entry.id)).toStrictEqual(['batch-01:clone:src/scan', 'batch-02:structure:src/cli']);
+		expect(parsed.batches.map((entry) => entry.id)).toStrictEqual(['batch-01:clone:src/standardsCheck', 'batch-02:structure:src/cli']);
 	});
 
 	test('one malformed batch rejects the whole work-list', () => {
 		const { worklist, batch } = setupWorklist();
 
-		const result = RefactorWorklist.safeParse({ ...worklist, batches: [batch, { id: 'batch-02:size:src/cli', detector: 'size' }] });
+		const result = RefactorWorklist.safeParse({ ...worklist, batches: [batch, { id: 'batch-02:size:src/cli', rule: 'size' }] });
 
 		// a partly readable work-list is refused at the read boundary rather than
 		// resuming into a run that would skip the unreadable batches
@@ -133,10 +133,10 @@ describe('RefactorWorklist', () => {
 	test('a batch carrying a malformed finding rejects the work-list through the nesting', () => {
 		const { worklist, batch } = setupWorklist();
 
-		const result = RefactorWorklist.safeParse({ ...worklist, batches: [{ ...batch, findings: [{ ...batch.findings[0], severity: 'warning' }] }] });
+		const result = RefactorWorklist.safeParse({ ...worklist, batches: [{ ...batch, blocking: [{ ...batch.blocking[0], severity: 'warning' }] }] });
 
-		// validation reaches all the way down — the cluster ids the post-batch re-scan
-		// checks come from these findings
+		// validation reaches all the way down — the site keys the post-batch re-check
+		// looks for come from these findings
 		expect(result.success).toBe(false);
 	});
 

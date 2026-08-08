@@ -161,12 +161,37 @@ Set `standards` or `testStandards` to `false` to disable that category entirely.
 | `generated`                  |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                   |
 | `packageScripts`             |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](docs/monorepos.md).                                                                                                                    |
 | `packagesDir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                           |
-| `plansDir`                   |       no | The directory where `/plan` writes the committed `plan.md`. Defaults to `.claude/plans`.                                                                                                                                                                                                  |
 | `standards`                  |       no | Standards injected into code-writing agents. When omitted, the bundled JavaScript and TypeScript standards are used. Set to `false` to disable code standards, or provide an array of Markdown files or folders — a folder loads every `.md` file under it, recursively, in sorted path order. Include `lightsout:code-defaults` to keep the bundled standards alongside your own. |
 | `testStandards`              |       no | Standards injected into the test-writing agent. The behavior matches `standards`. Use `lightsout:test-defaults` to include the bundled test standards alongside your own.                                                                                                                 |
 | `standardsChannels`          |       no | Controls which framework-specific bundled standards are loaded, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base standards.                                    |
-| `scan.minCloneTokens`        |       no | The minimum clone size reported by `lightsout scan`. Defaults to `50` tokens.                                                                                                                                                                                                             |
-| `scan.size`                  |       no | Overrides the line limits used by the size detector. Defaults are `file: 250`, `tsxFile: 300`, `function: 80`, `hook: 160`, and `component: 200`.                                                                                                                                         |
+| `standardsChecks`            |       no | Per-rule overrides for `lightsout standards-check`, keyed by rule id. A rule you do not name keeps its own default. See [Standards check rules](#standards-check-rules).                                                                                                                  |
+
+### Standards check rules
+
+Every rule the standards check enforces ships with a default severity and, where it has numbers to measure against, its own settings. `standardsChecks` overrides them one rule at a time:
+
+```jsonc
+{
+  "standardsChecks": {
+    // A severity on its own.
+    "filename-mismatch": "off",
+    "clone": "blocking",
+    // Or an object, to change the severity, the rule's settings, or both.
+    "size-file": { "settings": { "file": 300, "tsxFile": 400 } },
+    "folder-census": { "severity": "blocking", "settings": { "cap": 15 } },
+  },
+}
+```
+
+The three severities are:
+
+- `blocking` — a violation. It stops a run when it touches a file that run changed.
+- `advisory` — reported, and handed to the refactor agent as a judgment call. Never blocks.
+- `off` — not run at all. This is what you set when your own linter already enforces the rule.
+
+Severity is the only lever a run gates on. There is no separate list of blockable rules, so the only way to stop a rule blocking is to write `advisory` or `off` for it here — an explicit line in a committed file. A mistyped rule id fails config parsing rather than silently disabling an override you believe is active.
+
+Run `lightsout standards-check --list` to print every rule with the standards document it enforces and the state it runs at in your repo — the live answer, rather than a list here that goes stale.
 
 ### Harness-neutral keys
 
@@ -224,9 +249,6 @@ The following example shows how the optional configuration fields fit together:
     "build": "pnpm --filter {package} build",
   },
 
-  // Where completed plans are written
-  "plansDir": ".claude/plans",
-
   // Commands implementation agents may run
   "agentCommands": ["pnpm --filter api run prisma:migrate:dev:name"],
 
@@ -239,16 +261,14 @@ The following example shows how the optional configuration fields fit together:
     "supervisorMinutes": 15,
   },
 
-  // Duplication and file-size detection
-  "scan": {
-    "minCloneTokens": 70,
-    "size": {
-      "file": 250,
-      "tsxFile": 300,
-      "function": 80,
-      "hook": 160,
-      "component": 200,
-    },
+  // Per-rule standards-check overrides
+  "standardsChecks": {
+    // Our linter already enforces this one.
+    "filename-mismatch": "off",
+    // Raise the clone floor without changing what a clone means for the run.
+    "clone": { "settings": { "minTokens": 70 } },
+    // .tsx files here carry more JSX than the default budget assumes.
+    "size-file": { "settings": { "tsxFile": 400 } },
   },
 }
 ```
@@ -259,6 +279,7 @@ Commit your configuration and standards. Ignore the state produced by individual
 
 ```gitignore
 .lightsout/runs/
+.lightsout/plans/
 .lightsout/friction.jsonl
 .lightsout/lock.json
 ```

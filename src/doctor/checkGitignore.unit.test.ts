@@ -28,6 +28,18 @@ describe('checkGitignore', () => {
 		expect(check.detail).toMatch(/run state not ignored/);
 	});
 
+	test('a repo that ignores its runs but not its plans is warned about the plans tree', async () => {
+		const cwd = setupConsumerRepo();
+
+		writeFileSync(join(cwd, '.gitignore'), '.lightsout/runs/\n');
+
+		const check = await checkGitignore({ cwd });
+
+		// plans are run state too — without the rule the consumer commits every one
+		expect(check.status).toBe('warn');
+		expect(check.fix).toContain('.lightsout/plans/');
+	});
+
 	test('a directory outside any repository is reported as unevaluated, not as clean', async () => {
 		const cwd = setupConsumerRepo({ git: false });
 

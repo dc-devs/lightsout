@@ -61,7 +61,7 @@
       ],
       "note": "Creates the specification the implementation agent will follow",
       "saved": [
-        "<plans>/<name>.md",
+        ".lightsout/plans/<name>/plan.md",
         "or <name>/overview.md + phase-*.md",
         "failed drafts are retained for review"
       ]

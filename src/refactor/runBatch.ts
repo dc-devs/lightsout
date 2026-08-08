@@ -1,17 +1,16 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
 import {
 	BatchOutcome,
-	ScanDetector,
-	ScanSeverity,
+	StandardsSeverity,
 	WorkReportStatus,
 	type AgentUsage,
 	type BatchReport,
 	type LightsoutConfig,
 	type RefactorBatch,
-	type ScanFinding,
+	type StandardsFinding,
 } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { runScan } from '@/scan';
+import { runStandardsCheck } from '@/standardsCheck';
 import { buildBatchFixInvocation } from '@/refactor/buildBatchFixInvocation';
 import { collectBatchChanges } from '@/refactor/collectBatchChanges';
 import { invokeBatchAgent } from '@/refactor/invokeBatchAgent';
@@ -21,7 +20,7 @@ import { superviseBatch } from '@/refactor/superviseBatch';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =
-	'Standalone refactor run — there is no feature plan. The scan findings below are the entire work-list; nothing else about the repo is being changed.';
+	'Standalone refactor run — there is no feature plan. The standards findings below are the entire work-list; nothing else about the repo is being changed.';
 
 /** One batch attempt's terminal condition, before outcome classification. */
 type BatchStop =
@@ -36,10 +35,10 @@ interface Params {
 	driver: Driver;
 	config: LightsoutConfig;
 	batch: RefactorBatch;
-	/** Scan scope of the run's worklist, threaded into the per-batch re-scan. */
-	scanPath?: string;
-	/** Include baselined findings in re-scans — must match the worklist's mode. */
-	scanAll: boolean;
+	/** Check scope of the run's worklist, threaded into the per-batch re-check. */
+	checkPath?: string;
+	/** Include baselined findings in re-checks — must match the worklist's mode. */
+	checkAll: boolean;
 	standards?: string;
 	testStandards?: string;
 	agentTimeoutMs: number;
@@ -54,8 +53,8 @@ interface Params {
  * Execute one batch to a terminal condition: invoke the refactor executor on
  * the batch's findings, verify with scoped gates (cheap fix retries route by
  * gate kind — a red COVERAGE gate goes to the test writer, everything else
- * back to the refactor executor), then re-scan the batch's clusters.
- * Clusters gone → resolved; agent changed nothing and clusters persist →
+ * back to the refactor executor), then re-check the batch's site keys.
+ * Sites gone → resolved; agent changed nothing and sites persist →
  * declined; partial → one re-invocation on the remainder, then whatever
  * persists is declined with the agent's rationale attached.
  */
@@ -65,8 +64,8 @@ export const runBatch = async ({
 	driver,
 	config,
 	batch,
-	scanPath,
-	scanAll,
+	checkPath,
+	checkAll,
 	standards,
 	testStandards,
 	agentTimeoutMs,
@@ -86,53 +85,53 @@ export const runBatch = async ({
 
 	const gates = () => runBatchGates({ cwd, config, runId, step: batch.id, onProgress });
 
-	const scanLive = () => runScan({ cwd, path: scanPath, all: scanAll, persist: false });
+	const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
 
-	const remainingClusters = async ({ frozen }: { frozen: ScanFinding[] }) => {
-		const { findings } = await scanLive();
+	const remainingSiteKeys = async ({ frozen }: { frozen: StandardsFinding[] }) => {
+		const { findings } = await checkLive();
 
 		return matchRemainingFindings({ frozen, live: findings });
 	};
 
 	const batchChangedFiles = () => collectBatchChanges({ cwd, config, reportedFiles, attributedFiles });
 
-	// One live scan up front serves two purposes: the staleness check (earlier
-	// batches may have already eliminated these clusters — no agent spent) and
+	// One live check up front serves two purposes: the staleness check (earlier
+	// batches may have already eliminated these sites — no agent spent) and
 	// FRESH advisories (frozen worklist advisories cite pre-run line numbers;
 	// live lesson from run 50d4ab35, where the agent flagged the drift).
-	const preScan = await scanLive();
+	const preCheck = await checkLive();
 
-	if (matchRemainingFindings({ frozen: batch.findings, live: preScan.findings }).length === 0) {
-		onProgress(`${batch.id}: clusters already resolved by earlier work — no agent spent`);
+	if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
+		onProgress(`${batch.id}: sites already resolved by earlier work — no agent spent`);
 
-		return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: [] };
+		return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: [] };
 	}
 
-	const batchFiles = new Set(batch.findings.flatMap((finding) => finding.files.map((file) => file.path)));
-	const liveAdvisories = preScan.findings.filter(
-		(finding) =>
-			finding.severity === ScanSeverity.Advisory &&
-			finding.detector === ScanDetector.Size &&
-			finding.files.some((file) => batchFiles.has(file.path)),
+	const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file) => file.path)));
+	// Every advisory touching the batch's files, not just the size ones: each
+	// carries its own guidance, and one the agent never sees is one it can
+	// never judge.
+	const liveAdvisories = preCheck.findings.filter(
+		(finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file) => batchFiles.has(file.path)),
 	);
 
 	// Up to two executor passes: the initial batch, then one re-invocation on
-	// whatever clusters survived a pass that DID change the tree (a partial).
-	let workFindings: ScanFinding[] = batch.findings;
+	// whatever sites survived a pass that DID change the tree (a partial).
+	let workFindings: StandardsFinding[] = batch.blocking;
 
 	for (let pass = 1; pass <= 2; pass += 1) {
 		const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file) => file.path)))];
 
 		const buildFixInvocation = ({ gateError, guidance }: { gateError: string; guidance?: string }) =>
-			buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, scanFindings: workFindings, scanAdvisories: liveAdvisories, gateError, guidance });
+			buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories: liveAdvisories, gateError, guidance });
 		const attemptOutcome = await invoke({
 			label: pass === 1 ? '' : 'requeue',
 			invocation: buildRefactorExecutorInvocation({
 				planContent: standaloneBanner,
 				changedFiles: files,
 				standards,
-				scanFindings: workFindings,
-				scanAdvisories: liveAdvisories,
+				findings: workFindings,
+				advisories: liveAdvisories,
 			}),
 		});
 
@@ -144,13 +143,13 @@ export const runBatch = async ({
 			const { failure } = attemptOutcome;
 
 			// Salvage check (live lesson: a laptop-sleep-killed agent had finished
-			// its edits but never reported): if the clusters are verifiably gone
+			// its edits but never reported): if the sites are verifiably gone
 			// AND gates are green, the work is done — classify it, don't discard it.
-			if ((await remainingClusters({ frozen: workFindings })).length === 0 && !(await gates())) {
-				rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the clusters are resolved and gates are green`);
+			if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !(await gates())) {
+				rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
 				onProgress(`${batch.id}: invocation failed but work verified on disk — salvaged as resolved`);
 
-				return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+				return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
 			}
 
 			return { kind: 'failed', error: `${batch.id}: ${failure}` };
@@ -165,7 +164,7 @@ export const runBatch = async ({
 
 			return {
 				kind: 'done',
-				report: { outcome: BatchOutcome.Declined, remainingClusters: await remainingClusters({ frozen: workFindings }), rationale },
+				report: { outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }), rationale },
 				changedFiles: await batchChangedFiles(),
 			};
 		}
@@ -218,10 +217,10 @@ export const runBatch = async ({
 			}
 		}
 
-		const remaining = await remainingClusters({ frozen: workFindings });
+		const remaining = await remainingSiteKeys({ frozen: workFindings });
 
 		if (remaining.length === 0) {
-			return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingClusters: [], rationale }, changedFiles: await batchChangedFiles() };
+			return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
 		}
 
 		if (report.changedFiles.length === 0 || pass === 2) {
@@ -229,13 +228,13 @@ export const runBatch = async ({
 			// honestly and move on; a decline never fails the run by itself.
 			return {
 				kind: 'done',
-				report: { outcome: BatchOutcome.Declined, remainingClusters: remaining, rationale },
+				report: { outcome: BatchOutcome.Declined, remainingSiteKeys: remaining, rationale },
 				changedFiles: await batchChangedFiles(),
 			};
 		}
 
-		onProgress(`${batch.id}: ${remaining.length} cluster(s) persist after a changing pass — one requeue`);
-		workFindings = workFindings.filter((finding) => remaining.includes(finding.cluster));
+		onProgress(`${batch.id}: ${remaining.length} site(s) persist after a changing pass — one requeue`);
+		workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
 	}
 
 	// Unreachable: the pass-2 branch above always returns.

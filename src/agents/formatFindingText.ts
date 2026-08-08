@@ -1,7 +1,7 @@
-import type { ScanFinding } from '@/contracts';
+import type { StandardsFinding } from '@/contracts';
 
 interface Params {
-	finding: ScanFinding;
+	finding: StandardsFinding;
 }
 
 /**
@@ -11,7 +11,7 @@ interface Params {
  * The two live in separate fields so the CLI can state the guidance once per
  * group instead of once per row. Anywhere a finding becomes a single line —
  * an agent's work-list, a human's escalation message — both halves must appear
- * together, because the guidance is where a detector says what it cannot judge
+ * together, because the guidance is where a rule says what it cannot judge
  * for itself. An agent handed only the measurement would read "this function
  * is 114 lines" with nothing to tell it that orchestration is exempt.
  */

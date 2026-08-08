@@ -7,7 +7,7 @@ interface Params {
 }
 
 interface ResumeState {
-	declined: Array<{ batchId: string; remainingClusters: string[]; rationale: string[] }>;
+	declined: Array<{ batchId: string; remainingSiteKeys: string[]; rationale: string[] }>;
 	declineStreak: number;
 }
 
@@ -34,7 +34,7 @@ export const seedResumeState = ({ manifest, batches }: Params): ResumeState => {
 		const parsed = BatchReport.safeParse(step.report);
 
 		if (parsed.success && parsed.data.outcome === BatchOutcome.Declined) {
-			declined.push({ batchId: batch.id, remainingClusters: parsed.data.remainingClusters, rationale: parsed.data.rationale });
+			declined.push({ batchId: batch.id, remainingSiteKeys: parsed.data.remainingSiteKeys, rationale: parsed.data.rationale });
 			declineStreak += 1;
 		} else {
 			declineStreak = 0;

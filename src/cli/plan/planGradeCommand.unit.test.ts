@@ -1,7 +1,8 @@
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { GapArea } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { Effort, GapArea, Permissions } from '@/contracts';
+import type { LightsoutConfig } from '@/contracts';
+import type { Driver, DriverInvocation } from '@/drivers';
 import { planGradeCommand } from '@/cli/plan/planGradeCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
@@ -22,15 +23,40 @@ const gapDriver = ({ gaps }: { gaps: unknown[] }): Driver => ({
 const setupGrade = ({ body }: { body?: string } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ git: false });
-	const plansDir = body === undefined ? join(cwd, '.claude', 'plans') : writePlanDeliverable({ cwd, name: 'demo', body });
 
-	return { cwd, plansDir, name: 'demo', ...captured };
+	if (body !== undefined) {
+		writePlanDeliverable({ cwd, name: 'demo', body });
+	}
+
+	return { cwd, name: 'demo', ...captured };
+};
+
+// The harness settings a config carries reach the agent call through the shared
+// option bundle, so the arrangement records what the harness was handed rather
+// than what it printed.
+const setupHarnessSettings = ({ config }: { config?: LightsoutConfig } = {}) => {
+	const captured = captureCommandOutput();
+	const cwd = setupConsumerRepo({ git: false });
+	const invocations: DriverInvocation[] = [];
+
+	writePlanDeliverable({ cwd, name: 'demo', body: cleanPlanBody() });
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async (invocation) => {
+			invocations.push(invocation);
+
+			return { text: JSON.stringify({ gaps: [] }), exitCode: 0 };
+		},
+	};
+
+	return { cwd, name: 'demo', config, driver, invocations, ...captured };
 };
 
 test('planGradeCommand: a clean plan with no gaps grades A, reports both counts and the grade path, and exits 0', async () => {
-	const { cwd, plansDir, name, logged, errors, exitCodes } = setupGrade({ body: cleanPlanBody() });
+	const { cwd, name, logged, errors, exitCodes } = setupGrade({ body: cleanPlanBody() });
 
-	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps: [] }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps: [] }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -44,10 +70,10 @@ test('planGradeCommand: a clean plan with no gaps grades A, reports both counts 
 });
 
 test('planGradeCommand: a gap drops the grade below A and prints the decision with the options to choose among', async () => {
-	const { cwd, plansDir, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody() });
+	const { cwd, name, logged, exitCodes } = setupGrade({ body: cleanPlanBody() });
 	const gaps = [{ area: GapArea.OmittedDecision, gap: 'no storage choice', decision: 'pick a store', options: ['sqlite', 'postgres'] }];
 
-	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -59,19 +85,19 @@ test('planGradeCommand: a gap drops the grade below A and prints the decision wi
 });
 
 test('planGradeCommand: a structurally dirty plan prints the lint finding, and an optionless gap prints the decision alone', async () => {
-	const { cwd, plansDir, name, logged, exitCodes } = setupGrade({
+	const { cwd, name, logged, exitCodes } = setupGrade({
 		
 		body: cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting'),
 	});
 	const gaps = [{ area: GapArea.InsufficientDetail, gap: 'no error handling named', decision: 'say what a failure does', options: [] }];
 
-	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
 	expect(printed[0] ?? '').toMatch(/^\nplan grade demo — below-A /);
 	expect(printed[1]).toBe('  structural: 1 · gaps: 1');
-	expect(printed[2] ?? '').toMatch(/^⚠ \[no-placeholders\] demo\.md:\d+ — unresolved placeholder 'TBD' present$/);
+	expect(printed[2] ?? '').toMatch(/^⚠ \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present$/);
 	expect(printed[3] ?? '').toMatch(/^ {3}fix: resolve 'TBD'/);
 	expect(printed[4]).toBe('? [insufficient-detail] no error handling named');
 	expect(printed[5]).toBe('   decide: say what a failure does');
@@ -79,11 +105,34 @@ test('planGradeCommand: a structurally dirty plan prints the lint finding, and a
 });
 
 test('planGradeCommand: an unresolvable deliverable reports the error on stderr and exits 1', async () => {
-	const { cwd, plansDir, name, logged, errors, exitCodes } = setupGrade();
+	const { cwd, name, logged, errors, exitCodes } = setupGrade();
 
-	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps: [] }), name, plansDir, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planGradeCommand({ cwd, driver: gapDriver({ gaps: [] }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	expect(printedLines({ logged })).toStrictEqual([]);
 	expect(errors[0] ?? '').toMatch(/no plan found for 'demo'/);
 	expect(exitCodes).toStrictEqual([1]);
+});
+
+test("planGradeCommand: the config's model, effort and permissions are handed to the harness with the plan's own repo as the working directory", async () => {
+	const { cwd, name, config, driver, invocations } = setupHarnessSettings({
+		config: {
+			model: 'claude-opus-5',
+			effort: Effort.High,
+			permissions: Permissions.FullAccess,
+			scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+		},
+	});
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config })).rejects.toThrow(/process\.exit/);
+
+	expect(invocations[0]).toEqual(expect.objectContaining({ cwd, model: 'claude-opus-5', effort: 'high', permissions: 'full-access' }));
+});
+
+test('planGradeCommand: with no config the harness call carries no model, effort or permissions — nothing is invented for the harness to honor', async () => {
+	const { cwd, name, config, driver, invocations } = setupHarnessSettings();
+
+	await expect(planGradeCommand({ cwd, driver, name, standards: undefined, config })).rejects.toThrow(/process\.exit/);
+
+	expect(invocations[0]).toEqual(expect.objectContaining({ model: undefined, effort: undefined, permissions: undefined }));
 });

@@ -43,7 +43,7 @@ const behavioralFiles = {
 	// export-default value
 	'src/main.ts': 'export default 42;\n',
 	// a value + a type in one file — behavioral because the value statement is
-	// executable (same-name const+type, the scan's closed multi-export exception)
+	// executable (same-name const+type, the standards check's closed multi-export exception)
 	'src/Pair.ts': "export const Pair = {\n\tfirst: 'a',\n} as const;\nexport type Pair = (typeof Pair)[keyof typeof Pair];\n",
 	// tsx component parses and has logic
 	'src/App.tsx': 'export const App = () => <div>hi</div>;\n',

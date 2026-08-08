@@ -7,14 +7,12 @@ import { runPlanGrade } from '@/plan';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { expectStatus } from '@tests/helpers/expectStatus';
 
-/** Write a single-file plan deliverable at <plansDir>/<name>.md. */
+/** Write a single-file plan deliverable at `.lightsout/plans/<name>/plan.md`. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
-	const dir = join(cwd, '.claude', 'plans');
+	const dir = join(cwd, '.lightsout', 'plans', name);
 
 	mkdirSync(dir, { recursive: true });
-	writeFileSync(join(dir, `${name}.md`), body);
-
-	return dir;
+	writeFileSync(join(dir, 'plan.md'), body);
 };
 
 /** A structurally clean single plan whose paths resolve against setupConsumerRepo. */
@@ -83,8 +81,8 @@ const gapDriver = (gaps: unknown[], onInvoke?: (invocation: DriverInvocation) =>
 
 test('plan grade: a clean plan with no gaps passes as grade A', async () => {
 	const cwd = setupConsumerRepo();
-	const plansDir = writePlan({ cwd, name: 'clean', body: cleanPlan() });
-	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'clean', plansDir });
+	writePlan({ cwd, name: 'clean', body: cleanPlan() });
+	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'clean' });
 
 	expectStatus(result, 'complete');
 	expect('grade' in result).toBeTruthy();
@@ -100,9 +98,9 @@ test('plan grade: a clean plan with no gaps passes as grade A', async () => {
 
 test('plan grade: a gap-returning stub fails the plan with the gaps recorded', async () => {
 	const cwd = setupConsumerRepo();
-	const plansDir = writePlan({ cwd, name: 'gappy', body: cleanPlan() });
+	writePlan({ cwd, name: 'gappy', body: cleanPlan() });
 	const gap = { area: 'omitted-decision', gap: 'no error handling decided', decision: 'what to return on failure', options: ['throw', 'null'] };
-	const result = await runPlanGrade({ cwd, driver: gapDriver([gap]), name: 'gappy', plansDir });
+	const result = await runPlanGrade({ cwd, driver: gapDriver([gap]), name: 'gappy' });
 
 	expectStatus(result, 'complete');
 	expect('grade' in result).toBeTruthy();
@@ -119,8 +117,8 @@ test('plan grade: a structural defect gates independently of the gap agent', asy
 	const cwd = setupConsumerRepo();
 	// A planted TBD — the code structural re-check must fire even when the gap
 	// agent reports NONE.
-	const plansDir = writePlan({ cwd, name: 'planted', body: cleanPlan().replace('A new module', 'TBD — a new module') });
-	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'planted', plansDir });
+	writePlan({ cwd, name: 'planted', body: cleanPlan().replace('A new module', 'TBD — a new module') });
+	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'planted' });
 
 	expectStatus(result, 'complete');
 	expect('grade' in result).toBeTruthy();
@@ -129,16 +127,95 @@ test('plan grade: a structural defect gates independently of the gap agent', asy
 	expect(result.grade.passed).toBe(false);
 });
 
+/** The one line only the overview carries, so a prompt can be told apart from the phases it fronts. */
+const overviewMarker = 'Phase 2 follows phase 1.';
+
+/** A structurally clean overview — the overview variant's own required section set. */
+const cleanOverview = () => `# Graded Plan — Overview
+
+## Global Constraints
+
+- None
+
+## Phases
+
+| # | File | Scope |
+|---|------|-------|
+| 1 | \`phase1-core.md\` | the core |
+| 2 | \`phase2-extra.md\` | the rest |
+
+## Cross-Phase Dependencies
+
+- ${overviewMarker}
+`;
+
+/** The clean plan again, creating a different file — so each phase's gap-check prompt is identifiable. */
+const secondPhasePlan = () => cleanPlan().replace(/new-thing/g, 'other-thing').replace(/newThing/g, 'otherThing');
+
+/** Write a phased deliverable — an overview plus its phase files — into `.lightsout/plans/<name>/`. */
+const writePhasedPlan = ({ cwd, name, files }: { cwd: string; name: string; files: Record<string, string> }) => {
+	const dir = join(cwd, '.lightsout', 'plans', name);
+
+	mkdirSync(dir, { recursive: true });
+
+	for (const [fileName, body] of Object.entries(files)) {
+		writeFileSync(join(dir, fileName), body);
+	}
+};
+
+test('plan grade: a phased plan gap-checks each phase in turn, with the overview as context rather than as a graded file', async () => {
+	const cwd = setupConsumerRepo();
+	writePhasedPlan({
+		cwd,
+		name: 'phased',
+		files: { 'overview.md': cleanOverview(), 'phase1-core.md': cleanPlan(), 'phase2-extra.md': secondPhasePlan() },
+	});
+	const invocations: DriverInvocation[] = [];
+	const result = await runPlanGrade({ cwd, driver: gapDriver([], (invocation) => invocations.push(invocation)), name: 'phased' });
+
+	expectStatus(result, 'complete');
+	// one gap-check per phase, in the folder's sorted order — the overview is never
+	// checked standalone
+	expect(invocations.map(({ prompt }) => (prompt.includes('src/other-thing.ts') ? 'phase2-extra.md' : 'phase1-core.md'))).toStrictEqual([
+		'phase1-core.md',
+		'phase2-extra.md',
+	]);
+	// the overview rides every system prompt as context, got: ${invocations.length} invocation(s)
+	expect(invocations.every(({ systemPrompt }) => (systemPrompt ?? '').includes(overviewMarker))).toBeTruthy();
+	// and never appears as the text under check
+	expect(invocations.some(({ prompt }) => prompt.includes(overviewMarker))).toBeFalsy();
+});
+
+test('plan grade: a phased plan writes one verdict into the plan folder, covering the overview and every phase', async () => {
+	const cwd = setupConsumerRepo();
+	writePhasedPlan({
+		cwd,
+		name: 'phased-verdict',
+		files: { 'overview.md': cleanOverview(), 'phase1-core.md': cleanPlan(), 'phase2-extra.md': secondPhasePlan() },
+	});
+	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'phased-verdict' });
+
+	expectStatus(result, 'complete');
+	expect('gradePath' in result).toBeTruthy();
+	// the verdict lands beside the plan text it graded — one folder per plan
+	expect(result.gradePath).toBe(join(cwd, '.lightsout', 'plans', 'phased-verdict', 'grade.json'));
+
+	const recorded = GradeReport.parse(JSON.parse(readFileSync(result.gradePath, 'utf8')));
+
+	// a clean phased deliverable grades A, the overview linted alongside its phases
+	expect(recorded.grade).toBe('A');
+	expect(recorded.structural).toStrictEqual([]);
+});
+
 test('plan grade: the resolved model, effort and permissions reach the gap-check driver', async () => {
 	const cwd = setupConsumerRepo();
-	const plansDir = writePlan({ cwd, name: 'threaded', body: cleanPlan() });
+	writePlan({ cwd, name: 'threaded', body: cleanPlan() });
 	const invocations: DriverInvocation[] = [];
 	const driver = gapDriver([], (invocation) => invocations.push(invocation));
 	const result = await runPlanGrade({
 		cwd,
 		driver,
 		name: 'threaded',
-		plansDir,
 		model: 'gpt-5.2',
 		effort: Effort.High,
 		permissions: Permissions.FullAccess,
@@ -150,10 +227,10 @@ test('plan grade: the resolved model, effort and permissions reach the gap-check
 
 test('plan grade: an omitted effort and permissions stay absent so the harness default stands', async () => {
 	const cwd = setupConsumerRepo();
-	const plansDir = writePlan({ cwd, name: 'defaulted', body: cleanPlan() });
+	writePlan({ cwd, name: 'defaulted', body: cleanPlan() });
 	const invocations: DriverInvocation[] = [];
 	const driver = gapDriver([], (invocation) => invocations.push(invocation));
-	const result = await runPlanGrade({ cwd, driver, name: 'defaulted', plansDir });
+	const result = await runPlanGrade({ cwd, driver, name: 'defaulted' });
 
 	expectStatus(result, 'complete');
 	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
@@ -167,7 +244,7 @@ test('plan grade: no deliverable on disk fails before any agent is spawned', asy
 			throw new Error('the gap-check must not be invoked when the plan cannot be resolved');
 		},
 	};
-	const result = await runPlanGrade({ cwd, driver: failIfCalled, name: 'ghost', plansDir: join(cwd, '.claude', 'plans') });
+	const result = await runPlanGrade({ cwd, driver: failIfCalled, name: 'ghost' });
 
 	expectStatus(result, 'failed');
 	// the resolve error propagates, got: ${result.error}
@@ -176,7 +253,7 @@ test('plan grade: no deliverable on disk fails before any agent is spawned', asy
 
 test('plan grade: a rate-limited gap-check parks the run and writes no verdict', async () => {
 	const cwd = setupConsumerRepo();
-	const plansDir = writePlan({ cwd, name: 'parked', body: cleanPlan() });
+	writePlan({ cwd, name: 'parked', body: cleanPlan() });
 	let calls = 0;
 	const driver: Driver = {
 		name: 'stub',
@@ -186,7 +263,7 @@ test('plan grade: a rate-limited gap-check parks the run and writes no verdict',
 			return { text: '', exitCode: 1, rateLimited: true };
 		},
 	};
-	const result = await runPlanGrade({ cwd, driver, name: 'parked', plansDir });
+	const result = await runPlanGrade({ cwd, driver, name: 'parked' });
 
 	expectStatus(result, 'paused-rate-limit');
 	// a rate limit buys no re-emit retry
@@ -199,7 +276,7 @@ test('plan grade: a rate-limited gap-check parks the run and writes no verdict',
 
 test('plan grade: a gap-check that never satisfies the contract fails, naming the plan file', async () => {
 	const cwd = setupConsumerRepo();
-	const plansDir = writePlan({ cwd, name: 'malformed', body: cleanPlan() });
+	writePlan({ cwd, name: 'malformed', body: cleanPlan() });
 	let calls = 0;
 	const driver: Driver = {
 		name: 'stub',
@@ -209,13 +286,13 @@ test('plan grade: a gap-check that never satisfies the contract fails, naming th
 			return { text: 'the plan looks fine to me', exitCode: 0 };
 		},
 	};
-	const result = await runPlanGrade({ cwd, driver, name: 'malformed', plansDir });
+	const result = await runPlanGrade({ cwd, driver, name: 'malformed' });
 
 	expectStatus(result, 'failed');
 	// the rejected report bought exactly one re-emit retry
 	expect(calls).toBe(2);
 	// the failure names the plan file it was checking, got: ${result.error}
-	expect('error' in result && (result.error ?? '').includes('malformed.md')).toBeTruthy();
+	expect('error' in result && (result.error ?? '').includes('gap-check failed for plan.md')).toBeTruthy();
 	// no verdict is written for a failed gap-check
 	expect(existsSync(join(cwd, '.lightsout', 'plans', 'malformed', 'grade.json'))).toBeFalsy();
 });
@@ -228,9 +305,9 @@ test('plan grade: a planned symbol still colliding with an existing export is na
 	// so the detector still sees prior art.
 	writeFileSync(join(cwd, 'src', 'thingNew.ts'), 'export const thingNew = 1;\n');
 
-	const plansDir = writePlan({ cwd, name: 'colliding', body: cleanPlan() });
+	writePlan({ cwd, name: 'colliding', body: cleanPlan() });
 	const messages: string[] = [];
-	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'colliding', plansDir, onProgress: (message) => messages.push(message) });
+	const result = await runPlanGrade({ cwd, driver: gapDriver([]), name: 'colliding', onProgress: (message) => messages.push(message) });
 
 	expectStatus(result, 'complete');
 	expect('grade' in result).toBeTruthy();

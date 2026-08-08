@@ -4,13 +4,13 @@ import { seedResumeState } from '@/refactor/seedResumeState';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
 
-const batch = (id: string): RefactorBatch => ({ id, detector: 'clone', folder: 'src', findings: [], advisories: [] });
+const batch = (id: string): RefactorBatch => ({ id, rule: 'clone', folder: 'src', blocking: [], advisories: [] });
 
 const step = ({ id, outcome, status = RunStatus.Passed }: { id: string; outcome?: BatchOutcome; status?: RunStatus }): StepRecord => ({
 	id,
 	status,
 	attempts: 1,
-	report: outcome === undefined ? undefined : { outcome, remainingClusters: outcome === BatchOutcome.Declined ? [`${id}-cluster`] : [], rationale: [`${id} says so`] },
+	report: outcome === undefined ? undefined : { outcome, remainingSiteKeys: outcome === BatchOutcome.Declined ? [`${id}-site`] : [], rationale: [`${id} says so`] },
 });
 
 const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({

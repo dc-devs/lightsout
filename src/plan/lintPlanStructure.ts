@@ -67,9 +67,9 @@ const isSourceFile = (path: string) => !isTestFile(path) && !/(^|\/)index\.[jt]s
 
 /**
  * The deterministic structural lint — no agent. This is to plans what
- * `runScan`'s detectors are to code: it keys off the fixed structure the plan
- * template pins (the `##` heading set, the `###` create/modify subheadings, the
- * Patterns-to-Mirror bullet code spans, the Verification command spans) and
+ * `runStandardsCheck`'s checks are to code: it keys off the fixed structure the
+ * plan template pins (the `##` heading set, the `###` create/modify subheadings,
+ * the Patterns-to-Mirror bullet code spans, the Verification command spans) and
  * reports each defect as typed data. Every path is `stat`ed, every verification
  * script is looked up in a package.json (honoring `config.scripts` full-command
  * overrides), placeholders and required sections are matched textually, and the

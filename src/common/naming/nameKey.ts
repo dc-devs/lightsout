@@ -33,8 +33,8 @@ interface Params {
  * `userDataGet` collapse to one key. Conversion names are order-sensitive —
  * `hexToRgb` and `rgbToHex` are deliberate opposites, not one concept — so a
  * `to`/`from` token pins word order instead of sorting. Factored out of
- * `scanFilenameDuplicates` (its source of truth) so scan and plan-time
- * prior-art detection compare names identically.
+ * `checkFilenameDuplicates` (its source of truth) so the standards check and
+ * plan-time prior-art detection compare names identically.
  */
 export const nameKey = ({ name }: Params): string => {
 	const tokens = tokensOf(name);

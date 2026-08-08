@@ -11,8 +11,8 @@ import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
 
-/** The single batch a one-finding repo produces: `batch-NN:<detector>:<folder>`. */
-const batchId = 'batch-01:structure:src';
+/** The single batch a one-finding repo produces: `batch-NN:<rule>:<folder>`. */
+const batchId = 'batch-01:multi-export:src';
 
 /** A final message carrying no report at all — the shape the contract rejects. */
 const prose = 'Split the file — see the diff. (no JSON from me)';
@@ -62,7 +62,7 @@ describe('runRefactorPipeline batch evidence', () => {
 		const streams = readdirSync(agentsDir).filter((name) => name.startsWith('stream-'));
 
 		// the batch id is slugged into the name, with the invocation number
-		expect(streams).toStrictEqual(['stream-batch-01_structure_src-1.jsonl']);
+		expect(streams).toStrictEqual(['stream-batch-01_multi-export_src-1.jsonl']);
 		// every event lands verbatim, in order — the transcript is the run’s evidence
 		expect(readFileSync(join(agentsDir, streams[0] ?? ''), 'utf8')
 			.trim()
@@ -94,7 +94,7 @@ describe('runRefactorPipeline batch evidence', () => {
 		const rejected = readdirSync(agentsDir).filter((name) => name.startsWith('rejected-'));
 
 		// the rejected message is filed by batch, invocation, and attempt
-		expect(rejected).toStrictEqual(['rejected-batch-01_structure_src-1-1.txt']);
+		expect(rejected).toStrictEqual(['rejected-batch-01_multi-export_src-1-1.txt']);
 		// the raw final message is preserved verbatim, not summarized
 		expect(readFileSync(join(agentsDir, rejected[0] ?? ''), 'utf8')).toBe(prose);
 	});

@@ -1,4 +1,4 @@
-import { ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { wrapText } from '@/cli/common/formatting/wrapText';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
@@ -6,7 +6,7 @@ import { terminalWidth } from '@/cli/common/terminal/terminalWidth';
 import { yellow } from '@/cli/common/terminal/yellow';
 
 interface Params {
-	findings: ScanFinding[];
+	findings: StandardsFinding[];
 }
 
 /** Widest a location column may grow before its row falls back to two lines. */
@@ -14,7 +14,7 @@ const locationColumnCap = 52;
 const rowIndent = '    ';
 const detailIndent = '      ';
 
-const locationOf = ({ file }: { file: ScanFinding['files'][number] }) => {
+const locationOf = ({ file }: { file: StandardsFinding['files'][number] }) => {
 	if (file.startLine === undefined) {
 		return file.path;
 	}
@@ -24,22 +24,23 @@ const locationOf = ({ file }: { file: ScanFinding['files'][number] }) => {
 	return `${file.path}:${file.startLine}${span}`;
 };
 
-const headingOf = ({ detector, severity, count }: { detector: string; severity: ScanSeverity; count: number }) => {
-	const finding = severity === ScanSeverity.Finding;
-	const icon = finding ? yellow('⚠') : dim('ℹ');
-	const noun = finding ? (count === 1 ? 'finding' : 'findings') : count === 1 ? 'advisory' : 'advisories';
+const headingOf = ({ rule, severity, count }: { rule: string; severity: StandardsSeverity; count: number }) => {
+	const blocking = severity === StandardsSeverity.Blocking;
+	const icon = blocking ? yellow('⚠') : dim('ℹ');
+	// `blocking` reads the same at any count, so only the advisory noun pluralizes.
+	const noun = blocking ? 'blocking' : count === 1 ? 'advisory' : 'advisories';
 
-	return `${icon} ${bold(detector)} ${dim('·')} ${dim(`${count} ${noun}`)}`;
+	return `${icon} ${bold(rule)} ${dim('·')} ${dim(`${count} ${noun}`)}`;
 };
 
 /**
- * Print the findings grouped under one heading per detector.
+ * Print the findings grouped under one heading per rule.
  *
- * Grouping is what makes the output readable: a detector's rows line up so
+ * Grouping is what makes the output readable: a rule's rows line up so
  * their measurements can be compared at a glance, and the guidance — which is
- * the same for every finding a detector emits for the same reason — is stated
+ * the same for every finding a rule emits for the same reason — is stated
  * once beneath the rows it covers instead of repeating on each. Within a group
- * the rows are ordered by guidance, so a detector that reports two different
+ * the rows are ordered by guidance, so a rule that reports two different
  * kinds of problem still explains each one next to its own rows.
  *
  * A finding at a single site prints as one aligned row. A finding spanning
@@ -48,28 +49,28 @@ const headingOf = ({ detector, severity, count }: { detector: string; severity: 
  */
 export const printFindingGroups = ({ findings }: Params): void => {
 	const width = terminalWidth();
-	// Keyed on severity as well as detector: `size` reports an oversized file as
+	// Keyed on severity as well as rule: `size` reports an oversized file as
 	// work and an oversized function as advice, and one heading cannot honestly
-	// count both. The heading's detector and severity come from the finding that
+	// count both. The heading's rule and severity come from the finding that
 	// opened the group, so an empty group is not a case to answer.
-	const groups = new Map<string, { detector: string; severity: ScanSeverity; findings: ScanFinding[] }>();
+	const groups = new Map<string, { rule: string; severity: StandardsSeverity; findings: StandardsFinding[] }>();
 
 	for (const finding of findings) {
-		const key = `${finding.severity}:${finding.detector}`;
-		const group = groups.get(key) ?? { detector: finding.detector, severity: finding.severity, findings: [] };
+		const key = `${finding.severity}:${finding.rule}`;
+		const group = groups.get(key) ?? { rule: finding.rule, severity: finding.severity, findings: [] };
 
 		group.findings.push(finding);
 		groups.set(key, group);
 	}
 
-	for (const { detector, severity, findings: group } of groups.values()) {
+	for (const { rule, severity, findings: group } of groups.values()) {
 		console.log('');
-		console.log(headingOf({ detector, severity, count: group.length }));
+		console.log(headingOf({ rule, severity, count: group.length }));
 
 		// Only single-site findings occupy the aligned column, so only they set its width.
 		const singleWidths = group.flatMap((finding) => (finding.files.length === 1 ? finding.files.map((file) => locationOf({ file }).length) : []));
 		const column = Math.min(Math.max(0, ...singleWidths), locationColumnCap);
-		const byGuidance = new Map<string, ScanFinding[]>();
+		const byGuidance = new Map<string, StandardsFinding[]>();
 
 		for (const finding of group) {
 			byGuidance.set(finding.guidance ?? '', [...(byGuidance.get(finding.guidance ?? '') ?? []), finding]);

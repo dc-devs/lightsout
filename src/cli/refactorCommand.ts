@@ -13,8 +13,8 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 	const resumeRunId = getStringFlag({ flags, name: 'run' });
 	const maxBatchesFlag = getStringFlag({ flags, name: 'max-batches' });
 
-	// Unlike scan, refactor MUTATES code — a missing config (no gates) is a
-	// hard error, never a fallback.
+	// Unlike the standards check, refactor MUTATES code — a missing config (no
+	// gates) is a hard error, never a fallback.
 	const loaded = await loadConfig({ cwd });
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: 'refactor' });
 	const driver = getDriver({ name: driverName });
@@ -30,12 +30,14 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 
 	try {
 		existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : undefined;
-	} catch {
-		console.error(`no run found for --run ${resumeRunId}`);
+	} catch (error) {
+		// An unknown id says which id; a manifest that will not parse says that
+		// instead, rather than being reported as a run that does not exist.
+		console.error(messageOf({ error }));
 		process.exit(1);
 	}
 
-	console.log(`lightsout: refactor ${resumeRunId ? `resuming run ${resumeRunId}` : 'starting run'}`);
+	console.log(`lightsout: refactor ${existing ? `resuming run ${existing.runId}` : 'starting run'}`);
 
 	let result;
 

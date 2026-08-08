@@ -1,11 +1,11 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { ScanDetector, ScanSeverity, type ScanFinding } from '@/contracts';
+import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
 
-const finding = (overrides: Partial<ScanFinding> = {}): ScanFinding => ({
-	detector: ScanDetector.Size,
-	severity: ScanSeverity.Advisory,
-	cluster: 'size:one',
+const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
+	rule: StandardsRule.SizeFunction,
+	severity: StandardsSeverity.Advisory,
+	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts', startLine: 10, endLine: 90 }],
 	detail: "function 'one' is 81 lines (cap ~80)",
 	...overrides,
@@ -25,32 +25,32 @@ const setupPrinter = () => {
 };
 
 describe('printFindingGroups', () => {
-	test('heads each detector with its severity and count', () => {
+	test('heads each rule with its severity and count', () => {
 		const { logged } = setupPrinter();
 
-		printFindingGroups({ findings: [finding(), finding({ cluster: 'size:two' })] });
+		printFindingGroups({ findings: [finding(), finding({ siteKey: 'size:two' })] });
 
-		expect(logged).toContain('ℹ size · 2 advisories');
+		expect(logged).toContain('ℹ size-function · 2 advisories');
 	});
 
-	test('says finding, singular, for one item of work', () => {
+	test('names the severity, not a noun, for a blocking group', () => {
 		const { logged } = setupPrinter();
 
-		printFindingGroups({ findings: [finding({ severity: ScanSeverity.Finding, detector: ScanDetector.Clone })] });
+		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone })] });
 
-		expect(logged).toContain('⚠ clone · 1 finding');
+		expect(logged).toContain('⚠ clone · 1 blocking');
 	});
 
-	test('splits one detector by severity, because a size finding and a size advisory are not one tally', () => {
+	test('splits one rule by severity, because a size violation and a size advisory are not one tally', () => {
 		const { logged } = setupPrinter();
 
 		printFindingGroups({
-			findings: [finding({ severity: ScanSeverity.Finding, detail: '300 lines (cap ~250)' }), finding({ cluster: 'size:two' })],
+			findings: [finding({ severity: StandardsSeverity.Blocking, detail: '300 lines (cap ~250)' }), finding({ siteKey: 'size:two' })],
 		});
 
 		// `size` reports an oversized file as work and an oversized function as advice
-		expect(logged).toContain('⚠ size · 1 finding');
-		expect(logged).toContain('ℹ size · 1 advisory');
+		expect(logged).toContain('⚠ size-function · 1 blocking');
+		expect(logged).toContain('ℹ size-function · 1 advisory');
 	});
 
 	test('aligns the single-site rows in a group so their measurements can be compared', () => {
@@ -59,7 +59,7 @@ describe('printFindingGroups', () => {
 		printFindingGroups({
 			findings: [
 				finding({ files: [{ path: 'src/short.ts', startLine: 1, endLine: 90 }], detail: '90 lines' }),
-				finding({ cluster: 'size:two', files: [{ path: 'src/a/much/longer/path.ts', startLine: 1, endLine: 99 }], detail: '99 lines' }),
+				finding({ siteKey: 'size:two', files: [{ path: 'src/a/much/longer/path.ts', startLine: 1, endLine: 99 }], detail: '99 lines' }),
 			],
 		});
 
@@ -68,11 +68,27 @@ describe('printFindingGroups', () => {
 		expect(rows.map((row) => row.indexOf('lines'))).toStrictEqual([rows[1]?.indexOf('lines') ?? -1, rows[1]?.indexOf('lines') ?? -1]);
 	});
 
+	test('a location too wide for the column drops its detail to the next line rather than pushing the column out', () => {
+		const { logged } = setupPrinter();
+
+		printFindingGroups({
+			findings: [
+				finding({
+					files: [{ path: 'src/features/onboarding/common/utils/buildInitialChecklist.ts', startLine: 1, endLine: 300 }],
+					detail: '300 lines (cap ~250)',
+				}),
+			],
+		});
+
+		expect(logged).toContain('    src/features/onboarding/common/utils/buildInitialChecklist.ts:1-300');
+		expect(logged).toContain('      300 lines (cap ~250)');
+	});
+
 	test('prints the shared guidance once beneath the rows it covers', () => {
 		const { logged, textOf } = setupPrinter();
 
 		printFindingGroups({
-			findings: [finding({ guidance: 'Extract logic.' }), finding({ cluster: 'size:two', guidance: 'Extract logic.' })],
+			findings: [finding({ guidance: 'Extract logic.' }), finding({ siteKey: 'size:two', guidance: 'Extract logic.' })],
 		});
 
 		expect(logged.filter((line) => line.includes('Extract logic.')).length).toBe(1);
@@ -85,8 +101,8 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({
 			findings: [
-				finding({ detector: ScanDetector.DeadExport, detail: "'a' is referenced nowhere else", guidance: 'Delete it.' }),
-				finding({ detector: ScanDetector.DeadExport, cluster: 'dead:b', detail: "'b' is referenced only by tests", guidance: 'Production-dead.' }),
+				finding({ rule: StandardsRule.DeadExport, detail: "'a' is referenced nowhere else", guidance: 'Delete it.' }),
+				finding({ rule: StandardsRule.DeadExport, siteKey: 'dead:b', detail: "'b' is referenced only by tests", guidance: 'Production-dead.' }),
 			],
 		});
 
@@ -100,7 +116,7 @@ describe('printFindingGroups', () => {
 		printFindingGroups({
 			findings: [
 				finding({
-					detector: ScanDetector.Clone,
+					rule: StandardsRule.Clone,
 					files: [{ path: 'src/a.ts', startLine: 1, endLine: 60 }, { path: 'src/b.ts', startLine: 5, endLine: 64 }],
 					detail: '60-line duplicated span',
 				}),
@@ -129,17 +145,21 @@ describe('printFindingGroups', () => {
 		expect(logged).toStrictEqual([]);
 	});
 
-	test('pluralises the count, because one finding and four read differently', () => {
+	test('pluralises the advisory count but not the blocking one, because only one of the two words has a plural', () => {
 		const { logged } = setupPrinter();
 
 		printFindingGroups({
 			findings: [
-				finding({ severity: ScanSeverity.Finding, detector: ScanDetector.Clone }),
-				finding({ severity: ScanSeverity.Finding, detector: ScanDetector.Clone, cluster: 'clone:two' }),
+				finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone }),
+				finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone, siteKey: 'clone:two' }),
+				finding({ siteKey: 'size:one' }),
+				finding({ siteKey: 'size:two' }),
 			],
 		});
 
-		expect(logged).toContain('⚠ clone · 2 findings');
+		// `blocking` is the severity's name, so it reads the same at any count
+		expect(logged).toContain('⚠ clone · 2 blocking');
+		expect(logged).toContain('ℹ size-function · 2 advisories');
 	});
 
 	test('a single-line span is rendered as one number, not a range onto itself', () => {

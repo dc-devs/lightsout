@@ -73,12 +73,12 @@ describe('matchDedupVerdicts', () => {
 		const ruling = verdict({
 			recommendation: DedupResolution.Extract,
 			suggestedLocation: 'src/common/utils/formatDate.ts',
-			migrateCallers: ['src/scan/runScan.ts'],
+			migrateCallers: ['src/standardsCheck/runStandardsCheck.ts'],
 		});
 
 		const findings = matchDedupVerdicts({ candidates: [candidate()], verdicts: [ruling] });
 
 		expect(findings[0]?.suggestedLocation).toBe('src/common/utils/formatDate.ts');
-		expect(findings[0]?.migrateCallers).toStrictEqual(['src/scan/runScan.ts']);
+		expect(findings[0]?.migrateCallers).toStrictEqual(['src/standardsCheck/runStandardsCheck.ts']);
 	});
 });

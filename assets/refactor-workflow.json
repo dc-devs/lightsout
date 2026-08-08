@@ -1,6 +1,6 @@
 {
-  "title": "How /refactor turns scan findings into verified cleanup",
-  "subtitle": "Twelve steps, one batch at a time, every fix re-scanned and re-gated before the next begins.",
+  "title": "How /refactor turns standards findings into verified cleanup",
+  "subtitle": "Twelve steps, one batch at a time, every fix re-checked and re-gated before the next begins.",
   "columns": 4,
   "savedLabel": "SAVED TO DISK",
   "theme": { "from": "#35d6e8", "to": "#b06bf5" },
@@ -27,7 +27,7 @@
       ],
       "note": "Detection is deterministic code — no agent is ever asked to go find problems",
       "savedLabel": "READ FROM DISK",
-      "saved": ["lightsout.scan-baseline.json"]
+      "saved": ["lightsout.standards-baseline.json"]
     },
     {
       "title": "GROUP INTO BATCHES",
@@ -55,7 +55,7 @@
       "title": "SKIP WHAT IS ALREADY FIXED",
       "tag": { "label": "the engine", "tone": "to" },
       "bullets": [
-        "Scan again immediately before each batch starts",
+        "Check again immediately before each batch starts",
         "If earlier batches already cleared these findings, close the batch and spend no agent",
         "Collect fresh size warnings for the batch’s files — the frozen ones cite line numbers that have since moved"
       ],
@@ -99,7 +99,7 @@
       "title": "RULE ON THE BATCH",
       "tag": { "label": "the engine", "tone": "to" },
       "bullets": [
-        "Scan again — the code rules, and a copied block that merely moved is not gone",
+        "Check again — the code rules, and a copied block that merely moved is not gone",
         "Gone counts as resolved; still there with nothing changed counts as declined, with the agent’s reasoning kept",
         "Partly fixed earns one more pass, and whatever survives that is recorded as declined"
       ],
@@ -121,7 +121,7 @@
       "title": "MEASURE THE BURN-DOWN",
       "tag": { "label": "the engine", "tone": "to" },
       "bullets": [
-        "Scan the whole scope once more and report findings before and after, one line per kind",
+        "Check the whole scope once more and report findings before and after, one line per kind",
         "A parked run reports no burn-down — resume it to finish and measure",
         "Keep every batch outcome, retry, token cost, and point of friction in one folder"
       ],
@@ -137,7 +137,7 @@
         "Review the working-tree diff and commit it — the engine never commits"
       ],
       "note": "Leaves the last call on unfixed debt with a human",
-      "saved": ["lightsout.scan-baseline.json"]
+      "saved": ["lightsout.standards-baseline.json"]
     }
   ]
 }

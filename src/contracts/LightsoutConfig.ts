@@ -1,6 +1,22 @@
 import { z } from 'zod';
 import { Effort } from '@/contracts/Effort';
 import { Permissions } from '@/contracts/Permissions';
+// Through the barrel, not the two files: `standardsCheck` is a module of its
+// own inside contracts, and its index.ts is the path in. No cycle — nothing
+// under it reads the config.
+import { StandardsRule, StandardsSeverity } from '@/contracts/standardsCheck';
+
+/**
+ * A rule's severity, with the pre-rename spelling called out by name.
+ *
+ * `finding` was this severity's value until it collided with the umbrella noun
+ * — every hit the check reports is a finding, at any severity. A config written
+ * against the older docs gets told what happened rather than a bare list of
+ * valid options, the same courtesy the renamed `scan` key gets below.
+ */
+const standardsSeverityValue = z.enum(StandardsSeverity, {
+	error: (issue) => (issue.input === 'finding' ? 'severity `finding` was renamed to `blocking`' : undefined),
+});
 
 /** One command's harness override: harness, model, and/or effort, each falling back to the global field. */
 const commandHarness = z
@@ -104,8 +120,6 @@ export const LightsoutConfig = z.object({
 	generated: z.array(z.string()).optional(),
 	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
 	packagesDir: z.string().optional(),
-	/** Where committed plan deliverables live (`plan draft` output). Default '.claude/plans'. */
-	plansDir: z.string().optional(),
 	/**
 	 * Monorepo mode: gate command templates run per affected package, with
 	 * `{package}` replaced by that package's package.json `name`. When set,
@@ -146,22 +160,31 @@ export const LightsoutConfig = z.object({
 	 * docs only).
 	 */
 	standardsChannels: z.array(z.string()).optional(),
-	/** `lightsout scan` tuning — per-repo floors, not global guesses. */
-	scan: z
-		.object({
-			/** Minimum jscpd token span for a tier-1 clone finding (default 50). */
-			minCloneTokens: z.number().int().positive().optional(),
-			/** Line-cap overrides for the size detector (defaults: file 250, tsxFile 300, function 80, hook 160, component 200). */
-			size: z
-				.object({
-					file: z.number().int().positive().optional(),
-					tsxFile: z.number().int().positive().optional(),
-					function: z.number().int().positive().optional(),
-					hook: z.number().int().positive().optional(),
-					component: z.number().int().positive().optional(),
-				})
-				.optional(),
-		})
+	/** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
+	scan: z.never('`scan` was renamed to `standardsChecks`').optional(),
+	/**
+	 * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
+	 * value is either a severity, or an object with a severity and/or that
+	 * rule's own settings. A rule not named here keeps its default — silence
+	 * is never a change. Keyed by the closed rule list rather than a free
+	 * string, so a mistyped id fails parsing instead of silently disabling an
+	 * override the user believes is active (same reasoning as `commands`
+	 * being `.strict()`). Read the live state with
+	 * `lightsout standards-check --list`.
+	 */
+	standardsChecks: z
+		.partialRecord(
+			z.enum(StandardsRule),
+			z.union([
+				standardsSeverityValue,
+				z
+					.object({
+						severity: standardsSeverityValue.optional(),
+						settings: z.record(z.string(), z.number()).optional(),
+					})
+					.strict(),
+			]),
+		)
 		.optional(),
 });
 
