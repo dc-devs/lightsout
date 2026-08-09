@@ -24,10 +24,15 @@ it is deterministic code. Do not add workflow steps to this file.
    ```
 
    Pass through what the user gave you, nothing more:
-   - a high-level/overview plan for a phased run → `--overview "<path>"`
+   - a plan **folder** → hand it straight through as `--plan "<folder>"`; the
+     engine branches on what the folder holds (an `overview.md` runs every
+     phase in order, otherwise the folder's `plan.md` runs on its own)
+   - a starting phase the user asked for → `--start-phase <n>`
+   - a high-level/overview plan for a single-phase run → `--overview "<path>"`
    - an explicit package scope → `--packages a,b`
    - `resume` requests → `node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" resume --run <id>`
 
 3. Relay the engine's final report to the user verbatim. If the run parked
    itself (rate-limit pause or escalation), tell the user the run id and that
-   `resume` will continue it.
+   `resume` will continue it — the same run id also resumes a multi-phase run,
+   picking up at the phase that stopped.

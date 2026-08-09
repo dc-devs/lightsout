@@ -8,6 +8,7 @@ import { printResult } from '@/cli/common/render/printResult';
 import { printRunHeader } from '@/cli/common/render/printRunHeader';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
+import { runPhasesOrFailFast } from '@/cli/common/utils/runPhasesOrFailFast';
 import { runPipelineOrFailFast } from '@/cli/common/utils/runPipelineOrFailFast';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 
@@ -32,7 +33,9 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 		throw error;
 	});
 
-	if ((manifest.pipeline ?? 'implement') !== 'implement') {
+	const pipeline = manifest.pipeline ?? 'implement';
+
+	if (pipeline === 'refactor') {
 		console.error(
 			`run ${manifest.runId} belongs to the ${manifest.pipeline} pipeline — resume it with: lightsout refactor --run ${manifest.runId}`,
 		);
@@ -60,14 +63,17 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 	console.log(`lightsout: resuming run ${manifest.runId} (was: ${manifest.status}, plan: ${manifest.plan})`);
 	printRunHeader({ config, driver, cwd });
 
-	const result = await runPipelineOrFailFast({
-		cwd,
-		driver,
-		config,
-		existing: manifest,
-		skipRefactor,
-		onProgress: createProgressPrinter(),
-	});
+	const result =
+		pipeline === 'phases'
+			? await runPhasesOrFailFast({ cwd, driver, config, existing: manifest, skipRefactor, onProgress: createProgressPrinter() })
+			: await runPipelineOrFailFast({
+					cwd,
+					driver,
+					config,
+					existing: manifest,
+					skipRefactor,
+					onProgress: createProgressPrinter(),
+				});
 
 	await printResult({ result, cwd });
 	process.exit(result.ok ? 0 : 1);
