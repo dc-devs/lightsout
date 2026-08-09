@@ -17,11 +17,12 @@ const CLI = join(process.cwd(), '.test-dist', 'cli-under-test.mjs');
 // FEATURE adding a command updates this pin deliberately — updated 2026-07-09
 // for `plan verify-facts` replacing `plan explore`, 2026-07-14 for `plan
 // lint`, 2026-07-23 for the verify-facts `--notes` flag, 2026-08-01 for the
-// removal of `verify`.)
+// removal of `verify`, 2026-08-08 for the plan-folder form of `implement`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
   lightsout implement --plan <path> [--overview <path>] [--packages <a,b>] [--cwd <path>] [--skip-refactor]
+  lightsout implement --plan <folder> [--start-phase <n>] [--cwd <path>] [--skip-refactor]   (folder: overview.md runs all phases, else plan.md)
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]

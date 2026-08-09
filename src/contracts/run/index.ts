@@ -4,4 +4,5 @@ export { RunLock } from '@/contracts/run/RunLock';
 export { AgentUsage } from '@/contracts/run/AgentUsage';
 export { RunUsage } from '@/contracts/run/RunUsage';
 export { StepRecord } from '@/contracts/run/StepRecord';
+export { PhaseReport } from '@/contracts/run/PhaseReport';
 export { PackagesSource } from '@/contracts/run/PackagesSource';

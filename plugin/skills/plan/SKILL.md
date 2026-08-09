@@ -278,11 +278,12 @@ Read `.lightsout/plans/<name>/grade.json`:
 
 **8. Handoff.** Relay the final grade and:
 ```
-Next: /implement --plan .lightsout/plans/<name>/plan.md
+Next: /implement --plan .lightsout/plans/<name>
 ```
-For a phased plan:
-```
-Next: /implement --plan .lightsout/plans/<name>/phase1-<slug>.md --overview .lightsout/plans/<name>/overview.md
-```
+The same line works for both shapes — the engine reads the folder: an
+`overview.md` runs every phase in order, otherwise the folder's `plan.md` runs
+on its own. To run a single phase of a phased plan by itself, pass that phase
+file instead: `/implement --plan .lightsout/plans/<name>/phase1-<slug>.md --overview .lightsout/plans/<name>/overview.md`.
+
 List any decisions left unresolved. The grade is
 advisory — `/implement` runs whatever plan it is given.

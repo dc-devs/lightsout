@@ -62,6 +62,21 @@ test('RunManifest: packagesSource records where the initial scope came from, and
 	expect(RunManifest.safeParse({ ...base, harness: 'codex' }).success).toBe(true);
 });
 
+test('RunManifest: pipeline names the owning pipeline, stays open, and is absent on pre-discriminator manifests', () => {
+	for (const pipeline of ['implement', 'refactor', 'phases']) {
+		// ${pipeline} owns runs of its own shape — a phases run is a coordinator over
+		// per-phase runs and must read back under its own name
+		expect(RunManifest.parse({ ...base, harness: 'codex', pipeline }).pipeline).toBe(pipeline);
+	}
+
+	// the field stays absent rather than defaulted, so a manifest written before the
+	// discriminator existed reads back unchanged and callers apply their own fallback
+	expect(RunManifest.parse({ ...base, harness: 'codex' }).pipeline).toBeUndefined();
+	// it is still a string at the read boundary — a non-string pipeline is a corrupt
+	// manifest, not an unknown pipeline
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', pipeline: 3 }).success).toBe(false);
+});
+
 test('RunManifest: steps are validated as step records — one malformed step fails the whole manifest', () => {
 	const step = { id: 'implement', status: 'failed', attempts: 2, durationMs: 4200, changedFiles: ['src/a.ts'], error: 'gate check failed' };
 
