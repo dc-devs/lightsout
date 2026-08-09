@@ -24,9 +24,13 @@ fixtures/*/.lightsout/friction.jsonl
 .lightsout/standards-check.json
 .lightsout/lock.json
 .lightsout/friction.jsonl
+.lightsout/voice-on
+.lightsout/voice-pid
 
 # legacy plan location — plans written before plans moved into .lightsout/
 .claude/plans
 
 # fdrop plugin hook artifacts
 .fdrop/
+
+.notes/

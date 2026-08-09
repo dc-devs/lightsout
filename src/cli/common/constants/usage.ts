@@ -19,4 +19,6 @@ usage:
   lightsout plan grade --name <n> [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
+  lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)
+  lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
 `;
