@@ -9,8 +9,8 @@ interface Params {
 	findings: StandardsFinding[];
 	/** Every rule with its one-line summary — the tally names rule ids, which say nothing on their own. */
 	rules: StandardsRuleListing[];
-	/** Where the typed report was written, relative to the repo root. */
-	reportPath: string;
+	/** Where the typed report was written, relative to the repo root. Absent when the run wrote none — a review-only run reads the tree and reports, but leaves the machine half's evidence file alone. */
+	reportPath?: string;
 }
 
 const countOf = ({ findings, rule, severity }: { findings: StandardsFinding[]; rule: string; severity: StandardsSeverity }) =>
@@ -35,7 +35,10 @@ export const printStandardsSummary = ({ findings, rules, reportPath }: Params): 
 
 	if (findings.length === 0) {
 		console.log(green('clean — nothing blocking, no advisories'));
-		console.log(dim(`report: ${reportPath}`));
+
+		if (reportPath !== undefined) {
+			console.log(dim(`report: ${reportPath}`));
+		}
 
 		return;
 	}
@@ -69,6 +72,8 @@ export const printStandardsSummary = ({ findings, rules, reportPath }: Params): 
 		console.log(line);
 	}
 
-	console.log('');
-	console.log(dim(`report: ${reportPath}`));
+	if (reportPath !== undefined) {
+		console.log('');
+		console.log(dim(`report: ${reportPath}`));
+	}
 };

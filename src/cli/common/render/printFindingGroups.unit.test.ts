@@ -1,9 +1,9 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.SizeFunction,
+	rule: 'size-function',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts', startLine: 10, endLine: 90 }],
@@ -36,7 +36,7 @@ describe('printFindingGroups', () => {
 	test('names the severity, not a noun, for a blocking group', () => {
 		const { logged } = setupPrinter();
 
-		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone })] });
+		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Blocking, rule: 'clone' })] });
 
 		expect(logged).toContain('⚠ clone · 1 blocking');
 	});
@@ -101,8 +101,8 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({
 			findings: [
-				finding({ rule: StandardsRule.DeadExport, detail: "'a' is referenced nowhere else", guidance: 'Delete it.' }),
-				finding({ rule: StandardsRule.DeadExport, siteKey: 'dead:b', detail: "'b' is referenced only by tests", guidance: 'Production-dead.' }),
+				finding({ rule: 'dead-export', detail: "'a' is referenced nowhere else", guidance: 'Delete it.' }),
+				finding({ rule: 'dead-export', siteKey: 'dead:b', detail: "'b' is referenced only by tests", guidance: 'Production-dead.' }),
 			],
 		});
 
@@ -116,7 +116,7 @@ describe('printFindingGroups', () => {
 		printFindingGroups({
 			findings: [
 				finding({
-					rule: StandardsRule.Clone,
+					rule: 'clone',
 					files: [{ path: 'src/a.ts', startLine: 1, endLine: 60 }, { path: 'src/b.ts', startLine: 5, endLine: 64 }],
 					detail: '60-line duplicated span',
 				}),
@@ -150,8 +150,8 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({
 			findings: [
-				finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone }),
-				finding({ severity: StandardsSeverity.Blocking, rule: StandardsRule.Clone, siteKey: 'clone:two' }),
+				finding({ severity: StandardsSeverity.Blocking, rule: 'clone' }),
+				finding({ severity: StandardsSeverity.Blocking, rule: 'clone', siteKey: 'clone:two' }),
 				finding({ siteKey: 'size:one' }),
 				finding({ siteKey: 'size:two' }),
 			],

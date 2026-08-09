@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
-import { Permissions, WorkReport, type AgentUsage, type LightsoutConfig, type RefactorBatch } from '@/contracts';
+import { Permissions, WorkReport, type AdvisoryOutcome, type AgentUsage, type LightsoutConfig, type RefactorBatch } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
 import { appendFriction, getRunDir } from '@/runState';
@@ -21,6 +21,8 @@ interface Params {
 	/** Mutable batch-level collectors: agent-reported paths and friction lines accumulate here across invocations. */
 	reportedFiles: Set<string>;
 	rationale: string[];
+	/** Keyed by site key so a later invocation's answer about one advisory replaces the earlier one — the batch's final word, not its first. */
+	advisoryOutcomes: Map<string, AdvisoryOutcome>;
 	recordUsage: (params: { step: string; usage?: AgentUsage }) => Promise<void>;
 }
 
@@ -42,6 +44,7 @@ export const invokeBatchAgent = async ({
 	agentTimeoutMs,
 	reportedFiles,
 	rationale,
+	advisoryOutcomes,
 	recordUsage,
 }: Params): Promise<Awaited<ReturnType<typeof invokeAgentWithContract<typeof WorkReport>>>> => {
 	const agentsDir = join(getRunDir({ cwd, runId }), 'agents');
@@ -74,6 +77,10 @@ export const invokeBatchAgent = async ({
 
 	for (const file of outcome.report.changedFiles) {
 		reportedFiles.add(file.path);
+	}
+
+	for (const entry of outcome.report.advisoryOutcomes ?? []) {
+		advisoryOutcomes.set(entry.siteKey, entry);
 	}
 
 	if (outcome.report.friction && outcome.report.friction.length > 0) {

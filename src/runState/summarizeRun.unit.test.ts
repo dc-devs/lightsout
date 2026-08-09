@@ -6,6 +6,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { summarizeRun } from '@/runState';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -24,6 +25,10 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');

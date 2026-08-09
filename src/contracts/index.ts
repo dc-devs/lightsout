@@ -4,7 +4,19 @@ export { Permissions } from '@/contracts/Permissions';
 export { RunStatus, RunManifest, RunLock, AgentUsage, RunUsage, StepRecord, PhaseReport, PackagesSource } from '@/contracts/run';
 export { WorkReport, WorkReportStatus, SupervisorDecision, SupervisorVerdict } from '@/contracts/work';
 export { FrictionArea, FrictionEntry, FrictionRecord } from '@/contracts/friction';
-export { StandardsRule, StandardsSeverity, StandardsPassId, StandardsFinding } from '@/contracts/standardsCheck';
+export { StandardsSeverity, StandardsFinding, StandardsReviewReport, AdvisoryResponse, AdvisoryOutcome } from '@/contracts/standardsCheck';
+export { StandardsInputKind, StandardsSet, StandardsPackageRoot, RawStandardsFinding, StandardsCheckModule } from '@/contracts/standardsPackage';
+export type {
+	StandardsCheckRun,
+	CloneSpan,
+	StandardsCheckInput,
+	FileListInput,
+	FileTextInput,
+	SyntaxTreeInput,
+	TestFileInput,
+	ImportGraphInput,
+	CloneSpansInput,
+} from '@/contracts/standardsPackage';
 export {
 	PlanDraftStatus,
 	PlanVariant,

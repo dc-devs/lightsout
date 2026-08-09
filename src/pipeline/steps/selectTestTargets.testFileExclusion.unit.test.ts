@@ -5,6 +5,7 @@ import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -16,6 +17,10 @@ test('write-tests fan-out: files under __tests__/ are test files, never writer t
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');

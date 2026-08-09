@@ -63,7 +63,7 @@ const scanPlaceholders = ({ lines }: { lines: string[] }) => {
 	return matches;
 };
 
-const isSourceFile = (path: string) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
+const isSourceFile = (path: string) => !isTestFile({ path }) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 
 /**
  * The deterministic structural lint — no agent. This is to plans what

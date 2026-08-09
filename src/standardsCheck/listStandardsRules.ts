@@ -1,24 +1,53 @@
 import type { LightsoutConfig } from '@/contracts';
 import type { StandardsRuleListing } from '@/standardsCheck/common/types/StandardsRuleListing';
-import { resolveRuleStates } from '@/standardsCheck/resolveRuleStates';
-import { standardsRuleRegistry } from '@/standardsCheck/standardsRuleRegistry';
+import { resolvePackageRuleStates } from '@/standardsCheck/resolvePackageRuleStates';
+import { resolveStandardsPackages } from '@/standardsPackages';
 
 interface Params {
+	cwd: string;
 	config?: LightsoutConfig;
 }
 
-/** Every rule with its doc, its summary and its state in this repo — sorted by rule id, so `--list` output diffs cleanly. */
-export const listStandardsRules = ({ config }: Params): StandardsRuleListing[] => {
-	// Walked from the resolved states rather than the rule list, so a rule can
-	// never be listed with a state nobody resolved for it.
-	return [...resolveRuleStates({ config })]
-		.map(([rule, state]) => ({
-			rule,
-			doc: standardsRuleRegistry[rule].doc,
-			summary: standardsRuleRegistry[rule].summary,
-			severity: state.severity,
-			fromConfig: state.fromConfig,
-			settings: state.settings,
-		}))
-		.sort((first, second) => first.rule.localeCompare(second.rule));
+/**
+ * Every rule the repo's standards packages bring, with the document that states
+ * it, its summary, and the state it runs at here — sorted by rule id, so
+ * `--list` output diffs cleanly.
+ *
+ * Judgment-only rules are listed beside the machine-checked ones: the ledger
+ * answers "what does this repo enforce?", and a rule nobody can find out about
+ * is a rule nobody follows.
+ *
+ * @param cwd - the repo whose packages and config are read
+ * @param config - the repo's config; absent means the bundled default package at its own defaults
+ * @throws {Error} When a declared standards package cannot be loaded, or the config names a rule no package declares.
+ */
+export const listStandardsRules = async ({ cwd, config }: Params): Promise<StandardsRuleListing[]> => {
+	const packages = await resolveStandardsPackages({ cwd, config });
+	const states = resolvePackageRuleStates({ packages, config });
+	const listings: StandardsRuleListing[] = [];
+
+	for (const pkg of packages) {
+		for (const rule of pkg.rules) {
+			const state = states.get(rule.id);
+
+			// Every loaded rule gets a state resolved for it, so this skips nothing
+			// in practice — it is what keeps a rule from ever being listed with a
+			// state nobody resolved.
+			if (state === undefined) {
+				continue;
+			}
+
+			listings.push({
+				rule: rule.id,
+				doc: `${pkg.name}: ${rule.documentPath}`,
+				summary: rule.summary,
+				checked: rule.checked,
+				severity: state.severity,
+				fromConfig: state.fromConfig,
+				settings: state.settings,
+			});
+		}
+	}
+
+	return listings.sort((first, second) => first.rule.localeCompare(second.rule));
 };

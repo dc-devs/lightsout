@@ -24,7 +24,10 @@ export const buildBatchFixInvocation = ({ planContent, files, standards, testSta
 	const errorContext = guidance ? `${gateError}\n\n${guidance}` : gateError;
 	const coverageRed = gateError.includes('test-coverage failed') && !/(check|test-unit|build|generate|format) failed/.test(gateError);
 
+	// The executor branch also asks the agent to account for each advisory it was
+	// shown: a batch persists that answer, and a fix retry is the same agent still
+	// working the same advisory list.
 	return coverageRed
 		? buildUnitTestWriterInvocation({ planContent, changedFiles: files, standards: testStandards, errorContext })
-		: buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, errorContext });
+		: buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, reportAdvisoryOutcomes: true, errorContext });
 };

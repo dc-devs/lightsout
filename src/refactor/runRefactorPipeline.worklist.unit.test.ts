@@ -8,6 +8,8 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
+import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
@@ -43,6 +45,10 @@ const setupTwoFolderRun = async () => {
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			prompts.push(prompt);
 
 			return { text: report({ friction: [{ area: 'other', kind: 'decision', detail: 'left as-is: exempt by design' }] }), exitCode: 0 };
@@ -71,6 +77,10 @@ const setupBaselinedRun = async () => {
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			prompts.push(prompt);
 			splitMulti({ dir, file: 'src/multi.ts' });
 
@@ -123,7 +133,11 @@ const setupParkedRun = async ({ report }: { report?: string } = {}) => {
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async () => {
+		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			throw new Error('the budget ceiling must be reached before any agent is spawned');
 		},
 	};
@@ -146,7 +160,11 @@ const setupDefaultPackagesRun = async () => {
 
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async () => {
+		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			throw new Error('the budget ceiling must be reached before any agent is spawned');
 		},
 	};
@@ -187,7 +205,11 @@ describe('runRefactorPipeline work-list', () => {
 
 		const driver: Driver = {
 			name: 'stub',
-			invoke: async () => {
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				throw new Error('the budget ceiling must be reached before any agent is spawned');
 			},
 		};
@@ -202,7 +224,7 @@ describe('runRefactorPipeline work-list', () => {
 		expect(advisories.length > 0).toBeTruthy();
 		// EVERY advisory rides along, not just the size ones — each carries its own
 		// guidance, and one the agent never sees is one it can never judge
-		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['dead-export', 'size-function']);
+		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['dead-export', 'explicit-return-type', 'size-function']);
 		// advisories are never batched as work
 		expect([...new Set(worklist.batches.flatMap((batch) => batch.blocking.map((finding) => finding.severity)))]).toStrictEqual(['blocking']);
 	});
@@ -218,7 +240,11 @@ describe('runRefactorPipeline work-list', () => {
 
 		const driver: Driver = {
 			name: 'stub',
-			invoke: async () => {
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				throw new Error('the budget ceiling must be reached before any agent is spawned');
 			},
 		};
@@ -325,7 +351,11 @@ describe('runRefactorPipeline work-list', () => {
 
 		const driver: Driver = {
 			name: 'stub',
-			invoke: async () => {
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				throw new Error('no agent may be spawned where the diff cannot be attributed');
 			},
 		};

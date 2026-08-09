@@ -13,10 +13,10 @@ interface Params {
  * The standards' mechanical rules (import type, no any) assume the consumer's
  * linter enforces them — lightsout ships no lint preset (hard rule), so the
  * doctor is where the gap surfaces. A consumer that opted out of standards
- * entirely (standards: false) has opted out of this too.
+ * entirely (standardsPackages: false) has opted out of this too.
  */
 export const checkLintRules = async ({ config, packageDirs }: Params): Promise<DoctorCheck | undefined> => {
-	if (config.standards === false) {
+	if (config.standardsPackages === false) {
 		return undefined;
 	}
 

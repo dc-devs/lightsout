@@ -1,8 +1,9 @@
-// The unit config: the co-located src/**/*.unit.test.ts files.
+// The unit config: the co-located *.unit.test.ts files, under src/ and under
+// the default standards package at plugin/standards/.
 //
 // rootDir is the repo root (not src/) because Jest resolves it relative to this
-// file, and because src/standards/defaultCodeStandards.ts imports .md docs via
-// relative ../../standards/ paths that must stay inside the project.
+// file, and because the default standards package sits outside src/ — under
+// plugin/standards/ — and its co-located tests must stay inside the project.
 //
 // The transform re-declares the ^.+\.tsx?$ key the ts-jest preset supplies —
 // that is how the tsconfig.jest.json override reaches the compiler, since Jest
@@ -17,7 +18,16 @@ module.exports = {
 	clearMocks: true,
 	restoreMocks: true,
 	testTimeout: 30_000,
-	testMatch: ['<rootDir>/src/**/*.unit.test.ts'],
+	// The default standards package's shared check helpers are ordinary units, so
+	// their co-located tests run in this suite too. This matches `standards/`, the
+	// source of truth — never its build copy under plugin/, which would collect
+	// and run every one of these tests a second time.
+	testMatch: ['<rootDir>/src/**/*.unit.test.ts', '<rootDir>/standards/**/*.unit.test.ts'],
+	// A rule's fixtures are deliberately shaped test files a check reads as TEXT —
+	// the failing side is meant to violate the very rule it proves. Running them
+	// would report a package's counter-examples as this repo's own test failures.
+	// Restating node_modules is required: naming this key replaces Jest's default.
+	testPathIgnorePatterns: ['/node_modules/', '/fixtures/'],
 	setupFilesAfterEnv: ['<rootDir>/tests/config/setupTestEnvironment.ts'],
 	// Measure EVERY source file, not just the ones a test happens to import.
 	// Jest's default only instruments files reached by a test, so a module with

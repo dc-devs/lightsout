@@ -1,4 +1,5 @@
-import { detectStandardsChannels, readStandards } from '@/standards';
+import { detectStandardsChannels } from '@/standards';
+import { buildStandardsDocuments, resolveStandardsPackages } from '@/standardsPackages';
 import type { LightsoutConfig } from '@/contracts';
 import { dim } from '@/cli/common/terminal/dim';
 import { messageOf } from '@/common/utils/messageOf';
@@ -10,16 +11,18 @@ interface Params {
 
 // Standards are SUPPLEMENTAL for planning (load-if-configured, non-fatal if
 // absent) — resolved once and threaded into draft, dedup, and grade, exactly
-// the mechanism the implement pipeline uses.
+// the mechanism the implement pipeline uses. Only the code set: planning writes
+// a plan, not tests.
 export const loadPlanningStandards = async ({ cwd, config }: Params): Promise<string | undefined> => {
 	const packagesDir = config?.packagesDir ?? 'packages';
-	const standardsPaths = config?.standards === false ? [] : (config?.standards ?? ['lightsout:code-defaults']);
 	let standards: string | undefined;
 
 	try {
 		const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir, packages: [] }));
+		const loaded = await resolveStandardsPackages({ cwd, config });
+		const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== undefined);
 
-		standards = await readStandards({ cwd, paths: standardsPaths, channels });
+		standards = texts.length === 0 ? undefined : texts.join('\n\n');
 	} catch (error) {
 		console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error })}`));
 		standards = undefined;

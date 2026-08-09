@@ -13,9 +13,23 @@ interface Params {
 	findings?: StandardsFinding[];
 	/** Judgment-carrying standards advisories (function/hook/component size) — fix unless a documented exemption applies. */
 	advisories?: StandardsFinding[];
+	/** Ask for an `advisoryOutcomes` entry per advisory shown. Only callers that PERSIST the answer switch this on — asking for a field nothing records is prompt noise. */
+	reportAdvisoryOutcomes?: boolean;
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
 	errorContext?: string;
 }
+
+/**
+ * Advice is the only standards finding whose fate nothing on disk records — a
+ * blocking site is re-checked, an advisory is simply gone or simply not. So the
+ * agent's own answer is the record, and this is where it is asked for.
+ */
+const advisoryOutcomesSection = [
+	'# Report what you did about each advisory',
+	'For every advisory listed above — machine-checked or agent-reviewed — add one entry to the `advisoryOutcomes` array of your report: the finding\'s `rule` and `siteKey` copied exactly as given, `outcome` of "applied" when you made the change or "declined" when you did not, and for a decline a short `reason`.',
+	'This is an account, never a gate: it is what tells a human which rules keep being declined and why. Reporting a decline honestly is always better than an entry that claims work you did not do.',
+	'```\n"advisoryOutcomes": [{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }]\n```',
+].join('\n\n');
 
 /** Render one standards finding as a markdown bullet with its formatted site(s). */
 const findingLine = (finding: StandardsFinding) => {
@@ -30,7 +44,15 @@ const findingLine = (finding: StandardsFinding) => {
  * harness caches through; the review list, standards findings, and any gate
  * output grow between passes and stay in the user prompt.
  */
-export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, findings, advisories, errorContext }: Params): { systemPrompt: string; prompt: string } => {
+export const buildRefactorExecutorInvocation = ({
+	planContent,
+	changedFiles,
+	standards,
+	findings,
+	advisories,
+	reportAdvisoryOutcomes,
+	errorContext,
+}: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [refactorExecutorPrompt, `# Plan (context for what these changes were for)\n\n${planContent}`];
 
 	if (standards) {
@@ -55,6 +77,10 @@ export const buildRefactorExecutorInvocation = ({ planContent, changedFiles, sta
 		}
 
 		sections.push(parts.join('\n\n'));
+	}
+
+	if (reportAdvisoryOutcomes && advisories && advisories.length > 0) {
+		sections.push(advisoryOutcomesSection);
 	}
 
 	if (errorContext) {

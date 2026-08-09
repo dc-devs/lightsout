@@ -1,6 +1,9 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
 import { RunStatus, WorkReportStatus, type WorkReport } from '@/contracts';
 import { appendFriction } from '@/runState';
+import { detectStandardsChannels } from '@/standards';
+import { runStandardsReview } from '@/standardsCheck';
+import { resolveStandardsPackages, type LoadedStandardsPackage } from '@/standardsPackages';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
 import { collectChanged } from '@/pipeline/common/utils/collectChanged';
@@ -11,6 +14,29 @@ import { describePersistingFindings } from '@/pipeline/steps/describePersistingF
 import { standardsWorkList } from '@/pipeline/steps/standardsWorkList';
 
 const maxRefactorPasses = 3;
+
+/**
+ * The agent's read of the judgment-only rules over this pass's changed files.
+ * A review that could not run narrates why and contributes nothing — the
+ * machine gate is the real gate, and it must not wait on an opinion.
+ */
+const reviewAdvisories = async ({ run, packages, channels }: { run: PipelineRun; packages: LoadedStandardsPackage[]; channels: string[] }) => {
+	const review = await runStandardsReview({
+		cwd: run.cwd,
+		driver: run.driver,
+		packages,
+		channels,
+		files: sourceFiles({ run }),
+		timeoutMs: run.agentTimeoutMs,
+		onProgress: (message) => run.progress(message),
+	});
+
+	for (const note of review.notes) {
+		run.progress(note);
+	}
+
+	return review.findings;
+};
 
 interface Params {
 	run: PipelineRun;
@@ -37,13 +63,24 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		// pass that changes files.
 		let lastDeclined: string | undefined;
 
+		// The standards the agent review reads are the run's, resolved once: the
+		// gate must not be able to change its mind about the rules between passes.
+		const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
+		const channels =
+			run.config.standardsChannels ??
+			(await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config.packagesDir ?? 'packages', packages: run.current().packages }));
+
 		for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
 			await run.setStep({ record });
 
 			const check = await standardsWorkList({ run });
+			// The judgment-only rules get read by an agent beside the machine
+			// checks, and its findings join the advisory stream — they are judgment
+			// handed to a judge, never work the gate can hold a run on.
+			const advisories = [...check.advisories, ...(await reviewAdvisories({ run, packages, channels }))];
 
-			if (check.workList.length > 0 || check.advisories.length > 0) {
-				run.progress(`standards gate: ${check.workList.length} blocking + ${check.advisories.length} advisory on changed files`);
+			if (check.workList.length > 0 || advisories.length > 0) {
+				run.progress(`standards gate: ${check.workList.length} blocking + ${advisories.length} advisory on changed files`);
 			}
 
 			run.progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
@@ -56,7 +93,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 					changedFiles: sourceFiles({ run }),
 					standards,
 					findings: check.workList,
-					advisories: check.advisories,
+					advisories,
 				}),
 				step: 'refactor',
 			});

@@ -6,6 +6,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -62,6 +63,10 @@ test('write-tests fan-out: every executable-code kind earns a writer; barrels an
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
@@ -138,6 +143,10 @@ test('write-tests fan-out: a deleted source file is skipped, never sent to a wri
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (role === 'write-tests') {
 				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
 				mkdirSync(join(dir, 'test'), { recursive: true });
@@ -203,6 +212,10 @@ test('write-tests fan-out: an unreadable file that still exists keeps its writer
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writerTargets.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');

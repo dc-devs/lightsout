@@ -1,6 +1,6 @@
-import type { LightsoutConfig } from '@/contracts';
+import { StandardsSet, type LightsoutConfig } from '@/contracts';
 import { detectStandardsChannels } from '@/standards/detectStandardsChannels';
-import { readStandards } from '@/standards/readStandards';
+import { buildStandardsDocuments, resolveStandardsPackages } from '@/standardsPackages';
 
 interface Params {
 	cwd: string;
@@ -16,34 +16,45 @@ interface ResolvedStandards {
 	channels: string[];
 	/** Channels came from config rather than dependency detection. */
 	configured: boolean;
-	/** Some standards were asked for — false when the consumer disabled both sets. */
+	/** Some standards were asked for — false when the consumer loaded no packages. */
 	requested: boolean;
 }
 
 /**
- * Resolve both standards sets for a run: which docs the config asks for, which
- * framework channels apply, and the loaded text of each.
+ * Resolve both standards sets for a run: which packages the config asks for,
+ * which framework channels apply, and the assembled text of each set.
  *
- * The config's three-way meaning is encoded once, here: unspecified = the
- * bundled defaults (announced, never silent), `false` = explicitly none, an
- * array = exactly what it says. Both pipelines resolve standards the same way,
- * and a rule this easy to state slightly differently in two places is a rule
- * that eventually drifts.
+ * Assembly happens here, from the rule folders themselves, so no pre-built copy
+ * exists anywhere to drift from the prose it was built from. Several packages
+ * stack in the order the config lists them, each contributing to whichever sets
+ * it carries. Both pipelines resolve standards the same way, and a rule this
+ * easy to state slightly differently in two places is a rule that drifts.
  *
- * Reading is left to throw — a consumer that declared standards and did not get
+ * Loading is left to throw — a consumer that declared standards and did not get
  * them must not run, and each pipeline reports that failure in its own terms.
+ *
+ * @param cwd - the consumer repo
+ * @param config - the consumer's config
+ * @param packages - the run's package scope, which channel detection reads
+ * @throws {Error} When a declared standards package cannot be loaded.
  */
 export const resolveStandards = async ({ cwd, config, packages }: Params): Promise<ResolvedStandards> => {
-	const standardsPaths = config.standards === false ? [] : (config.standards ?? ['lightsout:code-defaults']);
-	const testStandardsPaths = config.testStandards === false ? [] : (config.testStandards ?? ['lightsout:test-defaults']);
+	const loaded = await resolveStandardsPackages({ cwd, config });
 	const channels =
 		config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config.packagesDir ?? 'packages', packages }));
+	const assembled = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }));
+
+	const stack = ({ set }: { set: StandardsSet }) => {
+		const texts = assembled.map((documents) => documents[set]).filter((text) => text !== undefined);
+
+		return texts.length === 0 ? undefined : texts.join('\n\n');
+	};
 
 	return {
-		standards: await readStandards({ cwd, paths: standardsPaths, channels }),
-		testStandards: await readStandards({ cwd, paths: testStandardsPaths, channels }),
+		standards: stack({ set: StandardsSet.Code }),
+		testStandards: stack({ set: StandardsSet.Tests }),
 		channels,
 		configured: config.standardsChannels !== undefined,
-		requested: standardsPaths.length > 0 || testStandardsPaths.length > 0,
+		requested: loaded.length > 0,
 	};
 };

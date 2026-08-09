@@ -82,3 +82,28 @@ test('WorkReport: the narrative fields are required and each changed file names 
 	// failures are strings
 	expect(WorkReport.safeParse({ ...base, failures: ['a failure', 7] }).success).toBe(false);
 });
+
+test('WorkReport advisoryOutcomes: entries parse; a missing or partial account is data, not a failure', () => {
+	const parsed = WorkReport.parse({
+		...base,
+		advisoryOutcomes: [
+			{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'applied' },
+			{ rule: 'dead-export', siteKey: 'dead-export:src/b.ts', outcome: 'declined', reason: 'deleting an export is a public-API change' },
+		],
+	});
+
+	// the whole entry survives — runBatch keys these by siteKey and the health
+	// report prints the rule and the decline reason verbatim
+	expect(parsed.advisoryOutcomes).toStrictEqual([
+		{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'applied' },
+		{ rule: 'dead-export', siteKey: 'dead-export:src/b.ts', outcome: 'declined', reason: 'deleting an export is a public-API change' },
+	]);
+	// an agent that was shown no advice, or asked for none, omits the key
+	expect(WorkReport.parse(base).advisoryOutcomes).toBe(undefined);
+	// an agent shown advice that answered for none of it reports an empty list
+	expect(WorkReport.parse({ ...base, advisoryOutcomes: [] }).advisoryOutcomes).toStrictEqual([]);
+	// but an entry that means nothing is refused rather than counted as something
+	expect(WorkReport.safeParse({ ...base, advisoryOutcomes: [{ rule: 'size-function', siteKey: 'x', outcome: 'partly' }] }).success).toBe(false);
+	// and a lone entry outside the list is a malformed report, not a one-entry account
+	expect(WorkReport.safeParse({ ...base, advisoryOutcomes: { rule: 'size-function', siteKey: 'x', outcome: 'applied' } }).success).toBe(false);
+});

@@ -8,6 +8,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { readRunManifest } from '@/runState';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 
 test('nested consumer: agent-reported repo-root-relative paths normalize to consumer-relative — no duplicate identities', async () => {
@@ -29,6 +30,10 @@ test('nested consumer: agent-reported repo-root-relative paths normalize to cons
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writerCount += 1;

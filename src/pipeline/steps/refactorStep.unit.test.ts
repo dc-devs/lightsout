@@ -5,33 +5,61 @@ import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+
+/** The rule ids the standards reviewer was handed, in the order its invocation lists them. */
+const ruleIdsOffered = ({ systemPrompt }: { systemPrompt: string }) => [...systemPrompt.matchAll(/Rule id: `([^`]+)`/g)].map(([, id]) => id ?? '');
+
+/** The repo-relative files the standards reviewer was asked to read. */
+const filesOffered = ({ prompt }: { prompt: string }) =>
+	prompt
+		.split('\n')
+		.filter((line) => line.startsWith('- '))
+		.map((line) => line.slice(2));
 
 /**
  * A consumer repo whose implement step lands `source` at `src/subject.js` —
  * plus any `extraSources`, keyed by repo-relative path — and whose writers drop
  * one stub test, leaving the refactor role — answered by `onRefactor`, once per
- * pass — as the only thing left to decide the run. `onProgress` collects the
- * run's narration into `progress` for the tests that assert on what a watching
- * human is told.
+ * pass — as the only thing left to decide the run. `onReview` answers the
+ * standards reviewer that runs beside the machine checks, defaulting to the
+ * empty report every test that is not about the review wants. `onProgress`
+ * collects the run's narration into `progress` for the tests that assert on
+ * what a watching human is told.
  */
 const setupRefactorRun = async ({
 	source,
 	extraSources = {},
+	onReview = () => reviewReport(),
 	onRefactor,
 }: {
 	source: string;
 	extraSources?: Record<string, string>;
+	onReview?: (params: { ruleIds: string[] }) => string;
 	onRefactor: (params: { pass: number; cwd: string }) => string;
 }) => {
 	const dir = setupConsumerRepo();
 	const progress: string[] = [];
+	const refactorPrompts: string[] = [];
+	const reviewScopes: string[][] = [];
 	let passes = 0;
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async ({ prompt }) => {
+		invoke: async ({ prompt, systemPrompt }) => {
 			const role = roleOf(prompt);
+
+			// The reviewer's system prompt rides its own invocation AND the re-emit
+			// retry a rejected report earns, so answering on it keeps a reviewer that
+			// cannot report from being mistaken for another role on the second try.
+			if ((systemPrompt ?? '').includes('# Role: Standards Reviewer')) {
+				if (role === 'standards-review') {
+					reviewScopes.push(filesOffered({ prompt }));
+				}
+
+				return { text: onReview({ ruleIds: ruleIdsOffered({ systemPrompt: systemPrompt ?? '' }) }), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				mkdirSync(join(dir, 'test'), { recursive: true });
@@ -42,6 +70,7 @@ const setupRefactorRun = async ({
 
 			if (role === 'refactor') {
 				passes += 1;
+				refactorPrompts.push(prompt);
 
 				return { text: onRefactor({ pass: passes, cwd: dir }), exitCode: 0 };
 			}
@@ -71,6 +100,8 @@ const setupRefactorRun = async ({
 		config: await loadConfig({ cwd: dir }),
 		passesRun: () => passes,
 		progress,
+		refactorPrompts,
+		reviewScopes,
 		onProgress: (message: string) => progress.push(message),
 	};
 };
@@ -228,6 +259,70 @@ test('refactor: the gate narration counts the work-list and the advisories, and 
 	// anchored at both ends: the work-list count IS the blocking count, so the
 	// line carries no separate blocking tally
 	expect(progress.some((line) => /^standards gate: [1-9]\d* blocking \+ [1-9]\d* advisory on changed files$/.test(line))).toBe(true);
+});
+
+test("refactor: the agent review's findings join the advisory list the refactorer is handed", async () => {
+	const { dir, driver, config, refactorPrompts } = await setupRefactorRun({
+		// A clean file, so nothing the machine checks report can be mistaken for
+		// the reviewer's finding.
+		source: 'export const subject = () => 1;\n',
+		onReview: ({ ruleIds }) =>
+			reviewReport([
+				{ rule: ruleIds[0], files: [{ path: 'src/subject.js', startLine: 1 }], detail: 'REVIEW-DETAIL-SENTINEL', guidance: 'REVIEW-GUIDANCE-SENTINEL' },
+			]),
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// under the advisory heading, sited and carrying both halves of its text —
+	// judgment handed to a judge, never blocking work
+	expect(refactorPrompts[0] ?? '').toMatch(/Advisory —[\s\S]*- \[[^\]]+\] src\/subject\.js:1 — REVIEW-DETAIL-SENTINEL — REVIEW-GUIDANCE-SENTINEL/);
+});
+
+test('refactor: a review finding cannot hold the run — the reviewer objects every pass and the gate still lets it through', async () => {
+	const { dir, driver, config } = await setupRefactorRun({
+		// The machine checks find nothing here, so the reviewer's objection is the
+		// only finding in the run.
+		source: 'export const subject = () => 1;\n',
+		onReview: ({ ruleIds }) => reviewReport([{ rule: ruleIds[0], files: [{ path: 'src/subject.js' }], detail: 'this name reads oddly to me' }]),
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.ok).toBe(true);
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
+});
+
+test('refactor: a review that could not run is narrated and left behind — the machine checks still decide', async () => {
+	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
+		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		// A harness answering the reviewer with something that is not a report at
+		// all: the review is skipped, never turned into a failed run.
+		onReview: () => 'the harness fell over',
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress });
+
+	expect(progress.some((line) => line.startsWith('agent review skipped —'))).toBe(true);
+	// the work-list the machine checks reported is what ended the run
+	expect(result.manifest.status).toBe('escalated');
+});
+
+test("refactor: the review reads the run's changed source — not the tests the run wrote, nor files it never touched", async () => {
+	const { dir, driver, config, reviewScopes } = await setupRefactorRun({
+		source: 'export const subject = () => 1;\n',
+		extraSources: { 'src/widget.js': 'export const widget = () => 1;\n' },
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// the repo's committed src/index.js and the writers' test/subject.test.js are
+	// both absent — scope is this run's changed source and nothing else
+	expect(reviewScopes).toStrictEqual([['src/subject.js', 'src/widget.js']]);
 });
 
 test('refactor: a loop that spends every pass on a tree the checks find clean passes at the post-loop check', async () => {

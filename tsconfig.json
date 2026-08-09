@@ -8,11 +8,15 @@
 		"skipLibCheck": true,
 		"isolatedModules": true,
 		"forceConsistentCasingInFileNames": true,
+		"allowImportingTsExtensions": true,
 		"types": ["node"],
 		"paths": {
 			"@/*": ["./src/*"],
 			"@tests/*": ["./tests/*"]
 		}
 	},
-	"include": ["src/**/*.ts", "tests/**/*.ts", "tools/**/*.ts"]
+	// `standards/` is the source of truth. `plugin/standards/` is its committed
+	// build copy — type-checking both would report every error twice.
+	"include": ["src/**/*.ts", "tests/**/*.ts", "standards/**/*.ts"],
+	"exclude": ["standards/**/fixtures/**", "plugin/standards/**"]
 }

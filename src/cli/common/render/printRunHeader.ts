@@ -7,13 +7,13 @@ interface Params {
 	cwd: string;
 }
 
-const describeStandards = ({ value, token }: { value: string[] | false | undefined; token: string }) => {
+const describeStandardsPackages = ({ value }: { value: string[] | false | undefined }) => {
 	if (value === false) {
 		return 'none (explicit)';
 	}
 
 	if (value === undefined) {
-		return `lightsout js defaults (none configured — set to false to disable, or list files/${token})`;
+		return 'lightsout-defaults (none configured — set to false to disable, or list package roots)';
 	}
 
 	return value.join(', ');
@@ -23,8 +23,7 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 	const coverage = config.scripts.testCoverage === false ? 'off (explicit)' : config.scripts.testCoverage;
 
 	console.log(`  cwd: ${cwd}`);
-	console.log(`  standards: ${describeStandards({ value: config.standards, token: 'lightsout:code-defaults' })}`);
-	console.log(`  test standards: ${describeStandards({ value: config.testStandards, token: 'lightsout:test-defaults' })}`);
+	console.log(`  standards packages: ${describeStandardsPackages({ value: config.standardsPackages })}`);
 	console.log(
 		`  harness: ${driver.name} · model: ${config.model ?? 'harness default'} · effort: ${config.effort ?? 'harness default'} · permissions: ${config.permissions ?? Permissions.Write}`,
 	);

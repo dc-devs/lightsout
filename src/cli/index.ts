@@ -10,6 +10,8 @@ import { planCommand } from '@/cli/plan';
 import { resumeCommand } from '@/cli/resumeCommand';
 import { refactorCommand } from '@/cli/refactorCommand';
 import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
+import { standardsHealthCommand } from '@/cli/standardsHealthCommand';
+import { standardsValidateCommand } from '@/cli/standardsValidateCommand';
 import { statusCommand } from '@/cli/statusCommand';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
@@ -18,6 +20,8 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	status: statusCommand,
 	doctor: doctorCommand,
 	'standards-check': standardsCheckCommand,
+	'standards-validate': standardsValidateCommand,
+	'standards-health': standardsHealthCommand,
 	refactor: refactorCommand,
 	plan: planCommand,
 	friction: frictionCommand,

@@ -149,4 +149,49 @@ describe('BatchReport', () => {
 			expect(result.success).toBe(false);
 		}
 	});
+
+	test('the advisory account rides along when the agent gave one', () => {
+		const { report } = setupReport({
+			advisoryOutcomes: [{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' }],
+		});
+
+		const parsed = BatchReport.parse(report);
+
+		expect(parsed.advisoryOutcomes).toStrictEqual([{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' }]);
+	});
+
+	test('an absent advisory account parses — recording advice is an account, never a gate', () => {
+		const { report } = setupReport();
+
+		// this is also every manifest written before the field existed
+		expect(BatchReport.parse(report).advisoryOutcomes).toBe(undefined);
+	});
+
+	test('an empty advisory account parses as an empty list, distinct from the field being absent', () => {
+		const { report } = setupReport({ advisoryOutcomes: [] });
+
+		const parsed = BatchReport.parse(report);
+
+		// a batch that was shown no advice reports an empty list; the health report
+		// reads zero entries either way, but the list must survive the round trip
+		expect(parsed.advisoryOutcomes).toStrictEqual([]);
+	});
+
+	test('a lone advisory entry handed over outside a list is refused', () => {
+		const { report } = setupReport({ advisoryOutcomes: { rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'applied' } });
+
+		const result = BatchReport.safeParse(report);
+
+		// runBatch folds a map of entries into an array — a single object here is a
+		// malformed report, not a one-entry account
+		expect(result.success).toBe(false);
+	});
+
+	test('a malformed advisory entry refuses the whole report rather than being dropped', () => {
+		const { report } = setupReport({ advisoryOutcomes: [{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'maybe' }] });
+
+		// the health report counts these entries — one that means nothing would be
+		// counted as something
+		expect(BatchReport.safeParse(report).success).toBe(false);
+	});
 });

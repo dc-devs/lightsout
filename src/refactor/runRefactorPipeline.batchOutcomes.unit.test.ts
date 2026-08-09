@@ -2,10 +2,13 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, describe, test } from '@jest/globals';
+import { BatchReport } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
+import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
@@ -65,6 +68,10 @@ const setupRedGateBatch = async () => {
 
 	const prompts: string[] = [];
 	const gateBreakingExecutor: Driver['invoke'] = async ({ prompt }) => {
+		if (roleOf(prompt) === 'standards-review') {
+			return { text: reviewReport(), exitCode: 0 };
+		}
+
 		prompts.push(prompt);
 
 		splitFile({ dir, file: 'src/multi.ts', first: 'alphaThing', second: 'betaThing' });
@@ -84,6 +91,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 		const driver: Driver = {
 			name: 'stub',
 			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				invocations.push(prompt);
 
 				// The alpha batch's agent reaches into beta too — by the time the
@@ -124,6 +135,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 		const driver: Driver = {
 			name: 'stub',
 			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				prompts.push(prompt);
 				pass += 1;
 
@@ -157,6 +172,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 		const driver: Driver = {
 			name: 'stub',
 			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				prompts.push(prompt);
 				pass += 1;
 
@@ -232,6 +251,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 		const driver: Driver = {
 			name: 'stub',
 			invoke: async (invocation) => {
+				if (roleOf(invocation.prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				if (invocation.prompt.includes('# Verification failure')) {
 					prompts.push(invocation.prompt);
 					rmSync(join(dir, 'broken.flag'));
@@ -258,7 +281,11 @@ describe('runRefactorPipeline batch outcomes', () => {
 		const { dir, config } = await setupRedGateBatch();
 		const driver: Driver = {
 			name: 'stub',
-			invoke: async () => {
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				splitFile({ dir, file: 'src/multi.ts', first: 'alphaThing', second: 'betaThing' });
 				writeFileSync(join(dir, 'broken.flag'), 'red\n');
 
@@ -282,6 +309,10 @@ describe('runRefactorPipeline batch outcomes', () => {
 		const driver: Driver = {
 			name: 'stub',
 			invoke: async (invocation) => {
+				if (roleOf(invocation.prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
 				if (invocation.prompt.includes('# Verification failure')) {
 					prompts.push(invocation.prompt);
 
@@ -299,5 +330,49 @@ describe('runRefactorPipeline batch outcomes', () => {
 		expect(result.manifest.status).toBe('paused-rate-limit');
 		// the run stopped at the rate-limited fix — no second retry, no supervisor
 		expect(prompts.length).toBe(2);
+	});
+
+	test('the agent’s answer about each advisory is accumulated across the batch and persisted with it', async () => {
+		const { dir, config } = await setupTwoFindingBatch();
+
+		let pass = 0;
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async ({ prompt }) => {
+				if (roleOf(prompt) === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
+
+				pass += 1;
+
+				// The first pass resolves one cluster and answers for one advisory;
+				// the requeue revisits that same site and lands on a different answer.
+				splitFile({ dir, file: pass === 1 ? 'src/one.ts' : 'src/two.ts', first: `alpha${pass}`, second: `beta${pass}` });
+
+				return {
+					text: report({
+						changedFiles: [{ path: pass === 1 ? 'src/one.ts' : 'src/two.ts', summary: 'split' }],
+						advisoryOutcomes: [
+							{ rule: 'size-function', siteKey: 'size-function:src/one.ts', outcome: pass === 1 ? 'declined' : 'applied', ...(pass === 1 ? { reason: 'orchestration exemption' } : {}) },
+							...(pass === 2 ? [{ rule: 'dead-export', siteKey: 'dead-export:src/two.ts', outcome: 'declined', reason: 'deleting an export is a public-API change' }] : []),
+						],
+					}),
+					exitCode: 0,
+				};
+			},
+		};
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config });
+
+		expect(result.ok).toBe(true);
+
+		const persisted = BatchReport.parse(result.manifest.steps.find((step) => step.id.startsWith('batch-'))?.report);
+
+		// the requeue's answer about a site replaces the first pass's, and a site
+		// only the requeue spoke about is kept alongside it
+		expect(persisted.advisoryOutcomes).toStrictEqual([
+			{ rule: 'size-function', siteKey: 'size-function:src/one.ts', outcome: 'applied' },
+			{ rule: 'dead-export', siteKey: 'dead-export:src/two.ts', outcome: 'declined', reason: 'deleting an export is a public-API change' },
+		]);
 	});
 });

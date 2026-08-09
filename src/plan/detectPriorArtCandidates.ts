@@ -56,9 +56,9 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 	}
 
 	// 2. Existing export census — non-test, non-index, and not a planned (not-yet-created) path.
-	const files = await listSourceFiles({ cwd, exclude: config?.generated });
+	const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: config?.generated });
 	const census = files
-		.filter((file) => !isTestFile(file) && nameOf(file) !== 'index' && !plannedPaths.has(file))
+		.filter((file) => !isTestFile({ path: file, standardsPackages }) && nameOf(file) !== 'index' && !plannedPaths.has(file))
 		.map((file) => ({ name: nameOf(file), path: file }));
 
 	// 3. Bucket the census by name-key.

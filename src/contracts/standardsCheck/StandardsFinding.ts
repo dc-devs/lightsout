@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { StandardsRule } from '@/contracts/standardsCheck/StandardsRule';
 import { StandardsSeverity } from '@/contracts/standardsCheck/StandardsSeverity';
 
 /**
@@ -8,7 +7,13 @@ import { StandardsSeverity } from '@/contracts/standardsCheck/StandardsSeverity'
  * set of findings, never "go find problems".
  */
 export const StandardsFinding = z.object({
-	rule: z.enum(StandardsRule),
+	/**
+	 * The rule's id, as its folder in a standards package names it. A free
+	 * string rather than a closed list: rule identity belongs to the loaded
+	 * packages, and the only place the valid ids are known is where those
+	 * packages have been read.
+	 */
+	rule: z.string(),
 	/**
 	 * Only the two reporting severities. `off` is a CONFIGURATION state — a
 	 * rule a repo switched off emits nothing, so a persisted finding at

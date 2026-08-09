@@ -256,7 +256,10 @@ test('createClaudeCodeDriver: a harness that prints nothing falls back to stderr
 test('createClaudeCodeDriver: a hung harness is killed at the timeout, and the system prompt file still gets removed', async () => {
 	const { driver, cwd, readArgv } = await setupClaude({ delaySeconds: 5 });
 
-	await expect(driver.invoke({ prompt: 'TASK', systemPrompt: 'ROLE', cwd, timeoutMs: 400 })).rejects.toThrow(/claude timed out after 400ms/);
+	// The timeout has to outlast process spawn on a loaded machine: the fake
+	// harness records its argv before it hangs, and the assertions below read
+	// that recording. Too tight a budget kills the shell before it writes.
+	await expect(driver.invoke({ prompt: 'TASK', systemPrompt: 'ROLE', cwd, timeoutMs: 1500 })).rejects.toThrow(/claude timed out after 1500ms/);
 
 	const argv = await readArgv();
 	const promptPath = argv[argv.indexOf('--append-system-prompt-file') + 1];

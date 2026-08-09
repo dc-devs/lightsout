@@ -1,59 +1,64 @@
-import { StandardsRule, type RefactorBatch, type StandardsFinding } from '@/contracts';
+import type { RefactorBatch, StandardsFinding } from '@/contracts';
 
 /**
  * Mechanical-first rule order: rules an agent can fix in place come
  * before judgment-heavier duplication work, so a run's early batches are its
- * safest. Rules absent from this list sort last, alphabetically —
- * a new rule degrades to "after the known ones", never to an error. The
- * entries are the rule constants rather than their id strings, so a renamed
- * rule fails to compile here instead of silently sorting itself last.
+ * safest. Rules absent from this list sort last, alphabetically — a rule a
+ * standards package brings that this engine has never heard of degrades to
+ * "after the known ones", never to an error.
+ *
+ * The ids are written out rather than imported, because batching order is
+ * engine policy about how a refactor run is paced, not a fact about any rule —
+ * a package declares which rules exist, and putting this ordering into the
+ * package format would make every third-party package restate a preference it
+ * has no stake in.
  */
-const rulePriority: StandardsRule[] = [
+const rulePriority: string[] = [
 	// A path rule is a file move or a rename — the most mechanical fix there is,
 	// so these lead.
-	StandardsRule.PathBannedModuleName,
-	StandardsRule.PathCommonFlat,
-	StandardsRule.PathCommonBarrel,
-	StandardsRule.PathTestInTestsFolder,
-	StandardsRule.PathTestNotColocated,
-	StandardsRule.PathTestSupportInSrc,
-	StandardsRule.ModuleBoundary,
-	StandardsRule.Placement,
-	StandardsRule.MultiExport,
-	StandardsRule.FilenameMismatch,
-	StandardsRule.TestMockPrefix,
-	StandardsRule.TestMockReturnInHook,
-	StandardsRule.TestMockUntyped,
-	StandardsRule.TestMockWrapperUntyped,
-	StandardsRule.TestSharedLet,
-	StandardsRule.TestAssertInHook,
-	StandardsRule.TestNestedDescribe,
-	StandardsRule.TestManualMockCleanup,
-	StandardsRule.TestStrictEqualMatcher,
-	StandardsRule.BarrelStar,
-	StandardsRule.BarrelDeadEntry,
-	StandardsRule.DeadExport,
-	StandardsRule.TestOnlyExport,
-	StandardsRule.BarrelOnlyExport,
-	StandardsRule.SizeFile,
-	StandardsRule.SizeFunction,
-	StandardsRule.DomainGraduation,
-	StandardsRule.PathDomainFolderSingleFile,
-	StandardsRule.PathFolderCasing,
-	StandardsRule.PathTestUntestedSubjectNotPublic,
-	StandardsRule.TestMultipleSetups,
-	StandardsRule.TestMegaFactory,
-	StandardsRule.FolderCensus,
-	StandardsRule.AstDuplicate,
-	StandardsRule.Clone,
-	StandardsRule.NameDuplicate,
-	StandardsRule.NameSynonym,
+	'path-banned-module-name',
+	'path-common-flat',
+	'path-common-barrel',
+	'path-test-in-tests-folder',
+	'path-test-not-colocated',
+	'path-test-support-in-src',
+	'module-boundary',
+	'placement',
+	'multi-export',
+	'filename-mismatch',
+	'test-mock-prefix',
+	'test-mock-return-in-hook',
+	'test-mock-untyped',
+	'test-mock-wrapper-untyped',
+	'test-shared-let',
+	'test-assert-in-hook',
+	'test-nested-describe',
+	'test-manual-mock-cleanup',
+	'test-strict-equal-matcher',
+	'barrel-star',
+	'barrel-dead-entry',
+	'dead-export',
+	'test-only-export',
+	'barrel-only-export',
+	'size-file',
+	'size-function',
+	'domain-graduation',
+	'path-domain-folder-single-file',
+	'path-folder-casing',
+	'path-test-untested-subject-not-public',
+	'test-multiple-setups',
+	'test-mega-factory',
+	'folder-census',
+	'ast-duplicate',
+	'clone',
+	'name-duplicate',
+	'name-synonym',
 ];
 
 /** A batch above this many findings splits into sorted chunks — one agent job stays readable. */
 const maxBatchFindings = 12;
 
-const priorityOf = (rule: StandardsRule) => {
+const priorityOf = (rule: string) => {
 	const index = rulePriority.indexOf(rule);
 
 	return index === -1 ? rulePriority.length : index;
@@ -98,7 +103,7 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 		return areas.size > 1 ? '(cross)' : [...areas][0] ?? '(root)';
 	};
 
-	const groups = new Map<string, { rule: StandardsRule; folder: string; findings: StandardsFinding[] }>();
+	const groups = new Map<string, { rule: string; folder: string; findings: StandardsFinding[] }>();
 
 	for (const finding of blocking) {
 		const folder = folderOf(finding);

@@ -7,6 +7,7 @@ import { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { outcomeFields } from '@tests/helpers/outcomeFields';
@@ -129,6 +130,10 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (role === 'write-tests') {
 				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
 
@@ -185,6 +190,10 @@ test('a driver reporting no usage leaves no ledger and no manifest aggregate', a
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { FrictionEntry } from '@/contracts/friction';
+import { AdvisoryOutcome } from '@/contracts/standardsCheck/AdvisoryOutcome';
 import { WorkReportStatus } from '@/contracts/work/WorkReportStatus';
 
 /**
@@ -23,6 +24,8 @@ export const WorkReport = z.object({
 	failures: z.array(z.string()).default([]),
 	/** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
 	friction: z.array(FrictionEntry).optional(),
+	/** One entry per advisory finding the agent was shown: applied, or declined with the reason. Asked for only where the engine records it (refactor batches); omitted everywhere else. */
+	advisoryOutcomes: z.array(AdvisoryOutcome).optional(),
 	/** Prior-art evidence: for each NEW exported symbol the plan didn't explicitly name, the searches run against existing exports before creating it. "Searched, found nothing" becomes typed manifest evidence, not free text. Executor role only; other roles omit. */
 	priorArt: z
 		.array(

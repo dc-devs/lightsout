@@ -5,6 +5,13 @@
  * classifies as 'fix'.
  */
 export const roleOf = (prompt: string) => {
+	// Checked first: the standards reviewer runs alongside the refactor gate and
+	// the refactor batches, so a stub that mistook it for the role it runs beside
+	// would answer the wrong agent.
+	if (prompt.includes('# Files in scope for the standards review')) {
+		return 'standards-review';
+	}
+
 	if (prompt.includes('# Failing step')) {
 		return 'supervisor';
 	}

@@ -1,6 +1,7 @@
 export { buildFeatureExecutorInvocation } from '@/agents/buildFeatureExecutorInvocation';
 export { buildUnitTestWriterInvocation } from '@/agents/buildUnitTestWriterInvocation';
 export { buildRefactorExecutorInvocation } from '@/agents/buildRefactorExecutorInvocation';
+export { buildStandardsReviewInvocation } from '@/agents/buildStandardsReviewInvocation';
 export { buildSupervisorInvocation } from '@/agents/buildSupervisorInvocation';
 export { buildReportReemitterInvocation } from '@/agents/buildReportReemitterInvocation';
 export { buildPromptImproverInvocation } from '@/agents/buildPromptImproverInvocation';

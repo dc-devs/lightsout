@@ -9,6 +9,7 @@ import { createRun } from '@/runState';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -29,6 +30,10 @@ const setupFormatRun = async ({ format, testUnit = 'true' }: { format: string; t
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (roleOf(prompt) === 'write-tests') {
 				mkdirSync(join(dir, 'test'), { recursive: true });
 				writeFileSync(join(dir, 'test/feature.test.js'), '// stub test\n');

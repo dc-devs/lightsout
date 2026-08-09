@@ -5,6 +5,7 @@ import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -20,6 +21,10 @@ test('pipeline tees each invocation stream to agents/stream-*.jsonl without narr
 		name: 'stub',
 		invoke: async ({ prompt, onEvent }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			onEvent?.(toolUseEvent('Edit', { file_path: `src/${role}.js` }));
 			onEvent?.({ type: 'result', result: 'x', is_error: false });

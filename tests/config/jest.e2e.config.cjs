@@ -1,4 +1,4 @@
-// The subprocess config: tests/cli.test.ts and tests/generateStandardsBarrels.ts.
+// The subprocess config: tests/cli.test.ts and tests/standardsPackageLoading.test.ts.
 // Identical to the unit config except for testMatch and the globalSetup that
 // builds the CLI bundle — the one cost that must not be charged to the unit
 // suite. testMatch cannot collide with the unit config: nothing under

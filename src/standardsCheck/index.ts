@@ -1,6 +1,11 @@
 export { runStandardsCheck } from '@/standardsCheck/runStandardsCheck';
+export { runStandardsReview } from '@/standardsCheck/runStandardsReview';
 export { selectStandardsFindings } from '@/standardsCheck/selectStandardsFindings';
-export { readBarrelExports } from '@/standardsCheck/readBarrelExports';
 export { listStandardsRules } from '@/standardsCheck/listStandardsRules';
-export { resolveRuleStates } from '@/standardsCheck/resolveRuleStates';
+export { buildStandardsHealth } from '@/standardsCheck/buildStandardsHealth';
+export { runPackageChecks } from '@/standardsCheck/runPackageChecks';
+export { resolvePackageRuleStates } from '@/standardsCheck/resolvePackageRuleStates';
+export { validateStandardsPackage } from '@/standardsCheck/validateStandardsPackage';
 export type { StandardsRuleListing } from '@/standardsCheck/common/types/StandardsRuleListing';
+export type { StandardsHealth } from '@/standardsCheck/common/types/StandardsHealth';
+export type { StandardsHealthRule } from '@/standardsCheck/common/types/StandardsHealthRule';
