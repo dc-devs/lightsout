@@ -99,10 +99,10 @@ export const runPackageChecks = async ({
 	onProgress,
 }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
 	const progress = onProgress ?? (() => undefined);
-	const repoFiles = await listSourceFiles({ cwd, exclude });
+	const { files: repoFiles, standardsPackages } = await listSourceFiles({ cwd, exclude });
 	const allFiles = repoFiles.filter((file) => !path || file.startsWith(path));
-	const source = allFiles.filter((file) => !isTestFile(file));
-	const tests = allFiles.filter((file) => isTestFile(file));
+	const source = allFiles.filter((file) => !isTestFile({ path: file, standardsPackages }));
+	const tests = allFiles.filter((file) => isTestFile({ path: file, standardsPackages }));
 	const notes: string[] = [];
 
 	progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);

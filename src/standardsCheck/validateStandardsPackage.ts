@@ -81,12 +81,12 @@ const checkFixture = async ({
 	compiler?: typeof ts;
 }) => {
 	const cwd = join(rule.fixturesPath, side);
-	const files = await listSourceFiles({ cwd });
+	const { files } = await listSourceFiles({ cwd });
 	const input = await buildCheckInput({
 		kind: inputKind,
 		cwd,
-		source: files.filter((file) => !isTestFile(file)),
-		tests: files.filter((file) => isTestFile(file)),
+		source: files.filter((file) => !isTestFile({ path: file })),
+		tests: files.filter((file) => isTestFile({ path: file })),
 		files,
 		referenceFiles: files,
 		packagesDir: 'packages',

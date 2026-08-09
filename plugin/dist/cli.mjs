@@ -25381,13 +25381,20 @@ ${text}`, "utf8");
 };
 
 // src/common/utils/isTestFile.ts
-var isTestFile = (path) => /(^|\/)(tests?|__tests__|__mocks__|e2e)\//.test(path) || /\.(test|spec)\./.test(path);
+var testDirectory = /(^|\/)(tests?|__tests__|__mocks__|e2e)\//;
+var testDirectoryInStandardsPackage = /(^|\/)(__tests__|__mocks__|e2e)\//;
+var testFileName = /\.(test|spec)\./;
+var isTestFile = ({ path, standardsPackages = [] }) => {
+  const inStandardsPackage = standardsPackages.some((root) => path.startsWith(`${root}/`));
+  const directory = inStandardsPackage ? testDirectoryInStandardsPackage : testDirectory;
+  return directory.test(path) || testFileName.test(path);
+};
 
 // src/common/utils/isTestableSourceFile.ts
 var isTestableSourceFile = (path) => /\.(m|c)?[jt]sx?$/i.test(path);
 
 // src/pipeline/common/utils/sourceFiles.ts
-var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile(file2) && isTestableSourceFile(file2));
+var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile({ path: file2 }) && isTestableSourceFile(file2));
 
 // src/common/utils/packageOf.ts
 var packageOf = ({ file: file2, packagesDir }) => {
@@ -26158,9 +26165,14 @@ var standardsPackageRootFile = "lightsout-standards.json";
 var fixturesDir = "fixtures";
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
   const files = [];
+  const standardsPackages = [];
   const walk2 = async (dir, insideStandardsPackage) => {
     const entries = await readdir9(dir, { withFileTypes: true }).catch(() => []);
-    const insidePackage = insideStandardsPackage || entries.some((entry) => entry.name === standardsPackageRootFile);
+    const isPackageRoot = !insideStandardsPackage && entries.some((entry) => entry.name === standardsPackageRootFile);
+    const insidePackage = insideStandardsPackage || isPackageRoot;
+    if (isPackageRoot) {
+      standardsPackages.push(relative(cwd, dir));
+    }
     for (const entry of entries) {
       if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
         continue;
@@ -26184,7 +26196,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
     }
   };
   await walk2(cwd, false);
-  return files.sort();
+  return { files: files.sort(), standardsPackages: standardsPackages.sort() };
 };
 
 // src/common/utils/resolveConsumerTypescript.ts
@@ -38175,10 +38187,10 @@ var runPackageChecks = async ({
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const repoFiles = await listSourceFiles({ cwd, exclude });
+  const { files: repoFiles, standardsPackages } = await listSourceFiles({ cwd, exclude });
   const allFiles = repoFiles.filter((file2) => !path || file2.startsWith(path));
-  const source = allFiles.filter((file2) => !isTestFile(file2));
-  const tests = allFiles.filter((file2) => isTestFile(file2));
+  const source = allFiles.filter((file2) => !isTestFile({ path: file2, standardsPackages }));
+  const tests = allFiles.filter((file2) => isTestFile({ path: file2, standardsPackages }));
   const notes = [];
   progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
   const compiler = resolveConsumerTypescript({ cwd, packagesDir });
@@ -38492,12 +38504,12 @@ var checkFixture = async ({
   compiler
 }) => {
   const cwd = join34(rule.fixturesPath, side);
-  const files = await listSourceFiles({ cwd });
+  const { files } = await listSourceFiles({ cwd });
   const input = await buildCheckInput({
     kind: inputKind,
     cwd,
-    source: files.filter((file2) => !isTestFile(file2)),
-    tests: files.filter((file2) => isTestFile(file2)),
+    source: files.filter((file2) => !isTestFile({ path: file2 })),
+    tests: files.filter((file2) => isTestFile({ path: file2 })),
     files,
     referenceFiles: files,
     packagesDir: "packages",
@@ -40243,7 +40255,7 @@ var scanPlaceholders = ({ lines }) => {
   }
   return matches;
 };
-var isSourceFile = (path) => !isTestFile(path) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
+var isSourceFile = (path) => !isTestFile({ path }) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const findings = [];
   const packagesDir = config2?.packagesDir ?? "packages";
@@ -40472,8 +40484,8 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   if (planned.length === 0) {
     return [];
   }
-  const files = await listSourceFiles({ cwd, exclude: config2?.generated });
-  const census = files.filter((file2) => !isTestFile(file2) && nameOf(file2) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: nameOf(file2), path: file2 }));
+  const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: config2?.generated });
+  const census = files.filter((file2) => !isTestFile({ path: file2, standardsPackages }) && nameOf(file2) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: nameOf(file2), path: file2 }));
   const buckets = /* @__PURE__ */ new Map();
   for (const entry of census) {
     const key = nameKey({ name: entry.name });
@@ -41808,7 +41820,8 @@ var defaultAgentTimeoutMinutes3 = 60;
 var reviewFindings = async ({ cwd, config: config2, path }) => {
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2?.packagesDir ?? "packages", packages: [] });
-  const files = (await listSourceFiles({ cwd, exclude: config2?.generated })).filter((file2) => !path || file2.startsWith(path));
+  const { files: walked } = await listSourceFiles({ cwd, exclude: config2?.generated });
+  const files = walked.filter((file2) => !path || file2.startsWith(path));
   return runStandardsReview({
     cwd,
     driver: getDriver({ name: config2?.harness ?? "claude-code" }),

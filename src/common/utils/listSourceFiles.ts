@@ -30,13 +30,24 @@ interface Params {
  * every rule. The pruning is by directory, so a walk that starts inside a
  * fixture side still lists it — which is how `standards-validate` runs a
  * check against one.
+ *
+ * The package roots the walk passed are reported alongside the files, because
+ * finding them is what the walk already did and no caller can cheaply repeat
+ * it: `isTestFile` needs them to know that a `tests/` folder inside a package
+ * names a document set rather than a directory of tests.
  */
-export const listSourceFiles = async ({ cwd, exclude = [] }: Params) => {
+export const listSourceFiles = async ({ cwd, exclude = [] }: Params): Promise<{ files: string[]; standardsPackages: string[] }> => {
 	const files: string[] = [];
+	const standardsPackages: string[] = [];
 
 	const walk = async (dir: string, insideStandardsPackage: boolean) => {
 		const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-		const insidePackage = insideStandardsPackage || entries.some((entry) => entry.name === standardsPackageRootFile);
+		const isPackageRoot = !insideStandardsPackage && entries.some((entry) => entry.name === standardsPackageRootFile);
+		const insidePackage = insideStandardsPackage || isPackageRoot;
+
+		if (isPackageRoot) {
+			standardsPackages.push(relative(cwd, dir));
+		}
 
 		for (const entry of entries) {
 			if (entry.name.startsWith('.') || skippedDirs.has(entry.name)) {
@@ -70,5 +81,5 @@ export const listSourceFiles = async ({ cwd, exclude = [] }: Params) => {
 
 	await walk(cwd, false);
 
-	return files.sort();
+	return { files: files.sort(), standardsPackages: standardsPackages.sort() };
 };

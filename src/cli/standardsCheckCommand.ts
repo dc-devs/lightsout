@@ -28,7 +28,8 @@ const reviewFindings = async ({ cwd, config, path }: { cwd: string; config?: Lig
 	// No package scope on a standalone command, so the root package.json decides
 	// the channels — the same call the machine half makes.
 	const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config?.packagesDir ?? 'packages', packages: [] }));
-	const files = (await listSourceFiles({ cwd, exclude: config?.generated })).filter((file) => !path || file.startsWith(path));
+	const { files: walked } = await listSourceFiles({ cwd, exclude: config?.generated });
+	const files = walked.filter((file) => !path || file.startsWith(path));
 
 	return runStandardsReview({
 		cwd,
