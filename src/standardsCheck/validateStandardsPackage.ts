@@ -1,3 +1,4 @@
+import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type ts from 'typescript';
@@ -43,6 +44,25 @@ const getEngineTypescript = () => {
 	}
 
 	return compiler;
+};
+
+/**
+ * The fixture sides a rule fails to ship. Loading accepts a package without
+ * them — a shipped package carries no evidence, the way a bundle carries no
+ * tests — so this is where the pair is demanded, of the person authoring it.
+ */
+const missingFixtureSides = async ({ fixturesPath }: { fixturesPath: string }) => {
+	const missing: FixtureSide[] = [];
+
+	for (const side of fixtureSides) {
+		const entries = await readdir(join(fixturesPath, side)).catch(() => undefined);
+
+		if (entries === undefined || entries.length === 0) {
+			missing.push(side);
+		}
+	}
+
+	return missing;
 };
 
 /** One rule's check, run against one side of its fixture pair as if that folder were a whole repo. */
@@ -103,6 +123,14 @@ export const validateStandardsPackage = async ({ pkg }: Params): Promise<{ probl
 
 	for (const rule of pkg.rules) {
 		const { run, inputKind } = rule;
+		const missing = await missingFixtureSides({ fixturesPath: rule.fixturesPath });
+
+		if (missing.length > 0) {
+			// Asked of every rule, judgment-only included: their pair is what the
+			// review agent's accuracy is measured against.
+			problems.push(...missing.map((side) => `${rule.id}: fixtures/${side}/ is missing or empty — every rule ships a fixture pair`));
+			continue;
+		}
 
 		if (run === undefined || inputKind === undefined) {
 			notes.push(`${rule.id}: judgment-only — fixtures reserved for agent accuracy`);

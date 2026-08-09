@@ -153,7 +153,7 @@ describe('listStandardsRules', () => {
 		const missing = rules.filter((rule) => {
 			const { name, path } = docPartsOf({ doc: rule.doc });
 
-			return name !== 'lightsout-defaults' || !existsSync(join(cwd, 'plugin/standards', path, 'document.md'));
+			return name !== 'lightsout-defaults' || !existsSync(join(cwd, 'standards', path, 'document.md'));
 		});
 
 		expect(missing.map((rule) => `${rule.rule} → ${rule.doc}`)).toStrictEqual([]);

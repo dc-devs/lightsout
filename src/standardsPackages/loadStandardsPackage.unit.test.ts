@@ -117,9 +117,10 @@ describe('loadStandardsPackage', () => {
 		expect(error.message).toContain('code/style/patterns/01-checked-without-check: declares checked: true but ships no check.ts');
 		expect(error.message).toContain('code/style/patterns/02-stray-check: ships a check.ts but does not declare checked: true');
 		expect(error.message).toContain('code/style/patterns/03-no-summary/rule.md: summary');
-		expect(error.message).toContain('code/style/patterns/04-empty-fixtures: fixtures/pass/ is missing or empty');
-		expect(error.message).toContain('code/style/patterns/04-empty-fixtures: fixtures/fail/ is missing or empty');
 		expect(error.message).toContain('duplicate rule id "shared-id"');
+		// 04-empty-fixtures ships none, and loading does not care: whether a check
+		// proves itself against a fixture pair is what `standards-validate` asks.
+		expect(error.message).not.toContain('fixture');
 	});
 
 	test('refuses a package whose walk finds no document at all', async () => {

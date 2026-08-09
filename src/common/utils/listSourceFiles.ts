@@ -3,6 +3,10 @@ import { join, relative } from 'node:path';
 
 const skippedDirs = new Set(['node_modules', 'dist', 'build', 'coverage', 'out']);
 const sourceExtension = /\.(m|c)?[jt]sx?$/;
+/** The file whose presence declares a folder a standards package root. */
+const standardsPackageRootFile = 'lightsout-standards.json';
+/** Inside such a package, the folder holding a rule's pass/fail samples. */
+const fixturesDir = 'fixtures';
 
 interface Params {
 	cwd: string;
@@ -16,12 +20,23 @@ interface Params {
  * paths. Test files ARE included — callers that must ignore them
  * (duplication tiers, per the contract-pinning doctrine) filter with
  * `isTestFile`.
+ *
+ * A standards package's fixtures are skipped too. Inside a package — a tree
+ * rooted at `lightsout-standards.json` — a `fixtures/` folder holds the
+ * deliberately-shaped samples a check is run against, and the failing side is
+ * written to violate the very rule it proves. Listing them as source makes a
+ * package's own counter-examples read as the repo's faults, and there is no
+ * prefix a consumer could exclude them with: they sit one folder deep inside
+ * every rule. The pruning is by directory, so a walk that starts inside a
+ * fixture side still lists it — which is how `standards-validate` runs a
+ * check against one.
  */
 export const listSourceFiles = async ({ cwd, exclude = [] }: Params) => {
 	const files: string[] = [];
 
-	const walk = async (dir: string) => {
+	const walk = async (dir: string, insideStandardsPackage: boolean) => {
 		const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+		const insidePackage = insideStandardsPackage || entries.some((entry) => entry.name === standardsPackageRootFile);
 
 		for (const entry of entries) {
 			if (entry.name.startsWith('.') || skippedDirs.has(entry.name)) {
@@ -31,7 +46,11 @@ export const listSourceFiles = async ({ cwd, exclude = [] }: Params) => {
 			const path = join(dir, entry.name);
 
 			if (entry.isDirectory()) {
-				await walk(path);
+				if (insidePackage && entry.name === fixturesDir) {
+					continue;
+				}
+
+				await walk(path, insidePackage);
 				continue;
 			}
 
@@ -49,7 +68,7 @@ export const listSourceFiles = async ({ cwd, exclude = [] }: Params) => {
 		}
 	};
 
-	await walk(cwd);
+	await walk(cwd, false);
 
 	return files.sort();
 };

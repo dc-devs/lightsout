@@ -25699,11 +25699,11 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
 };
 
 // src/standardsPackages/loadStandardsPackage.ts
-import { readdir as readdir9, readFile as readFile13 } from "node:fs/promises";
+import { readdir as readdir8, readFile as readFile13 } from "node:fs/promises";
 import { join as join24 } from "node:path";
 
 // src/standardsPackages/common/parsing/parseDocumentFolder.ts
-import { readdir as readdir8, readFile as readFile12 } from "node:fs/promises";
+import { readdir as readdir7, readFile as readFile12 } from "node:fs/promises";
 import { join as join23 } from "node:path";
 
 // src/standardsPackages/common/parsing/parseFrontMatter.ts
@@ -25752,7 +25752,7 @@ var parseDeclaration = ({ text, schema, filePath, problems }) => {
 };
 
 // src/standardsPackages/common/parsing/parseRuleFolder.ts
-import { readdir as readdir7, readFile as readFile11 } from "node:fs/promises";
+import { readFile as readFile11 } from "node:fs/promises";
 import { basename as basename2, join as join22 } from "node:path";
 
 // src/standardsPackages/common/utils/hasFile.ts
@@ -25780,7 +25780,6 @@ var ruleDeclaration = external_exports.object({
   severity: external_exports.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]).default(StandardsSeverity.Advisory),
   settings: external_exports.record(external_exports.string(), external_exports.number()).default({})
 });
-var listEntries = async ({ path }) => readdir7(path).catch(() => void 0);
 var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   const filePath = `${rulePath}/rule.md`;
   const text = await readFile11(join22(folderPath, "rule.md"), "utf8").catch((error51) => {
@@ -25789,14 +25788,6 @@ var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   });
   const parsed = text === void 0 ? void 0 : parseDeclaration({ text, schema: ruleDeclaration, filePath, problems: found });
   return { declaration: parsed?.declaration, prose: parsed?.body ?? "" };
-};
-var validateFixtures = async ({ fixturesPath, rulePath, found }) => {
-  for (const side of ["pass", "fail"]) {
-    const entries = await listEntries({ path: join22(fixturesPath, side) });
-    if (entries === void 0 || entries.length === 0) {
-      found.push(`${rulePath}: fixtures/${side}/ is missing or empty \u2014 every rule ships a fixture pair`);
-    }
-  }
 };
 var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) => {
   const folderName = basename2(folderPath);
@@ -25816,7 +25807,6 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
     found.push(`${rulePath}: ships a check.ts but does not declare checked: true`);
   }
   const fixturesPath = join22(folderPath, "fixtures");
-  await validateFixtures({ fixturesPath, rulePath, found });
   let check2;
   if (declaration?.checked === true && hasCheck) {
     try {
@@ -25851,7 +25841,7 @@ var documentDeclaration = external_exports.object({
   channel: external_exports.string().min(1).default("base")
 });
 var listRuleFolders = async ({ folderPath }) => {
-  const entries = await readdir8(folderPath, { withFileTypes: true }).catch(() => []);
+  const entries = await readdir7(folderPath, { withFileTypes: true }).catch(() => []);
   const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   const folders = [];
   for (const name of directories) {
@@ -25898,7 +25888,7 @@ var parseDocumentFolder = async ({
 
 // src/standardsPackages/loadStandardsPackage.ts
 var walk = async ({ folderPath, documentPath, set: set2, problems, documents, rules }) => {
-  const entries = await readdir9(folderPath, { withFileTypes: true }).catch(() => void 0);
+  const entries = await readdir8(folderPath, { withFileTypes: true }).catch(() => void 0);
   if (entries === void 0) {
     return;
   }
@@ -26160,21 +26150,27 @@ var resolvePackageRuleStates = ({ packages, config: config2 }) => {
 };
 
 // src/common/utils/listSourceFiles.ts
-import { readdir as readdir10 } from "node:fs/promises";
+import { readdir as readdir9 } from "node:fs/promises";
 import { join as join27, relative } from "node:path";
 var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
+var standardsPackageRootFile = "lightsout-standards.json";
+var fixturesDir = "fixtures";
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
   const files = [];
-  const walk2 = async (dir) => {
-    const entries = await readdir10(dir, { withFileTypes: true }).catch(() => []);
+  const walk2 = async (dir, insideStandardsPackage) => {
+    const entries = await readdir9(dir, { withFileTypes: true }).catch(() => []);
+    const insidePackage = insideStandardsPackage || entries.some((entry) => entry.name === standardsPackageRootFile);
     for (const entry of entries) {
       if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
         continue;
       }
       const path = join27(dir, entry.name);
       if (entry.isDirectory()) {
-        await walk2(path);
+        if (insidePackage && entry.name === fixturesDir) {
+          continue;
+        }
+        await walk2(path, insidePackage);
         continue;
       }
       const rel = relative(cwd, path);
@@ -26187,7 +26183,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       files.push(rel);
     }
   };
-  await walk2(cwd);
+  await walk2(cwd, false);
   return files.sort();
 };
 
@@ -37981,7 +37977,7 @@ var buildCloneSpansInput = async ({ cwd, source, settings, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildFileListInput.ts
-import { readdir as readdir11, readFile as readFile16 } from "node:fs/promises";
+import { readdir as readdir10, readFile as readFile16 } from "node:fs/promises";
 import { join as join30 } from "node:path";
 var Manifest2 = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
@@ -38008,7 +38004,7 @@ var getDependencyNames = async ({ manifestPath }) => {
 var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, packagesDir }) => {
   const dependencies = /* @__PURE__ */ new Map();
   dependencies.set(".", await getDependencyNames({ manifestPath: join30(cwd, "package.json") }) ?? []);
-  const children = await readdir11(join30(cwd, packagesDir)).catch(() => []);
+  const children = await readdir10(join30(cwd, packagesDir)).catch(() => []);
   for (const name of children.sort()) {
     const names = await getDependencyNames({ manifestPath: join30(cwd, packagesDir, name, "package.json") });
     if (names !== void 0) {
@@ -38465,6 +38461,7 @@ var buildStandardsHealth = async ({ cwd, packages }) => {
 };
 
 // src/standardsCheck/validateStandardsPackage.ts
+import { readdir as readdir11 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 import { join as join34 } from "node:path";
 var fixtureSides = ["fail", "pass"];
@@ -38476,6 +38473,16 @@ var getEngineTypescript = () => {
     compiler = void 0;
   }
   return compiler;
+};
+var missingFixtureSides = async ({ fixturesPath }) => {
+  const missing = [];
+  for (const side of fixtureSides) {
+    const entries = await readdir11(join34(fixturesPath, side)).catch(() => void 0);
+    if (entries === void 0 || entries.length === 0) {
+      missing.push(side);
+    }
+  }
+  return missing;
 };
 var checkFixture = async ({
   rule,
@@ -38507,6 +38514,11 @@ var validateStandardsPackage = async ({ pkg }) => {
   const notes = [];
   for (const rule of pkg.rules) {
     const { run, inputKind } = rule;
+    const missing = await missingFixtureSides({ fixturesPath: rule.fixturesPath });
+    if (missing.length > 0) {
+      problems.push(...missing.map((side) => `${rule.id}: fixtures/${side}/ is missing or empty \u2014 every rule ships a fixture pair`));
+      continue;
+    }
     if (run === void 0 || inputKind === void 0) {
       notes.push(`${rule.id}: judgment-only \u2014 fixtures reserved for agent accuracy`);
       continue;

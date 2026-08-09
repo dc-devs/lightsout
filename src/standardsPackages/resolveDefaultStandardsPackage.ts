@@ -13,7 +13,10 @@ interface Params {
  *
  * Walks up from the running program, accepting the installed layout
  * (`<plugin>/dist/` beside `<plugin>/standards/`) or this repo's dev layout
- * (`plugin/standards/`). Synchronous because it runs once per process.
+ * (`plugin/standards/`, the committed copy `pnpm bundle` writes from the
+ * authored `standards/` at the repo root). A repo whose copy has not been
+ * built yet falls through to that root folder, since the walk also accepts a
+ * bare `standards/`. Synchronous because it runs once per process.
  *
  * The start directory comes from `process.argv[1]` — the engine is always
  * invoked as `node <plugin>/dist/cli.mjs`, so that is the bundle's own path.

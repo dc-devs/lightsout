@@ -74,6 +74,46 @@ test('listSourceFiles: the exclude list drops matching paths, with or without a 
 	expect(files).toStrictEqual(['src/keep.ts']);
 });
 
+test('listSourceFiles: a standards package fixture is rule data, not source, and is never listed', async () => {
+	const { cwd } = setupRepo([
+		'src/keep.ts',
+		'standards/lightsout-standards.json',
+		'standards/common/utils/readTestFiles.ts',
+		'standards/code/architecture/10-dead-export/check.ts',
+		'standards/code/architecture/10-dead-export/fixtures/pass/src/used.ts',
+		'standards/code/architecture/10-dead-export/fixtures/fail/src/orphan.ts',
+	]);
+
+	const files = await listSourceFiles({ cwd });
+
+	// the check and its helper are code the engine runs; the fixtures are the
+	// deliberately-shaped samples it runs them against, and grading those as
+	// source reports a rule's own counter-examples as the repo's faults
+	expect(files).toStrictEqual(['src/keep.ts', 'standards/code/architecture/10-dead-export/check.ts', 'standards/common/utils/readTestFiles.ts']);
+});
+
+test('listSourceFiles: a fixtures folder outside any standards package is ordinary source', async () => {
+	const { cwd } = setupRepo(['src/keep.ts', 'tests/fixtures/buildUser.ts']);
+
+	const files = await listSourceFiles({ cwd });
+
+	// nothing here declares a package, so `fixtures` is just a folder name
+	expect(files).toStrictEqual(['src/keep.ts', 'tests/fixtures/buildUser.ts']);
+});
+
+test('listSourceFiles: walking from inside a fixture side still lists it, which is how a check is validated', async () => {
+	const { cwd } = setupRepo([
+		'standards/lightsout-standards.json',
+		'standards/code/architecture/10-dead-export/fixtures/fail/src/orphan.ts',
+	]);
+
+	const files = await listSourceFiles({ cwd: join(cwd, 'standards/code/architecture/10-dead-export/fixtures/fail') });
+
+	// `standards-validate` runs each check against a fixture side as if that
+	// folder were a whole repo — the pruning must not reach inside it
+	expect(files).toStrictEqual(['src/orphan.ts']);
+});
+
 test('listSourceFiles: an unreadable directory yields no files rather than throwing', async () => {
 	const { cwd } = setupRepo([]);
 

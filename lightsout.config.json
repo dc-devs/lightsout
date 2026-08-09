@@ -5,5 +5,5 @@
 		"testCoverage": "pnpm test:unit:coverage"
 	},
 	"agentCommands": ["pnpm", "python3", "rsvg-convert"],
-	"generated": ["plugin/dist/"]
+	"generated": ["plugin/dist/", "plugin/standards/"]
 }

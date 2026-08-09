@@ -10,7 +10,9 @@ import { buildStandardsDocuments, loadStandardsPackage } from '@/standardsPackag
  * channels it offers, and that every rule claiming a check ships one.
  */
 const setupDefaultPackage = async () => {
-	const pkg = await loadStandardsPackage({ packagePath: join(process.cwd(), 'plugin/standards') });
+	// `standards/`, not its build copy under plugin/ — a test that read the copy
+	// would pass or fail on whether someone had run `pnpm bundle`.
+	const pkg = await loadStandardsPackage({ packagePath: join(process.cwd(), 'standards') });
 
 	return { pkg };
 };

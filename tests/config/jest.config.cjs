@@ -18,9 +18,11 @@ module.exports = {
 	clearMocks: true,
 	restoreMocks: true,
 	testTimeout: 30_000,
-	// The default standards package ships beside the engine and its shared check
-	// helpers are ordinary units, so their co-located tests run in this suite too.
-	testMatch: ['<rootDir>/src/**/*.unit.test.ts', '<rootDir>/plugin/standards/**/*.unit.test.ts'],
+	// The default standards package's shared check helpers are ordinary units, so
+	// their co-located tests run in this suite too. This matches `standards/`, the
+	// source of truth — never its build copy under plugin/, which would collect
+	// and run every one of these tests a second time.
+	testMatch: ['<rootDir>/src/**/*.unit.test.ts', '<rootDir>/standards/**/*.unit.test.ts'],
 	// A rule's fixtures are deliberately shaped test files a check reads as TEXT —
 	// the failing side is meant to violate the very rule it proves. Running them
 	// would report a package's counter-examples as this repo's own test failures.

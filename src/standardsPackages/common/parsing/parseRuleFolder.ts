@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { messageOf } from '@/common/utils/messageOf';
@@ -26,9 +26,6 @@ const ruleDeclaration = z.object({
 	settings: z.record(z.string(), z.number()).default({}),
 });
 
-/** Entry names in a directory, or `undefined` when the directory is absent. */
-const listEntries = async ({ path }: { path: string }) => readdir(path).catch(() => undefined);
-
 /** rule.md read: what it declares and the prose it argues. Either part is absent when the file cannot supply it. */
 const getRuleDeclaration = async ({ folderPath, rulePath, found }: { folderPath: string; rulePath: string; found: string[] }) => {
 	const filePath = `${rulePath}/rule.md`;
@@ -40,17 +37,6 @@ const getRuleDeclaration = async ({ folderPath, rulePath, found }: { folderPath:
 	const parsed = text === undefined ? undefined : parseDeclaration({ text, schema: ruleDeclaration, filePath, problems: found });
 
 	return { declaration: parsed?.declaration, prose: parsed?.body ?? '' };
-};
-
-/** Both fixture sides must hold something — they are the evidence `standards-validate` runs a check against. */
-const validateFixtures = async ({ fixturesPath, rulePath, found }: { fixturesPath: string; rulePath: string; found: string[] }) => {
-	for (const side of ['pass', 'fail']) {
-		const entries = await listEntries({ path: join(fixturesPath, side) });
-
-		if (entries === undefined || entries.length === 0) {
-			found.push(`${rulePath}: fixtures/${side}/ is missing or empty — every rule ships a fixture pair`);
-		}
-	}
 };
 
 /**
@@ -88,9 +74,10 @@ export const parseRuleFolder = async ({ folderPath, set, documentPath, problems 
 		found.push(`${rulePath}: ships a check.ts but does not declare checked: true`);
 	}
 
+	// Recorded, never required: a shipped package may carry rules without the
+	// fixtures that proved them, the way a bundle ships without its tests.
+	// `standards-validate` is where the pair is demanded.
 	const fixturesPath = join(folderPath, 'fixtures');
-
-	await validateFixtures({ fixturesPath, rulePath, found });
 
 	let check: StandardsCheckModule | undefined;
 

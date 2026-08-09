@@ -35,6 +35,9 @@ const setupFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) => {
 	return { fixturesPath };
 };
 
+/** A rule folder that ships no fixtures at all — the directory is never created. */
+const setupWithoutFixtures = () => ({ fixturesPath: join(mkdtempSync(join(tmpdir(), 'lightsout-validate-')), 'fixtures') });
+
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPath: string }): LoadedStandardsRule => ({
 	set: 'code',
 	documentPath: 'code/style-guide/structure/module-api',
@@ -83,6 +86,32 @@ describe('validateStandardsPackage', () => {
 		});
 
 		expect(problems).toStrictEqual(['no-banned-file: the pass fixture produced 1 finding(s) — the check flags code the rule allows']);
+	});
+
+	test('a rule shipping no fixtures is a problem here — the requirement authoring enforces, not loading', async () => {
+		const { fixturesPath } = setupWithoutFixtures();
+
+		const { problems } = await validate({
+			rules: [rule({ id: 'no-banned-file', fixturesPath, inputKind: StandardsInputKind.FileList, run: bansTheBannedFile })],
+		});
+
+		expect(problems).toStrictEqual([
+			'no-banned-file: fixtures/fail/ is missing or empty — every rule ships a fixture pair',
+			'no-banned-file: fixtures/pass/ is missing or empty — every rule ships a fixture pair',
+		]);
+	});
+
+	test('a judgment-only rule must still ship the fixtures its accuracy is measured against', async () => {
+		const { fixturesPath } = setupWithoutFixtures();
+
+		const { problems, notes } = await validate({ rules: [rule({ id: 'premature-abstraction', fixturesPath })] });
+
+		expect(problems).toStrictEqual([
+			'premature-abstraction: fixtures/fail/ is missing or empty — every rule ships a fixture pair',
+			'premature-abstraction: fixtures/pass/ is missing or empty — every rule ships a fixture pair',
+		]);
+		// the missing pair is the whole story — no judgment-only note on top of it
+		expect(notes).toStrictEqual([]);
 	});
 
 	test('a judgment-only rule is a note, never a problem — its fixtures measure the review agent instead', async () => {
