@@ -33,10 +33,10 @@ export const check: StandardsCheckModule = {
 	 * and its export are either the same word or they are not.
 	 */
 	run: ({ input }): RawStandardsFinding[] => {
-		const { files, contents } = readFileTexts({ input });
+		const { files, contents, standardsPackages } = readFileTexts({ input });
 
 		return files
-			.filter((file) => !isTestFile({ path: file }) && !getBaseName({ path: file }).startsWith('index.'))
+			.filter((file) => !isTestFile({ path: file, standardsPackages }) && !getBaseName({ path: file }).startsWith('index.'))
 			.map((file) => {
 				const exports = readFileExports({ text: contents.get(file) ?? '' });
 				const [primary] = exports;

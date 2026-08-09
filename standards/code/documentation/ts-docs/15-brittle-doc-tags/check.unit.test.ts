@@ -15,6 +15,7 @@ const setupFileTextInput = ({ contents, tests = [] }: { contents: Array<[string,
 		files,
 		referenceFiles: [],
 		contents: new Map(contents),
+		standardsPackages: [],
 	};
 };
 
@@ -35,6 +36,7 @@ const setupMissingTextInput = (): StandardsCheckInput => ({
 	files: ['src/billing/chargeInvoice.ts'],
 	referenceFiles: [],
 	contents: new Map<string, string>(),
+	standardsPackages: [],
 });
 
 /** One file's doc comment, wrapped in the block the rule reads. */

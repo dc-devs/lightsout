@@ -20,6 +20,7 @@ const setupOtherKindInput = (): StandardsCheckInput => ({
 	files: ['src/a/alpha.ts'],
 	referenceFiles: [],
 	dependencies: new Map(),
+	standardsPackages: [],
 });
 
 describe('clone check', () => {

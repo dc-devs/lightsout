@@ -114,7 +114,7 @@ export const runPackageChecks = async ({
 	const cache = new Map<string, string>();
 
 	const inputFor = async ({ kind, settings }: { kind: StandardsInputKind; settings: Record<string, number> }) =>
-		buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, packagesDir, settings, cache, compiler });
+		buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPackages, packagesDir, settings, cache, compiler });
 
 	for (const kind of Object.values(StandardsInputKind)) {
 		const rules = live.filter((rule) => rule.inputKind === kind);

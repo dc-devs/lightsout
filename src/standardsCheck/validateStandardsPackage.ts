@@ -89,6 +89,8 @@ const checkFixture = async ({
 		tests: files.filter((file) => isTestFile({ path: file })),
 		files,
 		referenceFiles: files,
+		// A fixture side is a miniature repo of its own; it declares no package.
+		standardsPackages: [],
 		packagesDir: 'packages',
 		settings: rule.defaultSettings,
 		cache: new Map<string, string>(),

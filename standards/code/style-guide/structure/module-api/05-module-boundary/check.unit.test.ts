@@ -23,6 +23,7 @@ const setupImportGraphInput = ({
 	tests: [],
 	files: scope ?? paths,
 	referenceFiles: paths,
+	standardsPackages: [],
 	edges,
 });
 

@@ -8,6 +8,8 @@ interface Params {
 	tests: string[];
 	files: string[];
 	referenceFiles: string[];
+	/** Repo-relative standards package roots, from the walk that listed the files. */
+	standardsPackages: string[];
 	/** The consumer's TypeScript — the engine never bundles a compiler of its own. */
 	compiler: typeof ts;
 	cache: Map<string, string>;
@@ -21,7 +23,8 @@ interface Params {
  * Parents are set on the nodes: a rule that has to ask what encloses a node
  * cannot walk back up without them, and there is no cheaper moment to record it.
  */
-export const buildSyntaxTreeInput = async ({ cwd, source, tests, files, referenceFiles, compiler, cache }: Params): Promise<SyntaxTreeInput> => {
+export const buildSyntaxTreeInput = async ({ cwd, source, tests, files, referenceFiles,
+	standardsPackages, compiler, cache }: Params): Promise<SyntaxTreeInput> => {
 	const texts = await readIntoCache({ cwd, paths: source, cache });
 	const trees = new Map<string, ts.SourceFile>();
 
@@ -29,5 +32,5 @@ export const buildSyntaxTreeInput = async ({ cwd, source, tests, files, referenc
 		trees.set(path, compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true));
 	}
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, compiler, trees };
+	return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPackages, compiler, trees };
 };

@@ -5,6 +5,7 @@ import { getUnconsumedExports } from './getUnconsumedExports.ts';
 const setupRepo = ({ scope, contents }: { scope?: string[]; contents: Array<[string, string]> }) => ({
 	files: scope ?? contents.map(([path]) => path),
 	contents: new Map(contents),
+	standardsPackages: [],
 });
 
 describe('getUnconsumedExports', () => {

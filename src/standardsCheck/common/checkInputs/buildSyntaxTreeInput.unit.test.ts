@@ -22,7 +22,7 @@ const compiler = resolveConsumerTypescript({ cwd: process.cwd() });
 const buildInput = ({ cwd, source, cache }: { cwd: string; source: string[]; cache: Map<string, string> }) => {
 	expectDefined(compiler);
 
-	return buildSyntaxTreeInput({ cwd, source, tests: [], files: source, referenceFiles: source, compiler, cache });
+	return buildSyntaxTreeInput({ cwd, source, tests: [], files: source, referenceFiles: source, standardsPackages: [], compiler, cache });
 };
 
 describe('buildSyntaxTreeInput', () => {

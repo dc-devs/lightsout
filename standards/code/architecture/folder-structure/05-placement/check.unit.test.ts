@@ -14,6 +14,7 @@ const setupImportGraphInput = ({ edges }: { edges: Array<{ from: string; to: str
 		tests: [],
 		files,
 		referenceFiles: [],
+		standardsPackages: [],
 		edges,
 	};
 };

@@ -24,8 +24,8 @@ interface Params {
 export const buildUnconsumedExportCheck = ({ rule, matches, detail, guidance }: Params): StandardsCheckModule => ({
 	inputKind: 'file-text',
 	run: ({ input }) => {
-		const { files, contents } = readFileTexts({ input });
+		const { files, contents, standardsPackages } = readFileTexts({ input });
 
-		return buildUnconsumedFindings({ files, contents, rule, matches, detail, guidance });
+		return buildUnconsumedFindings({ files, contents, standardsPackages, rule, matches, detail, guidance });
 	},
 });

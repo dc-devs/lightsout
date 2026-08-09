@@ -16,6 +16,8 @@ interface Params {
 	files: string[];
 	/** Text for every file in scope and every reference file. */
 	contents: Map<string, string>;
+	/** Repo-relative standards package roots, so a package's `tests/` document set is not read as test code. */
+	standardsPackages: string[];
 }
 
 /**
@@ -30,12 +32,12 @@ interface Params {
  * declare nothing that is judged: a barrel's names belong to the file it
  * re-exports, and a test's helpers are the test's own.
  */
-export const getUnconsumedExports = ({ files, contents }: Params): UnconsumedExport[] => {
+export const getUnconsumedExports = ({ files, contents, standardsPackages }: Params): UnconsumedExport[] => {
 	const scope = new Set(files);
 	const declarations: Array<{ name: string; file: string }> = [];
 
 	for (const [file, text] of contents) {
-		if (!scope.has(file) || getBaseName({ path: file }).startsWith('index.') || isTestFile({ path: file })) {
+		if (!scope.has(file) || getBaseName({ path: file }).startsWith('index.') || isTestFile({ path: file, standardsPackages })) {
 			continue;
 		}
 
@@ -62,7 +64,7 @@ export const getUnconsumedExports = ({ files, contents }: Params): UnconsumedExp
 
 			if (isBarrel({ file: other, text })) {
 				reachedBy.barrel = true;
-			} else if (isTestFile({ path: other })) {
+			} else if (isTestFile({ path: other, standardsPackages })) {
 				reachedBy.test = true;
 			} else {
 				source = true;

@@ -16,6 +16,8 @@ interface Params {
 	 * opens a file.
 	 */
 	getTargets: ({ barrelPath }: { barrelPath: string }) => Set<string>;
+	/** Repo-relative standards package roots, so a package's `tests/` document set is not read as test code. */
+	standardsPackages: string[];
 }
 
 /**
@@ -30,7 +32,7 @@ interface Params {
  * before the omission test, so a folder whose only descendants live in nested
  * modules omits nothing and is not itself a boundary.
  */
-export const mapFolderModules = ({ files, getTargets }: Params): Map<string, FolderModule> => {
+export const mapFolderModules = ({ files, getTargets, standardsPackages }: Params): Map<string, FolderModule> => {
 	const barrelDirs = new Map<string, string>();
 
 	for (const file of files) {
@@ -52,7 +54,7 @@ export const mapFolderModules = ({ files, getTargets }: Params): Map<string, Fol
 			(file) =>
 				file.startsWith(prefix) &&
 				!isBarrel({ path: file }) &&
-				!isTestFile({ path: file }) &&
+				!isTestFile({ path: file, standardsPackages }) &&
 				/\.tsx?$/.test(file) &&
 				!nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file.startsWith(`${other}/`)),
 		);

@@ -15,6 +15,7 @@ const setupFileTextInput = ({ contents, tests = [] }: { contents: Array<[string,
 		files,
 		referenceFiles: [],
 		contents: new Map(contents),
+		standardsPackages: [],
 	};
 };
 
@@ -27,6 +28,7 @@ const setupUnreadableFileInput = ({ path }: { path: string }): StandardsCheckInp
 	files: [path],
 	referenceFiles: [],
 	contents: new Map<string, string>(),
+	standardsPackages: [],
 });
 
 /** The input a rule that did NOT declare `file-text` would receive — an arm the union permits but a run never produces. */

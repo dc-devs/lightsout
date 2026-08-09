@@ -19,6 +19,8 @@ export interface FileListInput {
 	referenceFiles: string[];
 	/** Declared dependency names per package dir ('.' for the repo root) — engine-read from each package.json. */
 	dependencies: Map<string, string[]>;
+	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPackages: string[];
 }
 
 export interface FileTextInput {
@@ -30,6 +32,8 @@ export interface FileTextInput {
 	referenceFiles: string[];
 	/** Text for every path in `files` ∪ `referenceFiles`, plus the repo root's tsconfig.json when present; each file read once for the whole run. */
 	contents: Map<string, string>;
+	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPackages: string[];
 }
 
 export interface SyntaxTreeInput {
@@ -42,6 +46,8 @@ export interface SyntaxTreeInput {
 	compiler: typeof ts;
 	/** One parsed SourceFile per path in `source`. */
 	trees: Map<string, ts.SourceFile>;
+	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPackages: string[];
 }
 
 export interface TestFileInput {
@@ -61,6 +67,8 @@ export interface ImportGraphInput {
 	referenceFiles: string[];
 	/** Edges as `collectImportEdges` resolves them: repo-relative from/to pairs. */
 	edges: Array<{ from: string; to: string }>;
+	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPackages: string[];
 }
 
 export interface CloneSpansInput {

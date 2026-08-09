@@ -38013,7 +38013,7 @@ var getDependencyNames = async ({ manifestPath }) => {
   }
   return [parsed.data.dependencies, parsed.data.devDependencies, parsed.data.peerDependencies].flatMap((record2) => Object.keys(record2 ?? {}));
 };
-var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, packagesDir }) => {
+var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir }) => {
   const dependencies = /* @__PURE__ */ new Map();
   dependencies.set(".", await getDependencyNames({ manifestPath: join30(cwd, "package.json") }) ?? []);
   const children = await readdir10(join30(cwd, packagesDir)).catch(() => []);
@@ -38023,14 +38023,14 @@ var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, pac
       dependencies.set(`${packagesDir}/${name}`, names);
     }
   }
-  return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies };
+  return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies, standardsPackages };
 };
 
 // src/standardsCheck/common/checkInputs/buildFileTextInput.ts
-var buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, cache }) => {
+var buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, cache }) => {
   await readIntoCache({ cwd, paths: [.../* @__PURE__ */ new Set([...files, ...referenceFiles])], cache });
   await readIntoCache({ cwd, paths: ["tsconfig.json"], cache });
-  return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache };
+  return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache, standardsPackages };
 };
 
 // src/common/utils/collectImportEdges.ts
@@ -38078,19 +38078,36 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildImportGraphInput.ts
-var buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles, compiler }) => {
+var buildImportGraphInput = async ({
+  cwd,
+  source,
+  tests,
+  files,
+  referenceFiles,
+  standardsPackages,
+  compiler
+}) => {
   const edges = await collectImportEdges({ cwd, files: referenceFiles, compiler });
-  return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, edges };
+  return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, standardsPackages, edges };
 };
 
 // src/standardsCheck/common/checkInputs/buildSyntaxTreeInput.ts
-var buildSyntaxTreeInput = async ({ cwd, source, tests, files, referenceFiles, compiler, cache }) => {
+var buildSyntaxTreeInput = async ({
+  cwd,
+  source,
+  tests,
+  files,
+  referenceFiles,
+  standardsPackages,
+  compiler,
+  cache
+}) => {
   const texts = await readIntoCache({ cwd, paths: source, cache });
   const trees = /* @__PURE__ */ new Map();
   for (const [path, text] of texts) {
     trees.set(path, compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true));
   }
-  return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, compiler, trees };
+  return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPackages, compiler, trees };
 };
 
 // src/standardsCheck/common/checkInputs/buildTestFileInput.ts
@@ -38107,6 +38124,7 @@ var buildCheckInput = async ({
   tests,
   files,
   referenceFiles,
+  standardsPackages,
   packagesDir,
   settings,
   cache,
@@ -38114,9 +38132,9 @@ var buildCheckInput = async ({
 }) => {
   switch (kind) {
     case StandardsInputKind.FileList:
-      return buildFileListInput({ cwd, source, tests, files, referenceFiles, packagesDir });
+      return buildFileListInput({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir });
     case StandardsInputKind.FileText:
-      return buildFileTextInput({ cwd, source, tests, files, referenceFiles, cache });
+      return buildFileTextInput({ cwd, source, tests, files, referenceFiles, standardsPackages, cache });
     case StandardsInputKind.TestFile:
       return buildTestFileInput({ cwd, tests, cache });
     case StandardsInputKind.CloneSpans:
@@ -38127,9 +38145,9 @@ var buildCheckInput = async ({
         throw new Error(`the ${kind} input needs the consumer's typescript, which did not resolve`);
       }
       if (kind === StandardsInputKind.ImportGraph) {
-        return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, compiler });
+        return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler });
       }
-      return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, compiler, cache });
+      return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, cache });
     }
   }
 };
@@ -38198,7 +38216,7 @@ var runPackageChecks = async ({
   const findings = [];
   const skipped = [];
   const cache = /* @__PURE__ */ new Map();
-  const inputFor = async ({ kind, settings }) => buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, packagesDir, settings, cache, compiler });
+  const inputFor = async ({ kind, settings }) => buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPackages, packagesDir, settings, cache, compiler });
   for (const kind of Object.values(StandardsInputKind)) {
     const rules = live2.filter((rule) => rule.inputKind === kind);
     if (rules.length === 0) {
@@ -38512,6 +38530,8 @@ var checkFixture = async ({
     tests: files.filter((file2) => isTestFile({ path: file2 })),
     files,
     referenceFiles: files,
+    // A fixture side is a miniature repo of its own; it declares no package.
+    standardsPackages: [],
     packagesDir: "packages",
     settings: rule.defaultSettings,
     cache: /* @__PURE__ */ new Map(),

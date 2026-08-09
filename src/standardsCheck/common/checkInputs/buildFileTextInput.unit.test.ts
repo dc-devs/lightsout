@@ -25,6 +25,7 @@ const buildInput = ({ cwd, cache }: { cwd: string; cache: Map<string, string> })
 		tests: [],
 		files: ['src/alpha.ts'],
 		referenceFiles: ['src/alpha.ts', 'src/outside.ts'],
+		standardsPackages: [],
 		cache,
 	});
 

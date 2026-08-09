@@ -8,6 +8,8 @@ interface Params {
 	tests: string[];
 	files: string[];
 	referenceFiles: string[];
+	/** Repo-relative standards package roots, from the walk that listed the files. */
+	standardsPackages: string[];
 	compiler: typeof ts;
 }
 
@@ -17,8 +19,9 @@ interface Params {
  * it?", and a graph built from the scope alone would answer it wrong whenever
  * the run is narrowed with `--path`.
  */
-export const buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles, compiler }: Params): Promise<ImportGraphInput> => {
+export const buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles,
+	standardsPackages, compiler }: Params): Promise<ImportGraphInput> => {
 	const edges = await collectImportEdges({ cwd, files: referenceFiles, compiler });
 
-	return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, edges };
+	return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, standardsPackages, edges };
 };

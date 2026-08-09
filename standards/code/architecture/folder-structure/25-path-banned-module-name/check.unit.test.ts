@@ -18,6 +18,7 @@ const setupFileListInput = ({
 	files,
 	referenceFiles: [],
 	dependencies: new Map(dependencies),
+	standardsPackages: [],
 });
 
 /** The input a rule that did NOT declare `file-list` would receive — an arm the union permits but a run never produces. */

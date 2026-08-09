@@ -23,11 +23,13 @@ const getUnconsumedNames = ({
 	prefix,
 	barrelPath,
 	contents,
+	standardsPackages,
 }: {
 	names: string[];
 	prefix: string;
 	barrelPath: string;
 	contents: Map<string, string>;
+	standardsPackages: string[];
 }) =>
 	names
 		.filter((name) => name.length >= 4)
@@ -35,7 +37,7 @@ const getUnconsumedNames = ({
 			const pattern = new RegExp(`\\b${name}\\b`);
 
 			return ![...contents].some(
-				([file, text]) => (!file.startsWith(prefix) || (isTestFile({ path: file }) && file !== barrelPath)) && pattern.test(text),
+				([file, text]) => (!file.startsWith(prefix) || (isTestFile({ path: file, standardsPackages }) && file !== barrelPath)) && pattern.test(text),
 			);
 		});
 
@@ -44,15 +46,15 @@ export const check: StandardsCheckModule = {
 	// Judged only for `module`-status folders: a barrel that hides nothing marks
 	// no boundary, so nothing it lists is a public-surface claim to answer for.
 	run: ({ input }): RawStandardsFinding[] => {
-		const { files, contents } = readFileTexts({ input });
+		const { files, contents, standardsPackages } = readFileTexts({ input });
 		const fileSet = new Set(files);
 		const getTargets = ({ barrelPath }: { barrelPath: string }) =>
 			readBarrelTargets({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet });
 
-		return [...mapFolderModules({ files, getTargets })]
+		return [...mapFolderModules({ files, getTargets, standardsPackages })]
 			.map(([folder, { barrelPath }]) => {
 				const names = readBarrelExports({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet }).flatMap((entry) => entry.names);
-				const orphans = getUnconsumedNames({ names, prefix: `${folder}/`, barrelPath, contents });
+				const orphans = getUnconsumedNames({ names, prefix: `${folder}/`, barrelPath, contents, standardsPackages });
 
 				return orphans.length === 0
 					? undefined

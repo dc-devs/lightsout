@@ -8,4 +8,6 @@ export interface FileTexts {
 	referenceFiles: string[];
 	/** Text for every path in `files` and `referenceFiles`, read once for the whole run. */
 	contents: Map<string, string>;
+	/** Repo-relative standards package roots — inside one, a `tests/` folder names a document set rather than a directory of tests. */
+	standardsPackages: string[];
 }

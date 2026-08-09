@@ -13,6 +13,7 @@ const setupTreeInput = ({ files }: { files: Array<[string, string]> }): Standard
 	referenceFiles: [],
 	compiler: ts,
 	trees: new Map(files.map(([path, text]) => [path, ts.createSourceFile(path, text, ts.ScriptTarget.ES2022, true)])),
+	standardsPackages: [],
 });
 
 /** An input of a kind a syntax-tree rule is never handed, to prove the narrowing holds. */

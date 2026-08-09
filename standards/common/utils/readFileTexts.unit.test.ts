@@ -26,6 +26,7 @@ const setupFileTextInput = ({
 	files,
 	referenceFiles,
 	contents: new Map(contents),
+	standardsPackages: [],
 });
 
 /**
@@ -55,6 +56,7 @@ describe('readFileTexts', () => {
 				['src/feature/getLabel.unit.test.ts', 'describe("getLabel", () => {});'],
 				['src/app/runApp.ts', 'import { getLabel } from "../feature/getLabel";'],
 			]),
+			standardsPackages: [],
 		});
 	});
 
@@ -63,12 +65,12 @@ describe('readFileTexts', () => {
 
 		const texts = readFileTexts({ input });
 
-		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map() });
+		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map(), standardsPackages: [] });
 	});
 
 	test('an input of any other kind yields an empty scope rather than refusing', () => {
 		const texts = readFileTexts({ input: setupOtherKindInput() });
 
-		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map() });
+		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map(), standardsPackages: [] });
 	});
 });

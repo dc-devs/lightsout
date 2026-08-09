@@ -21,7 +21,7 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], compiler, trees };
+	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
