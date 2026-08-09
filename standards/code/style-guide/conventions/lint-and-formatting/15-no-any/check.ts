@@ -1,6 +1,6 @@
 import type ts from 'typescript';
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@/contracts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildTreeLineFindings } from '../../../../../common/utils/buildTreeLineFindings.ts';
 
 /**
  * The comment forms a project uses to license a bypass. The rule allows a rare,
@@ -32,32 +32,22 @@ const findAnyLines = ({ sourceFile, compiler }: { sourceFile: ts.SourceFile; com
 	return found;
 };
 
-/** One finding per file: the work is "open this file and give its values real types", which does not become three jobs because three annotations say `any`. */
-const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
-	const findings: RawStandardsFinding[] = [];
-
-	for (const [path, tree] of input.trees) {
-		const lines = findAnyLines({ sourceFile: tree, compiler: input.compiler });
-
-		if (lines.length > 0) {
-			findings.push(
-				buildRawFinding({
-					rule: 'no-any',
-					files: [{ path }],
-					detail: `\`any\` at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`,
-					guidance: 'Use `unknown` and narrow with a type guard, or name the type — a justified bypass needs the project’s lint-suppression comment.',
-				}),
-			);
-		}
-	}
-
-	return findings;
-};
-
 export const check: StandardsCheckModule = {
 	inputKind: 'syntax-tree',
 	// Parsed rather than scanned for the word: `any` is an ordinary identifier in
 	// a variable name, a string, or a comment, and only the tree says which
 	// occurrence is the type keyword the rule bans.
-	run: ({ input }): RawStandardsFinding[] => (input.kind === 'syntax-tree' ? buildFileFindings({ input }) : []),
+	run: ({ input }): RawStandardsFinding[] =>
+		input.kind === 'syntax-tree'
+			? buildTreeLineFindings({
+					input,
+					rule: 'no-any',
+					findLines: findAnyLines,
+					// One finding per file: the work is "open this file and give its
+					// values real types", which does not become three jobs because
+					// three annotations say `any`.
+					detail: ({ lines }) => `\`any\` at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`,
+					guidance: 'Use `unknown` and narrow with a type guard, or name the type — a justified bypass needs the project’s lint-suppression comment.',
+				})
+			: [],
 };

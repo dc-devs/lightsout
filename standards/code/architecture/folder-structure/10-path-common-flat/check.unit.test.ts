@@ -80,10 +80,13 @@ describe('path-common-flat check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([
-			expect.objectContaining({
+			{
 				siteKey: 'path-common-flat:src/billing/common/indexer.ts',
+				files: [{ path: 'src/billing/common/indexer.ts' }],
 				detail: "'indexer.ts' sits directly in src/billing/common",
-			}),
+				guidance:
+					'Move it under the type folder for what it is — `utils/`, `types/`, `constants/`, `services/`, or a graduated domain folder. `common/` is always typed, never flat.',
+			},
 		]);
 	});
 

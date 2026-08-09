@@ -63,10 +63,12 @@ describe('path-common-barrel check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([
-			expect.objectContaining({
+			{
 				siteKey: 'path-common-barrel:src/billing/common/utils/rates/index.ts',
+				files: [{ path: 'src/billing/common/utils/rates/index.ts' }],
 				detail: 'a barrel under src/billing/common/utils/rates',
-			}),
+				guidance: 'A barrel marks a boundary and `common/` is definitionally boundary-less — delete it and import the files directly.',
+			},
 		]);
 	});
 
@@ -85,10 +87,12 @@ describe('path-common-barrel check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([
-			expect.objectContaining({
+			{
 				siteKey: `path-common-barrel:src/billing/common/utils/${barrel}`,
 				files: [{ path: `src/billing/common/utils/${barrel}` }],
-			}),
+				detail: 'a barrel under src/billing/common/utils',
+				guidance: 'A barrel marks a boundary and `common/` is definitionally boundary-less — delete it and import the files directly.',
+			},
 		]);
 	});
 

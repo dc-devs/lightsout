@@ -1,6 +1,6 @@
 import type ts from 'typescript';
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@/contracts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildTreeLineFindings } from '../../../../../common/utils/buildTreeLineFindings.ts';
 
 /**
  * Whether an assertion is the `as const` form. That one asserts nothing about a
@@ -34,30 +34,18 @@ const getAssertionLines = ({ sourceFile, compiler }: { sourceFile: ts.SourceFile
 };
 
 /** One finding per file: the remedy is to prove the types this file works with, which is one pass over it. */
-const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
-	const findings: RawStandardsFinding[] = [];
-
-	for (const [path, tree] of input.trees) {
-		const lines = getAssertionLines({ sourceFile: tree, compiler: input.compiler });
-
-		if (lines.length > 0) {
-			findings.push(
-				buildRawFinding({
-					rule: 'type-assertion',
-					files: [{ path }],
-					detail: `\`as\` cast at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`,
-					guidance: 'Narrow with `typeof`, `instanceof` or a discriminated union — an assertion that is genuinely unavoidable needs a comment saying why.',
-				}),
-			);
-		}
-	}
-
-	return findings;
-};
-
 export const check: StandardsCheckModule = {
 	inputKind: 'syntax-tree',
 	// Scanning for the word would hit `as` in an import alias, a string and a
 	// comment alike; only the tree says which occurrence is the assertion.
-	run: ({ input }): RawStandardsFinding[] => (input.kind === 'syntax-tree' ? buildFileFindings({ input }) : []),
+	run: ({ input }): RawStandardsFinding[] =>
+		input.kind === 'syntax-tree'
+			? buildTreeLineFindings({
+					input,
+					rule: 'type-assertion',
+					findLines: getAssertionLines,
+					detail: ({ lines }) => `\`as\` cast at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`,
+					guidance: 'Narrow with `typeof`, `instanceof` or a discriminated union — an assertion that is genuinely unavoidable needs a comment saying why.',
+				})
+			: [],
 };

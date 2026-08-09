@@ -77,10 +77,12 @@ describe('folder-census check', () => {
 		const findings = await check.run({ input, settings: { cap: 3 } });
 
 		expect(findings).toStrictEqual([
-			expect.objectContaining({
+			{
 				siteKey: 'folder-census:src/wide',
+				files: [{ path: 'src/wide' }],
 				detail: '4 files in one flat folder (census cap ~3)',
-			}),
+				guidance: 'Group them by domain, or graduate the concepts hiding in the pile.',
+			},
 		]);
 	});
 
