@@ -1,0 +1,1 @@
+export { formatRate } from './formatRate';

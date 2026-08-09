@@ -1,14 +1,8 @@
-import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-
-// The CLI has no in-process seam (process.exit + hard-wired getDriver), so
-// characterization runs it as a subprocess and pins EXACT stdout/stderr/exit.
-// The bundle under test is produced by the root `test` script from CURRENT
-// source (.test-dist/cli-under-test.mjs), never the committed plugin bundle.
-const CLI = join(process.cwd(), '.test-dist', 'cli-under-test.mjs');
+import { runCli } from '@tests/helpers/runCli';
 
 // Byte-exact copy of the CLI's `usage` constant. console.error(usage) appends
 // one newline; the constant already ends in a newline, so error output ends
@@ -17,7 +11,9 @@ const CLI = join(process.cwd(), '.test-dist', 'cli-under-test.mjs');
 // FEATURE adding a command updates this pin deliberately — updated 2026-07-09
 // for `plan verify-facts` replacing `plan explore`, 2026-07-14 for `plan
 // lint`, 2026-07-23 for the verify-facts `--notes` flag, 2026-08-01 for the
-// removal of `verify`, 2026-08-08 for the plan-folder form of `implement`.)
+// removal of `verify`, 2026-08-08 for the plan-folder form of `implement`,
+// 2026-08-08 for `standards-validate`, 2026-08-09 for the `standards-check`
+// half-selectors and `standards-health`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -26,8 +22,10 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
-  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
+  lightsout standards-validate [--package <path>] [--cwd <path>]   (run every check against its own fixtures)
+  lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
@@ -40,23 +38,6 @@ usage:
 `;
 
 const usageErr = `${usage}\n`;
-
-const runCli = ({ args }: { args: string[] }) =>
-	new Promise<{ stdout: string; stderr: string; code: number | null }>((resolve, reject) => {
-		const child = spawn(process.execPath, [CLI, ...args]);
-
-		let stdout = '';
-		let stderr = '';
-
-		child.stdout.on('data', (chunk) => {
-			stdout += chunk;
-		});
-		child.stderr.on('data', (chunk) => {
-			stderr += chunk;
-		});
-		child.on('error', reject);
-		child.on('close', (code) => resolve({ stdout, stderr, code }));
-	});
 
 const freshCwd = async () => mkdtemp(join(tmpdir(), 'lightsout-cli-'));
 
@@ -636,7 +617,7 @@ const seedStandardsFixture = async ({ baseline = false }: { baseline?: boolean }
 	await writeFile(join(cwd, 'src', 'b', 'fetchUserData.ts'), 'export const fetchUserData = () => 2;\n', 'utf8');
 
 	if (baseline) {
-		await runCli({ args: ['standards-check', '--baseline', '--cwd', cwd] });
+		await runCli({ args: ['standards-check', '--code-checks', '--baseline', '--cwd', cwd] });
 	}
 
 	return { cwd };
@@ -645,7 +626,7 @@ const seedStandardsFixture = async ({ baseline = false }: { baseline?: boolean }
 test('cli: standards-check prints each finding, the rule breakdown, and exits 0', async () => {
 	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
 	// each rule gets a heading carrying its severity and count
@@ -664,7 +645,7 @@ test('cli: standards-check prints each finding, the rule breakdown, and exits 0'
 test('cli: standards-check counts advisories apart from findings and does not call them debt', async () => {
 	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--cwd', cwd] });
 
 	// the fixture plants a synonym pair and the two unreferenced exports behind
 	// it — all advice to weigh, none of it work
@@ -678,7 +659,7 @@ test('cli: standards-check counts advisories apart from findings and does not ca
 test('cli: standards-check writes its typed report to .lightsout/standards-check.json', async () => {
 	const { cwd } = await seedStandardsFixture();
 
-	const { code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
+	const { code } = await runCli({ args: ['standards-check', '--code-checks', '--cwd', cwd] });
 
 	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'standards-check.json'), 'utf8'));
 	expect(report.path).toBe('.');
@@ -690,7 +671,7 @@ test('cli: standards-check writes its typed report to .lightsout/standards-check
 test('cli: standards-check renders a degraded check tier as a note instead of failing', async () => {
 	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--cwd', cwd] });
 
 	expect(stdout).toMatch(/ℹ [^\n]*no typescript resolvable from the target repo/);
 	expect(stderr).toBe('');
@@ -700,7 +681,7 @@ test('cli: standards-check renders a degraded check tier as a note instead of fa
 test('cli: standards-check --baseline writes the debt ledger and exits 0', async () => {
 	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--baseline', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--baseline', '--cwd', cwd] });
 
 	const ledger = JSON.parse(await readFile(join(cwd, 'lightsout.standards-baseline.json'), 'utf8'));
 	expect(ledger.path).toBe('.');
@@ -714,7 +695,7 @@ test('cli: standards-check --baseline writes the debt ledger and exits 0', async
 test('cli: standards-check reports nothing new once the findings are baselined', async () => {
 	const { cwd } = await seedStandardsFixture({ baseline: true });
 
-	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--cwd', cwd] });
 
 	// a baselined finding is accepted debt, not news
 	expect(stdout.includes('name-synonym')).toBeFalsy();
@@ -728,7 +709,7 @@ test('cli: standards-check reports nothing new once the findings are baselined',
 test('cli: standards-check --all reports the findings the baseline already accepted', async () => {
 	const { cwd } = await seedStandardsFixture({ baseline: true });
 
-	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--all', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--all', '--cwd', cwd] });
 
 	// a baselined site is printed again under --all
 	expect(stdout).toMatch(/ℹ name-synonym · 1 advisory/);
@@ -741,19 +722,21 @@ test('cli: standards-check --list prints the enforcement ledger and runs no chec
 
 	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--list', '--cwd', cwd] });
 
-	// every rule is listed with the state it runs at and the doc it enforces
-	expect(stdout).toMatch(/│ name-synonym\s+│\s+advisory\s+│\s+standards\/code\/style-guide\/conventions\/naming\.md\s+│/);
-	expect(stdout).toMatch(/│ module-boundary\s+│\s+blocking\s+│/);
+	// every rule is listed with the state it runs at, who checks it, and the doc it enforces
+	expect(stdout).toMatch(/│ name-synonym\s+│\s+advisory\s+│\s+code\s+│\s+lightsout-defaults: code\/style-guide\/conventions\/naming\s+│/);
+	expect(stdout).toMatch(/│ module-boundary\s+│\s+blocking\s+│\s+code\s+│/);
+	// a rule no check covers is listed too, and says so
+	expect(stdout).toMatch(/│ path-aliases\s+│\s+advisory\s+│\s+judgment\s+│\s+lightsout-defaults: code\/style-guide\/structure\/import-paths\s+│/);
 	// a rule's live numbers ride its summary line
 	expect(stdout).toContain('minTokens 50');
-	// the totals close it off
-	expect(stdout).toMatch(/│ 37 rule\(s\)\s+│\s+21 blocking\s+│\s+16 advisory, 0 off\s+│/);
-	// the eleven test-shape rules name the document they enforce
-	expect(stdout).toMatch(/│ test-nested-describe\s+│\s+blocking\s+│\s+standards\/tests\/unit\/jest\/unit-testing\.md\s+│/);
-	// and so do the paths-and-names rules, across the three docs they come from
-	expect(stdout).toMatch(/│ path-banned-module-name\s+│\s+blocking\s+│\s+standards\/code\/architecture\/folder-structure\.md\s+│/);
-	expect(stdout).toMatch(/│ path-common-barrel\s+│\s+blocking\s+│\s+standards\/code\/style-guide\/structure\/module-api\.md\s+│/);
-	expect(stdout).toMatch(/│ path-folder-casing\s+│\s+advisory\s+│\s+standards\/code\/architecture\/folder-structure\.md\s+│/);
+	// the totals close it off, counting both kinds of rule
+	expect(stdout).toMatch(/│ 130 rule\(s\)\s+│\s+22 blocking\s+│\s+108 advisory, 0 off\s+│\s+47 by code, 83 by judgment\s+│/);
+	// the test-shape rules name the document they enforce
+	expect(stdout).toMatch(/│ test-nested-describe\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: tests\/unit-testing\s+│/);
+	// and so do the file-placement rules, across the three docs they come from
+	expect(stdout).toMatch(/│ path-banned-module-name\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: code\/architecture\/folder-structure\s+│/);
+	expect(stdout).toMatch(/│ path-common-barrel\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: code\/style-guide\/structure\/module-api\s+│/);
+	expect(stdout).toMatch(/│ path-folder-casing\s+│\s+advisory\s+│\s+code\s+│\s+lightsout-defaults: code\/architecture\/folder-structure\s+│/);
 	// --list answers a question about configuration — it never checks the tree
 	expect(stdout.includes('report: .lightsout/standards-check.json')).toBeFalsy();
 	expect(stderr).toBe('');
@@ -773,14 +756,14 @@ test('cli: standards-check --list marks the rules this repo configured', async (
 
 	// "this is our policy" reads apart from "this is the default"
 	expect(stdout).toMatch(/│ name-synonym\s+│\s+off \(config\)\s+│/);
-	expect(stdout).toMatch(/│ 37 rule\(s\)\s+│\s+21 blocking\s+│\s+15 advisory, 1 off\s+│/);
+	expect(stdout).toMatch(/│ 130 rule\(s\)\s+│\s+22 blocking\s+│\s+107 advisory, 1 off\s+│\s+47 by code, 83 by judgment\s+│/);
 	expect(code).toBe(0);
 });
 
 test('cli: standards-check --path narrows the run to one subtree', async () => {
 	const { cwd } = await seedStandardsFixture();
 
-	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--path', 'src/a', '--cwd', cwd] });
+	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--path', 'src/a', '--cwd', cwd] });
 
 	// the synonym pair is split by the narrowed scope, so tier 0 has nothing to
 	// pair
@@ -788,6 +771,24 @@ test('cli: standards-check --path narrows the run to one subtree', async () => {
 	const report = JSON.parse(await readFile(join(cwd, '.lightsout', 'standards-check.json'), 'utf8'));
 	// the flag reaches the engine as the checked subpath
 	expect(report.path).toBe('src/a');
+	expect(stderr).toBe('');
+	expect(code).toBe(0);
+});
+
+test('cli: standards-health reports every rule as machine-checked or judgment, and exits 0', async () => {
+	const { cwd } = await seedStandardsFixture();
+
+	const { stdout, stderr, code } = await runCli({ args: ['standards-health', '--cwd', cwd] });
+
+	// the coverage claim is counted off the package's own folders, so it lands
+	// even in a repo that has never run anything
+	expect(stdout).toMatch(/│ name-synonym\s+│\s+code\s+│/);
+	expect(stdout).toMatch(/│ path-aliases\s+│\s+judgment\s+│/);
+	// a repo with no refactor history has nothing to say about declines, and says
+	// so with a dash rather than a zero that would read as "never declined"
+	expect(stdout).toMatch(/│ name-synonym\s+│\s+code\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│/);
+	expect(stdout).toMatch(/│ 130 rule\(s\)\s+│\s+47 by code, 83 by judgment\s+│/);
+	// it reports on the rules, never on the code — nothing here to gate on
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
 });

@@ -1,4 +1,5 @@
 export { createRun } from '@/runState/createRun';
+export { listRunIds } from '@/runState/listRunIds';
 export { readRunManifest } from '@/runState/readRunManifest';
 export { writeRunManifest } from '@/runState/writeRunManifest';
 export { getRunDir } from '@/runState/common/paths/getRunDir';

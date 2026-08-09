@@ -36,18 +36,14 @@ The minimal configuration uses lightsout’s bundled JavaScript and TypeScript s
 }
 ```
 
-### Extend lightsout’s code standards
+### Use your own standards
 
-Keep the bundled defaults and add rules specific to your repository:
+Point `standardsPackages` at one or more standards packages. Each entry is the
+folder holding a `lightsout-standards.json` file:
 
 ```json
 {
-  "standards": [
-    "lightsout:code-defaults",
-    "docs/architecture.md",
-    "docs/code-standards.md"
-  ],
-  "testStandards": ["lightsout:test-defaults", "docs/test-standards.md"],
+  "standardsPackages": ["standards/house-rules"],
   "scripts": {
     "check": "pnpm check",
     "testUnit": "pnpm test:unit",
@@ -107,13 +103,22 @@ This is the smallest complete configuration. Everything else is optional.
 
 ## Adding your standards
 
-Lightsout loads its bundled JavaScript and TypeScript standards by default. The base standards always apply, while framework-specific standards for React and TanStack are added automatically when those frameworks are detected in the packages involved in the run.
+Standards arrive as **standards packages**. A package is a folder holding a
+`lightsout-standards.json` file, a `code/` tree of documents for the agents that
+write code, and a `tests/` tree for the agent that writes tests. Every rule is a
+folder inside a document: its prose, the check that enforces it when one is
+possible, and the example files that prove the check works.
 
-To replace the bundled standards with your own, add a `standards` array:
+Lightsout ships one such package and loads it when you say nothing. Its base
+documents always apply, while the framework-specific documents for React and
+TanStack are added automatically when those frameworks are detected in the
+packages involved in the run.
+
+To use your own instead, list its root folder:
 
 ```json
 {
-  "standards": ["docs/code-standards.md", "docs/architecture.md"],
+  "standardsPackages": ["standards/house-rules"],
   "scripts": {
     "check": "pnpm check",
     "testUnit": "pnpm test:unit",
@@ -122,23 +127,41 @@ To replace the bundled standards with your own, add a `standards` array:
 }
 ```
 
-To keep the Lightsout standards and add your own rules alongside them, include `lightsout:code-defaults`:
+Entries load in the order you list them, and each may be a path relative to the
+root of your repository or an absolute path. Listing several stacks their
+documents; two packages that claim the same rule id fail the run rather than
+letting an override mean two things. A root with no `lightsout-standards.json`
+in it fails the run too.
 
-```json
-{
-  "standards": ["lightsout:code-defaults", "docs/our-extra-rules.md"],
-  "testStandards": ["lightsout:test-defaults", "docs/test-standards.md"],
-  "scripts": {
-    "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
-    "testCoverage": "pnpm test:unit:coverage"
-  }
-}
-```
+Set `standardsPackages` to `false` to run with no standards at all.
 
-Each entry is a path relative to the root of your repository. An entry may also be a folder, in which case every Markdown file under it is loaded, including files in subfolders, in sorted path order. A folder that contains no Markdown files fails the run, exactly like a file that does not exist.
+### Commands for working with a package
 
-Set `standards` or `testStandards` to `false` to disable that category entirely.
+`lightsout standards-validate [--package <path>]` runs every check in a package
+against its own pass and fail fixtures. Without the flag it validates the
+package lightsout ships. This is the gate to run while writing a rule: a check
+that lets its fail fixture through catches nothing, and one that flags its pass
+fixture cries wolf. Neither is visible when the package loads, and both are
+exactly what an author needs told. It validates every rule regardless of
+channel, because authoring covers every channel.
+
+`lightsout standards-health` reports on the rules rather than on your code: per
+rule, whether code checks it or an agent has to judge it, and how often agents
+declined its findings, with the reasons they gave. The coverage half is counted
+from the package's own folders, so it lands even in a repository that has never
+run anything. The decline half is aggregated from the refactor runs recorded
+under `.lightsout/runs/`, and reads `—` until you have some.
+
+`lightsout standards-check` reports what your code breaks today. It runs both
+halves of the check by default — the checks your rules ship as code, and an
+agent reading the rules no code can check. Pass `--code-checks` for only the
+first, or `--agent-review` for only the second. The agent's findings are always
+advisory: they join the same reported stream, and they never fail a run. A run
+that includes the code checks writes `.lightsout/standards-check.json`; a
+review-only run prints and writes nothing, because that file is the machine
+half's evidence and a judgment call must not overwrite it. A repository whose
+harness is not installed gets a plain "agent review skipped" note rather than a
+failure.
 
 ## Field reference
 
@@ -161,9 +184,8 @@ Set `standards` or `testStandards` to `false` to disable that category entirely.
 | `generated`                  |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                   |
 | `packageScripts`             |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](docs/monorepos.md).                                                                                                                    |
 | `packagesDir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                           |
-| `standards`                  |       no | Standards injected into code-writing agents. When omitted, the bundled JavaScript and TypeScript standards are used. Set to `false` to disable code standards, or provide an array of Markdown files or folders — a folder loads every `.md` file under it, recursively, in sorted path order. Include `lightsout:code-defaults` to keep the bundled standards alongside your own. |
-| `testStandards`              |       no | Standards injected into the test-writing agent. The behavior matches `standards`. Use `lightsout:test-defaults` to include the bundled test standards alongside your own.                                                                                                                 |
-| `standardsChannels`          |       no | Controls which framework-specific bundled standards are loaded, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base standards.                                    |
+| `standardsPackages`          |       no | The standards packages a run works against. When omitted, the package lightsout ships is used. Set to `false` to run with no standards at all, or provide an array of package roots — each the folder holding a `lightsout-standards.json` file, relative to your repository root or absolute. One package carries both the code and the test documents, which is why there is a single key rather than two. |
+| `standardsChannels`          |       no | Controls which framework-specific documents of the loaded packages are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                        |
 | `standardsChecks`            |       no | Per-rule overrides for `lightsout standards-check`, keyed by rule id. A rule you do not name keeps its own default. See [Standards check rules](#standards-check-rules).                                                                                                                  |
 
 ### Standards check rules
@@ -225,10 +247,9 @@ The following example shows how the optional configuration fields fit together:
     },
   },
 
-  // Code and test standards
-  "standards": ["standards/code", "docs/our-extra-rules.md"],
-  "testStandards": ["standards/tests"],
-  "standardsChannels": ["base"],
+  // Standards packages, and which framework documents apply
+  "standardsPackages": ["standards/house-rules"],
+  "standardsChannels": [],
 
   // Repository-wide gates
   "scripts": {

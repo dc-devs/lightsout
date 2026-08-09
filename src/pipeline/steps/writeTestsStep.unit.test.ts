@@ -5,6 +5,7 @@ import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -18,6 +19,10 @@ const setupParkedWriterRun = async () => {
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (roleOf(prompt) === 'write-tests') {
 				if (prompt.includes('src/zeta.js')) {
 					return { text: '', exitCode: 1, rateLimited: true };

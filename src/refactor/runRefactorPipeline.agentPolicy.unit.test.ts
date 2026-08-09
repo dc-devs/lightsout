@@ -6,6 +6,8 @@ import type { Driver, DriverInvocation } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
+import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
@@ -26,6 +28,10 @@ const setupBatchPolicy = async ({ config }: { config?: Record<string, unknown> }
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
+			if (roleOf(invocation.prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			invocations.push(invocation);
 
 			const target = invocation.prompt.match(/- (\S+\.ts)/)?.[1];

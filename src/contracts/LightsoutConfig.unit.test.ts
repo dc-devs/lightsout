@@ -131,37 +131,100 @@ test('LightsoutConfig: a typoed field inside a commands entry fails parsing', ()
 	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { modle: 'x' } } }).success).toBe(false);
 });
 
-test('LightsoutConfig: standards and testStandards accept folder, file, and token entries in one array, in config order', () => {
-	const standards = ['standards/code', 'docs/our-extra-rules.md', 'lightsout:code-defaults'];
-	const testStandards = ['standards/tests', 'lightsout:test-defaults'];
+test('LightsoutConfig: a packageScripts block whose every command carries the {package} placeholder parses intact', () => {
+	const packageScripts = {
+		check: 'pnpm --filter {package} check',
+		testUnit: 'pnpm --filter {package} test:unit',
+		testCoverage: 'pnpm --filter {package} test:coverage',
+		build: 'pnpm --filter {package} build',
+	};
 
-	const parsed = LightsoutConfig.parse({ ...base, standards, testStandards });
+	const parsed = LightsoutConfig.parse({ ...base, packageScripts });
 
-	// a folder entry is a plain string entry alongside files and tokens — the
-	// schema carries no path-kind discrimination that would reject it
-	expect(parsed.standards).toStrictEqual(standards);
-	// testStandards accepts the same entry shapes, with entry order preserved for
-	// in-place expansion
-	expect(parsed.testStandards).toStrictEqual(testStandards);
+	// the scoped commands survive parsing unchanged — the placeholder is checked,
+	// never substituted here
+	expect(parsed.packageScripts).toStrictEqual(packageScripts);
+	// the two optional scoped gates may be omitted, and the whole block is optional
+	expect(LightsoutConfig.parse({ ...base, packageScripts: { check: 'c {package}', testUnit: 't {package}' } }).packageScripts).toStrictEqual({
+		check: 'c {package}',
+		testUnit: 't {package}',
+	});
+	// an absent block leaves no key on the parsed config — single-package repos run
+	// scripts.* and nothing else
+	expect('packageScripts' in LightsoutConfig.parse(base)).toBe(false);
 });
 
-test('LightsoutConfig: standards and testStandards accept false and absence', () => {
-	const parsed = LightsoutConfig.parse({ ...base, standards: false, testStandards: false });
+test('LightsoutConfig: a packageScripts command missing the {package} placeholder is refused with a message naming it', () => {
+	const result = LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'pnpm check', testUnit: 'pnpm --filter {package} test:unit' } });
+
+	// a command without the placeholder would run identically for every package —
+	// silently doing the same work N times instead of scoping it
+	expect(result.success).toBe(false);
+	expect(result.error?.message ?? '').toMatch(/\{package\} placeholder/);
+	// the check reaches the optional entries too, not just the two required ones
+	expect(LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'c {package}', testUnit: 't {package}', build: 'pnpm build' } }).success).toBe(false);
+});
+
+test('LightsoutConfig: standardsPackages accepts relative and absolute package roots, in config order', () => {
+	const standardsPackages = ['standards/house', '/opt/acme-standards'];
+
+	const parsed = LightsoutConfig.parse({ ...base, standardsPackages });
+
+	// entries are plain strings either way — the schema carries no path-kind
+	// discrimination, and order is the order packages stack in
+	expect(parsed.standardsPackages).toStrictEqual(standardsPackages);
+});
+
+test('LightsoutConfig: standardsPackages accepts false and absence', () => {
+	const parsed = LightsoutConfig.parse({ ...base, standardsPackages: false });
 
 	// false is the explicit opt-out, distinct from an absent field
-	expect(parsed.standards).toBe(false);
-	// testStandards opts out the same way
-	expect(parsed.testStandards).toBe(false);
-	// both fields stay optional — an absent field means the bundled defaults load
+	expect(parsed.standardsPackages).toBe(false);
+	// the field stays optional — an absent field means the shipped default package loads
 	expect(LightsoutConfig.safeParse(base).success).toBe(true);
 });
 
-test('LightsoutConfig: a non-string standards entry fails parsing', () => {
-	// entries are plain strings — an object entry is a hard error, pinning that
-	// folder support added no structured entry form
-	expect(LightsoutConfig.safeParse({ ...base, standards: [{ path: 'standards/code' }] }).success).toBe(false);
+test('LightsoutConfig: a non-string standardsPackages entry fails parsing', () => {
+	// entries are plain strings — an object entry is a hard error
+	expect(LightsoutConfig.safeParse({ ...base, standardsPackages: [{ path: 'standards/house' }] }).success).toBe(false);
 	// a bare string in place of the array is a hard error
-	expect(LightsoutConfig.safeParse({ ...base, testStandards: 'standards/tests' }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, standardsPackages: 'standards/house' }).success).toBe(false);
+});
+
+test('LightsoutConfig: an empty standardsPackages array parses and stays empty', () => {
+	const parsed = LightsoutConfig.parse({ ...base, standardsPackages: [] });
+
+	// an array says "exactly these", so an empty one says "exactly none" and must
+	// survive parsing as itself — collapsing it to absence would load the shipped
+	// default package the config just declined
+	expect(parsed.standardsPackages).toStrictEqual([]);
+	// and it is a present key, unlike an absent field
+	expect('standardsPackages' in parsed).toBe(true);
+});
+
+test.each([
+	{ label: 'a standardsPackages of true', standardsPackages: true },
+	{ label: 'a standardsPackages of null', standardsPackages: null },
+	{ label: 'a standardsPackages of 0', standardsPackages: 0 },
+	{ label: 'a standardsPackages object', standardsPackages: { roots: ['standards/house'] } },
+])('LightsoutConfig: $label fails parsing', ({ standardsPackages }) => {
+	// the opt-out is the literal false and nothing else — a truthy or nullish value
+	// near it would otherwise read as an opt-out and silently drop every standard
+	expect(LightsoutConfig.safeParse({ ...base, standardsPackages }).success).toBe(false);
+});
+
+test('LightsoutConfig: the removed standards and testStandards keys are refused with a message naming standardsPackages', () => {
+	const codeResult = LightsoutConfig.safeParse({ ...base, standards: ['docs/style.md'] });
+	const testResult = LightsoutConfig.safeParse({ ...base, testStandards: ['docs/tests.md'] });
+
+	// the top level is not strict, so a retired key must be refused explicitly or a
+	// repo's standards would be silently dropped and the defaults used instead
+	expect(codeResult.success).toBe(false);
+	expect(codeResult.error?.message ?? '').toMatch(/replaced by `standardsPackages`/);
+	expect(testResult.success).toBe(false);
+	expect(testResult.error?.message ?? '').toMatch(/replaced by `standardsPackages`/);
+	// the rejection is about the key, not its contents: even the old opt-out value fails
+	expect(LightsoutConfig.safeParse({ ...base, standards: false }).success).toBe(false);
 });
 
 test('LightsoutConfig: the removed scan key is refused with a message naming standardsChecks', () => {
@@ -263,15 +326,24 @@ test('LightsoutConfig: a settings value is checked as a number and nothing more'
 	expect(parsed.standardsChecks).toStrictEqual({ clone: { settings: { minTokens: 0, ratio: 1.5 } } });
 });
 
+test('LightsoutConfig: a rule id this schema has never heard of parses, because the packages own the vocabulary', () => {
+	const parsed = LightsoutConfig.parse({ ...base, standardsChecks: { 'house-style-no-default-export': 'off', 'size-fil': 'off' } });
+
+	// a third-party standards package brings its own rule ids, so a closed list
+	// here would refuse every package but the bundled one. The typo `size-fil`
+	// is still caught — by `resolvePackageRuleStates`, where the loaded packages
+	// make the valid ids knowable, and it names them in the refusal
+	expect(parsed.standardsChecks).toStrictEqual({ 'house-style-no-default-export': 'off', 'size-fil': 'off' });
+});
+
 test.each([
-	{ label: 'a rule id that is not in the closed list', standardsChecks: { 'size-fil': 'off' } },
 	{ label: 'a severity outside the three states', standardsChecks: { clone: 'warn' } },
 	{ label: 'a severity outside the three states inside an object', standardsChecks: { clone: { severity: 'warn' } } },
 	{ label: 'a settings key that is not a number', standardsChecks: { clone: { settings: { minTokens: '50' } } } },
 	{ label: 'an override object carrying a key the shape does not declare', standardsChecks: { clone: { severty: 'off' } } },
 	{ label: 'a standardsChecks that is not an object', standardsChecks: true },
 ])('LightsoutConfig: $label fails parsing', ({ standardsChecks }) => {
-	// a mistyped rule id or severity would silently disable an override the user
-	// believes is active — the same reason the commands block is strict
+	// a mistyped severity would silently disable an override the user believes is
+	// active — the same reason the commands block is strict
 	expect(LightsoutConfig.safeParse({ ...base, standardsChecks }).success).toBe(false);
 });

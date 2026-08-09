@@ -288,7 +288,7 @@ test('doctor notes packages with @testing-library/react but no user-event — an
 	expect((checks.get('user-event')?.detail ?? '').includes('api')).toBeFalsy();
 });
 
-test('doctor lint-rules: flags disabled mechanical rules, passes enforced ones, notes a missing linter, and respects standards:false', async () => {
+test('doctor lint-rules: flags disabled mechanical rules, passes enforced ones, notes a missing linter, and respects standardsPackages:false', async () => {
 	// Disabled + missing rules → note naming them
 	const flagged = setupConsumerRepo({ git: false });
 
@@ -315,8 +315,8 @@ test('doctor lint-rules: flags disabled mechanical rules, passes enforced ones, 
 	expect(bareChecks.get('lint-rules')?.status).toBe('note');
 	expect(bareChecks.get('lint-rules')?.detail ?? '').toMatch(/no linter config found/);
 
-	// standards: false = the consumer opted out — no check at all
-	const yolo = setupConsumerRepo({ git: false, config: { standards: false } });
+	// standardsPackages: false = the consumer opted out — no check at all
+	const yolo = setupConsumerRepo({ git: false, config: { standardsPackages: false } });
 	const yoloChecks = byId(await runDoctor({ cwd: yolo, probeHarness: passingProbe }));
 
 	// opting out of standards opts out of the lint nudge

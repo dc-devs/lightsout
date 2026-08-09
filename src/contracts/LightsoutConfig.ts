@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { Effort } from '@/contracts/Effort';
 import { Permissions } from '@/contracts/Permissions';
-// Through the barrel, not the two files: `standardsCheck` is a module of its
-// own inside contracts, and its index.ts is the path in. No cycle — nothing
-// under it reads the config.
-import { StandardsRule, StandardsSeverity } from '@/contracts/standardsCheck';
+// Through the barrel, not the file: `standardsCheck` is a module of its own
+// inside contracts, and its index.ts is the path in. No cycle — nothing under
+// it reads the config.
+import { StandardsSeverity } from '@/contracts/standardsCheck';
 
 /**
  * A rule's severity, with the pre-rename spelling called out by name.
@@ -142,19 +142,21 @@ export const LightsoutConfig = z.object({
 		})
 		.optional(),
 	/**
-	 * Standards for code-writing roles (executor, refactorer). Unspecified =
-	 * the engine's bundled JS/TS defaults load (announced in the run header);
-	 * `false` = explicitly none; an array = exactly these, where each entry
-	 * is a repo-relative markdown file, a repo-relative folder (every `.md`
-	 * under it, recursively, in sorted path order), or the token
-	 * `lightsout:code-defaults` to stack the bundled defaults with extras. A
-	 * missing entry — or a folder holding no markdown — is a hard error.
+	 * Standards packages a run works against. Unspecified = the package the
+	 * plugin ships (announced in the run header); `false` = explicitly none; an
+	 * array = exactly these, where each entry is the root folder of a standards
+	 * package — the folder holding `lightsout-standards.json` — repo-relative or
+	 * absolute. One key, not two: a package carries both the code and the test
+	 * document trees, so a second key could only disagree with this one about
+	 * which package is loaded. A root that cannot be loaded is a hard error.
 	 */
-	standards: z.union([z.array(z.string()), z.literal(false)]).optional(),
-	/** Same, for the test-writer role (token: `lightsout:test-defaults`). */
-	testStandards: z.union([z.array(z.string()), z.literal(false)]).optional(),
+	standardsPackages: z.union([z.array(z.string()), z.literal(false)]).optional(),
+	/** Removed — replaced by `standardsPackages`. Declared only so a stale key fails loudly instead of being silently stripped. */
+	standards: z.never('`standards` was replaced by `standardsPackages` — standards now load as packages').optional(),
+	/** Removed — the test tree ships inside a standards package. Same reason. */
+	testStandards: z.never('`testStandards` was replaced by `standardsPackages` — standards now load as packages').optional(),
 	/**
-	 * Framework channels of the bundled default standards (e.g. 'react',
+	 * Framework channels of the loaded standards packages (e.g. 'react',
 	 * 'tanstack'). Unspecified = detected per run from the scoped packages'
 	 * package.json dependencies; an array REPLACES detection (empty = base
 	 * docs only).
@@ -166,15 +168,17 @@ export const LightsoutConfig = z.object({
 	 * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
 	 * value is either a severity, or an object with a severity and/or that
 	 * rule's own settings. A rule not named here keeps its default — silence
-	 * is never a change. Keyed by the closed rule list rather than a free
-	 * string, so a mistyped id fails parsing instead of silently disabling an
-	 * override the user believes is active (same reasoning as `commands`
-	 * being `.strict()`). Read the live state with
+	 * is never a change.
+	 *
+	 * The ids come from the loaded standards packages, so a mistyped one cannot
+	 * be caught while parsing this file: `resolvePackageRuleStates` refuses a
+	 * key naming no loaded rule and lists the valid ids. The protection is the
+	 * same, it just happens where the answer exists. Read the live state with
 	 * `lightsout standards-check --list`.
 	 */
 	standardsChecks: z
-		.partialRecord(
-			z.enum(StandardsRule),
+		.record(
+			z.string(),
 			z.union([
 				standardsSeverityValue,
 				z

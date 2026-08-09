@@ -7,6 +7,8 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
 import { readGateLog } from '@tests/helpers/readGateLog';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
+import { roleOf } from '@tests/helpers/roleOf';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
 
 /**
@@ -23,7 +25,11 @@ const setupMonorepoBatch = async () => {
 	let preFlightGates: string[] = [];
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async () => {
+		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			preFlightGates = readGateLog({ dir });
 			writeFileSync(join(dir, 'packages/api/src/multi.ts'), 'export const alphaThing = 1;\n');
 			writeFileSync(join(dir, 'packages/api/src/betaThing.ts'), 'export const betaThing = 2;\n');

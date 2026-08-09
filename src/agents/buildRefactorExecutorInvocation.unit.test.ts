@@ -1,11 +1,11 @@
 import { expect, test } from '@jest/globals';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { buildRefactorExecutorInvocation } from '@/agents';
 
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.MultiExport,
+	rule: 'multi-export',
 	severity: StandardsSeverity.Blocking,
 	siteKey: 'widget',
 	files: [{ path: 'src/widget.ts' }],
@@ -36,7 +36,7 @@ test('buildRefactorExecutorInvocation: the system prompt is byte-identical acros
 		changedFiles: ['src/widget.ts', 'src/other.ts'],
 		standards,
 		findings: [finding()],
-		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory })],
+		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
 		errorContext: 'check failed',
 	});
 
@@ -60,7 +60,7 @@ test('buildRefactorExecutorInvocation: findings and advisories render as rule bu
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [finding()],
-		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
@@ -75,7 +75,7 @@ test('buildRefactorExecutorInvocation: the blocking findings lead the standards 
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [finding()],
-		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	// one heading for both lists — a second heading reads as a second work-list
@@ -90,7 +90,7 @@ test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, af
 		changedFiles: ['src/widget.ts'],
 		advisories: [
 			finding({
-				rule: StandardsRule.SizeFunction,
+				rule: 'size-function',
 				severity: StandardsSeverity.Advisory,
 				detail: "function 'one' is 114 lines (cap ~80)",
 				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt.',
@@ -109,7 +109,7 @@ test('buildRefactorExecutorInvocation: a multi-site finding renders every locati
 		changedFiles: ['src/widget.ts'],
 		findings: [
 			finding({
-				rule: StandardsRule.Clone,
+				rule: 'clone',
 				siteKey: 'widget-clone',
 				files: [
 					{ path: 'src/widget.ts', startLine: 12, endLine: 40 },
@@ -149,7 +149,7 @@ test('buildRefactorExecutorInvocation: an advisories-only run renders without th
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [],
-		advisories: [finding({ rule: StandardsRule.SizeFunction, severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
+		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory, detail: 'function exceeds 50 lines' })],
 	});
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
@@ -196,4 +196,81 @@ test('buildRefactorExecutorInvocation: neither the plan nor the standards appear
 	expect(prompt.includes('PLAN-SENTINEL')).toBeFalsy();
 	// the standards are paid for once, in the cached system prompt
 	expect(prompt.includes('STANDARDS-SENTINEL')).toBeFalsy();
+});
+
+test('buildRefactorExecutorInvocation: the advisory-outcomes section is opt-in — callers that record nothing never ask for it', () => {
+	const advisories = [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })];
+	const silent = buildRefactorExecutorInvocation({ planContent, changedFiles: ['src/widget.ts'], advisories });
+	const asking = buildRefactorExecutorInvocation({ planContent, changedFiles: ['src/widget.ts'], advisories, reportAdvisoryOutcomes: true });
+
+	// asking for a field nothing persists would be prompt noise
+	expect(silent.prompt.includes('# Report what you did about each advisory')).toBeFalsy();
+	expect(asking.prompt.includes('# Report what you did about each advisory')).toBeTruthy();
+	// with the shape it wants back
+	expect(asking.prompt.includes('"advisoryOutcomes"')).toBeTruthy();
+});
+
+test('buildRefactorExecutorInvocation: with no advisory to answer for, the section is omitted even when asked for', () => {
+	const { prompt } = buildRefactorExecutorInvocation({
+		planContent,
+		changedFiles: ['src/widget.ts'],
+		findings: [finding()],
+		advisories: [],
+		reportAdvisoryOutcomes: true,
+	});
+
+	expect(prompt.includes('# Report what you did about each advisory')).toBeFalsy();
+});
+
+test('buildRefactorExecutorInvocation: a pass that was handed no advisory list at all is never asked to answer for one', () => {
+	const { prompt } = buildRefactorExecutorInvocation({
+		planContent,
+		changedFiles: ['src/widget.ts'],
+		findings: [finding()],
+		reportAdvisoryOutcomes: true,
+	});
+
+	// an omitted list is the same nothing as an empty one
+	expect(prompt.includes('# Report what you did about each advisory')).toBeFalsy();
+});
+
+test('buildRefactorExecutorInvocation: the advisory-outcomes ask names the two outcomes the report contract accepts, and the fields to echo', () => {
+	const { prompt } = buildRefactorExecutorInvocation({
+		planContent,
+		changedFiles: ['src/widget.ts'],
+		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
+		reportAdvisoryOutcomes: true,
+	});
+
+	// an outcome word the contract's enum does not accept fails the report and loses the record
+	expect(prompt.includes('"applied"')).toBeTruthy();
+	expect(prompt.includes('"declined"')).toBeTruthy();
+	// the health report ties an entry back to its rule by these two fields, copied not invented
+	expect(prompt.includes('`rule` and `siteKey` copied exactly as given')).toBeTruthy();
+	// and the worked example carries the same field names the parser reads
+	expect(prompt.includes('{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }')).toBeTruthy();
+});
+
+test('buildRefactorExecutorInvocation: asking for advisory outcomes leaves the cached system prompt untouched', () => {
+	const advisories = [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })];
+	const silent = buildRefactorExecutorInvocation({ planContent, changedFiles: ['src/widget.ts'], standards, advisories });
+	const asking = buildRefactorExecutorInvocation({ planContent, changedFiles: ['src/widget.ts'], standards, advisories, reportAdvisoryOutcomes: true });
+
+	// the ask varies per caller, so it rides the user prompt or it breaks the cached prefix
+	expect(asking.systemPrompt).toBe(silent.systemPrompt);
+});
+
+test('buildRefactorExecutorInvocation: the advisory-outcomes ask follows the advisories it is about', () => {
+	const { prompt } = buildRefactorExecutorInvocation({
+		planContent,
+		changedFiles: ['src/widget.ts'],
+		advisories: [finding({ rule: 'size-function', severity: StandardsSeverity.Advisory })],
+		reportAdvisoryOutcomes: true,
+		errorContext: 'GATE-SENTINEL',
+	});
+
+	// it names "the advisories listed above", so it has to sit under them
+	expect(prompt.indexOf('# Standards findings (deterministic checks)')).toBeLessThan(prompt.indexOf('# Report what you did about each advisory'));
+	// and before the gate output, which is why this pass is a retry
+	expect(prompt.indexOf('# Report what you did about each advisory')).toBeLessThan(prompt.indexOf('# Verification failure'));
 });

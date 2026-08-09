@@ -7,6 +7,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -42,6 +43,10 @@ const happyDriver = (dir: string): Driver => ({
 	name: 'stub',
 	invoke: async ({ prompt }) => {
 		const role = roleOf(prompt);
+
+		if (role === 'standards-review') {
+			return { text: reviewReport(), exitCode: 0 };
+		}
 
 		if (role === 'write-tests') {
 			mkdirSync(join(dir, 'test'), { recursive: true });

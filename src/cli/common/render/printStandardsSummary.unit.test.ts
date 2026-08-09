@@ -1,10 +1,10 @@
 import { expect, describe, test, jest } from '@jest/globals';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 import type { StandardsRuleListing } from '@/standardsCheck';
 import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.SizeFunction,
+	rule: 'size-function',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],
@@ -13,9 +13,10 @@ const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding =>
 });
 
 const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleListing => ({
-	rule: StandardsRule.SizeFunction,
-	doc: 'standards/code/style-guide/structure/function-size.md',
+	rule: 'size-function',
+	doc: 'lightsout-defaults: code/style-guide/patterns/functions',
 	summary: 'a function longer than the size cap',
+	checked: true,
 	severity: StandardsSeverity.Advisory,
 	fromConfig: false,
 	settings: {},
@@ -24,7 +25,7 @@ const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleLi
 
 const rules: StandardsRuleListing[] = [
 	listing(),
-	listing({ rule: StandardsRule.ModuleBoundary, summary: 'a file deep-imported across a module boundary', severity: StandardsSeverity.Blocking }),
+	listing({ rule: 'module-boundary', summary: 'a file deep-imported across a module boundary', severity: StandardsSeverity.Blocking }),
 ];
 
 const setupPrinter = () => {
@@ -47,7 +48,7 @@ describe('printStandardsSummary', () => {
 
 		printStandardsSummary({
 			findings: [
-				finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Blocking }),
+				finding({ rule: 'module-boundary', severity: StandardsSeverity.Blocking }),
 				finding(),
 				finding({ siteKey: 'size:two' }),
 			],
@@ -91,11 +92,29 @@ describe('printStandardsSummary', () => {
 		expect(logged).toContain('report: .lightsout/standards-check.json');
 	});
 
+	test('a run that wrote no report file names none, rather than pointing at a stale one', () => {
+		const { logged } = setupPrinter();
+
+		printStandardsSummary({ findings: [finding()], rules });
+
+		// a review-only run reads the tree and reports, but the evidence file on
+		// disk is still whatever the last real check left there
+		expect(logged.some((line) => line.startsWith('report: '))).toBe(false);
+	});
+
+	test('a clean run that wrote no report file still says clean', () => {
+		const { logged } = setupPrinter();
+
+		printStandardsSummary({ findings: [], rules });
+
+		expect(logged).toStrictEqual(['', 'clean — nothing blocking, no advisories']);
+	});
+
 	test('carries each reported rule summary beneath its own row, because a rule id says nothing on its own', () => {
 		const { logged } = setupPrinter();
 
 		printStandardsSummary({
-			findings: [finding({ rule: StandardsRule.ModuleBoundary, severity: StandardsSeverity.Blocking }), finding()],
+			findings: [finding({ rule: 'module-boundary', severity: StandardsSeverity.Blocking }), finding()],
 			rules,
 			reportPath: '.lightsout/standards-check.json',
 		});
@@ -116,7 +135,7 @@ describe('printStandardsSummary', () => {
 		// a rule id can outlive the listing it was resolved from — the tally is the
 		// answer the reader asked for, and losing it to a missing summary would be
 		// the wrong trade
-		printStandardsSummary({ findings: [finding({ rule: StandardsRule.Clone })], rules, reportPath: '.lightsout/standards-check.json' });
+		printStandardsSummary({ findings: [finding({ rule: 'clone' })], rules, reportPath: '.lightsout/standards-check.json' });
 
 		expect(cellsOf({ logged })).toStrictEqual([
 			['rule', 'blocking', 'advisories'],

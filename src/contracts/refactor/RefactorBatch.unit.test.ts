@@ -105,7 +105,7 @@ describe('RefactorBatch', () => {
 	test('one malformed finding rejects the whole batch', () => {
 		const { batch, finding } = setupBatch();
 
-		const result = RefactorBatch.safeParse({ ...batch, blocking: [{ ...finding, rule: 'complexity' }] });
+		const result = RefactorBatch.safeParse({ ...batch, blocking: [{ ...finding, severity: 'off' }] });
 
 		// a batch is dispatched whole, so a half-readable work-list is refused at the
 		// read boundary rather than sending an agent at work no re-check could verify
@@ -138,8 +138,8 @@ describe('RefactorBatch', () => {
 
 		const parsed = RefactorBatch.parse(batch);
 
-		// the rule is echoed into the step id as text; the closed rule set is
-		// enforced on the findings themselves
+		// the rule is echoed into the step id as text; which rule ids exist is
+		// decided by the loaded standards packages, not by this contract
 		expect(parsed.rule).toBe('barrel-hygiene');
 	});
 

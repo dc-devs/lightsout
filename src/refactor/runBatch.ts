@@ -1,33 +1,21 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
-import {
-	BatchOutcome,
-	StandardsSeverity,
-	WorkReportStatus,
-	type AgentUsage,
-	type BatchReport,
-	type LightsoutConfig,
-	type RefactorBatch,
-	type StandardsFinding,
-} from '@/contracts';
+import { BatchOutcome, WorkReportStatus, type AdvisoryOutcome, type AgentUsage, type LightsoutConfig, type RefactorBatch, type StandardsFinding } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { runStandardsCheck } from '@/standardsCheck';
+import type { LoadedStandardsPackage } from '@/standardsPackages';
 import { buildBatchFixInvocation } from '@/refactor/buildBatchFixInvocation';
+import { buildBatchReport } from '@/refactor/buildBatchReport';
+import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
 import { collectBatchChanges } from '@/refactor/collectBatchChanges';
 import { invokeBatchAgent } from '@/refactor/invokeBatchAgent';
 import { matchRemainingFindings } from '@/refactor/matchRemainingFindings';
 import { runBatchGates } from '@/refactor/runBatchGates';
 import { superviseBatch } from '@/refactor/superviseBatch';
+import type { BatchStop } from '@/refactor/common/types/BatchStop';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =
 	'Standalone refactor run — there is no feature plan. The standards findings below are the entire work-list; nothing else about the repo is being changed.';
-
-/** One batch attempt's terminal condition, before outcome classification. */
-type BatchStop =
-	| { kind: 'parked' }
-	| { kind: 'failed'; error: string }
-	| { kind: 'escalated'; error: string }
-	| { kind: 'done'; report: BatchReport; changedFiles: string[] };
 
 interface Params {
 	cwd: string;
@@ -35,6 +23,10 @@ interface Params {
 	driver: Driver;
 	config: LightsoutConfig;
 	batch: RefactorBatch;
+	/** The run's standards packages, resolved once by the pipeline — the judgment rules the agent review reads come from here. */
+	packages: LoadedStandardsPackage[];
+	/** Active framework channels, resolved once by the pipeline. */
+	channels: string[];
 	/** Check scope of the run's worklist, threaded into the per-batch re-check. */
 	checkPath?: string;
 	/** Include baselined findings in re-checks — must match the worklist's mode. */
@@ -64,6 +56,8 @@ export const runBatch = async ({
 	driver,
 	config,
 	batch,
+	packages,
+	channels,
 	checkPath,
 	checkAll,
 	standards,
@@ -75,13 +69,17 @@ export const runBatch = async ({
 }: Params): Promise<BatchStop> => {
 	const rationale: string[] = [];
 	const reportedFiles = new Set<string>();
+	const advisoryOutcomes = new Map<string, AdvisoryOutcome>();
 	let invocationCount = 0;
 
 	const invoke = ({ label, invocation }: { label: string; invocation: { systemPrompt: string; prompt: string } }) => {
 		invocationCount += 1;
 
-		return invokeBatchAgent({ cwd, runId, driver, config, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, recordUsage });
+		return invokeBatchAgent({ cwd, runId, driver, config, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, advisoryOutcomes, recordUsage });
 	};
+
+	const reportOf = ({ outcome, remainingSiteKeys }: { outcome: BatchOutcome; remainingSiteKeys: string[] }) =>
+		buildBatchReport({ outcome, remainingSiteKeys, rationale, advisoryOutcomes: [...advisoryOutcomes.values()] });
 
 	const gates = () => runBatchGates({ cwd, config, runId, step: batch.id, onProgress });
 
@@ -104,16 +102,10 @@ export const runBatch = async ({
 	if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
 		onProgress(`${batch.id}: sites already resolved by earlier work — no agent spent`);
 
-		return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: [] };
+		return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
 	}
 
-	const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file) => file.path)));
-	// Every advisory touching the batch's files, not just the size ones: each
-	// carries its own guidance, and one the agent never sees is one it can
-	// never judge.
-	const liveAdvisories = preCheck.findings.filter(
-		(finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file) => batchFiles.has(file.path)),
-	);
+	const advisories = await collectBatchAdvisories({ cwd, driver, batch, packages, channels, findings: preCheck.findings, timeoutMs: agentTimeoutMs, onProgress });
 
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever sites survived a pass that DID change the tree (a partial).
@@ -123,7 +115,7 @@ export const runBatch = async ({
 		const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file) => file.path)))];
 
 		const buildFixInvocation = ({ gateError, guidance }: { gateError: string; guidance?: string }) =>
-			buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories: liveAdvisories, gateError, guidance });
+			buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories, gateError, guidance });
 		const attemptOutcome = await invoke({
 			label: pass === 1 ? '' : 'requeue',
 			invocation: buildRefactorExecutorInvocation({
@@ -131,7 +123,8 @@ export const runBatch = async ({
 				changedFiles: files,
 				standards,
 				findings: workFindings,
-				advisories: liveAdvisories,
+				advisories,
+				reportAdvisoryOutcomes: true,
 			}),
 		});
 
@@ -149,7 +142,7 @@ export const runBatch = async ({
 				rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
 				onProgress(`${batch.id}: invocation failed but work verified on disk — salvaged as resolved`);
 
-				return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
+				return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
 			}
 
 			return { kind: 'failed', error: `${batch.id}: ${failure}` };
@@ -164,7 +157,7 @@ export const runBatch = async ({
 
 			return {
 				kind: 'done',
-				report: { outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }), rationale },
+				report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }) }),
 				changedFiles: await batchChangedFiles(),
 			};
 		}
@@ -220,7 +213,7 @@ export const runBatch = async ({
 		const remaining = await remainingSiteKeys({ frozen: workFindings });
 
 		if (remaining.length === 0) {
-			return { kind: 'done', report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
+			return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
 		}
 
 		if (report.changedFiles.length === 0 || pass === 2) {
@@ -228,7 +221,7 @@ export const runBatch = async ({
 			// honestly and move on; a decline never fails the run by itself.
 			return {
 				kind: 'done',
-				report: { outcome: BatchOutcome.Declined, remainingSiteKeys: remaining, rationale },
+				report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining }),
 				changedFiles: await batchChangedFiles(),
 			};
 		}

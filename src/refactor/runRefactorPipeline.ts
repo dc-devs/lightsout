@@ -13,6 +13,7 @@ import { runGates } from '@/pipeline';
 import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '@/runState';
 import { runStandardsCheck } from '@/standardsCheck';
 import { resolveStandards } from '@/standards';
+import { resolveStandardsPackages } from '@/standardsPackages';
 import { countByRule } from '@/refactor/countByRule';
 import { initializeRun } from '@/refactor/initializeRun';
 import { seedResumeState } from '@/refactor/seedResumeState';
@@ -126,7 +127,11 @@ const executeRefactor = async ({
 
 	// A refactor run has no package scope of its own, so channels come from the
 	// repo root manifest.
-	const { standards, testStandards } = await resolveStandards({ cwd, config, packages: [] });
+	const { standards, testStandards, channels } = await resolveStandards({ cwd, config, packages: [] });
+	// Resolved once for the whole run: every batch's agent review reads the same
+	// judgment rules, and re-walking the package tree per batch would only invite
+	// two batches to disagree about what the standards are.
+	const standardsPackages = await resolveStandardsPackages({ cwd, config });
 	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
 
 	let declineStreak = seeded.declineStreak;
@@ -157,6 +162,8 @@ const executeRefactor = async ({
 			driver,
 			config,
 			batch,
+			packages: standardsPackages,
+			channels,
 			checkPath: worklist.path === '.' ? undefined : worklist.path,
 			checkAll: worklist.all,
 			standards,

@@ -1,9 +1,9 @@
 import { expect, describe, test } from '@jest/globals';
-import { StandardsRule, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { formatFindingText } from '@/agents';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
-	rule: StandardsRule.SizeFunction,
+	rule: 'size-function',
 	severity: StandardsSeverity.Advisory,
 	siteKey: 'size:one',
 	files: [{ path: 'src/a.ts' }],

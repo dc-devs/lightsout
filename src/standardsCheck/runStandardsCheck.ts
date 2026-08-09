@@ -1,14 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { StandardsRule, StandardsSeverity, type StandardsFinding, type StandardsPassId } from '@/contracts';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
+import type { StandardsFinding } from '@/contracts';
 import { loadConfig } from '@/common/utils/loadConfig';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
+import { detectStandardsChannels } from '@/standards';
 import { applyStandardsBaseline } from '@/standardsCheck/common/utils/applyStandardsBaseline';
-import { resolveRuleStates } from '@/standardsCheck/resolveRuleStates';
-import { standardsPasses } from '@/standardsCheck/standardsPasses';
-import { standardsRuleRegistry } from '@/standardsCheck/standardsRuleRegistry';
+import { resolvePackageRuleStates } from '@/standardsCheck/resolvePackageRuleStates';
+import { runPackageChecks } from '@/standardsCheck/runPackageChecks';
+import { resolveStandardsPackages } from '@/standardsPackages';
 
 /** Deepest directory (depth ≥ 2) holding >50% of findings — a report dominated by one path should diagnose its own config gap (live case: a generated Prisma dir missing from `generated`). */
 const dominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
@@ -49,9 +47,6 @@ const dominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
 	return prefix.split('/').length >= 2 ? { dir: prefix, count, total: paths.length } : undefined;
 };
 
-/** The rules a pass owns, straight from the registry — so a rule added later cannot leave a skip note or an off-check stale. */
-const rulesOf = ({ pass }: { pass: StandardsPassId }) => Object.values(StandardsRule).filter((rule) => standardsRuleRegistry[rule].pass === pass);
-
 interface Params {
 	cwd: string;
 	/** Repo-relative subpath to check (default: the whole repo). */
@@ -67,13 +62,15 @@ interface Params {
 
 /**
  * The structural standards-check suite: detection is code — agents never get
- * asked to "go find problems". Every rule in `standardsRuleRegistry` is walked
- * through the pass that produces it, in tier order; a pass whose rules the repo
- * has all switched off never runs, and one whose rules all need TypeScript is
- * skipped with an honest note when none resolves. Severity comes from the
- * resolved rule states, not from the pass — which is what makes
- * `lightsout standards-check --list` the truthful account of what a repo
- * enforces.
+ * asked to "go find problems". The rules come from the standards packages the
+ * repo loads, each rule bringing its own check, so what a repo enforces and
+ * what a repo is told are the same document. Severity and settings come from
+ * the resolved rule states, which is what makes `lightsout standards-check
+ * --list` the truthful account of what a repo enforces.
+ *
+ * Framework channels are detected from the root package.json, exactly as the
+ * prompt side detects them: a document out of play for this repo contributes no
+ * prose, so it contributes no checks either.
  *
  * Read-only apart from .lightsout/standards-check.json (the typed evidence
  * file, the refactor pipeline's work-list). Baselining is explicit, never a
@@ -81,6 +78,8 @@ interface Params {
  * repo root — a COMMITTED debt ledger, like phpstan-baseline.neon or detekt's
  * baseline.xml — and later runs report only findings whose site key is not in
  * it (`all` overrides).
+ *
+ * @throws {Error} When a declared standards package cannot be loaded, or a check misbehaves — a repo that asked for standards and did not get them must not run.
  */
 export const runStandardsCheck = async ({
 	cwd,
@@ -90,56 +89,25 @@ export const runStandardsCheck = async ({
 	persist = true,
 	onProgress,
 }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
-	const progress = onProgress ?? (() => undefined);
 	const config = await loadConfig({ cwd }).catch(() => undefined);
-	const states = resolveRuleStates({ config });
-	const repoFiles = await listSourceFiles({ cwd, exclude: config?.generated });
-	const allFiles = repoFiles.filter((file) => !path || file.startsWith(path));
-	const source = allFiles.filter((file) => !isTestFile(file));
-	const tests = allFiles.filter((file) => isTestFile(file));
-	const notes: string[] = [];
-
-	progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
-
-	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config?.packagesDir });
-	const emitted: StandardsFinding[] = [];
-	const skipped: StandardsPassId[] = [];
-
-	for (const { id, run } of standardsPasses) {
-		const live = rulesOf({ pass: id }).filter((rule) => states.get(rule)?.severity !== StandardsSeverity.Off);
-
-		if (live.length === 0) {
-			progress(`${id}: off`);
-			continue;
-		}
-
-		if (compiler === undefined && live.every((rule) => standardsRuleRegistry[rule].needsTypescript)) {
-			skipped.push(id);
-			continue;
-		}
-
-		emitted.push(...(await run({ cwd, source, tests, files: allFiles, referenceFiles: repoFiles, states, compiler })));
-		progress(`${id}: done`);
-	}
-
-	if (skipped.length > 0) {
-		notes.push(`${skipped.join(', ')} skipped — no typescript resolvable from the target repo`);
-	}
-
-	// Severity is applied here rather than in the passes: a pass emits its
-	// rule's default and stays ignorant of config, so the repo's policy has
-	// exactly one place it can be read wrong. A rule resolved to `off` drops
-	// out entirely — `off` is a configuration state, never a finding.
-	const findings: StandardsFinding[] = [];
-
-	for (const finding of emitted) {
-		const severity = states.get(finding.rule)?.severity;
-
-		if (severity === StandardsSeverity.Blocking || severity === StandardsSeverity.Advisory) {
-			findings.push({ ...finding, severity });
-		}
-	}
-
+	const packages = await resolveStandardsPackages({ cwd, config });
+	const states = resolvePackageRuleStates({ packages, config });
+	// An empty package scope means the root package.json decides — the same call
+	// the prompt side makes, so prose and checks never disagree about which
+	// frameworks this repo is in.
+	const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config?.packagesDir ?? 'packages', packages: [] }));
+	const checked = await runPackageChecks({
+		cwd,
+		packages,
+		states,
+		channels,
+		packagesDir: config?.packagesDir,
+		path,
+		exclude: config?.generated,
+		onProgress,
+	});
+	const findings = checked.findings;
+	const notes = [...checked.notes];
 	const dominant = dominantPath({ findings });
 
 	if (dominant) {

@@ -9,6 +9,8 @@ import { runRefactorPipeline } from '@/refactor';
 import { readRunManifest } from '@/runState';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
+import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
@@ -20,6 +22,10 @@ const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c
 const fixingDriver = ({ dir }: { dir: string }): Driver => ({
 	name: 'stub',
 	invoke: async ({ prompt }) => {
+		if (roleOf(prompt) === 'standards-review') {
+			return { text: reviewReport(), exitCode: 0 };
+		}
+
 		const target = prompt.match(/- (\S+\.ts)/)?.[1];
 
 		if (target) {
@@ -117,6 +123,10 @@ test('refactor: a red pre-flight gate fails the run before any batch', async () 
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			invocations.push(prompt);
 
 			return { text: report(), exitCode: 0 };
@@ -137,6 +147,10 @@ test('refactor: an empty work-list completes as a verdict, spawning nothing', as
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			invocations.push(prompt);
 
 			return { text: report(), exitCode: 0 };
@@ -160,6 +174,10 @@ test('refactor: a rate limit parks the run; resume finishes it', async () => {
 	const parkThenFix: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
+			if (roleOf(invocation.prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			calls += 1;
 
 			if (calls === 1) {
@@ -221,6 +239,10 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
+			if (roleOf(invocation.prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (invocation.prompt.includes('- [multi-export] alpha/multi.ts')) {
 				return { text: report({ friction: [{ area: 'other', kind: 'decision', detail: 'alpha left as-is' }] }), exitCode: 0 };
 			}
@@ -292,6 +314,10 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
+			if (roleOf(invocation.prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (invocation.prompt.includes('- [multi-export] alpha/multi.ts')) {
 				return { text: report({ status: 'terminated:scope', failures: ['cannot be resolved in scope'] }), exitCode: 0 };
 			}
@@ -325,7 +351,11 @@ test('refactor: an invocation failure whose work is verifiably done is salvaged 
 	// without ever producing a valid report (both contract attempts fail).
 	const driver: Driver = {
 		name: 'stub',
-		invoke: async () => {
+		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			writeFileSync(join(dir, 'src/multi.ts'), 'export const alpha = 1;\n');
 			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
 
@@ -364,6 +394,10 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			calls += 1;
 
 			if (calls === 1) {
@@ -414,6 +448,10 @@ test('refactor: every advisory on the batch’s files rides the executor prompt,
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			prompts.push(prompt);
 
 			return { text: report({ friction: [{ area: 'other', kind: 'decision', detail: 'left as-is: exempt by design' }] }), exitCode: 0 };
@@ -453,6 +491,10 @@ const gateBreakingInvoke = ({ dir, prompts, onSupervisor }: { dir: string; promp
 	let executorCalls = 0;
 
 	return async ({ prompt }) => {
+		if (roleOf(prompt) === 'standards-review') {
+			return { text: reviewReport(), exitCode: 0 };
+		}
+
 		prompts.push(prompt);
 
 		if (prompt.includes('# Failing step')) {

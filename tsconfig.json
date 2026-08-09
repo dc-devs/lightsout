@@ -8,11 +8,13 @@
 		"skipLibCheck": true,
 		"isolatedModules": true,
 		"forceConsistentCasingInFileNames": true,
+		"allowImportingTsExtensions": true,
 		"types": ["node"],
 		"paths": {
 			"@/*": ["./src/*"],
 			"@tests/*": ["./tests/*"]
 		}
 	},
-	"include": ["src/**/*.ts", "tests/**/*.ts", "tools/**/*.ts"]
+	"include": ["src/**/*.ts", "tests/**/*.ts", "plugin/standards/**/*.ts"],
+	"exclude": ["plugin/standards/**/fixtures/**"]
 }

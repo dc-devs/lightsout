@@ -7,6 +7,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runPhasesPipeline } from '@/phases';
 import { readRunManifest, RunLockError, writeRunManifest } from '@/runState';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
@@ -53,6 +54,10 @@ const createPhaseDriver = ({
 	name: 'stub',
 	invoke: async ({ prompt, systemPrompt }) => {
 		const role = roleOf(prompt);
+
+		if (role === 'standards-review') {
+			return { text: reviewReport(), exitCode: 0 };
+		}
 
 		if (role === 'write-tests') {
 			const target = /- (\S+)/.exec(prompt)?.[1] ?? 'unknown.js';

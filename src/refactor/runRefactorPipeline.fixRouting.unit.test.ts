@@ -7,6 +7,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runRefactorPipeline } from '@/refactor';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
@@ -37,6 +38,10 @@ const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'testCoverag
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			prompts.push(prompt);
 
 			if (prompt.includes('# Verification failure')) {
@@ -87,6 +92,10 @@ const setupMixedRed = async () => {
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			prompts.push(prompt);
 
 			if (prompt.includes('# Verification failure')) {
@@ -136,6 +145,10 @@ const setupAdvisoryGateRed = async () => {
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
+			if (roleOf(prompt) === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			prompts.push(prompt);
 
 			if (prompt.includes('# Verification failure')) {
@@ -243,5 +256,18 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 		// the advisories the pre-batch check recomputed ride the fix pass beside the
 		// findings, so the second pass judges the same context the first one did
 		expect(fixPrompt).toMatch(/- \[size-function] alpha\/multi\.ts:\d+/);
+	});
+
+	test('asks the fix pass to account for the advisories it carries', async () => {
+		const { dir, driver, config, prompts } = await setupAdvisoryGateRed();
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config });
+
+		const fixPrompt = fixPromptOf(prompts) ?? '';
+
+		expect(result.ok).toBe(true);
+		// a fix retry is the same agent still working the same advisory list, and
+		// the batch persists its answer either way — so it is asked for one
+		expect(fixPrompt).toContain('# Report what you did about each advisory');
 	});
 });

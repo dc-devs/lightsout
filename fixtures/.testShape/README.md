@@ -6,8 +6,9 @@ Deliberately-wrong (and deliberately-right) test files, read by
 one rule of `standards/tests/unit/jest/unit-testing.md`, or pins exactly one of
 that rule's exceptions. `edges/` holds what one file per rule cannot show: one
 rule broken twice in a file, two rules broken in one file, a brace hidden
-inside a string, a test named with `it`, and a source file carrying the same
-code a test file would be flagged for. The tests point `runStandardsCheck` at
+inside a string, a test named with `it`, one rule broken in two different
+hooks, a factory sitting just inside a rule's documented blind spot, and a
+source file carrying the same code a test file would be flagged for. The tests point `runStandardsCheck` at
 one of the three folders as if it were a repo, then filter the findings by file
 and rule.
 

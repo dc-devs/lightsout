@@ -5,7 +5,13 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
+var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __export = (target, all) => {
@@ -28,6 +34,7333 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js
+var require_identity = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js"(exports) {
+    "use strict";
+    var ALIAS = Symbol.for("yaml.alias");
+    var DOC = Symbol.for("yaml.document");
+    var MAP = Symbol.for("yaml.map");
+    var PAIR = Symbol.for("yaml.pair");
+    var SCALAR = Symbol.for("yaml.scalar");
+    var SEQ = Symbol.for("yaml.seq");
+    var NODE_TYPE = Symbol.for("yaml.node.type");
+    var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
+    var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
+    var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
+    var isPair = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
+    var isScalar = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SCALAR;
+    var isSeq = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === SEQ;
+    function isCollection(node) {
+      if (node && typeof node === "object")
+        switch (node[NODE_TYPE]) {
+          case MAP:
+          case SEQ:
+            return true;
+        }
+      return false;
+    }
+    function isNode(node) {
+      if (node && typeof node === "object")
+        switch (node[NODE_TYPE]) {
+          case ALIAS:
+          case MAP:
+          case SCALAR:
+          case SEQ:
+            return true;
+        }
+      return false;
+    }
+    var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
+    exports.ALIAS = ALIAS;
+    exports.DOC = DOC;
+    exports.MAP = MAP;
+    exports.NODE_TYPE = NODE_TYPE;
+    exports.PAIR = PAIR;
+    exports.SCALAR = SCALAR;
+    exports.SEQ = SEQ;
+    exports.hasAnchor = hasAnchor;
+    exports.isAlias = isAlias;
+    exports.isCollection = isCollection;
+    exports.isDocument = isDocument;
+    exports.isMap = isMap;
+    exports.isNode = isNode;
+    exports.isPair = isPair;
+    exports.isScalar = isScalar;
+    exports.isSeq = isSeq;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js
+var require_visit = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var BREAK = Symbol("break visit");
+    var SKIP = Symbol("skip children");
+    var REMOVE = Symbol("remove node");
+    function visit(node, visitor) {
+      const visitor_ = initVisitor(visitor);
+      if (identity.isDocument(node)) {
+        const cd = visit_(null, node.contents, visitor_, Object.freeze([node]));
+        if (cd === REMOVE)
+          node.contents = null;
+      } else
+        visit_(null, node, visitor_, Object.freeze([]));
+    }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    function visit_(key, node, visitor, path) {
+      const ctrl = callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+        replaceNode(key, path, ctrl);
+        return visit_(key, ctrl, visitor, path);
+      }
+      if (typeof ctrl !== "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            const ci = visit_(i, node.items[i], visitor, path);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              node.items.splice(i, 1);
+              i -= 1;
+            }
+          }
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          const ck = visit_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          else if (ck === REMOVE)
+            node.key = null;
+          const cv = visit_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          else if (cv === REMOVE)
+            node.value = null;
+        }
+      }
+      return ctrl;
+    }
+    async function visitAsync(node, visitor) {
+      const visitor_ = initVisitor(visitor);
+      if (identity.isDocument(node)) {
+        const cd = await visitAsync_(null, node.contents, visitor_, Object.freeze([node]));
+        if (cd === REMOVE)
+          node.contents = null;
+      } else
+        await visitAsync_(null, node, visitor_, Object.freeze([]));
+    }
+    visitAsync.BREAK = BREAK;
+    visitAsync.SKIP = SKIP;
+    visitAsync.REMOVE = REMOVE;
+    async function visitAsync_(key, node, visitor, path) {
+      const ctrl = await callVisitor(key, node, visitor, path);
+      if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
+        replaceNode(key, path, ctrl);
+        return visitAsync_(key, ctrl, visitor, path);
+      }
+      if (typeof ctrl !== "symbol") {
+        if (identity.isCollection(node)) {
+          path = Object.freeze(path.concat(node));
+          for (let i = 0; i < node.items.length; ++i) {
+            const ci = await visitAsync_(i, node.items[i], visitor, path);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              node.items.splice(i, 1);
+              i -= 1;
+            }
+          }
+        } else if (identity.isPair(node)) {
+          path = Object.freeze(path.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path);
+          if (ck === BREAK)
+            return BREAK;
+          else if (ck === REMOVE)
+            node.key = null;
+          const cv = await visitAsync_("value", node.value, visitor, path);
+          if (cv === BREAK)
+            return BREAK;
+          else if (cv === REMOVE)
+            node.value = null;
+        }
+      }
+      return ctrl;
+    }
+    function initVisitor(visitor) {
+      if (typeof visitor === "object" && (visitor.Collection || visitor.Node || visitor.Value)) {
+        return Object.assign({
+          Alias: visitor.Node,
+          Map: visitor.Node,
+          Scalar: visitor.Node,
+          Seq: visitor.Node
+        }, visitor.Value && {
+          Map: visitor.Value,
+          Scalar: visitor.Value,
+          Seq: visitor.Value
+        }, visitor.Collection && {
+          Map: visitor.Collection,
+          Seq: visitor.Collection
+        }, visitor);
+      }
+      return visitor;
+    }
+    function callVisitor(key, node, visitor, path) {
+      if (typeof visitor === "function")
+        return visitor(key, node, path);
+      if (identity.isMap(node))
+        return visitor.Map?.(key, node, path);
+      if (identity.isSeq(node))
+        return visitor.Seq?.(key, node, path);
+      if (identity.isPair(node))
+        return visitor.Pair?.(key, node, path);
+      if (identity.isScalar(node))
+        return visitor.Scalar?.(key, node, path);
+      if (identity.isAlias(node))
+        return visitor.Alias?.(key, node, path);
+      return void 0;
+    }
+    function replaceNode(key, path, node) {
+      const parent = path[path.length - 1];
+      if (identity.isCollection(parent)) {
+        parent.items[key] = node;
+      } else if (identity.isPair(parent)) {
+        if (key === "key")
+          parent.key = node;
+        else
+          parent.value = node;
+      } else if (identity.isDocument(parent)) {
+        parent.contents = node;
+      } else {
+        const pt = identity.isAlias(parent) ? "alias" : "scalar";
+        throw new Error(`Cannot replace node with ${pt} parent`);
+      }
+    }
+    exports.visit = visit;
+    exports.visitAsync = visitAsync;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js
+var require_directives = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var visit = require_visit();
+    var escapeChars = {
+      "!": "%21",
+      ",": "%2C",
+      "[": "%5B",
+      "]": "%5D",
+      "{": "%7B",
+      "}": "%7D"
+    };
+    var escapeTagName = (tn) => tn.replace(/[!,[\]{}]/g, (ch) => escapeChars[ch]);
+    var Directives = class _Directives {
+      constructor(yaml, tags) {
+        this.docStart = null;
+        this.docEnd = false;
+        this.yaml = Object.assign({}, _Directives.defaultYaml, yaml);
+        this.tags = Object.assign({}, _Directives.defaultTags, tags);
+      }
+      clone() {
+        const copy = new _Directives(this.yaml, this.tags);
+        copy.docStart = this.docStart;
+        return copy;
+      }
+      /**
+       * During parsing, get a Directives instance for the current document and
+       * update the stream state according to the current version's spec.
+       */
+      atDocument() {
+        const res = new _Directives(this.yaml, this.tags);
+        switch (this.yaml.version) {
+          case "1.1":
+            this.atNextDocument = true;
+            break;
+          case "1.2":
+            this.atNextDocument = false;
+            this.yaml = {
+              explicit: _Directives.defaultYaml.explicit,
+              version: "1.2"
+            };
+            this.tags = Object.assign({}, _Directives.defaultTags);
+            break;
+        }
+        return res;
+      }
+      /**
+       * @param onError - May be called even if the action was successful
+       * @returns `true` on success
+       */
+      add(line, onError) {
+        if (this.atNextDocument) {
+          this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
+          this.tags = Object.assign({}, _Directives.defaultTags);
+          this.atNextDocument = false;
+        }
+        const parts = line.trim().split(/[ \t]+/);
+        const name = parts.shift();
+        switch (name) {
+          case "%TAG": {
+            if (parts.length !== 2) {
+              onError(0, "%TAG directive should contain exactly two parts");
+              if (parts.length < 2)
+                return false;
+            }
+            const [handle, prefix] = parts;
+            this.tags[handle] = prefix;
+            return true;
+          }
+          case "%YAML": {
+            this.yaml.explicit = true;
+            if (parts.length !== 1) {
+              onError(0, "%YAML directive should contain exactly one part");
+              return false;
+            }
+            const [version2] = parts;
+            if (version2 === "1.1" || version2 === "1.2") {
+              this.yaml.version = version2;
+              return true;
+            } else {
+              const isValid = /^\d+\.\d+$/.test(version2);
+              onError(6, `Unsupported YAML version ${version2}`, isValid);
+              return false;
+            }
+          }
+          default:
+            onError(0, `Unknown directive ${name}`, true);
+            return false;
+        }
+      }
+      /**
+       * Resolves a tag, matching handles to those defined in %TAG directives.
+       *
+       * @returns Resolved tag, which may also be the non-specific tag `'!'` or a
+       *   `'!local'` tag, or `null` if unresolvable.
+       */
+      tagName(source, onError) {
+        if (source === "!")
+          return "!";
+        if (source[0] !== "!") {
+          onError(`Not a valid tag: ${source}`);
+          return null;
+        }
+        if (source[1] === "<") {
+          const verbatim = source.slice(2, -1);
+          if (verbatim === "!" || verbatim === "!!") {
+            onError(`Verbatim tags aren't resolved, so ${source} is invalid.`);
+            return null;
+          }
+          if (source[source.length - 1] !== ">")
+            onError("Verbatim tags must end with a >");
+          return verbatim;
+        }
+        const [, handle, suffix] = source.match(/^(.*!)([^!]*)$/s);
+        if (!suffix)
+          onError(`The ${source} tag has no suffix`);
+        const prefix = this.tags[handle];
+        if (prefix) {
+          try {
+            return prefix + decodeURIComponent(suffix);
+          } catch (error51) {
+            onError(String(error51));
+            return null;
+          }
+        }
+        if (handle === "!")
+          return source;
+        onError(`Could not resolve tag: ${source}`);
+        return null;
+      }
+      /**
+       * Given a fully resolved tag, returns its printable string form,
+       * taking into account current tag prefixes and defaults.
+       */
+      tagString(tag) {
+        for (const [handle, prefix] of Object.entries(this.tags)) {
+          if (tag.startsWith(prefix))
+            return handle + escapeTagName(tag.substring(prefix.length));
+        }
+        return tag[0] === "!" ? tag : `!<${tag}>`;
+      }
+      toString(doc) {
+        const lines = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [];
+        const tagEntries = Object.entries(this.tags);
+        let tagNames;
+        if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
+          const tags = {};
+          visit.visit(doc.contents, (_key, node) => {
+            if (identity.isNode(node) && node.tag)
+              tags[node.tag] = true;
+          });
+          tagNames = Object.keys(tags);
+        } else
+          tagNames = [];
+        for (const [handle, prefix] of tagEntries) {
+          if (handle === "!!" && prefix === "tag:yaml.org,2002:")
+            continue;
+          if (!doc || tagNames.some((tn) => tn.startsWith(prefix)))
+            lines.push(`%TAG ${handle} ${prefix}`);
+        }
+        return lines.join("\n");
+      }
+    };
+    Directives.defaultYaml = { explicit: false, version: "1.2" };
+    Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
+    exports.Directives = Directives;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js
+var require_anchors = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var visit = require_visit();
+    function anchorIsValid(anchor) {
+      if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
+        const sa = JSON.stringify(anchor);
+        const msg = `Anchor must not contain whitespace or control characters: ${sa}`;
+        throw new Error(msg);
+      }
+      return true;
+    }
+    function anchorNames(root) {
+      const anchors = /* @__PURE__ */ new Set();
+      visit.visit(root, {
+        Value(_key, node) {
+          if (node.anchor)
+            anchors.add(node.anchor);
+        }
+      });
+      return anchors;
+    }
+    function findNewAnchor(prefix, exclude) {
+      for (let i = 1; true; ++i) {
+        const name = `${prefix}${i}`;
+        if (!exclude.has(name))
+          return name;
+      }
+    }
+    function createNodeAnchors(doc, prefix) {
+      const aliasObjects = [];
+      const sourceObjects = /* @__PURE__ */ new Map();
+      let prevAnchors = null;
+      return {
+        onAnchor: (source) => {
+          aliasObjects.push(source);
+          prevAnchors ?? (prevAnchors = anchorNames(doc));
+          const anchor = findNewAnchor(prefix, prevAnchors);
+          prevAnchors.add(anchor);
+          return anchor;
+        },
+        /**
+         * With circular references, the source node is only resolved after all
+         * of its child nodes are. This is why anchors are set only after all of
+         * the nodes have been created.
+         */
+        setAnchors: () => {
+          for (const source of aliasObjects) {
+            const ref = sourceObjects.get(source);
+            if (typeof ref === "object" && ref.anchor && (identity.isScalar(ref.node) || identity.isCollection(ref.node))) {
+              ref.node.anchor = ref.anchor;
+            } else {
+              const error51 = new Error("Failed to resolve repeated object (this should not happen)");
+              error51.source = source;
+              throw error51;
+            }
+          }
+        },
+        sourceObjects
+      };
+    }
+    exports.anchorIsValid = anchorIsValid;
+    exports.anchorNames = anchorNames;
+    exports.createNodeAnchors = createNodeAnchors;
+    exports.findNewAnchor = findNewAnchor;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js
+var require_applyReviver = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+    "use strict";
+    function applyReviver(reviver, obj, key, val) {
+      if (val && typeof val === "object") {
+        if (Array.isArray(val)) {
+          for (let i = 0, len = val.length; i < len; ++i) {
+            const v0 = val[i];
+            const v1 = applyReviver(reviver, val, String(i), v0);
+            if (v1 === void 0)
+              delete val[i];
+            else if (v1 !== v0)
+              val[i] = v1;
+          }
+        } else if (val instanceof Map) {
+          for (const k of Array.from(val.keys())) {
+            const v0 = val.get(k);
+            const v1 = applyReviver(reviver, val, k, v0);
+            if (v1 === void 0)
+              val.delete(k);
+            else if (v1 !== v0)
+              val.set(k, v1);
+          }
+        } else if (val instanceof Set) {
+          for (const v0 of Array.from(val)) {
+            const v1 = applyReviver(reviver, val, v0, v0);
+            if (v1 === void 0)
+              val.delete(v0);
+            else if (v1 !== v0) {
+              val.delete(v0);
+              val.add(v1);
+            }
+          }
+        } else {
+          for (const [k, v0] of Object.entries(val)) {
+            const v1 = applyReviver(reviver, val, k, v0);
+            if (v1 === void 0)
+              delete val[k];
+            else if (v1 !== v0)
+              val[k] = v1;
+          }
+        }
+      }
+      return reviver.call(obj, key, val);
+    }
+    exports.applyReviver = applyReviver;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js
+var require_toJS = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    function toJS(value, arg, ctx) {
+      if (Array.isArray(value))
+        return value.map((v, i) => toJS(v, String(i), ctx));
+      if (value && typeof value.toJSON === "function") {
+        if (!ctx || !identity.hasAnchor(value))
+          return value.toJSON(arg, ctx);
+        const data = { aliasCount: 0, count: 1, res: void 0 };
+        ctx.anchors.set(value, data);
+        ctx.onCreate = (res2) => {
+          data.res = res2;
+          delete ctx.onCreate;
+        };
+        const res = value.toJSON(arg, ctx);
+        if (ctx.onCreate)
+          ctx.onCreate(res);
+        return res;
+      }
+      if (typeof value === "bigint" && !ctx?.keep)
+        return Number(value);
+      return value;
+    }
+    exports.toJS = toJS;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js
+var require_Node = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js"(exports) {
+    "use strict";
+    var applyReviver = require_applyReviver();
+    var identity = require_identity();
+    var toJS = require_toJS();
+    var NodeBase = class {
+      constructor(type) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: type });
+      }
+      /** Create a copy of this node.  */
+      clone() {
+        const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /** A plain JavaScript representation of this node. */
+      toJS(doc, { mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        if (!identity.isDocument(doc))
+          throw new TypeError("A document argument is required");
+        const ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc,
+          keep: true,
+          mapAsMap: mapAsMap === true,
+          mapKeyWarned: false,
+          maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
+        };
+        const res = toJS.toJS(this, "", ctx);
+        if (typeof onAnchor === "function")
+          for (const { count: count2, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count2);
+        return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+    };
+    exports.NodeBase = NodeBase;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js
+var require_Alias = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js"(exports) {
+    "use strict";
+    var anchors = require_anchors();
+    var visit = require_visit();
+    var identity = require_identity();
+    var Node = require_Node();
+    var toJS = require_toJS();
+    var Alias = class extends Node.NodeBase {
+      constructor(source) {
+        super(identity.ALIAS);
+        this.source = source;
+        Object.defineProperty(this, "tag", {
+          set() {
+            throw new Error("Alias nodes cannot have tags");
+          }
+        });
+      }
+      /**
+       * Resolve the value of this alias within `doc`, finding the last
+       * instance of the `source` anchor before this node.
+       */
+      resolve(doc, ctx) {
+        if (ctx?.maxAliasCount === 0)
+          throw new ReferenceError("Alias resolution is disabled");
+        let nodes;
+        if (ctx?.aliasResolveCache) {
+          nodes = ctx.aliasResolveCache;
+        } else {
+          nodes = [];
+          visit.visit(doc, {
+            Node: (_key, node) => {
+              if (identity.isAlias(node) || identity.hasAnchor(node))
+                nodes.push(node);
+            }
+          });
+          if (ctx)
+            ctx.aliasResolveCache = nodes;
+        }
+        let found = void 0;
+        for (const node of nodes) {
+          if (node === this)
+            break;
+          if (node.anchor === this.source)
+            found = node;
+        }
+        return found;
+      }
+      toJSON(_arg, ctx) {
+        if (!ctx)
+          return { source: this.source };
+        const { anchors: anchors2, doc, maxAliasCount } = ctx;
+        const source = this.resolve(doc, ctx);
+        if (!source) {
+          const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+          throw new ReferenceError(msg);
+        }
+        let data = anchors2.get(source);
+        if (!data) {
+          toJS.toJS(source, null, ctx);
+          data = anchors2.get(source);
+        }
+        if (data?.res === void 0) {
+          const msg = "This should not happen: Alias anchor was not resolved?";
+          throw new ReferenceError(msg);
+        }
+        if (maxAliasCount >= 0) {
+          data.count += 1;
+          if (data.aliasCount === 0)
+            data.aliasCount = getAliasCount(doc, source, anchors2);
+          if (data.count * data.aliasCount > maxAliasCount) {
+            const msg = "Excessive alias count indicates a resource exhaustion attack";
+            throw new ReferenceError(msg);
+          }
+        }
+        return data.res;
+      }
+      toString(ctx, _onComment, _onChompKeep) {
+        const src = `*${this.source}`;
+        if (ctx) {
+          anchors.anchorIsValid(this.source);
+          if (ctx.options.verifyAliasOrder && !ctx.anchors.has(this.source)) {
+            const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
+            throw new Error(msg);
+          }
+          if (ctx.implicitKey)
+            return `${src} `;
+        }
+        return src;
+      }
+    };
+    function getAliasCount(doc, node, anchors2) {
+      if (identity.isAlias(node)) {
+        const source = node.resolve(doc);
+        const anchor = anchors2 && source && anchors2.get(source);
+        return anchor ? anchor.count * anchor.aliasCount : 0;
+      } else if (identity.isCollection(node)) {
+        let count2 = 0;
+        for (const item of node.items) {
+          const c = getAliasCount(doc, item, anchors2);
+          if (c > count2)
+            count2 = c;
+        }
+        return count2;
+      } else if (identity.isPair(node)) {
+        const kc = getAliasCount(doc, node.key, anchors2);
+        const vc = getAliasCount(doc, node.value, anchors2);
+        return Math.max(kc, vc);
+      }
+      return 1;
+    }
+    exports.Alias = Alias;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js
+var require_Scalar = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Node = require_Node();
+    var toJS = require_toJS();
+    var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
+    var Scalar = class extends Node.NodeBase {
+      constructor(value) {
+        super(identity.SCALAR);
+        this.value = value;
+      }
+      toJSON(arg, ctx) {
+        return ctx?.keep ? this.value : toJS.toJS(this.value, arg, ctx);
+      }
+      toString() {
+        return String(this.value);
+      }
+    };
+    Scalar.BLOCK_FOLDED = "BLOCK_FOLDED";
+    Scalar.BLOCK_LITERAL = "BLOCK_LITERAL";
+    Scalar.PLAIN = "PLAIN";
+    Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
+    Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
+    exports.Scalar = Scalar;
+    exports.isScalarValue = isScalarValue;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js
+var require_createNode = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var defaultTagPrefix = "tag:yaml.org,2002:";
+    function findTagObject(value, tagName, tags) {
+      if (tagName) {
+        const match = tags.filter((t) => t.tag === tagName);
+        const tagObj = match.find((t) => !t.format) ?? match[0];
+        if (!tagObj)
+          throw new Error(`Tag ${tagName} not found`);
+        return tagObj;
+      }
+      return tags.find((t) => t.identify?.(value) && !t.format);
+    }
+    function createNode(value, tagName, ctx) {
+      if (identity.isDocument(value))
+        value = value.contents;
+      if (identity.isNode(value))
+        return value;
+      if (identity.isPair(value)) {
+        const map2 = ctx.schema[identity.MAP].createNode?.(ctx.schema, null, ctx);
+        map2.items.push(value);
+        return map2;
+      }
+      if (value instanceof String || value instanceof Number || value instanceof Boolean || typeof BigInt !== "undefined" && value instanceof BigInt) {
+        value = value.valueOf();
+      }
+      const { aliasDuplicateObjects, onAnchor, onTagObj, schema, sourceObjects } = ctx;
+      let ref = void 0;
+      if (aliasDuplicateObjects && value && typeof value === "object") {
+        ref = sourceObjects.get(value);
+        if (ref) {
+          ref.anchor ?? (ref.anchor = onAnchor(value));
+          return new Alias.Alias(ref.anchor);
+        } else {
+          ref = { anchor: null, node: null };
+          sourceObjects.set(value, ref);
+        }
+      }
+      if (tagName?.startsWith("!!"))
+        tagName = defaultTagPrefix + tagName.slice(2);
+      let tagObj = findTagObject(value, tagName, schema.tags);
+      if (!tagObj) {
+        if (value && typeof value.toJSON === "function") {
+          value = value.toJSON();
+        }
+        if (!value || typeof value !== "object") {
+          const node2 = new Scalar.Scalar(value);
+          if (ref)
+            ref.node = node2;
+          return node2;
+        }
+        tagObj = value instanceof Map ? schema[identity.MAP] : Symbol.iterator in Object(value) ? schema[identity.SEQ] : schema[identity.MAP];
+      }
+      if (onTagObj) {
+        onTagObj(tagObj);
+        delete ctx.onTagObj;
+      }
+      const node = tagObj?.createNode ? tagObj.createNode(ctx.schema, value, ctx) : typeof tagObj?.nodeClass?.from === "function" ? tagObj.nodeClass.from(ctx.schema, value, ctx) : new Scalar.Scalar(value);
+      if (tagName)
+        node.tag = tagName;
+      else if (!tagObj.default)
+        node.tag = tagObj.tag;
+      if (ref)
+        ref.node = node;
+      return node;
+    }
+    exports.createNode = createNode;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js
+var require_Collection = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var identity = require_identity();
+    var Node = require_Node();
+    function collectionFromPath(schema, path, value) {
+      let v = value;
+      for (let i = path.length - 1; i >= 0; --i) {
+        const k = path[i];
+        if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
+          const a = [];
+          a[k] = v;
+          v = a;
+        } else {
+          v = /* @__PURE__ */ new Map([[k, v]]);
+        }
+      }
+      return createNode.createNode(v, void 0, {
+        aliasDuplicateObjects: false,
+        keepUndefined: false,
+        onAnchor: () => {
+          throw new Error("This should not happen, please report a bug.");
+        },
+        schema,
+        sourceObjects: /* @__PURE__ */ new Map()
+      });
+    }
+    var isEmptyPath = (path) => path == null || typeof path === "object" && !!path[Symbol.iterator]().next().done;
+    var Collection = class extends Node.NodeBase {
+      constructor(type, schema) {
+        super(type);
+        Object.defineProperty(this, "schema", {
+          value: schema,
+          configurable: true,
+          enumerable: false,
+          writable: true
+        });
+      }
+      /**
+       * Create a copy of this collection.
+       *
+       * @param schema - If defined, overwrites the original's schema
+       */
+      clone(schema) {
+        const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
+        if (schema)
+          copy.schema = schema;
+        copy.items = copy.items.map((it) => identity.isNode(it) || identity.isPair(it) ? it.clone(schema) : it);
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /**
+       * Adds a value to the collection. For `!!map` and `!!omap` the value must
+       * be a Pair instance or a `{ key, value }` object, which may not have a key
+       * that already exists in the map.
+       */
+      addIn(path, value) {
+        if (isEmptyPath(path))
+          this.add(value);
+        else {
+          const [key, ...rest] = path;
+          const node = this.get(key, true);
+          if (identity.isCollection(node))
+            node.addIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        }
+      }
+      /**
+       * Removes a value from the collection.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        const [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.delete(key);
+        const node = this.get(key, true);
+        if (identity.isCollection(node))
+          return node.deleteIn(rest);
+        else
+          throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+      }
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        const [key, ...rest] = path;
+        const node = this.get(key, true);
+        if (rest.length === 0)
+          return !keepScalar && identity.isScalar(node) ? node.value : node;
+        else
+          return identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
+      }
+      hasAllNullValues(allowScalar) {
+        return this.items.every((node) => {
+          if (!identity.isPair(node))
+            return false;
+          const n = node.value;
+          return n == null || allowScalar && identity.isScalar(n) && n.value == null && !n.commentBefore && !n.comment && !n.tag;
+        });
+      }
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       */
+      hasIn(path) {
+        const [key, ...rest] = path;
+        if (rest.length === 0)
+          return this.has(key);
+        const node = this.get(key, true);
+        return identity.isCollection(node) ? node.hasIn(rest) : false;
+      }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        const [key, ...rest] = path;
+        if (rest.length === 0) {
+          this.set(key, value);
+        } else {
+          const node = this.get(key, true);
+          if (identity.isCollection(node))
+            node.setIn(rest, value);
+          else if (node === void 0 && this.schema)
+            this.set(key, collectionFromPath(this.schema, rest, value));
+          else
+            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        }
+      }
+    };
+    exports.Collection = Collection;
+    exports.collectionFromPath = collectionFromPath;
+    exports.isEmptyPath = isEmptyPath;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js
+var require_stringifyComment = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+    "use strict";
+    var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
+    function indentComment(comment, indent) {
+      if (/^\n+$/.test(comment))
+        return comment.substring(1);
+      return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
+    }
+    var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
+    exports.indentComment = indentComment;
+    exports.lineComment = lineComment;
+    exports.stringifyComment = stringifyComment;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js
+var require_foldFlowLines = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+    "use strict";
+    var FOLD_FLOW = "flow";
+    var FOLD_BLOCK = "block";
+    var FOLD_QUOTED = "quoted";
+    function foldFlowLines(text, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+      if (!lineWidth || lineWidth < 0)
+        return text;
+      if (lineWidth < minContentWidth)
+        minContentWidth = 0;
+      const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent.length);
+      if (text.length <= endStep)
+        return text;
+      const folds = [];
+      const escapedFolds = {};
+      let end = lineWidth - indent.length;
+      if (typeof indentAtStart === "number") {
+        if (indentAtStart > lineWidth - Math.max(2, minContentWidth))
+          folds.push(0);
+        else
+          end = lineWidth - indentAtStart;
+      }
+      let split = void 0;
+      let prev = void 0;
+      let overflow = false;
+      let i = -1;
+      let escStart = -1;
+      let escEnd = -1;
+      if (mode === FOLD_BLOCK) {
+        i = consumeMoreIndentedLines(text, i, indent.length);
+        if (i !== -1)
+          end = i + endStep;
+      }
+      for (let ch; ch = text[i += 1]; ) {
+        if (mode === FOLD_QUOTED && ch === "\\") {
+          escStart = i;
+          switch (text[i + 1]) {
+            case "x":
+              i += 3;
+              break;
+            case "u":
+              i += 5;
+              break;
+            case "U":
+              i += 9;
+              break;
+            default:
+              i += 1;
+          }
+          escEnd = i;
+        }
+        if (ch === "\n") {
+          if (mode === FOLD_BLOCK)
+            i = consumeMoreIndentedLines(text, i, indent.length);
+          end = i + indent.length + endStep;
+          split = void 0;
+        } else {
+          if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
+            const next = text[i + 1];
+            if (next && next !== " " && next !== "\n" && next !== "	")
+              split = i;
+          }
+          if (i >= end) {
+            if (split) {
+              folds.push(split);
+              end = split + endStep;
+              split = void 0;
+            } else if (mode === FOLD_QUOTED) {
+              while (prev === " " || prev === "	") {
+                prev = ch;
+                ch = text[i += 1];
+                overflow = true;
+              }
+              const j = i > escEnd + 1 ? i - 2 : escStart - 1;
+              if (escapedFolds[j])
+                return text;
+              folds.push(j);
+              escapedFolds[j] = true;
+              end = j + endStep;
+              split = void 0;
+            } else {
+              overflow = true;
+            }
+          }
+        }
+        prev = ch;
+      }
+      if (overflow && onOverflow)
+        onOverflow();
+      if (folds.length === 0)
+        return text;
+      if (onFold)
+        onFold();
+      let res = text.slice(0, folds[0]);
+      for (let i2 = 0; i2 < folds.length; ++i2) {
+        const fold = folds[i2];
+        const end2 = folds[i2 + 1] || text.length;
+        if (fold === 0)
+          res = `
+${indent}${text.slice(0, end2)}`;
+        else {
+          if (mode === FOLD_QUOTED && escapedFolds[fold])
+            res += `${text[fold]}\\`;
+          res += `
+${indent}${text.slice(fold + 1, end2)}`;
+        }
+      }
+      return res;
+    }
+    function consumeMoreIndentedLines(text, i, indent) {
+      let end = i;
+      let start = i + 1;
+      let ch = text[start];
+      while (ch === " " || ch === "	") {
+        if (i < start + indent) {
+          ch = text[++i];
+        } else {
+          do {
+            ch = text[++i];
+          } while (ch && ch !== "\n");
+          end = i;
+          start = i + 1;
+          ch = text[start];
+        }
+      }
+      return end;
+    }
+    exports.FOLD_BLOCK = FOLD_BLOCK;
+    exports.FOLD_FLOW = FOLD_FLOW;
+    exports.FOLD_QUOTED = FOLD_QUOTED;
+    exports.foldFlowLines = foldFlowLines;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js
+var require_stringifyString = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var foldFlowLines = require_foldFlowLines();
+    var getFoldOptions = (ctx, isBlock) => ({
+      indentAtStart: isBlock ? ctx.indent.length : ctx.indentAtStart,
+      lineWidth: ctx.options.lineWidth,
+      minContentWidth: ctx.options.minContentWidth
+    });
+    var containsDocumentMarker = (str) => /^(%|---|\.\.\.)/m.test(str);
+    function lineLengthOverLimit(str, lineWidth, indentLength) {
+      if (!lineWidth || lineWidth < 0)
+        return false;
+      const limit = lineWidth - indentLength;
+      const strLen = str.length;
+      if (strLen <= limit)
+        return false;
+      for (let i = 0, start = 0; i < strLen; ++i) {
+        if (str[i] === "\n") {
+          if (i - start > limit)
+            return true;
+          start = i + 1;
+          if (strLen - start <= limit)
+            return false;
+        }
+      }
+      return true;
+    }
+    function doubleQuotedString(value, ctx) {
+      const json2 = JSON.stringify(value);
+      if (ctx.options.doubleQuotedAsJSON)
+        return json2;
+      const { implicitKey } = ctx;
+      const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      let str = "";
+      let start = 0;
+      for (let i = 0, ch = json2[i]; ch; ch = json2[++i]) {
+        if (ch === " " && json2[i + 1] === "\\" && json2[i + 2] === "n") {
+          str += json2.slice(start, i) + "\\ ";
+          i += 1;
+          start = i;
+          ch = "\\";
+        }
+        if (ch === "\\")
+          switch (json2[i + 1]) {
+            case "u":
+              {
+                str += json2.slice(start, i);
+                const code = json2.substr(i + 2, 4);
+                switch (code) {
+                  case "0000":
+                    str += "\\0";
+                    break;
+                  case "0007":
+                    str += "\\a";
+                    break;
+                  case "000b":
+                    str += "\\v";
+                    break;
+                  case "001b":
+                    str += "\\e";
+                    break;
+                  case "0085":
+                    str += "\\N";
+                    break;
+                  case "00a0":
+                    str += "\\_";
+                    break;
+                  case "2028":
+                    str += "\\L";
+                    break;
+                  case "2029":
+                    str += "\\P";
+                    break;
+                  default:
+                    if (code.substr(0, 2) === "00")
+                      str += "\\x" + code.substr(2);
+                    else
+                      str += json2.substr(i, 6);
+                }
+                i += 5;
+                start = i + 1;
+              }
+              break;
+            case "n":
+              if (implicitKey || json2[i + 2] === '"' || json2.length < minMultiLineLength) {
+                i += 1;
+              } else {
+                str += json2.slice(start, i) + "\n\n";
+                while (json2[i + 2] === "\\" && json2[i + 3] === "n" && json2[i + 4] !== '"') {
+                  str += "\n";
+                  i += 2;
+                }
+                str += indent;
+                if (json2[i + 2] === " ")
+                  str += "\\";
+                i += 1;
+                start = i + 1;
+              }
+              break;
+            default:
+              i += 1;
+          }
+      }
+      str = start ? str + json2.slice(start) : json2;
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+    }
+    function singleQuotedString(value, ctx) {
+      if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
+        return doubleQuotedString(value, ctx);
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      const res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&
+${indent}`) + "'";
+      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+    }
+    function quotedString(value, ctx) {
+      const { singleQuote } = ctx.options;
+      let qs;
+      if (singleQuote === false)
+        qs = doubleQuotedString;
+      else {
+        const hasDouble = value.includes('"');
+        const hasSingle = value.includes("'");
+        if (hasDouble && !hasSingle)
+          qs = singleQuotedString;
+        else if (hasSingle && !hasDouble)
+          qs = doubleQuotedString;
+        else
+          qs = singleQuote ? singleQuotedString : doubleQuotedString;
+      }
+      return qs(value, ctx);
+    }
+    var blockEndNewlines;
+    try {
+      blockEndNewlines = new RegExp("(^|(?<!\n))\n+(?!\n|$)", "g");
+    } catch {
+      blockEndNewlines = /\n+(?!\n|$)/g;
+    }
+    function blockString({ comment, type, value }, ctx, onComment, onChompKeep) {
+      const { blockQuote, commentString, lineWidth } = ctx.options;
+      if (!blockQuote || /\n[\t ]+$/.test(value)) {
+        return quotedString(value, ctx);
+      }
+      const indent = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : "");
+      const literal2 = blockQuote === "literal" ? true : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? false : type === Scalar.Scalar.BLOCK_LITERAL ? true : !lineLengthOverLimit(value, lineWidth, indent.length);
+      if (!value)
+        return literal2 ? "|\n" : ">\n";
+      let chomp;
+      let endStart;
+      for (endStart = value.length; endStart > 0; --endStart) {
+        const ch = value[endStart - 1];
+        if (ch !== "\n" && ch !== "	" && ch !== " ")
+          break;
+      }
+      let end = value.substring(endStart);
+      const endNlPos = end.indexOf("\n");
+      if (endNlPos === -1) {
+        chomp = "-";
+      } else if (value === end || endNlPos !== end.length - 1) {
+        chomp = "+";
+        if (onChompKeep)
+          onChompKeep();
+      } else {
+        chomp = "";
+      }
+      if (end) {
+        value = value.slice(0, -end.length);
+        if (end[end.length - 1] === "\n")
+          end = end.slice(0, -1);
+        end = end.replace(blockEndNewlines, `$&${indent}`);
+      }
+      let startWithSpace = false;
+      let startEnd;
+      let startNlPos = -1;
+      for (startEnd = 0; startEnd < value.length; ++startEnd) {
+        const ch = value[startEnd];
+        if (ch === " ")
+          startWithSpace = true;
+        else if (ch === "\n")
+          startNlPos = startEnd;
+        else
+          break;
+      }
+      let start = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
+      if (start) {
+        value = value.substring(start.length);
+        start = start.replace(/\n+/g, `$&${indent}`);
+      }
+      const indentSize = indent ? "2" : "1";
+      let header = (startWithSpace ? indentSize : "") + chomp;
+      if (comment) {
+        header += " " + commentString(comment.replace(/ ?[\r\n]+/g, " "));
+        if (onComment)
+          onComment();
+      }
+      if (!literal2) {
+        const foldedValue = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent}`);
+        let literalFallback = false;
+        const foldOptions = getFoldOptions(ctx, true);
+        if (blockQuote !== "folded" && type !== Scalar.Scalar.BLOCK_FOLDED) {
+          foldOptions.onOverflow = () => {
+            literalFallback = true;
+          };
+        }
+        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
+        if (!literalFallback)
+          return `>${header}
+${indent}${body}`;
+      }
+      value = value.replace(/\n+/g, `$&${indent}`);
+      return `|${header}
+${indent}${start}${value}${end}`;
+    }
+    function plainString(item, ctx, onComment, onChompKeep) {
+      const { type, value } = item;
+      const { actualString, implicitKey, indent, indentStep, inFlow } = ctx;
+      if (implicitKey && value.includes("\n") || inFlow && /[[\]{},]/.test(value)) {
+        return quotedString(value, ctx);
+      }
+      if (/^[\n\t ,[\]{}#&*!|>'"%@`]|^[?-]$|^[?-][ \t]|[\n:][ \t]|[ \t]\n|[\n\t ]#|[\n\t :]$/.test(value)) {
+        return implicitKey || inFlow || !value.includes("\n") ? quotedString(value, ctx) : blockString(item, ctx, onComment, onChompKeep);
+      }
+      if (!implicitKey && !inFlow && type !== Scalar.Scalar.PLAIN && value.includes("\n")) {
+        return blockString(item, ctx, onComment, onChompKeep);
+      }
+      if (containsDocumentMarker(value)) {
+        if (indent === "") {
+          ctx.forceBlockIndent = true;
+          return blockString(item, ctx, onComment, onChompKeep);
+        } else if (implicitKey && indent === indentStep) {
+          return quotedString(value, ctx);
+        }
+      }
+      const str = value.replace(/\n+/g, `$&
+${indent}`);
+      if (actualString) {
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
+        const { compat, tags } = ctx.doc.schema;
+        if (tags.some(test) || compat?.some(test))
+          return quotedString(value, ctx);
+      }
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+    }
+    function stringifyString(item, ctx, onComment, onChompKeep) {
+      const { implicitKey, inFlow } = ctx;
+      const ss = typeof item.value === "string" ? item : Object.assign({}, item, { value: String(item.value) });
+      let { type } = item;
+      if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
+        if (/[\x00-\x08\x0b-\x1f\x7f-\x9f\u{D800}-\u{DFFF}]/u.test(ss.value))
+          type = Scalar.Scalar.QUOTE_DOUBLE;
+      }
+      const _stringify = (_type) => {
+        switch (_type) {
+          case Scalar.Scalar.BLOCK_FOLDED:
+          case Scalar.Scalar.BLOCK_LITERAL:
+            return implicitKey || inFlow ? quotedString(ss.value, ctx) : blockString(ss, ctx, onComment, onChompKeep);
+          case Scalar.Scalar.QUOTE_DOUBLE:
+            return doubleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.QUOTE_SINGLE:
+            return singleQuotedString(ss.value, ctx);
+          case Scalar.Scalar.PLAIN:
+            return plainString(ss, ctx, onComment, onChompKeep);
+          default:
+            return null;
+        }
+      };
+      let res = _stringify(type);
+      if (res === null) {
+        const { defaultKeyType, defaultStringType } = ctx.options;
+        const t = implicitKey && defaultKeyType || defaultStringType;
+        res = _stringify(t);
+        if (res === null)
+          throw new Error(`Unsupported default string type ${t}`);
+      }
+      return res;
+    }
+    exports.stringifyString = stringifyString;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js
+var require_stringify = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js"(exports) {
+    "use strict";
+    var anchors = require_anchors();
+    var identity = require_identity();
+    var stringifyComment = require_stringifyComment();
+    var stringifyString = require_stringifyString();
+    function createStringifyContext(doc, options) {
+      const opt = Object.assign({
+        blockQuote: true,
+        commentString: stringifyComment.stringifyComment,
+        defaultKeyType: null,
+        defaultStringType: "PLAIN",
+        directives: null,
+        doubleQuotedAsJSON: false,
+        doubleQuotedMinMultiLineLength: 40,
+        falseStr: "false",
+        flowCollectionPadding: true,
+        indentSeq: true,
+        lineWidth: 80,
+        minContentWidth: 20,
+        nullStr: "null",
+        simpleKeys: false,
+        singleQuote: null,
+        trailingComma: false,
+        trueStr: "true",
+        verifyAliasOrder: true
+      }, doc.schema.toStringOptions, options);
+      let inFlow;
+      switch (opt.collectionStyle) {
+        case "block":
+          inFlow = false;
+          break;
+        case "flow":
+          inFlow = true;
+          break;
+        default:
+          inFlow = null;
+      }
+      return {
+        anchors: /* @__PURE__ */ new Set(),
+        doc,
+        flowCollectionPadding: opt.flowCollectionPadding ? " " : "",
+        indent: "",
+        indentStep: typeof opt.indent === "number" ? " ".repeat(opt.indent) : "  ",
+        inFlow,
+        options: opt
+      };
+    }
+    function getTagObject(tags, item) {
+      if (item.tag) {
+        const match = tags.filter((t) => t.tag === item.tag);
+        if (match.length > 0)
+          return match.find((t) => t.format === item.format) ?? match[0];
+      }
+      let tagObj = void 0;
+      let obj;
+      if (identity.isScalar(item)) {
+        obj = item.value;
+        let match = tags.filter((t) => t.identify?.(obj));
+        if (match.length > 1) {
+          const testMatch = match.filter((t) => t.test);
+          if (testMatch.length > 0)
+            match = testMatch;
+        }
+        tagObj = match.find((t) => t.format === item.format) ?? match.find((t) => !t.format);
+      } else {
+        obj = item;
+        tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
+      }
+      if (!tagObj) {
+        const name = obj?.constructor?.name ?? (obj === null ? "null" : typeof obj);
+        throw new Error(`Tag not resolved for ${name} value`);
+      }
+      return tagObj;
+    }
+    function stringifyProps(node, tagObj, { anchors: anchors$1, doc }) {
+      if (!doc.directives)
+        return "";
+      const props = [];
+      const anchor = (identity.isScalar(node) || identity.isCollection(node)) && node.anchor;
+      if (anchor && anchors.anchorIsValid(anchor)) {
+        anchors$1.add(anchor);
+        props.push(`&${anchor}`);
+      }
+      const tag = node.tag ?? (tagObj.default ? null : tagObj.tag);
+      if (tag)
+        props.push(doc.directives.tagString(tag));
+      return props.join(" ");
+    }
+    function stringify(item, ctx, onComment, onChompKeep) {
+      if (identity.isPair(item))
+        return item.toString(ctx, onComment, onChompKeep);
+      if (identity.isAlias(item)) {
+        if (ctx.doc.directives)
+          return item.toString(ctx);
+        if (ctx.resolvedAliases?.has(item)) {
+          throw new TypeError(`Cannot stringify circular structure without alias nodes`);
+        } else {
+          if (ctx.resolvedAliases)
+            ctx.resolvedAliases.add(item);
+          else
+            ctx.resolvedAliases = /* @__PURE__ */ new Set([item]);
+          item = item.resolve(ctx.doc);
+        }
+      }
+      let tagObj = void 0;
+      const node = identity.isNode(item) ? item : ctx.doc.createNode(item, { onTagObj: (o) => tagObj = o });
+      tagObj ?? (tagObj = getTagObject(ctx.doc.schema.tags, node));
+      const props = stringifyProps(node, tagObj, ctx);
+      if (props.length > 0)
+        ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
+      const str = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      if (!props)
+        return str;
+      return identity.isScalar(node) || str[0] === "{" || str[0] === "[" ? `${props} ${str}` : `${props}
+${ctx.indent}${str}`;
+    }
+    exports.createStringifyContext = createStringifyContext;
+    exports.stringify = stringify;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js
+var require_stringifyPair = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var stringify = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
+      const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
+      let keyComment = identity.isNode(key) && key.comment || null;
+      if (simpleKeys) {
+        if (keyComment) {
+          throw new Error("With simple keys, key nodes cannot have comments");
+        }
+        if (identity.isCollection(key) || !identity.isNode(key) && typeof key === "object") {
+          const msg = "With simple keys, collection cannot be used as a key value";
+          throw new Error(msg);
+        }
+      }
+      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity.isCollection(key) || (identity.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key === "object"));
+      ctx = Object.assign({}, ctx, {
+        allNullValues: false,
+        implicitKey: !explicitKey && (simpleKeys || !allNullValues),
+        indent: indent + indentStep
+      });
+      let keyCommentDone = false;
+      let chompKeep = false;
+      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      if (!explicitKey && !ctx.inFlow && str.length > 1024) {
+        if (simpleKeys)
+          throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
+        explicitKey = true;
+      }
+      if (ctx.inFlow) {
+        if (allNullValues || value == null) {
+          if (keyCommentDone && onComment)
+            onComment();
+          return str === "" ? "?" : explicitKey ? `? ${str}` : str;
+        }
+      } else if (allNullValues && !simpleKeys || value == null && explicitKey) {
+        str = `? ${str}`;
+        if (keyComment && !keyCommentDone) {
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+        } else if (chompKeep && onChompKeep)
+          onChompKeep();
+        return str;
+      }
+      if (keyCommentDone)
+        keyComment = null;
+      if (explicitKey) {
+        if (keyComment)
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+        str = `? ${str}
+${indent}:`;
+      } else {
+        str = `${str}:`;
+        if (keyComment)
+          str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
+      }
+      let vsb, vcb, valueComment;
+      if (identity.isNode(value)) {
+        vsb = !!value.spaceBefore;
+        vcb = value.commentBefore;
+        valueComment = value.comment;
+      } else {
+        vsb = false;
+        vcb = null;
+        valueComment = null;
+        if (value && typeof value === "object")
+          value = doc.createNode(value);
+      }
+      ctx.implicitKey = false;
+      if (!explicitKey && !keyComment && identity.isScalar(value))
+        ctx.indentAtStart = str.length + 1;
+      chompKeep = false;
+      if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
+        ctx.indent = ctx.indent.substring(2);
+      }
+      let valueCommentDone = false;
+      const valueStr = stringify.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      let ws = " ";
+      if (keyComment || vsb || vcb) {
+        ws = vsb ? "\n" : "";
+        if (vcb) {
+          const cs = commentString(vcb);
+          ws += `
+${stringifyComment.indentComment(cs, ctx.indent)}`;
+        }
+        if (valueStr === "" && !ctx.inFlow) {
+          if (ws === "\n" && valueComment)
+            ws = "\n\n";
+        } else {
+          ws += `
+${ctx.indent}`;
+        }
+      } else if (!explicitKey && identity.isCollection(value)) {
+        const vs0 = valueStr[0];
+        const nl0 = valueStr.indexOf("\n");
+        const hasNewline = nl0 !== -1;
+        const flow = ctx.inFlow ?? value.flow ?? value.items.length === 0;
+        if (hasNewline || !flow) {
+          let hasPropsLine = false;
+          if (hasNewline && (vs0 === "&" || vs0 === "!")) {
+            let sp0 = valueStr.indexOf(" ");
+            if (vs0 === "&" && sp0 !== -1 && sp0 < nl0 && valueStr[sp0 + 1] === "!") {
+              sp0 = valueStr.indexOf(" ", sp0 + 1);
+            }
+            if (sp0 === -1 || nl0 < sp0)
+              hasPropsLine = true;
+          }
+          if (!hasPropsLine)
+            ws = `
+${ctx.indent}`;
+        }
+      } else if (valueStr === "" || valueStr[0] === "\n") {
+        ws = "";
+      }
+      str += ws + valueStr;
+      if (ctx.inFlow) {
+        if (valueCommentDone && onComment)
+          onComment();
+      } else if (valueComment && !valueCommentDone) {
+        str += stringifyComment.lineComment(str, ctx.indent, commentString(valueComment));
+      } else if (chompKeep && onChompKeep) {
+        onChompKeep();
+      }
+      return str;
+    }
+    exports.stringifyPair = stringifyPair;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js
+var require_log = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js"(exports) {
+    "use strict";
+    var node_process = __require("process");
+    function debug(logLevel, ...messages) {
+      if (logLevel === "debug")
+        console.log(...messages);
+    }
+    function warn(logLevel, warning) {
+      if (logLevel === "debug" || logLevel === "warn") {
+        if (typeof node_process.emitWarning === "function")
+          node_process.emitWarning(warning);
+        else
+          console.warn(warning);
+      }
+    }
+    exports.debug = debug;
+    exports.warn = warn;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+var require_merge = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var MERGE_KEY = "<<";
+    var merge2 = {
+      identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
+      default: "key",
+      tag: "tag:yaml.org,2002:merge",
+      test: /^<<$/,
+      resolve: () => Object.assign(new Scalar.Scalar(Symbol(MERGE_KEY)), {
+        addToJSMap: addMergeToJSMap
+      }),
+      stringify: () => MERGE_KEY
+    };
+    var isMergeKey = (ctx, key) => (merge2.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge2.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge2.tag && tag.default);
+    function addMergeToJSMap(ctx, map2, value) {
+      const source = resolveAliasValue(ctx, value);
+      if (identity.isSeq(source))
+        for (const it of source.items)
+          mergeValue(ctx, map2, it);
+      else if (Array.isArray(source))
+        for (const it of source)
+          mergeValue(ctx, map2, it);
+      else
+        mergeValue(ctx, map2, source);
+    }
+    function mergeValue(ctx, map2, value) {
+      const source = resolveAliasValue(ctx, value);
+      if (!identity.isMap(source))
+        throw new Error("Merge sources must be maps or map aliases");
+      const srcMap = source.toJSON(null, ctx, Map);
+      for (const [key, value2] of srcMap) {
+        if (map2 instanceof Map) {
+          if (!map2.has(key))
+            map2.set(key, value2);
+        } else if (map2 instanceof Set) {
+          map2.add(key);
+        } else if (!Object.prototype.hasOwnProperty.call(map2, key)) {
+          Object.defineProperty(map2, key, {
+            value: value2,
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        }
+      }
+      return map2;
+    }
+    function resolveAliasValue(ctx, value) {
+      return ctx && identity.isAlias(value) ? value.resolve(ctx.doc, ctx) : value;
+    }
+    exports.addMergeToJSMap = addMergeToJSMap;
+    exports.isMergeKey = isMergeKey;
+    exports.merge = merge2;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js
+var require_addPairToJSMap = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+    "use strict";
+    var log = require_log();
+    var merge2 = require_merge();
+    var stringify = require_stringify();
+    var identity = require_identity();
+    var toJS = require_toJS();
+    function addPairToJSMap(ctx, map2, { key, value }) {
+      if (identity.isNode(key) && key.addToJSMap)
+        key.addToJSMap(ctx, map2, value);
+      else if (merge2.isMergeKey(ctx, key))
+        merge2.addMergeToJSMap(ctx, map2, value);
+      else {
+        const jsKey = toJS.toJS(key, "", ctx);
+        if (map2 instanceof Map) {
+          map2.set(jsKey, toJS.toJS(value, jsKey, ctx));
+        } else if (map2 instanceof Set) {
+          map2.add(jsKey);
+        } else {
+          const stringKey = stringifyKey(key, jsKey, ctx);
+          const jsValue = toJS.toJS(value, stringKey, ctx);
+          if (stringKey in map2)
+            Object.defineProperty(map2, stringKey, {
+              value: jsValue,
+              writable: true,
+              enumerable: true,
+              configurable: true
+            });
+          else
+            map2[stringKey] = jsValue;
+        }
+      }
+      return map2;
+    }
+    function stringifyKey(key, jsKey, ctx) {
+      if (jsKey === null)
+        return "";
+      if (typeof jsKey !== "object")
+        return String(jsKey);
+      if (identity.isNode(key) && ctx?.doc) {
+        const strCtx = stringify.createStringifyContext(ctx.doc, {});
+        strCtx.anchors = /* @__PURE__ */ new Set();
+        for (const node of ctx.anchors.keys())
+          strCtx.anchors.add(node.anchor);
+        strCtx.inFlow = true;
+        strCtx.inStringifyKey = true;
+        const strKey = key.toString(strCtx);
+        if (!ctx.mapKeyWarned) {
+          let jsonStr = JSON.stringify(strKey);
+          if (jsonStr.length > 40)
+            jsonStr = jsonStr.substring(0, 36) + '..."';
+          log.warn(ctx.doc.options.logLevel, `Keys with collection values will be stringified due to JS Object restrictions: ${jsonStr}. Set mapAsMap: true to use object keys.`);
+          ctx.mapKeyWarned = true;
+        }
+        return strKey;
+      }
+      return JSON.stringify(jsKey);
+    }
+    exports.addPairToJSMap = addPairToJSMap;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js
+var require_Pair = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var stringifyPair = require_stringifyPair();
+    var addPairToJSMap = require_addPairToJSMap();
+    var identity = require_identity();
+    function createPair(key, value, ctx) {
+      const k = createNode.createNode(key, void 0, ctx);
+      const v = createNode.createNode(value, void 0, ctx);
+      return new Pair(k, v);
+    }
+    var Pair = class _Pair {
+      constructor(key, value = null) {
+        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.PAIR });
+        this.key = key;
+        this.value = value;
+      }
+      clone(schema) {
+        let { key, value } = this;
+        if (identity.isNode(key))
+          key = key.clone(schema);
+        if (identity.isNode(value))
+          value = value.clone(schema);
+        return new _Pair(key, value);
+      }
+      toJSON(_, ctx) {
+        const pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        return addPairToJSMap.addPairToJSMap(ctx, pair, this);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        return ctx?.doc ? stringifyPair.stringifyPair(this, ctx, onComment, onChompKeep) : JSON.stringify(this);
+      }
+    };
+    exports.Pair = Pair;
+    exports.createPair = createPair;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js
+var require_stringifyCollection = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var stringify = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyCollection(collection, ctx, options) {
+      const flow = ctx.inFlow ?? collection.flow;
+      const stringify2 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify2(collection, ctx, options);
+    }
+    function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
+      const { indent, options: { commentString } } = ctx;
+      const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
+      let chompKeep = false;
+      const lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        const item = items[i];
+        let comment2 = null;
+        if (identity.isNode(item)) {
+          if (!chompKeep && item.spaceBefore)
+            lines.push("");
+          addCommentBefore(ctx, lines, item.commentBefore, chompKeep);
+          if (item.comment)
+            comment2 = item.comment;
+        } else if (identity.isPair(item)) {
+          const ik = identity.isNode(item.key) ? item.key : null;
+          if (ik) {
+            if (!chompKeep && ik.spaceBefore)
+              lines.push("");
+            addCommentBefore(ctx, lines, ik.commentBefore, chompKeep);
+          }
+        }
+        chompKeep = false;
+        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        if (comment2)
+          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
+        if (chompKeep && comment2)
+          chompKeep = false;
+        lines.push(blockItemPrefix + str2);
+      }
+      let str;
+      if (lines.length === 0) {
+        str = flowChars.start + flowChars.end;
+      } else {
+        str = lines[0];
+        for (let i = 1; i < lines.length; ++i) {
+          const line = lines[i];
+          str += line ? `
+${indent}${line}` : "\n";
+        }
+      }
+      if (comment) {
+        str += "\n" + stringifyComment.indentComment(commentString(comment), indent);
+        if (onComment)
+          onComment();
+      } else if (chompKeep && onChompKeep)
+        onChompKeep();
+      return str;
+    }
+    function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
+      const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
+      itemIndent += indentStep;
+      const itemCtx = Object.assign({}, ctx, {
+        indent: itemIndent,
+        inFlow: true,
+        type: null
+      });
+      let reqNewline = false;
+      let linesAtValue = 0;
+      const lines = [];
+      for (let i = 0; i < items.length; ++i) {
+        const item = items[i];
+        let comment = null;
+        if (identity.isNode(item)) {
+          if (item.spaceBefore)
+            lines.push("");
+          addCommentBefore(ctx, lines, item.commentBefore, false);
+          if (item.comment)
+            comment = item.comment;
+        } else if (identity.isPair(item)) {
+          const ik = identity.isNode(item.key) ? item.key : null;
+          if (ik) {
+            if (ik.spaceBefore)
+              lines.push("");
+            addCommentBefore(ctx, lines, ik.commentBefore, false);
+            if (ik.comment)
+              reqNewline = true;
+          }
+          const iv = identity.isNode(item.value) ? item.value : null;
+          if (iv) {
+            if (iv.comment)
+              comment = iv.comment;
+            if (iv.commentBefore)
+              reqNewline = true;
+          } else if (item.value == null && ik?.comment) {
+            comment = ik.comment;
+          }
+        }
+        if (comment)
+          reqNewline = true;
+        let str = stringify.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
+        if (i < items.length - 1) {
+          str += ",";
+        } else if (ctx.options.trailingComma) {
+          if (ctx.options.lineWidth > 0) {
+            reqNewline || (reqNewline = lines.reduce((sum2, line) => sum2 + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+          }
+          if (reqNewline) {
+            str += ",";
+          }
+        }
+        if (comment)
+          str += stringifyComment.lineComment(str, itemIndent, commentString(comment));
+        lines.push(str);
+        linesAtValue = lines.length;
+      }
+      const { start, end } = flowChars;
+      if (lines.length === 0) {
+        return start + end;
+      } else {
+        if (!reqNewline) {
+          const len = lines.reduce((sum2, line) => sum2 + line.length + 2, 2);
+          reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
+        }
+        if (reqNewline) {
+          let str = start;
+          for (const line of lines)
+            str += line ? `
+${indentStep}${indent}${line}` : "\n";
+          return `${str}
+${indent}${end}`;
+        } else {
+          return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
+        }
+      }
+    }
+    function addCommentBefore({ indent, options: { commentString } }, lines, comment, chompKeep) {
+      if (comment && chompKeep)
+        comment = comment.replace(/^\n+/, "");
+      if (comment) {
+        const ic = stringifyComment.indentComment(commentString(comment), indent);
+        lines.push(ic.trimStart());
+      }
+    }
+    exports.stringifyCollection = stringifyCollection;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js
+var require_YAMLMap = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+    "use strict";
+    var stringifyCollection = require_stringifyCollection();
+    var addPairToJSMap = require_addPairToJSMap();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    function findPair(items, key) {
+      const k = identity.isScalar(key) ? key.value : key;
+      for (const it of items) {
+        if (identity.isPair(it)) {
+          if (it.key === key || it.key === k)
+            return it;
+          if (identity.isScalar(it.key) && it.key.value === k)
+            return it;
+        }
+      }
+      return void 0;
+    }
+    var YAMLMap = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:map";
+      }
+      constructor(schema) {
+        super(identity.MAP, schema);
+        this.items = [];
+      }
+      /**
+       * A generic collection parsing method that can be extended
+       * to other node classes that inherit from YAMLMap
+       */
+      static from(schema, obj, ctx) {
+        const { keepUndefined, replacer } = ctx;
+        const map2 = new this(schema);
+        const add = (key, value) => {
+          if (typeof replacer === "function")
+            value = replacer.call(obj, key, value);
+          else if (Array.isArray(replacer) && !replacer.includes(key))
+            return;
+          if (value !== void 0 || keepUndefined)
+            map2.items.push(Pair.createPair(key, value, ctx));
+        };
+        if (obj instanceof Map) {
+          for (const [key, value] of obj)
+            add(key, value);
+        } else if (obj && typeof obj === "object") {
+          for (const key of Object.keys(obj))
+            add(key, obj[key]);
+        }
+        if (typeof schema.sortMapEntries === "function") {
+          map2.items.sort(schema.sortMapEntries);
+        }
+        return map2;
+      }
+      /**
+       * Adds a value to the collection.
+       *
+       * @param overwrite - If not set `true`, using a key that is already in the
+       *   collection will throw. Otherwise, overwrites the previous value.
+       */
+      add(pair, overwrite) {
+        let _pair;
+        if (identity.isPair(pair))
+          _pair = pair;
+        else if (!pair || typeof pair !== "object" || !("key" in pair)) {
+          _pair = new Pair.Pair(pair, pair?.value);
+        } else
+          _pair = new Pair.Pair(pair.key, pair.value);
+        const prev = findPair(this.items, _pair.key);
+        const sortEntries = this.schema?.sortMapEntries;
+        if (prev) {
+          if (!overwrite)
+            throw new Error(`Key ${_pair.key} already set`);
+          if (identity.isScalar(prev.value) && Scalar.isScalarValue(_pair.value))
+            prev.value.value = _pair.value;
+          else
+            prev.value = _pair.value;
+        } else if (sortEntries) {
+          const i = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
+          if (i === -1)
+            this.items.push(_pair);
+          else
+            this.items.splice(i, 0, _pair);
+        } else {
+          this.items.push(_pair);
+        }
+      }
+      delete(key) {
+        const it = findPair(this.items, key);
+        if (!it)
+          return false;
+        const del = this.items.splice(this.items.indexOf(it), 1);
+        return del.length > 0;
+      }
+      get(key, keepScalar) {
+        const it = findPair(this.items, key);
+        const node = it?.value;
+        return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
+      }
+      has(key) {
+        return !!findPair(this.items, key);
+      }
+      set(key, value) {
+        this.add(new Pair.Pair(key, value), true);
+      }
+      /**
+       * @param ctx - Conversion context, originally set in Document#toJS()
+       * @param {Class} Type - If set, forces the returned collection type
+       * @returns Instance of Type, Map, or Object
+       */
+      toJSON(_, ctx, Type) {
+        const map2 = Type ? new Type() : ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
+        if (ctx?.onCreate)
+          ctx.onCreate(map2);
+        for (const item of this.items)
+          addPairToJSMap.addPairToJSMap(ctx, map2, item);
+        return map2;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        for (const item of this.items) {
+          if (!identity.isPair(item))
+            throw new Error(`Map items must all be pairs; found ${JSON.stringify(item)} instead`);
+        }
+        if (!ctx.allNullValues && this.hasAllNullValues(false))
+          ctx = Object.assign({}, ctx, { allNullValues: true });
+        return stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "",
+          flowChars: { start: "{", end: "}" },
+          itemIndent: ctx.indent || "",
+          onChompKeep,
+          onComment
+        });
+      }
+    };
+    exports.YAMLMap = YAMLMap;
+    exports.findPair = findPair;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js
+var require_map = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var YAMLMap = require_YAMLMap();
+    var map2 = {
+      collection: "map",
+      default: true,
+      nodeClass: YAMLMap.YAMLMap,
+      tag: "tag:yaml.org,2002:map",
+      resolve(map3, onError) {
+        if (!identity.isMap(map3))
+          onError("Expected a mapping for this tag");
+        return map3;
+      },
+      createNode: (schema, obj, ctx) => YAMLMap.YAMLMap.from(schema, obj, ctx)
+    };
+    exports.map = map2;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js
+var require_YAMLSeq = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+    "use strict";
+    var createNode = require_createNode();
+    var stringifyCollection = require_stringifyCollection();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var toJS = require_toJS();
+    var YAMLSeq = class extends Collection.Collection {
+      static get tagName() {
+        return "tag:yaml.org,2002:seq";
+      }
+      constructor(schema) {
+        super(identity.SEQ, schema);
+        this.items = [];
+      }
+      add(value) {
+        this.items.push(value);
+      }
+      /**
+       * Removes a value from the collection.
+       *
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       *
+       * @returns `true` if the item was found and removed.
+       */
+      delete(key) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          return false;
+        const del = this.items.splice(idx, 1);
+        return del.length > 0;
+      }
+      get(key, keepScalar) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          return void 0;
+        const it = this.items[idx];
+        return !keepScalar && identity.isScalar(it) ? it.value : it;
+      }
+      /**
+       * Checks if the collection includes a value with the key `key`.
+       *
+       * `key` must contain a representation of an integer for this to succeed.
+       * It may be wrapped in a `Scalar`.
+       */
+      has(key) {
+        const idx = asItemIndex(key);
+        return typeof idx === "number" && idx < this.items.length;
+      }
+      /**
+       * Sets a value in this collection. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       *
+       * If `key` does not contain a representation of an integer, this will throw.
+       * It may be wrapped in a `Scalar`.
+       */
+      set(key, value) {
+        const idx = asItemIndex(key);
+        if (typeof idx !== "number")
+          throw new Error(`Expected a valid index, not ${key}.`);
+        const prev = this.items[idx];
+        if (identity.isScalar(prev) && Scalar.isScalarValue(value))
+          prev.value = value;
+        else
+          this.items[idx] = value;
+      }
+      toJSON(_, ctx) {
+        const seq = [];
+        if (ctx?.onCreate)
+          ctx.onCreate(seq);
+        let i = 0;
+        for (const item of this.items)
+          seq.push(toJS.toJS(item, String(i++), ctx));
+        return seq;
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        return stringifyCollection.stringifyCollection(this, ctx, {
+          blockItemPrefix: "- ",
+          flowChars: { start: "[", end: "]" },
+          itemIndent: (ctx.indent || "") + "  ",
+          onChompKeep,
+          onComment
+        });
+      }
+      static from(schema, obj, ctx) {
+        const { replacer } = ctx;
+        const seq = new this(schema);
+        if (obj && Symbol.iterator in Object(obj)) {
+          let i = 0;
+          for (let it of obj) {
+            if (typeof replacer === "function") {
+              const key = obj instanceof Set ? it : String(i++);
+              it = replacer.call(obj, key, it);
+            }
+            seq.items.push(createNode.createNode(it, void 0, ctx));
+          }
+        }
+        return seq;
+      }
+    };
+    function asItemIndex(key) {
+      let idx = identity.isScalar(key) ? key.value : key;
+      if (idx && typeof idx === "string")
+        idx = Number(idx);
+      return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
+    }
+    exports.YAMLSeq = YAMLSeq;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js
+var require_seq = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var YAMLSeq = require_YAMLSeq();
+    var seq = {
+      collection: "seq",
+      default: true,
+      nodeClass: YAMLSeq.YAMLSeq,
+      tag: "tag:yaml.org,2002:seq",
+      resolve(seq2, onError) {
+        if (!identity.isSeq(seq2))
+          onError("Expected a sequence for this tag");
+        return seq2;
+      },
+      createNode: (schema, obj, ctx) => YAMLSeq.YAMLSeq.from(schema, obj, ctx)
+    };
+    exports.seq = seq;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js
+var require_string = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js"(exports) {
+    "use strict";
+    var stringifyString = require_stringifyString();
+    var string4 = {
+      identify: (value) => typeof value === "string",
+      default: true,
+      tag: "tag:yaml.org,2002:str",
+      resolve: (str) => str,
+      stringify(item, ctx, onComment, onChompKeep) {
+        ctx = Object.assign({ actualString: true }, ctx);
+        return stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.string = string4;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js
+var require_null = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var nullTag = {
+      identify: (value) => value == null,
+      createNode: () => new Scalar.Scalar(null),
+      default: true,
+      tag: "tag:yaml.org,2002:null",
+      test: /^(?:~|[Nn]ull|NULL)?$/,
+      resolve: () => new Scalar.Scalar(null),
+      stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
+    };
+    exports.nullTag = nullTag;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js
+var require_bool = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var boolTag = {
+      identify: (value) => typeof value === "boolean",
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
+      resolve: (str) => new Scalar.Scalar(str[0] === "t" || str[0] === "T"),
+      stringify({ source, value }, ctx) {
+        if (source && boolTag.test.test(source)) {
+          const sv = source[0] === "t" || source[0] === "T";
+          if (value === sv)
+            return source;
+        }
+        return value ? ctx.options.trueStr : ctx.options.falseStr;
+      }
+    };
+    exports.boolTag = boolTag;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js
+var require_stringifyNumber = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+    "use strict";
+    function stringifyNumber({ format, minFractionDigits, tag, value }) {
+      if (typeof value === "bigint")
+        return String(value);
+      const num = typeof value === "number" ? value : Number(value);
+      if (!isFinite(num))
+        return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
+      let n = Object.is(value, -0) ? "-0" : JSON.stringify(value);
+      if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^-?\d/.test(n) && !n.includes("e")) {
+        let i = n.indexOf(".");
+        if (i < 0) {
+          i = n.length;
+          n += ".";
+        }
+        let d = minFractionDigits - (n.length - i - 1);
+        while (d-- > 0)
+          n += "0";
+      }
+      return n;
+    }
+    exports.stringifyNumber = stringifyNumber;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js
+var require_float = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var stringifyNumber = require_stringifyNumber();
+    var floatNaN = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var floatExp = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str),
+      stringify(node) {
+        const num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+      }
+    };
+    var float = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str));
+        const dot = str.indexOf(".");
+        if (dot !== -1 && str[str.length - 1] === "0")
+          node.minFractionDigits = str.length - dot - 1;
+        return node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js
+var require_int = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
+    var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
+    function intStringify(node, radix, prefix) {
+      const { value } = node;
+      if (intIdentify(value) && value >= 0)
+        return prefix + value.toString(radix);
+      return stringifyNumber.stringifyNumber(node);
+    }
+    var intOct = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^0o[0-7]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0o")
+    };
+    var int2 = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var intHex = {
+      identify: (value) => intIdentify(value) && value >= 0,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^0x[0-9a-fA-F]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int2;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js
+var require_schema = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js"(exports) {
+    "use strict";
+    var map2 = require_map();
+    var _null4 = require_null();
+    var seq = require_seq();
+    var string4 = require_string();
+    var bool = require_bool();
+    var float = require_float();
+    var int2 = require_int();
+    var schema = [
+      map2.map,
+      seq.seq,
+      string4.string,
+      _null4.nullTag,
+      bool.boolTag,
+      int2.intOct,
+      int2.int,
+      int2.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float
+    ];
+    exports.schema = schema;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js
+var require_schema2 = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var map2 = require_map();
+    var seq = require_seq();
+    function intIdentify(value) {
+      return typeof value === "bigint" || Number.isInteger(value);
+    }
+    var stringifyJSON = ({ value }) => JSON.stringify(value);
+    var jsonScalars = [
+      {
+        identify: (value) => typeof value === "string",
+        default: true,
+        tag: "tag:yaml.org,2002:str",
+        resolve: (str) => str,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => value == null,
+        createNode: () => new Scalar.Scalar(null),
+        default: true,
+        tag: "tag:yaml.org,2002:null",
+        test: /^null$/,
+        resolve: () => null,
+        stringify: stringifyJSON
+      },
+      {
+        identify: (value) => typeof value === "boolean",
+        default: true,
+        tag: "tag:yaml.org,2002:bool",
+        test: /^true$|^false$/,
+        resolve: (str) => str === "true",
+        stringify: stringifyJSON
+      },
+      {
+        identify: intIdentify,
+        default: true,
+        tag: "tag:yaml.org,2002:int",
+        test: /^-?(?:0|[1-9][0-9]*)$/,
+        resolve: (str, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str, 10),
+        stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
+      },
+      {
+        identify: (value) => typeof value === "number",
+        default: true,
+        tag: "tag:yaml.org,2002:float",
+        test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
+        resolve: (str) => parseFloat(str),
+        stringify: stringifyJSON
+      }
+    ];
+    var jsonError = {
+      default: true,
+      tag: "",
+      test: /^/,
+      resolve(str, onError) {
+        onError(`Unresolved plain scalar ${JSON.stringify(str)}`);
+        return str;
+      }
+    };
+    var schema = [map2.map, seq.seq].concat(jsonScalars, jsonError);
+    exports.schema = schema;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+var require_binary = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+    "use strict";
+    var node_buffer = __require("buffer");
+    var Scalar = require_Scalar();
+    var stringifyString = require_stringifyString();
+    var binary = {
+      identify: (value) => value instanceof Uint8Array,
+      // Buffer inherits from Uint8Array
+      default: false,
+      tag: "tag:yaml.org,2002:binary",
+      /**
+       * Returns a Buffer in node and an Uint8Array in browsers
+       *
+       * To use the resulting buffer as an image, you'll want to do something like:
+       *
+       *   const blob = new Blob([buffer], { type: 'image/jpeg' })
+       *   document.querySelector('#photo').src = URL.createObjectURL(blob)
+       */
+      resolve(src, onError) {
+        if (typeof node_buffer.Buffer === "function") {
+          return node_buffer.Buffer.from(src, "base64");
+        } else if (typeof atob === "function") {
+          const str = atob(src.replace(/[\n\r]/g, ""));
+          const buffer = new Uint8Array(str.length);
+          for (let i = 0; i < str.length; ++i)
+            buffer[i] = str.charCodeAt(i);
+          return buffer;
+        } else {
+          onError("This environment does not support reading binary tags; either Buffer or atob is required");
+          return src;
+        }
+      },
+      stringify({ comment, type, value }, ctx, onComment, onChompKeep) {
+        if (!value)
+          return "";
+        const buf = value;
+        let str;
+        if (typeof node_buffer.Buffer === "function") {
+          str = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+        } else if (typeof btoa === "function") {
+          let s = "";
+          for (let i = 0; i < buf.length; ++i)
+            s += String.fromCharCode(buf[i]);
+          str = btoa(s);
+        } else {
+          throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
+        }
+        type ?? (type = Scalar.Scalar.BLOCK_LITERAL);
+        if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
+          const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
+          const n = Math.ceil(str.length / lineWidth);
+          const lines = new Array(n);
+          for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
+            lines[i] = str.substr(o, lineWidth);
+          }
+          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+        }
+        return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
+      }
+    };
+    exports.binary = binary;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+var require_pairs = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    var YAMLSeq = require_YAMLSeq();
+    function resolvePairs(seq, onError) {
+      if (identity.isSeq(seq)) {
+        for (let i = 0; i < seq.items.length; ++i) {
+          let item = seq.items[i];
+          if (identity.isPair(item))
+            continue;
+          else if (identity.isMap(item)) {
+            if (item.items.length > 1)
+              onError("Each pair must have its own sequence indicator");
+            const pair = item.items[0] || new Pair.Pair(new Scalar.Scalar(null));
+            if (item.commentBefore)
+              pair.key.commentBefore = pair.key.commentBefore ? `${item.commentBefore}
+${pair.key.commentBefore}` : item.commentBefore;
+            if (item.comment) {
+              const cn = pair.value ?? pair.key;
+              cn.comment = cn.comment ? `${item.comment}
+${cn.comment}` : item.comment;
+            }
+            item = pair;
+          }
+          seq.items[i] = identity.isPair(item) ? item : new Pair.Pair(item);
+        }
+      } else
+        onError("Expected a sequence for this tag");
+      return seq;
+    }
+    function createPairs(schema, iterable, ctx) {
+      const { replacer } = ctx;
+      const pairs2 = new YAMLSeq.YAMLSeq(schema);
+      pairs2.tag = "tag:yaml.org,2002:pairs";
+      let i = 0;
+      if (iterable && Symbol.iterator in Object(iterable))
+        for (let it of iterable) {
+          if (typeof replacer === "function")
+            it = replacer.call(iterable, String(i++), it);
+          let key, value;
+          if (Array.isArray(it)) {
+            if (it.length === 2) {
+              key = it[0];
+              value = it[1];
+            } else
+              throw new TypeError(`Expected [key, value] tuple: ${it}`);
+          } else if (it && it instanceof Object) {
+            const keys = Object.keys(it);
+            if (keys.length === 1) {
+              key = keys[0];
+              value = it[key];
+            } else {
+              throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
+            }
+          } else {
+            key = it;
+          }
+          pairs2.items.push(Pair.createPair(key, value, ctx));
+        }
+      return pairs2;
+    }
+    var pairs = {
+      collection: "seq",
+      default: false,
+      tag: "tag:yaml.org,2002:pairs",
+      resolve: resolvePairs,
+      createNode: createPairs
+    };
+    exports.createPairs = createPairs;
+    exports.pairs = pairs;
+    exports.resolvePairs = resolvePairs;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+var require_omap = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var toJS = require_toJS();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var pairs = require_pairs();
+    var YAMLOMap = class _YAMLOMap extends YAMLSeq.YAMLSeq {
+      constructor() {
+        super();
+        this.add = YAMLMap.YAMLMap.prototype.add.bind(this);
+        this.delete = YAMLMap.YAMLMap.prototype.delete.bind(this);
+        this.get = YAMLMap.YAMLMap.prototype.get.bind(this);
+        this.has = YAMLMap.YAMLMap.prototype.has.bind(this);
+        this.set = YAMLMap.YAMLMap.prototype.set.bind(this);
+        this.tag = _YAMLOMap.tag;
+      }
+      /**
+       * If `ctx` is given, the return type is actually `Map<unknown, unknown>`,
+       * but TypeScript won't allow widening the signature of a child method.
+       */
+      toJSON(_, ctx) {
+        if (!ctx)
+          return super.toJSON(_);
+        const map2 = /* @__PURE__ */ new Map();
+        if (ctx?.onCreate)
+          ctx.onCreate(map2);
+        for (const pair of this.items) {
+          let key, value;
+          if (identity.isPair(pair)) {
+            key = toJS.toJS(pair.key, "", ctx);
+            value = toJS.toJS(pair.value, key, ctx);
+          } else {
+            key = toJS.toJS(pair, "", ctx);
+          }
+          if (map2.has(key))
+            throw new Error("Ordered maps must not include duplicate keys");
+          map2.set(key, value);
+        }
+        return map2;
+      }
+      static from(schema, iterable, ctx) {
+        const pairs$1 = pairs.createPairs(schema, iterable, ctx);
+        const omap2 = new this();
+        omap2.items = pairs$1.items;
+        return omap2;
+      }
+    };
+    YAMLOMap.tag = "tag:yaml.org,2002:omap";
+    var omap = {
+      collection: "seq",
+      identify: (value) => value instanceof Map,
+      nodeClass: YAMLOMap,
+      default: false,
+      tag: "tag:yaml.org,2002:omap",
+      resolve(seq, onError) {
+        const pairs$1 = pairs.resolvePairs(seq, onError);
+        const seenKeys = [];
+        for (const { key } of pairs$1.items) {
+          if (identity.isScalar(key)) {
+            if (seenKeys.includes(key.value)) {
+              onError(`Ordered maps must not include duplicate keys: ${key.value}`);
+            } else {
+              seenKeys.push(key.value);
+            }
+          }
+        }
+        return Object.assign(new YAMLOMap(), pairs$1);
+      },
+      createNode: (schema, iterable, ctx) => YAMLOMap.from(schema, iterable, ctx)
+    };
+    exports.YAMLOMap = YAMLOMap;
+    exports.omap = omap;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+var require_bool2 = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function boolStringify({ value, source }, ctx) {
+      const boolObj = value ? trueTag : falseTag;
+      if (source && boolObj.test.test(source))
+        return source;
+      return value ? ctx.options.trueStr : ctx.options.falseStr;
+    }
+    var trueTag = {
+      identify: (value) => value === true,
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:Y|y|[Yy]es|YES|[Tt]rue|TRUE|[Oo]n|ON)$/,
+      resolve: () => new Scalar.Scalar(true),
+      stringify: boolStringify
+    };
+    var falseTag = {
+      identify: (value) => value === false,
+      default: true,
+      tag: "tag:yaml.org,2002:bool",
+      test: /^(?:N|n|[Nn]o|NO|[Ff]alse|FALSE|[Oo]ff|OFF)$/,
+      resolve: () => new Scalar.Scalar(false),
+      stringify: boolStringify
+    };
+    exports.falseTag = falseTag;
+    exports.trueTag = trueTag;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js
+var require_float2 = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var stringifyNumber = require_stringifyNumber();
+    var floatNaN = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
+      resolve: (str) => str.slice(-3).toLowerCase() === "nan" ? NaN : str[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var floatExp = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "EXP",
+      test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
+      resolve: (str) => parseFloat(str.replace(/_/g, "")),
+      stringify(node) {
+        const num = Number(node.value);
+        return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
+      }
+    };
+    var float = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
+      resolve(str) {
+        const node = new Scalar.Scalar(parseFloat(str.replace(/_/g, "")));
+        const dot = str.indexOf(".");
+        if (dot !== -1) {
+          const f = str.substring(dot + 1).replace(/_/g, "");
+          if (f[f.length - 1] === "0")
+            node.minFractionDigits = f.length;
+        }
+        return node;
+      },
+      stringify: stringifyNumber.stringifyNumber
+    };
+    exports.float = float;
+    exports.floatExp = floatExp;
+    exports.floatNaN = floatNaN;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js
+var require_int2 = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
+    function intResolve(str, offset, radix, { intAsBigInt }) {
+      const sign = str[0];
+      if (sign === "-" || sign === "+")
+        offset += 1;
+      str = str.substring(offset).replace(/_/g, "");
+      if (intAsBigInt) {
+        switch (radix) {
+          case 2:
+            str = `0b${str}`;
+            break;
+          case 8:
+            str = `0o${str}`;
+            break;
+          case 16:
+            str = `0x${str}`;
+            break;
+        }
+        const n2 = BigInt(str);
+        return sign === "-" ? BigInt(-1) * n2 : n2;
+      }
+      const n = parseInt(str, radix);
+      return sign === "-" ? -1 * n : n;
+    }
+    function intStringify(node, radix, prefix) {
+      const { value } = node;
+      if (intIdentify(value)) {
+        const str = value.toString(radix);
+        return value < 0 ? "-" + prefix + str.substr(1) : prefix + str;
+      }
+      return stringifyNumber.stringifyNumber(node);
+    }
+    var intBin = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "BIN",
+      test: /^[-+]?0b[0-1_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 2, opt),
+      stringify: (node) => intStringify(node, 2, "0b")
+    };
+    var intOct = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "OCT",
+      test: /^[-+]?0[0-7_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 1, 8, opt),
+      stringify: (node) => intStringify(node, 8, "0")
+    };
+    var int2 = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      test: /^[-+]?[0-9][0-9_]*$/,
+      resolve: (str, _onError, opt) => intResolve(str, 0, 10, opt),
+      stringify: stringifyNumber.stringifyNumber
+    };
+    var intHex = {
+      identify: intIdentify,
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "HEX",
+      test: /^[-+]?0x[0-9a-fA-F_]+$/,
+      resolve: (str, _onError, opt) => intResolve(str, 2, 16, opt),
+      stringify: (node) => intStringify(node, 16, "0x")
+    };
+    exports.int = int2;
+    exports.intBin = intBin;
+    exports.intHex = intHex;
+    exports.intOct = intOct;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js
+var require_set = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSet = class _YAMLSet extends YAMLMap.YAMLMap {
+      constructor(schema) {
+        super(schema);
+        this.tag = _YAMLSet.tag;
+      }
+      add(key) {
+        let pair;
+        if (identity.isPair(key))
+          pair = key;
+        else if (key && typeof key === "object" && "key" in key && "value" in key && key.value === null)
+          pair = new Pair.Pair(key.key, null);
+        else
+          pair = new Pair.Pair(key, null);
+        const prev = YAMLMap.findPair(this.items, pair.key);
+        if (!prev)
+          this.items.push(pair);
+      }
+      /**
+       * If `keepPair` is `true`, returns the Pair matching `key`.
+       * Otherwise, returns the value of that Pair's key.
+       */
+      get(key, keepPair) {
+        const pair = YAMLMap.findPair(this.items, key);
+        return !keepPair && identity.isPair(pair) ? identity.isScalar(pair.key) ? pair.key.value : pair.key : pair;
+      }
+      set(key, value) {
+        if (typeof value !== "boolean")
+          throw new Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof value}`);
+        const prev = YAMLMap.findPair(this.items, key);
+        if (prev && !value) {
+          this.items.splice(this.items.indexOf(prev), 1);
+        } else if (!prev && value) {
+          this.items.push(new Pair.Pair(key));
+        }
+      }
+      toJSON(_, ctx) {
+        return super.toJSON(_, ctx, Set);
+      }
+      toString(ctx, onComment, onChompKeep) {
+        if (!ctx)
+          return JSON.stringify(this);
+        if (this.hasAllNullValues(true))
+          return super.toString(Object.assign({}, ctx, { allNullValues: true }), onComment, onChompKeep);
+        else
+          throw new Error("Set items must all have null values");
+      }
+      static from(schema, iterable, ctx) {
+        const { replacer } = ctx;
+        const set3 = new this(schema);
+        if (iterable && Symbol.iterator in Object(iterable))
+          for (let value of iterable) {
+            if (typeof replacer === "function")
+              value = replacer.call(iterable, value, value);
+            set3.items.push(Pair.createPair(value, null, ctx));
+          }
+        return set3;
+      }
+    };
+    YAMLSet.tag = "tag:yaml.org,2002:set";
+    var set2 = {
+      collection: "map",
+      identify: (value) => value instanceof Set,
+      nodeClass: YAMLSet,
+      default: false,
+      tag: "tag:yaml.org,2002:set",
+      createNode: (schema, iterable, ctx) => YAMLSet.from(schema, iterable, ctx),
+      resolve(map2, onError) {
+        if (identity.isMap(map2)) {
+          if (map2.hasAllNullValues(true))
+            return Object.assign(new YAMLSet(), map2);
+          else
+            onError("Set items must all have null values");
+        } else
+          onError("Expected a mapping for this tag");
+        return map2;
+      }
+    };
+    exports.YAMLSet = YAMLSet;
+    exports.set = set2;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+var require_timestamp = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+    "use strict";
+    var stringifyNumber = require_stringifyNumber();
+    function parseSexagesimal(str, asBigInt) {
+      const sign = str[0];
+      const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
+      const num = (n) => asBigInt ? BigInt(n) : Number(n);
+      const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
+      return sign === "-" ? num(-1) * res : res;
+    }
+    function stringifySexagesimal(node) {
+      let { value } = node;
+      let num = (n) => n;
+      if (typeof value === "bigint")
+        num = (n) => BigInt(n);
+      else if (isNaN(value) || !isFinite(value))
+        return stringifyNumber.stringifyNumber(node);
+      let sign = "";
+      if (value < 0) {
+        sign = "-";
+        value *= num(-1);
+      }
+      const _60 = num(60);
+      const parts = [value % _60];
+      if (value < 60) {
+        parts.unshift(0);
+      } else {
+        value = (value - parts[0]) / _60;
+        parts.unshift(value % _60);
+        if (value >= 60) {
+          value = (value - parts[0]) / _60;
+          parts.unshift(value);
+        }
+      }
+      return sign + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
+    }
+    var intTime = {
+      identify: (value) => typeof value === "bigint" || Number.isInteger(value),
+      default: true,
+      tag: "tag:yaml.org,2002:int",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
+      resolve: (str, _onError, { intAsBigInt }) => parseSexagesimal(str, intAsBigInt),
+      stringify: stringifySexagesimal
+    };
+    var floatTime = {
+      identify: (value) => typeof value === "number",
+      default: true,
+      tag: "tag:yaml.org,2002:float",
+      format: "TIME",
+      test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
+      resolve: (str) => parseSexagesimal(str, false),
+      stringify: stringifySexagesimal
+    };
+    var timestamp = {
+      identify: (value) => value instanceof Date,
+      default: true,
+      tag: "tag:yaml.org,2002:timestamp",
+      // If the time zone is omitted, the timestamp is assumed to be specified in UTC. The time part
+      // may be omitted altogether, resulting in a date format. In such a case, the time part is
+      // assumed to be 00:00:00Z (start of day, UTC).
+      test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
+      resolve(str) {
+        const match = str.match(timestamp.test);
+        if (!match)
+          throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
+        const [, year, month, day, hour, minute, second] = match.map(Number);
+        const millisec = match[7] ? Number((match[7] + "00").substr(1, 3)) : 0;
+        let date5 = Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0, millisec);
+        const tz = match[8];
+        if (tz && tz !== "Z") {
+          let d = parseSexagesimal(tz, false);
+          if (Math.abs(d) < 30)
+            d *= 60;
+          date5 -= 6e4 * d;
+        }
+        return new Date(date5);
+      },
+      stringify: ({ value }) => value?.toISOString().replace(/(T00:00:00)?\.000Z$/, "") ?? ""
+    };
+    exports.floatTime = floatTime;
+    exports.intTime = intTime;
+    exports.timestamp = timestamp;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+var require_schema3 = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+    "use strict";
+    var map2 = require_map();
+    var _null4 = require_null();
+    var seq = require_seq();
+    var string4 = require_string();
+    var binary = require_binary();
+    var bool = require_bool2();
+    var float = require_float2();
+    var int2 = require_int2();
+    var merge2 = require_merge();
+    var omap = require_omap();
+    var pairs = require_pairs();
+    var set2 = require_set();
+    var timestamp = require_timestamp();
+    var schema = [
+      map2.map,
+      seq.seq,
+      string4.string,
+      _null4.nullTag,
+      bool.trueTag,
+      bool.falseTag,
+      int2.intBin,
+      int2.intOct,
+      int2.int,
+      int2.intHex,
+      float.floatNaN,
+      float.floatExp,
+      float.float,
+      binary.binary,
+      merge2.merge,
+      omap.omap,
+      pairs.pairs,
+      set2.set,
+      timestamp.intTime,
+      timestamp.floatTime,
+      timestamp.timestamp
+    ];
+    exports.schema = schema;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js
+var require_tags = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js"(exports) {
+    "use strict";
+    var map2 = require_map();
+    var _null4 = require_null();
+    var seq = require_seq();
+    var string4 = require_string();
+    var bool = require_bool();
+    var float = require_float();
+    var int2 = require_int();
+    var schema = require_schema();
+    var schema$1 = require_schema2();
+    var binary = require_binary();
+    var merge2 = require_merge();
+    var omap = require_omap();
+    var pairs = require_pairs();
+    var schema$2 = require_schema3();
+    var set2 = require_set();
+    var timestamp = require_timestamp();
+    var schemas = /* @__PURE__ */ new Map([
+      ["core", schema.schema],
+      ["failsafe", [map2.map, seq.seq, string4.string]],
+      ["json", schema$1.schema],
+      ["yaml11", schema$2.schema],
+      ["yaml-1.1", schema$2.schema]
+    ]);
+    var tagsByName = {
+      binary: binary.binary,
+      bool: bool.boolTag,
+      float: float.float,
+      floatExp: float.floatExp,
+      floatNaN: float.floatNaN,
+      floatTime: timestamp.floatTime,
+      int: int2.int,
+      intHex: int2.intHex,
+      intOct: int2.intOct,
+      intTime: timestamp.intTime,
+      map: map2.map,
+      merge: merge2.merge,
+      null: _null4.nullTag,
+      omap: omap.omap,
+      pairs: pairs.pairs,
+      seq: seq.seq,
+      set: set2.set,
+      timestamp: timestamp.timestamp
+    };
+    var coreKnownTags = {
+      "tag:yaml.org,2002:binary": binary.binary,
+      "tag:yaml.org,2002:merge": merge2.merge,
+      "tag:yaml.org,2002:omap": omap.omap,
+      "tag:yaml.org,2002:pairs": pairs.pairs,
+      "tag:yaml.org,2002:set": set2.set,
+      "tag:yaml.org,2002:timestamp": timestamp.timestamp
+    };
+    function getTags(customTags, schemaName, addMergeTag) {
+      const schemaTags = schemas.get(schemaName);
+      if (schemaTags && !customTags) {
+        return addMergeTag && !schemaTags.includes(merge2.merge) ? schemaTags.concat(merge2.merge) : schemaTags.slice();
+      }
+      let tags = schemaTags;
+      if (!tags) {
+        if (Array.isArray(customTags))
+          tags = [];
+        else {
+          const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
+        }
+      }
+      if (Array.isArray(customTags)) {
+        for (const tag of customTags)
+          tags = tags.concat(tag);
+      } else if (typeof customTags === "function") {
+        tags = customTags(tags.slice());
+      }
+      if (addMergeTag)
+        tags = tags.concat(merge2.merge);
+      return tags.reduce((tags2, tag) => {
+        const tagObj = typeof tag === "string" ? tagsByName[tag] : tag;
+        if (!tagObj) {
+          const tagName = JSON.stringify(tag);
+          const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
+          throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
+        }
+        if (!tags2.includes(tagObj))
+          tags2.push(tagObj);
+        return tags2;
+      }, []);
+    }
+    exports.coreKnownTags = coreKnownTags;
+    exports.getTags = getTags;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js
+var require_Schema = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var map2 = require_map();
+    var seq = require_seq();
+    var string4 = require_string();
+    var tags = require_tags();
+    var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+    var Schema = class _Schema {
+      constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema, sortMapEntries, toStringDefaults }) {
+        this.compat = Array.isArray(compat) ? tags.getTags(compat, "compat") : compat ? tags.getTags(null, compat) : null;
+        this.name = typeof schema === "string" && schema || "core";
+        this.knownTags = resolveKnownTags ? tags.coreKnownTags : {};
+        this.tags = tags.getTags(customTags, this.name, merge2);
+        this.toStringOptions = toStringDefaults ?? null;
+        Object.defineProperty(this, identity.MAP, { value: map2.map });
+        Object.defineProperty(this, identity.SCALAR, { value: string4.string });
+        Object.defineProperty(this, identity.SEQ, { value: seq.seq });
+        this.sortMapEntries = typeof sortMapEntries === "function" ? sortMapEntries : sortMapEntries === true ? sortMapEntriesByKey : null;
+      }
+      clone() {
+        const copy = Object.create(_Schema.prototype, Object.getOwnPropertyDescriptors(this));
+        copy.tags = this.tags.slice();
+        return copy;
+      }
+    };
+    exports.Schema = Schema;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js
+var require_stringifyDocument = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var stringify = require_stringify();
+    var stringifyComment = require_stringifyComment();
+    function stringifyDocument(doc, options) {
+      const lines = [];
+      let hasDirectives = options.directives === true;
+      if (options.directives !== false && doc.directives) {
+        const dir = doc.directives.toString(doc);
+        if (dir) {
+          lines.push(dir);
+          hasDirectives = true;
+        } else if (doc.directives.docStart)
+          hasDirectives = true;
+      }
+      if (hasDirectives)
+        lines.push("---");
+      const ctx = stringify.createStringifyContext(doc, options);
+      const { commentString } = ctx.options;
+      if (doc.commentBefore) {
+        if (lines.length !== 1)
+          lines.unshift("");
+        const cs = commentString(doc.commentBefore);
+        lines.unshift(stringifyComment.indentComment(cs, ""));
+      }
+      let chompKeep = false;
+      let contentComment = null;
+      if (doc.contents) {
+        if (identity.isNode(doc.contents)) {
+          if (doc.contents.spaceBefore && hasDirectives)
+            lines.push("");
+          if (doc.contents.commentBefore) {
+            const cs = commentString(doc.contents.commentBefore);
+            lines.push(stringifyComment.indentComment(cs, ""));
+          }
+          ctx.forceBlockIndent = !!doc.comment;
+          contentComment = doc.contents.comment;
+        }
+        const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
+        let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        if (contentComment)
+          body += stringifyComment.lineComment(body, "", commentString(contentComment));
+        if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
+          lines[lines.length - 1] = `--- ${body}`;
+        } else
+          lines.push(body);
+      } else {
+        lines.push(stringify.stringify(doc.contents, ctx));
+      }
+      if (doc.directives?.docEnd) {
+        if (doc.comment) {
+          const cs = commentString(doc.comment);
+          if (cs.includes("\n")) {
+            lines.push("...");
+            lines.push(stringifyComment.indentComment(cs, ""));
+          } else {
+            lines.push(`... ${cs}`);
+          }
+        } else {
+          lines.push("...");
+        }
+      } else {
+        let dc = doc.comment;
+        if (dc && chompKeep)
+          dc = dc.replace(/^\n+/, "");
+        if (dc) {
+          if ((!chompKeep || contentComment) && lines[lines.length - 1] !== "")
+            lines.push("");
+          lines.push(stringifyComment.indentComment(commentString(dc), ""));
+        }
+      }
+      return lines.join("\n") + "\n";
+    }
+    exports.stringifyDocument = stringifyDocument;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js
+var require_Document = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var Collection = require_Collection();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var toJS = require_toJS();
+    var Schema = require_Schema();
+    var stringifyDocument = require_stringifyDocument();
+    var anchors = require_anchors();
+    var applyReviver = require_applyReviver();
+    var createNode = require_createNode();
+    var directives = require_directives();
+    var Document = class _Document {
+      constructor(value, replacer, options) {
+        this.commentBefore = null;
+        this.comment = null;
+        this.errors = [];
+        this.warnings = [];
+        Object.defineProperty(this, identity.NODE_TYPE, { value: identity.DOC });
+        let _replacer = null;
+        if (typeof replacer === "function" || Array.isArray(replacer)) {
+          _replacer = replacer;
+        } else if (options === void 0 && replacer) {
+          options = replacer;
+          replacer = void 0;
+        }
+        const opt = Object.assign({
+          intAsBigInt: false,
+          keepSourceTokens: false,
+          logLevel: "warn",
+          prettyErrors: true,
+          strict: true,
+          stringKeys: false,
+          uniqueKeys: true,
+          version: "1.2"
+        }, options);
+        this.options = opt;
+        let { version: version2 } = opt;
+        if (options?._directives) {
+          this.directives = options._directives.atDocument();
+          if (this.directives.yaml.explicit)
+            version2 = this.directives.yaml.version;
+        } else
+          this.directives = new directives.Directives({ version: version2 });
+        this.setSchema(version2, options);
+        this.contents = value === void 0 ? null : this.createNode(value, _replacer, options);
+      }
+      /**
+       * Create a deep copy of this Document and its contents.
+       *
+       * Custom Node values that inherit from `Object` still refer to their original instances.
+       */
+      clone() {
+        const copy = Object.create(_Document.prototype, {
+          [identity.NODE_TYPE]: { value: identity.DOC }
+        });
+        copy.commentBefore = this.commentBefore;
+        copy.comment = this.comment;
+        copy.errors = this.errors.slice();
+        copy.warnings = this.warnings.slice();
+        copy.options = Object.assign({}, this.options);
+        if (this.directives)
+          copy.directives = this.directives.clone();
+        copy.schema = this.schema.clone();
+        copy.contents = identity.isNode(this.contents) ? this.contents.clone(copy.schema) : this.contents;
+        if (this.range)
+          copy.range = this.range.slice();
+        return copy;
+      }
+      /** Adds a value to the document. */
+      add(value) {
+        if (assertCollection(this.contents))
+          this.contents.add(value);
+      }
+      /** Adds a value to the document. */
+      addIn(path, value) {
+        if (assertCollection(this.contents))
+          this.contents.addIn(path, value);
+      }
+      /**
+       * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
+       *
+       * If `node` already has an anchor, `name` is ignored.
+       * Otherwise, the `node.anchor` value will be set to `name`,
+       * or if an anchor with that name is already present in the document,
+       * `name` will be used as a prefix for a new unique anchor.
+       * If `name` is undefined, the generated anchor will use 'a' as a prefix.
+       */
+      createAlias(node, name) {
+        if (!node.anchor) {
+          const prev = anchors.anchorNames(this);
+          node.anchor = // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          !name || prev.has(name) ? anchors.findNewAnchor(name || "a", prev) : name;
+        }
+        return new Alias.Alias(node.anchor);
+      }
+      createNode(value, replacer, options) {
+        let _replacer = void 0;
+        if (typeof replacer === "function") {
+          value = replacer.call({ "": value }, "", value);
+          _replacer = replacer;
+        } else if (Array.isArray(replacer)) {
+          const keyToStr = (v) => typeof v === "number" || v instanceof String || v instanceof Number;
+          const asStr = replacer.filter(keyToStr).map(String);
+          if (asStr.length > 0)
+            replacer = replacer.concat(asStr);
+          _replacer = replacer;
+        } else if (options === void 0 && replacer) {
+          options = replacer;
+          replacer = void 0;
+        }
+        const { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag } = options ?? {};
+        const { onAnchor, setAnchors, sourceObjects } = anchors.createNodeAnchors(
+          this,
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+          anchorPrefix || "a"
+        );
+        const ctx = {
+          aliasDuplicateObjects: aliasDuplicateObjects ?? true,
+          keepUndefined: keepUndefined ?? false,
+          onAnchor,
+          onTagObj,
+          replacer: _replacer,
+          schema: this.schema,
+          sourceObjects
+        };
+        const node = createNode.createNode(value, tag, ctx);
+        if (flow && identity.isCollection(node))
+          node.flow = true;
+        setAnchors();
+        return node;
+      }
+      /**
+       * Convert a key and a value into a `Pair` using the current schema,
+       * recursively wrapping all values as `Scalar` or `Collection` nodes.
+       */
+      createPair(key, value, options = {}) {
+        const k = this.createNode(key, null, options);
+        const v = this.createNode(value, null, options);
+        return new Pair.Pair(k, v);
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      delete(key) {
+        return assertCollection(this.contents) ? this.contents.delete(key) : false;
+      }
+      /**
+       * Removes a value from the document.
+       * @returns `true` if the item was found and removed.
+       */
+      deleteIn(path) {
+        if (Collection.isEmptyPath(path)) {
+          if (this.contents == null)
+            return false;
+          this.contents = null;
+          return true;
+        }
+        return assertCollection(this.contents) ? this.contents.deleteIn(path) : false;
+      }
+      /**
+       * Returns item at `key`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      get(key, keepScalar) {
+        return identity.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
+      }
+      /**
+       * Returns item at `path`, or `undefined` if not found. By default unwraps
+       * scalar values from their surrounding node; to disable set `keepScalar` to
+       * `true` (collections are always returned intact).
+       */
+      getIn(path, keepScalar) {
+        if (Collection.isEmptyPath(path))
+          return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path, keepScalar) : void 0;
+      }
+      /**
+       * Checks if the document includes a value with the key `key`.
+       */
+      has(key) {
+        return identity.isCollection(this.contents) ? this.contents.has(key) : false;
+      }
+      /**
+       * Checks if the document includes a value at `path`.
+       */
+      hasIn(path) {
+        if (Collection.isEmptyPath(path))
+          return this.contents !== void 0;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path) : false;
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      set(key, value) {
+        if (this.contents == null) {
+          this.contents = Collection.collectionFromPath(this.schema, [key], value);
+        } else if (assertCollection(this.contents)) {
+          this.contents.set(key, value);
+        }
+      }
+      /**
+       * Sets a value in this document. For `!!set`, `value` needs to be a
+       * boolean to add/remove the item from the set.
+       */
+      setIn(path, value) {
+        if (Collection.isEmptyPath(path)) {
+          this.contents = value;
+        } else if (this.contents == null) {
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path), value);
+        } else if (assertCollection(this.contents)) {
+          this.contents.setIn(path, value);
+        }
+      }
+      /**
+       * Change the YAML version and schema used by the document.
+       * A `null` version disables support for directives, explicit tags, anchors, and aliases.
+       * It also requires the `schema` option to be given as a `Schema` instance value.
+       *
+       * Overrides all previously set schema options.
+       */
+      setSchema(version2, options = {}) {
+        if (typeof version2 === "number")
+          version2 = String(version2);
+        let opt;
+        switch (version2) {
+          case "1.1":
+            if (this.directives)
+              this.directives.yaml.version = "1.1";
+            else
+              this.directives = new directives.Directives({ version: "1.1" });
+            opt = { resolveKnownTags: false, schema: "yaml-1.1" };
+            break;
+          case "1.2":
+          case "next":
+            if (this.directives)
+              this.directives.yaml.version = version2;
+            else
+              this.directives = new directives.Directives({ version: version2 });
+            opt = { resolveKnownTags: true, schema: "core" };
+            break;
+          case null:
+            if (this.directives)
+              delete this.directives;
+            opt = null;
+            break;
+          default: {
+            const sv = JSON.stringify(version2);
+            throw new Error(`Expected '1.1', '1.2' or null as first argument, but found: ${sv}`);
+          }
+        }
+        if (options.schema instanceof Object)
+          this.schema = options.schema;
+        else if (opt)
+          this.schema = new Schema.Schema(Object.assign(opt, options));
+        else
+          throw new Error(`With a null YAML version, the { schema: Schema } option is required`);
+      }
+      // json & jsonArg are only used from toJSON()
+      toJS({ json: json2, jsonArg, mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
+        const ctx = {
+          anchors: /* @__PURE__ */ new Map(),
+          doc: this,
+          keep: !json2,
+          mapAsMap: mapAsMap === true,
+          mapKeyWarned: false,
+          maxAliasCount: typeof maxAliasCount === "number" ? maxAliasCount : 100
+        };
+        const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
+        if (typeof onAnchor === "function")
+          for (const { count: count2, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count2);
+        return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
+      }
+      /**
+       * A JSON representation of the document `contents`.
+       *
+       * @param jsonArg Used by `JSON.stringify` to indicate the array index or
+       *   property name.
+       */
+      toJSON(jsonArg, onAnchor) {
+        return this.toJS({ json: true, jsonArg, mapAsMap: false, onAnchor });
+      }
+      /** A YAML representation of the document. */
+      toString(options = {}) {
+        if (this.errors.length > 0)
+          throw new Error("Document with errors cannot be stringified");
+        if ("indent" in options && (!Number.isInteger(options.indent) || Number(options.indent) <= 0)) {
+          const s = JSON.stringify(options.indent);
+          throw new Error(`"indent" option must be a positive integer, not ${s}`);
+        }
+        return stringifyDocument.stringifyDocument(this, options);
+      }
+    };
+    function assertCollection(contents) {
+      if (identity.isCollection(contents))
+        return true;
+      throw new Error("Expected a YAML collection as document contents");
+    }
+    exports.Document = Document;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js
+var require_errors = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js"(exports) {
+    "use strict";
+    var YAMLError = class extends Error {
+      constructor(name, pos, code, message) {
+        super();
+        this.name = name;
+        this.code = code;
+        this.message = message;
+        this.pos = pos;
+      }
+    };
+    var YAMLParseError = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLParseError", pos, code, message);
+      }
+    };
+    var YAMLWarning = class extends YAMLError {
+      constructor(pos, code, message) {
+        super("YAMLWarning", pos, code, message);
+      }
+    };
+    var prettifyError2 = (src, lc) => (error51) => {
+      if (error51.pos[0] === -1)
+        return;
+      error51.linePos = error51.pos.map((pos) => lc.linePos(pos));
+      const { line, col } = error51.linePos[0];
+      error51.message += ` at line ${line}, column ${col}`;
+      let ci = col - 1;
+      let lineStr = src.substring(lc.lineStarts[line - 1], lc.lineStarts[line]).replace(/[\n\r]+$/, "");
+      if (ci >= 60 && lineStr.length > 80) {
+        const trimStart = Math.min(ci - 39, lineStr.length - 79);
+        lineStr = "\u2026" + lineStr.substring(trimStart);
+        ci -= trimStart - 1;
+      }
+      if (lineStr.length > 80)
+        lineStr = lineStr.substring(0, 79) + "\u2026";
+      if (line > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+        let prev = src.substring(lc.lineStarts[line - 2], lc.lineStarts[line - 1]);
+        if (prev.length > 80)
+          prev = prev.substring(0, 79) + "\u2026\n";
+        lineStr = prev + lineStr;
+      }
+      if (/[^ ]/.test(lineStr)) {
+        let count2 = 1;
+        const end = error51.linePos[1];
+        if (end?.line === line && end.col > col) {
+          count2 = Math.max(1, Math.min(end.col - col, 80 - ci));
+        }
+        const pointer = " ".repeat(ci) + "^".repeat(count2);
+        error51.message += `:
+
+${lineStr}
+${pointer}
+`;
+      }
+    };
+    exports.YAMLError = YAMLError;
+    exports.YAMLParseError = YAMLParseError;
+    exports.YAMLWarning = YAMLWarning;
+    exports.prettifyError = prettifyError2;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js
+var require_resolve_props = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+    "use strict";
+    function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
+      let spaceBefore = false;
+      let atNewline = startOnNewline;
+      let hasSpace = startOnNewline;
+      let comment = "";
+      let commentSep = "";
+      let hasNewline = false;
+      let reqSpace = false;
+      let tab = null;
+      let anchor = null;
+      let tag = null;
+      let newlineAfterProp = null;
+      let comma = null;
+      let found = null;
+      let start = null;
+      for (const token of tokens) {
+        if (reqSpace) {
+          if (token.type !== "space" && token.type !== "newline" && token.type !== "comma")
+            onError(token.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
+          reqSpace = false;
+        }
+        if (tab) {
+          if (atNewline && token.type !== "comment" && token.type !== "newline") {
+            onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
+          }
+          tab = null;
+        }
+        switch (token.type) {
+          case "space":
+            if (!flow && (indicator !== "doc-start" || next?.type !== "flow-collection") && token.source.includes("	")) {
+              tab = token;
+            }
+            hasSpace = true;
+            break;
+          case "comment": {
+            if (!hasSpace)
+              onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+            const cb = token.source.substring(1) || " ";
+            if (!comment)
+              comment = cb;
+            else
+              comment += commentSep + cb;
+            commentSep = "";
+            atNewline = false;
+            break;
+          }
+          case "newline":
+            if (atNewline) {
+              if (comment)
+                comment += token.source;
+              else if (!found || indicator !== "seq-item-ind")
+                spaceBefore = true;
+            } else
+              commentSep += token.source;
+            atNewline = true;
+            hasNewline = true;
+            if (anchor || tag)
+              newlineAfterProp = token;
+            hasSpace = true;
+            break;
+          case "anchor":
+            if (anchor)
+              onError(token, "MULTIPLE_ANCHORS", "A node can have at most one anchor");
+            if (token.source.endsWith(":"))
+              onError(token.offset + token.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", true);
+            anchor = token;
+            start ?? (start = token.offset);
+            atNewline = false;
+            hasSpace = false;
+            reqSpace = true;
+            break;
+          case "tag": {
+            if (tag)
+              onError(token, "MULTIPLE_TAGS", "A node can have at most one tag");
+            tag = token;
+            start ?? (start = token.offset);
+            atNewline = false;
+            hasSpace = false;
+            reqSpace = true;
+            break;
+          }
+          case indicator:
+            if (anchor || tag)
+              onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
+            if (found)
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`);
+            found = token;
+            atNewline = indicator === "seq-item-ind" || indicator === "explicit-key-ind";
+            hasSpace = false;
+            break;
+          case "comma":
+            if (flow) {
+              if (comma)
+                onError(token, "UNEXPECTED_TOKEN", `Unexpected , in ${flow}`);
+              comma = token;
+              atNewline = false;
+              hasSpace = false;
+              break;
+            }
+          // else fallthrough
+          default:
+            onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.type} token`);
+            atNewline = false;
+            hasSpace = false;
+        }
+      }
+      const last = tokens[tokens.length - 1];
+      const end = last ? last.offset + last.source.length : offset;
+      if (reqSpace && next && next.type !== "space" && next.type !== "newline" && next.type !== "comma" && (next.type !== "scalar" || next.source !== "")) {
+        onError(next.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
+      }
+      if (tab && (atNewline && tab.indent <= parentIndent || next?.type === "block-map" || next?.type === "block-seq"))
+        onError(tab, "TAB_AS_INDENT", "Tabs are not allowed as indentation");
+      return {
+        comma,
+        found,
+        spaceBefore,
+        comment,
+        hasNewline,
+        anchor,
+        tag,
+        newlineAfterProp,
+        end,
+        start: start ?? end
+      };
+    }
+    exports.resolveProps = resolveProps;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js
+var require_util_contains_newline = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+    "use strict";
+    function containsNewline(key) {
+      if (!key)
+        return null;
+      switch (key.type) {
+        case "alias":
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          if (key.source.includes("\n"))
+            return true;
+          if (key.end) {
+            for (const st of key.end)
+              if (st.type === "newline")
+                return true;
+          }
+          return false;
+        case "flow-collection":
+          for (const it of key.items) {
+            for (const st of it.start)
+              if (st.type === "newline")
+                return true;
+            if (it.sep) {
+              for (const st of it.sep)
+                if (st.type === "newline")
+                  return true;
+            }
+            if (containsNewline(it.key) || containsNewline(it.value))
+              return true;
+          }
+          return false;
+        default:
+          return true;
+      }
+    }
+    exports.containsNewline = containsNewline;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js
+var require_util_flow_indent_check = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+    "use strict";
+    var utilContainsNewline = require_util_contains_newline();
+    function flowIndentCheck(indent, fc, onError) {
+      if (fc?.type === "flow-collection") {
+        const end = fc.end[0];
+        if (end.indent === indent && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
+          const msg = "Flow end indicator should be more indented than parent";
+          onError(end, "BAD_INDENT", msg, true);
+        }
+      }
+    }
+    exports.flowIndentCheck = flowIndentCheck;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js
+var require_util_map_includes = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    function mapIncludes(ctx, items, search) {
+      const { uniqueKeys } = ctx.options;
+      if (uniqueKeys === false)
+        return false;
+      const isEqual = typeof uniqueKeys === "function" ? uniqueKeys : (a, b) => a === b || identity.isScalar(a) && identity.isScalar(b) && a.value === b.value;
+      return items.some((pair) => isEqual(pair.key, search));
+    }
+    exports.mapIncludes = mapIncludes;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js
+var require_resolve_block_map = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+    "use strict";
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var resolveProps = require_resolve_props();
+    var utilContainsNewline = require_util_contains_newline();
+    var utilFlowIndentCheck = require_util_flow_indent_check();
+    var utilMapIncludes = require_util_map_includes();
+    var startColMsg = "All mapping items must start at the same column";
+    function resolveBlockMap({ composeNode, composeEmptyNode }, ctx, bm, onError, tag) {
+      const NodeClass = tag?.nodeClass ?? YAMLMap.YAMLMap;
+      const map2 = new NodeClass(ctx.schema);
+      if (ctx.atRoot)
+        ctx.atRoot = false;
+      let offset = bm.offset;
+      let commentEnd = null;
+      for (const collItem of bm.items) {
+        const { start, key, sep, value } = collItem;
+        const keyProps = resolveProps.resolveProps(start, {
+          indicator: "explicit-key-ind",
+          next: key ?? sep?.[0],
+          offset,
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: true
+        });
+        const implicitKey = !keyProps.found;
+        if (implicitKey) {
+          if (key) {
+            if (key.type === "block-seq")
+              onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key");
+            else if ("indent" in key && key.indent !== bm.indent)
+              onError(offset, "BAD_INDENT", startColMsg);
+          }
+          if (!keyProps.anchor && !keyProps.tag && !sep) {
+            commentEnd = keyProps.end;
+            if (keyProps.comment) {
+              if (map2.comment)
+                map2.comment += "\n" + keyProps.comment;
+              else
+                map2.comment = keyProps.comment;
+            }
+            continue;
+          }
+          if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) {
+            onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+          }
+        } else if (keyProps.found?.indent !== bm.indent) {
+          onError(offset, "BAD_INDENT", startColMsg);
+        }
+        ctx.atKey = true;
+        const keyStart = keyProps.end;
+        const keyNode = key ? composeNode(ctx, key, keyProps, onError) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError);
+        if (ctx.schema.compat)
+          utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError);
+        ctx.atKey = false;
+        if (utilMapIncludes.mapIncludes(ctx, map2.items, keyNode))
+          onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+        const valueProps = resolveProps.resolveProps(sep ?? [], {
+          indicator: "map-value-ind",
+          next: value,
+          offset: keyNode.range[2],
+          onError,
+          parentIndent: bm.indent,
+          startOnNewline: !key || key.type === "block-scalar"
+        });
+        offset = valueProps.end;
+        if (valueProps.found) {
+          if (implicitKey) {
+            if (value?.type === "block-map" && !valueProps.hasNewline)
+              onError(offset, "BLOCK_AS_IMPLICIT_KEY", "Nested mappings are not allowed in compact mappings");
+            if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
+              onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
+          }
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          if (ctx.schema.compat)
+            utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
+          offset = valueNode.range[2];
+          const pair = new Pair.Pair(keyNode, valueNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          map2.items.push(pair);
+        } else {
+          if (implicitKey)
+            onError(keyNode.range, "MISSING_CHAR", "Implicit map keys need to be followed by map values");
+          if (valueProps.comment) {
+            if (keyNode.comment)
+              keyNode.comment += "\n" + valueProps.comment;
+            else
+              keyNode.comment = valueProps.comment;
+          }
+          const pair = new Pair.Pair(keyNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          map2.items.push(pair);
+        }
+      }
+      if (commentEnd && commentEnd < offset)
+        onError(commentEnd, "IMPOSSIBLE", "Map comment with trailing content");
+      map2.range = [bm.offset, offset, commentEnd ?? offset];
+      return map2;
+    }
+    exports.resolveBlockMap = resolveBlockMap;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js
+var require_resolve_block_seq = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+    "use strict";
+    var YAMLSeq = require_YAMLSeq();
+    var resolveProps = require_resolve_props();
+    var utilFlowIndentCheck = require_util_flow_indent_check();
+    function resolveBlockSeq({ composeNode, composeEmptyNode }, ctx, bs, onError, tag) {
+      const NodeClass = tag?.nodeClass ?? YAMLSeq.YAMLSeq;
+      const seq = new NodeClass(ctx.schema);
+      if (ctx.atRoot)
+        ctx.atRoot = false;
+      if (ctx.atKey)
+        ctx.atKey = false;
+      let offset = bs.offset;
+      let commentEnd = null;
+      for (const { start, value } of bs.items) {
+        const props = resolveProps.resolveProps(start, {
+          indicator: "seq-item-ind",
+          next: value,
+          offset,
+          onError,
+          parentIndent: bs.indent,
+          startOnNewline: true
+        });
+        if (!props.found) {
+          if (props.anchor || props.tag || value) {
+            if (value?.type === "block-seq")
+              onError(props.end, "BAD_INDENT", "All sequence items must start at the same column");
+            else
+              onError(offset, "MISSING_CHAR", "Sequence item without - indicator");
+          } else {
+            commentEnd = props.end;
+            if (props.comment)
+              seq.comment = props.comment;
+            continue;
+          }
+        }
+        const node = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, start, null, props, onError);
+        if (ctx.schema.compat)
+          utilFlowIndentCheck.flowIndentCheck(bs.indent, value, onError);
+        offset = node.range[2];
+        seq.items.push(node);
+      }
+      seq.range = [bs.offset, offset, commentEnd ?? offset];
+      return seq;
+    }
+    exports.resolveBlockSeq = resolveBlockSeq;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js
+var require_resolve_end = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+    "use strict";
+    function resolveEnd(end, offset, reqSpace, onError) {
+      let comment = "";
+      if (end) {
+        let hasSpace = false;
+        let sep = "";
+        for (const token of end) {
+          const { source, type } = token;
+          switch (type) {
+            case "space":
+              hasSpace = true;
+              break;
+            case "comment": {
+              if (reqSpace && !hasSpace)
+                onError(token, "MISSING_CHAR", "Comments must be separated from other tokens by white space characters");
+              const cb = source.substring(1) || " ";
+              if (!comment)
+                comment = cb;
+              else
+                comment += sep + cb;
+              sep = "";
+              break;
+            }
+            case "newline":
+              if (comment)
+                sep += source;
+              hasSpace = true;
+              break;
+            default:
+              onError(token, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
+          }
+          offset += source.length;
+        }
+      }
+      return { comment, offset };
+    }
+    exports.resolveEnd = resolveEnd;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js
+var require_resolve_flow_collection = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var resolveEnd = require_resolve_end();
+    var resolveProps = require_resolve_props();
+    var utilContainsNewline = require_util_contains_newline();
+    var utilMapIncludes = require_util_map_includes();
+    var blockMsg = "Block collections are not allowed within flow collections";
+    var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
+    function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
+      const isMap = fc.start.source === "{";
+      const fcName = isMap ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const coll = new NodeClass(ctx.schema);
+      coll.flow = true;
+      const atRoot = ctx.atRoot;
+      if (atRoot)
+        ctx.atRoot = false;
+      if (ctx.atKey)
+        ctx.atKey = false;
+      let offset = fc.offset + fc.start.source.length;
+      for (let i = 0; i < fc.items.length; ++i) {
+        const collItem = fc.items[i];
+        const { start, key, sep, value } = collItem;
+        const props = resolveProps.resolveProps(start, {
+          flow: fcName,
+          indicator: "explicit-key-ind",
+          next: key ?? sep?.[0],
+          offset,
+          onError,
+          parentIndent: fc.indent,
+          startOnNewline: false
+        });
+        if (!props.found) {
+          if (!props.anchor && !props.tag && !sep && !value) {
+            if (i === 0 && props.comma)
+              onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+            else if (i < fc.items.length - 1)
+              onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`);
+            if (props.comment) {
+              if (coll.comment)
+                coll.comment += "\n" + props.comment;
+              else
+                coll.comment = props.comment;
+            }
+            offset = props.end;
+            continue;
+          }
+          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+            onError(
+              key,
+              // checked by containsNewline()
+              "MULTILINE_IMPLICIT_KEY",
+              "Implicit keys of flow sequence pairs need to be on a single line"
+            );
+        }
+        if (i === 0) {
+          if (props.comma)
+            onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+        } else {
+          if (!props.comma)
+            onError(props.start, "MISSING_CHAR", `Missing , between ${fcName} items`);
+          if (props.comment) {
+            let prevItemComment = "";
+            loop: for (const st of start) {
+              switch (st.type) {
+                case "comma":
+                case "space":
+                  break;
+                case "comment":
+                  prevItemComment = st.source.substring(1);
+                  break loop;
+                default:
+                  break loop;
+              }
+            }
+            if (prevItemComment) {
+              let prev = coll.items[coll.items.length - 1];
+              if (identity.isPair(prev))
+                prev = prev.value ?? prev.key;
+              if (prev.comment)
+                prev.comment += "\n" + prevItemComment;
+              else
+                prev.comment = prevItemComment;
+              props.comment = props.comment.substring(prevItemComment.length + 1);
+            }
+          }
+        }
+        if (!isMap && !sep && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+          coll.items.push(valueNode);
+          offset = valueNode.range[2];
+          if (isBlock(value))
+            onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
+        } else {
+          ctx.atKey = true;
+          const keyStart = props.end;
+          const keyNode = key ? composeNode(ctx, key, props, onError) : composeEmptyNode(ctx, keyStart, start, null, props, onError);
+          if (isBlock(key))
+            onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
+          ctx.atKey = false;
+          const valueProps = resolveProps.resolveProps(sep ?? [], {
+            flow: fcName,
+            indicator: "map-value-ind",
+            next: value,
+            offset: keyNode.range[2],
+            onError,
+            parentIndent: fc.indent,
+            startOnNewline: false
+          });
+          if (valueProps.found) {
+            if (!isMap && !props.found && ctx.options.strict) {
+              if (sep)
+                for (const st of sep) {
+                  if (st === valueProps.found)
+                    break;
+                  if (st.type === "newline") {
+                    onError(st, "MULTILINE_IMPLICIT_KEY", "Implicit keys of flow sequence pairs need to be on a single line");
+                    break;
+                  }
+                }
+              if (props.start < valueProps.found.offset - 1024)
+                onError(valueProps.found, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit flow sequence key");
+            }
+          } else if (value) {
+            if ("source" in value && value.source?.[0] === ":")
+              onError(value, "MISSING_CHAR", `Missing space after : in ${fcName}`);
+            else
+              onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
+          }
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          if (valueNode) {
+            if (isBlock(value))
+              onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
+          } else if (valueProps.comment) {
+            if (keyNode.comment)
+              keyNode.comment += "\n" + valueProps.comment;
+            else
+              keyNode.comment = valueProps.comment;
+          }
+          const pair = new Pair.Pair(keyNode, valueNode);
+          if (ctx.options.keepSourceTokens)
+            pair.srcToken = collItem;
+          if (isMap) {
+            const map2 = coll;
+            if (utilMapIncludes.mapIncludes(ctx, map2.items, keyNode))
+              onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+            map2.items.push(pair);
+          } else {
+            const map2 = new YAMLMap.YAMLMap(ctx.schema);
+            map2.flow = true;
+            map2.items.push(pair);
+            const endRange = (valueNode ?? keyNode).range;
+            map2.range = [keyNode.range[0], endRange[1], endRange[2]];
+            coll.items.push(map2);
+          }
+          offset = valueNode ? valueNode.range[2] : valueProps.end;
+        }
+      }
+      const expectedEnd = isMap ? "}" : "]";
+      const [ce, ...ee] = fc.end;
+      let cePos = offset;
+      if (ce?.source === expectedEnd)
+        cePos = ce.offset + ce.source.length;
+      else {
+        const name = fcName[0].toUpperCase() + fcName.substring(1);
+        const msg = atRoot ? `${name} must end with a ${expectedEnd}` : `${name} in block collection must be sufficiently indented and end with a ${expectedEnd}`;
+        onError(offset, atRoot ? "MISSING_CHAR" : "BAD_INDENT", msg);
+        if (ce && ce.source.length !== 1)
+          ee.unshift(ce);
+      }
+      if (ee.length > 0) {
+        const end = resolveEnd.resolveEnd(ee, cePos, ctx.options.strict, onError);
+        if (end.comment) {
+          if (coll.comment)
+            coll.comment += "\n" + end.comment;
+          else
+            coll.comment = end.comment;
+        }
+        coll.range = [fc.offset, cePos, end.offset];
+      } else {
+        coll.range = [fc.offset, cePos, cePos];
+      }
+      return coll;
+    }
+    exports.resolveFlowCollection = resolveFlowCollection;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js
+var require_compose_collection = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var resolveBlockMap = require_resolve_block_map();
+    var resolveBlockSeq = require_resolve_block_seq();
+    var resolveFlowCollection = require_resolve_flow_collection();
+    function resolveCollection(CN, ctx, token, onError, tagName, tag) {
+      const coll = token.type === "block-map" ? resolveBlockMap.resolveBlockMap(CN, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq.resolveBlockSeq(CN, ctx, token, onError, tag) : resolveFlowCollection.resolveFlowCollection(CN, ctx, token, onError, tag);
+      const Coll = coll.constructor;
+      if (tagName === "!" || tagName === Coll.tagName) {
+        coll.tag = Coll.tagName;
+        return coll;
+      }
+      if (tagName)
+        coll.tag = tagName;
+      return coll;
+    }
+    function composeCollection(CN, ctx, token, props, onError) {
+      const tagToken = props.tag;
+      const tagName = !tagToken ? null : ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg));
+      if (token.type === "block-seq") {
+        const { anchor, newlineAfterProp: nl } = props;
+        const lastProp = anchor && tagToken ? anchor.offset > tagToken.offset ? anchor : tagToken : anchor ?? tagToken;
+        if (lastProp && (!nl || nl.offset < lastProp.offset)) {
+          const message = "Missing newline after block sequence props";
+          onError(lastProp, "MISSING_CHAR", message);
+        }
+      }
+      const expType = token.type === "block-map" ? "map" : token.type === "block-seq" ? "seq" : token.start.source === "{" ? "map" : "seq";
+      if (!tagToken || !tagName || tagName === "!" || tagName === YAMLMap.YAMLMap.tagName && expType === "map" || tagName === YAMLSeq.YAMLSeq.tagName && expType === "seq") {
+        return resolveCollection(CN, ctx, token, onError, tagName);
+      }
+      let tag = ctx.schema.tags.find((t) => t.tag === tagName && t.collection === expType);
+      if (!tag) {
+        const kt = ctx.schema.knownTags[tagName];
+        if (kt?.collection === expType) {
+          ctx.schema.tags.push(Object.assign({}, kt, { default: false }));
+          tag = kt;
+        } else {
+          if (kt) {
+            onError(tagToken, "BAD_COLLECTION_TYPE", `${kt.tag} used for ${expType} collection, but expects ${kt.collection ?? "scalar"}`, true);
+          } else {
+            onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, true);
+          }
+          return resolveCollection(CN, ctx, token, onError, tagName);
+        }
+      }
+      const coll = resolveCollection(CN, ctx, token, onError, tagName, tag);
+      const res = tag.resolve?.(coll, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg), ctx.options) ?? coll;
+      const node = identity.isNode(res) ? res : new Scalar.Scalar(res);
+      node.range = coll.range;
+      node.tag = tagName;
+      if (tag?.format)
+        node.format = tag.format;
+      return node;
+    }
+    exports.composeCollection = composeCollection;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js
+var require_resolve_block_scalar = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    function resolveBlockScalar(ctx, scalar, onError) {
+      const start = scalar.offset;
+      const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
+      if (!header)
+        return { value: "", type: null, comment: "", range: [start, start, start] };
+      const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
+      const lines = scalar.source ? splitLines(scalar.source) : [];
+      let chompStart = lines.length;
+      for (let i = lines.length - 1; i >= 0; --i) {
+        const content = lines[i][1];
+        if (content === "" || content === "\r")
+          chompStart = i;
+        else
+          break;
+      }
+      if (chompStart === 0) {
+        const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
+        let end2 = start + header.length;
+        if (scalar.source)
+          end2 += scalar.source.length;
+        return { value: value2, type, comment: header.comment, range: [start, end2, end2] };
+      }
+      let trimIndent = scalar.indent + header.indent;
+      let offset = scalar.offset + header.length;
+      let contentStart = 0;
+      for (let i = 0; i < chompStart; ++i) {
+        const [indent, content] = lines[i];
+        if (content === "" || content === "\r") {
+          if (header.indent === 0 && indent.length > trimIndent)
+            trimIndent = indent.length;
+        } else {
+          if (indent.length < trimIndent) {
+            const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
+            onError(offset + indent.length, "MISSING_CHAR", message);
+          }
+          if (header.indent === 0)
+            trimIndent = indent.length;
+          contentStart = i;
+          if (trimIndent === 0 && !ctx.atRoot) {
+            const message = "Block scalar values in collections must be indented";
+            onError(offset, "BAD_INDENT", message);
+          }
+          break;
+        }
+        offset += indent.length + content.length + 1;
+      }
+      for (let i = lines.length - 1; i >= chompStart; --i) {
+        if (lines[i][0].length > trimIndent)
+          chompStart = i + 1;
+      }
+      let value = "";
+      let sep = "";
+      let prevMoreIndented = false;
+      for (let i = 0; i < contentStart; ++i)
+        value += lines[i][0].slice(trimIndent) + "\n";
+      for (let i = contentStart; i < chompStart; ++i) {
+        let [indent, content] = lines[i];
+        offset += indent.length + content.length + 1;
+        const crlf = content[content.length - 1] === "\r";
+        if (crlf)
+          content = content.slice(0, -1);
+        if (content && indent.length < trimIndent) {
+          const src = header.indent ? "explicit indentation indicator" : "first line";
+          const message = `Block scalar lines must not be less indented than their ${src}`;
+          onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
+          indent = "";
+        }
+        if (type === Scalar.Scalar.BLOCK_LITERAL) {
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
+        } else if (indent.length > trimIndent || content[0] === "	") {
+          if (sep === " ")
+            sep = "\n";
+          else if (!prevMoreIndented && sep === "\n")
+            sep = "\n\n";
+          value += sep + indent.slice(trimIndent) + content;
+          sep = "\n";
+          prevMoreIndented = true;
+        } else if (content === "") {
+          if (sep === "\n")
+            value += "\n";
+          else
+            sep = "\n";
+        } else {
+          value += sep + content;
+          sep = " ";
+          prevMoreIndented = false;
+        }
+      }
+      switch (header.chomp) {
+        case "-":
+          break;
+        case "+":
+          for (let i = chompStart; i < lines.length; ++i)
+            value += "\n" + lines[i][0].slice(trimIndent);
+          if (value[value.length - 1] !== "\n")
+            value += "\n";
+          break;
+        default:
+          value += "\n";
+      }
+      const end = start + header.length + scalar.source.length;
+      return { value, type, comment: header.comment, range: [start, end, end] };
+    }
+    function parseBlockScalarHeader({ offset, props }, strict2, onError) {
+      if (props[0].type !== "block-scalar-header") {
+        onError(props[0], "IMPOSSIBLE", "Block scalar header not found");
+        return null;
+      }
+      const { source } = props[0];
+      const mode = source[0];
+      let indent = 0;
+      let chomp = "";
+      let error51 = -1;
+      for (let i = 1; i < source.length; ++i) {
+        const ch = source[i];
+        if (!chomp && (ch === "-" || ch === "+"))
+          chomp = ch;
+        else {
+          const n = Number(ch);
+          if (!indent && n)
+            indent = n;
+          else if (error51 === -1)
+            error51 = offset + i;
+        }
+      }
+      if (error51 !== -1)
+        onError(error51, "UNEXPECTED_TOKEN", `Block scalar header includes extra characters: ${source}`);
+      let hasSpace = false;
+      let comment = "";
+      let length = source.length;
+      for (let i = 1; i < props.length; ++i) {
+        const token = props[i];
+        switch (token.type) {
+          case "space":
+            hasSpace = true;
+          // fallthrough
+          case "newline":
+            length += token.source.length;
+            break;
+          case "comment":
+            if (strict2 && !hasSpace) {
+              const message = "Comments must be separated from other tokens by white space characters";
+              onError(token, "MISSING_CHAR", message);
+            }
+            length += token.source.length;
+            comment = token.source.substring(1);
+            break;
+          case "error":
+            onError(token, "UNEXPECTED_TOKEN", token.message);
+            length += token.source.length;
+            break;
+          /* istanbul ignore next should not happen */
+          default: {
+            const message = `Unexpected token in block scalar header: ${token.type}`;
+            onError(token, "UNEXPECTED_TOKEN", message);
+            const ts = token.source;
+            if (ts && typeof ts === "string")
+              length += ts.length;
+          }
+        }
+      }
+      return { mode, indent, chomp, comment, length };
+    }
+    function splitLines(source) {
+      const split = source.split(/\n( *)/);
+      const first = split[0];
+      const m = first.match(/^( *)/);
+      const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
+      const lines = [line0];
+      for (let i = 1; i < split.length; i += 2)
+        lines.push([split[i], split[i + 1]]);
+      return lines;
+    }
+    exports.resolveBlockScalar = resolveBlockScalar;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+var require_resolve_flow_scalar = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+    "use strict";
+    var Scalar = require_Scalar();
+    var resolveEnd = require_resolve_end();
+    function resolveFlowScalar(scalar, strict2, onError) {
+      const { offset, type, source, end } = scalar;
+      let _type;
+      let value;
+      const _onError = (rel, code, msg) => onError(offset + rel, code, msg);
+      switch (type) {
+        case "scalar":
+          _type = Scalar.Scalar.PLAIN;
+          value = plainValue(source, _onError);
+          break;
+        case "single-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_SINGLE;
+          value = singleQuotedValue(source, _onError);
+          break;
+        case "double-quoted-scalar":
+          _type = Scalar.Scalar.QUOTE_DOUBLE;
+          value = doubleQuotedValue(source, _onError);
+          break;
+        /* istanbul ignore next should not happen */
+        default:
+          onError(scalar, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
+          return {
+            value: "",
+            type: null,
+            comment: "",
+            range: [offset, offset + source.length, offset + source.length]
+          };
+      }
+      const valueEnd = offset + source.length;
+      const re = resolveEnd.resolveEnd(end, valueEnd, strict2, onError);
+      return {
+        value,
+        type: _type,
+        comment: re.comment,
+        range: [offset, valueEnd, re.offset]
+      };
+    }
+    function plainValue(source, onError) {
+      let badChar = "";
+      switch (source[0]) {
+        /* istanbul ignore next should not happen */
+        case "	":
+          badChar = "a tab character";
+          break;
+        case ",":
+          badChar = "flow indicator character ,";
+          break;
+        case "%":
+          badChar = "directive indicator character %";
+          break;
+        case "|":
+        case ">": {
+          badChar = `block scalar indicator ${source[0]}`;
+          break;
+        }
+        case "@":
+        case "`": {
+          badChar = `reserved character ${source[0]}`;
+          break;
+        }
+      }
+      if (badChar)
+        onError(0, "BAD_SCALAR_START", `Plain value cannot start with ${badChar}`);
+      return foldLines(source);
+    }
+    function singleQuotedValue(source, onError) {
+      if (source[source.length - 1] !== "'" || source.length === 1)
+        onError(source.length, "MISSING_CHAR", "Missing closing 'quote");
+      return foldLines(source.slice(1, -1)).replace(/''/g, "'");
+    }
+    function foldLines(source) {
+      let first, line;
+      try {
+        first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
+        line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+      } catch {
+        first = /(.*?)[ \t]*\r?\n/sy;
+        line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+      }
+      let match = first.exec(source);
+      if (!match)
+        return source;
+      let res = match[1];
+      let sep = " ";
+      let pos = first.lastIndex;
+      line.lastIndex = pos;
+      while (match = line.exec(source)) {
+        if (match[1] === "") {
+          if (sep === "\n")
+            res += sep;
+          else
+            sep = "\n";
+        } else {
+          res += sep + match[1];
+          sep = " ";
+        }
+        pos = line.lastIndex;
+      }
+      const last = /[ \t]*(.*)/sy;
+      last.lastIndex = pos;
+      match = last.exec(source);
+      return res + sep + (match?.[1] ?? "");
+    }
+    function doubleQuotedValue(source, onError) {
+      let res = "";
+      for (let i = 1; i < source.length - 1; ++i) {
+        const ch = source[i];
+        if (ch === "\r" && source[i + 1] === "\n")
+          continue;
+        if (ch === "\n") {
+          const { fold, offset } = foldNewline(source, i);
+          res += fold;
+          i = offset;
+        } else if (ch === "\\") {
+          let next = source[++i];
+          const cc = escapeCodes[next];
+          if (cc)
+            res += cc;
+          else if (next === "\n") {
+            next = source[i + 1];
+            while (next === " " || next === "	")
+              next = source[++i + 1];
+          } else if (next === "\r" && source[i + 1] === "\n") {
+            next = source[++i + 1];
+            while (next === " " || next === "	")
+              next = source[++i + 1];
+          } else if (next === "x" || next === "u" || next === "U") {
+            const length = next === "x" ? 2 : next === "u" ? 4 : 8;
+            res += parseCharCode(source, i + 1, length, onError);
+            i += length;
+          } else {
+            const raw = source.substr(i - 1, 2);
+            onError(i - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+            res += raw;
+          }
+        } else if (ch === " " || ch === "	") {
+          const wsStart = i;
+          let next = source[i + 1];
+          while (next === " " || next === "	")
+            next = source[++i + 1];
+          if (next !== "\n" && !(next === "\r" && source[i + 2] === "\n"))
+            res += i > wsStart ? source.slice(wsStart, i + 1) : ch;
+        } else {
+          res += ch;
+        }
+      }
+      if (source[source.length - 1] !== '"' || source.length === 1)
+        onError(source.length, "MISSING_CHAR", 'Missing closing "quote');
+      return res;
+    }
+    function foldNewline(source, offset) {
+      let fold = "";
+      let ch = source[offset + 1];
+      while (ch === " " || ch === "	" || ch === "\n" || ch === "\r") {
+        if (ch === "\r" && source[offset + 2] !== "\n")
+          break;
+        if (ch === "\n")
+          fold += "\n";
+        offset += 1;
+        ch = source[offset + 1];
+      }
+      if (!fold)
+        fold = " ";
+      return { fold, offset };
+    }
+    var escapeCodes = {
+      "0": "\0",
+      // null character
+      a: "\x07",
+      // bell character
+      b: "\b",
+      // backspace
+      e: "\x1B",
+      // escape character
+      f: "\f",
+      // form feed
+      n: "\n",
+      // line feed
+      r: "\r",
+      // carriage return
+      t: "	",
+      // horizontal tab
+      v: "\v",
+      // vertical tab
+      N: "\x85",
+      // Unicode next line
+      _: "\xA0",
+      // Unicode non-breaking space
+      L: "\u2028",
+      // Unicode line separator
+      P: "\u2029",
+      // Unicode paragraph separator
+      " ": " ",
+      '"': '"',
+      "/": "/",
+      "\\": "\\",
+      "	": "	"
+    };
+    function parseCharCode(source, offset, length, onError) {
+      const cc = source.substr(offset, length);
+      const ok = cc.length === length && /^[0-9a-fA-F]+$/.test(cc);
+      const code = ok ? parseInt(cc, 16) : NaN;
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        const raw = source.substr(offset - 2, length + 2);
+        onError(offset - 2, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+        return raw;
+      }
+    }
+    exports.resolveFlowScalar = resolveFlowScalar;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js
+var require_compose_scalar = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+    "use strict";
+    var identity = require_identity();
+    var Scalar = require_Scalar();
+    var resolveBlockScalar = require_resolve_block_scalar();
+    var resolveFlowScalar = require_resolve_flow_scalar();
+    function composeScalar(ctx, token, tagToken, onError) {
+      const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar.resolveBlockScalar(ctx, token, onError) : resolveFlowScalar.resolveFlowScalar(token, ctx.options.strict, onError);
+      const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
+      let tag;
+      if (ctx.options.stringKeys && ctx.atKey) {
+        tag = ctx.schema[identity.SCALAR];
+      } else if (tagName)
+        tag = findScalarTagByName(ctx.schema, value, tagName, tagToken, onError);
+      else if (token.type === "scalar")
+        tag = findScalarTagByTest(ctx, value, token, onError);
+      else
+        tag = ctx.schema[identity.SCALAR];
+      let scalar;
+      try {
+        const res = tag.resolve(value, (msg) => onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg), ctx.options);
+        scalar = identity.isScalar(res) ? res : new Scalar.Scalar(res);
+      } catch (error51) {
+        const msg = error51 instanceof Error ? error51.message : String(error51);
+        onError(tagToken ?? token, "TAG_RESOLVE_FAILED", msg);
+        scalar = new Scalar.Scalar(value);
+      }
+      scalar.range = range;
+      scalar.source = value;
+      if (type)
+        scalar.type = type;
+      if (tagName)
+        scalar.tag = tagName;
+      if (tag.format)
+        scalar.format = tag.format;
+      if (comment)
+        scalar.comment = comment;
+      return scalar;
+    }
+    function findScalarTagByName(schema, value, tagName, tagToken, onError) {
+      if (tagName === "!")
+        return schema[identity.SCALAR];
+      const matchWithTest = [];
+      for (const tag of schema.tags) {
+        if (!tag.collection && tag.tag === tagName) {
+          if (tag.default && tag.test)
+            matchWithTest.push(tag);
+          else
+            return tag;
+        }
+      }
+      for (const tag of matchWithTest)
+        if (tag.test?.test(value))
+          return tag;
+      const kt = schema.knownTags[tagName];
+      if (kt && !kt.collection) {
+        schema.tags.push(Object.assign({}, kt, { default: false, test: void 0 }));
+        return kt;
+      }
+      onError(tagToken, "TAG_RESOLVE_FAILED", `Unresolved tag: ${tagName}`, tagName !== "tag:yaml.org,2002:str");
+      return schema[identity.SCALAR];
+    }
+    function findScalarTagByTest({ atKey, directives, schema }, value, token, onError) {
+      const tag = schema.tags.find((tag2) => (tag2.default === true || atKey && tag2.default === "key") && tag2.test?.test(value)) || schema[identity.SCALAR];
+      if (schema.compat) {
+        const compat = schema.compat.find((tag2) => tag2.default && tag2.test?.test(value)) ?? schema[identity.SCALAR];
+        if (tag.tag !== compat.tag) {
+          const ts = directives.tagString(tag.tag);
+          const cs = directives.tagString(compat.tag);
+          const msg = `Value may be parsed as either ${ts} or ${cs}`;
+          onError(token, "TAG_RESOLVE_FAILED", msg, true);
+        }
+      }
+      return tag;
+    }
+    exports.composeScalar = composeScalar;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+var require_util_empty_scalar_position = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+    "use strict";
+    function emptyScalarPosition(offset, before, pos) {
+      if (before) {
+        pos ?? (pos = before.length);
+        for (let i = pos - 1; i >= 0; --i) {
+          let st = before[i];
+          switch (st.type) {
+            case "space":
+            case "comment":
+            case "newline":
+              offset -= st.source.length;
+              continue;
+          }
+          st = before[++i];
+          while (st?.type === "space") {
+            offset += st.source.length;
+            st = before[++i];
+          }
+          break;
+        }
+      }
+      return offset;
+    }
+    exports.emptyScalarPosition = emptyScalarPosition;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js
+var require_compose_node = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js"(exports) {
+    "use strict";
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var composeCollection = require_compose_collection();
+    var composeScalar = require_compose_scalar();
+    var resolveEnd = require_resolve_end();
+    var utilEmptyScalarPosition = require_util_empty_scalar_position();
+    var CN = { composeNode, composeEmptyNode };
+    function composeNode(ctx, token, props, onError) {
+      const atKey = ctx.atKey;
+      const { spaceBefore, comment, anchor, tag } = props;
+      let node;
+      let isSrcToken = true;
+      switch (token.type) {
+        case "alias":
+          node = composeAlias(ctx, token, onError);
+          if (anchor || tag)
+            onError(token, "ALIAS_PROPS", "An alias node must not specify any properties");
+          break;
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "block-scalar":
+          node = composeScalar.composeScalar(ctx, token, tag, onError);
+          if (anchor)
+            node.anchor = anchor.source.substring(1);
+          break;
+        case "block-map":
+        case "block-seq":
+        case "flow-collection":
+          try {
+            node = composeCollection.composeCollection(CN, ctx, token, props, onError);
+            if (anchor)
+              node.anchor = anchor.source.substring(1);
+          } catch (error51) {
+            const message = error51 instanceof Error ? error51.message : String(error51);
+            onError(token, "RESOURCE_EXHAUSTION", message);
+          }
+          break;
+        default: {
+          const message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
+          onError(token, "UNEXPECTED_TOKEN", message);
+          isSrcToken = false;
+        }
+      }
+      node ?? (node = composeEmptyNode(ctx, token.offset, void 0, null, props, onError));
+      if (anchor && node.anchor === "")
+        onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+      if (atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
+        const msg = "With stringKeys, all keys must be strings";
+        onError(tag ?? token, "NON_STRING_KEY", msg);
+      }
+      if (spaceBefore)
+        node.spaceBefore = true;
+      if (comment) {
+        if (token.type === "scalar" && token.source === "")
+          node.comment = comment;
+        else
+          node.commentBefore = comment;
+      }
+      if (ctx.options.keepSourceTokens && isSrcToken)
+        node.srcToken = token;
+      return node;
+    }
+    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag, end }, onError) {
+      const token = {
+        type: "scalar",
+        offset: utilEmptyScalarPosition.emptyScalarPosition(offset, before, pos),
+        indent: -1,
+        source: ""
+      };
+      const node = composeScalar.composeScalar(ctx, token, tag, onError);
+      if (anchor) {
+        node.anchor = anchor.source.substring(1);
+        if (node.anchor === "")
+          onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+      }
+      if (spaceBefore)
+        node.spaceBefore = true;
+      if (comment) {
+        node.comment = comment;
+        node.range[2] = end;
+      }
+      return node;
+    }
+    function composeAlias({ options }, { offset, source, end }, onError) {
+      const alias = new Alias.Alias(source.substring(1));
+      if (alias.source === "")
+        onError(offset, "BAD_ALIAS", "Alias cannot be an empty string");
+      if (alias.source.endsWith(":"))
+        onError(offset + source.length - 1, "BAD_ALIAS", "Alias ending in : is ambiguous", true);
+      const valueEnd = offset + source.length;
+      const re = resolveEnd.resolveEnd(end, valueEnd, options.strict, onError);
+      alias.range = [offset, valueEnd, re.offset];
+      if (re.comment)
+        alias.comment = re.comment;
+      return alias;
+    }
+    exports.composeEmptyNode = composeEmptyNode;
+    exports.composeNode = composeNode;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js
+var require_compose_doc = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+    "use strict";
+    var Document = require_Document();
+    var composeNode = require_compose_node();
+    var resolveEnd = require_resolve_end();
+    var resolveProps = require_resolve_props();
+    function composeDoc(options, directives, { offset, start, value, end }, onError) {
+      const opts = Object.assign({ _directives: directives }, options);
+      const doc = new Document.Document(void 0, opts);
+      const ctx = {
+        atKey: false,
+        atRoot: true,
+        directives: doc.directives,
+        options: doc.options,
+        schema: doc.schema
+      };
+      const props = resolveProps.resolveProps(start, {
+        indicator: "doc-start",
+        next: value ?? end?.[0],
+        offset,
+        onError,
+        parentIndent: 0,
+        startOnNewline: true
+      });
+      if (props.found) {
+        doc.directives.docStart = true;
+        if (value && (value.type === "block-map" || value.type === "block-seq") && !props.hasNewline)
+          onError(props.end, "MISSING_CHAR", "Block collection cannot start on same line with directives-end marker");
+      }
+      doc.contents = value ? composeNode.composeNode(ctx, value, props, onError) : composeNode.composeEmptyNode(ctx, props.end, start, null, props, onError);
+      const contentEnd = doc.contents.range[2];
+      const re = resolveEnd.resolveEnd(end, contentEnd, false, onError);
+      if (re.comment)
+        doc.comment = re.comment;
+      doc.range = [offset, contentEnd, re.offset];
+      return doc;
+    }
+    exports.composeDoc = composeDoc;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js
+var require_composer = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js"(exports) {
+    "use strict";
+    var node_process = __require("process");
+    var directives = require_directives();
+    var Document = require_Document();
+    var errors = require_errors();
+    var identity = require_identity();
+    var composeDoc = require_compose_doc();
+    var resolveEnd = require_resolve_end();
+    function getErrorPos(src) {
+      if (typeof src === "number")
+        return [src, src + 1];
+      if (Array.isArray(src))
+        return src.length === 2 ? src : [src[0], src[1]];
+      const { offset, source } = src;
+      return [offset, offset + (typeof source === "string" ? source.length : 1)];
+    }
+    function parsePrelude(prelude) {
+      let comment = "";
+      let atComment = false;
+      let afterEmptyLine = false;
+      for (let i = 0; i < prelude.length; ++i) {
+        const source = prelude[i];
+        switch (source[0]) {
+          case "#":
+            comment += (comment === "" ? "" : afterEmptyLine ? "\n\n" : "\n") + (source.substring(1) || " ");
+            atComment = true;
+            afterEmptyLine = false;
+            break;
+          case "%":
+            if (prelude[i + 1]?.[0] !== "#")
+              i += 1;
+            atComment = false;
+            break;
+          default:
+            if (!atComment)
+              afterEmptyLine = true;
+            atComment = false;
+        }
+      }
+      return { comment, afterEmptyLine };
+    }
+    var Composer = class {
+      constructor(options = {}) {
+        this.doc = null;
+        this.atDirectives = false;
+        this.prelude = [];
+        this.errors = [];
+        this.warnings = [];
+        this.onError = (source, code, message, warning) => {
+          const pos = getErrorPos(source);
+          if (warning)
+            this.warnings.push(new errors.YAMLWarning(pos, code, message));
+          else
+            this.errors.push(new errors.YAMLParseError(pos, code, message));
+        };
+        this.directives = new directives.Directives({ version: options.version || "1.2" });
+        this.options = options;
+      }
+      decorate(doc, afterDoc) {
+        const { comment, afterEmptyLine } = parsePrelude(this.prelude);
+        if (comment) {
+          const dc = doc.contents;
+          if (afterDoc) {
+            doc.comment = doc.comment ? `${doc.comment}
+${comment}` : comment;
+          } else if (afterEmptyLine || doc.directives.docStart || !dc) {
+            doc.commentBefore = comment;
+          } else if (identity.isCollection(dc) && !dc.flow && dc.items.length > 0) {
+            let it = dc.items[0];
+            if (identity.isPair(it))
+              it = it.key;
+            const cb = it.commentBefore;
+            it.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          } else {
+            const cb = dc.commentBefore;
+            dc.commentBefore = cb ? `${comment}
+${cb}` : comment;
+          }
+        }
+        if (afterDoc) {
+          for (let i = 0; i < this.errors.length; ++i)
+            doc.errors.push(this.errors[i]);
+          for (let i = 0; i < this.warnings.length; ++i)
+            doc.warnings.push(this.warnings[i]);
+        } else {
+          doc.errors = this.errors;
+          doc.warnings = this.warnings;
+        }
+        this.prelude = [];
+        this.errors = [];
+        this.warnings = [];
+      }
+      /**
+       * Current stream status information.
+       *
+       * Mostly useful at the end of input for an empty stream.
+       */
+      streamInfo() {
+        return {
+          comment: parsePrelude(this.prelude).comment,
+          directives: this.directives,
+          errors: this.errors,
+          warnings: this.warnings
+        };
+      }
+      /**
+       * Compose tokens into documents.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *compose(tokens, forceDoc = false, endOffset = -1) {
+        for (const token of tokens)
+          yield* this.next(token);
+        yield* this.end(forceDoc, endOffset);
+      }
+      /** Advance the composer by one CST token. */
+      *next(token) {
+        if (node_process.env.LOG_STREAM)
+          console.dir(token, { depth: null });
+        switch (token.type) {
+          case "directive":
+            this.directives.add(token.source, (offset, message, warning) => {
+              const pos = getErrorPos(token);
+              pos[0] += offset;
+              this.onError(pos, "BAD_DIRECTIVE", message, warning);
+            });
+            this.prelude.push(token.source);
+            this.atDirectives = true;
+            break;
+          case "document": {
+            const doc = composeDoc.composeDoc(this.options, this.directives, token, this.onError);
+            if (this.atDirectives && !doc.directives.docStart)
+              this.onError(token, "MISSING_CHAR", "Missing directives-end/doc-start indicator line");
+            this.decorate(doc, false);
+            if (this.doc)
+              yield this.doc;
+            this.doc = doc;
+            this.atDirectives = false;
+            break;
+          }
+          case "byte-order-mark":
+          case "space":
+            break;
+          case "comment":
+          case "newline":
+            this.prelude.push(token.source);
+            break;
+          case "error": {
+            const msg = token.source ? `${token.message}: ${JSON.stringify(token.source)}` : token.message;
+            const error51 = new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg);
+            if (this.atDirectives || !this.doc)
+              this.errors.push(error51);
+            else
+              this.doc.errors.push(error51);
+            break;
+          }
+          case "doc-end": {
+            if (!this.doc) {
+              const msg = "Unexpected doc-end without preceding document";
+              this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg));
+              break;
+            }
+            this.doc.directives.docEnd = true;
+            const end = resolveEnd.resolveEnd(token.end, token.offset + token.source.length, this.doc.options.strict, this.onError);
+            this.decorate(this.doc, true);
+            if (end.comment) {
+              const dc = this.doc.comment;
+              this.doc.comment = dc ? `${dc}
+${end.comment}` : end.comment;
+            }
+            this.doc.range[2] = end.offset;
+            break;
+          }
+          default:
+            this.errors.push(new errors.YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", `Unsupported token ${token.type}`));
+        }
+      }
+      /**
+       * Call at end of input to yield any remaining document.
+       *
+       * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
+       * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
+       */
+      *end(forceDoc = false, endOffset = -1) {
+        if (this.doc) {
+          this.decorate(this.doc, true);
+          yield this.doc;
+          this.doc = null;
+        } else if (forceDoc) {
+          const opts = Object.assign({ _directives: this.directives }, this.options);
+          const doc = new Document.Document(void 0, opts);
+          if (this.atDirectives)
+            this.onError(endOffset, "MISSING_CHAR", "Missing directives-end indicator line");
+          doc.range = [0, endOffset, endOffset];
+          this.decorate(doc, false);
+          yield doc;
+        }
+      }
+    };
+    exports.Composer = Composer;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js
+var require_cst_scalar = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+    "use strict";
+    var resolveBlockScalar = require_resolve_block_scalar();
+    var resolveFlowScalar = require_resolve_flow_scalar();
+    var errors = require_errors();
+    var stringifyString = require_stringifyString();
+    function resolveAsScalar(token, strict2 = true, onError) {
+      if (token) {
+        const _onError = (pos, code, message) => {
+          const offset = typeof pos === "number" ? pos : Array.isArray(pos) ? pos[0] : pos.offset;
+          if (onError)
+            onError(offset, code, message);
+          else
+            throw new errors.YAMLParseError([offset, offset + 1], code, message);
+        };
+        switch (token.type) {
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return resolveFlowScalar.resolveFlowScalar(token, strict2, _onError);
+          case "block-scalar":
+            return resolveBlockScalar.resolveBlockScalar({ options: { strict: strict2 } }, token, _onError);
+        }
+      }
+      return null;
+    }
+    function createScalarToken(value, context) {
+      const { implicitKey = false, indent, inFlow = false, offset = -1, type = "PLAIN" } = context;
+      const source = stringifyString.stringifyString({ type, value }, {
+        implicitKey,
+        indent: indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: true, lineWidth: -1 }
+      });
+      const end = context.end ?? [
+        { type: "newline", offset: -1, indent, source: "\n" }
+      ];
+      switch (source[0]) {
+        case "|":
+        case ">": {
+          const he = source.indexOf("\n");
+          const head = source.substring(0, he);
+          const body = source.substring(he + 1) + "\n";
+          const props = [
+            { type: "block-scalar-header", offset, indent, source: head }
+          ];
+          if (!addEndtoBlockProps(props, end))
+            props.push({ type: "newline", offset: -1, indent, source: "\n" });
+          return { type: "block-scalar", offset, indent, props, source: body };
+        }
+        case '"':
+          return { type: "double-quoted-scalar", offset, indent, source, end };
+        case "'":
+          return { type: "single-quoted-scalar", offset, indent, source, end };
+        default:
+          return { type: "scalar", offset, indent, source, end };
+      }
+    }
+    function setScalarValue(token, value, context = {}) {
+      let { afterKey = false, implicitKey = false, inFlow = false, type } = context;
+      let indent = "indent" in token ? token.indent : null;
+      if (afterKey && typeof indent === "number")
+        indent += 2;
+      if (!type)
+        switch (token.type) {
+          case "single-quoted-scalar":
+            type = "QUOTE_SINGLE";
+            break;
+          case "double-quoted-scalar":
+            type = "QUOTE_DOUBLE";
+            break;
+          case "block-scalar": {
+            const header = token.props[0];
+            if (header.type !== "block-scalar-header")
+              throw new Error("Invalid block scalar header");
+            type = header.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
+            break;
+          }
+          default:
+            type = "PLAIN";
+        }
+      const source = stringifyString.stringifyString({ type, value }, {
+        implicitKey: implicitKey || indent === null,
+        indent: indent !== null && indent > 0 ? " ".repeat(indent) : "",
+        inFlow,
+        options: { blockQuote: true, lineWidth: -1 }
+      });
+      switch (source[0]) {
+        case "|":
+        case ">":
+          setBlockScalarValue(token, source);
+          break;
+        case '"':
+          setFlowScalarValue(token, source, "double-quoted-scalar");
+          break;
+        case "'":
+          setFlowScalarValue(token, source, "single-quoted-scalar");
+          break;
+        default:
+          setFlowScalarValue(token, source, "scalar");
+      }
+    }
+    function setBlockScalarValue(token, source) {
+      const he = source.indexOf("\n");
+      const head = source.substring(0, he);
+      const body = source.substring(he + 1) + "\n";
+      if (token.type === "block-scalar") {
+        const header = token.props[0];
+        if (header.type !== "block-scalar-header")
+          throw new Error("Invalid block scalar header");
+        header.source = head;
+        token.source = body;
+      } else {
+        const { offset } = token;
+        const indent = "indent" in token ? token.indent : -1;
+        const props = [
+          { type: "block-scalar-header", offset, indent, source: head }
+        ];
+        if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
+          props.push({ type: "newline", offset: -1, indent, source: "\n" });
+        for (const key of Object.keys(token))
+          if (key !== "type" && key !== "offset")
+            delete token[key];
+        Object.assign(token, { type: "block-scalar", indent, props, source: body });
+      }
+    }
+    function addEndtoBlockProps(props, end) {
+      if (end)
+        for (const st of end)
+          switch (st.type) {
+            case "space":
+            case "comment":
+              props.push(st);
+              break;
+            case "newline":
+              props.push(st);
+              return true;
+          }
+      return false;
+    }
+    function setFlowScalarValue(token, source, type) {
+      switch (token.type) {
+        case "scalar":
+        case "double-quoted-scalar":
+        case "single-quoted-scalar":
+          token.type = type;
+          token.source = source;
+          break;
+        case "block-scalar": {
+          const end = token.props.slice(1);
+          let oa = source.length;
+          if (token.props[0].type === "block-scalar-header")
+            oa -= token.props[0].source.length;
+          for (const tok of end)
+            tok.offset += oa;
+          delete token.props;
+          Object.assign(token, { type, source, end });
+          break;
+        }
+        case "block-map":
+        case "block-seq": {
+          const offset = token.offset + source.length;
+          const nl = { type: "newline", offset, indent: token.indent, source: "\n" };
+          delete token.items;
+          Object.assign(token, { type, source, end: [nl] });
+          break;
+        }
+        default: {
+          const indent = "indent" in token ? token.indent : -1;
+          const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
+          for (const key of Object.keys(token))
+            if (key !== "type" && key !== "offset")
+              delete token[key];
+          Object.assign(token, { type, indent, source, end });
+        }
+      }
+    }
+    exports.createScalarToken = createScalarToken;
+    exports.resolveAsScalar = resolveAsScalar;
+    exports.setScalarValue = setScalarValue;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js
+var require_cst_stringify = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+    "use strict";
+    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    function stringifyToken(token) {
+      switch (token.type) {
+        case "block-scalar": {
+          let res = "";
+          for (const tok of token.props)
+            res += stringifyToken(tok);
+          return res + token.source;
+        }
+        case "block-map":
+        case "block-seq": {
+          let res = "";
+          for (const item of token.items)
+            res += stringifyItem(item);
+          return res;
+        }
+        case "flow-collection": {
+          let res = token.start.source;
+          for (const item of token.items)
+            res += stringifyItem(item);
+          for (const st of token.end)
+            res += st.source;
+          return res;
+        }
+        case "document": {
+          let res = stringifyItem(token);
+          if (token.end)
+            for (const st of token.end)
+              res += st.source;
+          return res;
+        }
+        default: {
+          let res = token.source;
+          if ("end" in token && token.end)
+            for (const st of token.end)
+              res += st.source;
+          return res;
+        }
+      }
+    }
+    function stringifyItem({ start, key, sep, value }) {
+      let res = "";
+      for (const st of start)
+        res += st.source;
+      if (key)
+        res += stringifyToken(key);
+      if (sep)
+        for (const st of sep)
+          res += st.source;
+      if (value)
+        res += stringifyToken(value);
+      return res;
+    }
+    exports.stringify = stringify;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js
+var require_cst_visit = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+    "use strict";
+    var BREAK = Symbol("break visit");
+    var SKIP = Symbol("skip children");
+    var REMOVE = Symbol("remove item");
+    function visit(cst, visitor) {
+      if ("type" in cst && cst.type === "document")
+        cst = { start: cst.start, value: cst.value };
+      _visit(Object.freeze([]), cst, visitor);
+    }
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP;
+    visit.REMOVE = REMOVE;
+    visit.itemAtPath = (cst, path) => {
+      let item = cst;
+      for (const [field, index] of path) {
+        const tok = item?.[field];
+        if (tok && "items" in tok) {
+          item = tok.items[index];
+        } else
+          return void 0;
+      }
+      return item;
+    };
+    visit.parentCollection = (cst, path) => {
+      const parent = visit.itemAtPath(cst, path.slice(0, -1));
+      const field = path[path.length - 1][0];
+      const coll = parent?.[field];
+      if (coll && "items" in coll)
+        return coll;
+      throw new Error("Parent collection not found");
+    };
+    function _visit(path, item, visitor) {
+      let ctrl = visitor(item, path);
+      if (typeof ctrl === "symbol")
+        return ctrl;
+      for (const field of ["key", "value"]) {
+        const token = item[field];
+        if (token && "items" in token) {
+          for (let i = 0; i < token.items.length; ++i) {
+            const ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
+            if (typeof ci === "number")
+              i = ci - 1;
+            else if (ci === BREAK)
+              return BREAK;
+            else if (ci === REMOVE) {
+              token.items.splice(i, 1);
+              i -= 1;
+            }
+          }
+          if (typeof ctrl === "function" && field === "key")
+            ctrl = ctrl(item, path);
+        }
+      }
+      return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
+    }
+    exports.visit = visit;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js
+var require_cst = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js"(exports) {
+    "use strict";
+    var cstScalar = require_cst_scalar();
+    var cstStringify = require_cst_stringify();
+    var cstVisit = require_cst_visit();
+    var BOM = "\uFEFF";
+    var DOCUMENT = "";
+    var FLOW_END = "";
+    var SCALAR = "";
+    var isCollection = (token) => !!token && "items" in token;
+    var isScalar = (token) => !!token && (token.type === "scalar" || token.type === "single-quoted-scalar" || token.type === "double-quoted-scalar" || token.type === "block-scalar");
+    function prettyToken(token) {
+      switch (token) {
+        case BOM:
+          return "<BOM>";
+        case DOCUMENT:
+          return "<DOC>";
+        case FLOW_END:
+          return "<FLOW_END>";
+        case SCALAR:
+          return "<SCALAR>";
+        default:
+          return JSON.stringify(token);
+      }
+    }
+    function tokenType(source) {
+      switch (source) {
+        case BOM:
+          return "byte-order-mark";
+        case DOCUMENT:
+          return "doc-mode";
+        case FLOW_END:
+          return "flow-error-end";
+        case SCALAR:
+          return "scalar";
+        case "---":
+          return "doc-start";
+        case "...":
+          return "doc-end";
+        case "":
+        case "\n":
+        case "\r\n":
+          return "newline";
+        case "-":
+          return "seq-item-ind";
+        case "?":
+          return "explicit-key-ind";
+        case ":":
+          return "map-value-ind";
+        case "{":
+          return "flow-map-start";
+        case "}":
+          return "flow-map-end";
+        case "[":
+          return "flow-seq-start";
+        case "]":
+          return "flow-seq-end";
+        case ",":
+          return "comma";
+      }
+      switch (source[0]) {
+        case " ":
+        case "	":
+          return "space";
+        case "#":
+          return "comment";
+        case "%":
+          return "directive-line";
+        case "*":
+          return "alias";
+        case "&":
+          return "anchor";
+        case "!":
+          return "tag";
+        case "'":
+          return "single-quoted-scalar";
+        case '"':
+          return "double-quoted-scalar";
+        case "|":
+        case ">":
+          return "block-scalar-header";
+      }
+      return null;
+    }
+    exports.createScalarToken = cstScalar.createScalarToken;
+    exports.resolveAsScalar = cstScalar.resolveAsScalar;
+    exports.setScalarValue = cstScalar.setScalarValue;
+    exports.stringify = cstStringify.stringify;
+    exports.visit = cstVisit.visit;
+    exports.BOM = BOM;
+    exports.DOCUMENT = DOCUMENT;
+    exports.FLOW_END = FLOW_END;
+    exports.SCALAR = SCALAR;
+    exports.isCollection = isCollection;
+    exports.isScalar = isScalar;
+    exports.prettyToken = prettyToken;
+    exports.tokenType = tokenType;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js
+var require_lexer = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js"(exports) {
+    "use strict";
+    var cst = require_cst();
+    function isEmpty(ch) {
+      switch (ch) {
+        case void 0:
+        case " ":
+        case "\n":
+        case "\r":
+        case "	":
+          return true;
+        default:
+          return false;
+      }
+    }
+    var hexDigits = new Set("0123456789ABCDEFabcdef");
+    var tagChars = new Set("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-#;/?:@&=+$_.!~*'()");
+    var flowIndicatorChars = new Set(",[]{}");
+    var invalidAnchorChars = new Set(" ,[]{}\n\r	");
+    var isNotAnchorChar = (ch) => !ch || invalidAnchorChars.has(ch);
+    var Lexer = class {
+      constructor() {
+        this.atEnd = false;
+        this.blockScalarIndent = -1;
+        this.blockScalarKeep = false;
+        this.buffer = "";
+        this.flowKey = false;
+        this.flowLevel = 0;
+        this.indentNext = 0;
+        this.indentValue = 0;
+        this.lineEndPos = null;
+        this.next = null;
+        this.pos = 0;
+      }
+      /**
+       * Generate YAML tokens from the `source` string. If `incomplete`,
+       * a part of the last line may be left as a buffer for the next call.
+       *
+       * @returns A generator of lexical tokens
+       */
+      *lex(source, incomplete = false) {
+        if (source) {
+          if (typeof source !== "string")
+            throw TypeError("source is not a string");
+          this.buffer = this.buffer ? this.buffer + source : source;
+          this.lineEndPos = null;
+        }
+        this.atEnd = !incomplete;
+        let next = this.next ?? "stream";
+        while (next && (incomplete || this.hasChars(1)))
+          next = yield* this.parseNext(next);
+      }
+      atLineEnd() {
+        let i = this.pos;
+        let ch = this.buffer[i];
+        while (ch === " " || ch === "	")
+          ch = this.buffer[++i];
+        if (!ch || ch === "#" || ch === "\n")
+          return true;
+        if (ch === "\r")
+          return this.buffer[i + 1] === "\n";
+        return false;
+      }
+      charAt(n) {
+        return this.buffer[this.pos + n];
+      }
+      continueScalar(offset) {
+        let ch = this.buffer[offset];
+        if (this.indentNext > 0) {
+          let indent = 0;
+          while (ch === " ")
+            ch = this.buffer[++indent + offset];
+          if (ch === "\r") {
+            const next = this.buffer[indent + offset + 1];
+            if (next === "\n" || !next && !this.atEnd)
+              return offset + indent + 1;
+          }
+          return ch === "\n" || indent >= this.indentNext || !ch && !this.atEnd ? offset + indent : -1;
+        }
+        if (ch === "-" || ch === ".") {
+          const dt = this.buffer.substr(offset, 3);
+          if ((dt === "---" || dt === "...") && isEmpty(this.buffer[offset + 3]))
+            return -1;
+        }
+        return offset;
+      }
+      getLine() {
+        let end = this.lineEndPos;
+        if (typeof end !== "number" || end !== -1 && end < this.pos) {
+          end = this.buffer.indexOf("\n", this.pos);
+          this.lineEndPos = end;
+        }
+        if (end === -1)
+          return this.atEnd ? this.buffer.substring(this.pos) : null;
+        if (this.buffer[end - 1] === "\r")
+          end -= 1;
+        return this.buffer.substring(this.pos, end);
+      }
+      hasChars(n) {
+        return this.pos + n <= this.buffer.length;
+      }
+      setNext(state) {
+        this.buffer = this.buffer.substring(this.pos);
+        this.pos = 0;
+        this.lineEndPos = null;
+        this.next = state;
+        return null;
+      }
+      peek(n) {
+        return this.buffer.substr(this.pos, n);
+      }
+      *parseNext(next) {
+        switch (next) {
+          case "stream":
+            return yield* this.parseStream();
+          case "line-start":
+            return yield* this.parseLineStart();
+          case "block-start":
+            return yield* this.parseBlockStart();
+          case "doc":
+            return yield* this.parseDocument();
+          case "flow":
+            return yield* this.parseFlowCollection();
+          case "quoted-scalar":
+            return yield* this.parseQuotedScalar();
+          case "block-scalar":
+            return yield* this.parseBlockScalar();
+          case "plain-scalar":
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseStream() {
+        let line = this.getLine();
+        if (line === null)
+          return this.setNext("stream");
+        if (line[0] === cst.BOM) {
+          yield* this.pushCount(1);
+          line = line.substring(1);
+        }
+        if (line[0] === "%") {
+          let dirEnd = line.length;
+          let cs = line.indexOf("#");
+          while (cs !== -1) {
+            const ch = line[cs - 1];
+            if (ch === " " || ch === "	") {
+              dirEnd = cs - 1;
+              break;
+            } else {
+              cs = line.indexOf("#", cs + 1);
+            }
+          }
+          while (true) {
+            const ch = line[dirEnd - 1];
+            if (ch === " " || ch === "	")
+              dirEnd -= 1;
+            else
+              break;
+          }
+          const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
+          yield* this.pushCount(line.length - n);
+          this.pushNewline();
+          return "stream";
+        }
+        if (this.atLineEnd()) {
+          const sp = yield* this.pushSpaces(true);
+          yield* this.pushCount(line.length - sp);
+          yield* this.pushNewline();
+          return "stream";
+        }
+        yield cst.DOCUMENT;
+        return yield* this.parseLineStart();
+      }
+      *parseLineStart() {
+        const ch = this.charAt(0);
+        if (!ch && !this.atEnd)
+          return this.setNext("line-start");
+        if (ch === "-" || ch === ".") {
+          if (!this.atEnd && !this.hasChars(4))
+            return this.setNext("line-start");
+          const s = this.peek(3);
+          if ((s === "---" || s === "...") && isEmpty(this.charAt(3))) {
+            yield* this.pushCount(3);
+            this.indentValue = 0;
+            this.indentNext = 0;
+            return s === "---" ? "doc" : "stream";
+          }
+        }
+        this.indentValue = yield* this.pushSpaces(false);
+        if (this.indentNext > this.indentValue && !isEmpty(this.charAt(1)))
+          this.indentNext = this.indentValue;
+        return yield* this.parseBlockStart();
+      }
+      *parseBlockStart() {
+        const [ch0, ch1] = this.peek(2);
+        if (!ch1 && !this.atEnd)
+          return this.setNext("block-start");
+        if ((ch0 === "-" || ch0 === "?" || ch0 === ":") && isEmpty(ch1)) {
+          const n = (yield* this.pushCount(1)) + (yield* this.pushSpaces(true));
+          this.indentNext = this.indentValue + 1;
+          this.indentValue += n;
+          return "block-start";
+        }
+        return "doc";
+      }
+      *parseDocument() {
+        yield* this.pushSpaces(true);
+        const line = this.getLine();
+        if (line === null)
+          return this.setNext("doc");
+        let n = yield* this.pushIndicators();
+        switch (line[n]) {
+          case "#":
+            yield* this.pushCount(line.length - n);
+          // fallthrough
+          case void 0:
+            yield* this.pushNewline();
+            return yield* this.parseLineStart();
+          case "{":
+          case "[":
+            yield* this.pushCount(1);
+            this.flowKey = false;
+            this.flowLevel = 1;
+            return "flow";
+          case "}":
+          case "]":
+            yield* this.pushCount(1);
+            return "doc";
+          case "*":
+            yield* this.pushUntil(isNotAnchorChar);
+            return "doc";
+          case '"':
+          case "'":
+            return yield* this.parseQuotedScalar();
+          case "|":
+          case ">":
+            n += yield* this.parseBlockScalarHeader();
+            n += yield* this.pushSpaces(true);
+            yield* this.pushCount(line.length - n);
+            yield* this.pushNewline();
+            return yield* this.parseBlockScalar();
+          default:
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseFlowCollection() {
+        let nl, sp;
+        let indent = -1;
+        do {
+          nl = yield* this.pushNewline();
+          if (nl > 0) {
+            sp = yield* this.pushSpaces(false);
+            this.indentValue = indent = sp;
+          } else {
+            sp = 0;
+          }
+          sp += yield* this.pushSpaces(true);
+        } while (nl + sp > 0);
+        const line = this.getLine();
+        if (line === null)
+          return this.setNext("flow");
+        if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
+          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+          if (!atFlowEndMarker) {
+            this.flowLevel = 0;
+            yield cst.FLOW_END;
+            return yield* this.parseLineStart();
+          }
+        }
+        let n = 0;
+        while (line[n] === ",") {
+          n += yield* this.pushCount(1);
+          n += yield* this.pushSpaces(true);
+          this.flowKey = false;
+        }
+        n += yield* this.pushIndicators();
+        switch (line[n]) {
+          case void 0:
+            return "flow";
+          case "#":
+            yield* this.pushCount(line.length - n);
+            return "flow";
+          case "{":
+          case "[":
+            yield* this.pushCount(1);
+            this.flowKey = false;
+            this.flowLevel += 1;
+            return "flow";
+          case "}":
+          case "]":
+            yield* this.pushCount(1);
+            this.flowKey = true;
+            this.flowLevel -= 1;
+            return this.flowLevel ? "flow" : "doc";
+          case "*":
+            yield* this.pushUntil(isNotAnchorChar);
+            return "flow";
+          case '"':
+          case "'":
+            this.flowKey = true;
+            return yield* this.parseQuotedScalar();
+          case ":": {
+            const next = this.charAt(1);
+            if (this.flowKey || isEmpty(next) || next === ",") {
+              this.flowKey = false;
+              yield* this.pushCount(1);
+              yield* this.pushSpaces(true);
+              return "flow";
+            }
+          }
+          // fallthrough
+          default:
+            this.flowKey = false;
+            return yield* this.parsePlainScalar();
+        }
+      }
+      *parseQuotedScalar() {
+        const quote = this.charAt(0);
+        let end = this.buffer.indexOf(quote, this.pos + 1);
+        if (quote === "'") {
+          while (end !== -1 && this.buffer[end + 1] === "'")
+            end = this.buffer.indexOf("'", end + 2);
+        } else {
+          while (end !== -1) {
+            let n = 0;
+            while (this.buffer[end - 1 - n] === "\\")
+              n += 1;
+            if (n % 2 === 0)
+              break;
+            end = this.buffer.indexOf('"', end + 1);
+          }
+        }
+        const qb = this.buffer.substring(0, end);
+        let nl = qb.indexOf("\n", this.pos);
+        if (nl !== -1) {
+          while (nl !== -1) {
+            const cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = qb.indexOf("\n", cs);
+          }
+          if (nl !== -1) {
+            end = nl - (qb[nl - 1] === "\r" ? 2 : 1);
+          }
+        }
+        if (end === -1) {
+          if (!this.atEnd)
+            return this.setNext("quoted-scalar");
+          end = this.buffer.length;
+        }
+        yield* this.pushToIndex(end + 1, false);
+        return this.flowLevel ? "flow" : "doc";
+      }
+      *parseBlockScalarHeader() {
+        this.blockScalarIndent = -1;
+        this.blockScalarKeep = false;
+        let i = this.pos;
+        while (true) {
+          const ch = this.buffer[++i];
+          if (ch === "+")
+            this.blockScalarKeep = true;
+          else if (ch > "0" && ch <= "9")
+            this.blockScalarIndent = Number(ch) - 1;
+          else if (ch !== "-")
+            break;
+        }
+        return yield* this.pushUntil((ch) => isEmpty(ch) || ch === "#");
+      }
+      *parseBlockScalar() {
+        let nl = this.pos - 1;
+        let indent = 0;
+        let ch;
+        loop: for (let i2 = this.pos; ch = this.buffer[i2]; ++i2) {
+          switch (ch) {
+            case " ":
+              indent += 1;
+              break;
+            case "\n":
+              nl = i2;
+              indent = 0;
+              break;
+            case "\r": {
+              const next = this.buffer[i2 + 1];
+              if (!next && !this.atEnd)
+                return this.setNext("block-scalar");
+              if (next === "\n")
+                break;
+            }
+            // fallthrough
+            default:
+              break loop;
+          }
+        }
+        if (!ch && !this.atEnd)
+          return this.setNext("block-scalar");
+        if (indent >= this.indentNext) {
+          if (this.blockScalarIndent === -1)
+            this.indentNext = indent;
+          else {
+            this.indentNext = this.blockScalarIndent + (this.indentNext === 0 ? 1 : this.indentNext);
+          }
+          do {
+            const cs = this.continueScalar(nl + 1);
+            if (cs === -1)
+              break;
+            nl = this.buffer.indexOf("\n", cs);
+          } while (nl !== -1);
+          if (nl === -1) {
+            if (!this.atEnd)
+              return this.setNext("block-scalar");
+            nl = this.buffer.length;
+          }
+        }
+        let i = nl + 1;
+        ch = this.buffer[i];
+        while (ch === " ")
+          ch = this.buffer[++i];
+        if (ch === "	") {
+          while (ch === "	" || ch === " " || ch === "\r" || ch === "\n")
+            ch = this.buffer[++i];
+          nl = i - 1;
+        } else if (!this.blockScalarKeep) {
+          do {
+            let i2 = nl - 1;
+            let ch2 = this.buffer[i2];
+            if (ch2 === "\r")
+              ch2 = this.buffer[--i2];
+            const lastChar = i2;
+            while (ch2 === " ")
+              ch2 = this.buffer[--i2];
+            if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent > lastChar)
+              nl = i2;
+            else
+              break;
+          } while (true);
+        }
+        yield cst.SCALAR;
+        yield* this.pushToIndex(nl + 1, true);
+        return yield* this.parseLineStart();
+      }
+      *parsePlainScalar() {
+        const inFlow = this.flowLevel > 0;
+        let end = this.pos - 1;
+        let i = this.pos - 1;
+        let ch;
+        while (ch = this.buffer[++i]) {
+          if (ch === ":") {
+            const next = this.buffer[i + 1];
+            if (isEmpty(next) || inFlow && flowIndicatorChars.has(next))
+              break;
+            end = i;
+          } else if (isEmpty(ch)) {
+            let next = this.buffer[i + 1];
+            if (ch === "\r") {
+              if (next === "\n") {
+                i += 1;
+                ch = "\n";
+                next = this.buffer[i + 1];
+              } else
+                end = i;
+            }
+            if (next === "#" || inFlow && flowIndicatorChars.has(next))
+              break;
+            if (ch === "\n") {
+              const cs = this.continueScalar(i + 1);
+              if (cs === -1)
+                break;
+              i = Math.max(i, cs - 2);
+            }
+          } else {
+            if (inFlow && flowIndicatorChars.has(ch))
+              break;
+            end = i;
+          }
+        }
+        if (!ch && !this.atEnd)
+          return this.setNext("plain-scalar");
+        yield cst.SCALAR;
+        yield* this.pushToIndex(end + 1, true);
+        return inFlow ? "flow" : "doc";
+      }
+      *pushCount(n) {
+        if (n > 0) {
+          yield this.buffer.substr(this.pos, n);
+          this.pos += n;
+          return n;
+        }
+        return 0;
+      }
+      *pushToIndex(i, allowEmpty) {
+        const s = this.buffer.slice(this.pos, i);
+        if (s) {
+          yield s;
+          this.pos += s.length;
+          return s.length;
+        } else if (allowEmpty)
+          yield "";
+        return 0;
+      }
+      *pushIndicators() {
+        let n = 0;
+        loop: while (true) {
+          switch (this.charAt(0)) {
+            case "!":
+              n += yield* this.pushTag();
+              n += yield* this.pushSpaces(true);
+              continue loop;
+            case "&":
+              n += yield* this.pushUntil(isNotAnchorChar);
+              n += yield* this.pushSpaces(true);
+              continue loop;
+            case "-":
+            // this is an error
+            case "?":
+            // this is an error outside flow collections
+            case ":": {
+              const inFlow = this.flowLevel > 0;
+              const ch1 = this.charAt(1);
+              if (isEmpty(ch1) || inFlow && flowIndicatorChars.has(ch1)) {
+                if (!inFlow)
+                  this.indentNext = this.indentValue + 1;
+                else if (this.flowKey)
+                  this.flowKey = false;
+                n += yield* this.pushCount(1);
+                n += yield* this.pushSpaces(true);
+                continue loop;
+              }
+            }
+          }
+          break loop;
+        }
+        return n;
+      }
+      *pushTag() {
+        if (this.charAt(1) === "<") {
+          let i = this.pos + 2;
+          let ch = this.buffer[i];
+          while (!isEmpty(ch) && ch !== ">")
+            ch = this.buffer[++i];
+          return yield* this.pushToIndex(ch === ">" ? i + 1 : i, false);
+        } else {
+          let i = this.pos + 1;
+          let ch = this.buffer[i];
+          while (ch) {
+            if (tagChars.has(ch))
+              ch = this.buffer[++i];
+            else if (ch === "%" && hexDigits.has(this.buffer[i + 1]) && hexDigits.has(this.buffer[i + 2])) {
+              ch = this.buffer[i += 3];
+            } else
+              break;
+          }
+          return yield* this.pushToIndex(i, false);
+        }
+      }
+      *pushNewline() {
+        const ch = this.buffer[this.pos];
+        if (ch === "\n")
+          return yield* this.pushCount(1);
+        else if (ch === "\r" && this.charAt(1) === "\n")
+          return yield* this.pushCount(2);
+        else
+          return 0;
+      }
+      *pushSpaces(allowTabs) {
+        let i = this.pos - 1;
+        let ch;
+        do {
+          ch = this.buffer[++i];
+        } while (ch === " " || allowTabs && ch === "	");
+        const n = i - this.pos;
+        if (n > 0) {
+          yield this.buffer.substr(this.pos, n);
+          this.pos = i;
+        }
+        return n;
+      }
+      *pushUntil(test) {
+        let i = this.pos;
+        let ch = this.buffer[i];
+        while (!test(ch))
+          ch = this.buffer[++i];
+        return yield* this.pushToIndex(i, false);
+      }
+    };
+    exports.Lexer = Lexer;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js
+var require_line_counter = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js"(exports) {
+    "use strict";
+    var LineCounter = class {
+      constructor() {
+        this.lineStarts = [];
+        this.addNewLine = (offset) => this.lineStarts.push(offset);
+        this.linePos = (offset) => {
+          let low = 0;
+          let high = this.lineStarts.length;
+          while (low < high) {
+            const mid = low + high >> 1;
+            if (this.lineStarts[mid] < offset)
+              low = mid + 1;
+            else
+              high = mid;
+          }
+          if (this.lineStarts[low] === offset)
+            return { line: low + 1, col: 1 };
+          if (low === 0)
+            return { line: 0, col: offset };
+          const start = this.lineStarts[low - 1];
+          return { line: low, col: offset - start + 1 };
+        };
+      }
+    };
+    exports.LineCounter = LineCounter;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js
+var require_parser = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js"(exports) {
+    "use strict";
+    var node_process = __require("process");
+    var cst = require_cst();
+    var lexer = require_lexer();
+    function includesToken(list, type) {
+      for (let i = 0; i < list.length; ++i)
+        if (list[i].type === type)
+          return true;
+      return false;
+    }
+    function findNonEmptyIndex(list) {
+      for (let i = 0; i < list.length; ++i) {
+        switch (list[i].type) {
+          case "space":
+          case "comment":
+          case "newline":
+            break;
+          default:
+            return i;
+        }
+      }
+      return -1;
+    }
+    function isFlowToken(token) {
+      switch (token?.type) {
+        case "alias":
+        case "scalar":
+        case "single-quoted-scalar":
+        case "double-quoted-scalar":
+        case "flow-collection":
+          return true;
+        default:
+          return false;
+      }
+    }
+    function getPrevProps(parent) {
+      switch (parent.type) {
+        case "document":
+          return parent.start;
+        case "block-map": {
+          const it = parent.items[parent.items.length - 1];
+          return it.sep ?? it.start;
+        }
+        case "block-seq":
+          return parent.items[parent.items.length - 1].start;
+        /* istanbul ignore next should not happen */
+        default:
+          return [];
+      }
+    }
+    function getFirstKeyStartProps(prev) {
+      if (prev.length === 0)
+        return [];
+      let i = prev.length;
+      loop: while (--i >= 0) {
+        switch (prev[i].type) {
+          case "doc-start":
+          case "explicit-key-ind":
+          case "map-value-ind":
+          case "seq-item-ind":
+          case "newline":
+            break loop;
+        }
+      }
+      while (prev[++i]?.type === "space") {
+      }
+      return prev.splice(i, prev.length);
+    }
+    function arrayPushArray(target, source) {
+      if (source.length < 1e5)
+        Array.prototype.push.apply(target, source);
+      else
+        for (let i = 0; i < source.length; ++i)
+          target.push(source[i]);
+    }
+    function fixFlowSeqItems(fc) {
+      if (fc.start.type === "flow-seq-start") {
+        for (const it of fc.items) {
+          if (it.sep && !it.value && !includesToken(it.start, "explicit-key-ind") && !includesToken(it.sep, "map-value-ind")) {
+            if (it.key)
+              it.value = it.key;
+            delete it.key;
+            if (isFlowToken(it.value)) {
+              if (it.value.end)
+                arrayPushArray(it.value.end, it.sep);
+              else
+                it.value.end = it.sep;
+            } else
+              arrayPushArray(it.start, it.sep);
+            delete it.sep;
+          }
+        }
+      }
+    }
+    var Parser = class {
+      /**
+       * @param onNewLine - If defined, called separately with the start position of
+       *   each new line (in `parse()`, including the start of input).
+       */
+      constructor(onNewLine) {
+        this.atNewLine = true;
+        this.atScalar = false;
+        this.indent = 0;
+        this.offset = 0;
+        this.onKeyLine = false;
+        this.stack = [];
+        this.source = "";
+        this.type = "";
+        this.lexer = new lexer.Lexer();
+        this.onNewLine = onNewLine;
+      }
+      /**
+       * Parse `source` as a YAML stream.
+       * If `incomplete`, a part of the last line may be left as a buffer for the next call.
+       *
+       * Errors are not thrown, but yielded as `{ type: 'error', message }` tokens.
+       *
+       * @returns A generator of tokens representing each directive, document, and other structure.
+       */
+      *parse(source, incomplete = false) {
+        if (this.onNewLine && this.offset === 0)
+          this.onNewLine(0);
+        for (const lexeme of this.lexer.lex(source, incomplete))
+          yield* this.next(lexeme);
+        if (!incomplete)
+          yield* this.end();
+      }
+      /**
+       * Advance the parser by the `source` of one lexical token.
+       */
+      *next(source) {
+        this.source = source;
+        if (node_process.env.LOG_TOKENS)
+          console.log("|", cst.prettyToken(source));
+        if (this.atScalar) {
+          this.atScalar = false;
+          yield* this.step();
+          this.offset += source.length;
+          return;
+        }
+        const type = cst.tokenType(source);
+        if (!type) {
+          const message = `Not a YAML token: ${source}`;
+          yield* this.pop({ type: "error", offset: this.offset, message, source });
+          this.offset += source.length;
+        } else if (type === "scalar") {
+          this.atNewLine = false;
+          this.atScalar = true;
+          this.type = "scalar";
+        } else {
+          this.type = type;
+          yield* this.step();
+          switch (type) {
+            case "newline":
+              this.atNewLine = true;
+              this.indent = 0;
+              if (this.onNewLine)
+                this.onNewLine(this.offset + source.length);
+              break;
+            case "space":
+              if (this.atNewLine && source[0] === " ")
+                this.indent += source.length;
+              break;
+            case "explicit-key-ind":
+            case "map-value-ind":
+            case "seq-item-ind":
+              if (this.atNewLine)
+                this.indent += source.length;
+              break;
+            case "doc-mode":
+            case "flow-error-end":
+              return;
+            default:
+              this.atNewLine = false;
+          }
+          this.offset += source.length;
+        }
+      }
+      /** Call at end of input to push out any remaining constructions */
+      *end() {
+        while (this.stack.length > 0)
+          yield* this.pop();
+      }
+      get sourceToken() {
+        const st = {
+          type: this.type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+        return st;
+      }
+      *step() {
+        const top = this.peek(1);
+        if (this.type === "doc-end" && top?.type !== "doc-end") {
+          while (this.stack.length > 0)
+            yield* this.pop();
+          this.stack.push({
+            type: "doc-end",
+            offset: this.offset,
+            source: this.source
+          });
+          return;
+        }
+        if (!top)
+          return yield* this.stream();
+        switch (top.type) {
+          case "document":
+            return yield* this.document(top);
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return yield* this.scalar(top);
+          case "block-scalar":
+            return yield* this.blockScalar(top);
+          case "block-map":
+            return yield* this.blockMap(top);
+          case "block-seq":
+            return yield* this.blockSequence(top);
+          case "flow-collection":
+            return yield* this.flowCollection(top);
+          case "doc-end":
+            return yield* this.documentEnd(top);
+        }
+        yield* this.pop();
+      }
+      peek(n) {
+        return this.stack[this.stack.length - n];
+      }
+      *pop(error51) {
+        const token = error51 ?? this.stack.pop();
+        if (!token) {
+          const message = "Tried to pop an empty stack";
+          yield { type: "error", offset: this.offset, source: "", message };
+        } else if (this.stack.length === 0) {
+          yield token;
+        } else {
+          const top = this.peek(1);
+          if (token.type === "block-scalar") {
+            token.indent = "indent" in top ? top.indent : 0;
+          } else if (token.type === "flow-collection" && top.type === "document") {
+            token.indent = 0;
+          }
+          if (token.type === "flow-collection")
+            fixFlowSeqItems(token);
+          switch (top.type) {
+            case "document":
+              top.value = token;
+              break;
+            case "block-scalar":
+              top.props.push(token);
+              break;
+            case "block-map": {
+              const it = top.items[top.items.length - 1];
+              if (it.value) {
+                top.items.push({ start: [], key: token, sep: [] });
+                this.onKeyLine = true;
+                return;
+              } else if (it.sep) {
+                it.value = token;
+              } else {
+                Object.assign(it, { key: token, sep: [] });
+                this.onKeyLine = !it.explicitKey;
+                return;
+              }
+              break;
+            }
+            case "block-seq": {
+              const it = top.items[top.items.length - 1];
+              if (it.value)
+                top.items.push({ start: [], value: token });
+              else
+                it.value = token;
+              break;
+            }
+            case "flow-collection": {
+              const it = top.items[top.items.length - 1];
+              if (!it || it.value)
+                top.items.push({ start: [], key: token, sep: [] });
+              else if (it.sep)
+                it.value = token;
+              else
+                Object.assign(it, { key: token, sep: [] });
+              return;
+            }
+            /* istanbul ignore next should not happen */
+            default:
+              yield* this.pop();
+              yield* this.pop(token);
+          }
+          if ((top.type === "document" || top.type === "block-map" || top.type === "block-seq") && (token.type === "block-map" || token.type === "block-seq")) {
+            const last = token.items[token.items.length - 1];
+            if (last && !last.sep && !last.value && last.start.length > 0 && findNonEmptyIndex(last.start) === -1 && (token.indent === 0 || last.start.every((st) => st.type !== "comment" || st.indent < token.indent))) {
+              if (top.type === "document")
+                top.end = last.start;
+              else
+                top.items.push({ start: last.start });
+              token.items.splice(-1, 1);
+            }
+          }
+        }
+      }
+      *stream() {
+        switch (this.type) {
+          case "directive-line":
+            yield { type: "directive", offset: this.offset, source: this.source };
+            return;
+          case "byte-order-mark":
+          case "space":
+          case "comment":
+          case "newline":
+            yield this.sourceToken;
+            return;
+          case "doc-mode":
+          case "doc-start": {
+            const doc = {
+              type: "document",
+              offset: this.offset,
+              start: []
+            };
+            if (this.type === "doc-start")
+              doc.start.push(this.sourceToken);
+            this.stack.push(doc);
+            return;
+          }
+        }
+        yield {
+          type: "error",
+          offset: this.offset,
+          message: `Unexpected ${this.type} token in YAML stream`,
+          source: this.source
+        };
+      }
+      *document(doc) {
+        if (doc.value)
+          return yield* this.lineEnd(doc);
+        switch (this.type) {
+          case "doc-start": {
+            if (findNonEmptyIndex(doc.start) !== -1) {
+              yield* this.pop();
+              yield* this.step();
+            } else
+              doc.start.push(this.sourceToken);
+            return;
+          }
+          case "anchor":
+          case "tag":
+          case "space":
+          case "comment":
+          case "newline":
+            doc.start.push(this.sourceToken);
+            return;
+        }
+        const bv = this.startBlockValue(doc);
+        if (bv)
+          this.stack.push(bv);
+        else {
+          yield {
+            type: "error",
+            offset: this.offset,
+            message: `Unexpected ${this.type} token in YAML document`,
+            source: this.source
+          };
+        }
+      }
+      *scalar(scalar) {
+        if (this.type === "map-value-ind") {
+          const prev = getPrevProps(this.peek(2));
+          const start = getFirstKeyStartProps(prev);
+          let sep;
+          if (scalar.end) {
+            sep = scalar.end;
+            sep.push(this.sourceToken);
+            delete scalar.end;
+          } else
+            sep = [this.sourceToken];
+          const map2 = {
+            type: "block-map",
+            offset: scalar.offset,
+            indent: scalar.indent,
+            items: [{ start, key: scalar, sep }]
+          };
+          this.onKeyLine = true;
+          this.stack[this.stack.length - 1] = map2;
+        } else
+          yield* this.lineEnd(scalar);
+      }
+      *blockScalar(scalar) {
+        switch (this.type) {
+          case "space":
+          case "comment":
+          case "newline":
+            scalar.props.push(this.sourceToken);
+            return;
+          case "scalar":
+            scalar.source = this.source;
+            this.atNewLine = true;
+            this.indent = 0;
+            if (this.onNewLine) {
+              let nl = this.source.indexOf("\n") + 1;
+              while (nl !== 0) {
+                this.onNewLine(this.offset + nl);
+                nl = this.source.indexOf("\n", nl) + 1;
+              }
+            }
+            yield* this.pop();
+            break;
+          /* istanbul ignore next should not happen */
+          default:
+            yield* this.pop();
+            yield* this.step();
+        }
+      }
+      *blockMap(map2) {
+        const it = map2.items[map2.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            this.onKeyLine = false;
+            if (it.value) {
+              const end = "end" in it.value ? it.value.end : void 0;
+              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
+              else
+                map2.items.push({ start: [this.sourceToken] });
+            } else if (it.sep) {
+              it.sep.push(this.sourceToken);
+            } else {
+              it.start.push(this.sourceToken);
+            }
+            return;
+          case "space":
+          case "comment":
+            if (it.value) {
+              map2.items.push({ start: [this.sourceToken] });
+            } else if (it.sep) {
+              it.sep.push(this.sourceToken);
+            } else {
+              if (this.atIndentedComment(it.start, map2.indent)) {
+                const prev = map2.items[map2.items.length - 2];
+                const end = prev?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start);
+                  end.push(this.sourceToken);
+                  map2.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+        }
+        if (this.indent >= map2.indent) {
+          const atMapIndent = !this.onKeyLine && this.indent === map2.indent;
+          const atNextItem = atMapIndent && (it.sep || it.explicitKey) && this.type !== "seq-item-ind";
+          let start = [];
+          if (atNextItem && it.sep && !it.value) {
+            const nl = [];
+            for (let i = 0; i < it.sep.length; ++i) {
+              const st = it.sep[i];
+              switch (st.type) {
+                case "newline":
+                  nl.push(i);
+                  break;
+                case "space":
+                  break;
+                case "comment":
+                  if (st.indent > map2.indent)
+                    nl.length = 0;
+                  break;
+                default:
+                  nl.length = 0;
+              }
+            }
+            if (nl.length >= 2)
+              start = it.sep.splice(nl[1]);
+          }
+          switch (this.type) {
+            case "anchor":
+            case "tag":
+              if (atNextItem || it.value) {
+                start.push(this.sourceToken);
+                map2.items.push({ start });
+                this.onKeyLine = true;
+              } else if (it.sep) {
+                it.sep.push(this.sourceToken);
+              } else {
+                it.start.push(this.sourceToken);
+              }
+              return;
+            case "explicit-key-ind":
+              if (!it.sep && !it.explicitKey) {
+                it.start.push(this.sourceToken);
+                it.explicitKey = true;
+              } else if (atNextItem || it.value) {
+                start.push(this.sourceToken);
+                map2.items.push({ start, explicitKey: true });
+              } else {
+                this.stack.push({
+                  type: "block-map",
+                  offset: this.offset,
+                  indent: this.indent,
+                  items: [{ start: [this.sourceToken], explicitKey: true }]
+                });
+              }
+              this.onKeyLine = true;
+              return;
+            case "map-value-ind":
+              if (it.explicitKey) {
+                if (!it.sep) {
+                  if (includesToken(it.start, "newline")) {
+                    Object.assign(it, { key: null, sep: [this.sourceToken] });
+                  } else {
+                    const start2 = getFirstKeyStartProps(it.start);
+                    this.stack.push({
+                      type: "block-map",
+                      offset: this.offset,
+                      indent: this.indent,
+                      items: [{ start: start2, key: null, sep: [this.sourceToken] }]
+                    });
+                  }
+                } else if (it.value) {
+                  map2.items.push({ start: [], key: null, sep: [this.sourceToken] });
+                } else if (includesToken(it.sep, "map-value-ind")) {
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start, key: null, sep: [this.sourceToken] }]
+                  });
+                } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
+                  const start2 = getFirstKeyStartProps(it.start);
+                  const key = it.key;
+                  const sep = it.sep;
+                  sep.push(this.sourceToken);
+                  delete it.key;
+                  delete it.sep;
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start: start2, key, sep }]
+                  });
+                } else if (start.length > 0) {
+                  it.sep = it.sep.concat(start, this.sourceToken);
+                } else {
+                  it.sep.push(this.sourceToken);
+                }
+              } else {
+                if (!it.sep) {
+                  Object.assign(it, { key: null, sep: [this.sourceToken] });
+                } else if (it.value || atNextItem) {
+                  map2.items.push({ start, key: null, sep: [this.sourceToken] });
+                } else if (includesToken(it.sep, "map-value-ind")) {
+                  this.stack.push({
+                    type: "block-map",
+                    offset: this.offset,
+                    indent: this.indent,
+                    items: [{ start: [], key: null, sep: [this.sourceToken] }]
+                  });
+                } else {
+                  it.sep.push(this.sourceToken);
+                }
+              }
+              this.onKeyLine = true;
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              const fs = this.flowScalar(this.type);
+              if (atNextItem || it.value) {
+                map2.items.push({ start, key: fs, sep: [] });
+                this.onKeyLine = true;
+              } else if (it.sep) {
+                this.stack.push(fs);
+              } else {
+                Object.assign(it, { key: fs, sep: [] });
+                this.onKeyLine = true;
+              }
+              return;
+            }
+            default: {
+              const bv = this.startBlockValue(map2);
+              if (bv) {
+                if (bv.type === "block-seq") {
+                  if (!it.explicitKey && it.sep && !includesToken(it.sep, "newline")) {
+                    yield* this.pop({
+                      type: "error",
+                      offset: this.offset,
+                      message: "Unexpected block-seq-ind on same line with key",
+                      source: this.source
+                    });
+                    return;
+                  }
+                } else if (atMapIndent) {
+                  map2.items.push({ start });
+                }
+                this.stack.push(bv);
+                return;
+              }
+            }
+          }
+        }
+        yield* this.pop();
+        yield* this.step();
+      }
+      *blockSequence(seq) {
+        const it = seq.items[seq.items.length - 1];
+        switch (this.type) {
+          case "newline":
+            if (it.value) {
+              const end = "end" in it.value ? it.value.end : void 0;
+              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last?.type === "comment")
+                end?.push(this.sourceToken);
+              else
+                seq.items.push({ start: [this.sourceToken] });
+            } else
+              it.start.push(this.sourceToken);
+            return;
+          case "space":
+          case "comment":
+            if (it.value)
+              seq.items.push({ start: [this.sourceToken] });
+            else {
+              if (this.atIndentedComment(it.start, seq.indent)) {
+                const prev = seq.items[seq.items.length - 2];
+                const end = prev?.value?.end;
+                if (Array.isArray(end)) {
+                  arrayPushArray(end, it.start);
+                  end.push(this.sourceToken);
+                  seq.items.pop();
+                  return;
+                }
+              }
+              it.start.push(this.sourceToken);
+            }
+            return;
+          case "anchor":
+          case "tag":
+            if (it.value || this.indent <= seq.indent)
+              break;
+            it.start.push(this.sourceToken);
+            return;
+          case "seq-item-ind":
+            if (this.indent !== seq.indent)
+              break;
+            if (it.value || includesToken(it.start, "seq-item-ind"))
+              seq.items.push({ start: [this.sourceToken] });
+            else
+              it.start.push(this.sourceToken);
+            return;
+        }
+        if (this.indent > seq.indent) {
+          const bv = this.startBlockValue(seq);
+          if (bv) {
+            this.stack.push(bv);
+            return;
+          }
+        }
+        yield* this.pop();
+        yield* this.step();
+      }
+      *flowCollection(fc) {
+        const it = fc.items[fc.items.length - 1];
+        if (this.type === "flow-error-end") {
+          let top;
+          do {
+            yield* this.pop();
+            top = this.peek(1);
+          } while (top?.type === "flow-collection");
+        } else if (fc.end.length === 0) {
+          switch (this.type) {
+            case "comma":
+            case "explicit-key-ind":
+              if (!it || it.sep)
+                fc.items.push({ start: [this.sourceToken] });
+              else
+                it.start.push(this.sourceToken);
+              return;
+            case "map-value-ind":
+              if (!it || it.value)
+                fc.items.push({ start: [], key: null, sep: [this.sourceToken] });
+              else if (it.sep)
+                it.sep.push(this.sourceToken);
+              else
+                Object.assign(it, { key: null, sep: [this.sourceToken] });
+              return;
+            case "space":
+            case "comment":
+            case "newline":
+            case "anchor":
+            case "tag":
+              if (!it || it.value)
+                fc.items.push({ start: [this.sourceToken] });
+              else if (it.sep)
+                it.sep.push(this.sourceToken);
+              else
+                it.start.push(this.sourceToken);
+              return;
+            case "alias":
+            case "scalar":
+            case "single-quoted-scalar":
+            case "double-quoted-scalar": {
+              const fs = this.flowScalar(this.type);
+              if (!it || it.value)
+                fc.items.push({ start: [], key: fs, sep: [] });
+              else if (it.sep)
+                this.stack.push(fs);
+              else
+                Object.assign(it, { key: fs, sep: [] });
+              return;
+            }
+            case "flow-map-end":
+            case "flow-seq-end":
+              fc.end.push(this.sourceToken);
+              return;
+          }
+          const bv = this.startBlockValue(fc);
+          if (bv)
+            this.stack.push(bv);
+          else {
+            yield* this.pop();
+            yield* this.step();
+          }
+        } else {
+          const parent = this.peek(2);
+          if (parent.type === "block-map" && (this.type === "map-value-ind" && parent.indent === fc.indent || this.type === "newline" && !parent.items[parent.items.length - 1].sep)) {
+            yield* this.pop();
+            yield* this.step();
+          } else if (this.type === "map-value-ind" && parent.type !== "flow-collection") {
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            fixFlowSeqItems(fc);
+            const sep = fc.end.splice(1, fc.end.length);
+            sep.push(this.sourceToken);
+            const map2 = {
+              type: "block-map",
+              offset: fc.offset,
+              indent: fc.indent,
+              items: [{ start, key: fc, sep }]
+            };
+            this.onKeyLine = true;
+            this.stack[this.stack.length - 1] = map2;
+          } else {
+            yield* this.lineEnd(fc);
+          }
+        }
+      }
+      flowScalar(type) {
+        if (this.onNewLine) {
+          let nl = this.source.indexOf("\n") + 1;
+          while (nl !== 0) {
+            this.onNewLine(this.offset + nl);
+            nl = this.source.indexOf("\n", nl) + 1;
+          }
+        }
+        return {
+          type,
+          offset: this.offset,
+          indent: this.indent,
+          source: this.source
+        };
+      }
+      startBlockValue(parent) {
+        switch (this.type) {
+          case "alias":
+          case "scalar":
+          case "single-quoted-scalar":
+          case "double-quoted-scalar":
+            return this.flowScalar(this.type);
+          case "block-scalar-header":
+            return {
+              type: "block-scalar",
+              offset: this.offset,
+              indent: this.indent,
+              props: [this.sourceToken],
+              source: ""
+            };
+          case "flow-map-start":
+          case "flow-seq-start":
+            return {
+              type: "flow-collection",
+              offset: this.offset,
+              indent: this.indent,
+              start: this.sourceToken,
+              items: [],
+              end: []
+            };
+          case "seq-item-ind":
+            return {
+              type: "block-seq",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start: [this.sourceToken] }]
+            };
+          case "explicit-key-ind": {
+            this.onKeyLine = true;
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            start.push(this.sourceToken);
+            return {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, explicitKey: true }]
+            };
+          }
+          case "map-value-ind": {
+            this.onKeyLine = true;
+            const prev = getPrevProps(parent);
+            const start = getFirstKeyStartProps(prev);
+            return {
+              type: "block-map",
+              offset: this.offset,
+              indent: this.indent,
+              items: [{ start, key: null, sep: [this.sourceToken] }]
+            };
+          }
+        }
+        return null;
+      }
+      atIndentedComment(start, indent) {
+        if (this.type !== "comment")
+          return false;
+        if (this.indent <= indent)
+          return false;
+        return start.every((st) => st.type === "newline" || st.type === "space");
+      }
+      *documentEnd(docEnd) {
+        if (this.type !== "doc-mode") {
+          if (docEnd.end)
+            docEnd.end.push(this.sourceToken);
+          else
+            docEnd.end = [this.sourceToken];
+          if (this.type === "newline")
+            yield* this.pop();
+        }
+      }
+      *lineEnd(token) {
+        switch (this.type) {
+          case "comma":
+          case "doc-start":
+          case "doc-end":
+          case "flow-seq-end":
+          case "flow-map-end":
+          case "map-value-ind":
+            yield* this.pop();
+            yield* this.step();
+            break;
+          case "newline":
+            this.onKeyLine = false;
+          // fallthrough
+          case "space":
+          case "comment":
+          default:
+            if (token.end)
+              token.end.push(this.sourceToken);
+            else
+              token.end = [this.sourceToken];
+            if (this.type === "newline")
+              yield* this.pop();
+        }
+      }
+    };
+    exports.Parser = Parser;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js
+var require_public_api = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js"(exports) {
+    "use strict";
+    var composer = require_composer();
+    var Document = require_Document();
+    var errors = require_errors();
+    var log = require_log();
+    var identity = require_identity();
+    var lineCounter = require_line_counter();
+    var parser = require_parser();
+    function parseOptions(options) {
+      const prettyErrors = options.prettyErrors !== false;
+      const lineCounter$1 = options.lineCounter || prettyErrors && new lineCounter.LineCounter() || null;
+      return { lineCounter: lineCounter$1, prettyErrors };
+    }
+    function parseAllDocuments(source, options = {}) {
+      const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
+      const composer$1 = new composer.Composer(options);
+      const docs = Array.from(composer$1.compose(parser$1.parse(source)));
+      if (prettyErrors && lineCounter2)
+        for (const doc of docs) {
+          doc.errors.forEach(errors.prettifyError(source, lineCounter2));
+          doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
+        }
+      if (docs.length > 0)
+        return docs;
+      return Object.assign([], { empty: true }, composer$1.streamInfo());
+    }
+    function parseDocument(source, options = {}) {
+      const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
+      const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
+      const composer$1 = new composer.Composer(options);
+      let doc = null;
+      for (const _doc of composer$1.compose(parser$1.parse(source), true, source.length)) {
+        if (!doc)
+          doc = _doc;
+        else if (doc.options.logLevel !== "silent") {
+          doc.errors.push(new errors.YAMLParseError(_doc.range.slice(0, 2), "MULTIPLE_DOCS", "Source contains multiple documents; please use YAML.parseAllDocuments()"));
+          break;
+        }
+      }
+      if (prettyErrors && lineCounter2) {
+        doc.errors.forEach(errors.prettifyError(source, lineCounter2));
+        doc.warnings.forEach(errors.prettifyError(source, lineCounter2));
+      }
+      return doc;
+    }
+    function parse4(src, reviver, options) {
+      let _reviver = void 0;
+      if (typeof reviver === "function") {
+        _reviver = reviver;
+      } else if (options === void 0 && reviver && typeof reviver === "object") {
+        options = reviver;
+      }
+      const doc = parseDocument(src, options);
+      if (!doc)
+        return null;
+      doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
+      if (doc.errors.length > 0) {
+        if (doc.options.logLevel !== "silent")
+          throw doc.errors[0];
+        else
+          doc.errors = [];
+      }
+      return doc.toJS(Object.assign({ reviver: _reviver }, options));
+    }
+    function stringify(value, replacer, options) {
+      let _replacer = null;
+      if (typeof replacer === "function" || Array.isArray(replacer)) {
+        _replacer = replacer;
+      } else if (options === void 0 && replacer) {
+        options = replacer;
+      }
+      if (typeof options === "string")
+        options = options.length;
+      if (typeof options === "number") {
+        const indent = Math.round(options);
+        options = indent < 1 ? void 0 : indent > 8 ? { indent: 8 } : { indent };
+      }
+      if (value === void 0) {
+        const { keepUndefined } = options ?? replacer ?? {};
+        if (!keepUndefined)
+          return void 0;
+      }
+      if (identity.isDocument(value) && !_replacer)
+        return value.toString(options);
+      return new Document.Document(value, _replacer, options).toString(options);
+    }
+    exports.parse = parse4;
+    exports.parseAllDocuments = parseAllDocuments;
+    exports.parseDocument = parseDocument;
+    exports.stringify = stringify;
+  }
+});
+
+// node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js
+var require_dist = __commonJS({
+  "node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js"(exports) {
+    "use strict";
+    var composer = require_composer();
+    var Document = require_Document();
+    var Schema = require_Schema();
+    var errors = require_errors();
+    var Alias = require_Alias();
+    var identity = require_identity();
+    var Pair = require_Pair();
+    var Scalar = require_Scalar();
+    var YAMLMap = require_YAMLMap();
+    var YAMLSeq = require_YAMLSeq();
+    var cst = require_cst();
+    var lexer = require_lexer();
+    var lineCounter = require_line_counter();
+    var parser = require_parser();
+    var publicApi = require_public_api();
+    var visit = require_visit();
+    exports.Composer = composer.Composer;
+    exports.Document = Document.Document;
+    exports.Schema = Schema.Schema;
+    exports.YAMLError = errors.YAMLError;
+    exports.YAMLParseError = errors.YAMLParseError;
+    exports.YAMLWarning = errors.YAMLWarning;
+    exports.Alias = Alias.Alias;
+    exports.isAlias = identity.isAlias;
+    exports.isCollection = identity.isCollection;
+    exports.isDocument = identity.isDocument;
+    exports.isMap = identity.isMap;
+    exports.isNode = identity.isNode;
+    exports.isPair = identity.isPair;
+    exports.isScalar = identity.isScalar;
+    exports.isSeq = identity.isSeq;
+    exports.Pair = Pair.Pair;
+    exports.Scalar = Scalar.Scalar;
+    exports.YAMLMap = YAMLMap.YAMLMap;
+    exports.YAMLSeq = YAMLSeq.YAMLSeq;
+    exports.CST = cst;
+    exports.Lexer = lexer.Lexer;
+    exports.LineCounter = lineCounter.LineCounter;
+    exports.Parser = parser.Parser;
+    exports.parse = publicApi.parse;
+    exports.parseAllDocuments = publicApi.parseAllDocuments;
+    exports.parseDocument = publicApi.parseDocument;
+    exports.stringify = publicApi.stringify;
+    exports.visit = visit.visit;
+    exports.visitAsync = visit.visitAsync;
+  }
+});
 
 // node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.js
 var require_eventemitter3 = __commonJS({
@@ -661,8 +7994,10 @@ usage:
   lightsout resume --run <id> [--cwd <path>] [--skip-refactor]
   lightsout status [--cwd <path>]
   lightsout doctor [--cwd <path>]
-  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline]
+  lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
+  lightsout standards-validate [--package <path>] [--cwd <path>]   (run every check against its own fixtures)
+  lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
@@ -5314,8 +12649,8 @@ function az_default() {
 }
 
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/be.js
-function getBelarusianPlural(count, one, few, many) {
-  const absCount = Math.abs(count);
+function getBelarusianPlural(count2, one, few, many) {
+  const absCount = Math.abs(count2);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -7393,8 +14728,8 @@ function hu_default() {
 }
 
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/hy.js
-function getArmenianPlural(count, one, many) {
-  return Math.abs(count) === 1 ? one : many;
+function getArmenianPlural(count2, one, many) {
+  return Math.abs(count2) === 1 ? one : many;
 }
 function withDefiniteArticle(word) {
   if (!word)
@@ -9522,8 +16857,8 @@ function ro_default() {
 }
 
 // node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/locales/ru.js
-function getRussianPlural(count, one, few, many) {
-  const absCount = Math.abs(count);
+function getRussianPlural(count2, one, few, many) {
+  const absCount = Math.abs(count2);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -15208,84 +22543,6 @@ var Permissions = {
   FullAccess: "full-access"
 };
 
-// src/contracts/standardsCheck/StandardsRule.ts
-var StandardsRule = {
-  /** The same export name declared in more than one place. */
-  NameDuplicate: "name-duplicate",
-  /** Export names identical after synonym-collapse and word-order normalization. */
-  NameSynonym: "name-synonym",
-  /** Token-level copy-paste spans (jscpd). */
-  Clone: "clone",
-  /** Function bodies identical after identifier/literal normalization. */
-  AstDuplicate: "ast-duplicate",
-  /** A file over the standards' line cap. */
-  SizeFile: "size-file",
-  /** A function, hook or component over its line cap. */
-  SizeFunction: "size-function",
-  /** More than one export in a file, outside the closed exception list. */
-  MultiExport: "multi-export",
-  /** A filename that does not match the export it holds. */
-  FilenameMismatch: "filename-mismatch",
-  /** Sibling utils sharing a subject verb — a domain-folder graduation candidate. */
-  DomainGraduation: "domain-graduation",
-  /** More files in one flat folder than the census cap allows. */
-  FolderCensus: "folder-census",
-  /** An export nothing else references. */
-  DeadExport: "dead-export",
-  /** An export only its own tests reference. */
-  TestOnlyExport: "test-only-export",
-  /** An export reached only through a barrel, with no consuming module. */
-  BarrelOnlyExport: "barrel-only-export",
-  /** A file deep-imported across a module boundary instead of through its barrel. */
-  ModuleBoundary: "module-boundary",
-  /** Module-internal shared code (under a module's common/) leaking to an outside importer. */
-  Placement: "placement",
-  /** A barrel re-exporting with `export *` instead of named re-exports. */
-  BarrelStar: "barrel-star",
-  /** A barrel entry no file outside the module consumes. */
-  BarrelDeadEntry: "barrel-dead-entry",
-  /** A module-scope mock variable Jest's hoisting cannot reach, because its name is not `mock`-prefixed. */
-  TestMockPrefix: "test-mock-prefix",
-  /** A mock return value set in a lifecycle hook instead of the setup factory. */
-  TestMockReturnInHook: "test-mock-return-in-hook",
-  /** A `jest.fn()` with no generic — the spy does not match the real signature. */
-  TestMockUntyped: "test-mock-untyped",
-  /** A `jest.mock` factory wrapper that discards its arguments. */
-  TestMockWrapperUntyped: "test-mock-wrapper-untyped",
-  /** A subject held in a `let` reassigned across hooks — mutable test state. */
-  TestSharedLet: "test-shared-let",
-  /** An assertion in a lifecycle hook instead of the test body. */
-  TestAssertInHook: "test-assert-in-hook",
-  /** A nested `describe` outside the `when …` / `for …` exception. */
-  TestNestedDescribe: "test-nested-describe",
-  /** Manual mock cleanup in a hook, which the Jest config already does. */
-  TestManualMockCleanup: "test-manual-mock-cleanup",
-  /** `toStrictEqual` with an asymmetric matcher — strict in name only. */
-  TestStrictEqualMatcher: "test-strict-equal-matcher",
-  /** More than one setup factory call in one test. */
-  TestMultipleSetups: "test-multiple-setups",
-  /** A setup factory grown past its parameter cap. */
-  TestMegaFactory: "test-mega-factory",
-  /** A folder named for the role of the code it holds, outside its framework's carve-out. */
-  PathBannedModuleName: "path-banned-module-name",
-  /** A file placed directly in `common/` instead of under one of its type folders. */
-  PathCommonFlat: "path-common-flat",
-  /** A barrel under `common/`, which is definitionally boundary-less. */
-  PathCommonBarrel: "path-common-barrel",
-  /** A unit test in a separate tests directory instead of beside its subject. */
-  PathTestInTestsFolder: "path-test-in-tests-folder",
-  /** A co-located test whose first name segment names no source file in its folder. */
-  PathTestNotColocated: "path-test-not-colocated",
-  /** Shared test fixtures or mocks living under `src/`, where they read as production source. */
-  PathTestSupportInSrc: "path-test-support-in-src",
-  /** A test file whose subject its module's barrel does not export — a direct test is a promotion, so the subject belongs in the barrel. */
-  PathTestUntestedSubjectNotPublic: "path-test-untested-subject-not-public",
-  /** A folder whose casing matches none of the doc's three resolutions. */
-  PathFolderCasing: "path-folder-casing",
-  /** A graduated domain folder holding one file. */
-  PathDomainFolderSingleFile: "path-domain-folder-single-file"
-};
-
 // src/contracts/standardsCheck/StandardsSeverity.ts
 var StandardsSeverity = {
   /** A violation that stops a run when it touches a file that run changed. */
@@ -15296,33 +22553,15 @@ var StandardsSeverity = {
   Off: "off"
 };
 
-// src/contracts/standardsCheck/StandardsPassId.ts
-var StandardsPassId = {
-  /** Name-level comparison over source files. */
-  FilenameDuplicates: "filename-duplicates",
-  /** jscpd token-span clone detection. */
-  Clones: "clones",
-  /** One AST walk: normalized-body duplicates plus the size audit. */
-  AstFindings: "ast-findings",
-  /** Text-level structure lint: exports per file, filename match, domain grouping, folder census. */
-  Structure: "structure",
-  /** Whole-word reference counting for unreferenced exports. */
-  DeadExports: "dead-exports",
-  /** Barrel parsing: star re-exports and unconsumed entries. */
-  BarrelHygiene: "barrel-hygiene",
-  /** Import-graph boundary crossings. */
-  ModuleBoundaries: "module-boundaries",
-  /** Import-graph leaks out of a module's common/. */
-  Placement: "placement",
-  /** Text-level shape rules over test files. */
-  TestShape: "test-shape",
-  /** File-list rules: folder names, folder casing, `common/` shape, test locations. */
-  PathsAndNames: "paths-and-names"
-};
-
 // src/contracts/standardsCheck/StandardsFinding.ts
 var StandardsFinding = external_exports.object({
-  rule: external_exports.enum(StandardsRule),
+  /**
+   * The rule's id, as its folder in a standards package names it. A free
+   * string rather than a closed list: rule identity belongs to the loaded
+   * packages, and the only place the valid ids are known is where those
+   * packages have been read.
+   */
+  rule: external_exports.string(),
   /**
    * Only the two reporting severities. `off` is a CONFIGURATION state — a
    * rule a repo switched off emits nothing, so a persisted finding at
@@ -15346,6 +22585,36 @@ var StandardsFinding = external_exports.object({
    * the same reason, so a reader is told once rather than once per site.
    */
   guidance: external_exports.string().optional()
+});
+
+// src/contracts/standardsCheck/StandardsReviewReport.ts
+var StandardsReviewReport = external_exports.object({
+  findings: external_exports.array(
+    external_exports.object({
+      /** A judgment rule's id — validated against the loaded packages after parsing. */
+      rule: external_exports.string(),
+      files: external_exports.array(external_exports.object({ path: external_exports.string(), startLine: external_exports.number().optional(), endLine: external_exports.number().optional() })),
+      detail: external_exports.string(),
+      guidance: external_exports.string().optional()
+    })
+  )
+});
+
+// src/contracts/standardsCheck/AdvisoryResponse.ts
+var AdvisoryResponse = {
+  Applied: "applied",
+  Declined: "declined"
+};
+
+// src/contracts/standardsCheck/AdvisoryOutcome.ts
+var AdvisoryOutcome = external_exports.object({
+  /** The rule id, echoed from the finding as it was given. */
+  rule: external_exports.string(),
+  /** The finding's site key, echoed from the finding as it was given. */
+  siteKey: external_exports.string(),
+  outcome: external_exports.enum(AdvisoryResponse),
+  /** Why the advice was declined — the sentence the health report prints under the rule. */
+  reason: external_exports.string().optional()
 });
 
 // src/contracts/LightsoutConfig.ts
@@ -15459,19 +22728,21 @@ var LightsoutConfig = external_exports.object({
     message: "every packageScripts command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in scripts.* instead"
   }).optional(),
   /**
-   * Standards for code-writing roles (executor, refactorer). Unspecified =
-   * the engine's bundled JS/TS defaults load (announced in the run header);
-   * `false` = explicitly none; an array = exactly these, where each entry
-   * is a repo-relative markdown file, a repo-relative folder (every `.md`
-   * under it, recursively, in sorted path order), or the token
-   * `lightsout:code-defaults` to stack the bundled defaults with extras. A
-   * missing entry — or a folder holding no markdown — is a hard error.
+   * Standards packages a run works against. Unspecified = the package the
+   * plugin ships (announced in the run header); `false` = explicitly none; an
+   * array = exactly these, where each entry is the root folder of a standards
+   * package — the folder holding `lightsout-standards.json` — repo-relative or
+   * absolute. One key, not two: a package carries both the code and the test
+   * document trees, so a second key could only disagree with this one about
+   * which package is loaded. A root that cannot be loaded is a hard error.
    */
-  standards: external_exports.union([external_exports.array(external_exports.string()), external_exports.literal(false)]).optional(),
-  /** Same, for the test-writer role (token: `lightsout:test-defaults`). */
-  testStandards: external_exports.union([external_exports.array(external_exports.string()), external_exports.literal(false)]).optional(),
+  standardsPackages: external_exports.union([external_exports.array(external_exports.string()), external_exports.literal(false)]).optional(),
+  /** Removed — replaced by `standardsPackages`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  standards: external_exports.never("`standards` was replaced by `standardsPackages` \u2014 standards now load as packages").optional(),
+  /** Removed — the test tree ships inside a standards package. Same reason. */
+  testStandards: external_exports.never("`testStandards` was replaced by `standardsPackages` \u2014 standards now load as packages").optional(),
   /**
-   * Framework channels of the bundled default standards (e.g. 'react',
+   * Framework channels of the loaded standards packages (e.g. 'react',
    * 'tanstack'). Unspecified = detected per run from the scoped packages'
    * package.json dependencies; an array REPLACES detection (empty = base
    * docs only).
@@ -15483,14 +22754,16 @@ var LightsoutConfig = external_exports.object({
    * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
    * value is either a severity, or an object with a severity and/or that
    * rule's own settings. A rule not named here keeps its default — silence
-   * is never a change. Keyed by the closed rule list rather than a free
-   * string, so a mistyped id fails parsing instead of silently disabling an
-   * override the user believes is active (same reasoning as `commands`
-   * being `.strict()`). Read the live state with
+   * is never a change.
+   *
+   * The ids come from the loaded standards packages, so a mistyped one cannot
+   * be caught while parsing this file: `resolvePackageRuleStates` refuses a
+   * key naming no loaded rule and lists the valid ids. The protection is the
+   * same, it just happens where the answer exists. Read the live state with
    * `lightsout standards-check --list`.
    */
-  standardsChecks: external_exports.partialRecord(
-    external_exports.enum(StandardsRule),
+  standardsChecks: external_exports.record(
+    external_exports.string(),
     external_exports.union([
       standardsSeverityValue,
       external_exports.object({
@@ -15681,6 +22954,8 @@ var WorkReport = external_exports.object({
   failures: external_exports.array(external_exports.string()).default([]),
   /** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
   friction: external_exports.array(FrictionEntry).optional(),
+  /** One entry per advisory finding the agent was shown: applied, or declined with the reason. Asked for only where the engine records it (refactor batches); omitted everywhere else. */
+  advisoryOutcomes: external_exports.array(AdvisoryOutcome).optional(),
   /** Prior-art evidence: for each NEW exported symbol the plan didn't explicitly name, the searches run against existing exports before creating it. "Searched, found nothing" becomes typed manifest evidence, not free text. Executor role only; other roles omit. */
   priorArt: external_exports.array(
     external_exports.object({
@@ -15709,6 +22984,46 @@ var SupervisorVerdict = external_exports.object({
   diagnosis: external_exports.string(),
   /** Concrete instructions injected into the retry invocation. Required when decision is retry. */
   guidance: external_exports.string().optional()
+});
+
+// src/contracts/standardsPackage/StandardsInputKind.ts
+var StandardsInputKind = {
+  /** Path lists only — no file is opened. */
+  FileList: "file-list",
+  /** Path lists plus a contents map; each file read once, shared across checks. */
+  FileText: "file-text",
+  /** The consumer's TypeScript plus one parsed SourceFile per source file. */
+  SyntaxTree: "syntax-tree",
+  /** Test files plus their text. */
+  TestFile: "test-file",
+  /** Resolved import edges among the files in scope. */
+  ImportGraph: "import-graph",
+  /** Engine-run token-duplication spans (jscpd), honoring the rule's own settings. */
+  CloneSpans: "clone-spans"
+};
+
+// src/contracts/standardsPackage/StandardsSet.ts
+var StandardsSet = {
+  /** The document tree handed to code-writing roles. */
+  Code: "code",
+  /** The document tree handed to the test-writing role. */
+  Tests: "tests"
+};
+
+// src/contracts/standardsPackage/StandardsPackageRoot.ts
+var StandardsPackageRoot = external_exports.object({
+  /** Names the package in the assembled documents' header lines. */
+  name: external_exports.string().min(1),
+  formatVersion: external_exports.literal(1)
+});
+
+// src/contracts/standardsPackage/RawStandardsFinding.ts
+var RawStandardsFinding = StandardsFinding.omit({ rule: true, severity: true });
+
+// src/contracts/standardsPackage/StandardsCheckModule.ts
+var StandardsCheckModule = external_exports.object({
+  inputKind: external_exports.enum(StandardsInputKind),
+  run: external_exports.custom((value) => typeof value === "function")
 });
 
 // src/contracts/plan/PlanDraftStatus.ts
@@ -15978,7 +23293,9 @@ var BatchReport = external_exports.object({
   /** Site keys still present after the batch (empty when resolved). */
   remainingSiteKeys: external_exports.array(external_exports.string()),
   /** The executing agent's account of why findings were declined, from its friction entries. */
-  rationale: external_exports.array(external_exports.string())
+  rationale: external_exports.array(external_exports.string()),
+  /** What the batch's agent did about each advisory it was shown, accumulated across the batch's invocations. Absent means it reported none — which is also how a manifest written before this field parses. */
+  advisoryOutcomes: external_exports.array(AdvisoryOutcome).optional()
 });
 
 // src/contracts/gates/GateResult.ts
@@ -16051,7 +23368,7 @@ var killProcessGroup = ({ child, signal }) => {
 
 // src/common/utils/terminateChildGroups.ts
 var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
-var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve5) => child.once("exit", () => resolve5()));
+var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve8) => child.once("exit", () => resolve8()));
 var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
   const targets = [...children];
   for (const child of targets) {
@@ -16063,8 +23380,8 @@ var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
   let grace;
   await Promise.race([
     Promise.all(targets.map((child) => exited({ child }))),
-    new Promise((resolve5) => {
-      grace = setTimeout(resolve5, graceMs);
+    new Promise((resolve8) => {
+      grace = setTimeout(resolve8, graceMs);
     })
   ]);
   clearTimeout(grace);
@@ -16121,7 +23438,7 @@ var relayShutdownSignals = ({ child }) => {
 
 // src/common/utils/collectChildOutput.ts
 var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
-  return new Promise((resolve5, reject) => {
+  return new Promise((resolve8, reject) => {
     let stdout = "";
     let stderr = "";
     let lineBuffer = "";
@@ -16164,7 +23481,7 @@ var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
       clearTimeout(timer);
       stopRelay();
       emitLines({ text: "", flush: true });
-      resolve5({ exitCode: code ?? -1, stdout, stderr });
+      resolve8({ exitCode: code ?? -1, stdout, stderr });
     });
   });
 };
@@ -16292,7 +23609,7 @@ var checkJestMocks = async ({ cwd, packageDirs }) => {
 import { readdir as readdir2, readFile as readFile3 } from "node:fs/promises";
 import { join as join4 } from "node:path";
 var checkLintRules = async ({ config: config2, packageDirs }) => {
-  if (config2.standards === false) {
+  if (config2.standardsPackages === false) {
     return void 0;
   }
   const lintFindings = [];
@@ -16385,12 +23702,12 @@ import { join as join7 } from "node:path";
 
 // src/common/utils/extractRunScriptName.ts
 var extractRunScriptName = ({ command }) => {
-  const tokens2 = command.split(/\s+/);
-  const runIndex = tokens2.indexOf("run");
+  const tokens = command.split(/\s+/);
+  const runIndex = tokens.indexOf("run");
   if (runIndex === -1) {
     return void 0;
   }
-  return tokens2.slice(runIndex + 1).find((token) => token !== "" && !token.startsWith("-"));
+  return tokens.slice(runIndex + 1).find((token) => token !== "" && !token.startsWith("-"));
 };
 
 // src/common/utils/resolvePackageManifest.ts
@@ -16524,7 +23841,7 @@ var doctorCommand = async ({ cwd }) => {
       }
     }
   }
-  const tally = Object.entries(counts).filter(([, count]) => count > 0).map(([status, count]) => `${count} ${status}`).join(" \xB7 ");
+  const tally = Object.entries(counts).filter(([, count2]) => count2 > 0).map(([status, count2]) => `${count2} ${status}`).join(" \xB7 ");
   console.log(`
 ${checks.length} check(s) \xB7 ${tally}`);
   process.exit(counts.fail > 0 ? 1 : 0);
@@ -16584,12 +23901,19 @@ var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: c
   return writeRunManifest({ cwd, manifest });
 };
 
+// src/runState/listRunIds.ts
+import { readdir as readdir4 } from "node:fs/promises";
+var listRunIds = async ({ cwd }) => {
+  const entries = await readdir4(getRunsDir({ cwd }), { withFileTypes: true }).catch(() => []);
+  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+};
+
 // src/runState/readRunManifest.ts
 import { readFile as readFile6 } from "node:fs/promises";
 import { join as join11 } from "node:path";
 
 // src/runState/common/paths/resolveRunId.ts
-import { readdir as readdir4 } from "node:fs/promises";
+import { readdir as readdir5 } from "node:fs/promises";
 
 // src/runState/RunNotFoundError.ts
 var RunNotFoundError = class extends Error {
@@ -16597,7 +23921,7 @@ var RunNotFoundError = class extends Error {
 
 // src/runState/common/paths/resolveRunId.ts
 var resolveRunId = async ({ cwd, runId }) => {
-  const entries = await readdir4(getRunsDir({ cwd }), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir5(getRunsDir({ cwd }), { withFileTypes: true }).catch(() => []);
   const runIds = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   if (runIds.includes(runId)) {
     return runId;
@@ -16669,7 +23993,7 @@ var readJsonlRecords = async ({ path, schema }) => {
 var readFriction = async ({ cwd }) => readJsonlRecords({ path: join14(cwd, ".lightsout", "friction.jsonl"), schema: FrictionRecord });
 
 // src/runState/summarizeRun.ts
-import { readdir as readdir5 } from "node:fs/promises";
+import { readdir as readdir6 } from "node:fs/promises";
 import { join as join15 } from "node:path";
 var LedgerRecord = external_exports.object({
   step: external_exports.string(),
@@ -16685,7 +24009,7 @@ var summarizeRun = async ({ cwd, manifest }) => {
   const runDir = getRunDir({ cwd, runId: manifest.runId });
   const ledger = await readJsonlRecords({ path: join15(runDir, "agents.jsonl"), schema: LedgerRecord });
   const commands2 = await readJsonlRecords({ path: join15(runDir, "commands.jsonl"), schema: CommandRecord });
-  const agentFiles = await readdir5(join15(runDir, "agents")).catch(() => []);
+  const agentFiles = await readdir6(join15(runDir, "agents")).catch(() => []);
   const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
   const perStepUsage = /* @__PURE__ */ new Map();
   for (const record2 of ledger) {
@@ -16725,7 +24049,7 @@ var summarizeRun = async ({ cwd, manifest }) => {
     },
     /** Final messages that failed their contract and cost a re-emit retry. */
     rejectedReports: agentFiles.filter((name) => name.startsWith("rejected-")).length,
-    frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count }))
+    frictionByArea: [...frictionByArea.entries()].map(([area, count2]) => ({ area, count: count2 }))
   };
 };
 
@@ -17082,11 +24406,11 @@ var formatDuration = ({ ms }) => {
 };
 
 // src/cli/common/formatting/formatTokenCount.ts
-var formatTokenCount = ({ count }) => {
-  if (count >= 1e6) {
-    return `${(count / 1e6).toFixed(1)}M`;
+var formatTokenCount = ({ count: count2 }) => {
+  if (count2 >= 1e6) {
+    return `${(count2 / 1e6).toFixed(1)}M`;
   }
-  return count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
+  return count2 >= 1e3 ? `${(count2 / 1e3).toFixed(1)}k` : `${count2}`;
 };
 
 // src/cli/common/terminal/bold.ts
@@ -17159,15 +24483,15 @@ var printStepTable = ({ steps, activeMs }) => {
       step.changedFiles ? `${step.changedFiles.length}` : "\u2014"
     ]
   }));
-  const invocations = steps.reduce((count, step) => count + step.invocations, 0);
+  const invocations = steps.reduce((count2, step) => count2 + step.invocations, 0);
   const totalCells = [
     "  total",
     "\u2014",
     activeMs > 0 ? formatDuration({ ms: activeMs }) : "\u2014",
     invocations > 0 ? `${invocations}` : "\u2014",
-    invocations > 0 ? formatTokenCount({ count: steps.reduce((count, step) => count + step.outputTokens, 0) }) : "\u2014",
+    invocations > 0 ? formatTokenCount({ count: steps.reduce((count2, step) => count2 + step.outputTokens, 0) }) : "\u2014",
     invocations > 0 ? `$${steps.reduce((total, step) => total + step.costUsd, 0).toFixed(2)}` : "\u2014",
-    `${steps.reduce((count, step) => count + (step.changedFiles?.length ?? 0), 0)}`
+    `${steps.reduce((count2, step) => count2 + (step.changedFiles?.length ?? 0), 0)}`
   ];
   const lines = renderTable({
     headers,
@@ -17186,7 +24510,7 @@ var printResult = async ({ result, cwd }) => {
   const { manifest, ok, error: error51 } = result;
   const summary = await summarizeRun({ cwd, manifest });
   const label = (name, value) => console.log(`${name.padEnd(10)}${value}`);
-  const plural = (count) => count === 1 ? "" : "s";
+  const plural = (count2) => count2 === 1 ? "" : "s";
   console.log("");
   label("run", `${manifest.runId.slice(0, 8)} \xB7 ${paintStatus({ status: manifest.status, text: bold(manifest.status.toUpperCase()) })}`);
   label("plan", basename(manifest.plan));
@@ -17216,7 +24540,7 @@ var printResult = async ({ result, cwd }) => {
     label("retries", `${summary.rejectedReports} rejected report${plural(summary.rejectedReports)} re-emitted`);
   }
   if (summary.frictionByArea.length > 0) {
-    const total = summary.frictionByArea.reduce((count, entry) => count + entry.count, 0);
+    const total = summary.frictionByArea.reduce((count2, entry) => count2 + entry.count, 0);
     label("friction", `${total} \xB7 ${summary.frictionByArea.map((entry) => `${entry.area} ${entry.count}`).join(" \xB7 ")}`);
   }
   if (manifest.packages.length > 0) {
@@ -17230,20 +24554,19 @@ ${error51}`);
 };
 
 // src/cli/common/render/printRunHeader.ts
-var describeStandards = ({ value, token }) => {
+var describeStandardsPackages = ({ value }) => {
   if (value === false) {
     return "none (explicit)";
   }
   if (value === void 0) {
-    return `lightsout js defaults (none configured \u2014 set to false to disable, or list files/${token})`;
+    return "lightsout-defaults (none configured \u2014 set to false to disable, or list package roots)";
   }
   return value.join(", ");
 };
 var printRunHeader = ({ config: config2, driver, cwd }) => {
   const coverage = config2.scripts.testCoverage === false ? "off (explicit)" : config2.scripts.testCoverage;
   console.log(`  cwd: ${cwd}`);
-  console.log(`  standards: ${describeStandards({ value: config2.standards, token: "lightsout:code-defaults" })}`);
-  console.log(`  test standards: ${describeStandards({ value: config2.testStandards, token: "lightsout:test-defaults" })}`);
+  console.log(`  standards packages: ${describeStandardsPackages({ value: config2.standardsPackages })}`);
   console.log(
     `  harness: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 effort: ${config2.effort ?? "harness default"} \xB7 permissions: ${config2.permissions ?? Permissions.Write}`
   );
@@ -17314,7 +24637,7 @@ var resolvePlanTarget = async ({ cwd, planPath }) => {
 };
 
 // src/phases/runPhasesPipeline.ts
-import { dirname as dirname10, join as join37 } from "node:path";
+import { dirname as dirname5, join as join38 } from "node:path";
 
 // src/common/git/readGitPrefix.ts
 var gitTimeoutMs = 6e4;
@@ -17462,11 +24785,25 @@ var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \
 var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limit below still governs an advisory: never change behavior or a\n  public API. An advisory whose only available fix would do either is REPORTED\n  as a noted exemption with your reason, never applied.\n- Deleting an export is a public-API change by definition. A dead-export-family\n  advisory (`dead-export`, `test-only-export`, `barrel-only-export`) is\n  therefore reported rather than acted on, unless the finding itself proves\n  nothing consumes the export.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // src/agents/buildRefactorExecutorInvocation.ts
+var advisoryOutcomesSection = [
+  "# Report what you did about each advisory",
+  'For every advisory listed above \u2014 machine-checked or agent-reviewed \u2014 add one entry to the `advisoryOutcomes` array of your report: the finding\'s `rule` and `siteKey` copied exactly as given, `outcome` of "applied" when you made the change or "declined" when you did not, and for a decline a short `reason`.',
+  "This is an account, never a gate: it is what tells a human which rules keep being declined and why. Reporting a decline honestly is always better than an entry that claims work you did not do.",
+  '```\n"advisoryOutcomes": [{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies \u2014 every step delegates" }]\n```'
+].join("\n\n");
 var findingLine = (finding) => {
   const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(" \u2194 ");
   return `- [${finding.rule}] ${where} \u2014 ${formatFindingText({ finding })}`;
 };
-var buildRefactorExecutorInvocation = ({ planContent, changedFiles, standards, findings, advisories, errorContext }) => {
+var buildRefactorExecutorInvocation = ({
+  planContent,
+  changedFiles,
+  standards,
+  findings,
+  advisories,
+  reportAdvisoryOutcomes,
+  errorContext
+}) => {
   const roleSections = [refactorExecutor_default, `# Plan (context for what these changes were for)
 
 ${planContent}`];
@@ -17498,6 +24835,9 @@ ${advisories.map(findingLine).join("\n")}`
     }
     sections.push(parts.join("\n\n"));
   }
+  if (reportAdvisoryOutcomes && advisories && advisories.length > 0) {
+    sections.push(advisoryOutcomesSection);
+  }
   if (errorContext) {
     sections.push(
       `# Verification failure
@@ -17511,6 +24851,36 @@ ${errorContext}`
   return {
     systemPrompt: roleSections.join("\n\n---\n\n"),
     prompt: sections.join("\n\n")
+  };
+};
+
+// src/agents/prompts/standardsReviewer.md
+var standardsReviewer_default = '# Role: Standards Reviewer\n\nYou read a set of standards rules against a set of files and report where the\nfiles break them. The rules are the ones no code can check \u2014 they are judgment,\nwhich is why a reader is doing this instead of a check. Their full text is\nappended to these instructions; the files in scope arrive in the task message.\nYour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## What you are for\n\nEvery rule you are given was written out in full on purpose: its argument is\nwhat lets you recognise a violation the author never anticipated. Read the\nargument, not just the headline, and apply it to what the files actually do.\n\n## How to work\n\n- Read the files in scope. Read enough surrounding code to judge conventions \u2014\n  reading outside the scope is fine, reporting outside it is not.\n- Report a violation only when you can point at a specific file and say, in the\n  rule\'s own terms, what is wrong there. "This file could be cleaner" is not a\n  finding.\n- Quote the rule\'s reasoning in your `detail`, so a reader can disagree with you\n  on the merits rather than guessing what you had in mind.\n- Prefer silence to speculation. An empty `findings` list is a correct and\n  common answer, and a report full of weak findings makes the whole review\n  ignorable.\n- Report each violation once, at the site where it lives. Do not re-report the\n  same problem under several rules.\n\n## Your findings are advice\n\nEverything you report is advisory. It never blocks a run, never fails a gate,\nand never obliges anyone to act \u2014 a human or another agent weighs it in context\nand may decline it with a reason. Write accordingly: state what you saw, why the\nrule cares, and what you would do about it. Do not escalate, do not insist, and\ndo not pad the list to look thorough.\n\n## Hard limits\n\n- Change nothing. You read and report; you never edit, create, or delete files.\n- Do not run shell commands, builds, or test suites.\n- `rule` must be one of the rule ids given to you, spelled exactly. A finding\n  naming any other id is dropped.\n- Every finding needs at least one file, with a repo-relative path as it was\n  listed to you. Line numbers are welcome when you have them.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"findings": [\n		{\n			"rule": "the-rule-id-exactly-as-given",\n			"files": [{ "path": "src/example.ts", "startLine": 12, "endLine": 30 }],\n			"detail": "what is true of this site, in the rule\'s own terms",\n			"guidance": "optional \u2014 what to do about findings of this kind"\n		}\n	]\n}\n```\n\nAn empty list is written as `{ "findings": [] }`.\n';
+
+// src/agents/buildStandardsReviewInvocation.ts
+var ruleSection = ({ rule }) => `**Rule id: \`${rule.id}\`**
+
+${rule.prose}`;
+var buildStandardsReviewInvocation = ({ rules, files }) => {
+  const byDocument = /* @__PURE__ */ new Map();
+  for (const rule of rules) {
+    byDocument.set(rule.documentPath, [...byDocument.get(rule.documentPath) ?? [], rule]);
+  }
+  const documents = [...byDocument.entries()].map(
+    ([path, group]) => `## ${path}
+
+${group.map((rule) => ruleSection({ rule })).join("\n\n")}`
+  );
+  return {
+    systemPrompt: [standardsReviewer_default, `# Rules to review against
+
+${documents.join("\n\n")}`].join("\n\n---\n\n"),
+    prompt: [
+      `# Files in scope for the standards review
+
+${files.map((file2) => `- ${file2}`).join("\n")}`,
+      "Remember: your entire final message must be exactly one JSON report object \u2014 nothing else."
+    ].join("\n\n")
   };
 };
 
@@ -17743,7 +25113,7 @@ ${candidates.map(renderCandidate).join("\n")}`,
 
 // src/invoke/extractJsonReport.ts
 var findBalancedEnd = ({ text, start }) => {
-  let depth2 = 0;
+  let depth = 0;
   let inString = false;
   let escaped = false;
   for (let index = start; index < text.length; index += 1) {
@@ -17761,10 +25131,10 @@ var findBalancedEnd = ({ text, start }) => {
     if (char === '"') {
       inString = true;
     } else if (char === "{") {
-      depth2 += 1;
+      depth += 1;
     } else if (char === "}") {
-      depth2 -= 1;
-      if (depth2 === 0) {
+      depth -= 1;
+      if (depth === 0) {
         return index;
       }
     }
@@ -17875,7 +25245,7 @@ var invokeAgentWithContract = async ({
 
 // src/pipeline/PipelineRun.ts
 var defaultAgentTimeoutMinutes = 60;
-var formatTokens = (count) => count >= 1e3 ? `${(count / 1e3).toFixed(1)}k` : `${count}`;
+var formatTokens = (count2) => count2 >= 1e3 ? `${(count2 / 1e3).toFixed(1)}k` : `${count2}`;
 var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
 var upsertStep = ({ steps, record: record2 }) => {
   const existing = steps.findIndex((step) => step.id === record2.id);
@@ -18299,129 +25669,427 @@ ${error51}` });
   }
 });
 
-// src/pipeline/common/utils/consumerRelative.ts
-var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
-
-// src/pipeline/common/utils/collectChanged.ts
-var collectChanged = async ({ run, gitPrefix, reports }) => {
-  const isGeneratedFile = (file2) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const packagesDir = run.config.packagesDir ?? "packages";
-  const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
-    (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
-  );
-  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile(file2));
-  const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
-  const fromFiles = changedFiles.flatMap((file2) => {
-    const packageDir = packageOf({ file: file2, packagesDir });
-    return packageDir ? [packageDir] : [];
-  });
-  return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
-};
-
-// src/pipeline/common/utils/invokeRoleOrStop.ts
-var invokeRoleOrStop = async ({ run, record: record2, invocation, step }) => {
-  const outcome = await run.invokeRole({ invocation, step });
-  if (!outcome.ok) {
-    return outcome.rateLimited ? { stopped: await run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) } : { stopped: await run.stop({ record: record2, status: RunStatus.Failed, error: outcome.failure }) };
-  }
-  return { report: outcome.report };
-};
-
-// src/pipeline/common/utils/withStepFiles.ts
-var withStepFiles = ({ record: record2, reports, gitPrefix }) => ({
-  ...record2,
-  changedFiles: [
-    .../* @__PURE__ */ new Set([
-      ...record2.changedFiles ?? [],
-      ...reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path })))
-    ])
-  ]
+// src/standards/detectStandardsChannels.ts
+import { readFile as readFile10 } from "node:fs/promises";
+import { join as join21 } from "node:path";
+var Manifest = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
+var channelSignals = {
+  react: ["react", "preact", "react-dom"],
+  tanstack: ["@tanstack/react-start", "@tanstack/start"]
+};
+var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join21(cwd, packagesDir, name, "package.json")) : [join21(cwd, "package.json")];
+  const dependencies = /* @__PURE__ */ new Set();
+  for (const path of manifestPaths) {
+    try {
+      const parsed = Manifest.parse(JSON.parse(await readFile10(path, "utf8")));
+      for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
+        for (const name of Object.keys(record2 ?? {})) {
+          dependencies.add(name);
+        }
+      }
+    } catch {
+    }
+  }
+  return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
+};
 
-// src/pipeline/steps/describePersistingFindings.ts
-var describePersistingFindings = ({ findings, report, passes }) => {
-  const findingLines = findings.map((finding) => {
-    const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(", ");
-    return `- ${finding.siteKey} \u2014 ${formatFindingText({ finding })}
-  at ${where}`;
+// src/standardsPackages/loadStandardsPackage.ts
+import { readdir as readdir9, readFile as readFile13 } from "node:fs/promises";
+import { join as join24 } from "node:path";
+
+// src/standardsPackages/common/parsing/parseDocumentFolder.ts
+import { readdir as readdir8, readFile as readFile12 } from "node:fs/promises";
+import { join as join23 } from "node:path";
+
+// src/standardsPackages/common/parsing/parseFrontMatter.ts
+var import_yaml = __toESM(require_dist(), 1);
+var frontMatterBlock = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var parseFrontMatter = ({ text }) => {
+  const match = frontMatterBlock.exec(text);
+  let data = {};
+  let body = text;
+  if (match?.[1] !== void 0) {
+    const block = match[1];
+    let parsed;
+    try {
+      parsed = (0, import_yaml.parse)(block);
+    } catch (error51) {
+      const firstLine = block.split("\n")[0] ?? "";
+      throw new Error(`front matter is not valid YAML (starting "${firstLine}"): ${messageOf({ error: error51 })}`);
+    }
+    data = isRecord(parsed) ? parsed : {};
+    body = text.slice(match[0].length);
+  }
+  return { data, body };
+};
+
+// src/standardsPackages/common/utils/formatSchemaIssues.ts
+var formatSchemaIssues = ({ issues, subject }) => issues.map((issue2) => `${issue2.path.join(".") || subject} ${issue2.message}`).join("; ");
+
+// src/standardsPackages/common/parsing/parseDeclaration.ts
+var parseDeclaration = ({ text, schema, filePath, problems }) => {
+  let declaration;
+  let body = "";
+  try {
+    const frontMatter = parseFrontMatter({ text });
+    const parsed = schema.safeParse(frontMatter.data);
+    body = frontMatter.body.trim();
+    if (parsed.success) {
+      declaration = parsed.data;
+    } else {
+      problems.push(`${filePath}: ${formatSchemaIssues({ issues: parsed.error.issues, subject: "front matter" })}`);
+    }
+  } catch (error51) {
+    problems.push(`${filePath}: ${messageOf({ error: error51 })}`);
+  }
+  return { declaration, body };
+};
+
+// src/standardsPackages/common/parsing/parseRuleFolder.ts
+import { readdir as readdir7, readFile as readFile11 } from "node:fs/promises";
+import { basename as basename2, join as join22 } from "node:path";
+
+// src/standardsPackages/common/utils/hasFile.ts
+import { stat as stat3 } from "node:fs/promises";
+var hasFile = async ({ path }) => stat3(path).then(
+  () => true,
+  () => false
+);
+
+// src/standardsPackages/common/utils/loadCheckModule.ts
+import { pathToFileURL } from "node:url";
+var loadCheckModule = async ({ checkPath }) => {
+  const imported = await import(pathToFileURL(checkPath).href);
+  const parsed = StandardsCheckModule.safeParse(imported.check);
+  if (!parsed.success) {
+    throw new Error(`check.ts must export \`check\` as { inputKind, run } (${checkPath}): ${formatSchemaIssues({ issues: parsed.error.issues, subject: "check" })}`);
+  }
+  return parsed.data;
+};
+
+// src/standardsPackages/common/parsing/parseRuleFolder.ts
+var ruleDeclaration = external_exports.object({
+  summary: external_exports.string().min(1),
+  checked: external_exports.boolean().default(false),
+  severity: external_exports.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]).default(StandardsSeverity.Advisory),
+  settings: external_exports.record(external_exports.string(), external_exports.number()).default({})
+});
+var listEntries = async ({ path }) => readdir7(path).catch(() => void 0);
+var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
+  const filePath = `${rulePath}/rule.md`;
+  const text = await readFile11(join22(folderPath, "rule.md"), "utf8").catch((error51) => {
+    found.push(`${filePath}: unreadable \u2014 ${messageOf({ error: error51 })}`);
+    return void 0;
   });
-  const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
-  return [
-    `refactor: standards gate \u2014 ${findings.length} blocking persist after ${passes} pass(es):`,
-    ...findingLines,
-    ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
-  ].join("\n");
+  const parsed = text === void 0 ? void 0 : parseDeclaration({ text, schema: ruleDeclaration, filePath, problems: found });
+  return { declaration: parsed?.declaration, prose: parsed?.body ?? "" };
+};
+var validateFixtures = async ({ fixturesPath, rulePath, found }) => {
+  for (const side of ["pass", "fail"]) {
+    const entries = await listEntries({ path: join22(fixturesPath, side) });
+    if (entries === void 0 || entries.length === 0) {
+      found.push(`${rulePath}: fixtures/${side}/ is missing or empty \u2014 every rule ships a fixture pair`);
+    }
+  }
+};
+var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) => {
+  const folderName = basename2(folderPath);
+  const rulePath = `${documentPath}/${folderName}`;
+  const found = [];
+  const id = /^\d+-(.+)$/.exec(folderName)?.[1];
+  if (id === void 0) {
+    found.push(`${rulePath}: rule folder must be named <NN>-<rule-id>, e.g. 01-${folderName}`);
+  }
+  const { declaration, prose } = await getRuleDeclaration({ folderPath, rulePath, found });
+  const checkPath = join22(folderPath, "check.ts");
+  const hasCheck = await hasFile({ path: checkPath });
+  if (declaration?.checked === true && !hasCheck) {
+    found.push(`${rulePath}: declares checked: true but ships no check.ts`);
+  }
+  if (declaration?.checked === false && hasCheck) {
+    found.push(`${rulePath}: ships a check.ts but does not declare checked: true`);
+  }
+  const fixturesPath = join22(folderPath, "fixtures");
+  await validateFixtures({ fixturesPath, rulePath, found });
+  let check2;
+  if (declaration?.checked === true && hasCheck) {
+    try {
+      check2 = await loadCheckModule({ checkPath });
+    } catch (error51) {
+      found.push(`${rulePath}: ${messageOf({ error: error51 })}`);
+    }
+  }
+  problems.push(...found);
+  let rule;
+  if (found.length === 0 && id !== void 0 && declaration !== void 0) {
+    rule = {
+      id,
+      set: set2,
+      documentPath,
+      summary: declaration.summary,
+      prose,
+      // The owning document stamps its own channel over this default.
+      channel: "base",
+      checked: declaration.checked,
+      defaultSeverity: declaration.severity,
+      defaultSettings: declaration.settings,
+      ...check2 === void 0 ? {} : { inputKind: check2.inputKind, run: check2.run },
+      fixturesPath
+    };
+  }
+  return rule;
+};
+
+// src/standardsPackages/common/parsing/parseDocumentFolder.ts
+var documentDeclaration = external_exports.object({
+  channel: external_exports.string().min(1).default("base")
+});
+var listRuleFolders = async ({ folderPath }) => {
+  const entries = await readdir8(folderPath, { withFileTypes: true }).catch(() => []);
+  const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+  const folders = [];
+  for (const name of directories) {
+    const isRule = await hasFile({ path: join23(folderPath, name, "rule.md") });
+    if (isRule) {
+      folders.push(name);
+    }
+  }
+  return folders;
+};
+var parseDocumentFolder = async ({
+  folderPath,
+  documentPath,
+  set: set2,
+  problems
+}) => {
+  const text = await readFile12(join23(folderPath, "document.md"), "utf8").catch(() => void 0);
+  if (text === void 0) {
+    problems.push(`${documentPath}/document.md: unreadable`);
+    return void 0;
+  }
+  const { declaration, body: intro } = parseDeclaration({
+    text,
+    schema: documentDeclaration,
+    filePath: `${documentPath}/document.md`,
+    problems
+  });
+  const rules = [];
+  for (const name of await listRuleFolders({ folderPath })) {
+    const rule = await parseRuleFolder({ folderPath: join23(folderPath, name), set: set2, documentPath, problems });
+    if (rule !== void 0 && declaration !== void 0) {
+      rules.push({ ...rule, channel: declaration.channel });
+    }
+  }
+  let parsedDocument;
+  if (declaration !== void 0) {
+    parsedDocument = {
+      document: { set: set2, path: documentPath, channel: declaration.channel, intro, ruleIds: rules.map((rule) => rule.id) },
+      rules
+    };
+  }
+  return parsedDocument;
+};
+
+// src/standardsPackages/loadStandardsPackage.ts
+var walk = async ({ folderPath, documentPath, set: set2, problems, documents, rules }) => {
+  const entries = await readdir9(folderPath, { withFileTypes: true }).catch(() => void 0);
+  if (entries === void 0) {
+    return;
+  }
+  if (entries.some((entry) => entry.name === "document.md")) {
+    const parsed = await parseDocumentFolder({ folderPath, documentPath, set: set2, problems });
+    if (parsed !== void 0) {
+      documents.push(parsed.document);
+      rules.push(...parsed.rules);
+    }
+  } else {
+    const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+    for (const name of directories) {
+      await walk({ folderPath: join24(folderPath, name), documentPath: `${documentPath}/${name}`, set: set2, problems, documents, rules });
+    }
+  }
+};
+var findDuplicateIds = ({ rules }) => {
+  const owners = /* @__PURE__ */ new Map();
+  const duplicates = [];
+  for (const rule of rules) {
+    const owner = owners.get(rule.id);
+    if (owner === void 0) {
+      owners.set(rule.id, rule.documentPath);
+    } else {
+      duplicates.push(`duplicate rule id "${rule.id}": claimed by ${owner} and ${rule.documentPath}`);
+    }
+  }
+  return duplicates;
+};
+var loadStandardsPackage = async ({ packagePath }) => {
+  const rootFilePath = join24(packagePath, "lightsout-standards.json");
+  const rootText = await readFile13(rootFilePath, "utf8").catch(() => void 0);
+  if (rootText === void 0) {
+    throw new Error(`standards package root file not found: ${rootFilePath}`);
+  }
+  let rootData;
+  try {
+    rootData = JSON.parse(rootText);
+  } catch (error51) {
+    throw new Error(`standards package root file is not valid JSON (${rootFilePath}): ${messageOf({ error: error51 })}`);
+  }
+  const root = StandardsPackageRoot.safeParse(rootData);
+  if (!root.success) {
+    throw new Error(`standards package root file is invalid (${rootFilePath}): ${formatSchemaIssues({ issues: root.error.issues, subject: "root file" })}`);
+  }
+  const problems = [];
+  const documents = [];
+  const rules = [];
+  for (const set2 of [StandardsSet.Code, StandardsSet.Tests]) {
+    await walk({ folderPath: join24(packagePath, set2), documentPath: set2, set: set2, problems, documents, rules });
+  }
+  if (documents.length === 0) {
+    problems.push("package declares no documents \u2014 code/ and tests/ hold no folder with a document.md");
+  }
+  problems.push(...findDuplicateIds({ rules }));
+  if (problems.length > 0) {
+    throw new Error(`standards package failed to load (${packagePath}):
+${problems.map((problem) => `- ${problem}`).join("\n")}`);
+  }
+  return {
+    name: root.data.name,
+    formatVersion: root.data.formatVersion,
+    rootPath: packagePath,
+    documents,
+    rules
+  };
+};
+
+// src/standardsPackages/buildStandardsDocuments.ts
+var byPath = (left, right) => left.path === right.path ? 0 : left.path > right.path ? 1 : -1;
+var renderDocument = ({
+  name,
+  document,
+  proseById
+}) => {
+  const parts = [document.intro, ...document.ruleIds.map((id) => proseById.get(id) ?? "")].filter((part) => part.length > 0);
+  return `<!-- ${name}: ${document.path} -->
+${parts.join("\n\n")}`;
+};
+var buildStandardsDocuments = ({ pkg, channels }) => {
+  const proseById = new Map(pkg.rules.map((rule) => [rule.id, rule.prose]));
+  const renderSet = ({ set: set2 }) => {
+    const inSet = pkg.documents.filter((document) => document.set === set2);
+    const inChannel = ({ channel }) => inSet.filter((document) => document.channel === channel).sort(byPath);
+    const ordered = [...inChannel({ channel: "base" }), ...channels.flatMap((channel) => inChannel({ channel }))];
+    return ordered.length === 0 ? void 0 : ordered.map((document) => renderDocument({ name: pkg.name, document, proseById })).join("\n\n");
+  };
+  const code = renderSet({ set: StandardsSet.Code });
+  const tests = renderSet({ set: StandardsSet.Tests });
+  const assembled = {};
+  if (code !== void 0) {
+    assembled.code = code;
+  }
+  if (tests !== void 0) {
+    assembled.tests = tests;
+  }
+  return assembled;
+};
+
+// src/standardsPackages/resolveDefaultStandardsPackage.ts
+import { existsSync } from "node:fs";
+import { dirname as dirname3, join as join25, resolve as resolve2 } from "node:path";
+var resolveDefaultStandardsPackage = ({ startDir } = {}) => {
+  const entryPoint = process.argv[1];
+  let current = resolve2(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname3(entryPoint)));
+  let found;
+  while (found === void 0) {
+    const candidates = [join25(current, "standards"), join25(current, "plugin", "standards")];
+    found = candidates.find((candidate) => existsSync(join25(candidate, "lightsout-standards.json")));
+    const parent = dirname3(current);
+    if (found === void 0 && parent === current) {
+      throw new Error(`bundled default standards not found next to the engine (searched upward from ${current})`);
+    }
+    current = parent;
+  }
+  return found;
+};
+
+// src/standardsPackages/resolveStandardsPackages.ts
+import { isAbsolute, resolve as resolve3 } from "node:path";
+var resolveRoots = ({ cwd, standardsPackages }) => {
+  if (standardsPackages === false) {
+    return [];
+  }
+  if (standardsPackages === void 0) {
+    return [resolveDefaultStandardsPackage()];
+  }
+  return standardsPackages.map((entry) => isAbsolute(entry) ? entry : resolve3(cwd, entry));
+};
+var findCrossPackageDuplicates = ({ packages }) => {
+  const owners = /* @__PURE__ */ new Map();
+  const duplicates = [];
+  for (const pkg of packages) {
+    for (const rule of pkg.rules) {
+      const owner = owners.get(rule.id);
+      if (owner === void 0) {
+        owners.set(rule.id, pkg);
+      } else {
+        duplicates.push(`duplicate rule id "${rule.id}": claimed by ${owner.name} (${owner.rootPath}) and ${pkg.name} (${pkg.rootPath})`);
+      }
+    }
+  }
+  return duplicates;
+};
+var resolveStandardsPackages = async ({ cwd, config: config2 }) => {
+  const roots = resolveRoots({ cwd, standardsPackages: config2?.standardsPackages });
+  const packages = [];
+  for (const packagePath of roots) {
+    packages.push(await loadStandardsPackage({ packagePath }));
+  }
+  const duplicates = findCrossPackageDuplicates({ packages });
+  if (duplicates.length > 0) {
+    throw new Error(`standards packages disagree about rule ids:
+${duplicates.map((duplicate) => `- ${duplicate}`).join("\n")}`);
+  }
+  return packages;
+};
+
+// src/standards/resolveStandards.ts
+var resolveStandards = async ({ cwd, config: config2, packages }) => {
+  const loaded = await resolveStandardsPackages({ cwd, config: config2 });
+  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2.packagesDir ?? "packages", packages });
+  const assembled = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }));
+  const stack = ({ set: set2 }) => {
+    const texts = assembled.map((documents) => documents[set2]).filter((text) => text !== void 0);
+    return texts.length === 0 ? void 0 : texts.join("\n\n");
+  };
+  return {
+    standards: stack({ set: StandardsSet.Code }),
+    testStandards: stack({ set: StandardsSet.Tests }),
+    channels,
+    configured: config2.standardsChannels !== void 0,
+    requested: loaded.length > 0
+  };
 };
 
 // src/standardsCheck/runStandardsCheck.ts
 import { mkdir as mkdir6, writeFile as writeFile6 } from "node:fs/promises";
-import { join as join31 } from "node:path";
-
-// src/common/utils/listSourceFiles.ts
-import { readdir as readdir6 } from "node:fs/promises";
-import { join as join21, relative } from "node:path";
-var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
-var sourceExtension = /\.(m|c)?[jt]sx?$/;
-var listSourceFiles = async ({ cwd, exclude = [] }) => {
-  const files = [];
-  const walk = async (dir) => {
-    const entries = await readdir6(dir, { withFileTypes: true }).catch(() => []);
-    for (const entry of entries) {
-      if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
-        continue;
-      }
-      const path = join21(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(path);
-        continue;
-      }
-      const rel = relative(cwd, path);
-      if (!sourceExtension.test(entry.name) || entry.name.endsWith(".d.ts")) {
-        continue;
-      }
-      if (exclude.some((prefix) => rel.startsWith(prefix.replace(/\/$/, "")))) {
-        continue;
-      }
-      files.push(rel);
-    }
-  };
-  await walk(cwd);
-  return files.sort();
-};
-
-// src/common/utils/resolveConsumerTypescript.ts
-import { readdirSync } from "node:fs";
-import { createRequire } from "node:module";
-import { join as join22, resolve as resolve2 } from "node:path";
-var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
-  const root = resolve2(cwd);
-  let packageNames = [];
-  try {
-    packageNames = readdirSync(join22(root, packagesDir)).filter((name) => !name.startsWith("."));
-  } catch {
-  }
-  const manifests = [join22(root, "package.json"), ...packageNames.map((name) => join22(root, packagesDir, name, "package.json"))];
-  for (const manifest of manifests) {
-    try {
-      return createRequire(manifest)("typescript");
-    } catch {
-      continue;
-    }
-  }
-  return void 0;
-};
+import { join as join32 } from "node:path";
 
 // src/standardsCheck/common/utils/applyStandardsBaseline.ts
-import { readFile as readFile10, writeFile as writeFile5 } from "node:fs/promises";
-import { join as join23 } from "node:path";
+import { readFile as readFile14, writeFile as writeFile5 } from "node:fs/promises";
+import { join as join26 } from "node:path";
 var StandardsBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
   siteKeys: external_exports.array(external_exports.string())
 });
 var applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline }) => {
-  const baselinePath = join23(cwd, "lightsout.standards-baseline.json");
-  const baselineRaw = await readFile10(baselinePath, "utf8").catch(() => void 0);
+  const baselinePath = join26(cwd, "lightsout.standards-baseline.json");
+  const baselineRaw = await readFile14(baselinePath, "utf8").catch(() => void 0);
   const notes = [];
   let baselineJson;
   try {
@@ -18462,622 +26130,88 @@ var applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline })
   return { reported: all ? findings : fresh, notes };
 };
 
-// src/standardsCheck/common/constants/codeRuleDefinitions.ts
-var codeRuleDefinitions = {
-  [StandardsRule.NameDuplicate]: {
-    doc: "standards/code/architecture/architecture-decisions.md",
-    summary: "the same export name declared in more than one place",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.FilenameDuplicates,
-    needsTypescript: false
-  },
-  [StandardsRule.NameSynonym]: {
-    doc: "standards/code/style-guide/conventions/naming.md",
-    summary: "export names differing only by synonym or word order",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.FilenameDuplicates,
-    needsTypescript: false
-  },
-  [StandardsRule.Clone]: {
-    doc: "standards/code/architecture/architecture-decisions.md",
-    summary: "token-level copy-paste spans",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.Clones,
-    needsTypescript: false,
-    defaultSettings: { minTokens: 50 }
-  },
-  [StandardsRule.AstDuplicate]: {
-    doc: "standards/code/architecture/architecture-decisions.md",
-    summary: "function bodies identical after identifier normalization",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.AstFindings,
-    needsTypescript: true,
-    defaultSettings: { minBodyTokens: 40 }
-  },
-  [StandardsRule.SizeFile]: {
-    doc: "standards/code/style-guide/patterns/functions.md",
-    summary: "a file over the standards line cap",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.AstFindings,
-    needsTypescript: true,
-    defaultSettings: { file: 250, tsxFile: 300 }
-  },
-  [StandardsRule.SizeFunction]: {
-    doc: "standards/code/style-guide/patterns/functions.md",
-    summary: "a function, hook or component over its line cap",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.AstFindings,
-    needsTypescript: true,
-    defaultSettings: { function: 80, hook: 160, component: 200 }
-  },
-  [StandardsRule.MultiExport]: {
-    doc: "standards/code/style-guide/structure/one-export-per-file.md",
-    summary: "more than one export in a file, outside the closed exception list",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.Structure,
-    needsTypescript: false
-  },
-  [StandardsRule.FilenameMismatch]: {
-    doc: "standards/code/style-guide/conventions/file-naming.md",
-    summary: "a filename that does not match the export it holds",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.Structure,
-    needsTypescript: false
-  },
-  [StandardsRule.DomainGraduation]: {
-    doc: "standards/code/architecture/folder-structure.md",
-    summary: "sibling utils sharing a subject verb \u2014 a domain-folder candidate",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.Structure,
-    needsTypescript: false
-  },
-  [StandardsRule.FolderCensus]: {
-    doc: "standards/code/architecture/folder-structure.md",
-    summary: "more files in one flat folder than the census cap allows",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.Structure,
-    needsTypescript: false,
-    defaultSettings: { cap: 20 }
-  },
-  [StandardsRule.DeadExport]: {
-    doc: "standards/code/architecture/architecture-decisions.md",
-    summary: "an export nothing else references",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.DeadExports,
-    needsTypescript: false
-  },
-  [StandardsRule.BarrelOnlyExport]: {
-    doc: "standards/code/style-guide/structure/module-api.md",
-    summary: "an export reached only through a barrel, with no consuming module",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.DeadExports,
-    needsTypescript: false
-  },
-  [StandardsRule.ModuleBoundary]: {
-    doc: "standards/code/style-guide/structure/module-api.md",
-    summary: "a file deep-imported across a module boundary instead of through its barrel",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.ModuleBoundaries,
-    needsTypescript: true
-  },
-  [StandardsRule.Placement]: {
-    doc: "standards/code/architecture/folder-structure.md",
-    summary: "module-internal shared code leaking out of its module's common/",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.Placement,
-    needsTypescript: true
-  },
-  [StandardsRule.BarrelStar]: {
-    doc: "standards/code/style-guide/structure/module-api.md",
-    summary: "a barrel re-exporting with `export *` instead of named re-exports",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.BarrelHygiene,
-    needsTypescript: false
-  },
-  [StandardsRule.BarrelDeadEntry]: {
-    doc: "standards/code/style-guide/structure/module-api.md",
-    summary: "a barrel entry no file outside the module consumes",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.BarrelHygiene,
-    needsTypescript: false
-  },
-  [StandardsRule.PathBannedModuleName]: {
-    doc: "standards/code/architecture/folder-structure.md",
-    summary: "a folder named for the role of the code it holds",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  },
-  [StandardsRule.PathCommonFlat]: {
-    doc: "standards/code/architecture/folder-structure.md",
-    summary: "a file placed directly in `common/` instead of under a type folder",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  },
-  [StandardsRule.PathCommonBarrel]: {
-    doc: "standards/code/style-guide/structure/module-api.md",
-    summary: "a barrel under `common/`, which is definitionally boundary-less",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  },
-  [StandardsRule.PathFolderCasing]: {
-    doc: "standards/code/architecture/folder-structure.md",
-    summary: "a folder whose casing matches none of the doc's three resolutions",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  },
-  [StandardsRule.PathDomainFolderSingleFile]: {
-    doc: "standards/code/architecture/folder-structure.md",
-    summary: "a graduated domain folder holding one file",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  }
-};
-
-// src/standardsCheck/common/constants/testRuleDefinitions.ts
-var testRuleDefinitions = {
-  [StandardsRule.TestOnlyExport]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "an export only its own tests reference",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.DeadExports,
-    needsTypescript: false
-  },
-  [StandardsRule.TestMockPrefix]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a module-scope mock variable without the `mock` prefix Jest hoisting needs",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestMockReturnInHook]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a mock return value set in a beforeEach instead of the setup factory",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestMockUntyped]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a `jest.fn()` with no generic, so the spy does not match the real signature",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestMockWrapperUntyped]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a `jest.mock` factory wrapper that discards the arguments it is called with",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestSharedLet]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a `let` reassigned in a beforeEach \u2014 mutable state shared across tests",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestAssertInHook]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "an assertion in a beforeEach instead of the test body",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestNestedDescribe]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a nested `describe` outside the `when \u2026` / `for \u2026` exception",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestManualMockCleanup]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "manual mock cleanup in a lifecycle hook, which the Jest config already does",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestStrictEqualMatcher]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "`toStrictEqual` with an asymmetric matcher \u2014 strict in name only",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestMultipleSetups]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "more than one setup factory call in one test",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false
-  },
-  [StandardsRule.TestMegaFactory]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a setup factory grown past its parameter cap",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.TestShape,
-    needsTypescript: false,
-    defaultSettings: { maxParams: 6 }
-  },
-  [StandardsRule.PathTestInTestsFolder]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a unit test in a separate tests directory instead of beside its subject",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  },
-  [StandardsRule.PathTestNotColocated]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a co-located test whose first name segment names no source file in its folder",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  },
-  [StandardsRule.PathTestSupportInSrc]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "shared test fixtures or mocks living under `src/`",
-    defaultSeverity: StandardsSeverity.Blocking,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  },
-  [StandardsRule.PathTestUntestedSubjectNotPublic]: {
-    doc: "standards/tests/unit/jest/unit-testing.md",
-    summary: "a test file whose subject its module's barrel does not export",
-    defaultSeverity: StandardsSeverity.Advisory,
-    pass: StandardsPassId.PathsAndNames,
-    needsTypescript: false
-  }
-};
-
-// src/standardsCheck/standardsRuleRegistry.ts
-var standardsRuleRegistry = {
-  ...codeRuleDefinitions,
-  ...testRuleDefinitions
-};
-
-// src/standardsCheck/resolveRuleStates.ts
-var resolveRuleStates = ({ config: config2 }) => {
+// src/standardsCheck/resolvePackageRuleStates.ts
+var resolvePackageRuleStates = ({ packages, config: config2 }) => {
   const states = /* @__PURE__ */ new Map();
-  for (const rule of Object.values(StandardsRule)) {
-    const definition = standardsRuleRegistry[rule];
-    const override = config2?.standardsChecks?.[rule];
+  const owners = /* @__PURE__ */ new Map();
+  for (const pkg of packages) {
+    for (const rule of pkg.rules) {
+      const owner = owners.get(rule.id);
+      if (owner !== void 0) {
+        throw new Error(`duplicate rule id "${rule.id}": claimed by standards packages "${owner}" and "${pkg.name}"`);
+      }
+      owners.set(rule.id, pkg.name);
+      states.set(rule.id, { severity: rule.defaultSeverity, settings: { ...rule.defaultSettings }, fromConfig: false });
+    }
+  }
+  for (const [id, override] of Object.entries(config2?.standardsChecks ?? {})) {
+    const state = states.get(id);
+    if (state === void 0) {
+      throw new Error(`standardsChecks names "${id}", which no loaded standards package declares \u2014 valid rule ids: ${[...states.keys()].sort().join(", ")}`);
+    }
     const object2 = typeof override === "object" ? override : void 0;
-    states.set(rule, {
-      severity: (typeof override === "string" ? override : object2?.severity) ?? definition.defaultSeverity,
-      settings: { ...definition.defaultSettings, ...object2?.settings },
-      fromConfig: override !== void 0
+    states.set(id, {
+      severity: (typeof override === "string" ? override : object2?.severity) ?? state.severity,
+      settings: { ...state.settings, ...object2?.settings },
+      fromConfig: true
     });
   }
   return states;
 };
 
-// src/standardsCheck/checkAstFindings.ts
-import { readFile as readFile11 } from "node:fs/promises";
-import { basename as basename2, join as join24 } from "node:path";
-
-// src/standardsCheck/common/utils/buildSiteKey.ts
-var buildSiteKey = ({ rule, files }) => `${rule}:${[...new Set(files.map((file2) => file2.path))].sort().join("|")}`;
-
-// src/standardsCheck/common/utils/buildFinding.ts
-var buildFinding = ({ rule, files, detail, guidance }) => ({
-  rule,
-  severity: standardsRuleRegistry[rule].defaultSeverity,
-  siteKey: buildSiteKey({ rule, files }),
-  files,
-  detail,
-  guidance
-});
-
-// src/standardsCheck/common/utils/collectFunctionSites.ts
-import { createHash } from "node:crypto";
-
-// src/standardsCheck/common/utils/functionNameOf.ts
-var functionNameOf = ({ node, compiler }) => {
-  if ((compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node)) && node.name) {
-    return node.name.getText();
-  }
-  const parent = node.parent;
-  if (parent && compiler.isVariableDeclaration(parent) && compiler.isIdentifier(parent.name)) {
-    return parent.name.getText();
-  }
-  return "(anonymous)";
-};
-
-// src/standardsCheck/common/utils/normalizeFunctionTokens.ts
-var normalizeFunctionTokens = ({ node, compiler }) => {
-  if (compiler.isIdentifier(node) || compiler.isPrivateIdentifier(node)) {
-    return /^use[A-Z]/.test(node.text) ? [node.text] : ["ID"];
-  }
-  if (compiler.isStringLiteralLike(node) || compiler.isNumericLiteral(node) || node.kind === compiler.SyntaxKind.TrueKeyword || node.kind === compiler.SyntaxKind.FalseKeyword) {
-    return ["LIT"];
-  }
-  const children = node.getChildren();
-  if (children.length === 0) {
-    return [String(node.kind)];
-  }
-  return children.flatMap((child) => normalizeFunctionTokens({ node: child, compiler }));
-};
-
-// src/standardsCheck/common/utils/collectFunctionSites.ts
-var functionSizeCaps = ({ name, path, caps }) => {
-  if (/^use[A-Z]/.test(name)) {
-    return { cap: caps.hook, kind: "hook" };
-  }
-  if (path.endsWith(".tsx") && /^[A-Z]/.test(name)) {
-    return { cap: caps.component, kind: "component" };
-  }
-  return { cap: caps.function, kind: "function" };
-};
-var collectFunctionSites = ({ file: file2, text, compiler, minBodyTokens, caps }) => {
-  const sourceFile = compiler.createSourceFile(file2, text, compiler.ScriptTarget.Latest, true);
-  const sites = [];
-  const oversized = [];
-  const visit = (node) => {
-    const isFunctionLike = compiler.isFunctionDeclaration(node) || compiler.isMethodDeclaration(node) || compiler.isArrowFunction(node) || compiler.isFunctionExpression(node);
-    if (isFunctionLike && node.body) {
-      const body = node.body;
-      const tokens2 = normalizeFunctionTokens({ node: body, compiler });
-      const startLine = sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
-      const endLine = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
-      const name = functionNameOf({ node, compiler });
-      if (tokens2.length >= minBodyTokens) {
-        sites.push({
-          name,
-          path: file2,
-          startLine,
-          endLine,
-          tokenCount: tokens2.length,
-          hash: createHash("sha1").update(tokens2.join(",")).digest("hex")
-        });
-      }
-      const { cap, kind } = functionSizeCaps({ name, path: file2, caps });
-      const lines = endLine - startLine + 1;
-      if (lines > cap && name !== "(anonymous)") {
-        oversized.push({ name, kind, lines, cap, startLine, endLine });
-      }
-    }
-    node.forEachChild(visit);
-  };
-  visit(sourceFile);
-  return { sites, oversized };
-};
-
-// src/standardsCheck/common/utils/getRuleSettings.ts
-var getRuleSettings = ({ states, rule }) => ({
-  ...standardsRuleRegistry[rule].defaultSettings,
-  ...states.get(rule)?.settings
-});
-
-// src/standardsCheck/common/utils/groupDuplicateFunctions.ts
-var groupDuplicateFunctions = ({ sites }) => {
-  const byHash = /* @__PURE__ */ new Map();
-  for (const site of sites) {
-    byHash.set(site.hash, [...byHash.get(site.hash) ?? [], site]);
-  }
-  const bySite = /* @__PURE__ */ new Map();
-  for (const group of byHash.values()) {
-    if (group.length > 1) {
-      const files = group.map((site) => ({ path: site.path, startLine: site.startLine, endLine: site.endLine }));
-      const siteKey = buildSiteKey({ rule: StandardsRule.AstDuplicate, files });
-      const entry = bySite.get(siteKey) ?? { files: [], groups: [] };
-      bySite.set(siteKey, {
-        files: [...entry.files, ...files],
-        groups: [...entry.groups, `${group.map((site) => `'${site.name}'`).join(", ")} (${group[0]?.tokenCount} tokens)`]
-      });
-    }
-  }
-  return [...bySite.values()].map(
-    ({ files, groups }) => buildFinding({
-      rule: StandardsRule.AstDuplicate,
-      files,
-      detail: `${groups.join("; ")} have identical bodies after identifier normalization`,
-      guidance: "Renaming the identifiers did not make these different functions."
-    })
-  );
-};
-
-// src/standardsCheck/checkAstFindings.ts
-var checkAstFindings = async ({ cwd, source, states, compiler }) => {
-  if (compiler === void 0) {
-    return [];
-  }
-  const fileCaps = getRuleSettings({ states, rule: StandardsRule.SizeFile });
-  const functionCaps = getRuleSettings({ states, rule: StandardsRule.SizeFunction });
-  const { minBodyTokens } = getRuleSettings({ states, rule: StandardsRule.AstDuplicate });
-  const findings = [];
-  const sites = [];
-  const oversizedByFile = /* @__PURE__ */ new Map();
-  for (const file2 of source) {
-    const text = await readFile11(join24(cwd, file2), "utf8").catch(() => void 0);
-    if (text === void 0) {
-      continue;
-    }
-    const lineCount = text.split("\n").length;
-    const fileCap = file2.endsWith(".tsx") ? fileCaps.tsxFile : fileCaps.file;
-    if (lineCount > fileCap && basename2(file2) !== "index.ts") {
-      findings.push(
-        buildFinding({
-          rule: StandardsRule.SizeFile,
-          files: [{ path: file2 }],
-          detail: `${lineCount} lines (cap ~${fileCap})`,
-          guidance: "Split the file, or graduate the concept it has grown into."
-        })
-      );
-    }
-    const walked = collectFunctionSites({ file: file2, text, compiler, minBodyTokens, caps: functionCaps });
-    sites.push(...walked.sites);
-    if (walked.oversized.length > 0) {
-      oversizedByFile.set(file2, walked.oversized);
-    }
-  }
-  for (const [file2, oversized] of oversizedByFile) {
-    findings.push(
-      buildFinding({
-        rule: StandardsRule.SizeFunction,
-        files: oversized.map(({ startLine, endLine }) => ({ path: file2, startLine, endLine })),
-        detail: oversized.map(({ kind, name, lines, cap }) => `${kind} '${name}' is ${lines} lines (cap ~${cap})`).join("; "),
-        guidance: "Extract logic. Orchestration that only sequences step calls is exempt \u2014 judge before acting."
-      })
-    );
-  }
-  findings.push(...groupDuplicateFunctions({ sites }));
-  return findings;
-};
-
-// src/standardsCheck/common/utils/readFileContents.ts
-import { readFile as readFile12 } from "node:fs/promises";
-import { join as join25 } from "node:path";
-var readFileContents = async ({ cwd, files }) => {
-  const contents = /* @__PURE__ */ new Map();
-  for (const file2 of new Set(files)) {
-    contents.set(file2, await readFile12(join25(cwd, file2), "utf8").catch(() => ""));
-  }
-  return contents;
-};
-
-// src/standardsCheck/mapFolderModules.ts
-import { readFile as readFile13 } from "node:fs/promises";
-import { basename as basename3, dirname as dirname3, join as join26 } from "node:path";
-
-// src/standardsCheck/readBarrelExports.ts
-import { posix } from "node:path";
-var starPattern = /^export\s+\*\s+(?:as\s+[A-Za-z0-9_$]+\s+)?from\s+['"]([^'"]+)['"]/;
-var namedPattern = /^export\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/;
-var publicName = (part) => {
-  const withoutType = part.trim().replace(/^type\s+/, "").trim();
-  const aliased = withoutType.match(/\bas\s+([A-Za-z0-9_$]+)$/);
-  return aliased?.[1] ?? withoutType;
-};
-var readBarrelExports = ({
-  barrelPath,
-  text,
-  files
-}) => {
-  const fileSet = new Set(files);
-  const barrelDir = posix.dirname(barrelPath);
-  const resolveTarget = (specifier) => {
-    if (!specifier.startsWith(".")) {
-      return void 0;
-    }
-    const base = posix.normalize(posix.join(barrelDir, specifier));
-    for (const candidate of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]) {
-      if (fileSet.has(candidate)) {
-        return candidate;
-      }
-    }
-    return void 0;
-  };
-  const entries = [];
-  for (const line of text.split("\n")) {
-    const star = line.match(starPattern);
-    if (star?.[1]) {
-      entries.push({ names: [], star: true, specifier: star[1], target: resolveTarget(star[1]) });
-      continue;
-    }
-    const named = line.match(namedPattern);
-    if (named?.[1] !== void 0 && named[2]) {
-      const names = named[1].split(",").map(publicName).filter((name) => name.length > 0);
-      entries.push({ names, star: false, specifier: named[2], target: resolveTarget(named[2]) });
-    }
-  }
-  return entries;
-};
-
-// src/standardsCheck/mapFolderModules.ts
-var isBarrel = (path) => /^index\.tsx?$/.test(basename3(path));
-var isRootBarrelDir = (dir) => basename3(dir) === "src";
-var underCommon = (path) => path.split("/").includes("common");
-var mapFolderModules = async ({
-  cwd,
-  files
-}) => {
-  const barrelDirs = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
-    const dir = dirname3(file2);
-    if (isBarrel(file2) && !isRootBarrelDir(dir) && !underCommon(dir)) {
-      barrelDirs.set(dir, file2);
-    }
-  }
-  const nestedModuleDirs = [...barrelDirs.keys()];
-  const map2 = /* @__PURE__ */ new Map();
-  for (const [folder, barrelPath] of barrelDirs) {
-    const text = await readFile13(join26(cwd, barrelPath), "utf8").catch(() => "");
-    const exportedTargets = new Set(
-      readBarrelExports({ barrelPath, text, files }).map((entry) => entry.target).filter((target) => target !== void 0)
-    );
-    const prefix = `${folder}/`;
-    const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
-    const ownFiles = files.filter((file2) => {
-      if (!file2.startsWith(prefix) || isBarrel(file2) || isTestFile(file2) || !/\.tsx?$/.test(file2)) {
-        return false;
-      }
-      return !nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file2.startsWith(`${other}/`));
-    });
-    const omits = ownFiles.some((file2) => !exportedTargets.has(file2));
-    const status = hasOwnCommon || omits ? "module" : "domainFolder";
-    map2.set(folder, { status, barrelPath, exportedTargets });
-  }
-  return map2;
-};
-
-// src/standardsCheck/checkBarrelHygiene.ts
-var checkBarrelHygiene = async ({ cwd, files, referenceFiles }) => {
-  const modules = await mapFolderModules({ cwd, files });
-  const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles] });
-  const findings = [];
-  for (const [folder, entry] of modules) {
-    const barrelExports = readBarrelExports({ barrelPath: entry.barrelPath, text: contents.get(entry.barrelPath) ?? "", files });
-    const stars = barrelExports.filter((line) => line.star);
-    if (stars.length > 0) {
-      findings.push(
-        buildFinding({
-          rule: StandardsRule.BarrelStar,
-          files: [{ path: entry.barrelPath }],
-          detail: `${stars.map((line) => `'${line.specifier}'`).join(", ")} re-exported with \`export *\``,
-          guidance: "A barrel is a module\u2019s public API \u2014 list named re-exports instead."
-        })
-      );
-    }
-    if (entry.status !== "module") {
-      continue;
-    }
-    const prefix = `${folder}/`;
-    const orphans = [];
-    for (const name of barrelExports.flatMap((line) => line.names)) {
-      if (name.length < 4) {
+// src/common/utils/listSourceFiles.ts
+import { readdir as readdir10 } from "node:fs/promises";
+import { join as join27, relative } from "node:path";
+var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
+var sourceExtension = /\.(m|c)?[jt]sx?$/;
+var listSourceFiles = async ({ cwd, exclude = [] }) => {
+  const files = [];
+  const walk2 = async (dir) => {
+    const entries = await readdir10(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
         continue;
       }
-      const pattern = new RegExp(`\\b${name}\\b`);
-      const consumedOutside = [...contents].some(
-        ([file2, text]) => (!file2.startsWith(prefix) || isTestFile(file2) && file2 !== entry.barrelPath) && pattern.test(text)
-      );
-      if (!consumedOutside) {
-        orphans.push(name);
+      const path = join27(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk2(path);
+        continue;
       }
+      const rel = relative(cwd, path);
+      if (!sourceExtension.test(entry.name) || entry.name.endsWith(".d.ts")) {
+        continue;
+      }
+      if (exclude.some((prefix) => rel.startsWith(prefix.replace(/\/$/, "")))) {
+        continue;
+      }
+      files.push(rel);
     }
-    if (orphans.length > 0) {
-      findings.push(
-        buildFinding({
-          rule: StandardsRule.BarrelDeadEntry,
-          files: [{ path: entry.barrelPath }],
-          detail: `${orphans.map((name) => `'${name}'`).join(", ")} ${orphans.length > 1 ? "are" : "is"} exported from ${entry.barrelPath} but no file outside module '${folder}' consumes ${orphans.length > 1 ? "them" : "it"}`,
-          guidance: "Deliberate public API, or dead? Only the author knows."
-        })
-      );
-    }
-  }
-  return findings;
+  };
+  await walk2(cwd);
+  return files.sort();
 };
 
-// src/standardsCheck/checkClones.ts
-import { readFile as readFile14 } from "node:fs/promises";
-import { join as join27 } from "node:path";
+// src/common/utils/resolveConsumerTypescript.ts
+import { readdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join as join28, resolve as resolve4 } from "node:path";
+var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
+  const root = resolve4(cwd);
+  let packageNames = [];
+  try {
+    packageNames = readdirSync(join28(root, packagesDir)).filter((name) => !name.startsWith("."));
+  } catch {
+  }
+  const manifests = [join28(root, "package.json"), ...packageNames.map((name) => join28(root, packagesDir, name, "package.json"))];
+  for (const manifest of manifests) {
+    try {
+      return createRequire(manifest)("typescript");
+    } catch {
+      continue;
+    }
+  }
+  return void 0;
+};
 
 // node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
 var import_index = __toESM(require_eventemitter3(), 1);
@@ -19111,7 +26245,7 @@ var RabinKarp = class _RabinKarp {
     this.cloneValidators = cloneValidators;
   }
   async run(tokenMap, store) {
-    return new Promise((resolve5) => {
+    return new Promise((resolve8) => {
       let mapFrameInStore;
       let clone3 = null;
       const clones = [];
@@ -19143,7 +26277,7 @@ var RabinKarp = class _RabinKarp {
             if (clone3 && this.validate(clone3)) {
               clones.push(clone3);
             }
-            resolve5(clones);
+            resolve8(clones);
           }
         });
       };
@@ -19241,9 +26375,9 @@ var MemoryStore = class {
     this.values[namespace] = this.values[namespace] || {};
   }
   get(key) {
-    return new Promise((resolve5, reject) => {
+    return new Promise((resolve8, reject) => {
       if (key in this.values[this._namespace]) {
-        resolve5(this.values[this._namespace][key]);
+        resolve8(this.values[this._namespace][key]);
       } else {
         reject(new Error("not found"));
       }
@@ -19329,8 +26463,8 @@ function DFS(o, callback, type, visited = {}) {
     }
   });
 }
-function insertBefore(inside2, before, insert, base = languages) {
-  const grammar = base[inside2];
+function insertBefore(inside, before, insert, base = languages) {
+  const grammar = base[inside];
   if (arguments.length === 2) {
     const resolvedInsert = before;
     Object.keys(resolvedInsert).forEach((key) => {
@@ -19348,12 +26482,12 @@ function insertBefore(inside2, before, insert, base = languages) {
     ret[key] = grammar[key];
   });
   DFS(languages, function callback(key, value) {
-    if (value === base[inside2] && key !== inside2) {
+    if (value === base[inside] && key !== inside) {
       this[key] = ret;
     }
   });
-  base[inside2] = ret;
-  return base[inside2];
+  base[inside] = ret;
+  return base[inside];
 }
 var languages = {
   extend: extend2,
@@ -19380,7 +26514,7 @@ function matchGrammar(text, strarr, grammar, index, startPos, oneshot, target) {
     patterns = Array.isArray(patterns) ? patterns : [patterns];
     patterns.forEach((pattern) => {
       if (pattern == null) return;
-      const inside2 = pattern.inside;
+      const inside = pattern.inside;
       const lookbehind = !!pattern.lookbehind;
       const greedy = !!pattern.greedy;
       let lookbehindLength = 0;
@@ -19440,7 +26574,7 @@ function matchGrammar(text, strarr, grammar, index, startPos, oneshot, target) {
         }
         const wrapped = new Token(
           token,
-          inside2 ? tokenize(matchStr, inside2) : matchStr,
+          inside ? tokenize(matchStr, inside) : matchStr,
           alias,
           matchStr,
           greedy
@@ -20019,12 +27153,12 @@ var markup_templating_default = {
           env.grammar = Prism2.languages[language];
           let j = 0;
           const keys = Object.keys(env.tokenStack);
-          var walkTokens = function(tokens2) {
+          var walkTokens = function(tokens) {
             if (j >= keys.length) {
               return;
             }
-            for (let i = 0; i < tokens2.length; i++) {
-              const token = tokens2[i];
+            for (let i = 0; i < tokens.length; i++) {
+              const token = tokens[i];
               if (typeof token === "string" || token.content && typeof token.content === "string") {
                 const k = keys[j];
                 const t = env.tokenStack[k];
@@ -20053,7 +27187,7 @@ var markup_templating_default = {
                   }
                   if (typeof token === "string") {
                     Array.prototype.splice.apply(
-                      tokens2,
+                      tokens,
                       [i, 1].concat(replacement)
                     );
                   } else {
@@ -21223,10 +28357,10 @@ var jsx_default = {
       }
       return token.content.map(stringifyToken).join("");
     };
-    var walkTokens = function(tokens2) {
+    var walkTokens = function(tokens) {
       const openedTags = [];
-      for (let i = 0; i < tokens2.length; i++) {
-        const token = tokens2[i];
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
         let notTagNorBrace = false;
         if (typeof token !== "string") {
           if (token.type === "tag" && token.content[0] && token.content[0].type === "tag") {
@@ -21252,16 +28386,16 @@ var jsx_default = {
         if (notTagNorBrace || typeof token === "string") {
           if (openedTags.length > 0 && openedTags[openedTags.length - 1].openedBraces === 0) {
             let plainText = stringifyToken(token);
-            if (i < tokens2.length - 1 && (typeof tokens2[i + 1] === "string" || tokens2[i + 1].type === "plain-text")) {
-              plainText += stringifyToken(tokens2[i + 1]);
-              tokens2.splice(i + 1, 1);
+            if (i < tokens.length - 1 && (typeof tokens[i + 1] === "string" || tokens[i + 1].type === "plain-text")) {
+              plainText += stringifyToken(tokens[i + 1]);
+              tokens.splice(i + 1, 1);
             }
-            if (i > 0 && (typeof tokens2[i - 1] === "string" || tokens2[i - 1].type === "plain-text")) {
-              plainText = stringifyToken(tokens2[i - 1]) + plainText;
-              tokens2.splice(i - 1, 1);
+            if (i > 0 && (typeof tokens[i - 1] === "string" || tokens[i - 1].type === "plain-text")) {
+              plainText = stringifyToken(tokens[i - 1]) + plainText;
+              tokens.splice(i - 1, 1);
               i--;
             }
-            tokens2[i] = new Prism2.Token("plain-text", plainText, null, plainText);
+            tokens[i] = new Prism2.Token("plain-text", plainText, null, plainText);
           }
         }
         if (token.content && typeof token.content !== "string") {
@@ -22212,13 +29346,13 @@ var bash_default = {
         operator: /&&?|\|\|?|==?|!=?|<<<?|>>|<=?|>=?|=~/,
         punctuation: /\$?\(\(?|\)\)?|\.\.|[{}[\];]/
       };
-      const inside2 = insideString.variable[1].inside;
-      inside2.string = Prism3.languages.bash.string;
-      inside2.function = Prism3.languages.bash.function;
-      inside2.keyword = Prism3.languages.bash.keyword;
-      inside2.boolean = Prism3.languages.bash.boolean;
-      inside2.operator = Prism3.languages.bash.operator;
-      inside2.punctuation = Prism3.languages.bash.punctuation;
+      const inside = insideString.variable[1].inside;
+      inside.string = Prism3.languages.bash.string;
+      inside.function = Prism3.languages.bash.function;
+      inside.keyword = Prism3.languages.bash.keyword;
+      inside.boolean = Prism3.languages.bash.boolean;
+      inside.operator = Prism3.languages.bash.operator;
+      inside.punctuation = Prism3.languages.bash.punctuation;
       Prism3.languages.shell = Prism3.languages.bash;
     })(Prism2);
   }
@@ -26102,7 +33236,7 @@ var stylus_default = {
   language: "stylus",
   init: (Prism2) => {
     (function(Prism3) {
-      const inside2 = {
+      const inside = {
         url: /url\((["']?).*?\1\)/i,
         string: {
           pattern: /("|')(?:(?!\1)[^\\\r\n]|\\(?:\r\n|[\s\S]))*\1/,
@@ -26127,7 +33261,7 @@ var stylus_default = {
         ],
         punctuation: /[{}()\[\];:,]/
       };
-      inside2.interpolation = {
+      inside.interpolation = {
         pattern: /\{[^\r\n}:]+\}/,
         alias: "variable",
         inside: {
@@ -26135,14 +33269,14 @@ var stylus_default = {
             pattern: /^{|}$/,
             alias: "punctuation"
           },
-          rest: inside2
+          rest: inside
         }
       };
-      inside2.func = {
+      inside.func = {
         pattern: /[\w-]+\([^)]*\).*/,
         inside: {
           function: /^[^(]+/,
-          rest: inside2
+          rest: inside
         }
       };
       Prism3.languages.stylus = {
@@ -26155,7 +33289,7 @@ var stylus_default = {
           lookbehind: true,
           inside: {
             atrule: /^@[\w-]+/,
-            rest: inside2
+            rest: inside
           }
         },
         "variable-declaration": {
@@ -26163,7 +33297,7 @@ var stylus_default = {
           lookbehind: true,
           inside: {
             variable: /^\S+/,
-            rest: inside2
+            rest: inside
           }
         },
         statement: {
@@ -26171,7 +33305,7 @@ var stylus_default = {
           lookbehind: true,
           inside: {
             keyword: /^\S+/,
-            rest: inside2
+            rest: inside
           }
         },
         // A property/value pair cannot end with a comma or a brace
@@ -26183,10 +33317,10 @@ var stylus_default = {
             property: {
               pattern: /^[^\s:]+/,
               inside: {
-                interpolation: inside2.interpolation
+                interpolation: inside.interpolation
               }
             },
-            rest: inside2
+            rest: inside
           }
         },
         // A selector can contain parentheses only as part of a pseudo-element
@@ -26196,13 +33330,13 @@ var stylus_default = {
           pattern: /(^[ \t]*)(?:(?=\S)(?:[^{}\r\n:()]|::?[\w-]+(?:\([^)\r\n]*\))?|\{[^}\r\n]+\})+)(?:(?:\r?\n|\r)(?:\1(?:(?=\S)(?:[^{}\r\n:()]|::?[\w-]+(?:\([^)\r\n]*\))?|\{[^}\r\n]+\})+)))*(?:,$|\{|(?=(?:\r?\n|\r)(?:\{|\1[ \t]+)))/m,
           lookbehind: true,
           inside: {
-            interpolation: inside2.interpolation,
+            interpolation: inside.interpolation,
             punctuation: /[{},]/
           }
         },
-        func: inside2.func,
-        string: inside2.string,
-        interpolation: inside2.interpolation,
+        func: inside.func,
+        string: inside.string,
+        interpolation: inside.interpolation,
         punctuation: /[{}()\[\];:.]/
       };
     })(Prism2);
@@ -28413,14 +35547,14 @@ var robotframework_default = {
         "punctuation": /^[$@&%]\{|\}$/
       }
     };
-    function createSection(name, inside2) {
+    function createSection(name, inside) {
       var extendecInside = {};
       extendecInside["section-header"] = {
         pattern: /^ ?\*{3}.+?\*{3}/,
         alias: "keyword"
       };
-      for (var token in inside2) {
-        extendecInside[token] = inside2[token];
+      for (var token in inside) {
+        extendecInside[token] = inside[token];
       }
       extendecInside["tag"] = {
         pattern: /([\r\n](?: {2}|\t)[ \t]*)\[[-\w]+\]/,
@@ -28947,10 +36081,10 @@ var xquery_default = {
       }
       return token.content.map(stringifyToken).join("");
     };
-    var walkTokens = function(tokens2) {
+    var walkTokens = function(tokens) {
       var openedTags = [];
-      for (var i = 0; i < tokens2.length; i++) {
-        var token = tokens2[i];
+      for (var i = 0; i < tokens.length; i++) {
+        var token = tokens[i];
         var notTagNorBrace = false;
         if (typeof token !== "string") {
           if (token.type === "tag" && token.content[0] && token.content[0].type === "tag") {
@@ -28968,7 +36102,7 @@ var xquery_default = {
               }
             }
           } else if (openedTags.length > 0 && token.type === "punctuation" && token.content === "{" && // Ignore `{{`
-          (!tokens2[i + 1] || tokens2[i + 1].type !== "punctuation" || tokens2[i + 1].content !== "{") && (!tokens2[i - 1] || tokens2[i - 1].type !== "plain-text" || tokens2[i - 1].content !== "{")) {
+          (!tokens[i + 1] || tokens[i + 1].type !== "punctuation" || tokens[i + 1].content !== "{") && (!tokens[i - 1] || tokens[i - 1].type !== "plain-text" || tokens[i - 1].content !== "{")) {
             openedTags[openedTags.length - 1].openedBraces++;
           } else if (openedTags.length > 0 && openedTags[openedTags.length - 1].openedBraces > 0 && token.type === "punctuation" && token.content === "}") {
             openedTags[openedTags.length - 1].openedBraces--;
@@ -28979,19 +36113,19 @@ var xquery_default = {
         if (notTagNorBrace || typeof token === "string") {
           if (openedTags.length > 0 && openedTags[openedTags.length - 1].openedBraces === 0) {
             var plainText = stringifyToken(token);
-            if (i < tokens2.length - 1 && (typeof tokens2[i + 1] === "string" || tokens2[i + 1].type === "plain-text")) {
-              plainText += stringifyToken(tokens2[i + 1]);
-              tokens2.splice(i + 1, 1);
+            if (i < tokens.length - 1 && (typeof tokens[i + 1] === "string" || tokens[i + 1].type === "plain-text")) {
+              plainText += stringifyToken(tokens[i + 1]);
+              tokens.splice(i + 1, 1);
             }
-            if (i > 0 && (typeof tokens2[i - 1] === "string" || tokens2[i - 1].type === "plain-text")) {
-              plainText = stringifyToken(tokens2[i - 1]) + plainText;
-              tokens2.splice(i - 1, 1);
+            if (i > 0 && (typeof tokens[i - 1] === "string" || tokens[i - 1].type === "plain-text")) {
+              plainText = stringifyToken(tokens[i - 1]) + plainText;
+              tokens.splice(i - 1, 1);
               i--;
             }
             if (/^\s+$/.test(plainText)) {
-              tokens2[i] = plainText;
+              tokens[i] = plainText;
             } else {
-              tokens2[i] = new Prism2.Token("plain-text", plainText, null, plainText);
+              tokens[i] = new Prism2.Token("plain-text", plainText, null, plainText);
             }
           }
         }
@@ -30031,9 +37165,9 @@ var TOKEN_HASH_LENGTH = 20;
 function createTokenHash(token, hashFn) {
   return hashFn(token.type + token.value).substring(0, TOKEN_HASH_LENGTH);
 }
-function groupByFormat(tokens2) {
+function groupByFormat(tokens) {
   const result = {};
-  for (const token of tokens2) {
+  for (const token of tokens) {
     if (result[token.format]) {
       result[token.format].push(token);
     } else {
@@ -30043,10 +37177,10 @@ function groupByFormat(tokens2) {
   return result;
 }
 var TokensMap = class {
-  constructor(id, data, tokens2, format, options) {
+  constructor(id, data, tokens, format, options) {
     this.id = id;
     this.data = data;
-    this.tokens = tokens2;
+    this.tokens = tokens;
     this.format = format;
     this.options = options;
     this.hashFn = options.hashFunction ?? hash2;
@@ -30103,11 +37237,11 @@ var TokensMap = class {
     }
   }
 };
-function generateMapsForFormats(id, data, tokens2, options) {
-  return Object.values(groupByFormat(tokens2)).map((formatTokens2) => new TokensMap(id, data, formatTokens2, formatTokens2[0].format, options));
+function generateMapsForFormats(id, data, tokens, options) {
+  return Object.values(groupByFormat(tokens)).map((formatTokens2) => new TokensMap(id, data, formatTokens2, formatTokens2[0].format, options));
 }
-function createTokensMaps(id, data, tokens2, options) {
-  return generateMapsForFormats(id, data, tokens2, options);
+function createTokensMaps(id, data, tokens, options) {
+  return generateMapsForFormats(id, data, tokens, options);
 }
 function extractLang(attrs) {
   const m = /\blang\s*=\s*["']([^"']+)["']/.exec(attrs);
@@ -30128,11 +37262,11 @@ function resolveBlockFormat(tagName, lang) {
   }
 }
 function countNewlines(s) {
-  let count = 0;
+  let count2 = 0;
   for (let i = 0; i < s.length; i++) {
-    if (s[i] === "\n") count++;
+    if (s[i] === "\n") count2++;
   }
-  return count;
+  return count2;
 }
 function tokenizeVue(source, id, options) {
   const { ignoreCase } = options;
@@ -30192,11 +37326,11 @@ function extractLang2(attrs) {
   return m ? (m[1] ?? "").toLowerCase() : "";
 }
 function countNewlines2(s) {
-  let count = 0;
+  let count2 = 0;
   for (let i = 0; i < s.length; i++) {
-    if (s[i] === "\n") count++;
+    if (s[i] === "\n") count2++;
   }
-  return count;
+  return count2;
 }
 function resolveScriptFormat(lang) {
   return lang === "ts" || lang === "typescript" ? "typescript" : "javascript";
@@ -30300,11 +37434,11 @@ function tokenizeAstro(source, id, options) {
 }
 var MAX_SOURCE_LENGTH2 = 5e6;
 function countNewlines3(s) {
-  let count = 0;
+  let count2 = 0;
   for (let i = 0; i < s.length; i++) {
-    if (s[i] === "\n") count++;
+    if (s[i] === "\n") count2++;
   }
-  return count;
+  return count2;
 }
 function extractLang3(attrs) {
   const m = /\blang\s*=\s*["']([^"']+)["']/.exec(attrs);
@@ -30467,11 +37601,11 @@ function tokenizeWithPrism(code, language) {
     line += newLines;
     return token;
   }
-  const tokens2 = [];
+  const tokens = [];
   for (const t of prism_core_default.tokenize(code, grammar)) {
-    for (const s of createTokens(t, language)) tokens2.push(s);
+    for (const s of createTokens(t, language)) tokens.push(s);
   }
-  return tokens2.filter((t) => t.format in FORMATS).map((token, index) => calcLoc(token));
+  return tokens.filter((t) => t.format in FORMATS).map((token, index) => calcLoc(token));
 }
 var SYNONYM_MAP = /* @__PURE__ */ new Map([
   ["node", "javascript"],
@@ -30509,9 +37643,9 @@ function blankRanges(source, ranges) {
   return result;
 }
 function countNewlines4(s) {
-  let count = 0;
-  for (let i = 0; i < s.length; i++) if (s[i] === "\n") count++;
-  return count;
+  let count2 = 0;
+  for (let i = 0; i < s.length; i++) if (s[i] === "\n") count2++;
+  return count2;
 }
 function tokenizeMarkdown(source, id, options) {
   const normalized = source.replace(/\r\n/g, "\n");
@@ -30735,7 +37869,7 @@ function tokenize2(code, language) {
     }
     return [];
   }
-  const tokens2 = [];
+  const tokens = [];
   const prismName = getLanguagePrismName(language);
   ensureGrammarReady(prismName);
   const grammar = prism_core_default.languages[prismName];
@@ -30745,9 +37879,9 @@ function tokenize2(code, language) {
   }
   for (const t of prism_core_default.tokenize(code, grammar)) {
     const sub = createTokens(t, language);
-    for (const s of sub) tokens2.push(s);
+    for (const s of sub) tokens.push(s);
   }
-  return tokens2.filter((t) => t.format in FORMATS).map(
+  return tokens.filter((t) => t.format in FORMATS).map(
     (token, index) => calculateLocation(token, index)
   );
 }
@@ -30776,17 +37910,17 @@ function createTokenMapBasedOnCode(id, data, format, options = {}) {
     return tokenizeMarkdown(data, id, options);
   }
   const { mode, ignoreCase, ignorePattern } = options;
-  const tokens2 = tokenize2(data, format).filter((token) => mode(token, options));
+  const tokens = tokenize2(data, format).filter((token) => mode(token, options));
   if (ignorePattern) setupIgnorePatterns(format, options.ignorePattern || []);
   if (ignoreCase) {
-    return createTokensMaps(id, data, tokens2.map(
+    return createTokensMaps(id, data, tokens.map(
       (token) => {
         token.value = token.value.toLocaleLowerCase();
         return token;
       }
     ), options);
   }
-  return createTokensMaps(id, data, tokens2, options);
+  return createTokensMaps(id, data, tokens, options);
 }
 var Tokenizer = class {
   generateMaps(id, data, format, options) {
@@ -30794,204 +37928,106 @@ var Tokenizer = class {
   }
 };
 
-// src/standardsCheck/blankImportSpans.ts
+// src/standardsCheck/common/utils/blankImportSpans.ts
 var importSpan = /^[ \t]*import\b(?:[^;'"]*?from\s*)?(['"])[^'"\n]+\1\s*;?/gm;
 var blankImportSpans = ({ text }) => {
   return text.replace(importSpan, (span) => span.replace(/[^\n]/g, ""));
 };
 
-// src/standardsCheck/checkClones.ts
-var formatOf = (path) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
-var checkClones = async ({ cwd, source, states }) => {
-  const { minTokens } = getRuleSettings({ states, rule: StandardsRule.Clone });
-  const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
-  const bySite = /* @__PURE__ */ new Map();
-  for (const file2 of source) {
-    const text = await readFile14(join27(cwd, file2), "utf8").catch(() => void 0);
-    if (text === void 0) {
-      continue;
+// src/standardsCheck/common/checkInputs/readIntoCache.ts
+import { readFile as readFile15 } from "node:fs/promises";
+import { join as join29 } from "node:path";
+var readIntoCache = async ({ cwd, paths, cache }) => {
+  const texts = /* @__PURE__ */ new Map();
+  for (const path of paths) {
+    if (!cache.has(path)) {
+      const text = await readFile15(join29(cwd, path), "utf8").catch(() => void 0);
+      if (text !== void 0) {
+        cache.set(path, text);
+      }
     }
-    const clones = await detector.detect(file2, blankImportSpans({ text }), formatOf(file2));
-    for (const clone3 of clones) {
+    const cached2 = cache.get(path);
+    if (cached2 !== void 0) {
+      texts.set(path, cached2);
+    }
+  }
+  return texts;
+};
+
+// src/standardsCheck/common/checkInputs/buildCloneSpansInput.ts
+var formatOf = ({ path }) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
+var buildCloneSpansInput = async ({ cwd, source, settings, cache }) => {
+  const { minTokens } = settings;
+  const texts = await readIntoCache({ cwd, paths: source, cache });
+  const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
+  const spans = [];
+  for (const [path, text] of texts) {
+    for (const clone3 of await detector.detect(path, blankImportSpans({ text }), formatOf({ path }))) {
       const a = clone3.duplicationA;
       const b = clone3.duplicationB;
-      const spans = [
-        { path: b.sourceId, startLine: b.start.line, endLine: b.end.line },
-        { path: a.sourceId, startLine: a.start.line, endLine: a.end.line }
-      ];
-      const siteKey = buildSiteKey({ rule: StandardsRule.Clone, files: spans });
-      const site = bySite.get(siteKey) ?? { files: [], longest: 0 };
-      bySite.set(siteKey, {
-        files: [...site.files, ...spans],
-        longest: Math.max(site.longest, a.end.line - a.start.line + 1)
+      spans.push({
+        files: [
+          { path: b.sourceId, startLine: b.start.line, endLine: b.end.line },
+          { path: a.sourceId, startLine: a.start.line, endLine: a.end.line }
+        ],
+        // jscpd's own measure of a clone's size: the distance between the
+        // first and last token of the span. Both ends are optional in its
+        // types, and a span it could not place counts as no tokens.
+        tokens: (a.end.position ?? 0) - (a.start.position ?? 0)
       });
     }
   }
-  return [...bySite.values()].map(
-    ({ files, longest }) => buildFinding({
-      rule: StandardsRule.Clone,
-      files,
-      detail: `${files.length / 2} duplicated span(s), the longest ${longest} lines`,
-      guidance: "Copy-paste at the token level. Extract the shared span, or justify why the copies must diverge."
-    })
-  );
+  return { kind: StandardsInputKind.CloneSpans, cwd, source, spans };
 };
 
-// src/standardsCheck/checkDeadExports.ts
-import { basename as basename4 } from "node:path";
-var exportPattern = /^export\s+(?:async\s+)?(?:const|class|function|interface|type|enum)\s+([A-Za-z0-9_$]+)/;
-var isBarrel2 = ({ file: file2, text }) => basename4(file2).startsWith("index.") && /^export\b/m.test(text);
-var verdicts = [
-  {
-    rule: StandardsRule.DeadExport,
-    matches: ({ barrel, test }) => !barrel && !test,
-    detail: "referenced nowhere else",
-    guidance: "A dead code candidate. Delete it \u2014 version control has the history."
-  },
-  {
-    rule: StandardsRule.TestOnlyExport,
-    matches: ({ barrel, test }) => test && !barrel,
-    detail: "referenced only by tests",
-    guidance: "A production-dead candidate: only its own tests keep it alive."
-  },
-  {
-    rule: StandardsRule.BarrelOnlyExport,
-    matches: ({ barrel, test }) => barrel && !test,
-    detail: "exported through a barrel but no module consumes it",
-    guidance: "Deliberate public API, or dead? Only the author knows."
+// src/standardsCheck/common/checkInputs/buildFileListInput.ts
+import { readdir as readdir11, readFile as readFile16 } from "node:fs/promises";
+import { join as join30 } from "node:path";
+var Manifest2 = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var getDependencyNames = async ({ manifestPath }) => {
+  const text = await readFile16(manifestPath, "utf8").catch(() => void 0);
+  if (text === void 0) {
+    return void 0;
   }
-];
-var checkDeadExports = async ({ cwd, files, referenceFiles }) => {
-  const contents = await readFileContents({ cwd, files: [...files, ...referenceFiles] });
-  const scope = new Set(files);
-  const declarations = [];
-  for (const [file2, text] of contents) {
-    if (!scope.has(file2) || basename4(file2).startsWith("index.") || isTestFile(file2)) {
-      continue;
-    }
-    for (const line of text.split("\n")) {
-      const match = line.match(exportPattern);
-      if (match?.[1] && match[1].length >= 4) {
-        declarations.push({ name: match[1], file: file2 });
-      }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  const parsed = Manifest2.safeParse(data);
+  if (!parsed.success) {
+    return [];
+  }
+  return [parsed.data.dependencies, parsed.data.devDependencies, parsed.data.peerDependencies].flatMap((record2) => Object.keys(record2 ?? {}));
+};
+var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, packagesDir }) => {
+  const dependencies = /* @__PURE__ */ new Map();
+  dependencies.set(".", await getDependencyNames({ manifestPath: join30(cwd, "package.json") }) ?? []);
+  const children = await readdir11(join30(cwd, packagesDir)).catch(() => []);
+  for (const name of children.sort()) {
+    const names = await getDependencyNames({ manifestPath: join30(cwd, packagesDir, name, "package.json") });
+    if (names !== void 0) {
+      dependencies.set(`${packagesDir}/${name}`, names);
     }
   }
-  const grouped = /* @__PURE__ */ new Map();
-  for (const { name, file: file2 } of declarations) {
-    const pattern = new RegExp(`\\b${name}\\b`);
-    const referencedBy = { barrel: false, test: false, source: false };
-    for (const [other, text] of contents) {
-      if (other === file2 || !pattern.test(text)) {
-        continue;
-      }
-      if (isBarrel2({ file: other, text })) {
-        referencedBy.barrel = true;
-      } else if (isTestFile(other)) {
-        referencedBy.test = true;
-      } else {
-        referencedBy.source = true;
-      }
-    }
-    if (referencedBy.source) {
-      continue;
-    }
-    const verdict = verdicts.find((entry) => entry.matches(referencedBy));
-    if (verdict === void 0) {
-      continue;
-    }
-    const siteKey = buildSiteKey({ rule: verdict.rule, files: [{ path: file2 }] });
-    const group = grouped.get(siteKey) ?? { rule: verdict.rule, file: file2, names: [], detail: verdict.detail, guidance: verdict.guidance };
-    grouped.set(siteKey, { ...group, names: [...group.names, name] });
-  }
-  return [...grouped.values()].map(
-    ({ rule, file: file2, names, detail, guidance }) => buildFinding({
-      rule,
-      files: [{ path: file2 }],
-      detail: `${names.map((name) => `'${name}'`).join(", ")} ${names.length > 1 ? "are" : "is"} ${detail}`,
-      guidance
-    })
-  );
+  return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies };
 };
 
-// src/common/naming/collapseCasing.ts
-var collapseCasing = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-// src/common/naming/nameKey.ts
-var verbSynonyms = {
-  fetch: "get",
-  load: "get",
-  retrieve: "get",
-  read: "get",
-  make: "create",
-  generate: "create",
-  produce: "create",
-  remove: "delete",
-  modify: "update",
-  verify: "validate",
-  check: "validate"
-};
-var tokensOf = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/).filter(Boolean).map((token) => token.toLowerCase()).map((token) => verbSynonyms[token] ?? token);
-var nameKey = ({ name }) => {
-  const tokens2 = tokensOf(name);
-  return tokens2.includes("to") || tokens2.includes("from") ? tokens2.join(" ") : [...tokens2].sort().join(" ");
-};
-
-// src/common/naming/nameOf.ts
-import { basename as basename5 } from "node:path";
-var nameOf = (path) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
-
-// src/standardsCheck/checkFilenameDuplicates.ts
-var checkFilenameDuplicates = async ({ source }) => {
-  const findings = [];
-  const byName = /* @__PURE__ */ new Map();
-  const byTokens = /* @__PURE__ */ new Map();
-  for (const file2 of source) {
-    const name = nameOf(file2);
-    if (name === "index") {
-      continue;
-    }
-    byName.set(name, [...byName.get(name) ?? [], file2]);
-    const key = nameKey({ name });
-    const group = byTokens.get(key) ?? /* @__PURE__ */ new Map();
-    group.set(name, [...group.get(name) ?? [], file2]);
-    byTokens.set(key, group);
-  }
-  for (const [name, paths] of byName) {
-    if (paths.length > 1) {
-      const files = paths.map((path) => ({ path }));
-      findings.push(
-        buildFinding({
-          rule: StandardsRule.NameDuplicate,
-          files,
-          detail: `'${name}' is declared in ${paths.length} places`,
-          guidance: "One concept implemented twice, or a promotion candidate."
-        })
-      );
-    }
-  }
-  for (const group of byTokens.values()) {
-    if (group.size > 1) {
-      const names = [...group.keys()];
-      if (new Set(names.map((name) => collapseCasing(name))).size < 2) {
-        continue;
-      }
-      const files = [...group.values()].flat().map((path) => ({ path }));
-      findings.push(
-        buildFinding({
-          rule: StandardsRule.NameSynonym,
-          files,
-          detail: `${names.map((name) => `'${name}'`).join(", ")} differ only by synonym or word order`,
-          guidance: "Likely one concept living under two names."
-        })
-      );
-    }
-  }
-  return findings;
+// src/standardsCheck/common/checkInputs/buildFileTextInput.ts
+var buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, cache }) => {
+  await readIntoCache({ cwd, paths: [.../* @__PURE__ */ new Set([...files, ...referenceFiles])], cache });
+  await readIntoCache({ cwd, paths: ["tsconfig.json"], cache });
+  return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache };
 };
 
 // src/common/utils/collectImportEdges.ts
-import { readFile as readFile15 } from "node:fs/promises";
-import { join as join28, posix as posix2 } from "node:path";
+import { readFile as readFile17 } from "node:fs/promises";
+import { join as join31, posix } from "node:path";
 var stripExtension = (path) => path.replace(/\.(m|c)?[jt]sx?$/i, "");
 var collectImportEdges = async ({ cwd, files, compiler }) => {
   const byStripped = /* @__PURE__ */ new Map();
@@ -30999,7 +38035,7 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
     byStripped.set(stripExtension(file2), file2);
   }
   const probe = (stripped) => byStripped.get(stripped) ?? byStripped.get(`${stripped}/index`);
-  const resolveRelative = ({ from, specifier }) => probe(posix2.normalize(posix2.join(posix2.dirname(from), stripExtension(specifier))));
+  const resolveRelative = ({ from, specifier }) => probe(posix.normalize(posix.join(posix.dirname(from), stripExtension(specifier))));
   const resolveBySuffix = ({ specifier }) => {
     const segments = stripExtension(specifier).split("/");
     for (let start = 1; start < segments.length; start += 1) {
@@ -31018,7 +38054,7 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   };
   const edges = [];
   for (const from of files) {
-    const content = await readFile15(join28(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile17(join31(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
@@ -31033,779 +38069,150 @@ var collectImportEdges = async ({ cwd, files, compiler }) => {
   return edges;
 };
 
-// src/standardsCheck/checkModuleBoundaries.ts
-var depth = (path) => path.split("/").length;
-var inside = ({ file: file2, folder }) => file2.startsWith(`${folder}/`);
-var checkModuleBoundaries = async ({ cwd, files, compiler }) => {
-  if (compiler === void 0) {
-    return [];
-  }
-  const modules = await mapFolderModules({ cwd, files });
-  const edges = await collectImportEdges({ cwd, files, compiler });
-  const moduleFolders = [...modules.entries()].filter(([, entry]) => entry.status === "module").map(([folder]) => folder);
-  const crossings = /* @__PURE__ */ new Map();
-  for (const { from, to } of edges) {
-    if (to.split("/").includes("common")) {
-      continue;
-    }
-    const crossed = moduleFolders.filter((folder) => inside({ file: to, folder }) && !inside({ file: from, folder }));
-    const outermost = crossed.sort((first, second) => depth(first) - depth(second))[0];
-    if (outermost === void 0) {
-      continue;
-    }
-    const barrelPath = modules.get(outermost)?.barrelPath;
-    if (to === barrelPath) {
-      continue;
-    }
-    const key = `${from}\0${outermost}`;
-    const crossing = crossings.get(key) ?? { from, module: outermost, barrelPath, targets: [] };
-    crossings.set(key, { ...crossing, targets: crossing.targets.includes(to) ? crossing.targets : [...crossing.targets, to] });
-  }
-  return [...crossings.values()].map(({ from, module, barrelPath, targets }) => {
-    const sites = [{ path: from }, ...targets.map((path) => ({ path }))];
-    return buildFinding({
-      rule: StandardsRule.ModuleBoundary,
-      files: sites,
-      detail: `deep-imports ${targets.map((path) => `'${path}'`).join(", ")} \u2014 ${targets.length > 1 ? "internals" : "an internal"} of module '${module}'; import from its barrel '${barrelPath}' instead`,
-      guidance: "A module\u2019s barrel is its public API; everything else is an internal."
-    });
-  });
+// src/standardsCheck/common/checkInputs/buildImportGraphInput.ts
+var buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles, compiler }) => {
+  const edges = await collectImportEdges({ cwd, files: referenceFiles, compiler });
+  return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, edges };
 };
 
-// src/standardsCheck/common/utils/checkFolderRules.ts
-import { basename as basename6, dirname as dirname5 } from "node:path";
-
-// src/standardsCheck/common/utils/collectDirectories.ts
-import { dirname as dirname4 } from "node:path";
-var collectDirectories = ({ files }) => {
-  const directories = /* @__PURE__ */ new Set();
-  for (const file2 of files) {
-    let directory = dirname4(file2);
-    while (directory !== "." && !directories.has(directory)) {
-      directories.add(directory);
-      directory = dirname4(directory);
-    }
+// src/standardsCheck/common/checkInputs/buildSyntaxTreeInput.ts
+var buildSyntaxTreeInput = async ({ cwd, source, tests, files, referenceFiles, compiler, cache }) => {
+  const texts = await readIntoCache({ cwd, paths: source, cache });
+  const trees = /* @__PURE__ */ new Map();
+  for (const [path, text] of texts) {
+    trees.set(path, compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true));
   }
-  return directories;
+  return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, compiler, trees };
 };
 
-// src/standardsCheck/common/utils/checkFolderRules.ts
-var bannedAnywhere = /* @__PURE__ */ new Set(["helpers", "lib", "core", "misc", "shared", "controllers", "models", "hooks", "components"]);
-var commonTypeFolders = /* @__PURE__ */ new Set(["utils", "types", "constants", "services"]);
-var camelCase = /^[a-z][A-Za-z0-9]*$/;
-var pascalCase = /^[A-Z][A-Za-z0-9]*$/;
-var frameworkFolder = /^__[A-Za-z0-9]+__$/;
-var barrelName = /^index\.(m|c)?[jt]sx?$/;
-var noCarveOut = { exemptFolderNames: [], kebabCase: false, routerRoots: [] };
-var casingStyle = ({ segment }) => {
-  if (camelCase.test(segment)) {
-    return "camelCase";
-  }
-  if (pascalCase.test(segment)) {
-    return "PascalCase";
-  }
-  if (segment.includes("-")) {
-    return "kebab-case";
-  }
-  if (segment.includes("_")) {
-    return "snake_case";
-  }
-  return "none of the three casings";
+// src/standardsCheck/common/checkInputs/buildTestFileInput.ts
+var buildTestFileInput = async ({ cwd, tests, cache }) => {
+  const contents = await readIntoCache({ cwd, paths: tests, cache });
+  return { kind: StandardsInputKind.TestFile, cwd, tests, contents };
 };
-var bannedNameFinding = ({ directory, carveOut }) => {
-  const name = basename6(directory);
-  const insideCommon = directory.split("/").slice(0, -1).includes("common");
-  const banned = bannedAnywhere.has(name) || commonTypeFolders.has(name) && !insideCommon;
-  return !banned || carveOut.exemptFolderNames.includes(name) ? void 0 : buildFinding({
-    rule: StandardsRule.PathBannedModuleName,
-    files: [{ path: directory }],
-    detail: `folder '${name}' names the role of the code it holds`,
-    guidance: "Name the folder for the domain it serves, or fold its files into the module that owns them \u2014 the only privileged folder name at any level is `common/`."
-  });
-};
-var casingFinding = ({
-  directory,
-  carveOut,
-  sourceRoot,
-  siblingNames
+
+// src/standardsCheck/common/checkInputs/buildCheckInput.ts
+var buildCheckInput = async ({
+  kind,
+  cwd,
+  source,
+  tests,
+  files,
+  referenceFiles,
+  packagesDir,
+  settings,
+  cache,
+  compiler
 }) => {
-  const name = basename6(directory);
-  const style = casingStyle({ segment: name });
-  if (style === "camelCase" || style === "PascalCase") {
-    return void 0;
-  }
-  const sharing = siblingNames.filter((sibling) => casingStyle({ segment: sibling }) === style);
-  const settled2 = siblingNames.length >= 2 && sharing.length * 2 > siblingNames.length;
-  const topSegment = directory.slice(sourceRoot.length).replace(/\/.*$/, "");
-  const mandated = carveOut.kebabCase || carveOut.routerRoots.includes(topSegment) || frameworkFolder.test(name);
-  return settled2 || mandated ? void 0 : buildFinding({
-    rule: StandardsRule.PathFolderCasing,
-    files: [{ path: directory }],
-    detail: `folder '${name}' is ${style}`,
-    guidance: "Category folders are camelCase; a folder graduated from one class or component takes that item's PascalCase name. An established convention in the directory or the package's framework doc outranks both \u2014 heuristic, judge before acting."
-  });
-};
-var commonShapeFinding = ({ file: file2 }) => {
-  const parent = dirname5(file2);
-  const name = basename6(file2);
-  if (barrelName.test(name) && parent.split("/").includes("common")) {
-    return buildFinding({
-      rule: StandardsRule.PathCommonBarrel,
-      files: [{ path: file2 }],
-      detail: `a barrel under ${parent}`,
-      guidance: "A barrel marks a boundary and `common/` is definitionally boundary-less \u2014 delete it and import the files directly."
-    });
-  }
-  return basename6(parent) === "common" ? buildFinding({
-    rule: StandardsRule.PathCommonFlat,
-    files: [{ path: file2 }],
-    detail: `'${name}' sits directly in ${parent}`,
-    guidance: "Move it under the type folder for what it is \u2014 `utils/`, `types/`, `constants/`, `services/`, or a graduated domain folder. `common/` is always typed, never flat."
-  }) : void 0;
-};
-var domainFolderFinding = ({ directory, files }) => {
-  const name = basename6(directory);
-  if (basename6(dirname5(directory)) !== "common" || commonTypeFolders.has(name)) {
-    return void 0;
-  }
-  const own = files.filter((file2) => dirname5(file2) === directory && !isTestFile(file2));
-  return own.length === 1 ? buildFinding({
-    rule: StandardsRule.PathDomainFolderSingleFile,
-    files: [{ path: directory }],
-    detail: `domain folder '${name}' holds one file`,
-    guidance: "A domain folder graduates when a SECOND related function appears \u2014 until then the file belongs in `utils/`. Heuristic \u2014 judge before acting."
-  }) : void 0;
-};
-var checkFolderRules = ({ files, carveOuts }) => {
-  const packageEntries = [...carveOuts].sort(([first], [second]) => second.length - first.length);
-  const contextOf = ({ path }) => {
-    const owner = packageEntries.find(([directory]) => directory === "." || path.startsWith(`${directory}/`));
-    if (owner === void 0) {
-      return { carveOut: noCarveOut, sourceRoot: "src/" };
-    }
-    return { carveOut: owner[1], sourceRoot: owner[0] === "." ? "src/" : `${owner[0]}/src/` };
-  };
-  const directories = [...collectDirectories({ files })].sort();
-  const namesByParent = /* @__PURE__ */ new Map();
-  for (const directory of directories) {
-    const parent = dirname5(directory);
-    namesByParent.set(parent, [...namesByParent.get(parent) ?? [], basename6(directory)]);
-  }
-  return [
-    ...directories.flatMap((directory) => {
-      const { carveOut, sourceRoot } = contextOf({ path: directory });
-      if (!directory.startsWith(sourceRoot)) {
-        return [];
+  switch (kind) {
+    case StandardsInputKind.FileList:
+      return buildFileListInput({ cwd, source, tests, files, referenceFiles, packagesDir });
+    case StandardsInputKind.FileText:
+      return buildFileTextInput({ cwd, source, tests, files, referenceFiles, cache });
+    case StandardsInputKind.TestFile:
+      return buildTestFileInput({ cwd, tests, cache });
+    case StandardsInputKind.CloneSpans:
+      return buildCloneSpansInput({ cwd, source, settings, cache });
+    case StandardsInputKind.SyntaxTree:
+    case StandardsInputKind.ImportGraph: {
+      if (compiler === void 0) {
+        throw new Error(`the ${kind} input needs the consumer's typescript, which did not resolve`);
       }
-      const name = basename6(directory);
-      const siblingNames = (namesByParent.get(dirname5(directory)) ?? []).filter((sibling) => sibling !== name);
-      return [bannedNameFinding({ directory, carveOut }), casingFinding({ directory, carveOut, sourceRoot, siblingNames })];
-    }),
-    ...files.map((file2) => commonShapeFinding({ file: file2 })),
-    ...directories.map((directory) => domainFolderFinding({ directory, files }))
-  ].filter((finding) => finding !== void 0);
+      if (kind === StandardsInputKind.ImportGraph) {
+        return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, compiler });
+      }
+      return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, compiler, cache });
+    }
+  }
 };
 
-// src/standardsCheck/common/utils/checkTestPathRules.ts
-import { basename as basename7, dirname as dirname6 } from "node:path";
-var testDirectories = /* @__PURE__ */ new Set(["__tests__", "tests", "test"]);
-var testSupportDirectories = /* @__PURE__ */ new Set(["fixtures", "mocks", "testUtils", "test-utils"]);
-var sourceExtensions = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
-var underSrc = ({ path }) => dirname6(path).split("/").includes("src");
-var subjectName = ({ test }) => basename7(test).replace(/\..*$/, "");
-var underRootLayerCommon = ({ path }) => {
-  const segments = path.split("/");
-  return segments.some((segment, index) => segment === "common" && segments[index - 1] === "src");
-};
-var subjectOf = ({ test, files }) => {
-  const stem = `${dirname6(test)}/${subjectName({ test })}`;
-  return sourceExtensions.map((extension) => `${stem}${extension}`).find((candidate) => files.has(candidate));
-};
-var inTestsFolderFinding = ({ test }) => dirname6(test).split("/").some((segment) => testDirectories.has(segment)) ? buildFinding({
-  rule: StandardsRule.PathTestInTestsFolder,
-  files: [{ path: test }],
-  detail: `a unit test in ${dirname6(test)}`,
-  guidance: "Unit tests are co-located with the file they test \u2014 move it beside its subject rather than into a separate directory."
-}) : void 0;
-var notColocatedFinding = ({ test, files }) => subjectOf({ test, files }) === void 0 ? buildFinding({
-  rule: StandardsRule.PathTestNotColocated,
-  files: [{ path: test }],
-  detail: `no source file named '${subjectName({ test })}' in ${dirname6(test)}`,
-  guidance: "The first name segment must name a real source file in the same folder; a scenario suite qualifies it as `<File>.<scenario>.unit.test.ts` with a camelCase qualifier."
-}) : void 0;
-var supportFolderFindings = ({ files }) => [...collectDirectories({ files })].filter((directory) => testSupportDirectories.has(basename7(directory)) && underSrc({ path: directory })).sort().map(
-  (directory) => buildFinding({
-    rule: StandardsRule.PathTestSupportInSrc,
-    files: [{ path: directory }],
-    detail: `test-support folder '${basename7(directory)}' under src/`,
-    guidance: "Shared helpers, mocks and fixtures live in the package's test-support directories outside `src/` \u2014 under `src/` they read as production source to scanners and humans alike. A co-located `__mocks__/` is the one exception."
-  })
-);
-var subjectNotPublicFinding = ({ test, files, moduleFolders }) => {
-  const subject = subjectOf({ test, files });
-  if (subject === void 0 || underRootLayerCommon({ path: subject })) {
-    return void 0;
-  }
-  const ancestors = moduleFolders.filter(([folder]) => subject.startsWith(`${folder}/`));
-  const nearest = ancestors[0];
-  if (nearest === void 0) {
-    return void 0;
-  }
-  return ancestors.some(([, module]) => module.exportedTargets.has(subject)) ? void 0 : buildFinding({
-    rule: StandardsRule.PathTestUntestedSubjectNotPublic,
-    files: [{ path: test }],
-    detail: `'${basename7(subject)}' is not re-exported from ${nearest[1].barrelPath}`,
-    guidance: "A direct test is a promotion, not an exception: add the subject to its module's barrel, or drive its coverage through the module's boundary instead. Existing ones are migration debt to leave in place \u2014 judge before acting."
-  });
-};
-var checkTestPathRules = ({ tests, files, modules }) => {
-  const fileSet = new Set(files);
-  const inSrc = tests.filter((test) => underSrc({ path: test }));
-  const moduleFolders = [...modules].filter(([, module]) => module.status === "module").sort(([first], [second]) => second.length - first.length);
-  return [
-    ...inSrc.map((test) => inTestsFolderFinding({ test })),
-    ...inSrc.map((test) => notColocatedFinding({ test, files: fileSet })),
-    ...supportFolderFindings({ files }),
-    ...inSrc.map((test) => subjectNotPublicFinding({ test, files: fileSet, moduleFolders }))
-  ].filter((finding) => finding !== void 0);
-};
+// src/standardsCheck/common/constants/typescriptInputKinds.ts
+var typescriptInputKinds = /* @__PURE__ */ new Set([StandardsInputKind.SyntaxTree, StandardsInputKind.ImportGraph]);
 
-// src/standardsCheck/common/utils/readFrameworkCarveOuts.ts
-import { readFile as readFile16 } from "node:fs/promises";
-import { join as join29 } from "node:path";
-var Manifest = external_exports.object({
-  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var carveOutSignals = {
-  react: { exemptFolderNames: ["components", "hooks"] },
-  "react-dom": { exemptFolderNames: ["components", "hooks"] },
-  "@nestjs/core": { exemptFolderNames: ["controllers", "models", "services"], kebabCase: true },
-  next: { routerRoots: ["app", "pages"] },
-  "@tanstack/react-router": { routerRoots: ["routes"] },
-  "@remix-run/react": { routerRoots: ["routes"] },
-  "expo-router": { routerRoots: ["app"] }
-};
-var readDependencyNames = async ({ path }) => {
+// src/standardsCheck/common/utils/runRuleCheck.ts
+var rawFindings = external_exports.array(RawStandardsFinding);
+var runRuleCheck = async ({ rule, run, input, settings }) => {
+  let returned;
   try {
-    const manifest = Manifest.parse(JSON.parse(await readFile16(path, "utf8")));
-    return [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {})];
-  } catch {
-    return void 0;
+    returned = await run({ input, settings });
+  } catch (error51) {
+    throw new Error(`standards rule "${rule}" threw while checking: ${messageOf({ error: error51 })}`);
   }
+  const parsed = rawFindings.safeParse(returned);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue2) => `${issue2.path.join(".") || "return value"} ${issue2.message}`).join("; ");
+    throw new Error(`standards rule "${rule}" returned something that is not a list of findings: ${issues}`);
+  }
+  return parsed.data;
 };
-var readFrameworkCarveOuts = async ({ cwd, files }) => {
-  const carveOuts = /* @__PURE__ */ new Map();
-  for (const directory of [".", ...collectDirectories({ files })].sort()) {
-    const dependencies = await readDependencyNames({ path: join29(cwd, directory, "package.json") });
-    if (dependencies === void 0) {
+
+// src/standardsCheck/runPackageChecks.ts
+var selectLiveRules = ({
+  packages,
+  states,
+  channels
+}) => {
+  const live2 = [];
+  for (const rule of packages.flatMap((pkg) => pkg.rules)) {
+    const state = states.get(rule.id);
+    if (rule.run === void 0 || rule.inputKind === void 0 || state === void 0) {
       continue;
     }
-    const signals = Object.entries(carveOutSignals).filter(([name]) => dependencies.includes(name));
-    carveOuts.set(directory, {
-      exemptFolderNames: [...new Set(signals.flatMap(([, carveOut]) => carveOut.exemptFolderNames ?? []))],
-      kebabCase: signals.some(([, carveOut]) => carveOut.kebabCase === true),
-      routerRoots: [...new Set(signals.flatMap(([, carveOut]) => carveOut.routerRoots ?? []))]
-    });
-  }
-  return carveOuts;
-};
-
-// src/standardsCheck/checkPathsAndNames.ts
-var checkPathsAndNames = async ({ cwd, files, tests }) => {
-  const carveOuts = await readFrameworkCarveOuts({ cwd, files });
-  const modules = await mapFolderModules({ cwd, files });
-  return [...checkFolderRules({ files, carveOuts }), ...checkTestPathRules({ tests, files, modules })];
-};
-
-// src/standardsCheck/checkPlacement.ts
-import { dirname as dirname7 } from "node:path";
-var commonOwner = (path) => {
-  const segments = path.split("/");
-  const index = segments.lastIndexOf("common");
-  return index <= 0 ? void 0 : segments.slice(0, index).join("/");
-};
-var lowestCommonAncestor = (paths) => {
-  const split = paths.map((path) => path.split("/"));
-  const shared = [];
-  for (let index = 0; ; index += 1) {
-    const segment = split[0]?.[index];
-    if (segment === void 0 || !split.every((parts) => parts[index] === segment)) {
-      break;
-    }
-    shared.push(segment);
-  }
-  return shared.join("/");
-};
-var checkPlacement = async ({ cwd, files, compiler }) => {
-  if (compiler === void 0) {
-    return [];
-  }
-  const edges = await collectImportEdges({ cwd, files, compiler });
-  const leaksByFile = /* @__PURE__ */ new Map();
-  for (const { from, to } of edges) {
-    const owner = commonOwner(to);
-    if (owner === void 0 || owner.split("/").pop() === "src" || from.startsWith(`${owner}/`)) {
+    if (state.severity === StandardsSeverity.Off) {
       continue;
     }
-    leaksByFile.set(to, { owner, consumers: (leaksByFile.get(to)?.consumers ?? /* @__PURE__ */ new Set()).add(from) });
-  }
-  const findings = [];
-  for (const [file2, { owner, consumers: consumerSet }] of leaksByFile) {
-    const consumers = [...consumerSet].sort();
-    const lca = lowestCommonAncestor([owner, ...consumers.map((consumer) => dirname7(consumer))]);
-    const sites = [{ path: file2 }, ...consumers.map((path) => ({ path }))];
-    findings.push(
-      buildFinding({
-        rule: StandardsRule.Placement,
-        files: sites,
-        detail: `'${file2}' is internal to module '${owner}' (under its common/) but imported by ${consumers.join(", ")} \u2014 promote to ${lca}/common/`,
-        guidance: "Shared code belongs in the common/ of the lowest folder that contains everyone using it."
-      })
-    );
-  }
-  return findings;
-};
-
-// src/standardsCheck/checkStructure.ts
-import { readFile as readFile17 } from "node:fs/promises";
-import { basename as basename8, dirname as dirname8, join as join30 } from "node:path";
-
-// src/standardsCheck/common/utils/checkFileExports.ts
-var exportPattern2 = /^export\s+(?:async\s+)?(const|class|function|interface|type|enum)\s+(?!\$\{)([A-Za-z0-9_$]+)/;
-var dotPrefixes = (name) => name.split(".").map((_, index, segments) => segments.slice(0, index + 1).join("."));
-var checkFileExports = ({ file: file2, text }) => {
-  const findings = [];
-  const exports = [];
-  for (const line of text.split("\n")) {
-    const match = line.match(exportPattern2);
-    if (match?.[1] && match[2]) {
-      exports.push({ keyword: match[1], name: match[2], line });
-    }
-  }
-  if (exports.length === 0) {
-    return findings;
-  }
-  const keywords = (keyword) => exports.filter((entry) => entry.keyword === keyword);
-  const constTypeName = keywords("const").find(({ name }) => keywords("type").some((entry) => entry.name === name))?.name;
-  const namedConstantFamily = constTypeName !== void 0 && exports.every(({ keyword, name, line }) => name === constTypeName || keyword === "const" && line.includes(`Record<${constTypeName}`));
-  const unionFamily = keywords("interface").length > 0 && keywords("type").length === 1 && keywords("interface").length + 1 === exports.length;
-  if (exports.length > 1 && !namedConstantFamily && !unionFamily) {
-    findings.push(
-      buildFinding({
-        rule: StandardsRule.MultiExport,
-        files: [{ path: file2 }],
-        detail: `${exports.length} exports (${exports.map(({ name }) => name).join(", ")})`,
-        guidance: "One export per file, outside the closed exception list."
-      })
-    );
-  }
-  const primary = exports[0];
-  if (primary && exports.length === 1 && !dotPrefixes(nameOf(file2)).some((candidate) => collapseCasing(candidate) === collapseCasing(primary.name))) {
-    findings.push(
-      buildFinding({
-        rule: StandardsRule.FilenameMismatch,
-        files: [{ path: file2 }],
-        detail: `file '${nameOf(file2)}' exports '${primary.name}'`,
-        guidance: "The filename should match the export it holds."
-      })
-    );
-  }
-  return findings;
-};
-
-// src/standardsCheck/checkStructure.ts
-var accessVerbs = /* @__PURE__ */ new Set([
-  "is",
-  "has",
-  "can",
-  "should",
-  "was",
-  "get",
-  "set",
-  "read",
-  "write",
-  "load",
-  "save",
-  "fetch",
-  "list",
-  "collect",
-  "gather",
-  "to",
-  "as",
-  "from",
-  "with",
-  "on",
-  "create",
-  "make",
-  "new",
-  "build",
-  "init",
-  "resolve",
-  "find",
-  "lookup",
-  "run",
-  "invoke",
-  "call",
-  "execute",
-  "apply"
-]);
-var firstToken = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/)[0]?.toLowerCase() ?? "";
-var checkStructure = async ({ cwd, source, states }) => {
-  const findings = [];
-  const filesPerDir = /* @__PURE__ */ new Map();
-  const utilsVerbGroups = /* @__PURE__ */ new Map();
-  for (const file2 of source) {
-    const dir = dirname8(file2);
-    filesPerDir.set(dir, [...filesPerDir.get(dir) ?? [], file2]);
-    if (basename8(dir) === "utils") {
-      const group = utilsVerbGroups.get(dir) ?? /* @__PURE__ */ new Map();
-      const verb = firstToken(nameOf(file2));
-      group.set(verb, [...group.get(verb) ?? [], file2]);
-      utilsVerbGroups.set(dir, group);
-    }
-    if (basename8(file2).startsWith("index.")) {
+    if (rule.channel !== "base" && !channels.includes(rule.channel)) {
       continue;
     }
-    const text = await readFile17(join30(cwd, file2), "utf8").catch(() => "");
-    findings.push(...checkFileExports({ file: file2, text }));
+    live2.push({ id: rule.id, inputKind: rule.inputKind, run: rule.run, severity: state.severity, settings: state.settings });
   }
-  for (const [dir, group] of utilsVerbGroups) {
-    for (const [verb, paths] of group) {
-      if (paths.length > 1 && verb && !accessVerbs.has(verb)) {
-        const files = paths.map((path) => ({ path }));
-        findings.push(
-          buildFinding({
-            rule: StandardsRule.DomainGraduation,
-            files,
-            detail: `${paths.length} '${verb}*' functions in ${dir}`,
-            guidance: "A domain-folder graduation candidate. Heuristic \u2014 judge before acting."
-          })
-        );
-      }
-    }
-  }
-  const { cap } = getRuleSettings({ states, rule: StandardsRule.FolderCensus });
-  for (const [dir, paths] of filesPerDir) {
-    if (paths.length > cap) {
-      findings.push(
-        buildFinding({
-          rule: StandardsRule.FolderCensus,
-          files: [{ path: dir }],
-          detail: `${paths.length} files in one flat folder (census cap ~${cap})`,
-          guidance: "Group them by domain, or graduate the concepts hiding in the pile."
-        })
-      );
-    }
-  }
-  return findings;
+  return live2;
 };
-
-// src/standardsCheck/common/utils/buildLineSites.ts
-var buildLineSites = ({ file: file2, spans }) => spans.map(({ startLine, endLine }) => ({ path: file2, startLine, endLine }));
-
-// src/standardsCheck/common/utils/buildHookFinding.ts
-var buildHookFinding = ({ file: file2, blocks, rule, pattern, detailSuffix, guidance }) => {
-  const hooks2 = blocks.filter((block) => pattern.test(block.body));
-  return hooks2.length === 0 ? void 0 : buildFinding({
-    rule,
-    files: buildLineSites({ file: file2, spans: hooks2 }),
-    detail: `${hooks2.map((block) => `${block.callee} at line ${block.startLine}`).join(", ")} ${detailSuffix}`,
-    guidance
-  });
-};
-
-// src/standardsCheck/common/utils/getLineNumber.ts
-var getLineNumber = ({ text, index }) => text.slice(0, index).split("\n").length;
-
-// src/standardsCheck/common/utils/readCallBlocks.ts
-var inertSpan = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g;
-var titleSpan = /^\s*(['"`])((?:\\.|[^\\])*?)\1/;
-var maskInert = (text) => text.replace(inertSpan, (span) => span.replace(/[^\n]/g, " "));
-var closeIndexOf = ({ mask, open, closeChar }) => {
-  const openChar = mask.charAt(open);
-  let depth2 = 0;
-  let cursor = open;
-  for (; cursor < mask.length; cursor += 1) {
-    const char = mask.charAt(cursor);
-    depth2 += char === openChar ? 1 : char === closeChar ? -1 : 0;
-    if (depth2 === 0) {
-      break;
-    }
-  }
-  return cursor;
-};
-var arrowEnd = ({ mask }) => {
-  let depth2 = 0;
-  let end = 0;
-  for (let cursor = 0; cursor < mask.length && end === 0; cursor += 1) {
-    const char = mask.charAt(cursor);
-    depth2 += "([{".includes(char) ? 1 : ")]}".includes(char) ? -1 : 0;
-    end = depth2 === 0 && char === "=" && mask.charAt(cursor + 1) === ">" ? cursor + 2 : 0;
-  }
-  return end;
-};
-var readCallBlocks = ({ text, callees }) => {
-  const mask = maskInert(text);
-  const found = [];
-  for (const callee of callees) {
-    const pattern = new RegExp(`(?:^|[^A-Za-z0-9_$])${callee.replace(/\./g, "\\.")}\\s*\\(`, "g");
-    for (const match of mask.matchAll(pattern)) {
-      const matched = match[0];
-      const start = match.index + matched.indexOf(callee);
-      const open = match.index + matched.length - 1;
-      const close = closeIndexOf({ mask, open, closeChar: ")" });
-      const argSpan = text.slice(open + 1, close);
-      const argMask = mask.slice(open + 1, close);
-      const tailFrom = arrowEnd({ mask: argMask });
-      const tail = argSpan.slice(tailFrom);
-      const tailMask = argMask.slice(tailFrom);
-      const brace = tailMask.search(/\S/);
-      const opensBlock = tailMask.charAt(brace) === "{";
-      found.push({
-        start,
-        end: close,
-        block: {
-          callee,
-          title: argSpan.match(titleSpan)?.[2] ?? "",
-          body: opensBlock ? tail.slice(brace + 1, closeIndexOf({ mask: tailMask, open: brace, closeChar: "}" })) : tail,
-          startLine: getLineNumber({ text, index: start }),
-          endLine: getLineNumber({ text, index: close })
-        }
-      });
-    }
-  }
-  const ordered = [...found].sort((first, second) => first.start - second.start);
-  return ordered.map((entry) => ({
-    ...entry.block,
-    depth: ordered.filter((other) => other.start < entry.start && entry.end <= other.end).length
-  }));
-};
-
-// src/standardsCheck/common/utils/checkTestMockRules.ts
-var moduleScopeMock = /^const\s+([A-Za-z0-9_$]+)\s*=\s*jest\.fn\b/;
-var returnSetter = /\.mock(?:ReturnValue|ResolvedValue|RejectedValue|Implementation)\s*\(/;
-var spyCall = /jest\.fn\s*([<(])/g;
-var frameworkCast = /as unknown as|as Record</;
-var discardingWrapper = /\(\s*\.\.\.\s*[A-Za-z0-9_$]+\s*:\s*unknown\s*\[\s*\]/;
-var zeroArgWrapper = /([A-Za-z0-9_$]+)\s*:\s*\(\s*\)\s*=>\s*(mock[A-Za-z0-9_$]*)\s*\(/g;
-var manualCleanup = /jest\.(?:clearAllMocks|resetAllMocks|restoreAllMocks)\s*\(|\.mock(?:Clear|Reset)\s*\(/;
-var mockPrefixFinding = ({ file: file2, text }) => {
-  const unprefixed = [];
-  text.split("\n").forEach((line, index) => {
-    const name = line.match(moduleScopeMock)?.[1] ?? "";
-    if (name !== "" && !name.startsWith("mock")) {
-      unprefixed.push({ name, line: index + 1 });
-    }
-  });
-  return unprefixed.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestMockPrefix,
-    files: buildLineSites({ file: file2, spans: unprefixed.map(({ line }) => ({ startLine: line, endLine: line })) }),
-    detail: `${unprefixed.map(({ name, line }) => `'${name}' (line ${line})`).join(", ")} declared at module scope without a 'mock' prefix`,
-    guidance: "Jest hoists `jest.mock()` above module variables \u2014 only `mock`-prefixed names are reachable inside the factory."
-  });
-};
-var untypedSpyFinding = ({ file: file2, text }) => {
-  const terminated = `${text};`;
-  const lines = [];
-  for (const match of text.matchAll(spyCall)) {
-    const statement = terminated.slice(terminated.lastIndexOf(";", match.index) + 1, terminated.indexOf(";", match.index));
-    if (match[1] === "(" && !frameworkCast.test(statement)) {
-      lines.push(getLineNumber({ text, index: match.index }));
-    }
-  }
-  return lines.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestMockUntyped,
-    files: buildLineSites({ file: file2, spans: lines.map((line) => ({ startLine: line, endLine: line })) }),
-    detail: `jest.fn() with no generic at line(s) ${lines.join(", ")}`,
-    guidance: "Type every `jest.fn()` to the real signature \u2014 read the source first, and include the Promise wrapper for an async one."
-  });
-};
-var wrapperFinding = ({ file: file2, text }) => {
-  const wrappers = [];
-  for (const block of readCallBlocks({ text, callees: ["jest.mock"] })) {
-    const reasons = discardingWrapper.test(block.body) ? ["a `(...args: unknown[])` wrapper"] : [];
-    for (const forward of block.body.matchAll(zeroArgWrapper)) {
-      if (new RegExp(`expect\\(\\s*${forward[2]}\\s*\\)[^;]*toHaveBeenCalledWith`).test(text)) {
-        reasons.push(`'${forward[1]}' forwards no arguments to ${forward[2]}`);
-      }
-    }
-    if (reasons.length > 0) {
-      wrappers.push({ block, reasons });
-    }
-  }
-  return wrappers.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestMockWrapperUntyped,
-    files: buildLineSites({ file: file2, spans: wrappers.map(({ block }) => block) }),
-    detail: wrappers.map(({ block, reasons }) => `${reasons.join("; ")} (line ${block.startLine})`).join(", "),
-    guidance: "Type the factory wrapper to the real parameters \u2014 a discarded argument makes `toHaveBeenCalledWith` fail on a call that was correct."
-  });
-};
-var checkTestMockRules = ({ file: file2, text }) => {
-  const hookBlocks = readCallBlocks({ text, callees: ["beforeEach", "beforeAll", "afterEach", "afterAll"] });
-  const beforeEachBlocks = hookBlocks.filter((block) => block.callee === "beforeEach");
-  return [
-    mockPrefixFinding({ file: file2, text }),
-    // `test-mock-return-in-hook`. `beforeEach` only, the single hook line 136
-    // names — and the sanctioned home for a return value is the `setup()`
-    // factory, which is not a hook at all.
-    buildHookFinding({
-      file: file2,
-      blocks: beforeEachBlocks,
-      rule: StandardsRule.TestMockReturnInHook,
-      pattern: returnSetter,
-      detailSuffix: "sets a mock return value",
-      guidance: "Set mock return values in the `setup()` factory, so each test states its own arrangement."
-    }),
-    untypedSpyFinding({ file: file2, text }),
-    wrapperFinding({ file: file2, text }),
-    // `test-manual-mock-cleanup`. Hook bodies only, which is what makes line
-    // 192's fallback structural: the same `.mockReset()` at the top of a
-    // `setup()` factory is the doc's own advice and never reaches this rule.
-    buildHookFinding({
-      file: file2,
-      blocks: hookBlocks,
-      rule: StandardsRule.TestManualMockCleanup,
-      pattern: manualCleanup,
-      detailSuffix: "clears mocks by hand",
-      guidance: "Mock cleanup belongs in the package's Jest config (`clearMocks`, `restoreMocks`), not in a per-file hook."
-    })
-  ].filter((finding) => finding !== void 0);
-};
-
-// src/standardsCheck/common/utils/checkTestStructureRules.ts
-var letDeclaration = /^\s*let\s+([A-Za-z0-9_$]+)/;
-var assertion = /\bexpect\s*\(/;
-var nestingException = /^(when|for)\s/;
-var asymmetricMatcher = /expect\.(?:objectContaining|arrayContaining|any|stringContaining|stringMatching)\s*\(/;
-var setupCall = /\bsetup[A-Za-z0-9_$]*\s*\(/g;
-var setupFactory = /\bconst\s+(setup[A-Za-z0-9_$]*)\s*=\s*(?:async\s+)?\(\s*\{([^{}]*)\}/g;
-var declaredProperties = ({ inner }) => {
-  const parts = [];
-  let depth2 = 0;
-  let current = "";
-  for (const char of inner) {
-    depth2 += "([".includes(char) ? 1 : ")]".includes(char) ? -1 : 0;
-    if (char === "," && depth2 === 0) {
-      parts.push(current);
-      current = "";
+var runPackageChecks = async ({
+  cwd,
+  packages,
+  states,
+  channels,
+  packagesDir = "packages",
+  path,
+  exclude,
+  onProgress
+}) => {
+  const progress = onProgress ?? (() => void 0);
+  const repoFiles = await listSourceFiles({ cwd, exclude });
+  const allFiles = repoFiles.filter((file2) => !path || file2.startsWith(path));
+  const source = allFiles.filter((file2) => !isTestFile(file2));
+  const tests = allFiles.filter((file2) => isTestFile(file2));
+  const notes = [];
+  progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
+  const compiler = resolveConsumerTypescript({ cwd, packagesDir });
+  const live2 = selectLiveRules({ packages, states, channels });
+  const findings = [];
+  const skipped = [];
+  const cache = /* @__PURE__ */ new Map();
+  const inputFor = async ({ kind, settings }) => buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, packagesDir, settings, cache, compiler });
+  for (const kind of Object.values(StandardsInputKind)) {
+    const rules = live2.filter((rule) => rule.inputKind === kind);
+    if (rules.length === 0) {
       continue;
     }
-    current += char;
-  }
-  return [...parts, current].filter((part) => part.trim() !== "");
-};
-var sharedLetFinding = ({ file: file2, text, blocks, beforeEachBlocks }) => {
-  const shared = [];
-  text.split("\n").forEach((line, index) => {
-    const name = line.match(letDeclaration)?.[1] ?? "";
-    const number4 = index + 1;
-    const local = blocks.some((block) => block.startLine <= number4 && number4 <= block.endLine);
-    if (name !== "" && !local && beforeEachBlocks.some((block) => new RegExp(`\\b${name}\\s*=(?![=>])`).test(block.body))) {
-      shared.push({ name, line: number4 });
+    if (compiler === void 0 && typescriptInputKinds.has(kind)) {
+      skipped.push(...rules.map((rule) => rule.id));
+      continue;
     }
-  });
-  return shared.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestSharedLet,
-    files: buildLineSites({ file: file2, spans: shared.map(({ line }) => ({ startLine: line, endLine: line })) }),
-    detail: `${shared.map(({ name, line }) => `'${name}' (line ${line})`).join(", ")} reassigned in a beforeEach`,
-    guidance: "Arrange in a `setup()` factory that returns its locals as consts, so no test depends on what another left behind."
-  });
-};
-var nestedDescribeFinding = ({ file: file2, text }) => {
-  const nested = readCallBlocks({ text, callees: ["describe"] }).filter((block) => block.depth > 0 && !nestingException.test(block.title));
-  return nested.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestNestedDescribe,
-    files: buildLineSites({ file: file2, spans: nested }),
-    detail: `${nested.map((block) => `'${block.title}' (line ${block.startLine})`).join(", ")} nested inside another describe`,
-    guidance: "Keep describe blocks flat \u2014 scenario variants come from `setup()` parameters, or from a `when \u2026` / `for \u2026` title."
-  });
-};
-var strictEqualFinding = ({ file: file2, text }) => {
-  const misleading = readCallBlocks({ text, callees: ["toStrictEqual"] }).filter((block) => asymmetricMatcher.test(block.body));
-  return misleading.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestStrictEqualMatcher,
-    files: buildLineSites({ file: file2, spans: misleading }),
-    detail: `toStrictEqual with an asymmetric matcher at line(s) ${misleading.map((block) => block.startLine).join(", ")}`,
-    guidance: "Jest runs only the matcher, so the strict extra-property checks never fire \u2014 write `toEqual`, or assert a concrete object."
-  });
-};
-var multipleSetupsFinding = ({ file: file2, blocks }) => {
-  const overArranged = blocks.filter((block) => (block.callee === "test" || block.callee === "it") && [...block.body.matchAll(setupCall)].length > 1);
-  return overArranged.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestMultipleSetups,
-    files: buildLineSites({ file: file2, spans: overArranged }),
-    detail: `${overArranged.map((block) => `'${block.title}' (line ${block.startLine})`).join(", ")} calls more than one setup factory`,
-    guidance: "Two setups means two tests. Heuristic \u2014 judge before acting."
-  });
-};
-var megaFactoryFinding = ({ file: file2, text, maxParams }) => {
-  const sprawling = [];
-  for (const match of text.matchAll(setupFactory)) {
-    const properties = declaredProperties({ inner: match[2] });
-    if (properties.length > maxParams) {
-      sprawling.push({
-        name: match[1],
-        count: properties.length,
-        startLine: getLineNumber({ text, index: match.index }),
-        endLine: getLineNumber({ text, index: match.index + match[0].length })
-      });
+    let shared;
+    for (const rule of rules) {
+      const input = kind === StandardsInputKind.CloneSpans ? await inputFor({ kind, settings: rule.settings }) : shared ??= await inputFor({ kind, settings: rule.settings });
+      const raw = await runRuleCheck({ rule: rule.id, run: rule.run, input, settings: rule.settings });
+      findings.push(...raw.map((finding) => ({ ...finding, rule: rule.id, severity: rule.severity })));
     }
+    progress(`${kind}: done`);
   }
-  return sprawling.length === 0 ? void 0 : buildFinding({
-    rule: StandardsRule.TestMegaFactory,
-    files: buildLineSites({ file: file2, spans: sprawling }),
-    detail: `${sprawling.map((factory) => `'${factory.name}' takes ${factory.count} parameters (line ${factory.startLine})`).join(", ")}, over the cap of ${maxParams}`,
-    guidance: "A substantially different arrangement gets a second named factory. Heuristic \u2014 judge before acting."
-  });
-};
-var checkTestStructureRules = ({ file: file2, text, settings }) => {
-  const blocks = readCallBlocks({ text, callees: ["beforeEach", "beforeAll", "afterEach", "afterAll", "test", "it"] });
-  const beforeEachBlocks = blocks.filter((block) => block.callee === "beforeEach");
-  return [
-    sharedLetFinding({ file: file2, text, blocks, beforeEachBlocks }),
-    // `test-assert-in-hook`. `beforeEach` only, the single hook line 94 names —
-    // an `expect` in an `afterEach` is an ordinary leak check the doc never
-    // bans.
-    buildHookFinding({
-      file: file2,
-      blocks: beforeEachBlocks,
-      rule: StandardsRule.TestAssertInHook,
-      pattern: assertion,
-      detailSuffix: "asserts",
-      guidance: "Act and assert live in the `test`; a hook only arranges."
-    }),
-    nestedDescribeFinding({ file: file2, text }),
-    strictEqualFinding({ file: file2, text }),
-    multipleSetupsFinding({ file: file2, blocks }),
-    megaFactoryFinding({ file: file2, text, maxParams: settings.maxParams })
-  ].filter((finding) => finding !== void 0);
-};
-
-// src/standardsCheck/checkTestShape.ts
-var checkTestShape = async ({ cwd, tests, states }) => {
-  const contents = await readFileContents({ cwd, files: tests });
-  const settings = getRuleSettings({ states, rule: StandardsRule.TestMegaFactory });
-  const findings = [];
-  for (const [file2, text] of contents) {
-    findings.push(...checkTestMockRules({ file: file2, text }), ...checkTestStructureRules({ file: file2, text, settings }));
+  if (skipped.length > 0) {
+    notes.push(`${skipped.join(", ")} skipped \u2014 no typescript resolvable from the target repo`);
   }
-  return findings;
+  return { findings, notes };
 };
-
-// src/standardsCheck/standardsPasses.ts
-var standardsPasses = [
-  { id: StandardsPassId.PathsAndNames, run: checkPathsAndNames },
-  { id: StandardsPassId.FilenameDuplicates, run: checkFilenameDuplicates },
-  { id: StandardsPassId.Clones, run: checkClones },
-  { id: StandardsPassId.AstFindings, run: checkAstFindings },
-  { id: StandardsPassId.ModuleBoundaries, run: checkModuleBoundaries },
-  { id: StandardsPassId.Placement, run: checkPlacement },
-  { id: StandardsPassId.BarrelHygiene, run: checkBarrelHygiene },
-  { id: StandardsPassId.Structure, run: checkStructure },
-  { id: StandardsPassId.DeadExports, run: checkDeadExports },
-  { id: StandardsPassId.TestShape, run: checkTestShape }
-];
 
 // src/standardsCheck/runStandardsCheck.ts
 var dominantPath = ({ findings }) => {
@@ -31814,7 +38221,7 @@ var dominantPath = ({ findings }) => {
     return void 0;
   }
   let prefix = "";
-  let count = paths.length;
+  let count2 = paths.length;
   for (; ; ) {
     const children = /* @__PURE__ */ new Map();
     for (const path of paths) {
@@ -31831,11 +38238,10 @@ var dominantPath = ({ findings }) => {
       break;
     }
     prefix = prefix ? `${prefix}/${next[0]}` : next[0];
-    count = next[1];
+    count2 = next[1];
   }
-  return prefix.split("/").length >= 2 ? { dir: prefix, count, total: paths.length } : void 0;
+  return prefix.split("/").length >= 2 ? { dir: prefix, count: count2, total: paths.length } : void 0;
 };
-var rulesOf = ({ pass }) => Object.values(StandardsRule).filter((rule) => standardsRuleRegistry[rule].pass === pass);
 var runStandardsCheck = async ({
   cwd,
   path,
@@ -31844,56 +38250,99 @@ var runStandardsCheck = async ({
   persist = true,
   onProgress
 }) => {
-  const progress = onProgress ?? (() => void 0);
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
-  const states = resolveRuleStates({ config: config2 });
-  const repoFiles = await listSourceFiles({ cwd, exclude: config2?.generated });
-  const allFiles = repoFiles.filter((file2) => !path || file2.startsWith(path));
-  const source = allFiles.filter((file2) => !isTestFile(file2));
-  const tests = allFiles.filter((file2) => isTestFile(file2));
-  const notes = [];
-  progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
-  const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2?.packagesDir });
-  const emitted = [];
-  const skipped = [];
-  for (const { id, run } of standardsPasses) {
-    const live2 = rulesOf({ pass: id }).filter((rule) => states.get(rule)?.severity !== StandardsSeverity.Off);
-    if (live2.length === 0) {
-      progress(`${id}: off`);
-      continue;
-    }
-    if (compiler === void 0 && live2.every((rule) => standardsRuleRegistry[rule].needsTypescript)) {
-      skipped.push(id);
-      continue;
-    }
-    emitted.push(...await run({ cwd, source, tests, files: allFiles, referenceFiles: repoFiles, states, compiler }));
-    progress(`${id}: done`);
-  }
-  if (skipped.length > 0) {
-    notes.push(`${skipped.join(", ")} skipped \u2014 no typescript resolvable from the target repo`);
-  }
-  const findings = [];
-  for (const finding of emitted) {
-    const severity = states.get(finding.rule)?.severity;
-    if (severity === StandardsSeverity.Blocking || severity === StandardsSeverity.Advisory) {
-      findings.push({ ...finding, severity });
-    }
-  }
+  const packages = await resolveStandardsPackages({ cwd, config: config2 });
+  const states = resolvePackageRuleStates({ packages, config: config2 });
+  const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2?.packagesDir ?? "packages", packages: [] });
+  const checked = await runPackageChecks({
+    cwd,
+    packages,
+    states,
+    channels,
+    packagesDir: config2?.packagesDir,
+    path,
+    exclude: config2?.generated,
+    onProgress
+  });
+  const findings = checked.findings;
+  const notes = [...checked.notes];
   const dominant = dominantPath({ findings });
   if (dominant) {
     notes.push(
       `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`
     );
   }
-  const dir = join31(cwd, ".lightsout");
+  const dir = join32(cwd, ".lightsout");
   await mkdir6(dir, { recursive: true });
   const baseline = await applyStandardsBaseline({ cwd, path, findings, all, writeBaseline });
   notes.push(...baseline.notes);
   if (persist) {
-    await writeFile6(join31(dir, "standards-check.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
+    await writeFile6(join32(dir, "standards-check.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
 `, "utf8");
   }
   return { findings: baseline.reported, notes };
+};
+
+// src/standardsCheck/runStandardsReview.ts
+var collectJudgmentRules = ({ packages, channels }) => packages.flatMap((pkg) => pkg.rules).filter((rule) => !rule.checked && (rule.channel === "base" || channels.includes(rule.channel))).map((rule) => ({ id: rule.id, documentPath: rule.documentPath, prose: rule.prose }));
+var toFindings = ({ reported, known }) => {
+  const findings = [];
+  const unknownRules = [];
+  const notes = [];
+  let unsited = 0;
+  for (const entry of reported) {
+    const path = entry.files[0]?.path;
+    if (!known.has(entry.rule)) {
+      unknownRules.push(entry.rule);
+      continue;
+    }
+    if (path === void 0) {
+      unsited += 1;
+      continue;
+    }
+    findings.push({
+      rule: entry.rule,
+      severity: StandardsSeverity.Advisory,
+      siteKey: `${entry.rule}:${path}`,
+      files: entry.files,
+      detail: entry.detail,
+      ...entry.guidance === void 0 ? {} : { guidance: entry.guidance }
+    });
+  }
+  if (unknownRules.length > 0) {
+    notes.push(`agent review: ${unknownRules.length} finding(s) dropped \u2014 no judgment rule is named ${[...new Set(unknownRules)].sort().join(", ")}`);
+  }
+  if (unsited > 0) {
+    notes.push(`agent review: ${unsited} finding(s) dropped \u2014 reported with no file to point at`);
+  }
+  return { findings, notes };
+};
+var runStandardsReview = async ({
+  cwd,
+  driver,
+  packages,
+  channels,
+  files,
+  timeoutMs,
+  onProgress
+}) => {
+  const rules = collectJudgmentRules({ packages, channels });
+  if (rules.length === 0 || files.length === 0) {
+    return { findings: [], notes: [] };
+  }
+  onProgress?.(`agent review: ${rules.length} judgment rule(s) over ${files.length} file(s)`);
+  const outcome = await invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation: buildStandardsReviewInvocation({ rules, files }),
+    contract: StandardsReviewReport,
+    permissions: Permissions.ReadOnly,
+    timeoutMs
+  });
+  if (!outcome.ok) {
+    return { findings: [], notes: [`agent review skipped \u2014 ${outcome.failure}`] };
+  }
+  return toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
 };
 
 // src/standardsCheck/selectStandardsFindings.ts
@@ -31907,15 +38356,234 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 };
 
 // src/standardsCheck/listStandardsRules.ts
-var listStandardsRules = ({ config: config2 }) => {
-  return [...resolveRuleStates({ config: config2 })].map(([rule, state]) => ({
-    rule,
-    doc: standardsRuleRegistry[rule].doc,
-    summary: standardsRuleRegistry[rule].summary,
-    severity: state.severity,
-    fromConfig: state.fromConfig,
-    settings: state.settings
-  })).sort((first, second) => first.rule.localeCompare(second.rule));
+var listStandardsRules = async ({ cwd, config: config2 }) => {
+  const packages = await resolveStandardsPackages({ cwd, config: config2 });
+  const states = resolvePackageRuleStates({ packages, config: config2 });
+  const listings = [];
+  for (const pkg of packages) {
+    for (const rule of pkg.rules) {
+      const state = states.get(rule.id);
+      if (state === void 0) {
+        continue;
+      }
+      listings.push({
+        rule: rule.id,
+        doc: `${pkg.name}: ${rule.documentPath}`,
+        summary: rule.summary,
+        checked: rule.checked,
+        severity: state.severity,
+        fromConfig: state.fromConfig,
+        settings: state.settings
+      });
+    }
+  }
+  return listings.sort((first, second) => first.rule.localeCompare(second.rule));
+};
+
+// src/standardsCheck/buildStandardsHealth.ts
+import { readFile as readFile18 } from "node:fs/promises";
+import { join as join33 } from "node:path";
+var emptyTally = () => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
+var tallyFor = ({ tallies, rule }) => {
+  const existing = tallies.get(rule);
+  if (existing) {
+    return existing;
+  }
+  const created = emptyTally();
+  tallies.set(rule, created);
+  return created;
+};
+var readRefactorRun = async ({ cwd, runId }) => {
+  const manifest = await readRunManifest({ cwd, runId });
+  if ((manifest.pipeline ?? "implement") !== "refactor") {
+    return void 0;
+  }
+  const worklist = RefactorWorklist.parse(JSON.parse(await readFile18(join33(cwd, manifest.plan), "utf8")));
+  return { worklist, steps: manifest.steps };
+};
+var countBatchSites = ({ tallies, blocking, report }) => {
+  const remaining = report ? new Set(report.remainingSiteKeys) : void 0;
+  const leftStanding = /* @__PURE__ */ new Set();
+  for (const finding of blocking) {
+    const tally = tallyFor({ tallies, rule: finding.rule });
+    tally.attempted += 1;
+    if (remaining === void 0) {
+      tally.untracked += 1;
+      continue;
+    }
+    if (!remaining.has(finding.siteKey)) {
+      tally.resolved += 1;
+      continue;
+    }
+    leftStanding.add(finding.rule);
+    if (report?.outcome === BatchOutcome.Declined) {
+      tally.declined += 1;
+    } else {
+      tally.untracked += 1;
+    }
+  }
+  for (const rule of leftStanding) {
+    tallyFor({ tallies, rule }).reasons.push(...report?.rationale ?? []);
+  }
+};
+var countAdvice = ({ tallies, outcomes }) => {
+  for (const entry of outcomes) {
+    const tally = tallyFor({ tallies, rule: entry.rule });
+    if (entry.outcome === AdvisoryResponse.Applied) {
+      tally.adviceApplied += 1;
+      continue;
+    }
+    tally.adviceDeclined += 1;
+    if (entry.reason !== void 0) {
+      tally.reasons.push(entry.reason);
+    }
+  }
+};
+var buildStandardsHealth = async ({ cwd, packages }) => {
+  const tallies = /* @__PURE__ */ new Map();
+  for (const runId of await listRunIds({ cwd })) {
+    const run = await readRefactorRun({ cwd, runId }).catch(() => void 0);
+    if (run === void 0) {
+      continue;
+    }
+    for (const batch of run.worklist.batches) {
+      const parsed = BatchReport.safeParse(run.steps.find((step) => step.id === batch.id)?.report);
+      const report = parsed.success ? parsed.data : void 0;
+      countBatchSites({ tallies, blocking: batch.blocking, report });
+      countAdvice({ tallies, outcomes: report?.advisoryOutcomes ?? [] });
+    }
+  }
+  const rules = packages.flatMap((pkg) => pkg.rules).map((rule) => ({
+    id: rule.id,
+    set: rule.set,
+    documentPath: rule.documentPath,
+    checked: rule.checked,
+    ...tallies.get(rule.id) ?? emptyTally()
+  })).sort((first, second) => first.id.localeCompare(second.id));
+  const checked = rules.filter((rule) => rule.checked).length;
+  return { rules, totals: { rules: rules.length, checked, judgment: rules.length - checked } };
+};
+
+// src/standardsCheck/validateStandardsPackage.ts
+import { createRequire as createRequire2 } from "node:module";
+import { join as join34 } from "node:path";
+var fixtureSides = ["fail", "pass"];
+var getEngineTypescript = () => {
+  let compiler;
+  try {
+    compiler = createRequire2(process.argv[1])("typescript");
+  } catch {
+    compiler = void 0;
+  }
+  return compiler;
+};
+var checkFixture = async ({
+  rule,
+  inputKind,
+  run,
+  side,
+  compiler
+}) => {
+  const cwd = join34(rule.fixturesPath, side);
+  const files = await listSourceFiles({ cwd });
+  const input = await buildCheckInput({
+    kind: inputKind,
+    cwd,
+    source: files.filter((file2) => !isTestFile(file2)),
+    tests: files.filter((file2) => isTestFile(file2)),
+    files,
+    referenceFiles: files,
+    packagesDir: "packages",
+    settings: rule.defaultSettings,
+    cache: /* @__PURE__ */ new Map(),
+    compiler
+  });
+  return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
+};
+var validateStandardsPackage = async ({ pkg }) => {
+  const hasParsingRule = pkg.rules.some((rule) => rule.inputKind !== void 0 && typescriptInputKinds.has(rule.inputKind));
+  const compiler = hasParsingRule ? getEngineTypescript() : void 0;
+  const problems = [];
+  const notes = [];
+  for (const rule of pkg.rules) {
+    const { run, inputKind } = rule;
+    if (run === void 0 || inputKind === void 0) {
+      notes.push(`${rule.id}: judgment-only \u2014 fixtures reserved for agent accuracy`);
+      continue;
+    }
+    if (compiler === void 0 && typescriptInputKinds.has(inputKind)) {
+      notes.push(`${rule.id}: not validated \u2014 its ${inputKind} input needs a typescript this install does not have`);
+      continue;
+    }
+    for (const side of fixtureSides) {
+      try {
+        const found = await checkFixture({ rule, inputKind, run, side, compiler });
+        if (side === "fail" && found.length === 0) {
+          problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
+        }
+        if (side === "pass" && found.length > 0) {
+          problems.push(`${rule.id}: the pass fixture produced ${found.length} finding(s) \u2014 the check flags code the rule allows`);
+        }
+      } catch (error51) {
+        problems.push(`${rule.id}: the ${side} fixture could not be checked \u2014 ${messageOf({ error: error51 })}`);
+      }
+    }
+  }
+  return { problems, notes };
+};
+
+// src/pipeline/common/utils/consumerRelative.ts
+var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.startsWith(gitPrefix) ? file2.slice(gitPrefix.length) : file2;
+
+// src/pipeline/common/utils/collectChanged.ts
+var collectChanged = async ({ run, gitPrefix, reports }) => {
+  const isGeneratedFile = (file2) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const packagesDir = run.config.packagesDir ?? "packages";
+  const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
+    (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
+  );
+  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile(file2));
+  const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
+  const fromFiles = changedFiles.flatMap((file2) => {
+    const packageDir = packageOf({ file: file2, packagesDir });
+    return packageDir ? [packageDir] : [];
+  });
+  return { changedFiles, packages: [.../* @__PURE__ */ new Set([...run.current().packages, ...fromFiles])] };
+};
+
+// src/pipeline/common/utils/invokeRoleOrStop.ts
+var invokeRoleOrStop = async ({ run, record: record2, invocation, step }) => {
+  const outcome = await run.invokeRole({ invocation, step });
+  if (!outcome.ok) {
+    return outcome.rateLimited ? { stopped: await run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: run.parkMessage() }) } : { stopped: await run.stop({ record: record2, status: RunStatus.Failed, error: outcome.failure }) };
+  }
+  return { report: outcome.report };
+};
+
+// src/pipeline/common/utils/withStepFiles.ts
+var withStepFiles = ({ record: record2, reports, gitPrefix }) => ({
+  ...record2,
+  changedFiles: [
+    .../* @__PURE__ */ new Set([
+      ...record2.changedFiles ?? [],
+      ...reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path })))
+    ])
+  ]
+});
+
+// src/pipeline/steps/describePersistingFindings.ts
+var describePersistingFindings = ({ findings, report, passes }) => {
+  const findingLines = findings.map((finding) => {
+    const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(", ");
+    return `- ${finding.siteKey} \u2014 ${formatFindingText({ finding })}
+  at ${where}`;
+  });
+  const rationale = (report?.friction ?? []).map((entry) => `- [${entry.area}] ${entry.detail}`);
+  return [
+    `refactor: standards gate \u2014 ${findings.length} blocking persist after ${passes} pass(es):`,
+    ...findingLines,
+    ...rationale.length > 0 ? ["the refactor agent's account of its final pass:", ...rationale] : []
+  ].join("\n");
 };
 
 // src/pipeline/steps/standardsWorkList.ts
@@ -31926,17 +38594,35 @@ var standardsWorkList = async ({ run }) => {
 
 // src/pipeline/steps/refactorStep.ts
 var maxRefactorPasses = 3;
+var reviewAdvisories = async ({ run, packages, channels }) => {
+  const review = await runStandardsReview({
+    cwd: run.cwd,
+    driver: run.driver,
+    packages,
+    channels,
+    files: sourceFiles({ run }),
+    timeoutMs: run.agentTimeoutMs,
+    onProgress: (message) => run.progress(message)
+  });
+  for (const note of review.notes) {
+    run.progress(note);
+  }
+  return review.findings;
+};
 var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
   return async () => {
     let record2 = run.nextRecord({ id: "refactor" });
     let lastReport;
     let cleanExit = false;
     let lastDeclined;
+    const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
+    const channels = run.config.standardsChannels ?? await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config.packagesDir ?? "packages", packages: run.current().packages });
     for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
       await run.setStep({ record: record2 });
       const check2 = await standardsWorkList({ run });
-      if (check2.workList.length > 0 || check2.advisories.length > 0) {
-        run.progress(`standards gate: ${check2.workList.length} blocking + ${check2.advisories.length} advisory on changed files`);
+      const advisories = [...check2.advisories, ...await reviewAdvisories({ run, packages, channels })];
+      if (check2.workList.length > 0 || advisories.length > 0) {
+        run.progress(`standards gate: ${check2.workList.length} blocking + ${advisories.length} advisory on changed files`);
       }
       run.progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
       const outcome = await invokeRoleOrStop({
@@ -31947,7 +38633,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
           changedFiles: sourceFiles({ run }),
           standards,
           findings: check2.workList,
-          advisories: check2.advisories
+          advisories
         }),
         step: "refactor"
       });
@@ -32273,8 +38959,8 @@ var runWriterBatches = async ({
   let warmSettled = false;
   let warmCollected = false;
   let release;
-  const gate = new Promise((resolve5) => {
-    release = resolve5;
+  const gate = new Promise((resolve8) => {
+    release = resolve8;
   });
   const warm = warmed ? spawnWriter({ group: groups[0], onFirstEvent: release }).finally(() => {
     warmSettled = true;
@@ -32306,8 +38992,8 @@ var runWriterBatches = async ({
 };
 
 // src/pipeline/steps/selectTestTargets.ts
-import { readFile as readFile18, stat as stat3 } from "node:fs/promises";
-import { join as join32 } from "node:path";
+import { readFile as readFile19, stat as stat4 } from "node:fs/promises";
+import { join as join35 } from "node:path";
 
 // src/common/utils/isInertSourceFile.ts
 var isInertSourceFile = ({ path, content, compiler }) => {
@@ -32328,9 +39014,9 @@ var selectTestTargets = async ({
   const inert = [];
   const deleted = [];
   for (const file2 of candidates) {
-    const content = await readFile18(join32(run.cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile19(join35(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists = await stat3(join32(run.cwd, file2)).then(
+      const exists = await stat4(join35(run.cwd, file2)).then(
         () => true,
         () => false
       );
@@ -32454,19 +39140,19 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
 };
 
 // src/pipeline/common/utils/readPlanSources.ts
-import { readFile as readFile19 } from "node:fs/promises";
-import { join as join33 } from "node:path";
+import { readFile as readFile20 } from "node:fs/promises";
+import { join as join36 } from "node:path";
 var readPlanSources = async ({ cwd, plan, overview }) => {
-  const planPath = join33(cwd, plan);
-  const planContent = await readFile19(planPath, "utf8").catch(() => void 0);
+  const planPath = join36(cwd, plan);
+  const planContent = await readFile20(planPath, "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return { error: `plan file not found: ${planPath}` };
   }
   if (overview === void 0) {
     return { planContent };
   }
-  const overviewPath = join33(cwd, overview);
-  const overviewContent = await readFile19(overviewPath, "utf8").catch(() => void 0);
+  const overviewPath = join36(cwd, overview);
+  const overviewContent = await readFile20(overviewPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     return { error: `overview file not found: ${overviewPath}` };
   }
@@ -32535,242 +39221,6 @@ var resolvePackageScope = ({
       packages: declared,
       packagesSource: fromFlag ? PackagesSource.Flag : fromFrontMatter ? PackagesSource.FrontMatter : PackagesSource.PlanPaths
     }
-  };
-};
-
-// src/standards/readStandards.ts
-import { readdir as readdir7, readFile as readFile20, stat as stat4 } from "node:fs/promises";
-import { join as join34 } from "node:path";
-
-// standards/code/architecture/architecture-decisions.md
-var architecture_decisions_default = "# Architecture Decisions\n\nUniversal architectural decisions that apply across the codebase.\n\n## Modules & the Graduation Rule\n\nA **module** is a unit of code with a public API and private internals. TypeScript enforces privacy at the file level (non-exported = invisible); folder-level boundaries are convention the repo may enforce with tooling.\n\n**Every concept starts as a file and earns its folder:**\n\n- **File-module (default):** a single file holding one exported item plus non-exported helpers. The compiler enforces the boundary for free.\n- **Folder-module (graduated):** when a concept needs private companions \u2014 its own utils, types, or constants that serve only it \u2014 it graduates to a folder with an `index.ts` as its public API.\n- **Born folders:** features, route modules, and screens are inherently multi-file and start as folder-modules.\n\n**The trigger is mechanical:** *needs private companion files \u2192 folder; doesn't \u2192 file.* Never create folder ceremony for a one-file concept.\n\n**Borderline cases are decided by the barrel-omission test:** write the concept's would-be `index.ts`. Omits nothing \u2192 the concept is primitives; its files belong in `common/<type>/`. Hides internals \u2192 it is a module. This applies to shared code too: a shared concept with private internals graduates OUT of `common/` into its own module ([folder-structure.md](./folder-structure.md#what-lives-in-common--the-barrel-omission-test)).\n\n**Boundary rules for folder-modules:**\n\n1. Cross-module imports go through the module's `index.ts` **only** \u2014 never reach into another module's internals\n2. Inside a module, deep imports between its files are correct\n3. Tests target the module's public API; internals are covered through it (a `.unit.test.ts` beside a file marks it as a boundary; files under a module's `common/` have none of their own)\n4. Test imports obey the same boundary: a test OUTSIDE a module imports its `index.ts`, never its internals \u2014 including in repos that keep tests in a separate directory. (A boundary test living beside its file is inside the module; its deep import is correct.)\n\nThe rule is recursive \u2014 a graduated component folder inside a feature folder is a module within a module.\n\n## Functional vs Class-Based\n\nPrefer functions by default. Create a class only per the bright-line criteria in [classes.md](../style-guide/patterns/classes.md#when-to-use-a-class--the-bright-line) (persistent state, 3+ operations sharing injected deps, interface polymorphism, framework mandate). Static-only classes are banned.\n\n## Code Placement Philosophy\n\nPlace shared code at the lowest common ancestor `common/` folder (each package's architecture doc defines the concrete hierarchy):\n\n1. **First:** search whether it already exists in `common/` at any level \u2014 if found, use it.\n2. **Second:** if not found, start local and promote later \u2014 moving code up when reuse is proven beats premature generalization.\n3. **When promoting, the destination is decided by the barrel-omission test:** a single-file primitive goes to the ancestor level's `common/<type>/`; a shared concept with private internals becomes its own module at that level. `common/` never contains folder-modules \u2014 shared code is a primitive or a module, never a third thing.\n\nImport granularity follows the module boundary rule ([module-api.md](../style-guide/structure/module-api.md#module-boundaries)): deep-import specific files within your own module; import only the `index.ts` across a boundary. Never import from a package-root barrel.\n\n## Naming & Test Placement\n\n- Files: name matches the export, including casing ([file-naming.md](../style-guide/conventions/file-naming.md)); framework mandates override.\n- Folders: container/category folders are `camelCase`; a folder graduated from a class or component takes that item's PascalCase name; framework mandates override ([folder-structure.md](./folder-structure.md#folder-naming)).\n- Test files live adjacent to the file they test \u2014 never in separate `__tests__/` directories.\n\n## Anti-Patterns to Avoid\n\n### Thin Wrapper Functions\n\nDon't create functions that only rename parameters or forward to another function:\n\n```typescript\n// \u274C adds nothing but indirection\nexport const buildBrowserLabel = ({ browser, browserVersion }) =>\n	buildVersionedLabel({ name: browser, version: browserVersion });\n\n// \u2705 call the underlying function directly at the call site\n```\n\nA wrapper IS justified when it adds real validation/transformation, meaningfully simplifies a complex API, or handles errors/defaults.\n\n### Unused Code\n\nDelete unused exports, interfaces, types, and functions immediately \u2014 version control has history. If unsure whether something is used, search before deciding.\n\n### Premature Abstraction\n\nWait for 2\u20133 concrete uses before abstracting. The right abstraction becomes clear with real usage; wrong abstractions are worse than duplication.\n\n### Type Alias Indirection\n\nDon't create a file just to alias another type (`export type FilterOptions = TableFilterState`) \u2014 use the original directly; if the semantic distinction matters, a comment at the usage site beats indirection.\n\n### Circular Dependencies\n\nModule A importing B importing A creates fragile load order and breaks tree-shaking. Fix by extracting the shared piece (usually a type) into a third module both import, or restructure per the placement hierarchy.\n\n### Duplicated Patterns & Logic\n\nThe same pattern in 2+ files gets extracted to the lowest common ancestor `common/` (loading/error state handling, validation logic, repeated transformations, generic named constants like a `SortDirection` union belong in `src/common/constants/`).\n\n## Barrel Exports (`index.ts`)\n\nA graduated folder-module's `index.ts` is its public API contract \u2014 the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).\n";
-
-// standards/code/architecture/folder-structure.md
-var folder_structure_default = "# Folder Structure\n\nUse a `common/` folder pattern for shared code \u2014 it keeps related code local, makes dependency scope visible, and scales by promoting code upward only when reuse is proven. The trees below are **folder-modules** (see [Modules & the Graduation Rule](./architecture-decisions.md#modules--the-graduation-rule)): a feature folder's `index.ts` is its public API; everything under its `common/` is internal.\n\n## Rules\n\n1. **Keep `common/` close to consumers** \u2014 the lowest level where all dependents can reach it\n2. **Promote when reused** \u2014 move to a parent `common/` only when 2+ modules at that level need it\n3. **Avoid circular dependencies** \u2014 update imports when promoting; verify no cycles\n4. **`common/` is always typed, never flat** \u2014 every file lives under a type subfolder from the first file. The type vocabulary is a closed list: `utils/`, `types/`, `constants/`, `services/`, plus domain folders graduated per [Domain Folders](#domain-folders). Never invent a new type folder; never place a file directly in `common/`.\n5. **Graduate, don't pre-build** \u2014 a *concept* becomes a folder only when it needs private companions. This ceremony ban does not apply to `common/`'s type subfolders: that skeleton is always built, so placement is a no-decision.\n\n| Folder | Contents |\n| ----------- | ---------------------------------------- |\n| `utils/` | Stateless functions \u2014 pure or IO-performing (`formatDate()`, `loadConfig()`) |\n| `types/` | Type-level declarations (`CopyResult`) |\n| `constants/` | Value and named constants (`defaultConfig`, `Action`) |\n| `services/` | Stateful classes with methods (`ApiClient`) |\n\n## What Lives in `common/` \u2014 the Barrel-Omission Test\n\n`common/` holds shared **file-modules only**: single-file primitives (a stateless function, a type, a constant, one service class) filed under their type subfolder. It never contains folder-modules.\n\nA shared concept must leave `common/` and become a module \u2014 a sibling of the features that use it \u2014 the moment it has private internals. The mechanical test: **write the concept's would-be barrel. Does it omit anything?**\n\n- Everything would be exported \u2192 it is a bag of primitives \u2192 its files go in `common/<type>/` (or a domain folder)\n- The barrel would hide something \u2192 it is a module with a boundary worth enforcing \u2192 module with its own `index.ts`\n\nThis keeps placement closed under growth: shared code is either a primitive (`common/`) or a module (a domain sibling) \u2014 there is no third place.\n\n## Top Level Is Domain Nouns\n\n`src/`'s top level names domains (`billing/`, `issues/`, `sync/`) \u2014 capabilities the product has. Infrastructure capabilities are domains too: `git/`, `config/`, `runState/` are valid module names. Navigation is by domain first, for humans and agents alike.\n\n**Banned module names \u2014 a closed list, not a judgment call.** A folder is never named for the *role* of the code it holds: `helpers/`, `utils/`\\*, `lib/`, `core/`, `misc/`, `shared/`, `services/`\\*, `controllers/`, `models/`, `hooks/`, `components/`, `types/`\\*, `constants/`\\* (\\* legal inside `common/` per its closed list). Where the package's framework doc mandates one of these names (NestJS layout, React feature `components/`, file-based routers), the framework doc wins \u2014 the same carve-out as folder casing below. The only privileged folder name at any level is `common/`.\n\n## Growing Without New Rules\n\nAt every level exactly three kinds of things exist: **modules**, **`common/`**, and **files**. Growth never invents a new kind of place \u2014 it is always one of two mechanical moves:\n\n- **Graduate** \u2014 a file needs private companions \u2192 it becomes a module ([the graduation rule](./architecture-decisions.md#modules--the-graduation-rule))\n- **Consolidate** \u2014 a level holds more than ~20 modules \u2192 group related sibling modules under a new parent domain module (recursive: a module within a module, each keeping its own barrel)\n\nConsolidation is the census remedy: when a level starts reading like a directory listing instead of a product description, the fix is a parent domain \u2014 never a technical-layer bucket.\n\n## Fractal Skeleton\n\nEvery graduated feature folder shares one internal shape \u2014 its main file, `index.ts`, and (when needed) `common/`. No feature invents its own layout.\n\n## Per-Folder READMEs\n\nA folder gets a `README.md` only for a genuine invariant not derivable from these rules (e.g. \"everything here runs in the widget sandbox \u2014 no DOM globals\"). Never prose restating the structure.\n\n## Folder Naming\n\nFolders match what they hold, in that name's own casing:\n\n- **Category/container folders** \u2014 `camelCase` (`utils/`, `types/`, `formatting/`, `apiTokens/`)\n- **A folder graduated from a single named item** \u2014 that item's name and casing: class/component folders are `PascalCase` (`HttpClient/`, `IssuePanel/`)\n- **Resolve casing in order:** (1) established convention in the directory, (2) the package's framework doc (NestJS is `kebab-case` throughout; URL-mapped route segments are `kebab-case`), (3) the defaults above.\n\n## Domain Folders\n\nA stateless function starts in `utils/`. When a second related function with a shared domain appears, both graduate to a named domain folder (sibling of `utils/`) \u2014 `formatting/`, `validation/`, `parsing/`. One function alone never gets a domain folder; stateful code stays in `services/`.\n\nA domain folder is **not** a module \u2014 by the barrel-omission test it hides nothing: every file in it is public, it carries **no `index.ts`** (no barrels under `common/`; see module-api.md), and imports target its files directly. The moment a domain folder needs a private file, it has become a module and moves out of `common/`.\n\n## Example\n\n```\nsrc/\n\u251C\u2500 common/            # shared across ALL modules\n\u2502  \u251C\u2500 utils/          #   (formatDate.ts \u2014 no barrels under common/)\n\u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 services/\n\u2502  \u251C\u2500 formatting/     # domain folder: 2+ related pure functions\n\u251C\u2500 featureA/\n\u2502  \u251C\u2500 common/         # shared within featureA only\n\u2502  \u2502  \u251C\u2500 utils/\n\u2502  \u2502  \u251C\u2500 types/\n\u2502  \u251C\u2500 featureA.ts\n\u2502  \u2514\u2500 index.ts\n```\n\nReading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.\n\n## Cross-Package Sharing (`packages/shared/`)\n\nCode needed by 2+ packages belongs in a shared package \u2014 not duplicated per-package.\n\nA pure-contracts/shared package \u2014 one where everything is public by design \u2014\nis a `common/`-like space: its `src/` holds **domain folders**, not modules.\nThe barrel-omission test computes this per folder (a barrel that hides\nnothing \u2192 domain folder, no boundary), which is also how the scanner\nclassifies it.\n\n**Use `packages/shared/` when:** 2+ packages need it, it has zero framework dependencies, and it defines a contract both sides agree on (constants, error codes, pure predicates).\n\n**Don't when:** one package needs it (use its `common/`), it imports a framework (wrap the shared primitive locally), or it's an implementation detail (hooks, guards, resolvers).\n\n**Pattern \u2014 shared primitive + local wrapper:**\n\n```\npackages/shared/src/permissions/utils/hasPermission.ts        \u2190 pure function\npackages/frontend/src/common/permissions/useHasPermission.ts  \u2190 React hook wrapping it\npackages/api/src/auth/guards/                                 \u2190 NestJS guard using it\n```\n";
-
-// standards/code/architecture/react/architecture-decisions.md
-var architecture_decisions_default2 = "# React Architecture\n\nArchitecture decisions for React packages.\n\n## Component File Structure\n\n**Default to single-file components.** Only create a folder when the component requires bundled utilities, types, or constants:\n\n```\ncomponents/\n\u251C\u2500\u2500 SimpleComponent.tsx              \u2705 Single file (default)\n\u251C\u2500\u2500 ComplexComponent/                \u2705 Folder for bundled logic\n\u2502   \u251C\u2500\u2500 common/\n\u2502   \u2502   \u2514\u2500\u2500 utils/\n\u2502   \u2502       \u251C\u2500\u2500 index.ts\n\u2502   \u2502       \u2514\u2500\u2500 helperFunction.ts\n\u2502   \u251C\u2500\u2500 ComplexComponent.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## Domain Folders\n\nDomain folders follow the shared rules in [folder-structure.md](../folder-structure.md#domain-folders). React-specific examples include JSX-producing functions grouped by domain:\n\n```\ncommon/\n\u251C\u2500\u2500 utils/                         # Ungrouped pure functions\n\u251C\u2500\u2500 stepConfigs/                   # \u2705 Domain folder \u2014 2+ related JSX config builders\n\u2502   \u251C\u2500\u2500 getDesignStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getInstallStepConfig.tsx\n\u2502   \u251C\u2500\u2500 getStepContentConfig.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n\u251C\u2500\u2500 cellRenderers/                 # \u2705 Domain folder \u2014 2+ related JSX renderers\n\u2502   \u251C\u2500\u2500 renderStatusCell.tsx\n\u2502   \u251C\u2500\u2500 renderDateCell.tsx\n\u2502   \u2514\u2500\u2500 index.ts\n```\n\n## File Naming Conventions\n\n| File type | Convention | Example |\n|-----------|------------|---------|\n| Components | `PascalCase.tsx` (or `PascalCase/` folder) | `IssueDetailContent.tsx`, `IssueDetail/` |\n| Hooks | `camelCase.ts` | `useIssues.ts`, `useUpdateIssue.ts` |\n| Utils | `camelCase.ts` | `buildOrderBy.ts`, `formatDate.ts` |\n| Named constants, interfaces | `PascalCase.ts` | `QueryKey.ts`, `FilterOption.ts` |\n| Constants | `camelCase.ts` | `emailRegex.ts`, `defaultPaginationPage.ts` |\n| Folders (domain) | `camelCase` | `hooks/`, `components/`, `queries/` |\n| Folders (component) | `PascalCase` | `IssueDetail/`, `IssueHeaderToolbar/` |\n";
-
-// standards/code/architecture/tanstack-start/architecture-decisions.md
-var architecture_decisions_default3 = "# TanStack Start Architecture\n\nArchitecture decisions for TanStack Start applications. These patterns layer on top of [React architecture](../react/architecture-decisions.md).\n\n## Feature Structure\n\nEach feature in `src/features/` follows this pattern:\n\n```\nfeatures/{feature}/\n\u251C\u2500\u2500 common/                    # Feature-wide shared code\n\u2502   \u251C\u2500\u2500 constants/\n\u2502   \u251C\u2500\u2500 types/\n\u2502   \u2514\u2500\u2500 utils/\n\u251C\u2500\u2500 components/                # Feature-wide reusable components\n\u251C\u2500\u2500 hooks/                     # Feature-specific React hooks\n\u251C\u2500\u2500 queries/                   # TanStack Query options\n\u251C\u2500\u2500 screens/                   # Screen components (route destinations)\n\u2502   \u2514\u2500\u2500 {ScreenName}/\n\u2502       \u251C\u2500\u2500 components/        # Screen-specific components\n\u2502       \u2502   \u2514\u2500\u2500 common/        # Shared across screen components\n\u2502       \u251C\u2500\u2500 hooks/             # Screen-specific hooks\n\u2502       \u251C\u2500\u2500 {ScreenName}.tsx\n\u2502       \u2514\u2500\u2500 index.ts\n\u251C\u2500\u2500 serverFns/                 # TanStack server functions\n\u2514\u2500\u2500 index.ts                   # Feature barrel export\n```\n\n## Code Placement Hierarchy\n\n| Scope              | Location                                                 | When to Use                         |\n| ------------------ | -------------------------------------------------------- | ----------------------------------- |\n| App-wide           | `src/common/`                                            | Used by 2+ features                 |\n| Feature-wide       | `features/{feature}/common/`                             | Used by 2+ screens in one feature   |\n| Screen-wide        | `features/{feature}/screens/{screen}/components/common/` | Used by 2+ components in one screen |\n| Component-specific | `{component}/common/`                                    | Only used by one component          |\n\n## Key Patterns\n\n### Server Functions\n\nServer functions live in `serverFns/` folders at feature or app level:\n\n```\nserverFns/\n\u251C\u2500\u2500 countIssues/\n\u2502   \u251C\u2500\u2500 CountIssuesDocument.ts    # GraphQL document (if applicable)\n\u2502   \u251C\u2500\u2500 countIssuesServerFn.ts    # Server function\n\u2502   \u2514\u2500\u2500 index.ts\n\u2514\u2500\u2500 index.ts\n```\n\n### File Naming for Server Functions\n\n| File type | Convention | Example |\n|-----------|------------|---------|\n| Server functions | `camelCase/` folder with `PascalCase` document + `camelCase` fn | `countIssues/CountIssuesDocument.ts`, `countIssuesServerFn.ts` |\n| Queries | `camelCase.ts` | `issuesQueryOptions.ts` |\n\n### Query Options\n\nTanStack Query options are centralized in `queries/` folders:\n\n```typescript\n// features/issues/queries/issuesQueryOptions.ts\ninterface Params {\n	searchParams: IssuesSearchParams;\n}\n\nexport const issuesQueryOptions = ({ searchParams }: Params) =>\n	queryOptions({\n		queryKey: [QueryKey.Issues, searchParams],\n		queryFn: () => findAllIssuesServerFn({ data: searchParams }),\n	});\n```\n\n### Hooks\n\nCustom hooks that wrap queries or manage state:\n\n```typescript\n// features/issues/hooks/useIssues.ts\ninterface Params {\n	searchParams: IssuesSearchParams;\n}\n\nexport const useIssues = ({ searchParams }: Params) => {\n	return useSuspenseQuery(issuesQueryOptions({ searchParams }));\n};\n```\n\n> **Return types:** query-options factories and hooks infer their return types \u2014 TanStack's `UseSuspenseQueryOptions`/`UseSuspenseQueryResult` generics are the contract, so this falls under the generic-heavy exception in [return-types.md](../../style-guide/typescript/return-types.md#return-types--explicit-on-exports-inferred-internally).\n";
-
-// standards/code/documentation/ts-docs.md
-var ts_docs_default = "# TypeScript Documentation Style Guide\n\nHow to write TSDoc/JSDoc *when documentation is warranted* \u2014 it does not mandate doc comments on every export.\n\n## When to Document\n\nDefault to self-documenting code. Add JSDoc only when:\n\n- The **why** is non-obvious \u2014 business context, constraints, or gotchas a reader wouldn't guess from the code.\n- The function has a **complex contract** \u2014 non-obvious parameter interactions, intentional error-throwing behavior, usage worth an example.\n- The export is a **public API boundary** consumed by other packages or external callers.\n\nIf the name and types already communicate the purpose, skip the comment.\n\n**Inline `//` comments:** default to none. Use only for a non-obvious workaround, a business rule embedded in logic (`// 30-day window per billing agreement`), or a deliberate deviation and why. Never narrate what the next line does.\n\n## Elements\n\n- **Description**: one or two sentences \u2014 what it does and why you'd use it. Focus on *why*; the code shows *what*.\n- **`@param`**: name and purpose only \u2014 TypeScript owns the type. For object-args functions, `@param` tags document the destructured property names directly. Sentence fragments, lowercase.\n- **`@throws`**: only errors intentionally thrown and expected to be caught: `@throws {ConnectionError} When the database is unreachable`.\n- **`@returns`**: only when the value has semantics the type doesn't show (a `string` that is a JWT; a `boolean` where `true` means \"already existed\").\n- **`@example`**: for complex APIs or non-obvious usage; minimal and runnable.\n- **`@typeParam`**: when a generic's purpose isn't obvious from its name.\n\n## Brittle Tags \u2014 Do NOT Use\n\n`@version` / `@since` / `@author` (git owns these) \xB7 `@type` / `@default` / `@readonly` / `@private` / `@public` / `@protected` / `@memberof` (TypeScript owns these) \xB7 `@see` with URLs (use `@see {@link SymbolName}` instead) \xB7 `@todo` (issue tracker) \xB7 `@deprecated` without a migration path.\n\n## Params Interfaces\n\nDo NOT document a function's local `Params` interface \u2014 the function's `@param` tags are sufficient. Individual properties inside it may carry `/** */` comments only when name + type don't convey the contract (`/** Display name shown in the UI, may differ from username */`), and document interfaces at the type level, not every property.\n\n## Complete Example\n\n```typescript\ninterface Params<T> {\n	fn: () => Promise<T>;\n	maxAttempts?: number;\n	baseDelay?: number;\n}\n\n/**\n * Retries an async operation with exponential backoff.\n *\n * Useful for network requests that may fail transiently.\n *\n * @param fn - async function to retry\n * @param maxAttempts - attempts before giving up\n * @param baseDelay - initial delay in ms, doubles after each failure\n * @throws {RetryExhaustedError} When all retry attempts fail\n */\nexport const retry = async <T>({ fn, maxAttempts = 3, baseDelay = 1000 }: Params<T>): Promise<T> => {\n	// ...\n};\n```\n";
-
-// standards/code/style-guide/conventions/casing.md
-var casing_default = "# Casing\n\n| Item              | Convention                            | Example                                   |\n| ----------------- | ------------------------------------- | ----------------------------------------- |\n| Variables         | camelCase                             | `userName`, `isActive`                    |\n| Functions/Methods | camelCase                             | `getUserName()`, `calculateTotal()`       |\n| Classes           | PascalCase                            | `UserService`, `ApiClient`                |\n| Interfaces        | PascalCase                            | `UserProfile`, `ApiResponse`              |\n| Types             | PascalCase                            | `UserId`, `RequestOptions`                |\n| Value constants   | camelCase                             | `maxRetries`, `emailRegex`                |\n| Named constants   | PascalCase                            | `Action`, `LogLevel` (see [named-constants.md](../patterns/named-constants.md)) |\n| File names        | See [file-naming.md](./file-naming.md) | \u2014                                         |\n";
-
-// standards/code/style-guide/conventions/file-naming.md
-var file_naming_default = "# File Naming\n\nThe file name always matches the **exported item's name, including its casing** (see the table below). Resolve the casing in this order:\n\n1. **Existing files in the same directory** \u2014 match their convention\n2. **The package's framework doc** \u2014 e.g., NestJS packages use `kebab-case.{suffix}.ts` (see the architecture skill's framework docs)\n3. **Default** (new/empty directory, no framework rule): match the export name's own casing per the rule above\n\n| Convention                          | Applies to                                  | Example                                |\n| ----------------------------------- | ------------------------------------------- | -------------------------------------- |\n| camelCase matching the export name  | functions, value constants                  | `buildVersionedLabel.ts`, `maxRetries.ts` |\n| PascalCase matching the export name | classes, interfaces, types, named constants | `UserProfile.ts`, `Action.ts`          |\n| kebab-case (framework-mandated)     | per framework doc                           | `get-frontend-domain.ts`               |\n\n**Framework mandates override casing entirely** \u2014 e.g., NestJS services are `events.service.ts` even though the class itself is PascalCase.\n";
-
-// standards/code/style-guide/conventions/lint-and-formatting.md
-var lint_and_formatting_default = "# Lint, Formatting & Mechanically-Enforced Rules\n\nThe language is TypeScript. Follow the project's formatter and linter configuration when present (`biome.json`, `.prettierrc`, `eslint.config.*`); with none configured, keep formatting consistent throughout.\n\n**The lint preset is binding even where the repo's lint config does not yet enforce it.** These rules are mechanical \u2014 they are stated here once, without prose, and violations are violations whether or not a linter catches them:\n\n- **`import type` for type-only imports** \u2014 anything used only in type positions (annotations, parameter types, generic arguments) imports with `import type`, so it erases at compile time.\n- **No `any`** \u2014 use `unknown` and narrow with type guards when the type is genuinely unknown; use specific types or generics when it isn't. A rare, justified bypass gets the project's lint-suppression comment with an explanation.\n";
-
-// standards/code/style-guide/conventions/naming.md
-var naming_default = "# Naming\n\n## Naming Consistency\n\nStandardize patterns within each domain \u2014 if the codebase already uses one, follow it; never introduce a competing convention:\n\n- Data fetching: one of `getData` / `fetchData` / `loadData`, not a mix\n- Booleans: consistent prefixes (`is`, `has`, `should`, `can`)\n- Event handlers: one pattern (`onSubmit` vs `handleSubmit`)\n\n## Verb Vocabulary (closed)\n\nNew code draws function verbs from this closed set \u2014 synonyms are how duplicates hide from name-level search (agents and humans both navigate by grep):\n\n`get` \xB7 `create` \xB7 `update` \xB7 `delete` \xB7 `format` \xB7 `parse` \xB7 `validate` \xB7 `build` \xB7 `to`/`from` (conversions) \xB7 `is`/`has`/`should`/`can` (booleans)\n\nBanned synonyms: `fetch`/`load`/`retrieve`/`read` \u2192 `get` \xB7 `make`/`generate`/`produce` \u2192 `create` \xB7 `remove` \u2192 `delete` \xB7 `modify` \u2192 `update` \xB7 `verify`/`check` \u2192 `validate`.\n\nSubordinate to Naming Consistency above: a domain that already standardized on `fetchData` keeps its verb \u2014 the vocabulary governs new domains.\n\n## Naming for Reuse\n\n**Name things by what they ARE, never by where or how they're currently used.** The test: could someone use this elsewhere in the app without the name misleading them?\n\n| Category | \u274C Context-specific | \u2705 Generic, reusable |\n| --- | --- | --- |\n| Value constants | `heroMaxWidth` | `maxContentWidth` |\n| Utils | `formatPricingDate()` | `formatDate()` |\n| Named constants | `HeroButtonVariant` | `ButtonVariant` |\n| Components | `PricingPageCard` | `PlanCard` |\n| Types | `PricingPageProps` | `PlanCardProps` |\n\nApplies to everything you extract or create. A truly feature-specific value may keep a scoped name \u2014 but default to generic: narrowing later is free; renaming a widely-used token is expensive.\n";
-
-// standards/code/style-guide/conventions/variable-declaration.md
-var variable_declaration_default = "# Variable Declaration\n\n- Verbose, readable names \u2014 code a new developer understands without extra documentation. Single letters only in small loops (`i`) or well-known conventions (`e` for event).\n\n## Don't Hoist Single-Use Scalars\n\nDon't hoist single-use scalars to module scope or a constants file. A value used by one function and not a lookup map is declared inline \u2014 `const maxRetries = 10;` inside the function, not `const MAX_RETRIES = 10;` at module scope. Promote to a module-level constant (or `constants/`) only when it's consumed in 2+ places, or it's a lookup map / structured config.\n";
-
-// standards/code/style-guide/patterns/classes.md
-var classes_default = "# Classes\n\n## When to Use a Class \u2014 The Bright Line\n\nDefault to functions. Create a class **if and only if at least one** of these is true:\n\n| # | Criterion | Example |\n|---|-----------|---------|\n| a | **Mutable state persists across method calls** | `RateLimiter` (remaining tokens), a cache, a connection pool |\n| b | **3+ operations share injected config/dependencies** | `HttpClient` (baseUrl, retries, credentials injected once, used by every method) |\n| c | **Multiple implementations of a shared interface** | `FileSource` / `S3Source` behind one `RecordSource` contract |\n| d | **The framework requires it** | NestJS services, resolvers, guards (DI needs classes) |\n\nIf none apply: **functions in a module.** Gut-check: *is \"how many of these exist right now?\" a meaningful question?* Two `HttpClient`s pointed at different APIs \u2014 meaningful \u2192 class. Two `formatDate`s \u2014 nonsensical \u2192 function.\n\n**Banned:**\n\n- **Static-only classes** \u2014 a module wearing a costume; it adds `ClassName.` prefixes and binds no state. Use module functions (each exported function in its own file).\n- **One-method stateless classes** \u2014 `class ReportGenerator { execute() }` is a function with a hat on. Write the function.\n\n## Syntax & Style\n\n- Constructor takes an object argument, destructured; declare a `ConstructorParams` interface for it.\n- **Instance methods** use inline object types for their params \u2014 not separate interfaces (keeps the signature self-contained, avoids interface-file sprawl).\n- Public methods of an exported class declare return types; `private` methods infer (see [return-types.md](../typescript/return-types.md)). Interface-pinned methods need not restate the type.\n- Export the class as a named export on the line it is defined.\n\n```typescript\ninterface ConstructorParams {\n	name: string;\n	isActive?: boolean;\n}\n\nexport class Person {\n	private readonly name: string;\n	private isActive: boolean;\n\n	constructor({ name, isActive = true }: ConstructorParams) {\n		this.name = name;\n		this.isActive = isActive;\n	}\n\n	greet(): string {\n		return `Hello, my name is ${this.name}.`;\n	}\n\n	setActiveStatus({ status }: { status: boolean }): void {\n		this.isActive = status;\n	}\n}\n```\n\n## File vs Folder \u2014 The Graduation Rule\n\nClasses follow the same graduation rule as everything else (see [architecture-decisions.md](../../architecture/architecture-decisions.md#modules--the-graduation-rule)):\n\n- **A class starts as a single file** \u2014 `RateLimiter.ts` with its test beside it; non-exported helpers may co-locate.\n- **A class graduates to a folder** \u2014 `HttpClient/` \u2014 only when it needs private companions (bundled utils, types, or constants that serve only it). Companions live under `common/` by category (`utils/`, `types/`, `constants/`), each with a barrel; the class folder's `index.ts` exports the class and the boundary rule applies.\n- Do NOT create a folder for a class with no companions \u2014 that is ceremony, not structure.\n\n## Keep the Class Surface Small\n\nPrefer extracting logic into functions over adding instance methods: before graduation, non-exported helpers in the class file; after, files under the folder's `common/utils/`. The class surface stays limited to behavior that genuinely needs its state; logic is covered through the class's public API.\n";
-
-// standards/code/style-guide/patterns/functions.md
-var functions_default = '# Functions\n\n## Syntax & Style\n\n- Use arrow functions (unless the codebase uses a different convention)\n- **If the function has arguments \u2014 exported or private \u2014 pass an object and destructure:**\n    - **Exported functions:** declare an interface called `Params` for the object argument\n    - **Private helpers:** use an inline object type (a file with multiple helpers cannot declare multiple `Params` interfaces)\n    - **Why objects:** positional signatures decay under growth \u2014 params get appended out of order, middle params can never be removed, and same-typed slots transpose silently (`copyFile(dest, src)` compiles). Object args self-document at every call site.\n- **No arguments** \u2192 no argument object, no `Params` interface.\n- **Sole exception \u2014 externally imposed signatures:** a shape dictated by another contract is written as that contract demands, never re-declared locally. Two directions: **callback-shaped** (callbacks to `map`/`reduce`/`sort`, event handlers, framework hooks \u2014 the caller dictates) and **pass-through forwarders** (a wrapper forwarding one params object unchanged to a single callee \u2014 the callee dictates; type it `Parameters<typeof callee>[0]`, since a hand-copied `Params` would be a shadow contract that drifts).\n- If callers need to *name* the argument type (e.g., to pre-build a typed args object), it has become public contract \u2014 promote it to a named exported type in `types/` in place of `Params`.\n- Export the function as a named export on the line it is defined.\n\n## Single Return Point\n\nBusiness logic uses a single return at the end \u2014 one consistent place to find the result, and a shared post-step (a floor, a wrapper, a log) gets written once instead of repeated per branch, where one branch inevitably forgets it. **Exception:** guard clauses at the top may return early for validation/null checks.\n\n```typescript\nexport const calculateShippingCost = ({ weightKg, isExpress, destination }: Params): number => {\n	let cost = weightKg * destination.ratePerKg;\n\n	if (isExpress) {\n		cost += destination.expressSurcharge;\n	}\n\n	// Minimum-charge floor applies to every path \u2014 single return writes it once.\n	if (cost < destination.minimumCharge) {\n		cost = destination.minimumCharge;\n	}\n\n	return cost;\n};\n```\n\n## One Exported Function Per File \u2014 Not Negotiable\n\nEvery **exported** function gets its own file, named after the export (cased per [file-naming.md](../conventions/file-naming.md)). Rationalizations that are NOT valid: "closely related", "both config functions", "over-engineered to split", "one is just a helper for the other" \u2014 if it\'s truly a helper, make it **non-exported** and co-locate it; if it\'s exported, it gets its own file.\n\n```typescript\n// \u274C config.ts exporting loadConfig AND saveConfig \u2014 split into loadConfig.ts + saveConfig.ts\n```\n\n### Private Helpers May Co-Locate\n\nA **non-exported** helper may live in the file of the export it serves when both hold: (1) no `export` keyword, (2) called only from this file. The file acts as a module: the export is the public API, helpers are compiler-enforced internals, covered through the export\'s tests. **The moment a second file needs the helper, it gets exported \u2014 and exported means its own file.** The bright line stays mechanical: `export` keyword \u2192 own file.\n\n```typescript\ninterface Params {\n	records: ReportRecord[];\n}\n\n// Private helper: inline object type, inferred return\nconst sumTotals = ({ records }: { records: ReportRecord[] }) => {\n	return records.reduce((total, record) => total + record.amount, 0);\n};\n\n// Export: Params interface + declared return type\nexport const buildReportSummary = ({ records }: Params): { total: number } => {\n	return { total: sumTotals({ records }) };\n};\n```\n\nIf a helper\'s branches cannot be reached through the export\'s inputs, that branch is dead code \u2014 delete it. If covering a helper through the export is genuinely impractical (combinatorial inputs), the helper has earned promotion to its own file with its own tests.\n\n## Function Size Limits\n\n| Lines | Assessment |\n| ----- | ------------------------------------ |\n| <=50  | Fine |\n| 50-80 | Review \u2014 look for extractable logic |\n| 80+   | Needs splitting |\n\nFiles stay under ~250 lines (~300 for `.tsx` \u2014 JSX and props interfaces earn the slack) \u2014 approaching the cap signals a split or graduation. React components and hooks have their own thresholds (see the react patterns doc when it applies).\n\n**Exception \u2014 orchestration functions** may exceed 50 lines when each step delegates to a dedicated function (no inline business logic) and the flow is linear: a 150-line `start()` calling 8 step functions is fine; a 150-line function with inline loops and transformations is not.\n';
-
-// standards/code/style-guide/patterns/named-constants.md
-var named_constants_default = "# Named Constants\n\n## Use a union type paired with a `const` object\n\nFor a set of named string values, use a **union type** backed by a `const` object. The `const` object is the single source of truth; the union is derived from it. Consumers reference the object (`Action.Add`), never raw string literals.\n\n\u2705 GOOD: `const` object + derived union\n\n**`common/constants/Action.ts`**\n\n```typescript\nexport const Action = {\n	Add: 'add',\n	Remove: 'remove',\n	List: 'list',\n	Update: 'update',\n} as const;\n\nexport type Action = (typeof Action)[keyof typeof Action];\n```\n\n```typescript\n// consumer \u2014 references the object, not a raw string\ndoThing(Action.Add);\n```\n\n\u274C BAD: bare union, values redefined at every call site\n\n```typescript\nexport type Action = 'add' | 'remove' | 'list' | 'update';\n\n// consumers retype raw literals \u2014 the source of truth is now \"everywhere\"\ndoThing('add');\n```\n\n## Casing\n\nNamed constants are **PascalCase** (`Action`, `LogLevel`) \u2014 the `const` object and its derived `type` share one name, and the type must be PascalCase. The file matches: `Action.ts`.\n\nThis is distinct from plain **value constants** (a single scalar or config value like `maxRetries`, `emailRegex`), which stay **camelCase**. The test: if it backs a union or has members consumers dot into (`Action.Add`), it's a named constant \u2192 PascalCase; if it's a lone value, it's a value constant \u2192 camelCase.\n\n## Boundaries\n\nAt boundaries (JSON payloads, query params, DB values) incoming strings are not yet the union \u2014 convert with a small validation function (e.g., `parseAction`), never with an `as` cast.\n\n## Discriminants Use the `const` Object\n\nDiscriminant fields in union families reference the `const` object, not raw string literals \u2014 otherwise consumers retype the literal at every narrowing site. TypeScript narrows identically.\n\n\u2705 GOOD:\n\n```typescript\nexport interface FileAddedEvent {\n	kind: typeof SyncEventKind.FileAdded;\n	path: string;\n}\n\n// consumer \u2014 no raw strings\nif (event.kind === SyncEventKind.FileAdded) { /* ... */ }\n```\n\n\u274C BAD:\n\n```typescript\nexport interface FileAddedEvent {\n	kind: 'file-added'; // literal leaks to every consumer call site\n}\n```\n\n**Exemption \u2014 component prop unions.** A UI component's discriminated `Props` union may use raw string-literal discriminants (`status: 'notInstalled' | 'connected'`): the caller writes the literal once as a JSX attribute, which is idiomatic React and reads better than a constant import. The rule above targets domain values that cross module boundaries and get narrowed at many call sites. If the same discriminant values also appear in domain logic, they are domain values \u2014 use the `const` object everywhere, props included.\n\n## Derived Lookup Maps May Co-Locate\n\nA lookup map keyed by the union (`Record<Action, \u2026>`) may live in the same file as the `const` object \u2014 the two are tautologically coupled, so every change to one changes the other.\n\n```typescript\nexport const LogLevel = {\n	Debug: 'debug',\n	Info: 'info',\n	Error: 'error',\n} as const;\n\nexport type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];\n\nexport const logLevelLabels: Record<LogLevel, string> = {\n	[LogLevel.Debug]: 'Debug',\n	[LogLevel.Info]: 'Info',\n	[LogLevel.Error]: 'Error',\n};\n```\n\nAn unrelated constant that merely *uses* the union goes in `constants/` as usual.\n";
-
-// standards/code/style-guide/patterns/react-components.md
-var react_components_default = "# Component & Hook Patterns\n\n## React - Function Size Limits\n\nThe base function size thresholds are defined in `code:style-guide/references/patterns/functions.md`. The overrides below apply to the file types they specify \u2014 when a file matches a classification here, use these thresholds instead of the base.\n\n### File Classification\n\n- `.tsx` files with a named/default export returning JSX \u2192 **Component** (use component thresholds)\n- `.ts` files exporting a function starting with `use` \u2192 **Hook** (use hook thresholds)\n- Everything else \u2192 **Utility** (50-line threshold applies)\n\n### Line Counting\n\nCount from function signature to closing brace. Exclude imports, type declarations outside the function, and file-level comments.\n\n### Components (.tsx)\n\n| Lines   | Assessment                                                         |\n| ------- | ------------------------------------------------------------------ |\n| <100    | Almost always fine                                                 |\n| 100\u2013150 | Review \u2014 acceptable if mostly JSX composition with no inline logic |\n| 150+    | Likely needs extraction                                            |\n| 200+    | Definitely needs extraction                                        |\n\n### Hooks (.ts)\n\n| Lines  | Assessment                               |\n| ------ | ---------------------------------------- |\n| <80    | Fine                                     |\n| 80\u2013120 | Review \u2014 look for extractable pure logic |\n| 120+   | Likely needs utility extraction          |\n| 160+   | Definitely needs extraction              |\n\nPure logic inside hooks should be extracted to utility functions. The hook itself should compose, not compute.\n\n## Default Actions \u2014 Components & Hooks\n\n| Issue Type                              | Default Action                   | Review Level |\n| --------------------------------------- | -------------------------------- | ------------ |\n| Component >200 lines                    | Extract sub-components           | Medium       |\n| Hook >160 lines                         | Extract pure logic to utilities  | Medium       |\n| Inline styles / repeated className logic | Extract to shared class or component | Low          |\n";
-
-// standards/code/style-guide/structure/import-paths.md
-var import_paths_default = "# Import Path Strategy\n\n**Use the package's configured path alias for every import.**\n\n- When a package defines path aliases, NEVER use relative paths (`./`, `../`) \u2014 not even for sibling files, `common/` subfolders, or barrel re-exports\n- If a package defines **no** path aliases, use relative paths consistently \u2014 and consider adding aliases\n- This applies to every file: components, constants, interfaces, types, utils, hooks, etc.\n\n## Path Aliases\n\nEach package defines its own path aliases in `tsconfig.json` \u2192 `compilerOptions.paths`. Common patterns:\n\n| Alias    | Example                                   |\n| -------- | ----------------------------------------- |\n| `@/*`    | `import { X } from '@/common/utils/X'`    |\n| `@src/*` | `import { X } from '@src/common/utils/X'` |\n\n**Rule:** Always check the package's `tsconfig.json` `paths` field to determine the correct alias. Do not hardcode aliases from memory.\n\n\u2705 GOOD: Path alias for everything\n\n```typescript\nimport { ClassName } from '@/path/to/ClassName';\nimport { methodName } from '@/common/utils/methodName';\nimport { features } from '@/features/home/components/HomeIssueDetails/common/constants';\nimport { MockIssuePanel } from '@/features/home/components/HomeIssueDetails/components/MockIssuePanel';\n```\n\n\u274C BAD: Relative paths in an alias-configured package\n\n```typescript\nimport { helper } from './helper';\nimport { util } from '../common/utils/util';\nimport { features } from './common/constants';\n```\n";
-
-// standards/code/style-guide/structure/module-api.md
-var module_api_default = "# Module Boundaries & Exports\n\n## Module Boundaries\n\nA **folder-module** (feature, route, screen, graduated class or component \u2014 see [architecture-decisions.md](../../architecture/architecture-decisions.md#modules--the-graduation-rule)) has a public API: its `index.ts`.\n\n- **Crossing a module boundary:** import ONLY from the module's `index.ts` \u2014 never reach into another module's internals (`@/ingestion`, not `@/ingestion/common/utils/normalizeRecord`).\n- **Inside a module:** import directly from specific files \u2014 deep imports within your own module are correct.\n\n## Module Exports\n\n- Always named exports, on the line the item is defined \u2014 functions, classes, interfaces, and `as const` named constants alike.\n\n## Barrel Files (`index.ts`)\n\nA barrel is the module's **public API contract** \u2014 it lists exactly what consumers may use; everything it omits is internal.\n\n1. **Every folder-module has an `index.ts`** \u2014 the only path other modules import through\n2. **Named re-exports** \u2014 `export { Foo } from '<path>'` (alias when configured), never `export *`\n3. **One export per line** \u2014 clean diffs\n4. **Export deliberately** \u2014 the barrel MAY re-export from subfolders when those items are intentionally public; omissions are internal\n5. **No barrels anywhere under `common/`** \u2014 a barrel is a boundary marker (the barrel-omission test), and `common/` is definitionally boundary-less; imports into `common/` always target the file directly. An `index.ts` there would assert a boundary that does not exist \u2014 and sits where the scanner deliberately does not look\n\n```typescript\n// ingestion/index.ts \u2014 RawRecord re-exported on purpose; normalizeRecord stays internal\nexport { ingestRecords } from '@/ingestion/ingestRecords';\nexport type { RawRecord } from '@/ingestion/common/types/RawRecord';\n```\n";
-
-// standards/code/style-guide/structure/one-export-per-file.md
-var one_export_per_file_default = '# One Export Per File\n\n- Each **exported** function, class, interface, type, or constant has its own file, named after the export (cased per the package\'s file-naming convention)\n- Non-exported items (private helpers, local types) may co-locate with the export they serve\n\n## The Closed Exception List\n\nThe **only** cases where a file may contain more than one item \u2014 every exception has a mechanical criterion:\n\n| # | Exception | Criterion |\n|---|-----------|-----------|\n| 1 | `Params` / `ConstructorParams` interfaces | Stays in the file of its function/class; not exported independently |\n| 2 | Private helpers | Not exported; called only within this file (see [functions.md](../patterns/functions.md#private-helpers-may-co-locate)) |\n| 3 | Discriminated union families | A union type and its member types share one file when the members exist only as constituents of that union |\n| 4 | Named constant + derived lookup map | A lookup map keyed by the union (`Record<MyType, \u2026>`) may live in the `const` object\'s file (see [named-constants.md](../patterns/named-constants.md#derived-lookup-maps-may-co-locate)) |\n\n## Multiple Exported Items \u2014 Still Not Negotiable\n\nInvalid rationalizations: "the interface is only used by this constant", "they\'re closely related", "it\'s just a small helper" (if it\'s a helper, make it non-exported \u2014 exception 2; if exported, own file).\n\n```typescript\n// \u274C config.ts: export interface Config + export const defaultConfig \u2014 split them:\n// common/types/Config.ts        \u2192 export interface Config { ... }\n// common/constants/defaultConfig.ts \u2192 export const defaultConfig: Config = { ... }\n```\n\n**Exception 3 in practice** \u2014 a union family shares one file because the members exist only as constituents:\n\n```typescript\n// common/types/SyncEvent.ts\nexport interface FileAddedEvent {\n	kind: typeof SyncEventKind.FileAdded; // discriminant references the const object, never a raw literal\n	path: string;\n}\n\nexport interface RecordParsedEvent {\n	kind: typeof SyncEventKind.RecordParsed;\n	recordId: string;\n}\n\nexport type SyncEvent = FileAddedEvent | RecordParsedEvent;\n```\n\nIf a member type starts being used independently of the union, it moves to its own file.\n';
-
-// standards/code/style-guide/structure/type-placement.md
-var type_placement_default = "# Type & Constant Placement\n\nThese placement rules govern **shared** declarations. An exported type or\nconstant with no second consumer is a file-module wherever its consumers live\n\u2014 `common/` placement is earned by sharing, never by kind (see the Code\nPlacement Philosophy in architecture-decisions.md).\n\n## Types and Interfaces \u2192 `common/types/`\n\nThe folder groups type-level declarations regardless of keyword. Pick the keyword by fit, not folder:\n\n- `interface` for object shapes (extends and merges cleanly)\n- `type` for what an interface can't express (unions, intersections, mapped types, primitives, tuples, function signatures)\n- Either works for an object shape \u2192 stay consistent within a domain. Refactoring between the keywords is an in-place edit; the filename and imports never change.\n\nA discriminated union family lives in `types/` under the union's name.\n\n**The `Params` interface stays with its function; all other exported types go in `types/`:**\n\n```typescript\n// copyFile.ts \u2014 Params co-located, unexported\ninterface Params {\n	sourcePath: string;\n	destPath: string;\n}\n\nexport const copyFile = ({ sourcePath, destPath }: Params) => { /* ... */ };\n\n// common/types/CopyResult.ts \u2014 exported return type gets its own types/ file\nexport interface CopyResult {\n	success: boolean;\n	bytesWritten: number;\n}\n```\n\n## Constants \u2192 `common/constants/`\n\nConstants are not types \u2014 they live in `common/constants/` (`export const \u2026`), never in `types/`. A `const` object with its derived union and lookup map lives in `constants/` under the object's name (see [named-constants.md](../patterns/named-constants.md)).\n\n```typescript\n// common/constants/defaultConfig.ts\nimport type { Config } from '@/path/to/common/types/Config';\n\nexport const defaultConfig: Config = { name: 'default' };\n```\n";
-
-// standards/code/style-guide/typescript/return-types.md
-var return_types_default = "# Return Types \u2014 Explicit on Exports, Inferred Internally\n\nThe bright line is the `export` keyword \u2014 the same trigger as \"own file\" and the `Params` interface:\n\n- **Exported function** \u2192 declare the return type. The annotation is the output half of the public contract, exactly as `Params` is the input half.\n- **Non-exported function** (private helpers, callbacks) \u2192 always infer. Annotations on internals are noise; the consumer is in the same file and inference is precise there.\n\n**Why this rule exists:** with inference, an exported function's return type is whatever the body happens to return today. A refactor can silently widen or change the public contract, and the diff reads as an implementation edit \u2014 the error surfaces later, in a consumer's file, several inference hops away. An explicit annotation fails at the definition site the moment the body stops satisfying the contract, and an intentional API change becomes a visible diff line. It also keeps the codebase compatible with TypeScript's `isolatedDeclarations`.\n\n\u2705 GOOD:\n\n```typescript\ninterface Params {\n	user: User | null;\n}\n\nexport const getUserDisplayName = ({ user }: Params): string => {\n	// ...\n};\n\nconst sumTotals = ({ records }: { records: ReportRecord[] }) => {\n	// private helper \u2014 inferred\n};\n```\n\n\u274C BAD:\n\n```typescript\nexport const getUserDisplayName = ({ user }: Params) => { /* ... */ }; // WRONG \u2014 exported, contract is implicit\n\nconst sumTotals = ({ records }: { records: ReportRecord[] }): number => { /* ... */ }; // WRONG \u2014 internal, annotation is noise\n```\n\n**Exceptions** (inference is correct on these even when exported):\n\n1. **Framework components** \u2014 React components don't annotate `JSX.Element`.\n2. **Generic-heavy signatures** \u2014 when the written return type would be an unreadable conditional-type expression, the generic signature is the contract; infer.\n3. **Interface-pinned signatures** \u2014 methods implementing a declared interface (e.g., a `RecordSource` implementation) are already contracted by the interface; restating the type is duplication.\n\n**Migration:** new exported functions comply immediately; existing exported functions gain a return type when touched. Never remove a return type from an exported function.\n";
-
-// standards/code/style-guide/typescript/type-assertions.md
-var type_assertions_default = "# Type assertions (`as`)\n\nAvoid `as` casts. They tell the compiler to trust you instead of proving the type is correct.\n\n- Prefer type narrowing with `typeof`, `instanceof`, or discriminated unions.\n- If an assertion is truly necessary (e.g., a library returns `unknown`), add a brief comment explaining why narrowing is not possible.\n- Exception: **test files** may use `as unknown as T` to force invalid input into a defensive branch for coverage (see the unit-testing standards).\n\n\u2705 GOOD: Narrowing\n\n```typescript\nif (typeof value === 'string') {\n	return value.toUpperCase();\n}\n```\n\n\u274C BAD: Assertion without justification\n\n```typescript\nreturn (value as string).toUpperCase();\n```\n";
-
-// src/standards/defaultCodeStandards.ts
-var defaultCodeStandards = {
-  base: [
-    `<!-- lightsout defaults: standards/code/architecture/architecture-decisions.md -->
-${architecture_decisions_default}`,
-    `<!-- lightsout defaults: standards/code/architecture/folder-structure.md -->
-${folder_structure_default}`,
-    `<!-- lightsout defaults: standards/code/documentation/ts-docs.md -->
-${ts_docs_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/conventions/casing.md -->
-${casing_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/conventions/file-naming.md -->
-${file_naming_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/conventions/lint-and-formatting.md -->
-${lint_and_formatting_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/conventions/naming.md -->
-${naming_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/conventions/variable-declaration.md -->
-${variable_declaration_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/patterns/classes.md -->
-${classes_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/patterns/functions.md -->
-${functions_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/patterns/named-constants.md -->
-${named_constants_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/structure/import-paths.md -->
-${import_paths_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/structure/module-api.md -->
-${module_api_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/structure/one-export-per-file.md -->
-${one_export_per_file_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/structure/type-placement.md -->
-${type_placement_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/typescript/return-types.md -->
-${return_types_default}`,
-    `<!-- lightsout defaults: standards/code/style-guide/typescript/type-assertions.md -->
-${type_assertions_default}`
-  ].join("\n\n"),
-  react: [
-    `<!-- lightsout defaults: standards/code/architecture/react/architecture-decisions.md -->
-${architecture_decisions_default2}`,
-    `<!-- lightsout defaults: standards/code/style-guide/patterns/react-components.md -->
-${react_components_default}`
-  ].join("\n\n"),
-  tanstack: [
-    `<!-- lightsout defaults: standards/code/architecture/tanstack-start/architecture-decisions.md -->
-${architecture_decisions_default3}`
-  ].join("\n\n")
-};
-
-// standards/tests/unit/jest/unit-test-examples.md
-var unit_test_examples_default = "# Unit Test Examples\n\nBoth examples follow [Arrange-Act-Assert with setup factories](./unit-testing.md#test-structure--arrange-act-assert-with-setup-factories): arrangement in a named `setup()` factory; act and assertion in the `test`, each call assigned to a named `const`, blank line between the three blocks. Mock cleanup comes from `clearMocks`/`restoreMocks` config (see [Mock Cleanup](./unit-testing.md#mock-cleanup)) \u2014 never `beforeEach`.\n\n## Function with Mocked Dependencies\n\n```typescript\nimport { expect, describe, test, jest } from '@jest/globals';\nimport { UserProfile } from '@/models/user-profile';\nimport { AppSettings } from '@/models/app-settings';\nimport { getAvatarUrl } from '@/models/user-profile/common/utils/get-avatar-url';\n\n// Mocked Imports\n// -------------------------\nconst mockGetAvatarFromProfile = jest.fn<(params: { profile: UserProfile }) => string | null>();\n\njest.mock('@/models/user-profile/common/utils/get-avatar-from-profile', () => ({\n	getAvatarFromProfile: (params: { profile: UserProfile }) =>\n		mockGetAvatarFromProfile(params),\n}));\n// -------------------------\nconst mockGetAvatarFromGravatar = jest.fn<(params: { email: string }) => string | null>();\n\njest.mock('@/models/user-profile/common/utils/get-avatar-from-gravatar', () => ({\n	getAvatarFromGravatar: (params: { email: string }) =>\n		mockGetAvatarFromGravatar(params),\n}));\n// -------------------------\n\nconst setupAvatar = ({\n	profile = null,\n	gravatar = null,\n	setting,\n}: {\n	profile?: string | null;\n	gravatar?: string | null;\n	setting?: 'hasCustomAvatar' | 'useGravatar';\n} = {}) => {\n	mockGetAvatarFromProfile.mockReturnValue(profile);\n	mockGetAvatarFromGravatar.mockReturnValue(gravatar);\n\n	const userProfile = new UserProfile({\n		profileData: { email: 'user@example.com', displayName: 'Test User' },\n	});\n	const appSettings = new AppSettings({ isGuest: false, defaultPreferences: {} });\n	if (setting) {\n		appSettings.set(setting, true);\n	}\n\n	return { userProfile, appSettings };\n};\n\ndescribe('getAvatarUrl', () => {\n	test('returns null when no avatar conditions are met', () => {\n		const { userProfile, appSettings } = setupAvatar();\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBeNull();\n	});\n\n	test('returns the profile avatar when the user has a custom avatar', () => {\n		const { userProfile, appSettings } = setupAvatar({\n			profile: 'https://cdn.example.com/avatars/user-123.png',\n			setting: 'hasCustomAvatar',\n		});\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBe('https://cdn.example.com/avatars/user-123.png');\n	});\n});\n```\n\nThe same shape covers async units: the factory uses `mockResolvedValue`/`mockRejectedValue`, the act is `await`ed, and the rejection case asserts with `await expect(getUserData({ userId: '999' })).rejects.toThrow('Not found')`.\n\nFor a class, the factory returns the constructor's collaborators and the act constructs the instance. Asserting the instance's resolved public fields (`expect(person).toEqual(expect.objectContaining(details))`) is still testing *behavior* \u2014 for a class whose job is to resolve and expose that state, those fields are the output a consumer reads. \"Test behavior, not internals\" bans reaching into things a consumer never touches (private helpers, caches), not reading the public result.\n\n## Parameterized with test.each\n\n```typescript\nimport { expect, describe, test } from '@jest/globals';\nimport { formatCurrency } from '@/common/utils/format-currency';\n\ndescribe('formatCurrency', () => {\n	test.each([\n		{ amount: 100, locale: 'en-US', expected: '$1.00' },\n		{ amount: 100, locale: 'en-GB', expected: '\xA31.00' },\n		{ amount: 0, locale: 'en-US', expected: '$0.00' },\n		{ amount: -50, locale: 'en-US', expected: '-$0.50' },\n	])(\n		'formats $amount in $locale as $expected',\n		({ amount, locale, expected }) => {\n			const formatted = formatCurrency({ amount, locale });\n\n			expect(formatted).toBe(expected);\n		},\n	);\n});\n```\n";
-
-// standards/tests/unit/jest/unit-testing-react-components.md
-var unit_testing_react_components_default = "# Unit Testing Components & Hooks\n\nComponent tests follow the same [Arrange-Act-Assert with setup factories](./unit-testing.md#test-structure--arrange-act-assert-with-setup-factories) structure as every other test. All mock rules from [unit-testing.md](./unit-testing.md#mocks) apply \u2014 typed `jest.fn` generics, typed factory wrappers, no mocking constant modules.\n\n## Framework Basics\n\n- Import from `@testing-library/react` (React) or `@testing-library/preact` (Preact) \u2014 check the package's `package.json`; the API is identical.\n- Component test files use `.unit.test.tsx` (JSX requires `.tsx`), co-located with the component.\n- **Framework route/page files never get co-located unit tests** \u2014 they are thin wiring (guards, layout, a screen render) verified through e2e tests and the screen component's own tests.\n- Interactions use `userEvent` **when the package depends on `@testing-library/user-event`** (check its `package.json`); otherwise use `fireEvent` from the testing-library package. Never add the dependency yourself \u2014 that is the repo owner's decision, surfaced by `lightsout doctor`.\n\n## The Render Pattern\n\nRender inside the `setup()` factory; query and assert in the `test`. For a component, `render()` *is* the act, but by convention it lives in the arrange factory \u2014 the one accepted exception to \"the act lives in the `test`\". Query from `screen` \u2014 never destructure queries from `render()`.\n\n```typescript\nimport { expect, describe, test, jest } from '@jest/globals';\nimport { render, screen } from '@testing-library/preact';\nimport userEvent from '@testing-library/user-event';\nimport { NotificationBanner } from './NotificationBanner';\n\n// Mocked Imports\n// -------------------------\nconst mockUseAppStore = jest.fn<(selector: (state: unknown) => unknown) => unknown>();\n\njest.mock('@store/appStore', () => ({\n	useAppStore: (selector: (state: unknown) => unknown) => mockUseAppStore(selector),\n}));\n// -------------------------\n\nconst setupNotificationBanner = ({ isVisible = true }: { isVisible?: boolean } = {}) => {\n	const onDismiss = jest.fn<() => void>();\n	mockUseAppStore.mockReturnValue(isVisible);\n	render(<NotificationBanner onDismiss={onDismiss} />);\n\n	return { onDismiss };\n};\n\ndescribe('NotificationBanner', () => {\n	test('does not render the banner when not visible', () => {\n		setupNotificationBanner({ isVisible: false });\n\n		const banner = screen.queryByRole('alert');\n\n		expect(banner).not.toBeInTheDocument();\n	});\n\n	test('renders the notification message when visible', () => {\n		setupNotificationBanner({ isVisible: true });\n\n		const message = screen.getByText('Action required');\n\n		expect(message).toBeInTheDocument();\n	});\n\n	test('calls the dismiss handler when the dismiss button is clicked', async () => {\n		const { onDismiss } = setupNotificationBanner({ isVisible: true });\n		const user = userEvent.setup();\n\n		const dismissButton = screen.getByRole('button', { name: /dismiss/i });\n		await user.click(dismissButton);\n\n		expect(onDismiss).toHaveBeenCalledTimes(1);\n	});\n});\n```\n\n## Query Priority\n\n1. **`getByRole`** \u2014 mirrors how users and assistive technology find elements\n2. **`getByLabelText`** \u2014 labeled form inputs\n3. **`getByText`** \u2014 visible text\n4. **`getByTestId`** \u2014 last resort (requires adding `data-testid` to source)\n\nUse `query*` variants to assert an element is **not** rendered (they return `null` instead of throwing). Use `findBy*`/`waitFor` for elements that appear after an async update \u2014 a synchronous `getBy*` throws before the DOM settles.\n\n## Mocking Component Dependencies\n\n**Hooks** mock like utility functions \u2014 and the wrapper must forward parameters with matching types when the hook takes any (see [Mock Typing Rules](./unit-testing.md#mock-typing-rules)):\n\n```typescript\nconst mockUseProjects = jest.fn<(params: { workspaceId: number }) => { data: Project[] }>();\n\njest.mock('@/features/projects/hooks/useProjects', () => ({\n	useProjects: (params: { workspaceId: number }) => mockUseProjects(params),\n}));\n```\n\n**Zustand-style stores**: `mockUseAppStore.mockReturnValue(value)` works only when the component calls the store **once**. When it reads multiple slices, run the real selectors against a mock state instead:\n\n```typescript\nconst setupFeaturePanel = ({ isActive = true, label = 'Panel' }: { isActive?: boolean; label?: string } = {}) => {\n	mockUseAppStore.mockImplementation((selector) => selector({ isActive, label }));\n	render(<FeaturePanel />);\n};\n```\n\n**Child components**: mock a child **only if it is itself a boundary** (its own module, or imported from another feature). Render **real** internal children (under this module's own `common/`) so they are covered through this boundary's tests \u2014 mocking an internal child leaves it with no coverage at all. When you do mock a boundary child, keep it minimal: just enough to verify props and conditional rendering.\n\n## Testing User Interactions\n\n`userEvent` is async \u2014 create the user in the test and `await` the interaction. The query that locates the interaction target groups with the act (the `userEvent` call), not with arrange:\n\n```typescript\ntest('calls the dismiss handler when the dismiss button is clicked', async () => {\n	const { onDismiss } = setupBanner();\n	const user = userEvent.setup();\n\n	const dismissButton = screen.getByRole('button', { name: /dismiss/i });\n	await user.click(dismissButton);\n\n	expect(onDismiss).toHaveBeenCalledTimes(1);\n});\n```\n\nWhen the package lacks `@testing-library/user-event`, use `fireEvent` instead \u2014 synchronous, no setup object: `fireEvent.click(dismissButton);`. The same grouping rule applies: the target query groups with the act.\n\n## Testing Hooks in Isolation\n\nMock the framework's hook primitives with synchronous shims so the hook body executes without a render cycle; capture effect callbacks so tests can invoke them:\n\n```typescript\n// Mocked Imports\n// -------------------------\nlet mockEffectCallback: (() => undefined | (() => void)) | undefined;\n\njest.mock('preact/hooks', () => ({\n	useEffect: (cb: () => undefined | (() => void)) => {\n		mockEffectCallback = cb;\n	},\n	useCallback: <T>(cb: T) => cb,\n	useMemo: (factory: () => unknown) => factory(),\n}));\n// -------------------------\n\nconst setupEscapeKey = ({ isActive = true }: { isActive?: boolean } = {}) => {\n	mockEffectCallback = undefined;\n	const addEventListenerSpy = jest.spyOn(document, 'addEventListener');\n	const onEscape = jest.fn<() => void>();\n	useEscapeKey({ isActive, onEscape });\n\n	return { addEventListenerSpy, onEscape };\n};\n\ndescribe('useEscapeKey', () => {\n	test('adds a keydown event listener', () => {\n		const { addEventListenerSpy } = setupEscapeKey({ isActive: true });\n\n		mockEffectCallback!();\n\n		expect(addEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));\n	});\n});\n```\n\nOnly mock the hook primitives the hook under test actually uses.\n";
-
-// standards/tests/unit/jest/unit-testing.md
-var unit_testing_default = "# Unit Testing\n\n## Precedence in Repos with Older Tests\n\nThese standards describe the target style for tests you WRITE, not a mandate\nto renovate tests that exist. When the repo's existing tests predate this\ndocument and use another style (`beforeEach` + shared `let`, nested\n`describe` pyramids):\n\n- **Extending an existing test file** \u2192 match that file's local style. One\n  file, one style \u2014 never mix a second convention into a file.\n- **Creating a new test file** \u2192 this document wins, even when your mirror\n  target uses the older style. Mirror the target's coverage, not its\n  structure.\n- Never rewrite passing legacy tests to match this document during a\n  feature task \u2014 that is deliberate cleanup work with its own review, not a\n  side effect.\n- Applying this precedence is **normal operation, not friction** \u2014 do not\n  record a friction entry per legacy-style file you encounter. Record ONE\n  friction entry only when the rule itself failed you: the conflict was not\n  stylistic, or it was genuinely ambiguous which case applied.\n\n## Module Boundary Testing\n\nTests target **module boundaries** \u2014 a module's public API \u2014 not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.\n\n**\"Public\" means reachable through a barrel (`index.ts`), not \"has the `export` keyword\"** \u2014 under one-export-per-file, everything carries `export`; the barrel is the line. The whole doctrine in one sentence: *test what's in the barrels; nothing else gets a test file.* And it holds in both directions \u2014 **direct tests are never an exception, they are a promotion**: if a helper's cases deserve direct tests (combinatorial inputs, a contract meaningful to callers who've never seen this module), the helper deserves the barrel first. Reluctance to export it is evidence its cases aren't a contract \u2014 cover it through the boundary, or ask whether the uncoverable branches are dead code.\n\n**Classify every source file before writing tests:**\n\n| Classification | Definition | Test file? |\n|---|---|---|\n| **Boundary** | A module's public surface: shared leaf modules under a root-layer `common/` (e.g., `src/common/utils/`, `src/app/common/`); a feature's public exports (hooks, components, top-level operation files); framework files (`.service.ts`, `.resolver.ts`, `.controller.ts`, guards, job services); a graduated folder's main file (`HttpClient/HttpClient.ts`) | \u2705 Co-located `*.unit.test.ts` |\n| **Internal** | A file under a *module's* `common/` \u2014 i.e., a `common/` whose parent folder is a feature, route, screen, component, or class folder (not a root layer like `src/`) | \u274C No dedicated test file \u2014 covered through the owning module's boundary tests |\n\n**Rules:**\n\n- Coverage is still measured per source file: an internal must reach 100% lines/branches/functions, achieved by driving the boundary's inputs.\n- If an internal branch cannot be reached through any boundary input, it is **dead code** \u2014 flag it for deletion. Do not write a direct test to cover it.\n- If covering an internal through the boundary is impractical (combinatorial inputs), that is the promotion signal: the internal has earned its own module and direct tests. Flag it in the report \u2014 do not silently create a dedicated test file.\n- Existing dedicated test files on internals are migration debt: leave them in place and do not extend them \u2014 new coverage goes through the boundary. Flag them in the report as migration candidates.\n- A test deep-importing a module internal (a module-boundary scan finding on a test file) is resolved by THIS section's rules, never by a bare import rewrite: barrel-exported target \u2192 import through the barrel; internal target \u2192 convert the coverage to drive the module's boundary, or \u2014 when that is impractical \u2014 treat it as the promotion signal above and export the file deliberately.\n\n## Test Files\n\n- Unit tests are **co-located** with their source file: `src/auth/AuthService.ts` \u2192 `src/auth/AuthService.unit.test.ts`.\n- **Scenario suites**: when one boundary genuinely needs more than one test\n  file (a pipeline with distinct monorepo/nested/park scenarios), qualify the\n  name \u2014 `<File>.<scenario>.unit.test.ts`, e.g.\n  `runImplementPipeline.monorepo.unit.test.ts`. The first segment must name a\n  real source file in the folder; the qualifier is camelCase. A test file\n  whose subjects span several source files is a split candidate, not a naming\n  exception \u2014 one subject per test file.\n- **Tests are clients, not module members**: a co-located test imports its\n  own module through the module's barrel (`./index`), exactly like an outside\n  consumer, and never deep-imports a sibling internal. A barrel entry whose\n  only consumers are test files is legitimate public API \u2014 it marks a\n  deliberate promotion whose contract the tests pin; demoting it is a human\n  decision, not a dead-code cleanup.\n- **Shared test helpers, mocks, and fixtures live outside `src/`** in the package's test-support directories (`tests/helpers/`, `test/mocks/`, `test/fixtures/`, co-located `__mocks__/`); only test files themselves co-locate. Test-support code under `src/` would read as production source \u2014 to scanners and humans alike.\n- First import: `import { expect, describe, test, jest } from '@jest/globals';` \u2014 but include `jest` only when the file actually uses `jest.fn`/`jest.mock`/`jest.spyOn`, and import `beforeEach`/`afterEach`/`afterAll` only when genuinely needed (with setup factories and config-level mock cleanup, most files need none). An unused import fails `noUnusedLocals`/lint.\n- The first `describe` matches the name of the class or function under test. Keep `describe` blocks **flat** \u2014 scenario variants come from `setup()` parameters, not nested `describe` + `beforeEach` pyramids. When you do nest, prefix with `when ...` (condition) or `for ...` (variant).\n\n## Files That Must NOT Have Dedicated Tests\n\nDo **not** create test files for source files with no runtime logic \u2014 they are covered when consumed:\n\n- **Pure constants** \u2014 only literal values, no computation or side effects\n- **Enums with no computed members** / string-union types\n- **Type-only files** \u2014 only `type`/`interface` declarations\n- **Barrel / re-export files** (`index.ts`)\n\nA file qualifies for testing only when it contains **executable logic**. If a constant file *does* contain logic (e.g., env-var fallback), test the logic paths \u2014 not the static value.\n\n## Test Structure \u2014 Arrange-Act-Assert with Setup Factories\n\nEvery test follows **Arrange-Act-Assert**, with arrangement extracted into a named `setup()` factory. The test body stays small: call setup, act, assert.\n\n```typescript\ndescribe('getAvatarUrl', () => {\n	test('returns the profile avatar when one exists', () => {\n		const { userProfile, appSettings } = setupAvatar({ profile: 'p.png' });\n\n		const avatarUrl = getAvatarUrl({ userProfile, appSettings });\n\n		expect(avatarUrl).toBe('p.png');\n	});\n});\n```\n\n**Rules:**\n\n- **Arrange in a `setup()` factory.** The factory wires mocks and builds fixtures, then returns the locals the test needs as `const`s. Do **not** hold the subject under test in a shared `let` reassigned across `beforeEach` blocks \u2014 that is mutable test state.\n- **Act and assert live in the `test`**, not in `beforeEach`. (Component tests are the one accepted exception: `render()` lives in the `setup()` factory by convention \u2014 see the component testing doc.)\n- **One `setup()` and one act per test.** Two setups or two acts means two tests. Multiple `expect`s are fine only when they assert one behavior's result.\n- **No nested method calls in the act.** Assign each call's result to a named `const`. Two exceptions: (1) the error case, where the act sits inside the matcher: `expect(() => parse(bad)).toThrow()`; (2) assertion-matcher composition (`toEqual(expect.objectContaining(...))`).\n- **Blank line between arrange, act, and assert** \u2014 and no `// arrange` / `// act` / `// assert` captions; the spacing already shows the structure.\n- **Test behavior, not internals.** Assert the observable output a consumer sees. (Asserting an injected repository was called with the right args IS behavior \u2014 the persistence call is the unit's observable side effect at its boundary.)\n- When asserting multiple properties of one result, prefer a single `expect`. For a **partial** match use `toEqual(expect.objectContaining({ ... }))` \u2014 not `toStrictEqual`: with an asymmetric matcher argument, Jest only runs the matcher and the strict extra-property checks never fire, so `toStrictEqual` there is identical to `toEqual` but misleadingly implies strictness. Reserve `toStrictEqual` for whole-object assertions with a concrete expected object.\n- Cover all code paths \u2014 branches, error handling, boundary conditions. Each test exercises a unique code path; don't add tests that only vary input without varying behavior.\n- **Reaching defensive branches:** when a branch guards against input the type system forbids (a `default` arm, an early return on an impossible discriminant), a test may force the invalid input with `as unknown as T` \u2014 the one blessed double cast, and it lives only in test files, never in source.\n- Use `test.each` when multiple inputs exercise the **same code path** with different outputs; different code paths get separate tests.\n\n### Assertions Pin Contracts\n\n- **Assert with literals \u2014 never import a constant from the module under test into its own assertions.** A test comparing `x` to `x` is a tautology that passes even when the value is wrong; the literal in the test is the independent second statement of the contract. (Duplication between a source constant and its test literal is contract-pinning, not a DRY violation.) Constants from *other* modules \u2014 shared enums the codebase already defines \u2014 are fine as inputs.\n- **Pin machine-facing values strictly, human-facing copy loosely.** Error codes, event names, and API fields get exact assertions; UI copy and log messages get `stringContaining`/regex or no assertion at all \u2014 wording changes shouldn't fail contract tests.\n- **Construct the subject under test directly; stub only unowned boundaries** (network, filesystem, other modules' services). Don't mock what you own and could simply instantiate.\n- **Prefer behavior assertions over property echoes** \u2014 assert what the unit *does* (output, side effect at its boundary), not that a value passed in reappears unchanged.\n\n### Setup Factories\n\n```typescript\nconst setupAvatar = ({\n	profile = null,\n	gravatar = null,\n}: { profile?: string | null; gravatar?: string | null } = {}) => {\n	mockGetAvatarFromProfile.mockReturnValue(profile);\n	mockGetAvatarFromGravatar.mockReturnValue(gravatar);\n\n	const userProfile = new UserProfile({ profileData: { email: 'user@example.com' } });\n	const appSettings = new AppSettings({ defaultPreferences: {} });\n\n	return { userProfile, appSettings };\n};\n```\n\n- **One factory configures any number of mocks** \u2014 a single factory call is the whole arrangement; variants come from parameters.\n- **A single explicit override is allowed** for the one variable a test varies (`setupAvatar()` then one `mockReturnValue` line).\n- **Cap factory sprawl.** A substantially different arrangement gets a second named factory (`setupEmployee`), not an over-parameterized mega-factory.\n\n## Mocks\n\n- Place mock declarations and `jest.mock()` blocks after the imports, marked with a `// Mocked Imports` header and `// -------------------------` separators between groups (mirror any existing test file's formatting).\n- **Mock variables must be prefixed `mock`** \u2014 Jest hoists `jest.mock()` calls to the top of the file, and only `mock`-prefixed variables are accessible inside the factory.\n- Set mock return values inside the `setup()` factory \u2014 never in a `beforeEach`.\n- **Do NOT mock modules that only export plain constants** \u2014 import the real module; mocking it blocks coverage and adds no isolation. Mock a constant module only if it has import-time side effects or the test needs a *different* value (prefer `jest.replaceProperty` or injection).\n- Scope strategy: inline mocks for one file; a co-located `__mocks__/` folder when multiple tests in the area share a mock; `test/mocks/` (with `test/fixtures/`, `test/utils/`) for codebase-wide utilities.\n\n### Mock Typing Rules\n\nEvery `jest.fn()` **must** be fully typed to the real function's signature \u2014 read the source first.\n\n```typescript\n// \u2705 generic matches the real signature (async: include the Promise wrapper)\nconst mockGetProfile = jest.fn<(params: { userId: string }) => Profile | null>();\n\n// \u2705 factory wrapper uses typed parameters \u2014 never (...args: unknown[]) (causes TS2556)\njest.mock('@/utils/get-profile', () => ({\n	getProfile: (params: { userId: string }) => mockGetProfile(params),\n}));\n```\n\nUsing `() => mockFn()` for a function that takes parameters silently discards arguments \u2014 the spy records zero-arg calls and `toHaveBeenCalledWith` fails. Some existing files use `(...args: unknown[])` \u2014 that is legacy debt; new tests always type the wrapper.\n\n**Framework-generic results are exempt.** These typing rules pin *your* contracts, not the framework's. When a stub must satisfy a framework's heavily generic result type (TanStack's `UseMutationResult` / `UseQueryResult` and kin), stub only the fields the unit under test reads and cast loosely (`as Record<string, unknown>`, or `as unknown as UseMutationResult<\u2026>` where the full type is demanded) \u2014 reproducing the framework's generics in a stub adds noise, not safety.\n\n### `jest.spyOn` vs `jest.mock`\n\n- Prefer **`jest.spyOn`** for a single method on an object you already hold (an injected service/repository), leaving the rest intact.\n- Prefer **`jest.mock`** for a standalone exported function from another module.\n\n### Async\n\nConfigure with `mockResolvedValue` / `mockRejectedValue` in the setup factory; `await` the act in the test; assert rejections with `await expect(...).rejects.toThrow(...)` \u2014 the one place the act sits inside the assertion.\n\n### Import-Time Side Effects\n\n- Use **`jest.isolateModules`** when the module acts at import time (reads `document.currentScript`, checks globals): each call gets a fresh module instance, so per-test state changes take effect on the next require inside the isolate block.\n- Branches unreachable in the default `jsdom` environment (e.g., SSR guards on `typeof window`) get a **separate test file** with a `/** @jest-environment node */` docblock, named to distinguish it (`autoInitInBrowser.ssr.unit.test.ts`).\n\n## Mock Cleanup\n\nMock cleanup is handled by **Jest config, not per-test code**. Set these in the package's Jest config:\n\n```javascript\n// jest.config.js / jest.config.ts\n{\n	clearMocks: true,    // clear call tracking (calls, instances, results) before each test\n	restoreMocks: true,  // restore jest.spyOn originals before each test\n}\n```\n\nWith these set, every mock starts each test with clean call tracking and its `setup()` factory wires the return value fresh. Do **not** add manual `mockClear()` calls or a cleanup `beforeEach` \u2014 the config does it.\n\n- **`clearMocks: true`** \u2014 clears `calls`, `instances`, `contexts`, and `results` before each test (equivalent to `jest.clearAllMocks()`). It does **not** clear `mockReturnValue` / `mockImplementation` \u2014 that is `resetMocks`. Because every test re-sets its return values in `setup()`, `clearMocks` is sufficient and avoids wiping implementations; reach for `resetMocks` only if a package genuinely needs return values auto-cleared.\n- **`restoreMocks: true`** \u2014 additionally restores the original implementation of every `jest.spyOn` before each test (it does not affect standalone `jest.fn()` return values).\n\n**If the package's Jest config lacks these: do NOT add them.** `clearMocks` changes behavior for **every existing test in the package** \u2014 any test relying on a mock set once at module scope or in `beforeAll` will break (live example: adding it to a real package broke 22 import-time-construction tests). A repo-wide behavior change is a human's decision, not a test task's side effect. Instead:\n\n- Build **fresh `jest.fn()` mocks inside each `setup()` factory call** (and construct a fresh subject per call), so call tracking cannot accumulate across tests without any config or hooks.\n- For module-level mocks that must persist (a `jest.mock` factory), reset them at the top of `setup()` (`.mockReset()` + re-wire), or assert only with `toHaveBeenCalledWith` \u2014 positive assertions are unaffected by accumulated calls; avoid `not.toHaveBeenCalled` on shared mocks.\n- Record the missing config as friction (`area: \"environment\"`) so the repo owner can adopt it deliberately.\n";
-
-// src/standards/defaultTestStandards.ts
-var defaultTestStandards = {
-  base: [
-    `<!-- lightsout defaults: standards/tests/unit/jest/unit-test-examples.md -->
-${unit_test_examples_default}`,
-    `<!-- lightsout defaults: standards/tests/unit/jest/unit-testing.md -->
-${unit_testing_default}`
-  ].join("\n\n"),
-  react: [
-    `<!-- lightsout defaults: standards/tests/unit/jest/unit-testing-react-components.md -->
-${unit_testing_react_components_default}`
-  ].join("\n\n")
-};
-
-// src/standards/readStandards.ts
-var tokens = {
-  "lightsout:code-defaults": defaultCodeStandards,
-  "lightsout:test-defaults": defaultTestStandards
-};
-var listMarkdownFiles = async ({ dir, prefix }) => {
-  const files = [];
-  const walk = async ({ current, displayPath }) => {
-    const entries = await readdir7(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const entryDisplayPath = `${displayPath}/${entry.name}`;
-      if (entry.isDirectory()) {
-        await walk({ current: join34(current, entry.name), displayPath: entryDisplayPath });
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith(".md")) {
-        files.push(entryDisplayPath);
-      }
-    }
-  };
-  await walk({ current: dir, displayPath: prefix.replace(/\/$/, "") });
-  return files.sort();
-};
-var readStandards = async ({ cwd, paths, channels = [] }) => {
-  if (paths.length === 0) {
-    return void 0;
-  }
-  const contents = await Promise.all(
-    paths.map(async (path) => {
-      const bundled = tokens[path];
-      if (bundled) {
-        return [bundled.base, ...channels.map((channel) => bundled[channel])].filter(Boolean).join("\n\n");
-      }
-      const absolutePath = join34(cwd, path);
-      const stats = await stat4(absolutePath).catch(() => {
-        throw new Error(`standards file not found: ${absolutePath}`);
-      });
-      if (stats.isDirectory()) {
-        const files = await listMarkdownFiles({ dir: absolutePath, prefix: path });
-        if (files.length === 0) {
-          throw new Error(`standards folder contains no markdown files: ${absolutePath}`);
-        }
-        const docs = await Promise.all(
-          files.map(async (file2) => `<!-- ${file2} -->
-${await readFile20(join34(cwd, file2), "utf8")}`)
-        );
-        return docs.join("\n\n");
-      }
-      const raw = await readFile20(absolutePath, "utf8");
-      return `<!-- ${path} -->
-${raw}`;
-    })
-  );
-  return contents.join("\n\n");
-};
-
-// src/standards/detectStandardsChannels.ts
-import { readFile as readFile21 } from "node:fs/promises";
-import { join as join35 } from "node:path";
-var Manifest2 = external_exports.object({
-  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var channelSignals = {
-  react: ["react", "preact", "react-dom"],
-  tanstack: ["@tanstack/react-start", "@tanstack/start"]
-};
-var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join35(cwd, packagesDir, name, "package.json")) : [join35(cwd, "package.json")];
-  const dependencies = /* @__PURE__ */ new Set();
-  for (const path of manifestPaths) {
-    try {
-      const parsed = Manifest2.parse(JSON.parse(await readFile21(path, "utf8")));
-      for (const record2 of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
-        for (const name of Object.keys(record2 ?? {})) {
-          dependencies.add(name);
-        }
-      }
-    } catch {
-    }
-  }
-  return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
-};
-
-// src/standards/resolveStandards.ts
-var resolveStandards = async ({ cwd, config: config2, packages }) => {
-  const standardsPaths = config2.standards === false ? [] : config2.standards ?? ["lightsout:code-defaults"];
-  const testStandardsPaths = config2.testStandards === false ? [] : config2.testStandards ?? ["lightsout:test-defaults"];
-  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2.packagesDir ?? "packages", packages });
-  return {
-    standards: await readStandards({ cwd, paths: standardsPaths, channels }),
-    testStandards: await readStandards({ cwd, paths: testStandardsPaths, channels }),
-    channels,
-    configured: config2.standardsChannels !== void 0,
-    requested: standardsPaths.length > 0 || testStandardsPaths.length > 0
   };
 };
 
@@ -32886,13 +39336,13 @@ var executePipeline = async ({
 var runImplementPipeline = (params) => withRunLock({ params, run: executePipeline });
 
 // src/phases/initializeSequence.ts
-import { access, readFile as readFile22 } from "node:fs/promises";
-import { dirname as dirname9, join as join36, relative as relative2, resolve as resolve3 } from "node:path";
+import { access, readFile as readFile21 } from "node:fs/promises";
+import { dirname as dirname4, join as join37, relative as relative2, resolve as resolve5 } from "node:path";
 
 // src/phases/findUnfinishedSequence.ts
-import { readdir as readdir8 } from "node:fs/promises";
+import { readdir as readdir12 } from "node:fs/promises";
 var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
-  const runIds = await readdir8(getRunsDir({ cwd })).catch(() => []);
+  const runIds = await readdir12(getRunsDir({ cwd })).catch(() => []);
   const unfinished = [];
   for (const runId of runIds) {
     const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
@@ -32927,8 +39377,8 @@ var readOverviewPhases = ({ overviewContent }) => {
 
 // src/phases/initializeSequence.ts
 var getPhaseFiles = async ({ cwd, overview }) => {
-  const overviewFullPath = join36(cwd, overview);
-  const overviewContent = await readFile22(overviewFullPath, "utf8").catch(() => void 0);
+  const overviewFullPath = join37(cwd, overview);
+  const overviewContent = await readFile21(overviewFullPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     throw new Error(`overview file not found: ${overviewFullPath}`);
   }
@@ -32945,8 +39395,8 @@ var getPhaseFiles = async ({ cwd, overview }) => {
 var assertPhaseFilesExist = async ({ cwd, overview, phases }) => {
   const missing = [];
   for (const file2 of phases) {
-    const phasePath = join36(dirname9(overview), file2);
-    const present = await access(join36(cwd, phasePath)).then(
+    const phasePath = join37(dirname4(overview), file2);
+    const present = await access(join37(cwd, phasePath)).then(
       () => true,
       () => false
     );
@@ -32970,7 +39420,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
   if (!overviewPath) {
     throw new Error("a fresh phased run needs an overview path");
   }
-  const overview = relative2(cwd, resolve3(cwd, overviewPath));
+  const overview = relative2(cwd, resolve5(cwd, overviewPath));
   const phases = await getPhaseFiles({ cwd, overview });
   const firstPhase = startPhase ?? 1;
   if (!Number.isInteger(firstPhase) || firstPhase < 1 || firstPhase > phases.length) {
@@ -33033,7 +39483,7 @@ var runPhasesPipeline = async ({ cwd, driver, config: config2, overviewPath, sta
     if (step.status === RunStatus.Passed) {
       continue;
     }
-    const planPath = join37(dirname10(manifest.plan), step.id);
+    const planPath = join38(dirname5(manifest.plan), step.id);
     onProgress?.(`phase ${index + 1}/${total}: ${step.id}`);
     const recorded = PhaseReport.safeParse(step.report);
     const childManifest = recorded.success ? await readRunManifest({ cwd, runId: recorded.data.runId }).catch(() => void 0) : void 0;
@@ -33168,8 +39618,8 @@ var implementCommand = async ({ flags, cwd }) => {
 };
 
 // src/runPromptImprovement.ts
-import { readdir as readdir9 } from "node:fs/promises";
-import { join as join38 } from "node:path";
+import { readdir as readdir13 } from "node:fs/promises";
+import { join as join39 } from "node:path";
 var improverTimeoutMs = 20 * 6e4;
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
@@ -33177,8 +39627,8 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effor
   if (friction.length === 0) {
     return { status: "no-friction", friction };
   }
-  const files = await readdir9(join38(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join38(promptsDir, file2));
+  const files = await readdir13(join39(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join39(promptsDir, file2));
   const outcome = await invokeAgentWithContract({
     driver,
     cwd: engineCwd,
@@ -33194,9 +39644,9 @@ var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effor
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat5 } from "node:fs/promises";
-import { join as join39 } from "node:path";
+import { join as join40 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join39(cwd, "lightsout.config.json");
+  const configPath = join40(cwd, "lightsout.config.json");
   const present = await stat5(configPath).then(
     () => true,
     () => false
@@ -33270,11 +39720,12 @@ var getRequiredFlag = ({ flags, name }) => {
 // src/cli/plan/loadPlanningStandards.ts
 var loadPlanningStandards = async ({ cwd, config: config2 }) => {
   const packagesDir = config2?.packagesDir ?? "packages";
-  const standardsPaths = config2?.standards === false ? [] : config2?.standards ?? ["lightsout:code-defaults"];
   let standards;
   try {
     const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
-    standards = await readStandards({ cwd, paths: standardsPaths, channels });
+    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
+    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
+    standards = texts.length === 0 ? void 0 : texts.join("\n\n");
   } catch (error51) {
     console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
     standards = void 0;
@@ -33284,26 +39735,26 @@ var loadPlanningStandards = async ({ cwd, config: config2 }) => {
 
 // src/plan/runPlanVerifyFacts.ts
 import { access as access2, copyFile, mkdir as mkdir7, writeFile as writeFile7 } from "node:fs/promises";
-import { join as join43, resolve as resolve4 } from "node:path";
+import { join as join44, resolve as resolve6 } from "node:path";
 
 // src/plan/planWorkspaceDir.ts
-import { join as join40 } from "node:path";
-var planWorkspaceDir = ({ cwd, name }) => join40(cwd, ".lightsout", "plans", name);
+import { join as join41 } from "node:path";
+var planWorkspaceDir = ({ cwd, name }) => join41(cwd, ".lightsout", "plans", name);
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
-import { readFile as readFile23 } from "node:fs/promises";
-import { join as join41 } from "node:path";
+import { readFile as readFile22 } from "node:fs/promises";
+import { join as join42 } from "node:path";
 var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join41(planWorkspaceDir({ cwd, name }), fileName);
-  const raw = await readFile23(filePath, "utf8").catch(() => {
+  const filePath = join42(planWorkspaceDir({ cwd, name }), fileName);
+  const raw = await readFile22(filePath, "utf8").catch(() => {
     throw new Error(notFound(filePath));
   });
   return schema.parse(JSON.parse(raw));
 };
 
 // src/plan/verifyFacts.ts
-import { readFile as readFile24 } from "node:fs/promises";
-import { join as join42 } from "node:path";
+import { readFile as readFile23 } from "node:fs/promises";
+import { join as join43 } from "node:path";
 
 // src/plan/common/paths/pathExists.ts
 import { stat as stat6 } from "node:fs/promises";
@@ -33325,7 +39776,7 @@ var verifyFacts = async ({ cwd, facts }) => {
   const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join42(cwd, path) });
+    const exists = await pathExists({ path: join43(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
@@ -33336,10 +39787,10 @@ var verifyFacts = async ({ cwd, facts }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join42(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join42(cwd, pkg, "package.json"))];
+    const manifestPaths = [join43(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join43(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
-      const raw = await readFile24(manifestPath, "utf8").catch(() => void 0);
+      const raw = await readFile23(manifestPath, "utf8").catch(() => void 0);
       if (raw) {
         for (const key of scriptKeysOf(raw)) {
           available.add(key);
@@ -33371,8 +39822,8 @@ var snapshotNotes = async ({
   notesFile,
   progress
 }) => {
-  const source = resolve4(cwd, notesFile);
-  const destination = join43(workspaceDir, "notes.md");
+  const source = resolve6(cwd, notesFile);
+  const destination = join44(workspaceDir, "notes.md");
   const alreadyFrozen = await access2(destination).then(
     () => true,
     () => false
@@ -33393,7 +39844,7 @@ var snapshotNotes = async ({
 var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  const factsPath = join43(workspaceDir, "facts.json");
+  const factsPath = join44(workspaceDir, "facts.json");
   if (notesFile !== void 0) {
     const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
     if (snapshot.error !== void 0) {
@@ -33430,13 +39881,13 @@ var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
 
 // src/plan/runPlanDraft.ts
 import { mkdir as mkdir8 } from "node:fs/promises";
-import { join as join51 } from "node:path";
+import { join as join52 } from "node:path";
 
 // src/plan/common/utils/createPlanAgentRunner.ts
 import { writeFile as writeFile8 } from "node:fs/promises";
-import { join as join44 } from "node:path";
+import { join as join45 } from "node:path";
 var createPlanAgentRunner = ({ cwd, driver, workspaceDir, step, model, effort, permissions, timeoutMs }) => {
-  const onEvent = createEventFileSink({ path: join44(workspaceDir, `${step}-stream.jsonl`) });
+  const onEvent = createEventFileSink({ path: join45(workspaceDir, `${step}-stream.jsonl`) });
   return ({ invocation, contract, label, allowedCommands }) => invokeAgentWithContract({
     driver,
     cwd,
@@ -33450,7 +39901,7 @@ var createPlanAgentRunner = ({ cwd, driver, workspaceDir, step, model, effort, p
     onEvent,
     onRejectedOutput: async ({ text, attempt }) => {
       const name = `${step}-rejected-${label === void 0 ? "" : `${label}-`}${attempt}.txt`;
-      await writeFile8(join44(workspaceDir, name), text, "utf8").catch(() => void 0);
+      await writeFile8(join45(workspaceDir, name), text, "utf8").catch(() => void 0);
     }
   });
 };
@@ -33471,10 +39922,10 @@ var estimatePlanScope = ({ facts }) => {
 };
 
 // src/plan/common/paths/planDraftOutputs.ts
-import { join as join45 } from "node:path";
+import { join as join46 } from "node:path";
 var planDraftOutputs = ({ cwd, name, variant }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  return variant === PlanVariant.Single ? [{ path: join45(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join45(dir, "overview.md"), variant: PlanVariant.Overview }];
+  return variant === PlanVariant.Single ? [{ path: join46(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join46(dir, "overview.md"), variant: PlanVariant.Overview }];
 };
 
 // src/plan/common/utils/buildPlanLintCommand.ts
@@ -33484,9 +39935,9 @@ var buildPlanLintCommand = ({ cwd, name }) => {
 };
 
 // src/plan/common/paths/verifyDraftedFiles.ts
-import { isAbsolute, join as join46 } from "node:path";
+import { isAbsolute as isAbsolute2, join as join47 } from "node:path";
 var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
-  const planPaths = filesWritten.map((file2) => isAbsolute(file2.path) ? file2.path : join46(cwd, file2.path));
+  const planPaths = filesWritten.map((file2) => isAbsolute2(file2.path) ? file2.path : join47(cwd, file2.path));
   if (planPaths.length === 0) {
     return { error: "plan-writer reported drafted but listed no files written" };
   }
@@ -33504,10 +39955,10 @@ var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
 
 // src/plan/readBrainstormDecisions.ts
 import { access as access3 } from "node:fs/promises";
-import { join as join47 } from "node:path";
+import { join as join48 } from "node:path";
 var brainstormDecisionsFile = "brainstorm-decisions.json";
 var readBrainstormDecisions = async ({ cwd, name }) => {
-  const filePath = join47(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
+  const filePath = join48(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
   const present = await access3(filePath).then(
     () => true,
     () => false
@@ -33547,32 +39998,32 @@ var readPlanFacts = async ({ cwd, name }) => {
 };
 
 // src/plan/repairPlanStructure.ts
-import { join as join50 } from "node:path";
+import { join as join51 } from "node:path";
 
 // src/plan/lintPlanStructure.ts
-import { readFile as readFile26 } from "node:fs/promises";
-import { basename as basename11 } from "node:path";
+import { readFile as readFile25 } from "node:fs/promises";
+import { basename as basename5 } from "node:path";
 
 // src/plan/checkPlanPaths.ts
-import { basename as basename9, join as join48 } from "node:path";
+import { basename as basename3, join as join49 } from "node:path";
 var checkPlanPaths = async ({ plan, cwd, planPath }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join48(cwd, path) })) {
+    if (!await pathExists({ path: join49(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `referenced path does not exist: ${path}`,
-        location: `${basename9(planPath)} \u2192 ${path}`,
+        location: `${basename3(planPath)} \u2192 ${path}`,
         fix: `correct the path or move it under Files to Create if it does not exist yet`
       });
     }
   }
   for (const path of plan.createPaths) {
-    if (await pathExists({ path: join48(cwd, path) })) {
+    if (await pathExists({ path: join49(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `Files to Create path already exists: ${path}`,
-        location: `${basename9(planPath)} \u2192 ${path}`,
+        location: `${basename3(planPath)} \u2192 ${path}`,
         fix: `move it to Files to Modify, or choose a new path`
       });
     }
@@ -33581,23 +40032,23 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
 };
 
 // src/plan/checkVerificationScripts.ts
-import { readFile as readFile25 } from "node:fs/promises";
-import { basename as basename10, join as join49 } from "node:path";
+import { readFile as readFile24 } from "node:fs/promises";
+import { basename as basename4, join as join50 } from "node:path";
 var scriptNameOf = (command) => {
   const runScript = extractRunScriptName({ command });
   if (runScript !== void 0) {
     return runScript;
   }
-  const tokens2 = command.split(/\s+/);
-  if (tokens2[0] === "pnpm") {
+  const tokens = command.split(/\s+/);
+  if (tokens[0] === "pnpm") {
     let index = 1;
-    while (tokens2[index]?.startsWith("-")) {
-      index += tokens2[index] === "--filter" || tokens2[index] === "-F" ? 2 : 1;
+    while (tokens[index]?.startsWith("-")) {
+      index += tokens[index] === "--filter" || tokens[index] === "-F" ? 2 : 1;
     }
-    return tokens2[index];
+    return tokens[index];
   }
-  if (tokens2[0] === "yarn" && tokens2[1] !== void 0 && !tokens2[1].startsWith("-")) {
-    return tokens2[1];
+  if (tokens[0] === "yarn" && tokens[1] !== void 0 && !tokens[1].startsWith("-")) {
+    return tokens[1];
   }
   return void 0;
 };
@@ -33612,10 +40063,10 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       }
     }
   }
-  const manifestPaths = [join49(cwd, "package.json"), ...[...packageDirs].map((dir) => join49(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join50(cwd, "package.json"), ...[...packageDirs].map((dir) => join50(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
-    const raw = await readFile25(manifestPath, "utf8").catch(() => void 0);
+    const raw = await readFile24(manifestPath, "utf8").catch(() => void 0);
     if (!raw) {
       continue;
     }
@@ -33639,7 +40090,7 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       findings.push({
         check: StructuralCheck.ScriptExists,
         issue: `verification command '${command}' references package script '${scriptName}' which is not in any target package.json`,
-        location: `${basename10(planPath)} \u2192 Verification`,
+        location: `${basename4(planPath)} \u2192 Verification`,
         fix: `use a script that exists, or add '${scriptName}' to the package.json`
       });
     }
@@ -33786,7 +40237,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const packagesDir = config2?.packagesDir ?? "packages";
   const configCommands = new Set(Object.values(config2?.scripts ?? {}).filter((value) => typeof value === "string"));
   for (const planPath of planPaths) {
-    const content = await readFile26(planPath, "utf8").catch(() => void 0);
+    const content = await readFile25(planPath, "utf8").catch(() => void 0);
     if (content === void 0) {
       findings.push({
         check: StructuralCheck.SectionsPresent,
@@ -33796,13 +40247,13 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       });
       continue;
     }
-    const plan = parsePlan({ content, base: basename11(planPath) });
+    const plan = parsePlan({ content, base: basename5(planPath) });
     for (const section of requiredSections[plan.variant]) {
       if (!plan.sections.has(section)) {
         findings.push({
           check: StructuralCheck.SectionsPresent,
           issue: `missing required section '## ${section}' (${plan.variant} plan)`,
-          location: basename11(planPath),
+          location: basename5(planPath),
           fix: `add a '## ${section}' section`
         });
       }
@@ -33813,7 +40264,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       findings.push({
         check: StructuralCheck.NoPlaceholders,
         issue: `unresolved placeholder '${label}' present`,
-        location: `${basename11(planPath)}:${line}`,
+        location: `${basename5(planPath)}:${line}`,
         fix: `resolve '${label}' \u2014 every open question must be decided before the plan is written`
       });
     }
@@ -33822,7 +40273,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
       findings.push({
         check: StructuralCheck.ScopeWithinGuardrail,
         issue: `plan touches ${sourceCount} source files, over the ${scopeGuardrail}-file executor guardrail`,
-        location: basename11(planPath),
+        location: basename5(planPath),
         fix: `split into phases so each stays under ${scopeGuardrail} source files`
       });
     }
@@ -33831,7 +40282,7 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
         findings.push({
           check: StructuralCheck.PackagesIdentifiable,
           issue: `path '${path}' is directly under ${packagesDir}/ with no package segment`,
-          location: `${basename11(planPath)} \u2192 ${path}`,
+          location: `${basename5(planPath)} \u2192 ${path}`,
           fix: `place the file under ${packagesDir}/<package>/\u2026`
         });
       }
@@ -33853,9 +40304,9 @@ var repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, b
       invocation: buildPlanRepairInvocation({
         findings,
         planPaths,
-        decisionsPath: join50(workspaceDir, "decisions.json"),
+        decisionsPath: join51(workspaceDir, "decisions.json"),
         brainstormDecisionsPath,
-        factsPath: join50(workspaceDir, "facts.json")
+        factsPath: join51(workspaceDir, "facts.json")
       }),
       contract: PlanFixReport
     });
@@ -33934,7 +40385,7 @@ var runPlanDraft = async ({
     name,
     planPaths,
     workspaceDir,
-    brainstormDecisionsPath: brainstorm ? join51(workspaceDir, "brainstorm-decisions.json") : void 0,
+    brainstormDecisionsPath: brainstorm ? join52(workspaceDir, "brainstorm-decisions.json") : void 0,
     config: config2,
     model,
     effort,
@@ -33956,15 +40407,44 @@ var runPlanDraft = async ({
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename12, join as join53 } from "node:path";
+import { basename as basename7, join as join54 } from "node:path";
 
 // src/plan/detectPriorArtCandidates.ts
-import { readFile as readFile27 } from "node:fs/promises";
+import { readFile as readFile26 } from "node:fs/promises";
+
+// src/common/naming/collapseCasing.ts
+var collapseCasing = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// src/common/naming/nameKey.ts
+var verbSynonyms = {
+  fetch: "get",
+  load: "get",
+  retrieve: "get",
+  read: "get",
+  make: "create",
+  generate: "create",
+  produce: "create",
+  remove: "delete",
+  modify: "update",
+  verify: "validate",
+  check: "validate"
+};
+var tokensOf = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/).filter(Boolean).map((token) => token.toLowerCase()).map((token) => verbSynonyms[token] ?? token);
+var nameKey = ({ name }) => {
+  const tokens = tokensOf(name);
+  return tokens.includes("to") || tokens.includes("from") ? tokens.join(" ") : [...tokens].sort().join(" ");
+};
+
+// src/common/naming/nameOf.ts
+import { basename as basename6 } from "node:path";
+var nameOf = (path) => basename6(path).replace(/\.(m|c)?[jt]sx?$/, "");
+
+// src/plan/detectPriorArtCandidates.ts
 var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   const planned = [];
   const plannedPaths = /* @__PURE__ */ new Set();
   for (const planPath of planPaths) {
-    const planText = await readFile27(planPath, "utf8").catch(() => void 0);
+    const planText = await readFile26(planPath, "utf8").catch(() => void 0);
     if (planText === void 0) {
       continue;
     }
@@ -34004,21 +40484,21 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
 import { mkdir as mkdir9 } from "node:fs/promises";
 
 // src/plan/common/utils/resolvePlanDeliverable.ts
-import { readFile as readFile28, readdir as readdir10 } from "node:fs/promises";
-import { join as join52 } from "node:path";
+import { readFile as readFile27, readdir as readdir14 } from "node:fs/promises";
+import { join as join53 } from "node:path";
 var resolvePlanDeliverable = async ({ cwd, name }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  const singlePath = join52(dir, "plan.md");
+  const singlePath = join53(dir, "plan.md");
   let overviewPath;
   let overviewText;
   const files = [];
   if (await pathExists({ path: singlePath })) {
-    files.push({ path: singlePath, text: await readFile28(singlePath, "utf8") });
+    files.push({ path: singlePath, text: await readFile27(singlePath, "utf8") });
   } else {
-    const entries = (await readdir10(dir).catch(() => [])).filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
+    const entries = (await readdir14(dir).catch(() => [])).filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
     for (const entry of entries) {
-      const path = join52(dir, entry);
-      const text = await readFile28(path, "utf8");
+      const path = join53(dir, entry);
+      const text = await readFile27(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
         overviewText = text;
@@ -34092,10 +40572,10 @@ var runPlanGrade = async ({
     const outcome = await invokePlanAgent({
       invocation: buildPlanGapCheckInvocation({ planText: phase.text, overviewText, standards }),
       contract: GapCheckReport,
-      label: basename12(phase.path)
+      label: basename7(phase.path)
     });
     if (!outcome.ok) {
-      return outcome.rateLimited ? { status: "paused-rate-limit", workspaceDir, error: `rate limit reached \u2014 re-run: lightsout plan grade --name ${name}` } : { status: "failed", workspaceDir, error: `gap-check failed for ${basename12(phase.path)}: ${outcome.failure}` };
+      return outcome.rateLimited ? { status: "paused-rate-limit", workspaceDir, error: `rate limit reached \u2014 re-run: lightsout plan grade --name ${name}` } : { status: "failed", workspaceDir, error: `gap-check failed for ${basename7(phase.path)}: ${outcome.failure}` };
     }
     gaps.push(...outcome.report.gaps);
   }
@@ -34108,18 +40588,18 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join53(workspaceDir, "grade.json");
+  const gradePath = join54(workspaceDir, "grade.json");
   await writeJsonFile({ path: gradePath, value: report });
   progress(`plan grade ${name}: ${grade} (${structural.length} structural, ${gaps.length} gap(s))`);
   return { status: "complete", workspaceDir, grade: report, gradePath };
 };
 
 // src/plan/runPlanDedup.ts
-import { join as join54 } from "node:path";
+import { join as join55 } from "node:path";
 
 // src/plan/common/utils/matchDedupVerdicts.ts
-var matchDedupVerdicts = ({ candidates, verdicts: verdicts2 }) => {
-  const verdictBySymbol = new Map(verdicts2.map((verdict) => [verdict.plannedSymbol, verdict]));
+var matchDedupVerdicts = ({ candidates, verdicts }) => {
+  const verdictBySymbol = new Map(verdicts.map((verdict) => [verdict.plannedSymbol, verdict]));
   return candidates.flatMap((candidate) => {
     const verdict = verdictBySymbol.get(candidate.plannedSymbol);
     if (!verdict?.isDuplicate) {
@@ -34160,7 +40640,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join54(workspaceDir, "dedup.json");
+    const dedupPath2 = join55(workspaceDir, "dedup.json");
     await writeJsonFile({ path: dedupPath2, value: dedup2 });
     return { dedup: dedup2, dedupPath: dedupPath2 };
   };
@@ -34224,10 +40704,10 @@ var planDedupCommand = async ({ cwd, driver, name, standards, config: config2 })
   const result = await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config: config2 }));
   exitOnPlanFailure(result);
   const { dedup } = result;
-  const count = dedup.findings.length;
+  const count2 = dedup.findings.length;
   console.log(
     `
-${bold(`plan dedup ${name}`)} \u2014 ${count > 0 ? yellow(`${count} duplication(s) to review`) : green("no duplication found")} (reviewed ${dedup.reviewedAt})`
+${bold(`plan dedup ${name}`)} \u2014 ${count2 > 0 ? yellow(`${count2} duplication(s) to review`) : green("no duplication found")} (reviewed ${dedup.reviewedAt})`
   );
   for (const finding of dedup.findings) {
     console.log(`${yellow("\u29C9")} ${finding.plannedSymbol} [${finding.recommendation}] collides with ${finding.collidesWith.map((collision) => collision.path).join(", ")}`);
@@ -34434,50 +40914,50 @@ var countByRule = ({ findings }) => {
 };
 
 // src/refactor/initializeRun.ts
-import { readFile as readFile29, writeFile as writeFile10 } from "node:fs/promises";
-import { join as join55 } from "node:path";
+import { readFile as readFile28, writeFile as writeFile10 } from "node:fs/promises";
+import { join as join56 } from "node:path";
 
 // src/refactor/batchFindings.ts
 var rulePriority = [
   // A path rule is a file move or a rename — the most mechanical fix there is,
   // so these lead.
-  StandardsRule.PathBannedModuleName,
-  StandardsRule.PathCommonFlat,
-  StandardsRule.PathCommonBarrel,
-  StandardsRule.PathTestInTestsFolder,
-  StandardsRule.PathTestNotColocated,
-  StandardsRule.PathTestSupportInSrc,
-  StandardsRule.ModuleBoundary,
-  StandardsRule.Placement,
-  StandardsRule.MultiExport,
-  StandardsRule.FilenameMismatch,
-  StandardsRule.TestMockPrefix,
-  StandardsRule.TestMockReturnInHook,
-  StandardsRule.TestMockUntyped,
-  StandardsRule.TestMockWrapperUntyped,
-  StandardsRule.TestSharedLet,
-  StandardsRule.TestAssertInHook,
-  StandardsRule.TestNestedDescribe,
-  StandardsRule.TestManualMockCleanup,
-  StandardsRule.TestStrictEqualMatcher,
-  StandardsRule.BarrelStar,
-  StandardsRule.BarrelDeadEntry,
-  StandardsRule.DeadExport,
-  StandardsRule.TestOnlyExport,
-  StandardsRule.BarrelOnlyExport,
-  StandardsRule.SizeFile,
-  StandardsRule.SizeFunction,
-  StandardsRule.DomainGraduation,
-  StandardsRule.PathDomainFolderSingleFile,
-  StandardsRule.PathFolderCasing,
-  StandardsRule.PathTestUntestedSubjectNotPublic,
-  StandardsRule.TestMultipleSetups,
-  StandardsRule.TestMegaFactory,
-  StandardsRule.FolderCensus,
-  StandardsRule.AstDuplicate,
-  StandardsRule.Clone,
-  StandardsRule.NameDuplicate,
-  StandardsRule.NameSynonym
+  "path-banned-module-name",
+  "path-common-flat",
+  "path-common-barrel",
+  "path-test-in-tests-folder",
+  "path-test-not-colocated",
+  "path-test-support-in-src",
+  "module-boundary",
+  "placement",
+  "multi-export",
+  "filename-mismatch",
+  "test-mock-prefix",
+  "test-mock-return-in-hook",
+  "test-mock-untyped",
+  "test-mock-wrapper-untyped",
+  "test-shared-let",
+  "test-assert-in-hook",
+  "test-nested-describe",
+  "test-manual-mock-cleanup",
+  "test-strict-equal-matcher",
+  "barrel-star",
+  "barrel-dead-entry",
+  "dead-export",
+  "test-only-export",
+  "barrel-only-export",
+  "size-file",
+  "size-function",
+  "domain-graduation",
+  "path-domain-folder-single-file",
+  "path-folder-casing",
+  "path-test-untested-subject-not-public",
+  "test-multiple-setups",
+  "test-mega-factory",
+  "folder-census",
+  "ast-duplicate",
+  "clone",
+  "name-duplicate",
+  "name-synonym"
 ];
 var maxBatchFindings = 12;
 var priorityOf = (rule) => {
@@ -34553,7 +41033,7 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile29(join55(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile28(join56(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -34564,9 +41044,9 @@ var initializeRun = async ({ cwd, runId, driver, config: config2, path, all, exi
 ${dirty.map((file2) => `  ${file2}`).join("\n")}`);
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join55(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join56(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2 });
-  await writeFile10(join55(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile10(join56(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -34598,7 +41078,34 @@ var buildBatchFixInvocation = ({ planContent, files, standards, testStandards, f
 
 ${guidance}` : gateError;
   const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
-  return coverageRed ? buildUnitTestWriterInvocation({ planContent, changedFiles: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, errorContext });
+  return coverageRed ? buildUnitTestWriterInvocation({ planContent, changedFiles: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, reportAdvisoryOutcomes: true, errorContext });
+};
+
+// src/refactor/buildBatchReport.ts
+var buildBatchReport = ({ outcome, remainingSiteKeys, rationale, advisoryOutcomes }) => {
+  return { outcome, remainingSiteKeys, rationale, ...advisoryOutcomes.length > 0 ? { advisoryOutcomes } : {} };
+};
+
+// src/refactor/collectBatchAdvisories.ts
+var collectBatchAdvisories = async ({
+  cwd,
+  driver,
+  batch,
+  packages,
+  channels,
+  findings,
+  timeoutMs,
+  onProgress
+}) => {
+  const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
+  const machine = findings.filter(
+    (finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path))
+  );
+  const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
+  for (const note of review.notes) {
+    onProgress(`${batch.id}: ${note}`);
+  }
+  return [...machine, ...review.findings];
 };
 
 // src/refactor/collectBatchChanges.ts
@@ -34611,7 +41118,7 @@ var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attribut
 
 // src/refactor/invokeBatchAgent.ts
 import { mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join56 } from "node:path";
+import { join as join57 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -34624,11 +41131,12 @@ var invokeBatchAgent = async ({
   agentTimeoutMs,
   reportedFiles,
   rationale,
+  advisoryOutcomes,
   recordUsage
 }) => {
-  const agentsDir = join56(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join57(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join56(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join57(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir10(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -34642,7 +41150,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2.agentCommands,
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile11(join56(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile11(join57(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
@@ -34651,6 +41159,9 @@ var invokeBatchAgent = async ({
   }
   for (const file2 of outcome.report.changedFiles) {
     reportedFiles.add(file2.path);
+  }
+  for (const entry of outcome.report.advisoryOutcomes ?? []) {
+    advisoryOutcomes.set(entry.siteKey, entry);
   }
   if (outcome.report.friction && outcome.report.friction.length > 0) {
     await appendFriction({ cwd, runId, step: batch.id, friction: outcome.report.friction });
@@ -34691,7 +41202,7 @@ var runBatchGates = async ({ cwd, config: config2, runId, step, onProgress }) =>
 
 // src/refactor/superviseBatch.ts
 import { mkdir as mkdir11, writeFile as writeFile12 } from "node:fs/promises";
-import { join as join57 } from "node:path";
+import { join as join58 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -34708,7 +41219,7 @@ var superviseBatch = async ({
   gates: gates2
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries3} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join57(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join58(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir11(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -34719,9 +41230,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join57(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join58(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile12(join57(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile12(join58(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
@@ -34768,6 +41279,8 @@ var runBatch = async ({
   driver,
   config: config2,
   batch,
+  packages,
+  channels,
   checkPath,
   checkAll,
   standards,
@@ -34779,11 +41292,13 @@ var runBatch = async ({
 }) => {
   const rationale = [];
   const reportedFiles = /* @__PURE__ */ new Set();
+  const advisoryOutcomes = /* @__PURE__ */ new Map();
   let invocationCount = 0;
   const invoke = ({ label, invocation }) => {
     invocationCount += 1;
-    return invokeBatchAgent({ cwd, runId, driver, config: config2, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, recordUsage });
+    return invokeBatchAgent({ cwd, runId, driver, config: config2, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, advisoryOutcomes, recordUsage });
   };
+  const reportOf = ({ outcome, remainingSiteKeys: remainingSiteKeys2 }) => buildBatchReport({ outcome, remainingSiteKeys: remainingSiteKeys2, rationale, advisoryOutcomes: [...advisoryOutcomes.values()] });
   const gates2 = () => runBatchGates({ cwd, config: config2, runId, step: batch.id, onProgress });
   const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
   const remainingSiteKeys = async ({ frozen }) => {
@@ -34794,16 +41309,13 @@ var runBatch = async ({
   const preCheck = await checkLive();
   if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
     onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
-    return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: [] };
+    return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
   }
-  const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
-  const liveAdvisories = preCheck.findings.filter(
-    (finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path))
-  );
+  const advisories = await collectBatchAdvisories({ cwd, driver, batch, packages, channels, findings: preCheck.findings, timeoutMs: agentTimeoutMs, onProgress });
   let workFindings = batch.blocking;
   for (let pass = 1; pass <= 2; pass += 1) {
     const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
-    const buildFixInvocation = ({ gateError: gateError2, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories: liveAdvisories, gateError: gateError2, guidance });
+    const buildFixInvocation = ({ gateError: gateError2, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories, gateError: gateError2, guidance });
     const attemptOutcome = await invoke({
       label: pass === 1 ? "" : "requeue",
       invocation: buildRefactorExecutorInvocation({
@@ -34811,7 +41323,8 @@ var runBatch = async ({
         changedFiles: files,
         standards,
         findings: workFindings,
-        advisories: liveAdvisories
+        advisories,
+        reportAdvisoryOutcomes: true
       })
     });
     if (!attemptOutcome.ok) {
@@ -34822,7 +41335,7 @@ var runBatch = async ({
       if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates2()) {
         rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
         onProgress(`${batch.id}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
-        return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
+        return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
       }
       return { kind: "failed", error: `${batch.id}: ${failure}` };
     }
@@ -34831,7 +41344,7 @@ var runBatch = async ({
       rationale.push(...report.failures.map((entry) => `[scope] ${entry}`));
       return {
         kind: "done",
-        report: { outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }), rationale },
+        report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }) }),
         changedFiles: await batchChangedFiles()
       };
     }
@@ -34873,12 +41386,12 @@ var runBatch = async ({
     }
     const remaining = await remainingSiteKeys({ frozen: workFindings });
     if (remaining.length === 0) {
-      return { kind: "done", report: { outcome: BatchOutcome.Resolved, remainingSiteKeys: [], rationale }, changedFiles: await batchChangedFiles() };
+      return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
     }
     if (report.changedFiles.length === 0 || pass === 2) {
       return {
         kind: "done",
-        report: { outcome: BatchOutcome.Declined, remainingSiteKeys: remaining, rationale },
+        report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining }),
         changedFiles: await batchChangedFiles()
       };
     }
@@ -34944,7 +41457,8 @@ ${gateError}` });
     }
     await setStep({ record: { ...record2, status: RunStatus.Passed } });
   }
-  const { standards, testStandards } = await resolveStandards({ cwd, config: config2, packages: [] });
+  const { standards, testStandards, channels } = await resolveStandards({ cwd, config: config2, packages: [] });
+  const standardsPackages = await resolveStandardsPackages({ cwd, config: config2 });
   const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes2) * 6e4;
   let declineStreak = seeded.declineStreak;
   let processed = 0;
@@ -34967,6 +41481,8 @@ ${gateError}` });
       driver,
       config: config2,
       batch,
+      packages: standardsPackages,
+      channels,
       checkPath: worklist.path === "." ? void 0 : worklist.path,
       checkAll: worklist.all,
       standards,
@@ -35103,6 +41619,10 @@ ${messageOf({ error: error51 })}`);
   process.exit(result.ok ? 0 : 1);
 };
 
+// src/cli/standardsCheckCommand.ts
+import { mkdir as mkdir12, writeFile as writeFile13 } from "node:fs/promises";
+import { join as join59 } from "node:path";
+
 // src/cli/common/formatting/wrapText.ts
 var wrapText = ({ text, width, indent }) => {
   const available = Math.max(width - indent.length, 1);
@@ -35142,11 +41662,11 @@ var locationOf = ({ file: file2 }) => {
   const span = file2.endLine !== void 0 && file2.endLine !== file2.startLine ? `-${file2.endLine}` : "";
   return `${file2.path}:${file2.startLine}${span}`;
 };
-var headingOf = ({ rule, severity, count }) => {
+var headingOf = ({ rule, severity, count: count2 }) => {
   const blocking = severity === StandardsSeverity.Blocking;
   const icon = blocking ? yellow("\u26A0") : dim("\u2139");
-  const noun = blocking ? "blocking" : count === 1 ? "advisory" : "advisories";
-  return `${icon} ${bold(rule)} ${dim("\xB7")} ${dim(`${count} ${noun}`)}`;
+  const noun = blocking ? "blocking" : count2 === 1 ? "advisory" : "advisories";
+  return `${icon} ${bold(rule)} ${dim("\xB7")} ${dim(`${count2} ${noun}`)}`;
 };
 var printFindingGroups = ({ findings }) => {
   const width = terminalWidth();
@@ -35201,36 +41721,40 @@ var printStandardsRuleList = ({ rules }) => {
     return [
       {
         // The severity IS the state label — nothing to translate, which is the point of naming it `blocking`.
-        cells: [rule.rule, rule.fromConfig ? `${rule.severity} (config)` : rule.severity, rule.doc]
+        cells: [rule.rule, rule.fromConfig ? `${rule.severity} (config)` : rule.severity, rule.checked ? "code" : "judgment", rule.doc]
       },
       {
-        cells: [settings === "" ? rule.summary : `${rule.summary} \u2014 ${settings}`, "", ""],
+        cells: [settings === "" ? rule.summary : `${rule.summary} \u2014 ${settings}`, "", "", ""],
         ruleAbove: false,
         emphasis: dim
       }
     ];
   });
+  const checked = rules.filter((rule) => rule.checked).length;
   const totals = {
     cells: [
       `${rules.length} rule(s)`,
       `${countOf({ rules, severity: StandardsSeverity.Blocking })} blocking`,
-      `${countOf({ rules, severity: StandardsSeverity.Advisory })} advisory, ${countOf({ rules, severity: StandardsSeverity.Off })} off`
+      `${countOf({ rules, severity: StandardsSeverity.Advisory })} advisory, ${countOf({ rules, severity: StandardsSeverity.Off })} off`,
+      `${checked} by code, ${rules.length - checked} by judgment`
     ],
     emphasis: bold
   };
-  for (const line of renderTable({ headers: ["rule", "state", "standards doc"], rows: [...rows, totals] })) {
+  for (const line of renderTable({ headers: ["rule", "state", "checked by", "standards doc"], rows: [...rows, totals] })) {
     console.log(line);
   }
 };
 
 // src/cli/common/render/printStandardsSummary.ts
 var countOf2 = ({ findings, rule, severity }) => findings.filter((finding) => finding.rule === rule && finding.severity === severity).length;
-var cell = ({ count }) => count === 0 ? "\u2014" : `${count}`;
+var cell = ({ count: count2 }) => count2 === 0 ? "\u2014" : `${count2}`;
 var printStandardsSummary = ({ findings, rules, reportPath: reportPath2 }) => {
   console.log("");
   if (findings.length === 0) {
     console.log(green("clean \u2014 nothing blocking, no advisories"));
-    console.log(dim(`report: ${reportPath2}`));
+    if (reportPath2 !== void 0) {
+      console.log(dim(`report: ${reportPath2}`));
+    }
     return;
   }
   const summaryOf = ({ rule }) => rules.find((listing) => listing.rule === rule)?.summary ?? "";
@@ -35260,27 +41784,65 @@ var printStandardsSummary = ({ findings, rules, reportPath: reportPath2 }) => {
   for (const line of renderTable({ headers: ["rule", "blocking", "advisories"], rows: [...rows, totals] })) {
     console.log(line);
   }
-  console.log("");
-  console.log(dim(`report: ${reportPath2}`));
+  if (reportPath2 !== void 0) {
+    console.log("");
+    console.log(dim(`report: ${reportPath2}`));
+  }
 };
 
 // src/cli/standardsCheckCommand.ts
 var reportPath = ".lightsout/standards-check.json";
+var defaultAgentTimeoutMinutes3 = 60;
+var reviewFindings = async ({ cwd, config: config2, path }) => {
+  const packages = await resolveStandardsPackages({ cwd, config: config2 });
+  const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2?.packagesDir ?? "packages", packages: [] });
+  const files = (await listSourceFiles({ cwd, exclude: config2?.generated })).filter((file2) => !path || file2.startsWith(path));
+  return runStandardsReview({
+    cwd,
+    driver: getDriver({ name: config2?.harness ?? "claude-code" }),
+    packages,
+    channels,
+    files,
+    timeoutMs: (config2?.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes3) * 6e4,
+    onProgress: (message) => console.log(dim(message))
+  });
+};
+var writeCheckReport = async ({ cwd, path, findings, notes }) => {
+  await mkdir12(join59(cwd, ".lightsout"), { recursive: true });
+  await writeFile13(join59(cwd, ".lightsout", "standards-check.json"), `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
+`, "utf8");
+};
 var standardsCheckCommand = async ({ flags, cwd }) => {
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
-  const rules = listStandardsRules({ config: config2 });
+  const rules = await listStandardsRules({ cwd, config: config2 });
   if (flags.get("list") === true) {
     printStandardsRuleList({ rules });
     process.exit(0);
   }
+  const codeChecksOnly = flags.get("code-checks") === true;
+  const agentReviewOnly = flags.get("agent-review") === true;
+  const runCodeChecks = codeChecksOnly || !agentReviewOnly;
+  const runAgentReview = agentReviewOnly || !codeChecksOnly;
   const checkPath = getStringFlag({ flags, name: "path" });
-  const { findings, notes } = await runStandardsCheck({
-    cwd,
-    path: checkPath,
-    all: flags.get("all") === true,
-    writeBaseline: flags.get("baseline") === true,
-    onProgress: (message) => console.log(dim(message))
-  });
+  const findings = [];
+  const notes = [];
+  if (runCodeChecks) {
+    const checked = await runStandardsCheck({
+      cwd,
+      path: checkPath,
+      all: flags.get("all") === true,
+      writeBaseline: flags.get("baseline") === true,
+      persist: false,
+      onProgress: (message) => console.log(dim(message))
+    });
+    findings.push(...checked.findings);
+    notes.push(...checked.notes);
+  }
+  if (runAgentReview) {
+    const reviewed = await reviewFindings({ cwd, config: config2, path: checkPath });
+    findings.push(...reviewed.findings);
+    notes.push(...reviewed.notes);
+  }
   const ordered = [
     ...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
     ...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory)
@@ -35292,12 +41854,114 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
   for (const note of notes) {
     console.log(`${dim("\u2139")} ${dim(note)}`);
   }
-  printStandardsSummary({ findings: ordered, rules, reportPath });
+  if (runCodeChecks) {
+    await writeCheckReport({ cwd, path: checkPath, findings: ordered, notes });
+  }
+  printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? reportPath : void 0 });
+  process.exit(0);
+};
+
+// src/cli/common/render/printStandardsHealth.ts
+var reasonWidth = 96;
+var count = ({ value }) => value === 0 ? "\u2014" : `${value}`;
+var rate = ({ part, total }) => total === 0 ? "\u2014" : `${Math.round(part / total * 100)}%`;
+var reasonLines = ({ reasons }) => [...new Set(reasons.map((reason) => reason.replace(/\s+/g, " ").trim()))].filter((reason) => reason.length > 0).map((reason) => reason.length > reasonWidth ? `${reason.slice(0, reasonWidth - 1)}\u2026` : reason);
+var ruleRows = ({ rule }) => {
+  const advice = rule.adviceApplied + rule.adviceDeclined;
+  return [
+    {
+      cells: [
+        rule.id,
+        rule.checked ? "code" : "judgment",
+        count({ value: rule.attempted }),
+        count({ value: rule.resolved }),
+        count({ value: rule.declined }),
+        count({ value: rule.untracked }),
+        rate({ part: rule.declined, total: rule.attempted }),
+        count({ value: advice }),
+        rate({ part: rule.adviceDeclined, total: advice })
+      ]
+    },
+    ...reasonLines({ reasons: rule.reasons }).map((reason) => ({
+      cells: [`\xB7 ${reason}`, "", "", "", "", "", "", "", ""],
+      ruleAbove: false,
+      emphasis: dim
+    }))
+  ];
+};
+var sum = ({ rules, of }) => rules.reduce((total, rule) => total + of(rule), 0);
+var printStandardsHealth = ({ health }) => {
+  const { rules, totals } = health;
+  const rows = rules.flatMap((rule) => ruleRows({ rule }));
+  const attempted = sum({ rules, of: (rule) => rule.attempted });
+  const advice = sum({ rules, of: (rule) => rule.adviceApplied + rule.adviceDeclined });
+  const totalsRow = {
+    cells: [
+      `${totals.rules} rule(s)`,
+      `${totals.checked} by code, ${totals.judgment} by judgment`,
+      count({ value: attempted }),
+      count({ value: sum({ rules, of: (rule) => rule.resolved }) }),
+      count({ value: sum({ rules, of: (rule) => rule.declined }) }),
+      count({ value: sum({ rules, of: (rule) => rule.untracked }) }),
+      rate({ part: sum({ rules, of: (rule) => rule.declined }), total: attempted }),
+      count({ value: advice }),
+      rate({ part: sum({ rules, of: (rule) => rule.adviceDeclined }), total: advice })
+    ],
+    emphasis: bold
+  };
+  for (const line of renderTable({
+    headers: ["rule", "checked by", "sites", "resolved", "declined", "untracked", "declined %", "advice", "advice declined %"],
+    rows: [...rows, totalsRow]
+  })) {
+    console.log(line);
+  }
+  console.log("");
+  console.log(dim("sites: blocking findings a refactor run worked and re-checked. advice: advisory and agent-review findings, as the agent reported them."));
+};
+
+// src/cli/standardsHealthCommand.ts
+var standardsHealthCommand = async ({ cwd }) => {
+  const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const packages = await resolveStandardsPackages({ cwd, config: config2 });
+  const health = await buildStandardsHealth({ cwd, packages });
+  printStandardsHealth({ health });
+  process.exit(0);
+};
+
+// src/cli/standardsValidateCommand.ts
+import { resolve as resolve7 } from "node:path";
+var loadRequestedPackage = async ({ requested, cwd }) => (
+  // resolve() leaves an absolute --package alone, so both forms the flag
+  // accepts land here.
+  loadStandardsPackage({ packagePath: requested === void 0 ? resolveDefaultStandardsPackage() : resolve7(cwd, requested) })
+);
+var standardsValidateCommand = async ({ flags, cwd }) => {
+  const requested = getStringFlag({ flags, name: "package" });
+  const pkg = await loadRequestedPackage({ requested, cwd }).catch((error51) => {
+    console.error(messageOf({ error: error51 }));
+    process.exit(1);
+    throw error51;
+  });
+  const { problems, notes } = await validateStandardsPackage({ pkg });
+  for (const note of notes) {
+    console.log(`${dim("\u2139")} ${dim(note)}`);
+  }
+  for (const problem of problems) {
+    console.log(`${red("\u2717")} ${problem}`);
+  }
+  const checked = pkg.rules.filter((rule) => rule.checked).length;
+  const judgment = pkg.rules.length - checked;
+  console.log("");
+  if (problems.length > 0) {
+    console.log(`${pkg.name} \u2014 ${problems.length} problem(s) across ${checked} checked rule(s)`);
+    process.exit(1);
+  }
+  console.log(green(`${pkg.name} \u2014 ${checked} checked rule(s) validated, ${judgment} judgment-only rule(s)`));
   process.exit(0);
 };
 
 // src/cli/statusCommand.ts
-import { readdir as readdir11 } from "node:fs/promises";
+import { readdir as readdir15 } from "node:fs/promises";
 var hasLiveProcess = ({ manifest, lock }) => {
   if (!lock || !isPidAlive({ pid: lock.pid })) {
     return false;
@@ -35313,7 +41977,7 @@ var hasLiveProcess = ({ manifest, lock }) => {
   return child.success && child.data.runId === lock.runId;
 };
 var statusCommand = async ({ cwd }) => {
-  const runIds = await readdir11(getRunsDir({ cwd })).catch(() => []);
+  const runIds = await readdir15(getRunsDir({ cwd })).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");
     process.exit(0);
@@ -35338,6 +42002,8 @@ var commands = {
   status: statusCommand,
   doctor: doctorCommand,
   "standards-check": standardsCheckCommand,
+  "standards-validate": standardsValidateCommand,
+  "standards-health": standardsHealthCommand,
   refactor: refactorCommand,
   plan: planCommand,
   friction: frictionCommand,

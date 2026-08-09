@@ -1,5 +1,5 @@
 import { expect, describe, test } from '@jest/globals';
-import { StandardsFinding, StandardsRule, StandardsSeverity } from '@/contracts';
+import { StandardsFinding, StandardsSeverity } from '@/contracts';
 
 const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
@@ -84,74 +84,41 @@ describe('StandardsFinding', () => {
 		}
 	});
 
-	test('the rule vocabulary is exactly those thirty-seven ids and nothing else', () => {
-		const rules = [...Object.values(StandardsRule)].sort();
-
-		// a rule id is what a repo writes in its config to switch the rule off and
-		// what the refactor work-list batches by, so an id added or renamed without
-		// being restated here is an unreviewed change to a persisted vocabulary
-		expect(rules).toStrictEqual([
-			'ast-duplicate',
-			'barrel-dead-entry',
-			'barrel-only-export',
-			'barrel-star',
-			'clone',
-			'dead-export',
-			'domain-graduation',
-			'filename-mismatch',
-			'folder-census',
-			'module-boundary',
-			'multi-export',
-			'name-duplicate',
-			'name-synonym',
-			'path-banned-module-name',
-			'path-common-barrel',
-			'path-common-flat',
-			'path-domain-folder-single-file',
-			'path-folder-casing',
-			'path-test-in-tests-folder',
-			'path-test-not-colocated',
-			'path-test-support-in-src',
-			'path-test-untested-subject-not-public',
-			'placement',
-			'size-file',
-			'size-function',
-			'test-assert-in-hook',
-			'test-manual-mock-cleanup',
-			'test-mega-factory',
-			'test-mock-prefix',
-			'test-mock-return-in-hook',
-			'test-mock-untyped',
-			'test-mock-wrapper-untyped',
-			'test-multiple-setups',
-			'test-nested-describe',
-			'test-only-export',
-			'test-shared-let',
-			'test-strict-equal-matcher',
-		]);
-	});
-
-	test('rejects the pre-split rule ids the seventeen replaced', () => {
-		// `size`, `structure`, `barrel-hygiene` and `filename-duplicate` each became
-		// two or more named rules; a finding still carrying the old id would name a
-		// rule no pass reports and no config can switch off
-		for (const rule of ['filename-duplicate', 'size', 'structure', 'barrel-hygiene']) {
+	test('a rule id a third-party standards package declares parses like any other', () => {
+		for (const rule of ['house-style-no-default-export', 'complexity']) {
 			const { finding } = setupFinding({ extra: { rule } });
 
-			const result = StandardsFinding.safeParse(finding);
+			const parsed = StandardsFinding.parse(finding);
 
-			expect(result.success).toBe(false);
+			// rule identity belongs to the loaded packages, so this boundary cannot
+			// hold a closed list without refusing every package but the bundled one.
+			// The typo protection moved to `resolvePackageRuleStates`, which is the
+			// first place the valid ids are known
+			expect(parsed.rule).toBe(rule);
 		}
 	});
 
-	test('rejects a rule outside the check suite\'s set', () => {
-		for (const rule of ['complexity', 'Clone', '']) {
+	test('ids the closed list used to refuse now parse — a casing variant and the empty id included', () => {
+		for (const rule of ['Clone', '']) {
+			const { finding } = setupFinding({ extra: { rule } });
+
+			const parsed = StandardsFinding.parse(finding);
+
+			// the read boundary no longer narrows the id at all: it cannot tell a typo
+			// from a package's own rule name, so it keeps the value verbatim and leaves
+			// the id check to `resolvePackageRuleStates`, which knows the loaded ids
+			expect(parsed.rule).toBe(rule);
+		}
+	});
+
+	test('rejects a rule that is not a string at all', () => {
+		for (const rule of [42, ['clone'], { id: 'clone' }]) {
 			const { finding } = setupFinding({ extra: { rule } });
 
 			const result = StandardsFinding.safeParse(finding);
 
-			// the enum closes the set — a finding naming a rule nothing runs would
-			// batch into work no re-check could ever resolve
+			// the id is the baseline key and the batch id — a non-string would render
+			// as junk in both
 			expect(result.success).toBe(false);
 		}
 	});

@@ -6,6 +6,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { readFriction, readRunManifest } from '@/runState';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { verdict } from '@tests/helpers/verdict';
@@ -48,6 +49,10 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 		name: 'stub',
 		invoke: async ({ prompt, systemPrompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			(prompts[role] ??= []).push(prompt);
 			(systemPrompts[role] ??= []).push(systemPrompt ?? '');
@@ -168,6 +173,10 @@ test('standards gate: findings feed the refactor prompt; a fixing pass clears th
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (role === 'write-tests') {
 				mkdirSync(join(dir, 'test'), { recursive: true });
 				writeFileSync(join(dir, 'test/messy.test.js'), '// stub\n');
@@ -227,6 +236,10 @@ test('standards gate: two identical declined passes escalate early — the third
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (role === 'write-tests') {
 				mkdirSync(join(dir, 'test'), { recursive: true });
 				writeFileSync(join(dir, 'test/messy.test.js'), '// stub\n');
@@ -273,6 +286,10 @@ test('standards gate: a declined pass that still CHANGED the gating set earns th
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
@@ -390,6 +407,10 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			counts[role] = (counts[role] ?? 0) + 1;
 
 			if (role === 'supervisor') {
@@ -436,6 +457,10 @@ test('supervisor retry-with-guidance heals the run', async () => {
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (role === 'supervisor') {
 				return { text: verdict({ decision: 'retry', diagnosis: 'stale artifact', guidance: 'delete BROKEN' }), exitCode: 0 };
 			}
@@ -471,6 +496,10 @@ test('resume skips passed steps and continues attempt counts', async () => {
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (role === 'write-tests') {
 				return { text: '', exitCode: 1, rateLimited: true };
 			}
@@ -494,6 +523,10 @@ test('resume skips passed steps and continues attempt counts', async () => {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			counts[role] = (counts[role] ?? 0) + 1;
 
@@ -572,6 +605,10 @@ test('write-tests aggregates per-file failures; terminated writers escalate', as
 			name: 'stub',
 			invoke: async ({ prompt }) => {
 				const role = roleOf(prompt);
+
+				if (role === 'standards-review') {
+					return { text: reviewReport(), exitCode: 0 };
+				}
 
 				if (role === 'implement') {
 					writeFileSync(join(dir, 'src/a.js'), 'export const a = 1;\n');
@@ -674,6 +711,10 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 		invoke: async ({ prompt }) => {
 			const role = roleOf(prompt);
 
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
 			if (role === 'write-tests') {
 				writers.push(prompt.match(/- (\S+)/)?.[1] ?? 'unknown');
 			}
@@ -742,7 +783,7 @@ test('standards default on when unspecified; false switches them off explicitly'
 	// bundled defaults inlined
 	expect(defaulted.includes('One Export Per File')).toBeTruthy();
 
-	const disabled = await run({ config: { standards: false, testStandards: false } });
+	const disabled = await run({ config: { standardsPackages: false } });
 
 	// false → no standards section
 	expect(disabled.includes('# Standards\n\nThese rules are binding')).toBeFalsy();

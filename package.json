@@ -7,7 +7,7 @@
 	"license": "MIT",
 	"author": "David Christian",
 	"engines": {
-		"node": ">=20"
+		"node": ">=22.18.0"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
@@ -19,6 +19,7 @@
 		"lightsout": "node  plugin/dist/cli.mjs"
 	},
 	"dependencies": {
+		"yaml": "^2.9.0",
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {
@@ -29,7 +30,6 @@
 		"esbuild": "^0.24.0",
 		"jest": "^30.4.2",
 		"ts-jest": "^29.4.12",
-		"typescript": "^5.7.0",
-		"yaml": "^2.9.0"
+		"typescript": "^5.7.0"
 	}
 }

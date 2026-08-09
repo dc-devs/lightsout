@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { runStandardsCheck } from '@/standardsCheck';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 const bigBody = `
 	let total = 0;
@@ -378,8 +379,9 @@ test('runStandardsCheck reports stage progress and leaves the evidence file alon
 
 	// the opening progress line counts the scope: ${messages[0]}
 	expect(messages[0]?.includes('1 source file(s)')).toBeTruthy();
-	// progress is reported through the last stage:\n${messages.join('\n')}
-	expect(messages.some((message) => message.includes('dead-exports: done'))).toBeTruthy();
+	// progress is reported per input kind, through the last one that had rules
+	// to run:\n${messages.join('\n')}
+	expect(messages).toContain('file-text: done');
 	// the check still reports its findings
 	expect(findings.length > 0).toBeTruthy();
 	// persist: false never clobbers the standalone report
@@ -470,4 +472,230 @@ test('a directory one segment deep is not a diagnosis — a whole src/ tree is w
 	expect(notes.some((note) => note.includes('sit under'))).toBeFalsy();
 	// the same crowded report is still returned in full
 	expect(findings.length > 20).toBeTruthy();
+});
+
+/** Write a set of repo-relative files under `dir`, creating the folders they need. */
+const writeTree = ({ dir, files }: { dir: string; files: Record<string, string> }) => {
+	for (const [rel, content] of Object.entries(files)) {
+		mkdirSync(dirname(join(dir, rel)), { recursive: true });
+		writeFileSync(join(dir, rel), content);
+	}
+};
+
+/**
+ * A standards package of somebody's own: one document, one rule, one check that
+ * flags every source file it is handed. The check is written the way a package
+ * author writes one — a `check` export naming its input kind, and no engine
+ * import at run time.
+ *
+ * It sits outside the repo it checks, so the package's own files never show up
+ * in that repo's file list.
+ */
+const setupOwnPackage = () => {
+	const packagePath = mkdtempSync(join(tmpdir(), 'lightsout-house-standards-'));
+
+	writeTree({
+		dir: packagePath,
+		files: {
+			'lightsout-standards.json': '{ "name": "acme", "formatVersion": 1 }\n',
+			'code/house/document.md': '# House Style\n\nWhat this shop agrees on.\n',
+			'code/house/05-house-no-loose-files/rule.md': '---\nsummary: a source file outside a module\nchecked: true\nseverity: blocking\n---\n\nEvery file belongs to a module.\n',
+			'code/house/05-house-no-loose-files/check.ts':
+				'export const check = {\n' +
+				"\tinputKind: 'file-list',\n" +
+				'\trun: ({ input }) => input.files.map((path) => ({ siteKey: `house-no-loose-files:${path}`, files: [{ path }], detail: `${path} sits outside a module` })),\n' +
+				'};\n',
+			'code/house/05-house-no-loose-files/fixtures/pass/src/mod/index.ts': 'export const mod = 1;\n',
+			'code/house/05-house-no-loose-files/fixtures/fail/src/loose.ts': 'export const loose = 1;\n',
+		},
+	});
+
+	return packagePath;
+};
+
+/** A repo whose config brings the given package roots instead of the bundled defaults. */
+const setupOwnPackageRepo = ({ roots, standardsChecks }: { roots: string[]; standardsChecks?: Record<string, unknown> }) => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-own-'));
+
+	writeTree({
+		dir,
+		files: {
+			'src/alpha.ts': 'export const alpha = 1;\n',
+			'src/beta.ts': 'export const beta = 2;\n',
+			'lightsout.config.json': JSON.stringify({
+				scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+				standardsPackages: roots,
+				...(standardsChecks ? { standardsChecks } : {}),
+			}),
+		},
+	});
+
+	return dir;
+};
+
+test("a repo's own standards package supplies the rules, and the bundled defaults do not run beside them", async () => {
+	const dir = setupOwnPackageRepo({ roots: [setupOwnPackage()] });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// the rule id comes from the folder the check was loaded from, and the
+	// severity from that rule's own declaration
+	expect(findings.map((finding) => `${finding.rule} ${finding.severity} ${finding.siteKey}`).sort()).toStrictEqual([
+		'house-no-loose-files blocking house-no-loose-files:src/alpha.ts',
+		'house-no-loose-files blocking house-no-loose-files:src/beta.ts',
+	]);
+});
+
+test('a rule the repo switched off never runs, even though its own package declares it', async () => {
+	const dir = setupOwnPackageRepo({ roots: [setupOwnPackage()], standardsChecks: { 'house-no-loose-files': 'off' } });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// off is a configuration state, so the check is never called at all
+	expect(findings).toStrictEqual([]);
+});
+
+test('a configured standards package that cannot be loaded stops the run rather than checking nothing', async () => {
+	const dir = setupOwnPackageRepo({ roots: ['standards-typo'] });
+
+	const error = await getRejectionError({ promise: runStandardsCheck({ cwd: dir, persist: false }) });
+
+	// a clean report from a repo whose standards never loaded is the one answer
+	// worse than an error
+	expect(error.message).toContain('standards-typo');
+});
+
+/** A repo whose source spans a nested folder and a generated one, so a scope and an exclusion each have something to bite on. */
+const setupScopedRepo = ({ roots, generated }: { roots: string[]; generated?: string[] }) => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-scope-'));
+
+	writeTree({
+		dir,
+		files: {
+			'src/keep.ts': 'export const keep = 1;\n',
+			'src/core/inner.ts': 'export const inner = 2;\n',
+			'src/gen/output.ts': 'export const output = 3;\n',
+			'lightsout.config.json': JSON.stringify({
+				scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+				standardsPackages: roots,
+				...(generated ? { generated } : {}),
+			}),
+		},
+	});
+
+	return dir;
+};
+
+test('--path checks the subpath it was given, and the evidence file records that scope', async () => {
+	const dir = setupScopedRepo({ roots: [setupOwnPackage()] });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, path: 'src/core' });
+
+	const report = JSON.parse(readFileSync(join(dir, '.lightsout/standards-check.json'), 'utf8')) as { path: string };
+	// the files outside the scope are never handed to a check
+	expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['house-no-loose-files:src/core/inner.ts']);
+	// a scoped report says what it covered, so nobody reads it as the whole repo
+	expect(report.path).toBe('src/core');
+});
+
+test("the config's generated list keeps derived output out of the report", async () => {
+	const dir = setupScopedRepo({ roots: [setupOwnPackage()], generated: ['src/gen'] });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// what a repo declared generated is not code it wrote, so no rule judges it
+	expect(findings.map((finding) => finding.siteKey).sort()).toStrictEqual([
+		'house-no-loose-files:src/core/inner.ts',
+		'house-no-loose-files:src/keep.ts',
+	]);
+});
+
+/** The check a house rule ships: one finding per source file, so which rules actually ran is readable straight off the report. */
+const houseCheckSource = ({ ruleId }: { ruleId: string }) =>
+	'export const check = {\n' +
+	"\tinputKind: 'file-list',\n" +
+	`\trun: ({ input }) => input.files.map((path) => ({ siteKey: \`${ruleId}:\${path}\`, files: [{ path }], detail: 'every file belongs to a module' })),\n` +
+	'};\n';
+
+/** One rule folder's files: its declaration, its check, and the fixture pair every rule ships. */
+const houseRuleFiles = ({ documentPath, ruleId }: { documentPath: string; ruleId: string }) => ({
+	[`${documentPath}/05-${ruleId}/rule.md`]: '---\nsummary: a source file outside a module\nchecked: true\n---\n\nEvery file belongs to a module.\n',
+	[`${documentPath}/05-${ruleId}/check.ts`]: houseCheckSource({ ruleId }),
+	[`${documentPath}/05-${ruleId}/fixtures/pass/src/mod/index.ts`]: 'export const mod = 1;\n',
+	[`${documentPath}/05-${ruleId}/fixtures/fail/src/loose.ts`]: 'export const loose = 1;\n',
+});
+
+/** A package whose second document is framework-scoped — the channel gate needs a rule on each side of it. */
+const setupChannelPackage = () => {
+	const packagePath = mkdtempSync(join(tmpdir(), 'lightsout-channel-standards-'));
+
+	writeTree({
+		dir: packagePath,
+		files: {
+			'lightsout-standards.json': '{ "name": "acme-channels", "formatVersion": 1 }\n',
+			'code/house/document.md': '# House Style\n\nWhat this shop agrees on everywhere.\n',
+			...houseRuleFiles({ documentPath: 'code/house', ruleId: 'house-any-file' }),
+			'code/react/document.md': '---\nchannel: react\n---\n\n# React Style\n\nWhat this shop agrees on in React.\n',
+			...houseRuleFiles({ documentPath: 'code/react', ruleId: 'house-react-file' }),
+		},
+	});
+
+	return packagePath;
+};
+
+/** A repo with one source file, whose root manifest and config between them decide which framework channels are in play. */
+const setupChannelRepo = ({
+	roots,
+	dependencies = {},
+	standardsChannels,
+}: {
+	roots: string[];
+	dependencies?: Record<string, string>;
+	standardsChannels?: string[];
+}) => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-channel-'));
+
+	writeTree({
+		dir,
+		files: {
+			'package.json': JSON.stringify({ name: 'channel-fixture', dependencies }),
+			'src/alpha.ts': 'export const alpha = 1;\n',
+			'lightsout.config.json': JSON.stringify({
+				scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+				standardsPackages: roots,
+				...(standardsChannels ? { standardsChannels } : {}),
+			}),
+		},
+	});
+
+	return dir;
+};
+
+test("a framework rule runs when the repo's own manifest shows it is in that framework", async () => {
+	const dir = setupChannelRepo({ roots: [setupChannelPackage()], dependencies: { react: '^19.0.0' } });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// channels are detected from the root package.json, so no config is needed
+	// to put a React repo's React rules in play
+	expect(findings.map((finding) => finding.rule).sort()).toStrictEqual(['house-any-file', 'house-react-file']);
+});
+
+test('a framework rule sits out a repo that does not run that framework', async () => {
+	const dir = setupChannelRepo({ roots: [setupChannelPackage()] });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// a document out of play contributes no prose, so it contributes no checks
+	expect(findings.map((finding) => finding.rule)).toStrictEqual(['house-any-file']);
+});
+
+test('a configured channel list is the whole answer, overriding what the manifest would have detected', async () => {
+	const dir = setupChannelRepo({ roots: [setupChannelPackage()], dependencies: { react: '^19.0.0' }, standardsChannels: [] });
+
+	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
+
+	// an explicit list wins even where detection would have said otherwise —
+	// prose and checks read the same answer
+	expect(findings.map((finding) => finding.rule)).toStrictEqual(['house-any-file']);
 });

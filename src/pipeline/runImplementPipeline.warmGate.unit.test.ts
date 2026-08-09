@@ -6,6 +6,7 @@ import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -18,6 +19,10 @@ test('write-tests warm gate: a real driver stream event releases the held-back w
 		name: 'stub',
 		invoke: async ({ prompt, onEvent }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writers += 1;

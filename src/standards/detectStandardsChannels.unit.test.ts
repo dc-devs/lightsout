@@ -2,10 +2,11 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import type { Driver } from '@/drivers';
-import { detectStandardsChannels, readStandards } from '@/standards';
+import { detectStandardsChannels } from '@/standards';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
 
@@ -121,20 +122,6 @@ test('detectStandardsChannels resolves scoped manifests under a custom packagesD
 	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] })).toStrictEqual([]);
 });
 
-test('bundled tokens expand to base docs plus active channels only', async () => {
-	const base = await readStandards({ cwd: '/nonexistent', paths: ['lightsout:test-defaults'] });
-	const withReact = await readStandards({ cwd: '/nonexistent', paths: ['lightsout:test-defaults'], channels: ['react'] });
-
-	// base doc present
-	expect(base?.includes('standards/tests/unit/jest/unit-testing.md')).toBeTruthy();
-	// react doc absent without the channel
-	expect(base?.includes('unit-testing-react-components.md')).toBeFalsy();
-	// react doc present with the channel
-	expect(withReact?.includes('unit-testing-react-components.md')).toBeTruthy();
-	// base docs precede channel docs
-	expect((withReact?.indexOf('unit-testing.md') ?? 0) < (withReact?.indexOf('unit-testing-react-components.md') ?? 0)).toBeTruthy();
-});
-
 test('pipeline injects channel docs for react packages and announces the detection', async () => {
 	const dir = setupMonorepo({ plan: '---\npackages:\n  - web\n---\n# Plan: web feature\n' });
 
@@ -147,6 +134,10 @@ test('pipeline injects channel docs for react packages and announces the detecti
 		name: 'stub',
 		invoke: async ({ prompt, systemPrompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			// Standards ride the system prompt — capture both halves of the invocation.
 			prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
@@ -181,9 +172,9 @@ test('pipeline injects channel docs for react packages and announces the detecti
 	// line.includes('standards')).join('\n')}
 	expect(progressLines.some((line) => line.includes('standards channels: base + react (detected from package dependencies)'))).toBeTruthy();
 	// test writer got the react channel doc
-	expect(prompts['write-tests']?.includes('unit-testing-react-components.md')).toBeTruthy();
+	expect(prompts['write-tests']?.includes('tests/unit-testing-react-components')).toBeTruthy();
 	// executor got react architecture
-	expect(prompts['implement']?.includes('standards/code/architecture/react/architecture-decisions.md')).toBeTruthy();
+	expect(prompts['implement']?.includes('code/architecture/react')).toBeTruthy();
 	// tanstack channel stays out without the dependency
 	expect(prompts['implement']?.includes('tanstack-start')).toBeFalsy();
 });
@@ -201,6 +192,10 @@ test('standardsChannels config replaces detection', async () => {
 		name: 'stub',
 		invoke: async ({ prompt, systemPrompt }) => {
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			// Standards ride the system prompt — capture both halves of the invocation.
 			prompts[role] = `${systemPrompt ?? ''}\n${prompt}`;
@@ -232,5 +227,5 @@ test('standardsChannels config replaces detection', async () => {
 
 	expect(result.ok).toBe(true);
 	expect(progressLines.some((line) => line.includes('standards channels: base + react (configured)'))).toBeTruthy();
-	expect(prompts['write-tests']?.includes('unit-testing-react-components.md')).toBeTruthy();
+	expect(prompts['write-tests']?.includes('tests/unit-testing-react-components')).toBeTruthy();
 });

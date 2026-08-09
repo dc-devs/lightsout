@@ -5,6 +5,7 @@ import type { Driver } from '@/drivers';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
+import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
@@ -26,6 +27,10 @@ test('a final message that fails the report contract is saved to the run dir bef
 			}
 
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
@@ -83,6 +88,10 @@ test('two rejected messages in one run are filed under distinct sequence numbers
 			}
 
 			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
 
 			if (role === 'write-tests') {
 				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');

@@ -12,8 +12,7 @@ const plainRepo: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true',
 const monorepo: LightsoutConfig = {
 	...plainRepo,
 	packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test' },
-	standards: false,
-	testStandards: false,
+	standardsPackages: false,
 };
 
 const idleDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
@@ -74,16 +73,16 @@ describe('prepareRun', () => {
 		expect('error' in prepared && prepared.error).toContain('plan file not found');
 	});
 
-	test('a declared standards file that is missing is reported the same way', async () => {
-		const config: LightsoutConfig = { ...plainRepo, standards: ['docs/missing.md'] };
+	test('a declared standards package that is missing is reported the same way', async () => {
+		const config: LightsoutConfig = { ...plainRepo, standardsPackages: ['standards/ghost'] };
 		const { run, cwd } = await setupRun({ config });
 
 		write({ cwd, path: 'plan.md', content: '# Plan\n' });
 
 		const prepared = await prepareRun({ run, cwd, config, packages: undefined });
 
-		// reading standards throws; the run has to end with a truthful manifest
-		expect('error' in prepared && prepared.error).toContain('standards file not found');
+		// loading standards throws; the run has to end with a truthful manifest
+		expect('error' in prepared && prepared.error).toContain('standards package root file not found');
 	});
 
 	test('loads the standards the roles write against, announcing where the channels came from', async () => {
@@ -94,7 +93,7 @@ describe('prepareRun', () => {
 
 		const prepared = await prepareRun({ run, cwd, config, packages: undefined });
 
-		expect('error' in prepared ? undefined : prepared.standards).toContain('<!-- lightsout defaults: standards/code/');
+		expect('error' in prepared ? undefined : prepared.standards).toContain('<!-- lightsout-defaults: code/');
 		expect(progress.some((line) => line.startsWith('standards channels: base'))).toBe(true);
 	});
 });
