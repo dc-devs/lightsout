@@ -13,7 +13,7 @@ import { runCli } from '@tests/helpers/runCli';
 // lint`, 2026-07-23 for the verify-facts `--notes` flag, 2026-08-01 for the
 // removal of `verify`, 2026-08-08 for the plan-folder form of `implement`,
 // 2026-08-08 for `standards-validate`, 2026-08-09 for the `standards-check`
-// half-selectors and `standards-health`.)
+// half-selectors and `standards-health`, 2026-08-09 for `voice`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -35,6 +35,8 @@ usage:
   lightsout plan grade --name <n> [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
+  lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)
+  lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
 `;
 
 const usageErr = `${usage}\n`;

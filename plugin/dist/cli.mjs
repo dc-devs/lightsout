@@ -8007,6 +8007,8 @@ usage:
   lightsout plan grade --name <n> [--cwd <path>]
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
+  lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions \u2014 Mac-only)
+  lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
 `;
 
 // src/common/utils/loadConfig.ts
@@ -42040,6 +42042,290 @@ var statusCommand = async ({ cwd }) => {
   process.exit(0);
 };
 
+// src/cli/voice/common/utils/getStreamText.ts
+var getStreamText = async ({ stream }) => {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+  }
+  return chunks.join("");
+};
+
+// src/voice/createVoiceMarker.ts
+import { mkdir as mkdir13, writeFile as writeFile14 } from "node:fs/promises";
+import { dirname as dirname6 } from "node:path";
+
+// src/voice/common/paths/getVoiceMarkerPath.ts
+import { join as join60 } from "node:path";
+var getVoiceMarkerPath = ({ cwd }) => {
+  return join60(cwd, ".lightsout", "voice-on");
+};
+
+// src/voice/createVoiceMarker.ts
+var createVoiceMarker = async ({ cwd }) => {
+  const markerPath = getVoiceMarkerPath({ cwd });
+  await mkdir13(dirname6(markerPath), { recursive: true });
+  await writeFile14(markerPath, "", "utf8");
+};
+
+// src/voice/deleteVoiceMarker.ts
+import { rm as rm3 } from "node:fs/promises";
+var deleteVoiceMarker = async ({ cwd }) => {
+  await rm3(getVoiceMarkerPath({ cwd }), { force: true });
+};
+
+// src/voice/isVoiceOn.ts
+import { access as access4 } from "node:fs/promises";
+var isVoiceOn = async ({ cwd }) => {
+  return access4(getVoiceMarkerPath({ cwd })).then(() => true).catch(() => false);
+};
+
+// src/voice/getSpokenQuestion.ts
+import { readFile as readFile29 } from "node:fs/promises";
+
+// src/voice/common/fields/getField.ts
+var isRecord2 = (value) => {
+  return typeof value === "object" && value !== null;
+};
+var getField = ({ value, key }) => {
+  return isRecord2(value) ? value[key] : void 0;
+};
+
+// src/voice/common/fields/getArrayField.ts
+var getArrayField = ({ value, key }) => {
+  const field = getField({ value, key });
+  return Array.isArray(field) ? field : [];
+};
+
+// src/voice/common/fields/getStringField.ts
+var getStringField = ({ value, key }) => {
+  const field = getField({ value, key });
+  return typeof field === "string" ? field : void 0;
+};
+
+// src/voice/common/utils/formatSpeakable.ts
+var formatSpeakable = ({ text }) => {
+  return text.replace(/\*\*/g, "").replace(/`/g, "").replace(/^#{1,6}\s*/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+};
+
+// src/voice/getSpokenQuestion.ts
+var parseEntry = ({ line }) => {
+  try {
+    const parsed = JSON.parse(line);
+    return parsed;
+  } catch {
+    return void 0;
+  }
+};
+var getContentBlocks = ({ entry }) => {
+  return getArrayField({ value: getField({ value: entry, key: "message" }), key: "content" });
+};
+var getBlockText = ({ block }) => {
+  return getStringField({ value: block, key: "type" }) === "text" ? getStringField({ value: block, key: "text" }) : void 0;
+};
+var isRealUserMessage = ({ entry }) => {
+  const typed = getStringField({ value: getField({ value: entry, key: "message" }), key: "content" }) !== void 0;
+  return typed || getContentBlocks({ entry }).some((block) => getBlockText({ block }) !== void 0);
+};
+var getFinalTurnEntries = ({ lines }) => {
+  const entries = [];
+  for (const line of [...lines].reverse()) {
+    const entry = parseEntry({ line });
+    const type = getStringField({ value: entry, key: "type" });
+    if (type === void 0 || getField({ value: entry, key: "isSidechain" }) === true) {
+      continue;
+    }
+    if (type === "assistant") {
+      entries.push(entry);
+    } else if (type === "user" && isRealUserMessage({ entry })) {
+      break;
+    }
+  }
+  return entries.reverse();
+};
+var isQuestionText = ({ text }) => {
+  const supportingLabels = ["**Context:**", "**Trade-offs:**", "**Recommendation:**"];
+  return text.includes("**Question:**") && supportingLabels.some((label) => text.includes(label));
+};
+var getQuestionTexts = ({ entries }) => {
+  const texts = [];
+  for (const entry of entries) {
+    for (const block of getContentBlocks({ entry })) {
+      const text = getBlockText({ block });
+      if (text !== void 0 && isQuestionText({ text })) {
+        texts.push(text);
+      }
+    }
+  }
+  return texts;
+};
+var getSpokenQuestion = async ({ transcriptPath }) => {
+  const raw = await readFile29(transcriptPath, "utf8").catch(() => void 0);
+  if (raw === void 0) {
+    return void 0;
+  }
+  const lines = raw.split("\n").filter((line) => line.trim() !== "");
+  const texts = getQuestionTexts({ entries: getFinalTurnEntries({ lines }) }).map((text) => formatSpeakable({ text }));
+  return texts.length === 0 ? void 0 : texts.join("\n\n");
+};
+
+// src/voice/getSpokenPickerText.ts
+var getOptionLine = ({ option }) => {
+  const label = getStringField({ value: option, key: "label" });
+  const description = getStringField({ value: option, key: "description" });
+  if (label === void 0 || label === "") {
+    return void 0;
+  }
+  return description === void 0 || description === "" ? label : `${label}: ${description}`;
+};
+var getQuestionBlock = ({ question }) => {
+  const text = getStringField({ value: question, key: "question" });
+  const optionLines = getArrayField({ value: question, key: "options" }).map((option) => getOptionLine({ option })).filter((line) => line !== void 0);
+  const parts = [text === "" ? void 0 : text, optionLines.length === 0 ? void 0 : `Options: ${optionLines.join(". ")}`];
+  return parts.filter((part) => part !== void 0).join("\n");
+};
+var getSpokenPickerText = ({ toolInput }) => {
+  const blocks = getArrayField({ value: toolInput, key: "questions" }).map((question) => getQuestionBlock({ question })).filter((block) => block !== "");
+  return blocks.length === 0 ? void 0 : formatSpeakable({ text: blocks.join("\n\n") });
+};
+
+// src/voice/speakText.ts
+import { spawn as spawn3 } from "node:child_process";
+import { writeFile as writeFile15 } from "node:fs/promises";
+
+// src/voice/common/paths/getVoicePidPath.ts
+import { join as join61 } from "node:path";
+var getVoicePidPath = ({ cwd }) => {
+  return join61(cwd, ".lightsout", "voice-pid");
+};
+
+// src/voice/stopSpeech.ts
+import { readFile as readFile30, rm as rm4 } from "node:fs/promises";
+var stopSpeech = async ({ cwd }) => {
+  const pidPath = getVoicePidPath({ cwd });
+  const raw = await readFile30(pidPath, "utf8").catch(() => void 0);
+  if (raw === void 0) {
+    return;
+  }
+  const pid = Number(raw.trim());
+  if (Number.isInteger(pid) && pid > 0) {
+    try {
+      process.kill(pid);
+    } catch {
+    }
+  }
+  await rm4(pidPath, { force: true });
+};
+
+// src/voice/speakText.ts
+var speakText = async ({ cwd, text }) => {
+  await stopSpeech({ cwd });
+  const child = spawn3("say", [], { stdio: ["pipe", "ignore", "ignore"], detached: true });
+  child.on("error", () => {
+  });
+  child.stdin?.write(text);
+  child.stdin?.end();
+  if (child.pid !== void 0) {
+    await writeFile15(getVoicePidPath({ cwd }), String(child.pid), "utf8");
+  }
+  child.unref();
+};
+
+// src/cli/voice/voiceHookCommand.ts
+var parseJson = ({ input }) => {
+  try {
+    const parsed = JSON.parse(input);
+    return parsed;
+  } catch {
+    return void 0;
+  }
+};
+var parseHookPayload = ({ input }) => {
+  const payload = parseJson({ input });
+  if (typeof payload !== "object" || payload === null) {
+    return void 0;
+  }
+  const hookEventName = "hook_event_name" in payload ? payload.hook_event_name : void 0;
+  const transcriptPath = "transcript_path" in payload ? payload.transcript_path : void 0;
+  const payloadCwd = "cwd" in payload ? payload.cwd : void 0;
+  const toolName = "tool_name" in payload ? payload.tool_name : void 0;
+  return {
+    hookEventName: typeof hookEventName === "string" ? hookEventName : void 0,
+    transcriptPath: typeof transcriptPath === "string" ? transcriptPath : void 0,
+    payloadCwd: typeof payloadCwd === "string" ? payloadCwd : void 0,
+    toolName: typeof toolName === "string" ? toolName : void 0,
+    toolInput: "tool_input" in payload ? payload.tool_input : void 0
+  };
+};
+var getSpokenText = async ({
+  hookEventName,
+  transcriptPath,
+  toolName,
+  toolInput
+}) => {
+  if (hookEventName === "PreToolUse") {
+    return toolName === "AskUserQuestion" ? getSpokenPickerText({ toolInput }) : void 0;
+  }
+  return transcriptPath === void 0 ? void 0 : getSpokenQuestion({ transcriptPath });
+};
+var voiceHookCommand = async ({ cwd, input }) => {
+  try {
+    if (process.platform !== "darwin") {
+      return;
+    }
+    const payload = parseHookPayload({ input });
+    if (payload === void 0) {
+      return;
+    }
+    const projectCwd = payload.payloadCwd ?? cwd;
+    if (!await isVoiceOn({ cwd: projectCwd })) {
+      return;
+    }
+    const text = await getSpokenText(payload);
+    if (text === void 0) {
+      return;
+    }
+    await speakText({ cwd: projectCwd, text });
+  } catch {
+  }
+};
+
+// src/cli/voice/voiceOffCommand.ts
+var voiceOffCommand = async ({ cwd }) => {
+  await deleteVoiceMarker({ cwd });
+  await stopSpeech({ cwd });
+  console.log("voice off \u2014 questions will no longer be read aloud, and anything still playing was cut off");
+};
+
+// src/cli/voice/voiceOnCommand.ts
+var voiceOnCommand = async ({ cwd }) => {
+  await createVoiceMarker({ cwd });
+  console.log("voice on \u2014 turns that ask a lightsout question will be read aloud (marker: .lightsout/voice-on)");
+  if (process.platform !== "darwin") {
+    console.log(`note: the read-out uses the Mac's own "say" voice, so nothing will be spoken on this machine`);
+  }
+};
+
+// src/cli/voice/voiceCommand.ts
+var voiceCommand = async ({ rest, cwd }) => {
+  const subcommand = getPositionals({ args: rest })[0];
+  if (subcommand === "on") {
+    await voiceOnCommand({ cwd });
+    return;
+  }
+  if (subcommand === "off") {
+    await voiceOffCommand({ cwd });
+    return;
+  }
+  if (subcommand === "hook") {
+    const input = process.stdin.isTTY ? "" : await getStreamText({ stream: process.stdin });
+    await voiceHookCommand({ cwd, input });
+    return;
+  }
+  console.error(usage);
+  process.exit(1);
+};
+
 // src/cli/index.ts
 var commands = {
   implement: implementCommand,
@@ -42052,7 +42338,8 @@ var commands = {
   refactor: refactorCommand,
   plan: planCommand,
   friction: frictionCommand,
-  improve: improveCommand
+  improve: improveCommand,
+  voice: voiceCommand
 };
 var main = async () => {
   const [command, ...rest] = process.argv.slice(2);

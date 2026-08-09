@@ -13,6 +13,7 @@ import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
 import { standardsHealthCommand } from '@/cli/standardsHealthCommand';
 import { standardsValidateCommand } from '@/cli/standardsValidateCommand';
 import { statusCommand } from '@/cli/statusCommand';
+import { voiceCommand } from '@/cli/voice';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	implement: implementCommand,
@@ -26,6 +27,7 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	plan: planCommand,
 	friction: frictionCommand,
 	improve: improveCommand,
+	voice: voiceCommand,
 };
 
 const main = async (): Promise<void> => {
