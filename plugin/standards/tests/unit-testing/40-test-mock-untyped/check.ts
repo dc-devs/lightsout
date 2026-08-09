@@ -1,5 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@/contracts';
 import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
+import { blankStringsAndComments } from '../../../common/utils/blankStringsAndComments.ts';
 import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
 import { getLineNumber } from '../../../common/utils/getLineNumber.ts';
 import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
@@ -14,14 +15,19 @@ const frameworkCast = /as unknown as|as Record</;
 // framework generic routinely spreads its `as unknown as` several lines below
 // the `jest.fn()` it wraps.
 const untypedSpyFindings = ({ file, text }: { file: string; text: string }) => {
-	const terminated = `${text};`;
+	// Read with strings, templates and comments emptied out: a test that passes
+	// sample code in as data, and this rule's own message naming what it bans,
+	// are mentions of `jest.fn()` rather than uses of it. Positions are
+	// unchanged, so the lines reported are the file's own.
+	const code = blankStringsAndComments({ text });
+	const terminated = `${code};`;
 	const lines: number[] = [];
 
-	for (const match of text.matchAll(spyCall)) {
+	for (const match of code.matchAll(spyCall)) {
 		const statement = terminated.slice(terminated.lastIndexOf(';', match.index) + 1, terminated.indexOf(';', match.index));
 
 		if (match[1] === '(' && !frameworkCast.test(statement)) {
-			lines.push(getLineNumber({ text, index: match.index }));
+			lines.push(getLineNumber({ text: code, index: match.index }));
 		}
 	}
 

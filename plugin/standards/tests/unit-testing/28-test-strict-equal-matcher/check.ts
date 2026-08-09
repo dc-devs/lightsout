@@ -1,4 +1,5 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@/contracts';
+import { blankStringsAndComments } from '../../../common/utils/blankStringsAndComments.ts';
 import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
 import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
 import { readCallBlocks } from '../../../common/utils/readCallBlocks.ts';
@@ -8,7 +9,13 @@ import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
 const asymmetricMatcher = /expect\.(?:objectContaining|arrayContaining|any|stringContaining|stringMatching)\s*\(/;
 
 const strictEqualFindings = ({ file, text }: { file: string; text: string }) => {
-	const misleading = readCallBlocks({ text, callees: ['toStrictEqual'] }).filter((block) => asymmetricMatcher.test(block.body));
+	// Read with strings, templates and comments emptied out: a test whose sample
+	// data quotes a matcher is describing one, not using one. Positions are
+	// unchanged, so the blocks found sit on the file's own lines — and this rule
+	// reads only their bodies, never the titles the blanking takes with it.
+	const misleading = readCallBlocks({ text: blankStringsAndComments({ text }), callees: ['toStrictEqual'] }).filter((block) =>
+		asymmetricMatcher.test(block.body),
+	);
 
 	return misleading.length === 0
 		? []
