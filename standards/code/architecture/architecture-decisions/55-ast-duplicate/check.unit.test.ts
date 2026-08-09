@@ -87,7 +87,7 @@ const hookWrapper = ({ name, hook, field }: { name: string; hook: string; field:
 `;
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
-const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> }): StandardsCheckInput => {
+const setupSyntaxTreeInput = ({ sources, standardsPackages = [] }: { sources: Array<[string, string]>; standardsPackages?: string[] }): StandardsCheckInput => {
 	const compiler = resolveConsumerTypescript({ cwd: process.cwd() });
 
 	if (compiler === undefined) {
@@ -102,7 +102,7 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages, compiler, trees };
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -271,5 +271,36 @@ describe('ast-duplicate check', () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: { minBodyTokens: 40 } });
 
 		expect(findings).toStrictEqual([]);
+	});
+	test('never pairs a standards package with the repo around it, since neither copy can import the other', async () => {
+		const body = (name: string) => `export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
+		const input = setupSyntaxTreeInput({
+			sources: [
+				['src/common/naming/tokensOf.ts', body('tokensOf')],
+				['standards/common/utils/getTokens.ts', body('getTokens')],
+			],
+			standardsPackages: ['standards'],
+		});
+
+		const findings = await check.run({ input, settings: { minBodyTokens: 10 } });
+
+		// a package installs where the rest of this repo is absent, so deleting
+		// either copy leaves one side importing what is not there
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('still reports a duplicate pair inside one standards package', async () => {
+		const body = (name: string) => `export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
+		const input = setupSyntaxTreeInput({
+			sources: [
+				['standards/common/utils/getTokens.ts', body('getTokens')],
+				['standards/common/utils/splitWords.ts', body('splitWords')],
+			],
+			standardsPackages: ['standards'],
+		});
+
+		const findings = await check.run({ input, settings: { minBodyTokens: 10 } });
+
+		expect(findings.map(({ detail }) => detail)).toStrictEqual(["'getTokens', 'splitWords' (32 tokens) have identical bodies after identifier normalization"]);
 	});
 });

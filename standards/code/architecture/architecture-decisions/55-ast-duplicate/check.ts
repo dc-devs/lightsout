@@ -1,6 +1,7 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@/contracts';
 import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
 import { collectFunctionNodes } from '../../../../common/utils/collectFunctionNodes.ts';
+import { getOwningPackage } from '../../../../common/utils/getOwningPackage.ts';
 import { getSiteGroupKey } from '../../../../common/utils/getSiteGroupKey.ts';
 import { normalizeFunctionTokens } from './normalizeFunctionTokens.ts';
 
@@ -17,6 +18,11 @@ interface BodySite {
  * Every body big enough to be a duplicate candidate, grouped by its normalized
  * token stream. The stream is its own identity — hashing it would buy a shorter
  * key and a collision the rule could never explain to the person reading it.
+ *
+ * Grouped within one shipped thing rather than across the repo. A standards
+ * package installs on machines where the rest of this repo is absent, so a
+ * function it shares with the engine cannot be deduplicated — whichever copy
+ * went, one side would be left importing what is not there.
  */
 const groupByBody = ({ input, minBodyTokens }: { input: SyntaxTreeInput; minBodyTokens: number }) => {
 	const byBody = new Map<string, BodySite[]>();
@@ -26,7 +32,7 @@ const groupByBody = ({ input, minBodyTokens }: { input: SyntaxTreeInput; minBody
 			const tokens = normalizeFunctionTokens({ node: body, compiler: input.compiler });
 
 			if (tokens.length >= minBodyTokens) {
-				const key = tokens.join(',');
+				const key = `${getOwningPackage({ path, standardsPackages: input.standardsPackages })}:${tokens.join(',')}`;
 
 				byBody.set(key, [...(byBody.get(key) ?? []), { name, path, startLine, endLine, tokenCount: tokens.length }]);
 			}
