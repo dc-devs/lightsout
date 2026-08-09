@@ -1,6 +1,6 @@
 import type ts from 'typescript';
-import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@/contracts';
-import { buildTreeLineFindings } from '../../../../../common/utils/buildTreeLineFindings.ts';
+import type { StandardsCheckModule } from '@/contracts';
+import { buildTreeLineCheck } from '../../../../../common/utils/buildTreeLineCheck.ts';
 
 /**
  * Whether an assertion is the `as const` form. That one asserts nothing about a
@@ -33,19 +33,11 @@ const getAssertionLines = ({ sourceFile, compiler }: { sourceFile: ts.SourceFile
 	return lines;
 };
 
-/** One finding per file: the remedy is to prove the types this file works with, which is one pass over it. */
-export const check: StandardsCheckModule = {
-	inputKind: 'syntax-tree',
-	// Scanning for the word would hit `as` in an import alias, a string and a
-	// comment alike; only the tree says which occurrence is the assertion.
-	run: ({ input }): RawStandardsFinding[] =>
-		input.kind === 'syntax-tree'
-			? buildTreeLineFindings({
-					input,
-					rule: 'type-assertion',
-					findLines: getAssertionLines,
-					detail: ({ lines }) => `\`as\` cast at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`,
-					guidance: 'Narrow with `typeof`, `instanceof` or a discriminated union — an assertion that is genuinely unavoidable needs a comment saying why.',
-				})
-			: [],
-};
+// Scanning for the word would hit `as` in an import alias, a string and a
+// comment alike; only the tree says which occurrence is the assertion.
+export const check: StandardsCheckModule = buildTreeLineCheck({
+	rule: 'type-assertion',
+	findLines: getAssertionLines,
+	detail: ({ lines }) => `\`as\` cast at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`,
+	guidance: 'Narrow with `typeof`, `instanceof` or a discriminated union — an assertion that is genuinely unavoidable needs a comment saying why.',
+});
