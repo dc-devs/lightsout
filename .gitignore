@@ -9,6 +9,11 @@ node_modules/
 *.tsbuildinfo
 .test-dist/
 coverage/
+# ...but the coverage PIPELINE is source, not a report. The bare pattern above
+# matches a `coverage` directory at ANY depth, which silently swallowed the
+# whole `lightsout test-coverage-to-threshold` module.
+!src/coverage/
+!src/contracts/coverage/
 
 # os / editor
 .DS_Store

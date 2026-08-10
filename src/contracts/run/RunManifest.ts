@@ -17,7 +17,7 @@ export const RunManifest = z.object({
 	updatedAt: z.string(),
 	/** Path to the plan file the run implements, relative to the target repo. For a phases run this is the overview path. */
 	plan: z.string(),
-	/** Which pipeline owns this run ('implement' | 'refactor' | 'phases'). Absent on pre-discriminator manifests → implement. */
+	/** Which pipeline owns this run ('implement' | 'refactor' | 'phases' | 'coverage'). Absent on pre-discriminator manifests → implement. */
 	pipeline: z.string().optional(),
 	/** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
 	overview: z.string().optional(),

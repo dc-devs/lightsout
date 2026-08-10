@@ -13,6 +13,7 @@ import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
 import { standardsHealthCommand } from '@/cli/standardsHealthCommand';
 import { standardsValidateCommand } from '@/cli/standardsValidateCommand';
 import { statusCommand } from '@/cli/statusCommand';
+import { testCoverageToThresholdCommand } from '@/cli/testCoverageToThresholdCommand';
 import { voiceCommand } from '@/cli/voice';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
@@ -24,6 +25,7 @@ const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	'standards-validate': standardsValidateCommand,
 	'standards-health': standardsHealthCommand,
 	refactor: refactorCommand,
+	'test-coverage-to-threshold': testCoverageToThresholdCommand,
 	plan: planCommand,
 	friction: frictionCommand,
 	improve: improveCommand,

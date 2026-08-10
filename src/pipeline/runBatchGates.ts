@@ -1,11 +1,14 @@
 import type { LightsoutConfig } from '@/contracts';
+import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
 import { packageOf } from '@/common/utils/packageOf';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { runGates } from '@/pipeline';
+import { runGates } from '@/pipeline/runGates';
 
 interface Params {
 	cwd: string;
 	config: LightsoutConfig;
+	/** Also run the coverage gate. Refactor passes true (a refactor must not drop coverage); the coverage pipeline passes false (its gate is red by definition mid-run). */
+	coverage: boolean;
 	runId: string;
 	/** The batch step id, recorded into the command log. */
 	step: string;
@@ -15,11 +18,11 @@ interface Params {
 /**
  * A batch's verification gates, scoped to what the tree actually changed:
  * package scope inferred from the current git diff, root included when root
- * files changed, coverage always on — a refactor must not drop coverage.
+ * files changed.
  */
-export const runBatchGates = async ({ cwd, config, runId, step, onProgress }: Params): Promise<string | undefined> => {
+export const runBatchGates = async ({ cwd, config, coverage, runId, step, onProgress }: Params): Promise<string | undefined> => {
 	const changed = (await readGitChangedFiles({ cwd })) ?? [];
-	const packagesDir = config.packagesDir ?? 'packages';
+	const packagesDir = config.packagesDir ?? defaultPackagesDir;
 	const touched = [
 		...new Set(
 			changed.flatMap((file) => {
@@ -33,7 +36,7 @@ export const runBatchGates = async ({ cwd, config, runId, step, onProgress }: Pa
 	return runGates({
 		cwd,
 		config,
-		coverage: true,
+		coverage,
 		packages: touched,
 		includeRoot: changed.some((file) => packageOf({ file, packagesDir }) === undefined),
 		runId,

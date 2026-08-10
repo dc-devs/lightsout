@@ -506,6 +506,51 @@ test('doctor passes the generated check when every configured path exists, and e
 	expect(bareChecks.get('generated')).toBe(undefined);
 });
 
+test('doctor reports the coverage summary only for repos that measure coverage', async () => {
+	const measuring = setupConsumerRepo({ git: false, scripts: { testCoverage: 'pnpm test:coverage' } });
+
+	mkdirSync(join(measuring, 'coverage'), { recursive: true });
+	writeFileSync(join(measuring, 'coverage/coverage-summary.json'), '{}');
+
+	const measuringChecks = byId(await runDoctor({ cwd: measuring, probeHarness: passingProbe }));
+
+	// the summary is what `lightsout test-coverage-to-threshold` reads per-file numbers from
+	expect(measuringChecks.get('coverage-summary')?.status).toBe('pass');
+
+	const optedOut = setupConsumerRepo({ git: false });
+	const optedOutChecks = byId(await runDoctor({ cwd: optedOut, probeHarness: passingProbe }));
+
+	// a repo with no coverage command has nothing to report a summary for
+	expect(optedOutChecks.get('coverage-summary')).toBe(undefined);
+});
+
+test('doctor checks the coverage summary of every package a monorepo measures, not only the root', async () => {
+	const dir = setupConsumerRepo({
+		git: false,
+		config: {
+			packageScripts: {
+				check: 'pnpm --filter {package} run check',
+				testUnit: 'pnpm --filter {package} run test:unit',
+				testCoverage: 'pnpm --filter {package} run test:coverage',
+			},
+		},
+	});
+	const packageScripts = { check: 'x', 'test:unit': 'x', 'test:coverage': 'x' };
+
+	mkdirSync(join(dir, 'packages/api/coverage'), { recursive: true });
+	writeFileSync(join(dir, 'packages/api/package.json'), JSON.stringify({ name: '@acme/api', scripts: packageScripts }));
+	writeFileSync(join(dir, 'packages/api/coverage/coverage-summary.json'), '{}');
+
+	mkdirSync(join(dir, 'packages/web'), { recursive: true });
+	writeFileSync(join(dir, 'packages/web/package.json'), JSON.stringify({ name: '@acme/web', scripts: packageScripts }));
+
+	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
+
+	// the packages resolved once for the scoped gates are the scopes the coverage check reads
+	expect(checks.get('coverage-summary')?.status).toBe('warn');
+	expect(checks.get('coverage-summary')?.detail).toBe('not found: web: coverage/coverage-summary.json');
+});
+
 test('doctor finds jest configs nested under test/ and fails on missing gate binaries', async () => {
 	const dir = setupConsumerRepo({
 		git: false,

@@ -12,6 +12,9 @@ import { runPhasesOrFailFast } from '@/cli/common/utils/runPhasesOrFailFast';
 import { runPipelineOrFailFast } from '@/cli/common/utils/runPipelineOrFailFast';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 
+/** Pipelines that own their own resume door — `lightsout resume` sends them back to it. */
+const resumeCommandByPipeline: Record<string, string | undefined> = { refactor: 'refactor', coverage: 'test-coverage-to-threshold' };
+
 export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const skipRefactor = flags.get('skip-refactor') === true;
 
@@ -34,11 +37,10 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 	});
 
 	const pipeline = manifest.pipeline ?? 'implement';
+	const ownCommand = resumeCommandByPipeline[pipeline];
 
-	if (pipeline === 'refactor') {
-		console.error(
-			`run ${manifest.runId} belongs to the ${manifest.pipeline} pipeline — resume it with: lightsout refactor --run ${manifest.runId}`,
-		);
+	if (ownCommand) {
+		console.error(`run ${manifest.runId} belongs to the ${pipeline} pipeline — resume it with: lightsout ${ownCommand} --run ${manifest.runId}`);
 		process.exit(1);
 	}
 

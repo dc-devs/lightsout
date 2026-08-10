@@ -13,7 +13,8 @@ import { runCli } from '@tests/helpers/runCli';
 // lint`, 2026-07-23 for the verify-facts `--notes` flag, 2026-08-01 for the
 // removal of `verify`, 2026-08-08 for the plan-folder form of `implement`,
 // 2026-08-08 for `standards-validate`, 2026-08-09 for the `standards-check`
-// half-selectors and `standards-health`, 2026-08-09 for `voice`.)
+// half-selectors and `standards-health`, 2026-08-09 for `voice`, 2026-08-09
+// for `test-coverage-to-threshold`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -28,6 +29,8 @@ usage:
   lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
+  lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>]
+  lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
   lightsout plan verify-facts --name <n> [--notes <path>] [--cwd <path>]
   lightsout plan draft --name <n> [--scope single|phased] [--cwd <path>]
   lightsout plan lint --name <n> [--cwd <path>]

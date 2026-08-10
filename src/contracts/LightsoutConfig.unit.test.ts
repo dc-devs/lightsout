@@ -125,6 +125,24 @@ test('LightsoutConfig: a typoed command key inside commands fails parsing', () =
 	expect(LightsoutConfig.safeParse({ ...base, commands: { implment: {} } }).success).toBe(false);
 });
 
+test('LightsoutConfig: the coverage command has its own commands entry, and a typo near it is still refused', () => {
+	const parsed = LightsoutConfig.parse({ ...base, commands: { 'test-coverage-to-threshold': { harness: 'codex', effort: 'high' } } });
+
+	// the coverage run is a long unattended loop — it earns a harness of its own
+	expect(parsed.commands?.['test-coverage-to-threshold']).toStrictEqual({ harness: 'codex', effort: 'high' });
+	// the strict block means a near-miss disables an override the user believes
+	// is active, so it fails loudly instead
+	expect(LightsoutConfig.safeParse({ ...base, commands: { 'test-coverage': {} } }).success).toBe(false);
+});
+
+test('LightsoutConfig: coverageSummaryPath is optional and parses as the path the coverage tooling writes', () => {
+	expect(LightsoutConfig.parse({ ...base, coverageSummaryPath: 'reports/coverage-summary.json' }).coverageSummaryPath).toBe('reports/coverage-summary.json');
+	// absent means the Istanbul default location — every existing config stays valid
+	expect(LightsoutConfig.parse(base).coverageSummaryPath).toBe(undefined);
+	// a path is a path: anything else would be read as a file name at run time
+	expect(LightsoutConfig.safeParse({ ...base, coverageSummaryPath: 42 }).success).toBe(false);
+});
+
 test('LightsoutConfig: a typoed field inside a commands entry fails parsing', () => {
 	// a typoed entry field is a hard error, not a silently dropped model (decision
 	// 8)

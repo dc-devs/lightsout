@@ -85,6 +85,16 @@ describe('resumeCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
+	test('a coverage run is sent to its own resume door too, named exactly as it is typed', async () => {
+		const { context, errors, exitCodes } = setupResume({ args: ['--run', runId], manifest: manifestOf({ pipeline: 'coverage' }) });
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// a hint a reader retypes is a contract: the wrong command word sends them nowhere
+		expect(errors).toStrictEqual([`run ${runId} belongs to the coverage pipeline — resume it with: lightsout test-coverage-to-threshold --run ${runId}`]);
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
 	test('a run that already passed has nothing to resume', async () => {
 		const { context, errors, exitCodes } = setupResume({ args: ['--run', runId], manifest: manifestOf({ status: RunStatus.Passed }) });
 
