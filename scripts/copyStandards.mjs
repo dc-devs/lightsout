@@ -1,5 +1,5 @@
 import { cpSync, rmSync } from 'node:fs';
-import { dirname, join, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -23,10 +23,22 @@ import { fileURLToPath } from 'node:url';
  * lingering as a file nothing regenerates.
  *
  * Never edit `plugin/standards/` by hand — the next bundle discards it.
+ *
+ * `--out <dir>` builds somewhere else instead. That exists for the pre-push
+ * hook, which has to answer "would this build differ from what is committed?"
+ * without writing into the tree it is asking about — a check that repairs what
+ * it measures would report success and leave the fix uncommitted.
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const source = join(repoRoot, 'standards');
-const destination = join(repoRoot, 'plugin', 'standards');
+const outFlag = process.argv.indexOf('--out');
+
+if (outFlag !== -1 && process.argv[outFlag + 1] === undefined) {
+	console.error('--out needs a directory');
+	process.exit(1);
+}
+
+const destination = outFlag === -1 ? join(repoRoot, 'plugin', 'standards') : resolve(process.argv[outFlag + 1]);
 
 /** True for the evidence a shipped package does not carry: fixture trees and unit tests. */
 const isAuthoringOnly = (path) => path.split(sep).includes('fixtures') || path.endsWith('.unit.test.ts');
