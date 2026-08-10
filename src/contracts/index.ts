@@ -40,4 +40,5 @@ export {
 } from '@/contracts/plan';
 export { DedupResolution, DedupVerdict, DedupJudgment, DedupFinding, DedupReport } from '@/contracts/dedup';
 export { RefactorBatch, RefactorWorklist, BatchOutcome, BatchReport } from '@/contracts/refactor';
+export { CoverageFile, CoverageTotal, CoverageWorklist, CoverageBatchReport } from '@/contracts/coverage';
 export { GateResult } from '@/contracts/gates';

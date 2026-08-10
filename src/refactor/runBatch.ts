@@ -1,15 +1,15 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
 import { BatchOutcome, WorkReportStatus, type AdvisoryOutcome, type AgentUsage, type LightsoutConfig, type RefactorBatch, type StandardsFinding } from '@/contracts';
 import type { Driver } from '@/drivers';
+import { runBatchGates } from '@/pipeline';
 import { runStandardsCheck } from '@/standardsCheck';
 import type { LoadedStandardsPackage } from '@/standardsPackages';
 import { buildBatchFixInvocation } from '@/refactor/buildBatchFixInvocation';
 import { buildBatchReport } from '@/refactor/buildBatchReport';
 import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
-import { collectBatchChanges } from '@/refactor/collectBatchChanges';
+import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
 import { invokeBatchAgent } from '@/refactor/invokeBatchAgent';
 import { matchRemainingFindings } from '@/refactor/matchRemainingFindings';
-import { runBatchGates } from '@/refactor/runBatchGates';
 import { superviseBatch } from '@/refactor/superviseBatch';
 import type { BatchStop } from '@/refactor/common/types/BatchStop';
 
@@ -81,7 +81,8 @@ export const runBatch = async ({
 	const reportOf = ({ outcome, remainingSiteKeys }: { outcome: BatchOutcome; remainingSiteKeys: string[] }) =>
 		buildBatchReport({ outcome, remainingSiteKeys, rationale, advisoryOutcomes: [...advisoryOutcomes.values()] });
 
-	const gates = () => runBatchGates({ cwd, config, runId, step: batch.id, onProgress });
+	// Coverage stays on: a refactor must not drop coverage.
+	const gates = () => runBatchGates({ cwd, config, coverage: true, runId, step: batch.id, onProgress });
 
 	const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
 

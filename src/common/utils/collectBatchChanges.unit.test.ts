@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, describe, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
-import { collectBatchChanges } from '@/refactor/collectBatchChanges';
+import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };

@@ -63,9 +63,10 @@ test('RunManifest: packagesSource records where the initial scope came from, and
 });
 
 test('RunManifest: pipeline names the owning pipeline, stays open, and is absent on pre-discriminator manifests', () => {
-	for (const pipeline of ['implement', 'refactor', 'phases']) {
+	for (const pipeline of ['implement', 'refactor', 'phases', 'coverage']) {
 		// ${pipeline} owns runs of its own shape — a phases run is a coordinator over
-		// per-phase runs and must read back under its own name
+		// per-phase runs, a coverage run loops rounds of test writing, and each must
+		// read back under its own name so resume routes it to the right command
 		expect(RunManifest.parse({ ...base, harness: 'codex', pipeline }).pipeline).toBe(pipeline);
 	}
 

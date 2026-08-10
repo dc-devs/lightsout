@@ -66,6 +66,7 @@ export const LightsoutConfig = z.object({
 			refactor: commandHarness.optional(),
 			improve: commandHarness.optional(),
 			plan: commandHarness.optional(),
+			'test-coverage-to-threshold': commandHarness.optional(),
 		})
 		.strict()
 		.optional(),
@@ -118,6 +119,15 @@ export const LightsoutConfig = z.object({
 	 * pollute the manifest. The source that generates them is the change.
 	 */
 	generated: z.array(z.string()).optional(),
+	/**
+	 * Path to the JSON coverage summary the coverage tooling writes (default
+	 * `coverage/coverage-summary.json`) — repo-relative in single-package
+	 * repos, package-relative in monorepo mode. `lightsout
+	 * test-coverage-to-threshold` reads per-file percentages from it; the file
+	 * is the tool-agnostic contract, so a printed coverage table changing
+	 * format never breaks the run.
+	 */
+	coverageSummaryPath: z.string().optional(),
 	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
 	packagesDir: z.string().optional(),
 	/**

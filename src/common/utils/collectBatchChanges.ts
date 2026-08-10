@@ -4,14 +4,14 @@ import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
 interface Params {
 	cwd: string;
 	config: LightsoutConfig;
-	/** Every path the batch's agent reports named (fix invocations included). */
+	/** Every path a batch's agents reported naming (fix invocations included). */
 	reportedFiles: Set<string>;
 	/** Files earlier steps already attributed — excluded from the git-truth merge. */
 	attributedFiles: string[];
 }
 
 /**
- * The batch's changed files: every invocation's report unioned with git truth
+ * A batch's changed files: every invocation's report unioned with git truth
  * minus earlier steps' attributions and generated paths — agents can forget
  * files; git cannot be sweet-talked.
  */

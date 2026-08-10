@@ -1,5 +1,6 @@
 import type { LightsoutConfig } from '@/contracts';
 import { loadConfig } from '@/common/utils/loadConfig';
+import { checkCoverageSummary } from '@/doctor/checkCoverageSummary';
 import { checkGenerated } from '@/doctor/checkGenerated';
 import { checkGitignore } from '@/doctor/checkGitignore';
 import { checkHarness } from '@/doctor/checkHarness';
@@ -23,9 +24,9 @@ interface Params {
  * Read-only audit of a consumer repo against every assumption the engine and
  * the bundled standards make: config validity, harness binary, gitignore run
  * state, scoped-gate script coverage, Jest mock-cleanup config, generated
- * paths, script binaries. Each warn/fail carries the exact fix; the doctor
- * NEVER mutates — repo-wide changes (e.g. `clearMocks: true`) are a human's
- * decision to apply and verify.
+ * paths, coverage summary reporting, script binaries. Each warn/fail carries
+ * the exact fix; the doctor NEVER mutates — repo-wide changes (e.g.
+ * `clearMocks: true`) are a human's decision to apply and verify.
  */
 export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCheck[]> => {
 	const checks: DoctorCheck[] = [];
@@ -86,6 +87,12 @@ export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCh
 
 	if (generated) {
 		checks.push(generated);
+	}
+
+	const coverageSummary = await checkCoverageSummary({ config, packageDirs });
+
+	if (coverageSummary) {
+		checks.push(coverageSummary);
 	}
 
 	checks.push(await checkScriptBinaries({ cwd, config }));
