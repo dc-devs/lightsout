@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import type { FrictionEntry } from '@/contracts';
 import { appendFriction } from '@/runState';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 interface SetupParams {
 	/** A record an earlier run already logged, so appending-vs-rewriting is observable. */

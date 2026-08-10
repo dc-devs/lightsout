@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { AgentUsage } from '@/contracts';
 
 /** Every field a different number, so a mix-up between two of them shows. */

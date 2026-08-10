@@ -1,13 +1,13 @@
-import { expect, test } from '@jest/globals';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Effort, PlanDraftReport, PlanVariant, Permissions } from '@/contracts';
+import { expect, test } from '@jest/globals';
+import { expectDefined } from '@tests/helpers/expectDefined';
+import { expectStatus } from '@tests/helpers/expectStatus';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { Effort, Permissions, PlanDraftReport, PlanVariant } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPlanDraft } from '@/plan';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { expectDefined } from '@tests/helpers/expectDefined';
 
 /** Seed the plan workspace with the facts + decisions `plan draft` reads, plus an optional brainstorm hand-off. */
 const seedWorkspace = ({ cwd, name, areas = [], brainstormDecisions }: { cwd: string; name: string; areas?: unknown[]; brainstormDecisions?: unknown }) => {
@@ -283,7 +283,9 @@ test('plan draft: the resolved effort and permissions ride the writer and every 
 
 	expectStatus(result, 'complete');
 	// a repair must run at the same effort and capability level the writer got
-	expect(invocations.map(({ prompt, effort, permissions }) => ({ role: prompt.includes('# Repair input') ? 'repair' : 'writer', effort, permissions }))).toStrictEqual([
+	expect(
+		invocations.map(({ prompt, effort, permissions }) => ({ role: prompt.includes('# Repair input') ? 'repair' : 'writer', effort, permissions })),
+	).toStrictEqual([
 		{ role: 'writer', effort: 'high', permissions: 'full-access' },
 		{ role: 'repair', effort: 'high', permissions: 'full-access' },
 	]);
@@ -500,7 +502,9 @@ test('plan draft: a missing facts.json rejects pointing at plan verify-facts', a
 	const cwd = setupConsumerRepo();
 
 	// No workspace seeded at all — readPlanFacts must throw before any invocation.
-	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-facts' })).rejects.toThrow(/no facts found[\s\S]*plan verify-facts --name no-facts/);
+	await expect(runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'no-facts' })).rejects.toThrow(
+		/no facts found[\s\S]*plan verify-facts --name no-facts/,
+	);
 });
 
 test('plan draft: a corrupt facts.json rejects rather than reading as empty facts', async () => {
@@ -527,12 +531,19 @@ test('plan draft: a decisions.json that fails the contract rejects rather than d
 });
 
 /** One brainstorm-settled row, as `/brainstorm` writes it into brainstorm-decisions.json. */
-const brainstormRow = { source: 'Brainstorm', question: 'which shape?', options: 'a / b', choice: 'a', rationale: 'settled during brainstorm', assumption: false };
+const brainstormRow = {
+	source: 'Brainstorm',
+	question: 'which shape?',
+	options: 'a / b',
+	choice: 'a',
+	rationale: 'settled during brainstorm',
+	assumption: false,
+};
 
 /** One plan-owned Elicitation row, as the session writes it into decisions.json. */
 const elicitationRow = { source: 'Elicitation', question: 'which route?', options: 'x / y', choice: 'x', rationale: 'shortest path', assumption: false };
 
-test('plan draft: a seeded brainstorm record rides the draft prompt with its rows ahead of the plan\'s own', async () => {
+test("plan draft: a seeded brainstorm record rides the draft prompt with its rows ahead of the plan's own", async () => {
 	const cwd = setupConsumerRepo();
 
 	seedWorkspace({ cwd, name: 'handed-off', brainstormDecisions: { planName: 'handed-off', decisions: [brainstormRow] } });
@@ -552,7 +563,7 @@ test('plan draft: a seeded brainstorm record rides the draft prompt with its row
 	expect(draftPrompt.indexOf('"source": "Brainstorm"') < draftPrompt.indexOf('"source": "Elicitation"')).toBeTruthy();
 });
 
-test('plan draft: no brainstorm file drafts from the plan\'s own rows exactly as today', async () => {
+test("plan draft: no brainstorm file drafts from the plan's own rows exactly as today", async () => {
 	const cwd = setupConsumerRepo();
 
 	seedWorkspace({ cwd, name: 'no-handoff' });
@@ -611,7 +622,12 @@ test('plan draft: progress narrates how many brainstorm decisions were carried i
 	seedWorkspace({ cwd, name: 'narrated-handoff', brainstormDecisions: { planName: 'narrated-handoff', decisions: [brainstormRow] } });
 
 	const messages: string[] = [];
-	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'narrated-handoff', onProgress: (message) => messages.push(message) });
+	const result = await runPlanDraft({
+		cwd,
+		driver: draftDriver({ bodies: [cleanPlan()] }),
+		name: 'narrated-handoff',
+		onProgress: (message) => messages.push(message),
+	});
 
 	expectStatus(result, 'complete');
 	// one message either way, so a run never leaves the reader guessing whether a
@@ -625,7 +641,12 @@ test('plan draft: progress narrates the no-brainstorm path rather than staying s
 	seedWorkspace({ cwd, name: 'narrated-no-handoff' });
 
 	const messages: string[] = [];
-	const result = await runPlanDraft({ cwd, driver: draftDriver({ bodies: [cleanPlan()] }), name: 'narrated-no-handoff', onProgress: (message) => messages.push(message) });
+	const result = await runPlanDraft({
+		cwd,
+		driver: draftDriver({ bodies: [cleanPlan()] }),
+		name: 'narrated-no-handoff',
+		onProgress: (message) => messages.push(message),
+	});
 
 	expectStatus(result, 'complete');
 	// the absence is narrated too, never silently skipped

@@ -1,10 +1,10 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, describe, test, jest } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
+import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { voiceCommand } from '@/cli/voice/voiceCommand';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 
 // Mocked Imports
 // -------------------------

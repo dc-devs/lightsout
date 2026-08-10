@@ -1,6 +1,6 @@
 import type { CoverageFile } from '@/contracts';
-import { chunkFileGroup } from '@/pipeline';
 import type { CoverageBatch } from '@/coverage/common/types/CoverageBatch';
+import { chunkFileGroup } from '@/pipeline';
 
 const defaultBatchSize = 5;
 /** The implement fan-out's writer cap: an import component above this splits into sorted chunks rather than drowning one invocation. */

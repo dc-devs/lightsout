@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@/contracts';
-import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
 import { blankStringsAndComments } from '../../../common/utils/blankStringsAndComments.ts';
+import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
 import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
 import { getLineNumber } from '../../../common/utils/getLineNumber.ts';
 import { readTestFiles } from '../../../common/utils/readTestFiles.ts';

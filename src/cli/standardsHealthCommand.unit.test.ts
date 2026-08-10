@@ -1,14 +1,14 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
+import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { standardsHealthCommand } from '@/cli/standardsHealthCommand';
 import type { LightsoutConfig } from '@/contracts';
 import type { StandardsHealth } from '@/standardsCheck';
 import type { LoadedStandardsPackage } from '@/standardsPackages';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { standardsHealthCommand } from '@/cli/standardsHealthCommand';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 // Mocked Imports
 // -------------------------
@@ -65,7 +65,14 @@ const setupCommand = ({ cwd, health }: { cwd: string; health?: StandardsHealth }
 };
 
 const cellsOf = ({ logged }: { logged: string[] }) =>
-	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
+	logged
+		.filter((line) => line.startsWith('│'))
+		.map((line) =>
+			line
+				.split('│')
+				.slice(1, -1)
+				.map((cell) => cell.trim()),
+		);
 
 describe('standardsHealthCommand', () => {
 	test('renders the report and exits 0 — it reports on the rules, never gates on the code', async () => {

@@ -1,8 +1,8 @@
-import { StandardsSeverity } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
 import { renderTable } from '@/cli/common/render/renderTable';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
+import { StandardsSeverity } from '@/contracts';
+import type { StandardsRuleListing } from '@/standardsCheck';
 
 const countOf = ({ rules, severity }: { rules: StandardsRuleListing[]; severity: StandardsSeverity }) =>
 	rules.filter((rule) => rule.severity === severity).length;

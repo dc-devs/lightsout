@@ -1,14 +1,14 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runCoveragePipeline } from '@/coverage';
+import { describe, expect, test } from '@jest/globals';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { RunManifest } from '@/contracts';
+import { runCoveragePipeline } from '@/coverage';
+import type { Driver } from '@/drivers';
 
 /**
  * The consumer's own coverage gate, as a real command: it reads the scope's
@@ -50,7 +50,10 @@ const setupRepo = ({ files, check = 'true', contents = {} }: { files: Record<str
 	}
 
 	writeSummary({ dir, files });
-	execSync('git init -q && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });
+	execSync(
+		'git init -q && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
+		{ cwd: dir },
+	);
 
 	return dir;
 };
@@ -79,7 +82,10 @@ const setupMonorepoRepo = ({ scopes }: { scopes: Record<string, Record<string, n
 		writeSummary({ dir, scopeDir: join('packages', packageDir), files });
 	}
 
-	execSync('git init -q && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });
+	execSync(
+		'git init -q && printf "coverage/\\nnode_modules/\\n.lightsout/\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init',
+		{ cwd: dir },
+	);
 
 	return dir;
 };
@@ -92,7 +98,17 @@ const listedFiles = ({ prompt }: { prompt: string }) => [...prompt.matchAll(/^- 
  * and re-measures them to `pct`. `covers` decides which of the batch's files it
  * actually moves — everything else is left exactly where it was.
  */
-const stubWriter = ({ dir, pct = 100, covers = () => true, limit = Number.POSITIVE_INFINITY }: { dir: string; pct?: number; covers?: (file: string) => boolean; limit?: number }) => {
+const stubWriter = ({
+	dir,
+	pct = 100,
+	covers = () => true,
+	limit = Number.POSITIVE_INFINITY,
+}: {
+	dir: string;
+	pct?: number;
+	covers?: (file: string) => boolean;
+	limit?: number;
+}) => {
 	const prompts: string[] = [];
 	const driver: Driver = {
 		name: 'stub',

@@ -12,7 +12,9 @@ test('buildPlanDedupInvocation: the system prompt carries the role, the overview
 	// the role prompt leads the system prompt
 	expect(systemPrompt.startsWith('# Role: Judge Plan Dedup')).toBeTruthy();
 	expect(systemPrompt.includes(`# Overview (context only — do not judge standalone)\n\n${overviewText}`)).toBeTruthy();
-	expect(systemPrompt.includes(`# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`)).toBeTruthy();
+	expect(
+		systemPrompt.includes(`# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`),
+	).toBeTruthy();
 });
 
 test('buildPlanDedupInvocation: overview and standards sections are omitted when absent', () => {
@@ -41,7 +43,15 @@ test('buildPlanDedupInvocation: the user prompt carries the plan and each detect
 	const { prompt } = buildPlanDedupInvocation({
 		planText,
 		overviewText,
-		candidates: [{ plannedSymbol: 'formatDate', collidesWith: [{ name: 'formatDate', path: 'a.ts' }, { name: 'formatDate', path: 'b.ts' }] }],
+		candidates: [
+			{
+				plannedSymbol: 'formatDate',
+				collidesWith: [
+					{ name: 'formatDate', path: 'a.ts' },
+					{ name: 'formatDate', path: 'b.ts' },
+				],
+			},
+		],
 		standards,
 	});
 
@@ -66,7 +76,9 @@ test('buildPlanDedupInvocation: each detected collision is its own bullet line',
 		],
 	});
 
-	expect(prompt.includes('## Detected name collisions\n\n- `formatDate` collides with: formatDate → a.ts\n- `parseAction` collides with: parseAction → b.ts')).toBeTruthy();
+	expect(
+		prompt.includes('## Detected name collisions\n\n- `formatDate` collides with: formatDate → a.ts\n- `parseAction` collides with: parseAction → b.ts'),
+	).toBeTruthy();
 });
 
 test('buildPlanDedupInvocation: an empty collision list renders the section with no bullets', () => {
@@ -86,7 +98,11 @@ test('buildPlanDedupInvocation: the standards close the system prompt when there
 	// no overview section for a single-file plan
 	expect(systemPrompt.includes('# Overview (context only')).toBeFalsy();
 	// the standards join straight onto the role prompt
-	expect(systemPrompt.endsWith(`\n\n---\n\n# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`)).toBeTruthy();
+	expect(
+		systemPrompt.endsWith(
+			`\n\n---\n\n# Code standards\n\nThe implementing agent loads these too — factor them into extract/reuse recommendations:\n\n${standards}`,
+		),
+	).toBeTruthy();
 });
 
 test('buildPlanDedupInvocation: the overview closes the system prompt when standards are absent', () => {

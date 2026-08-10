@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { LightsoutConfig, StructuralCheck } from '@/contracts';
 import { lintPlanStructure } from '@/plan';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 /** Write a plan file into a plan's own folder and return its absolute path. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
@@ -363,12 +363,11 @@ An overview without the constraints section.
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
 	// the missing section is flagged on the overview variant
-	expect(findings.some(
-		(finding) =>
-			finding.check === StructuralCheck.SectionsPresent &&
-			finding.issue.includes('Global Constraints') &&
-			finding.issue.includes('overview'),
-	)).toBeTruthy();
+	expect(
+		findings.some(
+			(finding) => finding.check === StructuralCheck.SectionsPresent && finding.issue.includes('Global Constraints') && finding.issue.includes('overview'),
+		),
+	).toBeTruthy();
 });
 
 test('lintPlanStructure: a 60-file plan trips ScopeWithinGuardrail', async () => {
@@ -676,9 +675,7 @@ test('lintPlanStructure: a path directly under packages/ with no package segment
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
 	// the unidentifiable package path is flagged, got: ${JSON.stringify(findings)}
-	expect(findings.some(
-		(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes("'packages/loose.ts'"),
-	)).toBeTruthy();
+	expect(findings.some((finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes("'packages/loose.ts'"))).toBeTruthy();
 });
 
 test('lintPlanStructure: a configured packagesDir moves the package-segment check off the default', async () => {
@@ -691,9 +688,7 @@ test('lintPlanStructure: a configured packagesDir moves the package-segment chec
 
 	// the configured packages directory drives the check, got:
 	// ${JSON.stringify(findings)}
-	expect(findings.some(
-		(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/'),
-	)).toBeTruthy();
+	expect(findings.some((finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/'))).toBeTruthy();
 });
 
 test('lintPlanStructure: Phases plus Cross-Phase Dependencies make a plan overview without an Overview title', async () => {
@@ -777,9 +772,9 @@ test('lintPlanStructure: a create heading whose first code span is not a path fa
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
 	// the path-shaped span is the create path, got: ${JSON.stringify(findings)}
-	expect(findings.some(
-		(finding) => finding.check === StructuralCheck.PathExists && finding.issue === 'Files to Create path already exists: src/index.js',
-	)).toBeTruthy();
+	expect(
+		findings.some((finding) => finding.check === StructuralCheck.PathExists && finding.issue === 'Files to Create path already exists: src/index.js'),
+	).toBeTruthy();
 });
 
 test('lintPlanStructure: a create heading with no path-shaped code span contributes no create path', async () => {
@@ -806,8 +801,6 @@ test('lintPlanStructure: a plan file that cannot be read is a finding, not a sil
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [planPath] });
 
-	expect(findings.map(({ issue, location }) => ({ issue, location }))).toStrictEqual([
-		{ issue: 'plan file could not be read', location: planPath },
-	]);
+	expect(findings.map(({ issue, location }) => ({ issue, location }))).toStrictEqual([{ issue: 'plan file could not be read', location: planPath }]);
 	expect(findings[0]?.fix).toMatch(/ensure the draft wrote the plan file/);
 });

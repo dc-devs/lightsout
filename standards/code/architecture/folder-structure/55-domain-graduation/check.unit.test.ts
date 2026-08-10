@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a path rule: every file in scope, plus the test files among them. */
@@ -55,11 +55,7 @@ describe('domain-graduation check', () => {
 
 	test('counts every sibling in the group, so a third one is reported as three', async () => {
 		const input = setupFileListInput({
-			files: [
-				'src/billing/common/utils/formatDate.ts',
-				'src/billing/common/utils/formatCurrency.ts',
-				'src/billing/common/utils/formatAddress.ts',
-			],
+			files: ['src/billing/common/utils/formatDate.ts', 'src/billing/common/utils/formatCurrency.ts', 'src/billing/common/utils/formatAddress.ts'],
 		});
 
 		const findings = await check.run({ input, settings: {} });

@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runCoverageCheck } from '@/coverage/runCoverageCheck';
+import { describe, expect, test } from '@jest/globals';
 import { gateLogCommand } from '@tests/helpers/gateLogCommand';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { readGateLog } from '@tests/helpers/readGateLog';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { runCoverageCheck } from '@/coverage/runCoverageCheck';
 
 /**
  * An Istanbul json-summary report as the tooling writes it: absolute file
@@ -31,7 +31,12 @@ const setupRootRepo = ({
 	files = { 'src/a.ts': 10 },
 	summaryAt = 'coverage/coverage-summary.json',
 	summary = true,
-}: { exitCode?: number; files?: Record<string, number | string>; summaryAt?: string; summary?: boolean } = {}) => {
+}: {
+	exitCode?: number;
+	files?: Record<string, number | string>;
+	summaryAt?: string;
+	summary?: boolean;
+} = {}) => {
 	const dir = setupConsumerRepo({ git: false, scripts: { testCoverage: exitCode === 0 ? 'true' : 'false' } });
 
 	if (summary) {
@@ -46,7 +51,11 @@ const setupScopedRepo = ({
 	webPasses = true,
 	apiScripts = { 'test:coverage': 'x' },
 	runScript = ' run test:coverage',
-}: { webPasses?: boolean; apiScripts?: Record<string, string>; runScript?: string } = {}) => {
+}: {
+	webPasses?: boolean;
+	apiScripts?: Record<string, string>;
+	runScript?: string;
+} = {}) => {
 	// The template logs rather than measures, so a package "fails" by the guard
 	// appended to its command — the exit code is the only signal the engine reads.
 	const guard = webPasses ? '' : ' && [ "{package}" != "@acme/web" ]';

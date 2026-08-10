@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
 
 /** The rule ids the standards reviewer was handed, in the order its invocation lists them. */
 const ruleIdsOffered = ({ systemPrompt }: { systemPrompt: string }) => [...systemPrompt.matchAll(/Rule id: `([^`]+)`/g)].map(([, id]) => id ?? '');
@@ -84,10 +84,7 @@ const setupRefactorRun = async ({
 
 			return {
 				text: report({
-					changedFiles: [
-						{ path: 'src/subject.js', summary: 'feature' },
-						...Object.keys(extraSources).map((path) => ({ path, summary: 'feature' })),
-					],
+					changedFiles: [{ path: 'src/subject.js', summary: 'feature' }, ...Object.keys(extraSources).map((path) => ({ path, summary: 'feature' }))],
 				}),
 				exitCode: 0,
 			};

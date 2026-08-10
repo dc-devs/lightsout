@@ -1,12 +1,12 @@
-import { RunStatus, SupervisorDecision, WorkReportStatus, type StepRecord } from '@/contracts';
 import { consultSupervisor } from '@/common/utils/consultSupervisor';
-import { appendFriction } from '@/runState';
-import type { PipelineResult } from '@/pipeline/PipelineResult';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
+import { RunStatus, type StepRecord, SupervisorDecision, WorkReportStatus } from '@/contracts';
 import { collectChanged } from '@/pipeline/common/utils/collectChanged';
 import { gates } from '@/pipeline/common/utils/gates';
 import { withStepFiles } from '@/pipeline/common/utils/withStepFiles';
+import type { PipelineResult } from '@/pipeline/PipelineResult';
+import type { PipelineRun } from '@/pipeline/PipelineRun';
+import type { PipelineStep } from '@/pipeline/PipelineStep';
+import { appendFriction } from '@/runState';
 
 const maxCheapFixRetries = 2;
 
@@ -59,7 +59,13 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 	// One fix attempt: invoke the role with the given error context, apply its
 	// aftermath, and surface either a park signal (already stopped) or the
 	// advanced record + fresh gate error. Shared by both retry paths.
-	const runFix = async ({ errorContext, record }: { errorContext: string; record: StepRecord }): Promise<{ parked: PipelineResult } | { record: StepRecord; error: string | undefined }> => {
+	const runFix = async ({
+		errorContext,
+		record,
+	}: {
+		errorContext: string;
+		record: StepRecord;
+	}): Promise<{ parked: PipelineResult } | { record: StepRecord; error: string | undefined }> => {
 		const fix = await run.invokeRole({ invocation: buildFix(errorContext), step: id });
 		const applied = await applyFix({ fix, record });
 

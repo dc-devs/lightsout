@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** The caps this suite measures against — small enough that a fixture stays readable, and far enough apart that the two extensions cannot be confused. */
@@ -27,7 +27,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */

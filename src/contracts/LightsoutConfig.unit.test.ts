@@ -299,21 +299,20 @@ test('LightsoutConfig: a rule the map never names is left alone entirely', () =>
 	expect('standardsChecks' in LightsoutConfig.parse(base)).toBe(false);
 });
 
-test.each([
-	{ severity: 'blocking' },
-	{ severity: 'advisory' },
-	{ severity: 'off' },
-])('LightsoutConfig: standardsChecks accepts $severity as a bare value and inside an override object', ({ severity }) => {
-	const bare = LightsoutConfig.parse({ ...base, standardsChecks: { clone: severity } });
-	const wrapped = LightsoutConfig.parse({ ...base, standardsChecks: { clone: { severity } } });
+test.each([{ severity: 'blocking' }, { severity: 'advisory' }, { severity: 'off' }])(
+	'LightsoutConfig: standardsChecks accepts $severity as a bare value and inside an override object',
+	({ severity }) => {
+		const bare = LightsoutConfig.parse({ ...base, standardsChecks: { clone: severity } });
+		const wrapped = LightsoutConfig.parse({ ...base, standardsChecks: { clone: { severity } } });
 
-	// all three states are settable, including off — the only way a repo stops a
-	// rule blocking is by naming it here
-	expect(bare.standardsChecks).toStrictEqual({ clone: severity });
-	// the object form reaches the same state, so a repo adding settings later
-	// never has to restate the severity in a different vocabulary
-	expect(wrapped.standardsChecks).toStrictEqual({ clone: { severity } });
-});
+		// all three states are settable, including off — the only way a repo stops a
+		// rule blocking is by naming it here
+		expect(bare.standardsChecks).toStrictEqual({ clone: severity });
+		// the object form reaches the same state, so a repo adding settings later
+		// never has to restate the severity in a different vocabulary
+		expect(wrapped.standardsChecks).toStrictEqual({ clone: { severity } });
+	},
+);
 
 test('LightsoutConfig: an override object may carry severity alone, settings alone, or neither', () => {
 	const parsed = LightsoutConfig.parse({

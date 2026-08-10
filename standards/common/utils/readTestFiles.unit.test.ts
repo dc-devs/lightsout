@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { readTestFiles } from './readTestFiles.ts';
 
 const setupTestFileInput = ({ contents }: { contents: Array<[string, string]> }): StandardsCheckInput => ({

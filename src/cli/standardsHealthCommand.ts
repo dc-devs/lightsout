@@ -1,8 +1,8 @@
+import { printStandardsHealth } from '@/cli/common/render/printStandardsHealth';
+import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { buildStandardsHealth } from '@/standardsCheck';
 import { resolveStandardsPackages } from '@/standardsPackages';
-import { printStandardsHealth } from '@/cli/common/render/printStandardsHealth';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
 
 /**
  * `lightsout standards-health` — which rules are machine-checked, which are

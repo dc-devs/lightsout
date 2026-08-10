@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { buildUnconsumedExportCheck } from './buildUnconsumedExportCheck.ts';
 
 /** A repo as the engine hands it to a file-text rule: every path in scope, with its text. */
@@ -32,7 +32,12 @@ const setupBarrelOnlyRepo = () =>
 	});
 
 const setupCheck = ({ matches }: { matches: Parameters<typeof buildUnconsumedExportCheck>[0]['matches'] }) =>
-	buildUnconsumedExportCheck({ rule: 'barrel-only-export', matches, detail: 'exported through a barrel but no module consumes it', guidance: 'Deliberate public API, or dead?' });
+	buildUnconsumedExportCheck({
+		rule: 'barrel-only-export',
+		matches,
+		detail: 'exported through a barrel but no module consumes it',
+		guidance: 'Deliberate public API, or dead?',
+	});
 
 describe('buildUnconsumedExportCheck', () => {
 	test('declares the file-text input its rules read, since the verdict counts mentions across the repo', () => {

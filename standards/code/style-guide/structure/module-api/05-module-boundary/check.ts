@@ -46,7 +46,11 @@ export const check: StandardsCheckModule = {
 		const targetsByFile = mapTargetsByFile({ edges });
 		// Mapped over the whole repo rather than the scope, so a run narrowed to a
 		// handful of files still knows where every module's boundary sits.
-		const modules = mapFolderModules({ files: referenceFiles, getTargets: ({ barrelPath }) => targetsByFile.get(barrelPath) ?? new Set<string>(), standardsPackages });
+		const modules = mapFolderModules({
+			files: referenceFiles,
+			getTargets: ({ barrelPath }) => targetsByFile.get(barrelPath) ?? new Set<string>(),
+			standardsPackages,
+		});
 		const moduleFolders = [...modules.keys()];
 		const scope = new Set(files);
 		const crossings = new Map<string, Crossing>();

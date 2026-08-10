@@ -19,9 +19,7 @@ interface PlanRunFailure {
  * would mean a parameterised helper that reads worse than the three lines it
  * replaced.
  */
-export const exitOnPlanFailure: <Result extends { status: string }>(result: Result) => asserts result is Exclude<Result, PlanRunFailure> = (
-	result,
-) => {
+export const exitOnPlanFailure: <Result extends { status: string }>(result: Result) => asserts result is Exclude<Result, PlanRunFailure> = (result) => {
 	if (result.status === 'paused-rate-limit' || result.status === 'failed') {
 		console.error(`\n${(result as unknown as PlanRunFailure).error}`);
 		process.exit(1);

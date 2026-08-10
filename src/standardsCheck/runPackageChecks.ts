@@ -1,7 +1,7 @@
 import { isTestFile } from '@/common/utils/isTestFile';
 import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind, StandardsSeverity, type StandardsCheckInput, type StandardsCheckRun, type StandardsFinding } from '@/contracts';
+import { type StandardsCheckInput, type StandardsCheckRun, type StandardsFinding, StandardsInputKind, StandardsSeverity } from '@/contracts';
 import { buildCheckInput } from '@/standardsCheck/common/checkInputs/buildCheckInput';
 import { typescriptInputKinds } from '@/standardsCheck/common/constants/typescriptInputKinds';
 import type { ResolvedRuleState } from '@/standardsCheck/common/types/ResolvedRuleState';
@@ -131,12 +131,17 @@ export const runPackageChecks = async ({
 		let shared: StandardsCheckInput | undefined;
 
 		for (const rule of rules) {
-			// Every kind but clone-spans is settings-blind, so one build serves
-			// every rule that asked for it.
-			const input =
-				kind === StandardsInputKind.CloneSpans
-					? await inputFor({ kind, settings: rule.settings })
-					: (shared ??= await inputFor({ kind, settings: rule.settings }));
+			let input: StandardsCheckInput;
+
+			if (kind === StandardsInputKind.CloneSpans) {
+				input = await inputFor({ kind, settings: rule.settings });
+			} else {
+				// Every kind but clone-spans is settings-blind, so one build serves
+				// every rule that asked for it.
+				shared ??= await inputFor({ kind, settings: rule.settings });
+				input = shared;
+			}
+
 			const raw = await runRuleCheck({ rule: rule.id, run: rule.run, input, settings: rule.settings });
 
 			findings.push(...raw.map((finding) => ({ ...finding, rule: rule.id, severity: rule.severity })));

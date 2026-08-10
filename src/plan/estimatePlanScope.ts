@@ -1,4 +1,4 @@
-import { PlanVariant, type PlanFacts } from '@/contracts';
+import { type PlanFacts, PlanVariant } from '@/contracts';
 
 interface Params {
 	facts: PlanFacts;

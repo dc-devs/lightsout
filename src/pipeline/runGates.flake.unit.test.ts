@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runGates } from '@/pipeline';
+import { readGateLog } from '@tests/helpers/readGateLog';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
-import { readGateLog } from '@tests/helpers/readGateLog';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { runGates } from '@/pipeline';
 
 /** Fails on first execution, passes on the second — a one-shot flake. */
 const flakyCommand = `node -e "const fs=require('fs'); if (fs.existsSync('flaked')) process.exit(0); fs.writeFileSync('flaked',''); process.exit(1)"`;

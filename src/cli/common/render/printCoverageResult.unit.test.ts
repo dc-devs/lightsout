@@ -1,7 +1,7 @@
-import { expect, test, jest } from '@jest/globals';
-import { RunStatus, type RunManifest } from '@/contracts';
-import type { CoverageResult } from '@/coverage';
+import { expect, jest, test } from '@jest/globals';
 import { printCoverageResult } from '@/cli/common/render/printCoverageResult';
+import { type RunManifest, RunStatus } from '@/contracts';
+import type { CoverageResult } from '@/coverage';
 
 // isTTY is pinned off so the ANSI paint helpers stay no-ops and the assertions
 // read the plain text a piped consumer sees.

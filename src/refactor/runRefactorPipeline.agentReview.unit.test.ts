@@ -1,14 +1,14 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
+import { describe, expect, test } from '@jest/globals';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
 
 /** Two exported consts in one file — a compiler-free structure finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -33,7 +33,10 @@ const filesOffered = ({ prompt }: { prompt: string }) =>
 const setupReviewedRun = async ({
 	folders = ['src'],
 	onReview = () => reviewReport(),
-}: { folders?: string[]; onReview?: (params: { ruleIds: string[] }) => string } = {}) => {
+}: {
+	folders?: string[];
+	onReview?: (params: { ruleIds: string[] }) => string;
+} = {}) => {
 	const dir = setupConsumerRepo();
 
 	for (const folder of folders) {
@@ -77,7 +80,10 @@ const setupReviewedRun = async ({
 
 			return {
 				text: report({
-					changedFiles: [{ path: `${folder}/multi.ts`, summary: 'split' }, { path: `${folder}/betaThing.ts`, summary: 'split' }],
+					changedFiles: [
+						{ path: `${folder}/multi.ts`, summary: 'split' },
+						{ path: `${folder}/betaThing.ts`, summary: 'split' },
+					],
 				}),
 				exitCode: 0,
 			};
@@ -98,9 +104,7 @@ const setupReviewedRun = async ({
 
 /** A review finding on the batch's own file, named for a rule the reviewer was actually handed. */
 const reviewFinding = ({ ruleIds }: { ruleIds: string[] }) =>
-	reviewReport([
-		{ rule: ruleIds[0], files: [{ path: 'src/multi.ts', startLine: 2 }], detail: 'REVIEW-DETAIL-SENTINEL', guidance: 'REVIEW-GUIDANCE-SENTINEL' },
-	]);
+	reviewReport([{ rule: ruleIds[0], files: [{ path: 'src/multi.ts', startLine: 2 }], detail: 'REVIEW-DETAIL-SENTINEL', guidance: 'REVIEW-GUIDANCE-SENTINEL' }]);
 
 describe('runRefactorPipeline agent review', () => {
 	test('the reviewer’s findings join the advisory list the batch’s executor is handed', async () => {

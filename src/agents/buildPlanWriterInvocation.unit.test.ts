@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { DecisionsRecord, PlanFacts } from '@/contracts';
 import { buildPlanWriterInvocation } from '@/agents';
+import type { DecisionsRecord, PlanFacts } from '@/contracts';
 
 /** A minimal verified PlanFacts with distinctive values to spot in the prompt. */
 const facts = (): PlanFacts => ({
@@ -123,9 +123,17 @@ test('buildPlanWriterInvocation: with every optional input present, all sections
 		lintCommand: 'node /repo/plugin/dist/cli.mjs plan lint --name foo-endpoint',
 	});
 
-	const order = ['# Draft input', '## Feature request', '## Output files', '## Phased authoring', '## Decisions record', '## Verified facts', '## Code standards (supplemental)', '## Self-lint', 'one JSON PlanDraftReport object'].map(
-		(heading) => invocation.prompt.indexOf(heading),
-	);
+	const order = [
+		'# Draft input',
+		'## Feature request',
+		'## Output files',
+		'## Phased authoring',
+		'## Decisions record',
+		'## Verified facts',
+		'## Code standards (supplemental)',
+		'## Self-lint',
+		'one JSON PlanDraftReport object',
+	].map((heading) => invocation.prompt.indexOf(heading));
 
 	// every section is present and lands in assembly order, got indices
 	// ${order.join(', ')}

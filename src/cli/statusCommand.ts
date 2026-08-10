@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
-import { PhaseReport, RunStatus, type RunLock, type RunManifest } from '@/contracts';
-import { getRunsDir, isPidAlive, readRunLock, readRunManifest } from '@/runState';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { PhaseReport, type RunLock, type RunManifest, RunStatus } from '@/contracts';
+import { getRunsDir, isPidAlive, readRunLock, readRunManifest } from '@/runState';
 
 /**
  * Whether a live process stands behind this run.
@@ -50,9 +50,7 @@ export const statusCommand = async ({ cwd }: CommandContext): Promise<void> => {
 			const zombie = manifest.status === RunStatus.Running && !hasLiveProcess({ manifest, lock });
 			const status = zombie ? `${manifest.status} (no live process — crashed? resume with --run ${manifest.runId})` : manifest.status;
 			const phases =
-				manifest.pipeline === 'phases'
-					? `  phases: ${manifest.steps.filter((step) => step.status === RunStatus.Passed).length}/${manifest.steps.length}`
-					: '';
+				manifest.pipeline === 'phases' ? `  phases: ${manifest.steps.filter((step) => step.status === RunStatus.Passed).length}/${manifest.steps.length}` : '';
 
 			console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}${phases}  updated: ${manifest.updatedAt}`);
 		}

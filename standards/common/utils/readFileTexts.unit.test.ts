@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { readFileTexts } from './readFileTexts.ts';
 
 /** The file-text input as the engine builds it: what is in scope, what may reference it, and the text of both. */

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { StandardsInputKind } from '@/contracts/standardsPackage/StandardsInputKind';
 import type { StandardsCheckRun } from '@/contracts/standardsPackage/StandardsCheckRun';
+import { StandardsInputKind } from '@/contracts/standardsPackage/StandardsInputKind';
 
 /**
  * The `check` export a rule folder's `check.ts` must provide. Validated at load

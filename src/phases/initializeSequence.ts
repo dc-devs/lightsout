@@ -1,10 +1,10 @@
 import { access, readFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
-import { RunStatus, type LightsoutConfig, type RunManifest, type StepRecord } from '@/contracts';
+import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { createRun, writeRunManifest } from '@/runState';
 import { findUnfinishedSequence } from '@/phases/findUnfinishedSequence';
 import { readOverviewPhases } from '@/phases/readOverviewPhases';
+import { createRun, writeRunManifest } from '@/runState';
 
 interface Params {
 	cwd: string;
@@ -80,7 +80,9 @@ export const initializeSequence = async ({ cwd, driver, config, overviewPath, st
 		const pipeline = existing.pipeline ?? 'implement';
 
 		if (pipeline !== 'phases') {
-			throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline — resume it with: lightsout ${pipeline === 'refactor' ? 'refactor' : 'resume'} --run ${existing.runId}`);
+			throw new Error(
+				`run ${existing.runId} belongs to the ${pipeline} pipeline — resume it with: lightsout ${pipeline === 'refactor' ? 'refactor' : 'resume'} --run ${existing.runId}`,
+			);
 		}
 
 		return { manifest: existing };

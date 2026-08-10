@@ -1,7 +1,7 @@
-import { expect, test, jest } from '@jest/globals';
-import { StructuralCheck } from '@/contracts';
-import type { StructuralFinding } from '@/contracts';
+import { expect, jest, test } from '@jest/globals';
 import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
+import type { StructuralFinding } from '@/contracts';
+import { StructuralCheck } from '@/contracts';
 
 // The finding's whole output IS its two console.log lines, so capturing them is
 // the arrangement. isTTY decides whether the paint helpers emit ANSI, so it is
@@ -32,13 +32,20 @@ test('printStructuralFinding: renders the icon, check, location and issue on the
 
 	printStructuralFinding({ finding });
 
-	expect(logged).toStrictEqual(['⚠ [path-exists] Files to Modify → src/missing.ts — the file does not exist', '   fix: correct the path or list it under Files to Create']);
+	expect(logged).toStrictEqual([
+		'⚠ [path-exists] Files to Modify → src/missing.ts — the file does not exist',
+		'   fix: correct the path or list it under Files to Create',
+	]);
 });
 
 test('printStructuralFinding: the check name is printed verbatim, whichever check produced the finding', () => {
 	const { finding, logged } = setupStructuralFinding({
-		
-		finding: { check: StructuralCheck.NoPlaceholders, issue: 'TBD left in the plan', location: 'Decision Log row 3', fix: 'settle the decision or delete the row' },
+		finding: {
+			check: StructuralCheck.NoPlaceholders,
+			issue: 'TBD left in the plan',
+			location: 'Decision Log row 3',
+			fix: 'settle the decision or delete the row',
+		},
 	});
 
 	printStructuralFinding({ finding });

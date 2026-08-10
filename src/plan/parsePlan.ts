@@ -1,5 +1,5 @@
-import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
 import { pathFromLine } from '@/plan/common/paths/pathFromLine';
+import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
 import { planCreatePaths } from '@/plan/planCreatePaths';
 
 /** Split a plan into its `##` sections (a `###` subheading stays inside its section). */
@@ -26,13 +26,7 @@ const parseSections = (lines: string[]): Map<string, string[]> => {
 };
 
 /** Paths from the leading code span of each line in a section that matches `lineMatches` (`###` subheadings or `-` bullets). */
-const pathsFromLines = ({
-	sectionLines,
-	lineMatches,
-}: {
-	sectionLines: string[] | undefined;
-	lineMatches: (line: string) => boolean;
-}) => {
+const pathsFromLines = ({ sectionLines, lineMatches }: { sectionLines: string[] | undefined; lineMatches: (line: string) => boolean }) => {
 	if (!sectionLines) {
 		return [];
 	}
@@ -79,7 +73,11 @@ const commandsFromVerification = (sectionLines: string[] | undefined): string[] 
 export const parsePlan = ({ content, base }: { content: string; base: string }): ParsedPlan => {
 	const lines = content.split('\n');
 	const sections = parseSections(lines);
-	const title = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, '').trim() ?? '';
+	const title =
+		lines
+			.find((line) => /^#\s+/.test(line))
+			?.replace(/^#\s+/, '')
+			.trim() ?? '';
 	const variant =
 		base === 'overview.md' || (sections.has('Phases') && sections.has('Cross-Phase Dependencies')) || /—\s*Overview\s*$/.test(title)
 			? 'overview'

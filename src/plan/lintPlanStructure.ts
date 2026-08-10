@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { StructuralCheck, type LightsoutConfig, type StructuralFinding } from '@/contracts';
 import { isTestFile } from '@/common/utils/isTestFile';
+import { type LightsoutConfig, StructuralCheck, type StructuralFinding } from '@/contracts';
 import { checkPlanPaths } from '@/plan/checkPlanPaths';
 import { checkVerificationScripts } from '@/plan/checkVerificationScripts';
 import { parsePlan } from '@/plan/parsePlan';

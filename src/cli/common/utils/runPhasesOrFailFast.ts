@@ -1,7 +1,7 @@
+import { messageOf } from '@/common/utils/messageOf';
 import { runPhasesPipeline } from '@/phases';
 import type { PipelineResult } from '@/pipeline';
 import { RunLockError } from '@/runState';
-import { messageOf } from '@/common/utils/messageOf';
 
 /**
  * Run a phased sequence; every throw on the way in is a clean one-line exit.

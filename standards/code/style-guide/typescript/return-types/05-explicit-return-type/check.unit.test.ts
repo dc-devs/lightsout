@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -56,7 +66,9 @@ describe('explicit-return-type check', () => {
 
 	test('reports an exported `function` declaration that declares no return type', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/users/getUserDisplayName.ts', ['export function getUserDisplayName({ user }: Params) {', "\treturn user?.name ?? 'Unknown';", '}'].join('\n')]],
+			sources: [
+				['src/users/getUserDisplayName.ts', ['export function getUserDisplayName({ user }: Params) {', "\treturn user?.name ?? 'Unknown';", '}'].join('\n')],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -73,7 +85,12 @@ describe('explicit-return-type check', () => {
 
 	test('reports an exported `function` expression assigned to a name, the same as an arrow', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/users/getUserDisplayName.ts', ['export const getUserDisplayName = function ({ user }: Params) {', "\treturn user?.name ?? 'Unknown';", '};'].join('\n')]],
+			sources: [
+				[
+					'src/users/getUserDisplayName.ts',
+					['export const getUserDisplayName = function ({ user }: Params) {', "\treturn user?.name ?? 'Unknown';", '};'].join('\n'),
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -122,8 +139,14 @@ describe('explicit-return-type check', () => {
 	});
 
 	test.each([
-		{ shape: 'an arrow', text: "const normalizeName = ({ name }: { name: string }) => name.trim();\n\nexport const getName = (): string => normalizeName({ name: 'a' });" },
-		{ shape: 'a `function` declaration', text: 'function normalizeName({ name }: { name: string }) {\n\treturn name.trim();\n}\n\nexport const used = normalizeName;' },
+		{
+			shape: 'an arrow',
+			text: "const normalizeName = ({ name }: { name: string }) => name.trim();\n\nexport const getName = (): string => normalizeName({ name: 'a' });",
+		},
+		{
+			shape: 'a `function` declaration',
+			text: 'function normalizeName({ name }: { name: string }) {\n\treturn name.trim();\n}\n\nexport const used = normalizeName;',
+		},
 	])('leaves $shape the file keeps to itself, since inference is precise for an internal', async ({ text }) => {
 		const input = setupSyntaxTreeInput({ sources: [['src/users/getName.ts', `${text}\n`]] });
 
@@ -137,7 +160,13 @@ describe('explicit-return-type check', () => {
 			sources: [
 				[
 					'src/users/getUserDisplayName.ts',
-					['export const getUserDisplayName = ({ user }: Params): string => {', '\tconst normalize = (name: string) => name.trim();', '', '\treturn normalize(user.name);', '};'].join('\n'),
+					[
+						'export const getUserDisplayName = ({ user }: Params): string => {',
+						'\tconst normalize = (name: string) => name.trim();',
+						'',
+						'\treturn normalize(user.name);',
+						'};',
+					].join('\n'),
 				],
 			],
 		});
@@ -160,7 +189,9 @@ describe('explicit-return-type check', () => {
 	});
 
 	test('leaves an exported function with no name to report', async () => {
-		const input = setupSyntaxTreeInput({ sources: [['src/users/index.ts', ['export default function ({ user }: Params) {', '\treturn user.name;', '}'].join('\n')]] });
+		const input = setupSyntaxTreeInput({
+			sources: [['src/users/index.ts', ['export default function ({ user }: Params) {', '\treturn user.name;', '}'].join('\n')]],
+		});
 
 		const findings = await check.run({ input, settings: {} });
 
@@ -188,7 +219,13 @@ describe('explicit-return-type check', () => {
 			sources: [
 				[
 					'src/users/readers.ts',
-					['export const getFirstName = ({ user }: Params) => user.first;', '', 'export function getLastName({ user }: Params) {', '\treturn user.last;', '}'].join('\n'),
+					[
+						'export const getFirstName = ({ user }: Params) => user.first;',
+						'',
+						'export function getLastName({ user }: Params) {',
+						'\treturn user.last;',
+						'}',
+					].join('\n'),
 				],
 			],
 		});

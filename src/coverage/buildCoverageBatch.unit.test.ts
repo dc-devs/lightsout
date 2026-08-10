@@ -1,8 +1,12 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type { CoverageFile } from '@/contracts';
 import { buildCoverageBatch } from '@/coverage/buildCoverageBatch';
 
-const file = ({ path, statementsPct, scope = 'root' }: { path: string; statementsPct: number; scope?: string }): CoverageFile => ({ path, scope, statementsPct });
+const file = ({ path, statementsPct, scope = 'root' }: { path: string; statementsPct: number; scope?: string }): CoverageFile => ({
+	path,
+	scope,
+	statementsPct,
+});
 
 describe('buildCoverageBatch', () => {
 	test('takes whole components worst-first until the tracked-candidate target is met', () => {
@@ -12,12 +16,7 @@ describe('buildCoverageBatch', () => {
 			file({ path: 'src/c/five.ts', statementsPct: 30 }),
 			file({ path: 'src/d/six.ts', statementsPct: 40 }),
 		];
-		const components = [
-			['src/a/one.ts', 'src/a/two.ts'],
-			['src/b/three.ts', 'src/b/four.ts'],
-			['src/c/five.ts'],
-			['src/d/six.ts'],
-		];
+		const components = [['src/a/one.ts', 'src/a/two.ts'], ['src/b/three.ts', 'src/b/four.ts'], ['src/c/five.ts'], ['src/d/six.ts']];
 
 		const batch = buildCoverageBatch({ files, components, batchNumber: 1, batchSize: 3 });
 
@@ -50,7 +49,7 @@ describe('buildCoverageBatch', () => {
 	});
 
 	test('a component above the writer cap splits into chunks, and the batch takes the one holding the worst file', () => {
-		const members = Array.from({ length: 20 }, (unused, index) => `src/mod/${String(index).padStart(2, '0')}.ts`);
+		const members = Array.from({ length: 20 }, (_, index) => `src/mod/${String(index).padStart(2, '0')}.ts`);
 		const files = [file({ path: 'src/mod/15.ts', statementsPct: 2 }), file({ path: 'src/mod/03.ts', statementsPct: 40 })];
 
 		const batch = buildCoverageBatch({ files, components: [members], batchNumber: 1 });

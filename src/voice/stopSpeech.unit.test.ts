@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { stopSpeech } from '@/voice';
 
 // The reading itself is a real process on a real Mac, so the one thing that

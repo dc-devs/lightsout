@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** An arrow on lines 1–6 whose body is two statements and a shorthand return. */
@@ -273,7 +273,8 @@ describe('ast-duplicate check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 	test('never pairs a standards package with the repo around it, since neither copy can import the other', async () => {
-		const body = (name: string) => `export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
+		const body = (name: string) =>
+			`export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
 		const input = setupSyntaxTreeInput({
 			sources: [
 				['src/common/naming/tokensOf.ts', body('tokensOf')],
@@ -290,7 +291,8 @@ describe('ast-duplicate check', () => {
 	});
 
 	test('still reports a duplicate pair inside one standards package', async () => {
-		const body = (name: string) => `export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
+		const body = (name: string) =>
+			`export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
 		const input = setupSyntaxTreeInput({
 			sources: [
 				['standards/common/utils/getTokens.ts', body('getTokens')],

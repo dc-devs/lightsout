@@ -1,44 +1,44 @@
-export { LightsoutConfig } from '@/contracts/LightsoutConfig';
+export { CoverageBatchReport, CoverageFile, CoverageTotal, CoverageWorklist } from '@/contracts/coverage';
+export { DedupFinding, DedupJudgment, DedupReport, DedupResolution, DedupVerdict } from '@/contracts/dedup';
 export { Effort } from '@/contracts/Effort';
-export { Permissions } from '@/contracts/Permissions';
-export { RunStatus, RunManifest, RunLock, AgentUsage, RunUsage, StepRecord, PhaseReport, PackagesSource } from '@/contracts/run';
-export { WorkReport, WorkReportStatus, SupervisorDecision, SupervisorVerdict } from '@/contracts/work';
 export { FrictionArea, FrictionEntry, FrictionRecord } from '@/contracts/friction';
-export { StandardsSeverity, StandardsFinding, StandardsReviewReport, AdvisoryResponse, AdvisoryOutcome } from '@/contracts/standardsCheck';
-export { StandardsInputKind, StandardsSet, StandardsPackageRoot, RawStandardsFinding, StandardsCheckModule } from '@/contracts/standardsPackage';
-export type {
-	StandardsCheckRun,
-	CloneSpan,
-	StandardsCheckInput,
-	FileListInput,
-	FileTextInput,
-	SyntaxTreeInput,
-	TestFileInput,
-	ImportGraphInput,
-	CloneSpansInput,
-} from '@/contracts/standardsPackage';
+export { GateResult } from '@/contracts/gates';
+export { LightsoutConfig } from '@/contracts/LightsoutConfig';
+export { Permissions } from '@/contracts/Permissions';
 export {
-	PlanDraftStatus,
-	PlanVariant,
-	PlanGrade,
-	StructuralCheck,
-	GapArea,
-	ExploreArea,
 	AuthoredFacts,
-	PathVerification,
-	PlanFacts,
+	BrainstormDecisions,
 	DecisionRow,
 	DecisionsRecord,
-	BrainstormDecisions,
-	PlanDraftReport,
-	PlanFixStatus,
-	PlanFixReport,
-	StructuralFinding,
-	PlanGap,
+	ExploreArea,
+	GapArea,
 	GapCheckReport,
 	GradeReport,
+	PathVerification,
+	PlanDraftReport,
+	PlanDraftStatus,
+	PlanFacts,
+	PlanFixReport,
+	PlanFixStatus,
+	PlanGap,
+	PlanGrade,
+	PlanVariant,
+	StructuralCheck,
+	StructuralFinding,
 } from '@/contracts/plan';
-export { DedupResolution, DedupVerdict, DedupJudgment, DedupFinding, DedupReport } from '@/contracts/dedup';
-export { RefactorBatch, RefactorWorklist, BatchOutcome, BatchReport } from '@/contracts/refactor';
-export { CoverageFile, CoverageTotal, CoverageWorklist, CoverageBatchReport } from '@/contracts/coverage';
-export { GateResult } from '@/contracts/gates';
+export { BatchOutcome, BatchReport, RefactorBatch, RefactorWorklist } from '@/contracts/refactor';
+export { AgentUsage, PackagesSource, PhaseReport, RunLock, RunManifest, RunStatus, RunUsage, StepRecord } from '@/contracts/run';
+export { AdvisoryOutcome, AdvisoryResponse, StandardsFinding, StandardsReviewReport, StandardsSeverity } from '@/contracts/standardsCheck';
+export type {
+	CloneSpan,
+	CloneSpansInput,
+	FileListInput,
+	FileTextInput,
+	ImportGraphInput,
+	StandardsCheckInput,
+	StandardsCheckRun,
+	SyntaxTreeInput,
+	TestFileInput,
+} from '@/contracts/standardsPackage';
+export { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackageRoot, StandardsSet } from '@/contracts/standardsPackage';
+export { SupervisorDecision, SupervisorVerdict, WorkReport, WorkReportStatus } from '@/contracts/work';

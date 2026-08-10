@@ -1,7 +1,7 @@
-import { expect, test, jest } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
+import { printRunHeader } from '@/cli/common/render/printRunHeader';
 import type { LightsoutConfig } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { printRunHeader } from '@/cli/common/render/printRunHeader';
 
 // The header's whole output IS its console.log lines, so capturing them is the
 // arrangement. `t.mock.method` restores the real console.log when the test
@@ -87,8 +87,9 @@ test('printRunHeader: a coverage gate disabled explicitly prints off (explicit) 
 
 test('printRunHeader: the opt-in generate, build, and format lines print only when their commands are configured', () => {
 	const { config, driver, cwd, logged } = setupHeader({
-		
-		config: { scripts: { check: 'pnpm check', testUnit: 'pnpm test:unit', testCoverage: false, generate: 'pnpm gen', build: 'pnpm build', format: 'pnpm format' } },
+		config: {
+			scripts: { check: 'pnpm check', testUnit: 'pnpm test:unit', testCoverage: false, generate: 'pnpm gen', build: 'pnpm build', format: 'pnpm format' },
+		},
 	});
 
 	printRunHeader({ config, driver, cwd });
@@ -124,20 +125,27 @@ test('printRunHeader: generated path prefixes print as the never-attributed list
 });
 
 test('printRunHeader: package-scoped gates print with no coverage entry when none is configured', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test' } } });
-
-	printRunHeader({ config, driver, cwd });
-
-	expect(lineFor({ logged, label: 'gates (per package)' })).toBe('  gates (per package): check=[pnpm --filter {package} check] testUnit=[pnpm --filter {package} test]');
-});
-
-test('printRunHeader: a scoped coverage gate is appended to the per-package line', () => {
 	const { config, driver, cwd, logged } = setupHeader({
-		
-		config: { packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test', testCoverage: 'pnpm --filter {package} coverage' } },
+		config: { packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test' } },
 	});
 
 	printRunHeader({ config, driver, cwd });
 
-	expect(lineFor({ logged, label: 'gates (per package)' })).toBe('  gates (per package): check=[pnpm --filter {package} check] testUnit=[pnpm --filter {package} test] coverage=[pnpm --filter {package} coverage]');
+	expect(lineFor({ logged, label: 'gates (per package)' })).toBe(
+		'  gates (per package): check=[pnpm --filter {package} check] testUnit=[pnpm --filter {package} test]',
+	);
+});
+
+test('printRunHeader: a scoped coverage gate is appended to the per-package line', () => {
+	const { config, driver, cwd, logged } = setupHeader({
+		config: {
+			packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test', testCoverage: 'pnpm --filter {package} coverage' },
+		},
+	});
+
+	printRunHeader({ config, driver, cwd });
+
+	expect(lineFor({ logged, label: 'gates (per package)' })).toBe(
+		'  gates (per package): check=[pnpm --filter {package} check] testUnit=[pnpm --filter {package} test] coverage=[pnpm --filter {package} coverage]',
+	);
 });

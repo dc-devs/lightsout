@@ -1,10 +1,10 @@
 import type { z } from 'zod';
 import { buildReportReemitterInvocation } from '@/agents';
-import type { AgentUsage, Effort, Permissions } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { extractJsonReport } from '@/invoke/extractJsonReport';
-import type { AgentOutcome } from '@/invoke/common/types/AgentOutcome';
 import { messageOf } from '@/common/utils/messageOf';
+import type { AgentUsage, Effort, Permissions } from '@/contracts';
+import type { Driver, DriverResult } from '@/drivers';
+import type { AgentOutcome } from '@/invoke/common/types/AgentOutcome';
+import { extractJsonReport } from '@/invoke/extractJsonReport';
 
 const maxReportAttempts = 2;
 
@@ -75,11 +75,9 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	let usage: AgentUsage | undefined;
 
 	for (let attempt = 1; attempt <= maxReportAttempts; attempt += 1) {
-		const active = rejected
-			? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt }
-			: invocation;
+		const active = rejected ? { systemPrompt: invocation.systemPrompt, prompt: buildReportReemitterInvocation(rejected).prompt } : invocation;
 
-		let result;
+		let result: DriverResult;
 
 		try {
 			result = await driver.invoke({

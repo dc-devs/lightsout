@@ -1,12 +1,12 @@
 import { join } from 'node:path';
-import { DedupJudgment, type DedupFinding, type DedupReport, type Effort, type Permissions } from '@/contracts';
 import { buildPlanDedupInvocation } from '@/agents';
+import { writeJsonFile } from '@/common/utils/writeJsonFile';
+import { type DedupFinding, DedupJudgment, type DedupReport, type Effort, type Permissions } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
-import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
 import { matchDedupVerdicts } from '@/plan/common/utils/matchDedupVerdicts';
-import { writeJsonFile } from '@/common/utils/writeJsonFile';
+import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 
 const defaultDedupTimeoutMs = 30 * 60 * 1000;
 

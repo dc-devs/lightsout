@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { StandardsCheckModule, StandardsInputKind } from '@/contracts';
 
 const setupModule = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
@@ -46,14 +46,7 @@ describe('StandardsCheckModule', () => {
 		// each kind names one input the engine has to build before any check runs —
 		// a kind added or renamed without being restated here is an unreviewed
 		// change to what package authors may write
-		expect(inputKinds).toStrictEqual([
-			'clone-spans',
-			'file-list',
-			'file-text',
-			'import-graph',
-			'syntax-tree',
-			'test-file',
-		]);
+		expect(inputKinds).toStrictEqual(['clone-spans', 'file-list', 'file-text', 'import-graph', 'syntax-tree', 'test-file']);
 	});
 
 	test('rejects an input kind outside the closed set', () => {

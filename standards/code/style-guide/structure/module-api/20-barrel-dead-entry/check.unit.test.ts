@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a file-text rule: every path in scope, with its text. */
@@ -56,10 +56,7 @@ describe('barrel-dead-entry check', () => {
 	test('names every unconsumed entry of one barrel in a single finding', async () => {
 		const input = setupFileTextInput({
 			contents: [
-				[
-					'src/ingestion/index.ts',
-					["export { ingestRecords } from './ingestRecords';", "export { parseRows } from './parseRows';"].join('\n'),
-				],
+				['src/ingestion/index.ts', ["export { ingestRecords } from './ingestRecords';", "export { parseRows } from './parseRows';"].join('\n')],
 				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
 				['src/ingestion/parseRows.ts', 'export const parseRows = (): number => 1;'],
 				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
@@ -72,8 +69,7 @@ describe('barrel-dead-entry check', () => {
 			{
 				siteKey: 'barrel-dead-entry:src/ingestion/index.ts',
 				files: [{ path: 'src/ingestion/index.ts' }],
-				detail:
-					"'ingestRecords', 'parseRows' are exported from src/ingestion/index.ts but no file outside module 'src/ingestion' consumes them",
+				detail: "'ingestRecords', 'parseRows' are exported from src/ingestion/index.ts but no file outside module 'src/ingestion' consumes them",
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);

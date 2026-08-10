@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { expect, test } from '@jest/globals';
-import { collectChildOutput } from '@/common/utils/collectChildOutput';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { collectChildOutput } from '@/common/utils/collectChildOutput';
 
 /**
  * A shell child with both output streams piped, spawned detached — the shape

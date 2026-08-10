@@ -1,5 +1,5 @@
-import { expect, describe, test } from '@jest/globals';
-import { PackagesSource, type LightsoutConfig } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
+import { type LightsoutConfig, PackagesSource } from '@/contracts';
 import { resolvePackageScope } from '@/pipeline/common/utils/resolvePackageScope';
 
 const monorepo: LightsoutConfig = {

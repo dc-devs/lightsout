@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { readFriction } from '@/runState';
+import { describe, expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { readFriction } from '@/runState';
 
 /** A well-formed persisted record: the entry plus its provenance. */
 const record = (overrides: Record<string, unknown> = {}) =>

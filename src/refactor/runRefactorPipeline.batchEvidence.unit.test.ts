@@ -1,14 +1,14 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
+import { describe, expect, test } from '@jest/globals';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -47,17 +47,27 @@ const agentsDirOf = ({ dir, runId }: { dir: string; runId: string }) => join(dir
 describe('runRefactorPipeline batch evidence', () => {
 	test('tees a batch invocation’s event stream to the run dir, named for the batch and invocation', async () => {
 		const { dir, driver, config } = await setupBatchRun({
-			invoke: (repo) => async ({ prompt, onEvent }) => {
-				if (roleOf(prompt) === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
-				}
+			invoke:
+				(repo) =>
+				async ({ prompt, onEvent }) => {
+					if (roleOf(prompt) === 'standards-review') {
+						return { text: reviewReport(), exitCode: 0 };
+					}
 
-				onEvent?.({ type: 'assistant', message: 'editing' });
-				onEvent?.({ type: 'result', result: 'done' });
-				splitMulti({ dir: repo });
+					onEvent?.({ type: 'assistant', message: 'editing' });
+					onEvent?.({ type: 'result', result: 'done' });
+					splitMulti({ dir: repo });
 
-				return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }, { path: 'src/betaThing.ts', summary: 'split' }] }), exitCode: 0 };
-			},
+					return {
+						text: report({
+							changedFiles: [
+								{ path: 'src/multi.ts', summary: 'split' },
+								{ path: 'src/betaThing.ts', summary: 'split' },
+							],
+						}),
+						exitCode: 0,
+					};
+				},
 		});
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
@@ -70,10 +80,12 @@ describe('runRefactorPipeline batch evidence', () => {
 		// the batch id is slugged into the name, with the invocation number
 		expect(streams).toStrictEqual(['stream-batch-01_multi-export_src-1.jsonl']);
 		// every event lands verbatim, in order — the transcript is the run’s evidence
-		expect(readFileSync(join(agentsDir, streams[0] ?? ''), 'utf8')
-			.trim()
-			.split('\n')
-			.map((line) => JSON.parse(line) as Record<string, unknown>)).toStrictEqual([
+		expect(
+			readFileSync(join(agentsDir, streams[0] ?? ''), 'utf8')
+				.trim()
+				.split('\n')
+				.map((line) => JSON.parse(line) as Record<string, unknown>),
+		).toStrictEqual([
 			{ type: 'assistant', message: 'editing' },
 			{ type: 'result', result: 'done' },
 		]);
@@ -81,19 +93,29 @@ describe('runRefactorPipeline batch evidence', () => {
 
 	test('files a rejected batch report to the run dir before the re-emit retry', async () => {
 		const { dir, driver, config } = await setupBatchRun({
-			invoke: (repo) => async ({ prompt }) => {
-				if (roleOf(prompt) === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
-				}
+			invoke:
+				(repo) =>
+				async ({ prompt }) => {
+					if (roleOf(prompt) === 'standards-review') {
+						return { text: reviewReport(), exitCode: 0 };
+					}
 
-				if (prompt.includes('# Your previous final message')) {
-					return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }, { path: 'src/betaThing.ts', summary: 'split' }] }), exitCode: 0 };
-				}
+					if (prompt.includes('# Your previous final message')) {
+						return {
+							text: report({
+								changedFiles: [
+									{ path: 'src/multi.ts', summary: 'split' },
+									{ path: 'src/betaThing.ts', summary: 'split' },
+								],
+							}),
+							exitCode: 0,
+						};
+					}
 
-				splitMulti({ dir: repo });
+					splitMulti({ dir: repo });
 
-				return { text: prose, exitCode: 1 };
-			},
+					return { text: prose, exitCode: 1 };
+				},
 		});
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
@@ -121,11 +143,13 @@ describe('runRefactorPipeline batch evidence', () => {
 
 		expect(result.ok).toBe(true);
 		// the improvement loop needs to know which batch of which run fought the agent
-		expect(readFileSync(join(dir, '.lightsout', 'friction.jsonl'), 'utf8')
-			.trim()
-			.split('\n')
-			.map((line) => JSON.parse(line) as Record<string, unknown>)
-			.map(({ kind, area, detail, step, runId }) => ({ kind, area, detail, step, runId }))).toStrictEqual([
+		expect(
+			readFileSync(join(dir, '.lightsout', 'friction.jsonl'), 'utf8')
+				.trim()
+				.split('\n')
+				.map((line) => JSON.parse(line) as Record<string, unknown>)
+				.map(({ kind, area, detail, step, runId }) => ({ kind, area, detail, step, runId })),
+		).toStrictEqual([
 			{
 				kind: 'friction',
 				area: 'standards',
@@ -140,15 +164,17 @@ describe('runRefactorPipeline batch evidence', () => {
 
 	test('attributes a file the agent changed but never reported — git truth is merged in', async () => {
 		const { dir, driver, config } = await setupBatchRun({
-			invoke: (repo) => async ({ prompt }) => {
-				if (roleOf(prompt) === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
-				}
+			invoke:
+				(repo) =>
+				async ({ prompt }) => {
+					if (roleOf(prompt) === 'standards-review') {
+						return { text: reviewReport(), exitCode: 0 };
+					}
 
-				splitMulti({ dir: repo });
+					splitMulti({ dir: repo });
 
-				return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }] }), exitCode: 0 };
-			},
+					return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }] }), exitCode: 0 };
+				},
 		});
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
@@ -162,17 +188,19 @@ describe('runRefactorPipeline batch evidence', () => {
 	test('keeps generated output out of a batch’s changed files', async () => {
 		const { dir, driver, config } = await setupBatchRun({
 			config: { generated: ['dist/'] },
-			invoke: (repo) => async ({ prompt }) => {
-				if (roleOf(prompt) === 'standards-review') {
-					return { text: reviewReport(), exitCode: 0 };
-				}
+			invoke:
+				(repo) =>
+				async ({ prompt }) => {
+					if (roleOf(prompt) === 'standards-review') {
+						return { text: reviewReport(), exitCode: 0 };
+					}
 
-				splitMulti({ dir: repo });
-				mkdirSync(join(repo, 'dist'), { recursive: true });
-				writeFileSync(join(repo, 'dist/bundle.js'), 'export const bundled = 1;\n');
+					splitMulti({ dir: repo });
+					mkdirSync(join(repo, 'dist'), { recursive: true });
+					writeFileSync(join(repo, 'dist/bundle.js'), 'export const bundled = 1;\n');
 
-				return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }] }), exitCode: 0 };
-			},
+					return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }] }), exitCode: 0 };
+				},
 		});
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });

@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { DedupReport } from '@/contracts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
@@ -59,7 +59,9 @@ describe('DedupReport', () => {
 
 	test('nested finding defaults are applied when dedup.json is read back', () => {
 		const { report } = setupReport({
-			findings: [{ plannedSymbol: 'formatDate', plannedPath: 'src/plan/formatDate.ts', recommendation: 'reuse', rationale: 'an identical utility already exists' }],
+			findings: [
+				{ plannedSymbol: 'formatDate', plannedPath: 'src/plan/formatDate.ts', recommendation: 'reuse', rationale: 'an identical utility already exists' },
+			],
 		});
 
 		const parsed = DedupReport.parse(report);

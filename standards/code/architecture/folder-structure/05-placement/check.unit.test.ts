@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** The resolved import edges an import-graph rule receives: repo-relative from/to pairs. */
@@ -47,8 +47,7 @@ describe('placement check', () => {
 			{
 				siteKey: 'placement:src/bill/bill.ts|src/pay/common/utils/round.ts',
 				files: [{ path: 'src/pay/common/utils/round.ts' }, { path: 'src/bill/bill.ts' }],
-				detail:
-					"'src/pay/common/utils/round.ts' is internal to module 'src/pay' (under its common/) but imported by src/bill/bill.ts — promote to src/common/",
+				detail: "'src/pay/common/utils/round.ts' is internal to module 'src/pay' (under its common/) but imported by src/bill/bill.ts — promote to src/common/",
 				guidance: 'Shared code belongs in the common/ of the lowest folder that contains everyone using it.',
 			},
 		]);

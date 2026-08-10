@@ -1,5 +1,5 @@
-import { expect, describe, test } from '@jest/globals';
-import { BatchOutcome, RunStatus, type LightsoutConfig, type RefactorBatch, type RunManifest, type StepRecord } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
+import { BatchOutcome, type LightsoutConfig, type RefactorBatch, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 import { seedResumeState } from '@/refactor/seedResumeState';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
@@ -10,7 +10,8 @@ const step = ({ id, outcome, status = RunStatus.Passed }: { id: string; outcome?
 	id,
 	status,
 	attempts: 1,
-	report: outcome === undefined ? undefined : { outcome, remainingSiteKeys: outcome === BatchOutcome.Declined ? [`${id}-site`] : [], rationale: [`${id} says so`] },
+	report:
+		outcome === undefined ? undefined : { outcome, remainingSiteKeys: outcome === BatchOutcome.Declined ? [`${id}-site`] : [], rationale: [`${id} says so`] },
 });
 
 const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({
@@ -71,7 +72,10 @@ describe('seedResumeState', () => {
 	});
 
 	test('a passed batch whose report is unreadable resets the streak rather than being counted as a decline', () => {
-		const steps = [step({ id: 'batch-01', outcome: BatchOutcome.Declined }), { id: 'batch-02', status: RunStatus.Passed, attempts: 1, report: { nonsense: true } }];
+		const steps = [
+			step({ id: 'batch-01', outcome: BatchOutcome.Declined }),
+			{ id: 'batch-02', status: RunStatus.Passed, attempts: 1, report: { nonsense: true } },
+		];
 
 		const state = seedResumeState({ manifest: manifestWith({ steps }), batches: [batch('batch-01'), batch('batch-02')] });
 

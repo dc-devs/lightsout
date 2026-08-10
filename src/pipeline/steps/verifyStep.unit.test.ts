@@ -1,14 +1,14 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver, DriverResult } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { verdict } from '@tests/helpers/verdict';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver, DriverResult } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
 
 /**
  * A consumer repo whose unit gate goes red the moment implement lands (it
@@ -57,9 +57,9 @@ test('verify: a rate limit inside a cheap fix retry parks the run before judgmen
 	expect(result.manifest.status).toBe('paused-rate-limit');
 	expect(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`)).toBeTruthy();
 	// the first rate-limited fix ends the step — the second retry is never spent
-	expect(counts['fix']).toBe(1);
+	expect(counts.fix).toBe(1);
 	// a parked run never consults the supervisor
-	expect(counts['supervisor']).toBe(undefined);
+	expect(counts.supervisor).toBe(undefined);
 	// the park keeps the record it entered the retry with — the aborted fix
 	// advances nothing
 	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(2);
@@ -73,9 +73,9 @@ test('verify: a rate-limited supervisor parks the run after the cheap retries ar
 	expect(result.manifest.status).toBe('paused-rate-limit');
 	expect(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`)).toBeTruthy();
 	// both mechanical retries ran before judgment was bought
-	expect(counts['fix']).toBe(2);
+	expect(counts.fix).toBe(2);
 	// the supervisor was consulted exactly once
-	expect(counts['supervisor']).toBe(1);
+	expect(counts.supervisor).toBe(1);
 });
 
 test('verify: a retry verdict carrying no guidance escalates instead of buying a blind third fix', async () => {
@@ -87,7 +87,7 @@ test('verify: a retry verdict carrying no guidance escalates instead of buying a
 
 	expect(result.manifest.status).toBe('escalated');
 	// a retry with nothing to say buys no guided attempt
-	expect(counts['fix']).toBe(2);
+	expect(counts.fix).toBe(2);
 	expect(result.error ?? '').toMatch(/verify-implement: still failing after retries\./);
 	// the verdict is quoted with its decision
 	expect(result.error ?? '').toMatch(/supervisor \(retry\): DIAGNOSIS-SENTINEL/);

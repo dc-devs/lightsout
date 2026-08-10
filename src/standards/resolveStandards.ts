@@ -1,4 +1,4 @@
-import { StandardsSet, type LightsoutConfig } from '@/contracts';
+import { type LightsoutConfig, StandardsSet } from '@/contracts';
 import { detectStandardsChannels } from '@/standards/detectStandardsChannels';
 import { buildStandardsDocuments, resolveStandardsPackages } from '@/standardsPackages';
 
@@ -9,7 +9,7 @@ interface Params {
 	packages: string[];
 }
 
-interface ResolvedStandards {
+export interface ResolvedStandards {
 	standards?: string;
 	testStandards?: string;
 	/** Framework channels in play, for the caller's progress line. */
@@ -40,8 +40,7 @@ interface ResolvedStandards {
  */
 export const resolveStandards = async ({ cwd, config, packages }: Params): Promise<ResolvedStandards> => {
 	const loaded = await resolveStandardsPackages({ cwd, config });
-	const channels =
-		config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config.packagesDir ?? 'packages', packages }));
+	const channels = config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config.packagesDir ?? 'packages', packages }));
 	const assembled = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }));
 
 	const stack = ({ set }: { set: StandardsSet }) => {

@@ -1,13 +1,14 @@
-import { getDriver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
-import { readRunManifest, RunLockError } from '@/runState';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { printRefactorResult } from '@/cli/common/render/printRefactorResult';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
+import { loadConfig } from '@/common/utils/loadConfig';
 import { messageOf } from '@/common/utils/messageOf';
+import type { RunManifest } from '@/contracts';
+import { getDriver } from '@/drivers';
+import { type RefactorResult, runRefactorPipeline } from '@/refactor';
+import { RunLockError, readRunManifest } from '@/runState';
 
 export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const resumeRunId = getStringFlag({ flags, name: 'run' });
@@ -26,7 +27,7 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 		process.exit(1);
 	}
 
-	let existing;
+	let existing: RunManifest | undefined;
 
 	try {
 		existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : undefined;
@@ -39,7 +40,7 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 
 	console.log(`lightsout: refactor ${existing ? `resuming run ${existing.runId}` : 'starting run'}`);
 
-	let result;
+	let result: RefactorResult;
 
 	try {
 		result = await runRefactorPipeline({

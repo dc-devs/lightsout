@@ -1,11 +1,11 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
 import { StandardsInputKind } from '@/contracts';
 import { buildCheckInput } from '@/standardsCheck/common/checkInputs/buildCheckInput';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 const setupRepo = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-check-input-'));

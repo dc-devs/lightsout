@@ -1,14 +1,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
-import { summarizeRun } from '@/runState';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
+import { summarizeRun } from '@/runState';
 
 const usage = {
 	inputTokens: 10,
@@ -201,12 +201,7 @@ test('summarizeRun separates gates that ran from re-runs and skips', async () =>
 	plantEvidence({
 		cwd,
 		runId: 'run-gates',
-		commands: [
-			{ durationMs: 100 },
-			{ durationMs: 50, rerun: true },
-			{ skipped: true },
-			{ durationMs: 25, skipped: true },
-		],
+		commands: [{ durationMs: 100 }, { durationMs: 50, rerun: true }, { skipped: true }, { durationMs: 25, skipped: true }],
 	});
 
 	const summary = await summarizeRun({

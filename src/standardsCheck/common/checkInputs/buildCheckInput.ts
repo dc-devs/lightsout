@@ -1,5 +1,5 @@
 import type ts from 'typescript';
-import { StandardsInputKind, type StandardsCheckInput } from '@/contracts';
+import { type StandardsCheckInput, StandardsInputKind } from '@/contracts';
 import { buildCloneSpansInput } from '@/standardsCheck/common/checkInputs/buildCloneSpansInput';
 import { buildFileListInput } from '@/standardsCheck/common/checkInputs/buildFileListInput';
 import { buildFileTextInput } from '@/standardsCheck/common/checkInputs/buildFileTextInput';

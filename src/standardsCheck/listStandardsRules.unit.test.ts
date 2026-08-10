@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { LightsoutConfig, StandardsSeverity } from '@/contracts';
 import { listStandardsRules } from '@/standardsCheck';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 const baseConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false as const } };
 
@@ -198,7 +198,9 @@ describe('listStandardsRules', () => {
 
 	test('each path rule names the document that actually states it', async () => {
 		const rules = await listStandardsRules({ cwd });
-		const docs = Object.fromEntries(rules.filter((rule) => durablePathRules.includes(rule.rule)).map((rule) => [rule.rule, docPartsOf({ doc: rule.doc }).path]));
+		const docs = Object.fromEntries(
+			rules.filter((rule) => durablePathRules.includes(rule.rule)).map((rule) => [rule.rule, docPartsOf({ doc: rule.doc }).path]),
+		);
 
 		// the check above proves a document is there, not that it is the right one:
 		// the no-barrels-under-common rule comes from module-api, the four
@@ -314,7 +316,10 @@ describe('listStandardsRules', () => {
 		setupPackage({ cwd: repo, at: 'standards/house', name: 'house', ruleId: 'zebra-rule' });
 		setupPackage({ cwd: repo, at: 'standards/team', name: 'team', ruleId: 'aardvark-rule' });
 
-		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: ['standards/house', 'standards/team'] }) });
+		const rules = await listStandardsRules({
+			cwd: repo,
+			config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: ['standards/house', 'standards/team'] }),
+		});
 
 		// a reader looking a rule up scans one alphabetical list, not one list per
 		// package — and still sees which package to argue with about each rule

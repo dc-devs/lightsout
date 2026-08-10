@@ -1,7 +1,7 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import type { LightsoutConfig } from '@/contracts';
 import { checkScriptBinaries } from '@/doctor/checkScriptBinaries';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 const configWith = (scripts: Partial<LightsoutConfig['scripts']>): LightsoutConfig => ({
 	scripts: { check: 'true', testUnit: 'true', testCoverage: false, ...scripts },

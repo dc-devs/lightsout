@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { DedupFinding } from '@/contracts';
 
 const setupFinding = (overrides: Record<string, unknown> = {}) => {

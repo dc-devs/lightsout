@@ -30,11 +30,7 @@ interface Params {
  * classification needs it. A file still on disk but transiently unreadable
  * keeps its writer — the prior tolerance, never a lost writer.
  */
-export const selectTestTargets = async ({
-	run,
-	candidates,
-	compiler,
-}: Params): Promise<{ targets: string[]; inert: string[]; deleted: string[] }> => {
+export const selectTestTargets = async ({ run, candidates, compiler }: Params): Promise<{ targets: string[]; inert: string[]; deleted: string[] }> => {
 	const targets: string[] = [];
 	const inert: string[] = [];
 	const deleted: string[] = [];

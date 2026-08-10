@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { buildFileTextInput } from '@/standardsCheck/common/checkInputs/buildFileTextInput';
 
 const setupRepo = ({ tsconfig = true }: { tsconfig?: boolean } = {}) => {

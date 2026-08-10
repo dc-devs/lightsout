@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { getUnconsumedExports } from './getUnconsumedExports.ts';
 
 /** A repo as a file-text rule receives it: the files being judged, and text for everything that may reference them. */
@@ -10,9 +10,7 @@ const setupRepo = ({ scope, contents }: { scope?: string[]; contents: Array<[str
 
 describe('getUnconsumedExports', () => {
 	test('reports an export nothing else mentions, with nothing having reached it', () => {
-		const found = getUnconsumedExports(
-			setupRepo({ contents: [['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;']] }),
-		);
+		const found = getUnconsumedExports(setupRepo({ contents: [['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;']] }));
 
 		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { barrel: false, test: false } }]);
 	});

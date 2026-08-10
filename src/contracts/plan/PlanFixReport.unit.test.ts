@@ -96,7 +96,13 @@ test('PlanFixReport: an explicit null on either array is rejected rather than de
 });
 
 test('PlanFixReport: unknown top-level keys are stripped', () => {
-	const parsed = PlanFixReport.parse({ status: 'fixed', filesEdited: [], discrepancies: [], notes: 'an extra field the agent volunteered', planName: 'packages-to-src' });
+	const parsed = PlanFixReport.parse({
+		status: 'fixed',
+		filesEdited: [],
+		discrepancies: [],
+		notes: 'an extra field the agent volunteered',
+		planName: 'packages-to-src',
+	});
 
 	// a repairer that volunteers extra fields still produces a parseable report —
 	// the surplus is dropped, not rejected

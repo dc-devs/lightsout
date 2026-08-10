@@ -1,10 +1,10 @@
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
+import { describe, expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
+import type { LightsoutConfig } from '@/contracts';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
 

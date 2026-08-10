@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
 
 const StandardsBaseline = z.object({
 	at: z.string(),
@@ -39,7 +39,13 @@ interface Params {
  * detection. A module internal — its behaviour is pinned through
  * `runStandardsCheck`'s own baseline tests.
  */
-export const applyStandardsBaseline = async ({ cwd, path, findings, all, writeBaseline }: Params): Promise<{ reported: StandardsFinding[]; notes: string[] }> => {
+export const applyStandardsBaseline = async ({
+	cwd,
+	path,
+	findings,
+	all,
+	writeBaseline,
+}: Params): Promise<{ reported: StandardsFinding[]; notes: string[] }> => {
 	const baselinePath = join(cwd, 'lightsout.standards-baseline.json');
 	const baselineRaw = await readFile(baselinePath, 'utf8').catch(() => undefined);
 	const notes: string[] = [];

@@ -1,8 +1,8 @@
 import { isAbsolute, resolve } from 'node:path';
 import type { LightsoutConfig } from '@/contracts';
+import type { LoadedStandardsPackage } from '@/standardsPackages/common/types/LoadedStandardsPackage';
 import { loadStandardsPackage } from '@/standardsPackages/loadStandardsPackage';
 import { resolveDefaultStandardsPackage } from '@/standardsPackages/resolveDefaultStandardsPackage';
-import type { LoadedStandardsPackage } from '@/standardsPackages/common/types/LoadedStandardsPackage';
 
 interface Params {
 	cwd: string;

@@ -5,7 +5,7 @@ import type ts from 'typescript';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import { messageOf } from '@/common/utils/messageOf';
-import type { StandardsInputKind, StandardsCheckRun } from '@/contracts';
+import type { StandardsCheckRun, StandardsInputKind } from '@/contracts';
 import { buildCheckInput } from '@/standardsCheck/common/checkInputs/buildCheckInput';
 import { typescriptInputKinds } from '@/standardsCheck/common/constants/typescriptInputKinds';
 import { runRuleCheck } from '@/standardsCheck/common/utils/runRuleCheck';

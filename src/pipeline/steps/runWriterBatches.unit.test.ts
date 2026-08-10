@@ -1,9 +1,9 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@jest/globals';
 import { setTimeout as delay } from 'node:timers/promises';
-import { WorkReportStatus, type WorkReport } from '@/contracts';
+import { expect, test } from '@jest/globals';
+import { type WorkReport, WorkReportStatus } from '@/contracts';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 import { runWriterBatches } from '@/pipeline/steps/runWriterBatches';
 
@@ -55,7 +55,7 @@ const setupRun = ({ respond }: { respond: (params: { file: string; onFirstEvent?
 	return { run: run as unknown as PipelineRun, log, gated };
 };
 
-const groupsOf = (count: number) => Array.from({ length: count }, (unused, index) => [`src/file${index}.ts`]);
+const groupsOf = (count: number) => Array.from({ length: count }, (_, index) => [`src/file${index}.ts`]);
 
 test('runWriterBatches: the held-back writers start as soon as the warm spawn streams its first event — not when it finishes', async () => {
 	const { run, log } = setupRun({

@@ -1,16 +1,16 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
+import { describe, expect, test } from '@jest/globals';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
@@ -54,7 +54,15 @@ const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'testCoverag
 			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
 			writeFileSync(join(dir, flag), 'red\n');
 
-			return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }, { path: 'src/beta.ts', summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/multi.ts', summary: 'split' },
+						{ path: 'src/beta.ts', summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -162,7 +170,12 @@ const setupAdvisoryGateRed = async () => {
 			writeFileSync(join(dir, 'check.flag'), 'red\n');
 
 			return {
-				text: report({ changedFiles: [{ path: 'alpha/multi.ts', summary: 'split' }, { path: 'alpha/beta.ts', summary: 'split' }] }),
+				text: report({
+					changedFiles: [
+						{ path: 'alpha/multi.ts', summary: 'split' },
+						{ path: 'alpha/beta.ts', summary: 'split' },
+					],
+				}),
 				exitCode: 0,
 			};
 		},

@@ -1,11 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { outcomeFields } from '@tests/helpers/outcomeFields';
 import { z } from 'zod';
 import type { Driver } from '@/drivers';
 import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
-import { outcomeFields } from '@tests/helpers/outcomeFields';
 
 const Contract = z.object({ ok: z.boolean() });
 
@@ -94,10 +94,11 @@ describe('createPlanAgentRunner', () => {
 
 		expect(report).toBe(undefined);
 		// one file per attempt, so a re-emit retry never overwrites the original
-		expect(readdirSync(workspaceDir).filter((name) => name.startsWith('draft-rejected-')).sort()).toStrictEqual([
-			'draft-rejected-1.txt',
-			'draft-rejected-2.txt',
-		]);
+		expect(
+			readdirSync(workspaceDir)
+				.filter((name) => name.startsWith('draft-rejected-'))
+				.sort(),
+		).toStrictEqual(['draft-rejected-1.txt', 'draft-rejected-2.txt']);
 		expect(readFileSync(join(workspaceDir, 'draft-rejected-1.txt'), 'utf8')).toBe('not json at all');
 	});
 

@@ -1,7 +1,7 @@
 import { dirname } from 'node:path';
-import type { DecisionsRecord, PlanFacts, PlanVariant } from '@/contracts';
-import planWriterPrompt from '@/agents/prompts/planWriter.md';
 import planTemplate from '@/agents/prompts/planTemplate.md';
+import planWriterPrompt from '@/agents/prompts/planWriter.md';
+import type { DecisionsRecord, PlanFacts, PlanVariant } from '@/contracts';
 
 interface Params {
 	facts: PlanFacts;
@@ -22,11 +22,7 @@ interface Params {
  */
 export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards, lintCommand }: Params): { systemPrompt: string; prompt: string } => {
 	const outputLines = outputs.map((output) => `- ${output.path} — variant: ${output.variant}`);
-	const sections = [
-		`# Draft input`,
-		`## Feature request\n\n${facts.request}`,
-		`## Output files\n\n${outputLines.join('\n')}`,
-	];
+	const sections = [`# Draft input`, `## Feature request\n\n${facts.request}`, `## Output files\n\n${outputLines.join('\n')}`];
 
 	// A phased draft is a single spawn that authors the overview plus every phase
 	// file into one directory — name the directory explicitly so the agent's hard
@@ -55,7 +51,9 @@ export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards
 		);
 	}
 
-	sections.push('Remember: write the plan file(s) to disk first, then your entire final message must be exactly one JSON PlanDraftReport object — nothing else.');
+	sections.push(
+		'Remember: write the plan file(s) to disk first, then your entire final message must be exactly one JSON PlanDraftReport object — nothing else.',
+	);
 
 	return {
 		systemPrompt: `${planWriterPrompt}\n\n---\n\n# Plan Template\n\n${planTemplate}`,

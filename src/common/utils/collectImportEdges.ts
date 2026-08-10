@@ -44,8 +44,7 @@ export const collectImportEdges = async ({ cwd, files, compiler }: Params) => {
 		for (let start = 1; start < segments.length; start += 1) {
 			const suffix = segments.slice(start).join('/');
 			const matches = [...byStripped.keys()].filter(
-				(stripped) =>
-					stripped === suffix || stripped.endsWith(`/${suffix}`) || stripped === `${suffix}/index` || stripped.endsWith(`/${suffix}/index`),
+				(stripped) => stripped === suffix || stripped.endsWith(`/${suffix}`) || stripped === `${suffix}/index` || stripped.endsWith(`/${suffix}/index`),
 			);
 
 			if (matches.length > 1) {

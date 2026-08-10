@@ -1,13 +1,13 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { Driver, DriverResult } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runCoverageBatch } from '@/coverage/runCoverageBatch';
-import type { CoverageBatch } from '@/coverage/common/types/CoverageBatch';
+import { describe, expect, test } from '@jest/globals';
 import { report } from '@tests/helpers/report';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { CoverageBatch } from '@/coverage/common/types/CoverageBatch';
+import { runCoverageBatch } from '@/coverage/runCoverageBatch';
+import type { Driver, DriverResult } from '@/drivers';
 
 const target = 'src/target.ts';
 const scopedTarget = 'packages/api/src/target.ts';
@@ -39,10 +39,7 @@ const setupBatchRepo = ({ check = 'true' }: { check?: string } = {}) => {
 
 /** An Istanbul summary for a package scope, written where that package's own measurement lands. */
 const writeScopedSummary = ({ dir, pct }: { dir: string; pct: number }) => {
-	writeFileSync(
-		join(dir, 'packages/api', summaryPath),
-		JSON.stringify({ total: { statements: { pct } }, [join(dir, scopedTarget)]: { statements: { pct } } }),
-	);
+	writeFileSync(join(dir, 'packages/api', summaryPath), JSON.stringify({ total: { statements: { pct } }, [join(dir, scopedTarget)]: { statements: { pct } } }));
 };
 
 /**

@@ -1,4 +1,4 @@
-import { BatchOutcome, CoverageBatchReport, RunStatus, type RunManifest } from '@/contracts';
+import { BatchOutcome, CoverageBatchReport, type RunManifest, RunStatus } from '@/contracts';
 import type { CoverageSetAside } from '@/coverage/common/types/CoverageSetAside';
 import { updateFileStrikes } from '@/coverage/common/utils/updateFileStrikes';
 

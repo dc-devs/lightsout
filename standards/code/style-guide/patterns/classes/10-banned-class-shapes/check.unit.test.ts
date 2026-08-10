@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -91,7 +101,12 @@ describe('banned-class-shapes check', () => {
 
 	test('calls a lone static method static-only rather than one stateless method', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/config/ConfigPaths.ts', ['export class ConfigPaths {', '\tstatic forRun({ id }: { id: string }): string {', '\t\treturn id;', '\t}', '}'].join('\n')]],
+			sources: [
+				[
+					'src/config/ConfigPaths.ts',
+					['export class ConfigPaths {', '\tstatic forRun({ id }: { id: string }): string {', '\t\treturn id;', '\t}', '}'].join('\n'),
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -148,7 +163,12 @@ describe('banned-class-shapes check', () => {
 		{ heritage: 'implements Generator', relation: 'implements an interface' },
 	])('leaves a one-method class that $relation', async ({ heritage }) => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/reporting/JsonReportGenerator.ts', [`export class JsonReportGenerator ${heritage} {`, '\texecute(): string {', "\t\treturn '{}';", '\t}', '}'].join('\n')]],
+			sources: [
+				[
+					'src/reporting/JsonReportGenerator.ts',
+					[`export class JsonReportGenerator ${heritage} {`, '\texecute(): string {', "\t\treturn '{}';", '\t}', '}'].join('\n'),
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -180,7 +200,17 @@ describe('banned-class-shapes check', () => {
 			sources: [
 				[
 					'src/reporting/makeGenerator.ts',
-					['export const makeGenerator = () => {', '\tclass ReportGenerator {', '\t\texecute(): string {', "\t\t\treturn '';", '\t\t}', '\t}', '', '\treturn ReportGenerator;', '};'].join('\n'),
+					[
+						'export const makeGenerator = () => {',
+						'\tclass ReportGenerator {',
+						'\t\texecute(): string {',
+						"\t\t\treturn '';",
+						'\t\t}',
+						'\t}',
+						'',
+						'\treturn ReportGenerator;',
+						'};',
+					].join('\n'),
 				],
 			],
 		});

@@ -30,8 +30,7 @@ interface Params {
  * later, at gate time, with a better error).
  */
 export const detectStandardsChannels = async ({ cwd, packagesDir, packages }: Params) => {
-	const manifestPaths =
-		packages.length > 0 ? packages.map((name) => join(cwd, packagesDir, name, 'package.json')) : [join(cwd, 'package.json')];
+	const manifestPaths = packages.length > 0 ? packages.map((name) => join(cwd, packagesDir, name, 'package.json')) : [join(cwd, 'package.json')];
 	const dependencies = new Set<string>();
 
 	for (const path of manifestPaths) {

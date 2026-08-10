@@ -1,6 +1,6 @@
-import { runStandardsCheck, selectStandardsFindings } from '@/standardsCheck';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
 import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
+import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { runStandardsCheck, selectStandardsFindings } from '@/standardsCheck';
 
 interface Params {
 	run: PipelineRun;

@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 import type { LightsoutConfig } from '@/contracts';
 import { resolveStandardsPackages } from '@/standardsPackages';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 const baseConfig: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
 

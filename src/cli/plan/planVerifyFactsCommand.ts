@@ -1,10 +1,10 @@
-import { runPlanVerifyFacts } from '@/plan';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { usage } from '@/cli/common/constants/usage';
 import { bold } from '@/cli/common/terminal/bold';
 import { yellow } from '@/cli/common/terminal/yellow';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { runPlanVerifyFacts } from '@/plan';
 
 export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = getStringFlag({ flags, name: 'name' });

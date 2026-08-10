@@ -1,9 +1,9 @@
-import { expect, describe, test } from '@jest/globals';
-import { RunStatus, type LightsoutConfig, type RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { initializeRun } from '@/refactor/initializeRun';
+import { describe, expect, test } from '@jest/globals';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { initializeRun } from '@/refactor/initializeRun';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
@@ -28,7 +28,9 @@ describe('initializeRun', () => {
 	test('refuses to resume a manifest the implement pipeline owns, naming the command that would', async () => {
 		const cwd = setupConsumerRepo();
 
-		const error = await getRejectionError({ promise: initializeRun({ cwd, runId: 'run-1', driver, config, existing: manifestWith({ pipeline: 'implement' }) }) });
+		const error = await getRejectionError({
+			promise: initializeRun({ cwd, runId: 'run-1', driver, config, existing: manifestWith({ pipeline: 'implement' }) }),
+		});
 
 		expect(error.message).toMatch(/belongs to the implement pipeline — resume it with: lightsout resume --run run-1/);
 	});

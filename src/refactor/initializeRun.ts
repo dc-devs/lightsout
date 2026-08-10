@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { RefactorWorklist, type LightsoutConfig, type RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { createRun } from '@/runState';
+import { type LightsoutConfig, RefactorWorklist, type RunManifest } from '@/contracts';
+import type { Driver } from '@/drivers';
 import { buildWorklist } from '@/refactor/buildWorklist';
+import { createRun } from '@/runState';
 
 interface Params {
 	cwd: string;
@@ -23,7 +23,15 @@ interface Params {
  * git worktree and a CLEAN tree, so the ending diff is entirely the run's —
  * then computes the worklist from the tree and freezes it into the run dir.
  */
-export const initializeRun = async ({ cwd, runId, driver, config, path, all, existing }: Params): Promise<{ manifest: RunManifest; worklist: RefactorWorklist }> => {
+export const initializeRun = async ({
+	cwd,
+	runId,
+	driver,
+	config,
+	path,
+	all,
+	existing,
+}: Params): Promise<{ manifest: RunManifest; worklist: RefactorWorklist }> => {
 	if (existing) {
 		if ((existing.pipeline ?? 'implement') !== 'refactor') {
 			throw new Error(`run ${existing.runId} belongs to the implement pipeline — resume it with: lightsout resume --run ${existing.runId}`);

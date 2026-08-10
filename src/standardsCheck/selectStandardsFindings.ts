@@ -1,4 +1,4 @@
-import { StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
 
 interface Params {
 	findings: StandardsFinding[];

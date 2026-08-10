@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { readRunLock, RunLockError, withRunLock } from '@/runState';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { describe, expect, test } from '@jest/globals';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { RunLockError, readRunLock, withRunLock } from '@/runState';
 
 /** Beyond any OS pid range — process.kill(pid, 0) reports ESRCH, i.e. dead. */
 const deadPid = 999_999_999;
@@ -109,7 +109,10 @@ describe('withRunLock', () => {
 
 		const runId = await withRunLock({ params: { cwd, onProgress }, run: async (params) => params.runId });
 
-		expect({ narrated: progress.filter((line) => line.includes(String(deadPid))).length, tookOver: runId !== 'crashed-run' }).toStrictEqual({ narrated: 1, tookOver: true });
+		expect({ narrated: progress.filter((line) => line.includes(String(deadPid))).length, tookOver: runId !== 'crashed-run' }).toStrictEqual({
+			narrated: 1,
+			tookOver: true,
+		});
 	});
 
 	test('starts on a free lock without narrating a takeover that never happened', async () => {
@@ -132,14 +135,16 @@ describe('withRunLock', () => {
 	test('refuses to start while a live run holds the lock, leaving the body unrun', async () => {
 		const { cwd, entered } = setupRunLock({ heldBy: { pid: process.pid, runId: 'already-running' } });
 
-		await expect(withRunLock({
-			params: { cwd },
-			run: async (params) => {
-				entered.push(params.runId);
+		await expect(
+			withRunLock({
+				params: { cwd },
+				run: async (params) => {
+					entered.push(params.runId);
 
-				return 'done';
-			},
-		})).rejects.toThrow(RunLockError);
+					return 'done';
+				},
+			}),
+		).rejects.toThrow(RunLockError);
 
 		// the conflict is detected before any disk write, so nothing else happened
 		expect(entered).toStrictEqual([]);

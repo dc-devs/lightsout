@@ -1,10 +1,7 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { RawStandardsFinding } from '@/contracts';
 
-const setupRawFinding = ({
-	omit,
-	extra = {},
-}: { omit?: string; extra?: Record<string, unknown> } = {}) => {
+const setupRawFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
 		siteKey: 'size-file:src/standardsPackages/loadStandardsPackage.ts',
 		files: [{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214 }],
@@ -119,24 +116,19 @@ describe('RawStandardsFinding', () => {
 
 		// a check may know more than the contract declares; what crosses the
 		// boundary is the same shape whatever the check measured
-		expect(parsed.files).toStrictEqual([
-			{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214 },
-		]);
+		expect(parsed.files).toStrictEqual([{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214 }]);
 	});
 
-	test.each([{ field: 'siteKey' }, { field: 'files' }, { field: 'detail' }])(
-		'rejects a finding with no $field',
-		({ field }) => {
-			const { finding } = setupRawFinding({ omit: field });
+	test.each([{ field: 'siteKey' }, { field: 'files' }, { field: 'detail' }])('rejects a finding with no $field', ({ field }) => {
+		const { finding } = setupRawFinding({ omit: field });
 
-			const result = RawStandardsFinding.safeParse(finding);
+		const result = RawStandardsFinding.safeParse(finding);
 
-			// the site key is the grouping key a re-check looks for resolution under,
-			// the detail is the only prose a human or agent reads, and the files list
-			// is iterated unconditionally even when empty
-			expect(result.success).toBe(false);
-		},
-	);
+		// the site key is the grouping key a re-check looks for resolution under,
+		// the detail is the only prose a human or agent reads, and the files list
+		// is iterated unconditionally even when empty
+		expect(result.success).toBe(false);
+	});
 
 	test.each([
 		{ label: 'a numeric siteKey', extra: { siteKey: 42 } },

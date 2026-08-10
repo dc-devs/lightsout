@@ -1,13 +1,10 @@
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { deleteVoiceMarker } from '@/voice';
 
-const setupProject = ({
-	marker = true,
-	otherState = false,
-}: { marker?: boolean; otherState?: boolean } = {}) => {
+const setupProject = ({ marker = true, otherState = false }: { marker?: boolean; otherState?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-delete-voice-marker-'));
 	const markerPath = join(cwd, '.lightsout', 'voice-on');
 	const otherStatePath = join(cwd, '.lightsout', 'runs');

@@ -1,9 +1,11 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { parseFrontMatter } from '@/standardsPackages/common/parsing/parseFrontMatter';
 
 describe('parseFrontMatter', () => {
 	test('splits a leading block into declarations and the prose that follows', () => {
-		const { data, body } = parseFrontMatter({ text: '---\nsummary: one export per file\nchecked: true\nsettings:\n  maxLines: 50\n---\n\n# Functions\n\nProse.\n' });
+		const { data, body } = parseFrontMatter({
+			text: '---\nsummary: one export per file\nchecked: true\nsettings:\n  maxLines: 50\n---\n\n# Functions\n\nProse.\n',
+		});
 
 		// every declared field, typed as YAML read it
 		expect(data).toStrictEqual({ summary: 'one export per file', checked: true, settings: { maxLines: 50 } });

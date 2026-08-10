@@ -1,11 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { RunStatus, type RunManifest } from '@/contracts';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { resumeCommand } from '@/cli/resumeCommand';
+import { describe, expect, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { resumeCommand } from '@/cli/resumeCommand';
+import { type RunManifest, RunStatus } from '@/contracts';
 
 /** The id every seeded run answers to, so the assertions can name it. */
 const runId = 'run-resume-01';
@@ -38,7 +38,12 @@ const setupResume = ({
 	manifest,
 	locked,
 	config,
-}: { args?: string[]; manifest?: RunManifest; locked?: boolean; config?: Record<string, unknown> } = {}) => {
+}: {
+	args?: string[];
+	manifest?: RunManifest;
+	locked?: boolean;
+	config?: Record<string, unknown>;
+} = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ config });
 
@@ -116,7 +121,10 @@ describe('resumeCommand', () => {
 	});
 
 	test('a manifest written before runs recorded their pipeline still resumes as an implement run', async () => {
-		const { context, errors, logged, exitCodes } = setupResume({ args: ['--run', runId], manifest: manifestOf({ pipeline: undefined, status: RunStatus.PausedRateLimit }) });
+		const { context, errors, logged, exitCodes } = setupResume({
+			args: ['--run', runId],
+			manifest: manifestOf({ pipeline: undefined, status: RunStatus.PausedRateLimit }),
+		});
 
 		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
 

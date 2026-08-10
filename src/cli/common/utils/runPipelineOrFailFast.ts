@@ -1,4 +1,4 @@
-import { runImplementPipeline, type PipelineResult } from '@/pipeline';
+import { type PipelineResult, runImplementPipeline } from '@/pipeline';
 import { RunLockError } from '@/runState';
 
 /**

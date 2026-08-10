@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
 
 const setupPackage = ({ raw }: { raw?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-manifest-'));

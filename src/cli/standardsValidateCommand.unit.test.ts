@@ -1,8 +1,8 @@
-import { expect, describe, test, jest } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
+import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { standardsValidateCommand } from '@/cli/standardsValidateCommand';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 
 // Mocked Imports
 // -------------------------
@@ -43,7 +43,12 @@ const setupValidate = ({
 	rules = [rule({ id: 'multi-export', checked: true }), rule({ id: 'premature-abstraction' })],
 	problems = [],
 	notes = [],
-}: { args?: string[]; rules?: LoadedStandardsRule[]; problems?: string[]; notes?: string[] } = {}) => {
+}: {
+	args?: string[];
+	rules?: LoadedStandardsRule[];
+	problems?: string[];
+	notes?: string[];
+} = {}) => {
 	const captured = captureCommandOutput();
 	const pkg: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
 

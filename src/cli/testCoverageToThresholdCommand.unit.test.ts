@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
-import { RunStatus, type RunManifest } from '@/contracts';
-import type { CoverageResult } from '@/coverage';
-import { RunLockError } from '@/runState';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { testCoverageToThresholdCommand } from '@/cli/testCoverageToThresholdCommand';
+import { describe, expect, jest, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { testCoverageToThresholdCommand } from '@/cli/testCoverageToThresholdCommand';
+import { type RunManifest, RunStatus } from '@/contracts';
+import type { CoverageResult } from '@/coverage';
+import { RunLockError } from '@/runState';
 
 // Mocked Imports
 // -------------------------
@@ -51,7 +51,13 @@ const setupCommand = ({
 	failWith,
 	parkedRunId,
 	config,
-}: { args?: string[]; result?: Partial<CoverageResult>; failWith?: unknown; parkedRunId?: string; config?: Record<string, unknown> } = {}) => {
+}: {
+	args?: string[];
+	result?: Partial<CoverageResult>;
+	failWith?: unknown;
+	parkedRunId?: string;
+	config?: Record<string, unknown>;
+} = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo({ scripts: { testCoverage: 'pnpm test:coverage' }, config });
 

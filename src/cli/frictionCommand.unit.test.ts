@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { FrictionArea, type FrictionRecord } from '@/contracts';
-import { frictionCommand } from '@/cli/frictionCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { frictionCommand } from '@/cli/frictionCommand';
+import { FrictionArea, type FrictionRecord } from '@/contracts';
 
 // friction renders whatever the run state left on disk, so the arrangement is a
 // real .lightsout/friction.jsonl in a temp repo — read back through the same
@@ -34,7 +34,6 @@ test('frictionCommand: a repo with no friction log reports nothing recorded and 
 
 test('frictionCommand: every recorded entry prints its area, short run id, step, timestamp and detail, then exits 0', async () => {
 	const { context, logged, errors, exitCodes } = setupFriction({
-		
 		entries: [
 			{ at: '2026-01-01T00:00:01.000Z', runId: 'run-1234-abcd', step: 'implement', area: FrictionArea.Plan, detail: 'ambiguous scope' },
 			{ at: '2026-01-01T00:00:02.000Z', runId: 'another-run-9999', step: 'write-tests', area: FrictionArea.Environment, detail: 'no jest config' },

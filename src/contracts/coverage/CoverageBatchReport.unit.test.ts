@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { CoverageBatchReport } from '@/contracts';
 
 describe('CoverageBatchReport', () => {
@@ -38,7 +38,11 @@ describe('CoverageBatchReport', () => {
 	});
 
 	test('a report missing any of the three fields is refused rather than read as a batch with nothing to say', () => {
-		for (const report of [{ files: [], rationale: [] }, { outcome: 'resolved', rationale: [] }, { outcome: 'resolved', files: [] }]) {
+		for (const report of [
+			{ files: [], rationale: [] },
+			{ outcome: 'resolved', rationale: [] },
+			{ outcome: 'resolved', files: [] },
+		]) {
 			// resume reads outcome for the decline streak, files for the per-file
 			// strikes, and rationale for the human — an absent field would parse as a
 			// batch that resolved everything and set nothing aside
@@ -58,7 +62,10 @@ describe('CoverageBatchReport', () => {
 	});
 
 	test('a tracked file with no usable path is refused, because set-aside and strikes are keyed by path', () => {
-		for (const file of [{ beforePct: 10, afterPct: 40 }, { path: 12, beforePct: 10, afterPct: 40 }]) {
+		for (const file of [
+			{ beforePct: 10, afterPct: 40 },
+			{ path: 12, beforePct: 10, afterPct: 40 },
+		]) {
 			expect(CoverageBatchReport.safeParse({ outcome: 'declined', files: [file], rationale: [] }).success).toBe(false);
 		}
 	});

@@ -1,14 +1,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { detectStandardsChannels } from '@/standards';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
+import { detectStandardsChannels } from '@/standards';
 
 const writePackage = ({
 	dir,
@@ -174,9 +174,9 @@ test('pipeline injects channel docs for react packages and announces the detecti
 	// test writer got the react channel doc
 	expect(prompts['write-tests']?.includes('tests/unit-testing-react-components')).toBeTruthy();
 	// executor got react architecture
-	expect(prompts['implement']?.includes('code/architecture/react')).toBeTruthy();
+	expect(prompts.implement?.includes('code/architecture/react')).toBeTruthy();
 	// tanstack channel stays out without the dependency
-	expect(prompts['implement']?.includes('tanstack-start')).toBeFalsy();
+	expect(prompts.implement?.includes('tanstack-start')).toBeFalsy();
 });
 
 test('standardsChannels config replaces detection', async () => {

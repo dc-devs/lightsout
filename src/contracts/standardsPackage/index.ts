@@ -1,14 +1,16 @@
-export { StandardsInputKind } from '@/contracts/standardsPackage/StandardsInputKind';
-export { StandardsSet } from '@/contracts/standardsPackage/StandardsSet';
-export { StandardsPackageRoot } from '@/contracts/standardsPackage/StandardsPackageRoot';
+export type { CloneSpan } from '@/contracts/standardsPackage/CloneSpan';
 export { RawStandardsFinding } from '@/contracts/standardsPackage/RawStandardsFinding';
+export type {
+	CloneSpansInput,
+	FileListInput,
+	FileTextInput,
+	ImportGraphInput,
+	StandardsCheckInput,
+	SyntaxTreeInput,
+	TestFileInput,
+} from '@/contracts/standardsPackage/StandardsCheckInput';
 export { StandardsCheckModule } from '@/contracts/standardsPackage/StandardsCheckModule';
 export type { StandardsCheckRun } from '@/contracts/standardsPackage/StandardsCheckRun';
-export type { CloneSpan } from '@/contracts/standardsPackage/CloneSpan';
-export type { StandardsCheckInput } from '@/contracts/standardsPackage/StandardsCheckInput';
-export type { FileListInput } from '@/contracts/standardsPackage/StandardsCheckInput';
-export type { FileTextInput } from '@/contracts/standardsPackage/StandardsCheckInput';
-export type { SyntaxTreeInput } from '@/contracts/standardsPackage/StandardsCheckInput';
-export type { TestFileInput } from '@/contracts/standardsPackage/StandardsCheckInput';
-export type { ImportGraphInput } from '@/contracts/standardsPackage/StandardsCheckInput';
-export type { CloneSpansInput } from '@/contracts/standardsPackage/StandardsCheckInput';
+export { StandardsInputKind } from '@/contracts/standardsPackage/StandardsInputKind';
+export { StandardsPackageRoot } from '@/contracts/standardsPackage/StandardsPackageRoot';
+export { StandardsSet } from '@/contracts/standardsPackage/StandardsSet';

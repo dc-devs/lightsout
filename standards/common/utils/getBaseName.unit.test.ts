@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { getBaseName } from './getBaseName.ts';
 
 describe('getBaseName', () => {

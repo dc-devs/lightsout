@@ -1,15 +1,15 @@
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
-import { StandardsSeverity, type LightsoutConfig, type StandardsFinding } from '@/contracts';
+import { describe, expect, jest, test } from '@jest/globals';
+import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
+import { type LightsoutConfig, type StandardsFinding, StandardsSeverity } from '@/contracts';
 import type { Driver } from '@/drivers';
 import type { StandardsRuleListing } from '@/standardsCheck';
 import type { LoadedStandardsPackage } from '@/standardsPackages';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 // Mocked Imports
 // -------------------------
@@ -159,7 +159,14 @@ const headingsOf = ({ logged }: { logged: string[] }) => logged.filter((line) =>
 
 /** The printed table's rows, cell by cell. */
 const cellsOf = ({ logged }: { logged: string[] }) =>
-	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
+	logged
+		.filter((line) => line.startsWith('│'))
+		.map((line) =>
+			line
+				.split('│')
+				.slice(1, -1)
+				.map((cell) => cell.trim()),
+		);
 
 /** What the command handed the standards check. */
 const checkParams = () => mockRunStandardsCheck.mock.calls[0]?.[0];
@@ -491,7 +498,10 @@ describe('standardsCheckCommand', () => {
 	});
 
 	test('a review-only run prints but writes nothing — the evidence file is the machine half’s', async () => {
-		const { context, cwd, logged } = setupCheck({ args: ['--agent-review'], reviewFindings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })] });
+		const { context, cwd, logged } = setupCheck({
+			args: ['--agent-review'],
+			reviewFindings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })],
+		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 

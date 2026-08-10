@@ -102,10 +102,7 @@ test('listSourceFiles: a fixtures folder outside any standards package is ordina
 });
 
 test('listSourceFiles: walking from inside a fixture side still lists it, which is how a check is validated', async () => {
-	const { cwd } = setupRepo([
-		'standards/lightsout-standards.json',
-		'standards/code/architecture/10-dead-export/fixtures/fail/src/orphan.ts',
-	]);
+	const { cwd } = setupRepo(['standards/lightsout-standards.json', 'standards/code/architecture/10-dead-export/fixtures/fail/src/orphan.ts']);
 
 	const { files } = await listSourceFiles({ cwd: join(cwd, 'standards/code/architecture/10-dead-export/fixtures/fail') });
 

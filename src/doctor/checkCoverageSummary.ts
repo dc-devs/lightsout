@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LightsoutConfig } from '@/contracts';
 import { defaultCoverageSummaryPath } from '@/common/constants/defaultCoverageSummaryPath';
+import type { LightsoutConfig } from '@/contracts';
 import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
 import type { PackageDir } from '@/doctor/common/types/PackageDir';
 

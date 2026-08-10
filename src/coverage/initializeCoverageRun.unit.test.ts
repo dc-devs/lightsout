@@ -1,13 +1,13 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { RunStatus, type LightsoutConfig, type RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { initializeCoverageRun } from '@/coverage/initializeCoverageRun';
+import { describe, expect, test } from '@jest/globals';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
+import { initializeCoverageRun } from '@/coverage/initializeCoverageRun';
+import type { Driver } from '@/drivers';
 
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 
@@ -103,7 +103,9 @@ describe('initializeCoverageRun', () => {
 		const cwd = setupMeasurable();
 		const config = await loadConfig({ cwd });
 
-		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config, existing: manifestWith({ pipeline, config }) }) });
+		const error = await getRejectionError({
+			promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config, existing: manifestWith({ pipeline, config }) }),
+		});
 
 		expect(error.message).toBe(`run run-1 belongs to the ${named} pipeline — resume it with: lightsout ${command} --run run-1`);
 	});

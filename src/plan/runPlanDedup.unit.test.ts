@@ -1,11 +1,11 @@
-import { expect, test } from '@jest/globals';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { expect, test } from '@jest/globals';
+import { expectStatus } from '@tests/helpers/expectStatus';
 import { DedupReport, Effort, Permissions } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPlanDedup } from '@/plan';
-import { expectStatus } from '@tests/helpers/expectStatus';
 
 /** A temp repo holding the given existing source files, each a one-export module. */
 const seedRepo = ({ existing }: { existing: string[] }) => {
@@ -209,7 +209,9 @@ test('plan dedup: the resolved model, effort and permissions reach the harness',
 	});
 
 	expectStatus(result, 'complete');
-	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'full-access' }]);
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([
+		{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'full-access' },
+	]);
 });
 
 test('plan dedup: an unset effort or permissions is forwarded absent — this role invents no default', async () => {
@@ -218,7 +220,9 @@ test('plan dedup: an unset effort or permissions is forwarded absent — this ro
 	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations), name });
 
 	expectStatus(result, 'complete');
-	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([
+		{ model: undefined, effort: undefined, permissions: undefined },
+	]);
 });
 
 test('plan dedup: no deliverable on disk fails before any detection or judging', async () => {

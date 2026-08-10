@@ -1,18 +1,20 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind, StandardsSeverity, type StandardsCheckRun } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
+import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '@/contracts';
 import { validateStandardsPackage } from '@/standardsCheck';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
 const bansTheBannedFile: StandardsCheckRun = ({ input }) =>
-	(input.kind === StandardsInputKind.FileList ? input.files : []).filter((file) => file.endsWith('banned.ts')).map((path) => ({
-		siteKey: `banned:${path}`,
-		files: [{ path }],
-		detail: 'a file the rule bans',
-	}));
+	(input.kind === StandardsInputKind.FileList ? input.files : [])
+		.filter((file) => file.endsWith('banned.ts'))
+		.map((path) => ({
+			siteKey: `banned:${path}`,
+			files: [{ path }],
+			detail: 'a file the rule bans',
+		}));
 
 /**
  * A rule folder's fixture pair on disk. Each side is a miniature repo the check
@@ -140,11 +142,13 @@ describe('validateStandardsPackage', () => {
 	test('validates a rule that needs parsed trees with the engine own typescript', async () => {
 		const { fixturesPath } = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
 		const bansTheBannedTree: StandardsCheckRun = ({ input }) =>
-			(input.kind === StandardsInputKind.SyntaxTree ? [...input.trees.keys()] : []).filter((path) => path.endsWith('banned.ts')).map((path) => ({
-				siteKey: `banned:${path}`,
-				files: [{ path }],
-				detail: 'a file the rule bans',
-			}));
+			(input.kind === StandardsInputKind.SyntaxTree ? [...input.trees.keys()] : [])
+				.filter((path) => path.endsWith('banned.ts'))
+				.map((path) => ({
+					siteKey: `banned:${path}`,
+					files: [{ path }],
+					detail: 'a file the rule bans',
+				}));
 
 		const { problems, notes } = await validate({
 			rules: [rule({ id: 'dead-export', fixturesPath, inputKind: StandardsInputKind.SyntaxTree, run: bansTheBannedTree })],

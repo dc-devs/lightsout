@@ -3,13 +3,13 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
-import { readRunManifest } from '@/runState';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
+import { readRunManifest } from '@/runState';
 
 test('nested consumer: agent-reported repo-root-relative paths normalize to consumer-relative — no duplicate identities', async () => {
 	// The consumer sits INSIDE a larger git repo (like a fixture or a

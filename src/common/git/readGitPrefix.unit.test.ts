@@ -1,8 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { readGitPrefix } from '@/common/git/readGitPrefix';
+import { describe, expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { readGitPrefix } from '@/common/git/readGitPrefix';
 
 /**
  * A consumer repo in a temp dir — committed by default, so `git rev-parse`

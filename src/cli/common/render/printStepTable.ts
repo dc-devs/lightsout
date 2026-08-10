@@ -1,11 +1,11 @@
-import type { summarizeRun } from '@/runState';
 import { statusIcons } from '@/cli/common/constants/statusIcons';
 import { formatDuration } from '@/cli/common/formatting/formatDuration';
 import { formatTokenCount } from '@/cli/common/formatting/formatTokenCount';
+import { renderTable } from '@/cli/common/render/renderTable';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 import { paintStatus } from '@/cli/common/terminal/paintStatus';
-import { renderTable } from '@/cli/common/render/renderTable';
+import type { summarizeRun } from '@/runState';
 
 interface Params {
 	steps: Awaited<ReturnType<typeof summarizeRun>>['steps'];
@@ -51,7 +51,10 @@ export const printStepTable = ({ steps, activeMs }: Params): void => {
 	const lines = renderTable({
 		headers,
 		rows: [
-			...rows.map((row) => ({ cells: row.cells, paintCell: ({ text, padded }: { text: string; padded: string }) => paintCell({ text, padded, status: row.status }) })),
+			...rows.map((row) => ({
+				cells: row.cells,
+				paintCell: ({ text, padded }: { text: string; padded: string }) => paintCell({ text, padded, status: row.status }),
+			})),
 			{ cells: totalCells, emphasis: bold, paintCell: ({ text, padded }: { text: string; padded: string }) => paintCell({ text, padded }) },
 		],
 	});

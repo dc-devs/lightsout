@@ -1,4 +1,4 @@
-import { expect, test, jest } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 

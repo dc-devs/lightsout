@@ -1,16 +1,16 @@
 import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { afterEach, expect, test } from '@jest/globals';
-import { PhaseReport, RunStatus, type RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runPhasesPipeline } from '@/phases';
-import { readRunManifest, RunLockError, writeRunManifest } from '@/runState';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { PhaseReport, type RunManifest, RunStatus } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { runPhasesPipeline } from '@/phases';
+import { RunLockError, readRunManifest, writeRunManifest } from '@/runState';
 
 /**
  * A consumer repo holding a plan folder: an overview whose Phases table names
@@ -328,14 +328,20 @@ test('runPhasesPipeline: a second fresh start for the same overview is refused w
 
 	expect(stopped.ok).toBe(false);
 	expect(error.message).toMatch(/an unfinished run for this plan already exists/);
-	expect((error.message).includes(`lightsout resume --run ${stopped.manifest.runId}`)).toBeTruthy();
+	expect(error.message.includes(`lightsout resume --run ${stopped.manifest.runId}`)).toBeTruthy();
 });
 
 test('runPhasesPipeline: an overview listing the same phase file twice is refused before any state is written', async () => {
 	const { dir, overviewPath } = setupPhasedRepo({ phases: 2, duplicate: true });
 
 	const error = await getRejectionError({
-		promise: runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config: await loadConfig({ cwd: dir }), overviewPath, skipRefactor: true }),
+		promise: runPhasesPipeline({
+			cwd: dir,
+			driver: createPhaseDriver({ dir, seen: [] }),
+			config: await loadConfig({ cwd: dir }),
+			overviewPath,
+			skipRefactor: true,
+		}),
 	});
 
 	expect(error.message).toMatch(/overview lists phase1\.md twice/);
@@ -350,7 +356,13 @@ test('runPhasesPipeline: a live run lock stops the sequence untouched — nothin
 	writeFileSync(join(dir, '.lightsout', 'lock.json'), JSON.stringify({ pid: process.pid, runId: 'already-running', startedAt: '2026-01-01T00:00:00.000Z' }));
 
 	const error = await getRejectionError({
-		promise: runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config: await loadConfig({ cwd: dir }), overviewPath, skipRefactor: true }),
+		promise: runPhasesPipeline({
+			cwd: dir,
+			driver: createPhaseDriver({ dir, seen: [] }),
+			config: await loadConfig({ cwd: dir }),
+			overviewPath,
+			skipRefactor: true,
+		}),
 	});
 
 	// the lock conflict reaches the caller as itself, never as a recorded failure

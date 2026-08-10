@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { appendCommandLog } from '@/runState';
+import { describe, expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { appendCommandLog } from '@/runState';
 
 interface SetupParams {
 	/** A line already on the log, so appending-vs-rewriting is observable. */

@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { RunStatus, type RunManifest, type StepRecord } from '@/contracts';
-import { statusCommand } from '@/cli/statusCommand';
+import { describe, expect, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { statusCommand } from '@/cli/statusCommand';
+import { type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */
 const deadPid = 999_999_999;
@@ -87,18 +87,18 @@ const runningSequence = (overrides: Partial<StepRecord> = {}): RunManifest =>
 	});
 
 describe('statusCommand', () => {
-	test.each([{ label: 'a repo that never ran anything', withoutRunsDir: true }, { label: 'an empty runs directory', withoutRunsDir: false }])(
-		'reports no runs for $label and exits 0',
-		async ({ withoutRunsDir }) => {
-			const { context, logged, errors, exitCodes } = setupStatus({ withoutRunsDir });
+	test.each([
+		{ label: 'a repo that never ran anything', withoutRunsDir: true },
+		{ label: 'an empty runs directory', withoutRunsDir: false },
+	])('reports no runs for $label and exits 0', async ({ withoutRunsDir }) => {
+		const { context, logged, errors, exitCodes } = setupStatus({ withoutRunsDir });
 
-			await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
+		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
 
-			expect(logged).toStrictEqual(['no runs found']);
-			expect(errors).toStrictEqual([]);
-			expect(exitCodes).toStrictEqual([0]);
-		},
-	);
+		expect(logged).toStrictEqual(['no runs found']);
+		expect(errors).toStrictEqual([]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
 
 	test('a single-plan run lists its id, status, plan and last update — no phase counter on a line that has no phases', async () => {
 		const { context, logged, errors, exitCodes } = setupStatus({ manifests: [manifestOf()] });

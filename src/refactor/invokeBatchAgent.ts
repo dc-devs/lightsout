@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
-import { Permissions, WorkReport, type AdvisoryOutcome, type AgentUsage, type LightsoutConfig, type RefactorBatch } from '@/contracts';
+import { type AdvisoryOutcome, type AgentUsage, type LightsoutConfig, Permissions, type RefactorBatch, WorkReport } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
 import { appendFriction, getRunDir } from '@/runState';

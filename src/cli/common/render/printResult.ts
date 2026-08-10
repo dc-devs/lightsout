@@ -1,11 +1,11 @@
 import { basename } from 'node:path';
-import type { PipelineResult } from '@/pipeline';
-import { summarizeRun } from '@/runState';
 import { formatDuration } from '@/cli/common/formatting/formatDuration';
 import { formatTokenCount } from '@/cli/common/formatting/formatTokenCount';
+import { printStepTable } from '@/cli/common/render/printStepTable';
 import { bold } from '@/cli/common/terminal/bold';
 import { paintStatus } from '@/cli/common/terminal/paintStatus';
-import { printStepTable } from '@/cli/common/render/printStepTable';
+import type { PipelineResult } from '@/pipeline';
+import { summarizeRun } from '@/runState';
 
 interface Params {
 	result: PipelineResult;
@@ -33,7 +33,10 @@ export const printResult = async ({ result, cwd }: Params): Promise<void> => {
 		const { invocations, inputTokens, outputTokens, cacheReadTokens, costUsd } = summary.usage;
 		const share = summary.cacheReadShare === undefined ? '' : ` (${Math.round(summary.cacheReadShare * 100)}%)`;
 
-		label('tokens', `in ${formatTokenCount({ count: inputTokens })} · out ${formatTokenCount({ count: outputTokens })} · cache-read ${formatTokenCount({ count: cacheReadTokens })}${share}`);
+		label(
+			'tokens',
+			`in ${formatTokenCount({ count: inputTokens })} · out ${formatTokenCount({ count: outputTokens })} · cache-read ${formatTokenCount({ count: cacheReadTokens })}${share}`,
+		);
 		label('cost', `$${costUsd.toFixed(2)} API-equivalent · ${invocations} invocation${plural(invocations)}`);
 	}
 

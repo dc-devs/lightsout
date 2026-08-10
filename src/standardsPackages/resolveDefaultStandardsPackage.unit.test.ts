@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { resolveDefaultStandardsPackage } from '@/standardsPackages';
 
 /** A temp tree with a packaged standards folder at `packagedAt`, and a deep directory to start the walk from. */

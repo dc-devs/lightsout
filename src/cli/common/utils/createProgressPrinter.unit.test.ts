@@ -1,4 +1,4 @@
-import { expect, test, jest } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
 
 // The stamp is elapsed wall time since the printer was created, so the clock is

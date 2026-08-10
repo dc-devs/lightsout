@@ -1,5 +1,5 @@
 import { buildStandardsReviewInvocation } from '@/agents';
-import { Permissions, StandardsReviewReport, StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSeverity } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
 import type { LoadedStandardsPackage } from '@/standardsPackages';

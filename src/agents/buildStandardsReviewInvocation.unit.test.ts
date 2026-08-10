@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { buildStandardsReviewInvocation } from '@/agents';
 
 const rule = ({ id, documentPath = 'code/architecture/folder-structure', prose }: { id: string; documentPath?: string; prose: string }) => ({
@@ -47,20 +47,12 @@ describe('buildStandardsReviewInvocation', () => {
 
 	test('rules keep the order they were handed over within their document', () => {
 		const { systemPrompt } = buildStandardsReviewInvocation({
-			rules: [
-				rule({ id: 'first', prose: 'one' }),
-				rule({ id: 'second', prose: 'two' }),
-				rule({ id: 'third', prose: 'three' }),
-			],
+			rules: [rule({ id: 'first', prose: 'one' }), rule({ id: 'second', prose: 'two' }), rule({ id: 'third', prose: 'three' })],
 			files: ['src/a.ts'],
 		});
 
 		// the caller decides what should be read first — the grouping must not reshuffle it
-		expect(systemPrompt.match(/\*\*Rule id: `(\w+)`\*\*/g)).toStrictEqual([
-			'**Rule id: `first`**',
-			'**Rule id: `second`**',
-			'**Rule id: `third`**',
-		]);
+		expect(systemPrompt.match(/\*\*Rule id: `(\w+)`\*\*/g)).toStrictEqual(['**Rule id: `first`**', '**Rule id: `second`**', '**Rule id: `third`**']);
 	});
 
 	test('the role prompt leads the system prompt and the rules follow it behind a horizontal rule', () => {

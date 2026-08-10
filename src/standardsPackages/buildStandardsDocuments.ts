@@ -12,15 +12,7 @@ interface Params {
 const byPath = (left: LoadedStandardsDocument, right: LoadedStandardsDocument) => (left.path === right.path ? 0 : left.path > right.path ? 1 : -1);
 
 /** A document as an agent reads it: a header naming where it came from, its intro, then its rules in folder order. */
-const renderDocument = ({
-	name,
-	document,
-	proseById,
-}: {
-	name: string;
-	document: LoadedStandardsDocument;
-	proseById: Map<string, string>;
-}) => {
+const renderDocument = ({ name, document, proseById }: { name: string; document: LoadedStandardsDocument; proseById: Map<string, string> }) => {
 	const parts = [document.intro, ...document.ruleIds.map((id) => proseById.get(id) ?? '')].filter((part) => part.length > 0);
 
 	return `<!-- ${name}: ${document.path} -->\n${parts.join('\n\n')}`;

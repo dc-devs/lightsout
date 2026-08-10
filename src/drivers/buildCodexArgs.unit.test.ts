@@ -8,7 +8,18 @@ test('buildCodexArgs: write — and an absent permissions — yield the workspac
 	const explicit = buildCodexArgs({ outFile, permissions: Permissions.Write });
 	const absent = buildCodexArgs({ outFile });
 
-	expect(explicit).toStrictEqual(['exec', '--skip-git-repo-check', '--color', 'never', '--output-last-message', outFile, '--sandbox', 'workspace-write', '-c', 'approval_policy="never"']);
+	expect(explicit).toStrictEqual([
+		'exec',
+		'--skip-git-repo-check',
+		'--color',
+		'never',
+		'--output-last-message',
+		outFile,
+		'--sandbox',
+		'workspace-write',
+		'-c',
+		'approval_policy="never"',
+	]);
 	// an absent value keeps the workspace-write default
 	expect(absent).toStrictEqual(explicit);
 });

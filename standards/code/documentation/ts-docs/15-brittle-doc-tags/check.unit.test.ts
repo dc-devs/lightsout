@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a file-text rule: every path in scope, with its text beside it. */
@@ -146,7 +146,14 @@ describe('brittle-doc-tags check', () => {
 
 	test('accepts the tags the elements section asks for', async () => {
 		const input = setupDocComment({
-			lines: ['Charges an invoice.', '', '@param invoiceId - the invoice to charge', '@returns the receipt id', '@throws {PaymentDeclinedError} When declined', '@example chargeInvoice({ invoiceId })'],
+			lines: [
+				'Charges an invoice.',
+				'',
+				'@param invoiceId - the invoice to charge',
+				'@returns the receipt id',
+				'@throws {PaymentDeclinedError} When declined',
+				'@example chargeInvoice({ invoiceId })',
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -179,7 +186,9 @@ describe('brittle-doc-tags check', () => {
 	});
 
 	test('ignores a banned tag written in a line comment, which is prose rather than documentation', async () => {
-		const input = setupFileTextInput({ contents: [['src/billing/chargeInvoice.ts', '// @todo handle partial payments\nexport const chargeInvoice = (): number => 1;']] });
+		const input = setupFileTextInput({
+			contents: [['src/billing/chargeInvoice.ts', '// @todo handle partial payments\nexport const chargeInvoice = (): number => 1;']],
+		});
 
 		const findings = await check.run({ input, settings: {} });
 

@@ -35,9 +35,7 @@ export const resolveConsumerTypescript = ({ cwd, packagesDir = 'packages' }: Par
 	for (const manifest of manifests) {
 		try {
 			return createRequire(manifest)('typescript') as typeof ts;
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 
 	return undefined;

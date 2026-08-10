@@ -1,9 +1,9 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { z } from 'zod';
+import { createEventFileSink } from '@/common/utils/createEventFileSink';
 import type { Effort, Permissions } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { createEventFileSink } from '@/common/utils/createEventFileSink';
 import { invokeAgentWithContract } from '@/invoke';
 
 interface Params {

@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
-import { StandardsInputKind, StandardsSeverity, type StandardsCheckRun } from '@/contracts';
+import { describe, expect, jest, test } from '@jest/globals';
+import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '@/contracts';
 import { validateStandardsPackage } from '@/standardsCheck';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
 
@@ -26,11 +26,13 @@ jest.mock('node:module', () => {
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
 const bansTheBannedFile: StandardsCheckRun = ({ input }) =>
-	(input.kind === StandardsInputKind.FileList ? input.files : []).filter((file) => file.endsWith('banned.ts')).map((path) => ({
-		siteKey: `banned:${path}`,
-		files: [{ path }],
-		detail: 'a file the rule bans',
-	}));
+	(input.kind === StandardsInputKind.FileList ? input.files : [])
+		.filter((file) => file.endsWith('banned.ts'))
+		.map((path) => ({
+			siteKey: `banned:${path}`,
+			files: [{ path }],
+			detail: 'a file the rule bans',
+		}));
 
 /**
  * A package holding one rule that needs parsed trees and one that does not,

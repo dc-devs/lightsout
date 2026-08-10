@@ -16,8 +16,7 @@ const isNamedConstantFamily = ({ exports }: { exports: FileExport[] }) => {
 	const unionName = withKeyword({ keyword: 'const' }).find(({ name }) => withKeyword({ keyword: 'type' }).some((entry) => entry.name === name))?.name;
 
 	return (
-		unionName !== undefined &&
-		exports.every(({ keyword, name, line }) => name === unionName || (keyword === 'const' && line.includes(`Record<${unionName}`)))
+		unionName !== undefined && exports.every(({ keyword, name, line }) => name === unionName || (keyword === 'const' && line.includes(`Record<${unionName}`)))
 	);
 };
 

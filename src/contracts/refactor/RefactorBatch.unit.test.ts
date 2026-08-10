@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { RefactorBatch } from '@/contracts';
 
 const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
@@ -113,7 +113,9 @@ describe('RefactorBatch', () => {
 	});
 
 	test('a malformed advisory rejects the batch just as a malformed finding does', () => {
-		const { batch } = setupBatch({ extra: { advisories: [{ rule: 'size-file', severity: 'advisory', siteKey: 'size-file:src/standardsCheck/runStandardsCheck.ts' }] } });
+		const { batch } = setupBatch({
+			extra: { advisories: [{ rule: 'size-file', severity: 'advisory', siteKey: 'size-file:src/standardsCheck/runStandardsCheck.ts' }] },
+		});
 
 		const result = RefactorBatch.safeParse(batch);
 
@@ -125,7 +127,10 @@ describe('RefactorBatch', () => {
 	test('rejects a findings or advisories value that is not an array', () => {
 		const { batch, finding, advisory } = setupBatch();
 
-		for (const malformed of [{ ...batch, blocking: finding }, { ...batch, advisories: advisory }]) {
+		for (const malformed of [
+			{ ...batch, blocking: finding },
+			{ ...batch, advisories: advisory },
+		]) {
 			const result = RefactorBatch.safeParse(malformed);
 
 			// a single entry in place of the list is a malformed batch

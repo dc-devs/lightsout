@@ -1,8 +1,8 @@
 import { buildUnitTestWriterInvocation } from '@/agents';
-import { WorkReportStatus, type WorkReport } from '@/contracts';
-import { appendFriction } from '@/runState';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { type WorkReport, WorkReportStatus } from '@/contracts';
 import { testWriterConcurrency } from '@/pipeline/common/constants/testWriterConcurrency';
+import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { appendFriction } from '@/runState';
 
 interface Params {
 	run: PipelineRun;
@@ -108,7 +108,13 @@ export const runWriterBatches = async ({
 	};
 
 	if (warm) {
-		await Promise.race([gate, warm.then(() => undefined, () => undefined)]);
+		await Promise.race([
+			gate,
+			warm.then(
+				() => undefined,
+				() => undefined,
+			),
+		]);
 	}
 
 	const rest = warmed ? groups.slice(1) : groups;

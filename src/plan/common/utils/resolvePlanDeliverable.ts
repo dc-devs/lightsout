@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '@/plan/common/paths/pathExists';
 import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
@@ -44,9 +44,7 @@ export const resolvePlanDeliverable = async ({ cwd, name }: Params): Promise<Res
 	if (await pathExists({ path: singlePath })) {
 		files.push({ path: singlePath, text: await readFile(singlePath, 'utf8') });
 	} else {
-		const entries = (await readdir(dir).catch(() => [] as string[]))
-			.filter((entry) => entry === 'overview.md' || /^phase\d+.*\.md$/.test(entry))
-			.sort();
+		const entries = (await readdir(dir).catch(() => [] as string[])).filter((entry) => entry === 'overview.md' || /^phase\d+.*\.md$/.test(entry)).sort();
 
 		for (const entry of entries) {
 			const path = join(dir, entry);

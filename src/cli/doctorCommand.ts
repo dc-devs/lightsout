@@ -1,10 +1,9 @@
-import { join } from 'node:path';
-import { runDoctor } from '@/doctor';
 import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { runDoctor } from '@/doctor';
 
 export const doctorCommand = async ({ cwd }: CommandContext): Promise<void> => {
 	const checks = await runDoctor({ cwd });

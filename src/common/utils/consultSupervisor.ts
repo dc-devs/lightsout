@@ -1,5 +1,5 @@
 import { buildSupervisorInvocation } from '@/agents';
-import { Permissions, SupervisorVerdict, type LightsoutConfig } from '@/contracts';
+import { type LightsoutConfig, Permissions, SupervisorVerdict } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
 

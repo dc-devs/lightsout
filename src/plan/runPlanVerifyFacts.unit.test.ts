@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import { expectStatus } from '@tests/helpers/expectStatus';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { PlanFacts } from '@/contracts';
 import { runPlanVerifyFacts } from '@/plan';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { expectStatus } from '@tests/helpers/expectStatus';
 
 /** Seed the workspace's authored facts.json with the given raw content. */
 const seedFacts = ({ cwd, name, content }: { cwd: string; name: string; content: string }) => {
@@ -22,10 +22,7 @@ const authoredFacts = ({ ghost = true }: { ghost?: boolean } = {}) =>
 			{
 				area: 'core',
 				affectedPackages: [],
-				filesToModify: [
-					{ path: 'src/index.js', role: 'the entry point' },
-					...(ghost ? [{ path: 'src/does-not-exist.ts', role: 'a ghost file' }] : []),
-				],
+				filesToModify: [{ path: 'src/index.js', role: 'the entry point' }, ...(ghost ? [{ path: 'src/does-not-exist.ts', role: 'a ghost file' }] : [])],
 				patternsToMirror: [],
 				integrationPoints: [],
 				scripts: [{ key: 'check', command: 'tsc' }],

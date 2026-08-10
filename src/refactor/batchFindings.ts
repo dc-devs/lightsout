@@ -100,7 +100,7 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 	const folderOf = (finding: StandardsFinding) => {
 		const areas = new Set(finding.files.map((file) => areaOf(file.path)));
 
-		return areas.size > 1 ? '(cross)' : [...areas][0] ?? '(root)';
+		return areas.size > 1 ? '(cross)' : ([...areas][0] ?? '(root)');
 	};
 
 	const groups = new Map<string, { rule: string; folder: string; findings: StandardsFinding[] }>();
@@ -117,10 +117,7 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 	const crossLast = (folder: string) => (folder === '(cross)' ? 1 : 0);
 	const ordered = [...groups.values()].sort(
 		(a, b) =>
-			priorityOf(a.rule) - priorityOf(b.rule) ||
-			a.rule.localeCompare(b.rule) ||
-			crossLast(a.folder) - crossLast(b.folder) ||
-			a.folder.localeCompare(b.folder),
+			priorityOf(a.rule) - priorityOf(b.rule) || a.rule.localeCompare(b.rule) || crossLast(a.folder) - crossLast(b.folder) || a.folder.localeCompare(b.folder),
 	);
 
 	const batches: RefactorBatch[] = [];

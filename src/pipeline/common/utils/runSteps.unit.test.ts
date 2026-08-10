@@ -1,12 +1,12 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { RunStatus, type LightsoutConfig } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
+import { type LightsoutConfig, RunStatus } from '@/contracts';
 import type { Driver } from '@/drivers';
+import { runSteps } from '@/pipeline/common/utils/runSteps';
 import { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { runSteps } from '@/pipeline/common/utils/runSteps';
 import { createRun } from '@/runState';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };

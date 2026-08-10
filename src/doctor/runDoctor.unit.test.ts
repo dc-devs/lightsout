@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test, jest } from '@jest/globals';
-import { runDoctor } from '@/doctor';
+import { expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { runDoctor } from '@/doctor';
 
 const passingProbe = async () => ({ exitCode: 0, stdout: '2.1.201 (Claude Code)\n', stderr: '' });
 
@@ -337,10 +337,7 @@ test('doctor lint-rules judges an eslint config by the eslint rule names, not bi
 	// A legacy .eslintrc with both rules on → pass, counted as one config.
 	const clean = setupConsumerRepo({ git: false });
 
-	writeFileSync(
-		join(clean, '.eslintrc.json'),
-		'{"rules":{"@typescript-eslint/consistent-type-imports":"error","@typescript-eslint/no-explicit-any":"error"}}',
-	);
+	writeFileSync(join(clean, '.eslintrc.json'), '{"rules":{"@typescript-eslint/consistent-type-imports":"error","@typescript-eslint/no-explicit-any":"error"}}');
 
 	const cleanChecks = byId(await runDoctor({ cwd: clean, probeHarness: passingProbe }));
 

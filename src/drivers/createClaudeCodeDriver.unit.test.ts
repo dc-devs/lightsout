@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test, afterAll } from '@jest/globals';
+import { afterAll, expect, test } from '@jest/globals';
 import { Effort, Permissions } from '@/contracts';
 import { createClaudeCodeDriver } from '@/drivers';
 
@@ -56,10 +56,7 @@ const setupClaude = async ({
 			// `sleep` would survive the driver's SIGKILL, outlive the test as an
 			// orphan, and keep the inherited stdout pipe open.
 			...(delaySeconds > 0 ? [`exec sleep ${delaySeconds}`] : []),
-			...stdoutChunks.flatMap((chunk, index) => [
-				...(index > 0 && chunkDelay ? ['sleep 0.2'] : []),
-				`printf '%s' '${chunk}'`,
-			]),
+			...stdoutChunks.flatMap((chunk, index) => [...(index > 0 && chunkDelay ? ['sleep 0.2'] : []), `printf '%s' '${chunk}'`]),
 			`printf '%s' '${stderr}' >&2`,
 			`exit ${exitCode}`,
 		].join('\n'),
@@ -181,13 +178,16 @@ test('createClaudeCodeDriver: the final result event supplies the text and the n
 
 test('createClaudeCodeDriver: every parseable streamed event reaches onEvent, blank and non-JSON lines aside', async () => {
 	const { driver, cwd } = await setupClaude({
-		stdoutChunks: [event({ type: 'assistant', text: 'thinking' }) + '\n' + 'not json at all\n' + event({ type: 'result', result: 'FINAL' })],
+		stdoutChunks: [`${event({ type: 'assistant', text: 'thinking' })}\nnot json at all\n${event({ type: 'result', result: 'FINAL' })}`],
 	});
 	const seen: unknown[] = [];
 
 	await driver.invoke({ prompt: 'TASK', cwd, onEvent: (streamed) => seen.push(streamed) });
 
-	expect(seen).toStrictEqual([{ type: 'assistant', text: 'thinking' }, { type: 'result', result: 'FINAL' }]);
+	expect(seen).toStrictEqual([
+		{ type: 'assistant', text: 'thinking' },
+		{ type: 'result', result: 'FINAL' },
+	]);
 });
 
 test('createClaudeCodeDriver: a result event reporting neither usage nor cost yields no usage at all', async () => {

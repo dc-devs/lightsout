@@ -48,8 +48,7 @@ export const check: StandardsCheckModule = {
 	run: ({ input }): RawStandardsFinding[] => {
 		const { files, contents, standardsPackages } = readFileTexts({ input });
 		const fileSet = new Set(files);
-		const getTargets = ({ barrelPath }: { barrelPath: string }) =>
-			readBarrelTargets({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet });
+		const getTargets = ({ barrelPath }: { barrelPath: string }) => readBarrelTargets({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet });
 
 		return [...mapFolderModules({ files, getTargets, standardsPackages })]
 			.map(([folder, { barrelPath }]) => {

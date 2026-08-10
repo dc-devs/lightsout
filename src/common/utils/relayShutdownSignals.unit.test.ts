@@ -1,5 +1,5 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { expect, describe, jest, test } from '@jest/globals';
+import { type ChildProcess, spawn } from 'node:child_process';
+import { describe, expect, jest, test } from '@jest/globals';
 import { relayShutdownSignals } from '@/common/utils/relayShutdownSignals';
 
 /** A detached shell that reports its grandchild's pid, then waits. */

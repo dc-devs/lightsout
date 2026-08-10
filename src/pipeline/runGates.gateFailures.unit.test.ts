@@ -1,15 +1,14 @@
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { GateResult } from '@/contracts';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runGates } from '@/pipeline';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { gateLogCommand } from '@tests/helpers/gateLogCommand';
 import { readGateLog } from '@tests/helpers/readGateLog';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { GateResult } from '@/contracts';
+import { runGates } from '@/pipeline';
 
 /** A gate that writes to stderr and exits red — the output the failure message must carry. */
-const redGate = ({ exitCode, message }: { exitCode: number; message: string }) =>
-	`node -e "process.stderr.write('${message}'); process.exit(${exitCode})"`;
+const redGate = ({ exitCode, message }: { exitCode: number; message: string }) => `node -e "process.stderr.write('${message}'); process.exit(${exitCode})"`;
 
 test('the build gate runs last in the root set, after check and the test run', async () => {
 	const dir = setupConsumerRepo({

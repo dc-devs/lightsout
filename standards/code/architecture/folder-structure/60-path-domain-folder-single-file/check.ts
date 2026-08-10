@@ -21,10 +21,7 @@ export const check: StandardsCheckModule = {
 
 		return [...collectDirectories({ files })]
 			.sort()
-			.filter(
-				(directory) =>
-					isDomainFolder({ directory }) && productionFiles.filter((file) => getDirectory({ path: file }) === directory).length === 1,
-			)
+			.filter((directory) => isDomainFolder({ directory }) && productionFiles.filter((file) => getDirectory({ path: file }) === directory).length === 1)
 			.map((directory) =>
 				buildRawFinding({
 					rule: 'path-domain-folder-single-file',

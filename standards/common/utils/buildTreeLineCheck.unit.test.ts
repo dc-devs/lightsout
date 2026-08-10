@@ -1,5 +1,5 @@
+import { describe, expect, test } from '@jest/globals';
 import ts from 'typescript';
-import { expect, describe, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
 import { buildTreeLineCheck } from './buildTreeLineCheck.ts';
 

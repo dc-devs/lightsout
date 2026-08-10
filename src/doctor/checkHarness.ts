@@ -1,8 +1,8 @@
-import type { LightsoutConfig } from '@/contracts';
+import { messageOf } from '@/common/utils/messageOf';
 import { runCommand } from '@/common/utils/runCommand';
+import type { LightsoutConfig } from '@/contracts';
 import { probeTimeoutMs } from '@/doctor/common/constants/probeTimeoutMs';
 import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
-import { messageOf } from '@/common/utils/messageOf';
 
 const driverBinaries: Record<string, string> = { 'claude-code': 'claude', codex: 'codex' };
 

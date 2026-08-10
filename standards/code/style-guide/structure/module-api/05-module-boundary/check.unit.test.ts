@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /**
@@ -42,12 +42,7 @@ describe('module-boundary check', () => {
 
 	test('reports a file reaching past another module’s barrel into its internals', async () => {
 		const input = setupImportGraphInput({
-			paths: [
-				'src/reporting/buildReport.ts',
-				'src/ingestion/index.ts',
-				'src/ingestion/ingestRecords.ts',
-				'src/ingestion/common/utils/normalizeRecord.ts',
-			],
+			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -69,12 +64,7 @@ describe('module-boundary check', () => {
 
 	test('importing the module’s barrel earns nothing — that is the public API the rule points at', async () => {
 		const input = setupImportGraphInput({
-			paths: [
-				'src/reporting/buildReport.ts',
-				'src/ingestion/index.ts',
-				'src/ingestion/ingestRecords.ts',
-				'src/ingestion/common/utils/normalizeRecord.ts',
-			],
+			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/index.ts' },
@@ -115,11 +105,7 @@ describe('module-boundary check', () => {
 		expect(findings).toStrictEqual([
 			{
 				siteKey: 'module-boundary:src/ingestion/ingestRecords.ts|src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
-				files: [
-					{ path: 'src/reporting/buildReport.ts' },
-					{ path: 'src/ingestion/ingestRecords.ts' },
-					{ path: 'src/ingestion/parseRow.ts' },
-				],
+				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/ingestRecords.ts' }, { path: 'src/ingestion/parseRow.ts' }],
 				detail:
 					"deep-imports 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts' — internals of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
 				guidance: 'A module’s barrel is its public API; everything else is an internal.',
@@ -143,8 +129,7 @@ describe('module-boundary check', () => {
 			{
 				siteKey: 'module-boundary:src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
 				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/parseRow.ts' }],
-				detail:
-					"deep-imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
+				detail: "deep-imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
 				guidance: 'A module’s barrel is its public API; everything else is an internal.',
 			},
 		]);
@@ -183,12 +168,7 @@ describe('module-boundary check', () => {
 
 	test('leaves an import into another module’s common/ to the placement rule', async () => {
 		const input = setupImportGraphInput({
-			paths: [
-				'src/reporting/buildReport.ts',
-				'src/ingestion/index.ts',
-				'src/ingestion/ingestRecords.ts',
-				'src/ingestion/common/utils/normalizeRecord.ts',
-			],
+			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
@@ -202,12 +182,7 @@ describe('module-boundary check', () => {
 
 	test('counts a module’s import into its OWN common/ as no crossing, so the fail fixture earns exactly one finding', async () => {
 		const input = setupImportGraphInput({
-			paths: [
-				'src/ingestion/common/utils/normalizeRecord.ts',
-				'src/ingestion/index.ts',
-				'src/ingestion/ingestRecords.ts',
-				'src/reporting/buildReport.ts',
-			],
+			paths: ['src/ingestion/common/utils/normalizeRecord.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/reporting/buildReport.ts'],
 			edges: [
 				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -230,12 +205,7 @@ describe('module-boundary check', () => {
 
 	test('stays silent across the whole pass fixture, whose one outside importer goes through the barrel', async () => {
 		const input = setupImportGraphInput({
-			paths: [
-				'src/ingestion/common/utils/normalizeRecord.ts',
-				'src/ingestion/index.ts',
-				'src/ingestion/ingestRecords.ts',
-				'src/reporting/buildReport.ts',
-			],
+			paths: ['src/ingestion/common/utils/normalizeRecord.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/reporting/buildReport.ts'],
 			edges: [
 				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -264,8 +234,7 @@ describe('module-boundary check', () => {
 			{
 				siteKey: 'module-boundary:src/ingestion/parseRow.ts|src/reporting/buildReport.ts',
 				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/ingestion/parseRow.ts' }],
-				detail:
-					"deep-imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
+				detail: "deep-imports 'src/ingestion/parseRow.ts' — an internal of module 'src/ingestion'; import from its barrel 'src/ingestion/index.ts' instead",
 				guidance: 'A module’s barrel is its public API; everything else is an internal.',
 			},
 		]);

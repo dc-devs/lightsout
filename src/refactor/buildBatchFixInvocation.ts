@@ -20,7 +20,16 @@ interface Params {
  * red kind — mixed failures fix the source first (the coverage red may be
  * downstream of the source break).
  */
-export const buildBatchFixInvocation = ({ planContent, files, standards, testStandards, findings, advisories, gateError, guidance }: Params): { systemPrompt: string; prompt: string } => {
+export const buildBatchFixInvocation = ({
+	planContent,
+	files,
+	standards,
+	testStandards,
+	findings,
+	advisories,
+	gateError,
+	guidance,
+}: Params): { systemPrompt: string; prompt: string } => {
 	const errorContext = guidance ? `${gateError}\n\n${guidance}` : gateError;
 	const coverageRed = gateError.includes('test-coverage failed') && !/(check|test-unit|build|generate|format) failed/.test(gateError);
 

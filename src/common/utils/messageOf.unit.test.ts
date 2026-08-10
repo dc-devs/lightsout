@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { messageOf } from '@/common/utils/messageOf';
 
 describe('messageOf', () => {

@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { StandardsFinding } from '@/contracts';
 import { loadConfig } from '@/common/utils/loadConfig';
+import type { StandardsFinding } from '@/contracts';
 import { detectStandardsChannels } from '@/standards';
 import { applyStandardsBaseline } from '@/standardsCheck/common/utils/applyStandardsBaseline';
 import { resolvePackageRuleStates } from '@/standardsCheck/resolvePackageRuleStates';
@@ -125,7 +125,11 @@ export const runStandardsCheck = async ({
 	notes.push(...baseline.notes);
 
 	if (persist) {
-		await writeFile(join(dir, 'standards-check.json'), `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`, 'utf8');
+		await writeFile(
+			join(dir, 'standards-check.json'),
+			`${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`,
+			'utf8',
+		);
 	}
 
 	return { findings: baseline.reported, notes };

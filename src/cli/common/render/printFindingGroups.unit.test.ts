@@ -1,6 +1,6 @@
-import { expect, describe, test, jest } from '@jest/globals';
-import { StandardsSeverity, type StandardsFinding } from '@/contracts';
+import { describe, expect, jest, test } from '@jest/globals';
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
 	rule: 'size-function',
@@ -117,7 +117,10 @@ describe('printFindingGroups', () => {
 			findings: [
 				finding({
 					rule: 'clone',
-					files: [{ path: 'src/a.ts', startLine: 1, endLine: 60 }, { path: 'src/b.ts', startLine: 5, endLine: 64 }],
+					files: [
+						{ path: 'src/a.ts', startLine: 1, endLine: 60 },
+						{ path: 'src/b.ts', startLine: 5, endLine: 64 },
+					],
 					detail: '60-line duplicated span',
 				}),
 			],

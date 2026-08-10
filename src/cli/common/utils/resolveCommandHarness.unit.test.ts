@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
+import type { LightsoutConfig } from '@/contracts';
 
 const base: LightsoutConfig = { scripts: { check: 'c', testUnit: 't', testCoverage: false } };
 
@@ -25,7 +25,7 @@ test('resolveCommandHarness: an entry overriding both wins for its command; othe
 	expect(resolveCommandHarness({ config, command: 'refactor' })).toStrictEqual({ driverName: 'claude-code', model: 'opus', effort: undefined });
 });
 
-test('resolveCommandHarness: a harness-only override never inherits the other harness\'s global model (decision 7)', () => {
+test("resolveCommandHarness: a harness-only override never inherits the other harness's global model (decision 7)", () => {
 	const config: LightsoutConfig = { ...base, model: 'opus', commands: { improve: { harness: 'codex' } } };
 
 	expect(resolveCommandHarness({ config, command: 'improve' })).toStrictEqual({ driverName: 'codex', model: undefined, effort: undefined });

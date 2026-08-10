@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { checkVerificationScripts } from '@/plan/checkVerificationScripts';
 import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
 
@@ -30,8 +30,17 @@ const setupRepo = ({ manifests = {} }: { manifests?: Record<string, string> } = 
 	return { cwd, planPath: join(cwd, 'plan.md') };
 };
 
-const check = ({ cwd, planPath, plan, configCommands = new Set<string>() }: { cwd: string; planPath: string; plan: ParsedPlan; configCommands?: Set<string> }) =>
-	checkVerificationScripts({ plan, cwd, planPath, packagesDir: 'packages', configCommands });
+const check = ({
+	cwd,
+	planPath,
+	plan,
+	configCommands = new Set<string>(),
+}: {
+	cwd: string;
+	planPath: string;
+	plan: ParsedPlan;
+	configCommands?: Set<string>;
+}) => checkVerificationScripts({ plan, cwd, planPath, packagesDir: 'packages', configCommands });
 
 const rootManifest = (scripts: Record<string, string>) => ({ 'package.json': JSON.stringify({ name: 'root', scripts }) });
 

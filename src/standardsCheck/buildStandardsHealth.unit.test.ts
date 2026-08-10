@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { StandardsSeverity, type AdvisoryOutcome, type BatchReport, type RefactorBatch, type StandardsFinding } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
+import { type AdvisoryOutcome, type BatchReport, type RefactorBatch, type StandardsFinding, StandardsSeverity } from '@/contracts';
 import { buildStandardsHealth } from '@/standardsCheck';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
 
@@ -67,10 +67,7 @@ const setupRun = ({
 	const runDir = join(cwd, '.lightsout', 'runs', runId);
 
 	mkdirSync(runDir, { recursive: true });
-	writeFileSync(
-		join(runDir, 'worklist.json'),
-		worklistJson ?? JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', all: false, batches }),
-	);
+	writeFileSync(join(runDir, 'worklist.json'), worklistJson ?? JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', all: false, batches }));
 	writeFileSync(
 		join(runDir, 'manifest.json'),
 		JSON.stringify({
@@ -129,8 +126,12 @@ describe('buildStandardsHealth', () => {
 
 	test('a site the batch report shows gone is resolved; one still standing in a declined batch is declined', async () => {
 		const cwd = setupRun({
-			batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' }), finding({ rule: 'multi-export', path: 'src/b.ts' })] })],
-			reports: { 'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/b.ts'], rationale: ['[plan] splitting would break the barrel'] }) },
+			batches: [
+				batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' }), finding({ rule: 'multi-export', path: 'src/b.ts' })] }),
+			],
+			reports: {
+				'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/b.ts'], rationale: ['[plan] splitting would break the barrel'] }),
+			},
 		});
 
 		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
@@ -168,7 +169,11 @@ describe('buildStandardsHealth', () => {
 				}),
 			],
 			reports: {
-				'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/a.ts', 'module-boundary:src/b.ts'], rationale: ['[other] both are deliberate'] }),
+				'batch-01': report({
+					outcome: 'declined',
+					remainingSiteKeys: ['multi-export:src/a.ts', 'module-boundary:src/b.ts'],
+					rationale: ['[other] both are deliberate'],
+				}),
 			},
 		});
 

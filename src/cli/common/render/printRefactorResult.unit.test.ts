@@ -1,7 +1,7 @@
-import { expect, test, jest } from '@jest/globals';
-import { RunStatus, type RunManifest } from '@/contracts';
-import type { RefactorResult } from '@/refactor';
+import { expect, jest, test } from '@jest/globals';
 import { printRefactorResult } from '@/cli/common/render/printRefactorResult';
+import { type RunManifest, RunStatus } from '@/contracts';
+import type { RefactorResult } from '@/refactor';
 
 // isTTY is pinned off so the ANSI paint helpers stay no-ops and the assertions
 // read the plain text a piped consumer sees.
@@ -48,7 +48,10 @@ test('printRefactorResult: a resolved batch reports as resolved with its changed
 	const { result, output } = setupResult({
 		before: { clone: 3 },
 		after: { clone: 0 },
-		manifest: { steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1, changedFiles: ['src/a.ts', 'src/b.ts'] }], changedFiles: ['src/a.ts', 'src/b.ts'] },
+		manifest: {
+			steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1, changedFiles: ['src/a.ts', 'src/b.ts'] }],
+			changedFiles: ['src/a.ts', 'src/b.ts'],
+		},
 	});
 
 	printRefactorResult({ result });

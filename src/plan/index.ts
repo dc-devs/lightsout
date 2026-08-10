@@ -1,11 +1,11 @@
-export { runPlanVerifyFacts } from '@/plan/runPlanVerifyFacts';
+export type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';
+export { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
+export { lintPlanStructure } from '@/plan/lintPlanStructure';
+export { readBrainstormDecisions } from '@/plan/readBrainstormDecisions';
+export { readDecisions } from '@/plan/readDecisions';
+export { runPlanDedup } from '@/plan/runPlanDedup';
 export { runPlanDraft } from '@/plan/runPlanDraft';
 export { runPlanGrade } from '@/plan/runPlanGrade';
-export { runPlanDedup } from '@/plan/runPlanDedup';
 export { runPlanLint } from '@/plan/runPlanLint';
-export { lintPlanStructure } from '@/plan/lintPlanStructure';
+export { runPlanVerifyFacts } from '@/plan/runPlanVerifyFacts';
 export { verifyFacts } from '@/plan/verifyFacts';
-export { readDecisions } from '@/plan/readDecisions';
-export { readBrainstormDecisions } from '@/plan/readBrainstormDecisions';
-export { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
-export type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';

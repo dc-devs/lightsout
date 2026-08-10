@@ -1,4 +1,4 @@
-import { expect, describe, test, jest } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { isPidAlive } from '@/runState';
 
 /** Beyond any OS pid range — process.kill(pid, 0) reports ESRCH, i.e. dead. */

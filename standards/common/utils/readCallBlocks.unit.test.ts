@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { readCallBlocks } from './readCallBlocks.ts';
 
 /**
@@ -10,13 +10,7 @@ import { readCallBlocks } from './readCallBlocks.ts';
 
 /** One describe holding one test — the nesting the depth field exists to report. */
 const setupSuite = () => ({
-	text: [
-		"describe('getAvatarUrl', () => {",
-		"  test('returns null', () => {",
-		'    const avatarUrl = null;',
-		'  });',
-		'});',
-	].join('\n'),
+	text: ["describe('getAvatarUrl', () => {", "  test('returns null', () => {", '    const avatarUrl = null;', '  });', '});'].join('\n'),
 });
 
 /** A callee name sitting inside a longer identifier, above a real call. */
@@ -26,22 +20,14 @@ const setupShadowedName = () => ({
 
 /** A dotted callee whose callback returns an object instead of opening a block. */
 const setupModuleMock = () => ({
-	text: [
-		"jest.mock('@/utils/get-profile', () => ({",
-		'  getProfile: (params: { userId: string }) => mockGetProfile(params),',
-		'}));',
-	].join('\n'),
+	text: ["jest.mock('@/utils/get-profile', () => ({", '  getProfile: (params: { userId: string }) => mockGetProfile(params),', '}));'].join('\n'),
 });
 
 /** A call in a comment, a call in a string, and a brace in a string. */
 const setupInertText = () => ({
-	text: [
-		"// describe('ghost', () => {});",
-		'const label = "describe(\'quoted\', () => {})";',
-		"describe('real', () => {",
-		"  const brace = '}';",
-		'});',
-	].join('\n'),
+	text: ["// describe('ghost', () => {});", 'const label = "describe(\'quoted\', () => {})";', "describe('real', () => {", "  const brace = '}';", '});'].join(
+		'\n',
+	),
 });
 
 /** A matcher: a call with arguments but no callback at all. */
@@ -56,15 +42,7 @@ const setupUnterminated = () => ({
 
 /** A hook above a suite, so document order and callee order disagree. */
 const setupHookAboveSuite = () => ({
-	text: [
-		'beforeEach(() => {',
-		'  resetProfile();',
-		'});',
-		'',
-		"describe('subject', () => {",
-		'  const value = 1;',
-		'});',
-	].join('\n'),
+	text: ['beforeEach(() => {', '  resetProfile();', '});', '', "describe('subject', () => {", '  const value = 1;', '});'].join('\n'),
 });
 
 /** A backtick title, behind whitespace between the callee and its parenthesis. */
@@ -156,9 +134,7 @@ describe('readCallBlocks', () => {
 		const blocks = readCallBlocks({ text, callees: ['describe'] });
 
 		// the body still reads the real text: only the bracket matching works off the mask
-		expect(blocks).toStrictEqual([
-			{ callee: 'describe', title: 'real', body: "\n  const brace = '}';\n", startLine: 3, endLine: 5, depth: 0 },
-		]);
+		expect(blocks).toStrictEqual([{ callee: 'describe', title: 'real', body: "\n  const brace = '}';\n", startLine: 3, endLine: 5, depth: 0 }]);
 	});
 
 	test('reports a call with no callback as its whole argument text, with no title', () => {
@@ -166,9 +142,7 @@ describe('readCallBlocks', () => {
 
 		const blocks = readCallBlocks({ text, callees: ['toStrictEqual'] });
 
-		expect(blocks).toStrictEqual([
-			{ callee: 'toStrictEqual', title: '', body: 'expect.any(String)', startLine: 1, endLine: 1, depth: 0 },
-		]);
+		expect(blocks).toStrictEqual([{ callee: 'toStrictEqual', title: '', body: 'expect.any(String)', startLine: 1, endLine: 1, depth: 0 }]);
 	});
 
 	test('fails open on an unterminated call, ending the block at the last line of the file', () => {
@@ -176,9 +150,7 @@ describe('readCallBlocks', () => {
 
 		const blocks = readCallBlocks({ text, callees: ['describe'] });
 
-		expect(blocks).toStrictEqual([
-			{ callee: 'describe', title: 'unbalanced', body: '\n  const value = 1;', startLine: 1, endLine: 2, depth: 0 },
-		]);
+		expect(blocks).toStrictEqual([{ callee: 'describe', title: 'unbalanced', body: '\n  const value = 1;', startLine: 1, endLine: 2, depth: 0 }]);
 	});
 
 	test('returns blocks in document order however the callees were listed', () => {
@@ -198,9 +170,7 @@ describe('readCallBlocks', () => {
 
 		const blocks = readCallBlocks({ text, callees: ['test'] });
 
-		expect(blocks).toStrictEqual([
-			{ callee: 'test', title: 'renders a card', body: '\n  const value = 1;\n', startLine: 1, endLine: 3, depth: 0 },
-		]);
+		expect(blocks).toStrictEqual([{ callee: 'test', title: 'renders a card', body: '\n  const value = 1;\n', startLine: 1, endLine: 3, depth: 0 }]);
 	});
 
 	test('sees no call inside a block comment, and still counts its lines', () => {
@@ -209,9 +179,7 @@ describe('readCallBlocks', () => {
 		const blocks = readCallBlocks({ text, callees: ['describe'] });
 
 		// the comment's own brace never opens a block, and its three lines still push the real suite to line 4
-		expect(blocks).toStrictEqual([
-			{ callee: 'describe', title: 'real', body: '\n  const value = 1;\n', startLine: 4, endLine: 6, depth: 0 },
-		]);
+		expect(blocks).toStrictEqual([{ callee: 'describe', title: 'real', body: '\n  const value = 1;\n', startLine: 4, endLine: 6, depth: 0 }]);
 	});
 
 	test('takes the callback arrow outside every bracket, not an arrow inside its parameters', () => {
@@ -220,9 +188,7 @@ describe('readCallBlocks', () => {
 		const blocks = readCallBlocks({ text, callees: ['test'] });
 
 		// the default value's arrow sits inside the parameter list, so the body starts after the outer one
-		expect(blocks).toStrictEqual([
-			{ callee: 'test', title: 'renders', body: '\n  const value = 1;\n', startLine: 1, endLine: 3, depth: 0 },
-		]);
+		expect(blocks).toStrictEqual([{ callee: 'test', title: 'renders', body: '\n  const value = 1;\n', startLine: 1, endLine: 3, depth: 0 }]);
 	});
 
 	test('counts only enclosing blocks as depth, so sibling calls sit at the same level', () => {

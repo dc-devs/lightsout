@@ -1,16 +1,16 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { WorkReport } from '@/contracts';
-import { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
+import { outcomeFields } from '@tests/helpers/outcomeFields';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { outcomeFields } from '@tests/helpers/outcomeFields';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { WorkReport } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
+import { runImplementPipeline } from '@/pipeline';
 
 const stubUsage = (outputTokens: number) => ({
 	inputTokens: 10,
@@ -28,18 +28,18 @@ test('usage sums across a re-emit retry — one role invocation, one bill', asyn
 		invoke: async () => {
 			calls += 1;
 
-			return calls === 1
-				? { text: 'no json here', exitCode: 0, usage: stubUsage(100) }
-				: { text: report(), exitCode: 0, usage: stubUsage(50) };
+			return calls === 1 ? { text: 'no json here', exitCode: 0, usage: stubUsage(100) } : { text: report(), exitCode: 0, usage: stubUsage(50) };
 		},
 	};
 
-	const { report: parsed, usage } = outcomeFields(await invokeAgentWithContract({
-		driver,
-		cwd: '.',
-		invocation: { systemPrompt: 's', prompt: 'p' },
-		contract: WorkReport,
-	}));
+	const { report: parsed, usage } = outcomeFields(
+		await invokeAgentWithContract({
+			driver,
+			cwd: '.',
+			invocation: { systemPrompt: 's', prompt: 'p' },
+			contract: WorkReport,
+		}),
+	);
 
 	expect(parsed).toBeTruthy();
 	expect(usage?.outputTokens).toBe(150);
@@ -59,12 +59,14 @@ test('an attempt reporting no usage does not zero the invocation total', async (
 		},
 	};
 
-	const { report: parsed, usage } = outcomeFields(await invokeAgentWithContract({
-		driver,
-		cwd: '.',
-		invocation: { systemPrompt: 's', prompt: 'p' },
-		contract: WorkReport,
-	}));
+	const { report: parsed, usage } = outcomeFields(
+		await invokeAgentWithContract({
+			driver,
+			cwd: '.',
+			invocation: { systemPrompt: 's', prompt: 'p' },
+			contract: WorkReport,
+		}),
+	);
 
 	expect(parsed).toBeTruthy();
 	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 50, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
@@ -78,18 +80,18 @@ test('usage spent before a rate limit is still reported — a parked run is bill
 		invoke: async () => {
 			calls += 1;
 
-			return calls === 1
-				? { text: 'no json here', exitCode: 0, usage: stubUsage(100) }
-				: { text: '', exitCode: 1, rateLimited: true, usage: stubUsage(20) };
+			return calls === 1 ? { text: 'no json here', exitCode: 0, usage: stubUsage(100) } : { text: '', exitCode: 1, rateLimited: true, usage: stubUsage(20) };
 		},
 	};
 
-	const { rateLimited, usage } = outcomeFields(await invokeAgentWithContract({
-		driver,
-		cwd: '.',
-		invocation: { systemPrompt: 's', prompt: 'p' },
-		contract: WorkReport,
-	}));
+	const { rateLimited, usage } = outcomeFields(
+		await invokeAgentWithContract({
+			driver,
+			cwd: '.',
+			invocation: { systemPrompt: 's', prompt: 'p' },
+			contract: WorkReport,
+		}),
+	);
 
 	expect(rateLimited).toBe(true);
 	expect(usage).toStrictEqual({ inputTokens: 20, outputTokens: 120, cacheReadTokens: 2000, cacheCreationTokens: 10, costUsd: 1 });
@@ -111,12 +113,14 @@ test('usage spent before a driver throw is still reported', async () => {
 		},
 	};
 
-	const { failure, usage } = outcomeFields(await invokeAgentWithContract({
-		driver,
-		cwd: '.',
-		invocation: { systemPrompt: 's', prompt: 'p' },
-		contract: WorkReport,
-	}));
+	const { failure, usage } = outcomeFields(
+		await invokeAgentWithContract({
+			driver,
+			cwd: '.',
+			invocation: { systemPrompt: 's', prompt: 'p' },
+			contract: WorkReport,
+		}),
+	);
 
 	expect(failure).toBe('agent invocation failed: spawn ENOENT');
 	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 100, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });

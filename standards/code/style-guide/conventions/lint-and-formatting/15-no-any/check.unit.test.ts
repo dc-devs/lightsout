@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -38,7 +48,9 @@ describe('no-any check', () => {
 	});
 
 	test('reports an `any` annotation and the line it sits on', async () => {
-		const input = setupSyntaxTreeInput({ sources: [['src/parsing/parseRecord.ts', 'export const parseRecord = ({ raw }: { raw: any }): string => String(raw);\n']] });
+		const input = setupSyntaxTreeInput({
+			sources: [['src/parsing/parseRecord.ts', 'export const parseRecord = ({ raw }: { raw: any }): string => String(raw);\n']],
+		});
 
 		const findings = await check.run({ input, settings: {} });
 
@@ -57,7 +69,11 @@ describe('no-any check', () => {
 			sources: [
 				[
 					'src/parsing/parseRecord.ts',
-					['export const parseRecord = ({ raw }: { raw: any }): string => String(raw);', '', 'export const parseList = (rows: any[]): number => rows.length;'].join('\n'),
+					[
+						'export const parseRecord = ({ raw }: { raw: any }): string => String(raw);',
+						'',
+						'export const parseList = (rows: any[]): number => rows.length;',
+					].join('\n'),
 				],
 			],
 		});
@@ -92,7 +108,9 @@ describe('no-any check', () => {
 	});
 
 	test('leaves a file that narrows from `unknown` instead', async () => {
-		const input = setupSyntaxTreeInput({ sources: [['src/parsing/parseRecord.ts', 'export const parseRecord = ({ raw }: { raw: unknown }): string => String(raw);\n']] });
+		const input = setupSyntaxTreeInput({
+			sources: [['src/parsing/parseRecord.ts', 'export const parseRecord = ({ raw }: { raw: unknown }): string => String(raw);\n']],
+		});
 
 		const findings = await check.run({ input, settings: {} });
 
@@ -100,7 +118,9 @@ describe('no-any check', () => {
 	});
 
 	test('leaves the word alone where it is a name rather than the type keyword', async () => {
-		const input = setupSyntaxTreeInput({ sources: [['src/parsing/parseRecord.ts', "export const parseRecord = (): string => {\n\tconst any = 'anything';\n\n\treturn any;\n};\n"]] });
+		const input = setupSyntaxTreeInput({
+			sources: [['src/parsing/parseRecord.ts', "export const parseRecord = (): string => {\n\tconst any = 'anything';\n\n\treturn any;\n};\n"]],
+		});
 
 		const findings = await check.run({ input, settings: {} });
 

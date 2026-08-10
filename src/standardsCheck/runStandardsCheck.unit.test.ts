@@ -2,8 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFil
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { runStandardsCheck } from '@/standardsCheck';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { runStandardsCheck } from '@/standardsCheck';
 
 const bigBody = `
 	let total = 0;
@@ -31,7 +31,13 @@ const setupCheckRepo = () => {
 
 	// tier 2 (+ tier 1): systematically renamed twins
 	writeFileSync(join(dir, 'src/a/sumTotals.ts'), `export const sumTotals = ({ records }: { records: any[] }) => {${bigBody}};\n`);
-	writeFileSync(join(dir, 'src/b/tallyItems.ts'), `export const tallyItems = ({ items }: { items: any[] }) => {\n${bigBody.replace(/records/g, 'items').replace(/record\b/g, 'item').replace(/record\./g, 'item.')}};\n`);
+	writeFileSync(
+		join(dir, 'src/b/tallyItems.ts'),
+		`export const tallyItems = ({ items }: { items: any[] }) => {\n${bigBody
+			.replace(/records/g, 'items')
+			.replace(/record\b/g, 'item')
+			.replace(/record\./g, 'item.')}};\n`,
+	);
 
 	// tier 0: synonym pair + same-name pair
 	writeFileSync(join(dir, 'src/a/getUserData.ts'), 'export const getUserData = () => 1;\n');
@@ -46,7 +52,10 @@ const setupCheckRepo = () => {
 	writeFileSync(join(dir, 'src/a/utils/formatCurrency.ts'), 'export const formatCurrency = () => 1;\n');
 
 	// closed exception: const + derived type share a file — must NOT flag
-	writeFileSync(join(dir, 'src/a/Action.ts'), "export const Action = {\n\tAdd: 'add',\n} as const;\nexport type Action = (typeof Action)[keyof typeof Action];\n");
+	writeFileSync(
+		join(dir, 'src/a/Action.ts'),
+		"export const Action = {\n\tAdd: 'add',\n} as const;\nexport type Action = (typeof Action)[keyof typeof Action];\n",
+	);
 
 	// V1.1 guards — none of these may produce findings:
 	// framework dot-suffix (filename-mismatch), to/from opposites (tier 0),
@@ -202,7 +211,10 @@ test('the standards check resolves typescript from workspace packages and honors
 	writeFileSync(join(dir, 'packages/app/src/sumTotals.ts'), `export const sumTotals = ({ records }: { records: any[] }) => {${bigBody}};\n`);
 	writeFileSync(
 		join(dir, 'packages/app/src/tallyItems.ts'),
-		`export const tallyItems = ({ items }: { items: any[] }) => {\n${bigBody.replace(/records/g, 'items').replace(/record\b/g, 'item').replace(/record\./g, 'item.')}};\n`,
+		`export const tallyItems = ({ items }: { items: any[] }) => {\n${bigBody
+			.replace(/records/g, 'items')
+			.replace(/record\b/g, 'item')
+			.replace(/record\./g, 'item.')}};\n`,
 	);
 
 	const { findings, notes } = await runStandardsCheck({ cwd: dir });
@@ -438,8 +450,14 @@ const setupForkedRepo = () => {
 	mkdirSync(join(dir, 'lib'), { recursive: true });
 
 	for (let index = 0; index < 10; index += 1) {
-		writeFileSync(join(dir, 'src/generated/alpha', `partOne${index}.ts`), `export const openPartOne${index} = () => 1;\nexport const closePartOne${index} = () => 2;\n`);
-		writeFileSync(join(dir, 'src/generated/beta', `sideTwo${index}.ts`), `export const openSideTwo${index} = () => 1;\nexport const closeSideTwo${index} = () => 2;\n`);
+		writeFileSync(
+			join(dir, 'src/generated/alpha', `partOne${index}.ts`),
+			`export const openPartOne${index} = () => 1;\nexport const closePartOne${index} = () => 2;\n`,
+		);
+		writeFileSync(
+			join(dir, 'src/generated/beta', `sideTwo${index}.ts`),
+			`export const openSideTwo${index} = () => 1;\nexport const closeSideTwo${index} = () => 2;\n`,
+		);
 	}
 
 	for (let index = 0; index < 4; index += 1) {
@@ -499,7 +517,8 @@ const setupOwnPackage = () => {
 		files: {
 			'lightsout-standards.json': '{ "name": "acme", "formatVersion": 1 }\n',
 			'code/house/document.md': '# House Style\n\nWhat this shop agrees on.\n',
-			'code/house/05-house-no-loose-files/rule.md': '---\nsummary: a source file outside a module\nchecked: true\nseverity: blocking\n---\n\nEvery file belongs to a module.\n',
+			'code/house/05-house-no-loose-files/rule.md':
+				'---\nsummary: a source file outside a module\nchecked: true\nseverity: blocking\n---\n\nEvery file belongs to a module.\n',
 			'code/house/05-house-no-loose-files/check.ts':
 				'export const check = {\n' +
 				"\tinputKind: 'file-list',\n" +
@@ -604,10 +623,7 @@ test("the config's generated list keeps derived output out of the report", async
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
 	// what a repo declared generated is not code it wrote, so no rule judges it
-	expect(findings.map((finding) => finding.siteKey).sort()).toStrictEqual([
-		'house-no-loose-files:src/core/inner.ts',
-		'house-no-loose-files:src/keep.ts',
-	]);
+	expect(findings.map((finding) => finding.siteKey).sort()).toStrictEqual(['house-no-loose-files:src/core/inner.ts', 'house-no-loose-files:src/keep.ts']);
 });
 
 /** The check a house rule ships: one finding per source file, so which rules actually ran is readable straight off the report. */

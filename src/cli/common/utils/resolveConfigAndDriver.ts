@@ -1,9 +1,9 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LightsoutConfig } from '@/contracts';
-import { getDriver, type Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { LightsoutConfig } from '@/contracts';
+import { type Driver, getDriver } from '@/drivers';
 
 interface Params {
 	cwd: string;

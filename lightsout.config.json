@@ -2,7 +2,8 @@
 	"scripts": {
 		"check": "pnpm check",
 		"testUnit": "pnpm test",
-		"testCoverage": "pnpm test:unit:coverage"
+		"testCoverage": "pnpm test:unit:coverage",
+		"format": "pnpm format"
 	},
 	"agentCommands": ["pnpm", "python3", "rsvg-convert"],
 	"generated": ["plugin/dist/", "plugin/standards/"]

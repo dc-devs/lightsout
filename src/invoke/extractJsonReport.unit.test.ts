@@ -24,9 +24,11 @@ test('extractJsonReport rejects garbage', () => {
 // not to finding the payload.
 test('extractJsonReport accepts prose-wrapped JSON without fences', () => {
 	expect(extractJsonReport({ text: 'Here is the report: {"a":1}' })).toStrictEqual({ a: 1 });
-	expect(extractJsonReport({
-		text: 'All files created and wired. The implementation is complete. My final report:\n\n{"status":"complete","changedFiles":[{"path":"src/a.ts","summary":"x"}]}',
-	})).toStrictEqual({ status: 'complete', changedFiles: [{ path: 'src/a.ts', summary: 'x' }] });
+	expect(
+		extractJsonReport({
+			text: 'All files created and wired. The implementation is complete. My final report:\n\n{"status":"complete","changedFiles":[{"path":"src/a.ts","summary":"x"}]}',
+		}),
+	).toStrictEqual({ status: 'complete', changedFiles: [{ path: 'src/a.ts', summary: 'x' }] });
 });
 
 test('extractJsonReport accepts JSON with trailing prose', () => {

@@ -1,9 +1,9 @@
+import { messageOf } from '@/common/utils/messageOf';
 import type { LightsoutConfig } from '@/contracts';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
 import { readPlanSources } from '@/pipeline/common/utils/readPlanSources';
 import { resolvePackageScope } from '@/pipeline/common/utils/resolvePackageScope';
-import { resolveStandards } from '@/standards';
-import { messageOf } from '@/common/utils/messageOf';
+import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { type ResolvedStandards, resolveStandards } from '@/standards';
 
 interface Params {
 	run: PipelineRun;
@@ -61,7 +61,7 @@ export const prepareRun = async ({ run, cwd, config, packages }: Params): Promis
 		run.progress(`package scope: ${run.current().packages.join(', ')} (from ${run.current().packagesSource ?? 'manifest'})`);
 	}
 
-	let resolved;
+	let resolved: ResolvedStandards;
 
 	try {
 		resolved = await resolveStandards({ cwd, config, packages: run.current().packages });

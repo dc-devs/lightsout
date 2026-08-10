@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { checkLintRules } from '@/doctor/checkLintRules';
 
@@ -46,7 +46,9 @@ describe('checkLintRules', () => {
 	});
 
 	test('passes an eslint config that names both rules', async () => {
-		const { packageDirs } = setupPackage({ files: { 'eslint.config.js': "export default [{ rules: { 'consistent-type-imports': 'error', 'no-explicit-any': 'error' } }];" } });
+		const { packageDirs } = setupPackage({
+			files: { 'eslint.config.js': "export default [{ rules: { 'consistent-type-imports': 'error', 'no-explicit-any': 'error' } }];" },
+		});
 
 		expect((await checkLintRules({ config, packageDirs }))?.status).toBe('pass');
 	});

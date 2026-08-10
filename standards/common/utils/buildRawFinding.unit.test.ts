@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { buildRawFinding } from './buildRawFinding.ts';
 
 /** What a check hands the builder: the rule that found it, the sites, and what it says about them. */

@@ -1,10 +1,10 @@
-import type { GateResult, LightsoutConfig } from '@/contracts';
-import { appendCommandLog } from '@/runState';
 import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
-import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
-import { runGateSet } from '@/pipeline/runGateSet';
-import type { RunGate } from '@/pipeline/common/types/RunGate';
 import { messageOf } from '@/common/utils/messageOf';
+import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
+import type { GateResult, LightsoutConfig } from '@/contracts';
+import type { RunGate } from '@/pipeline/common/types/RunGate';
+import { runGateSet } from '@/pipeline/runGateSet';
+import { appendCommandLog } from '@/runState';
 
 interface Params {
 	cwd: string;
