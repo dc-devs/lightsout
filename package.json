@@ -11,7 +11,7 @@
 	},
 	"packageManager": "pnpm@10.20.0",
 	"scripts": {
-		"lint": "biome check .",
+		"lint": "biome check --error-on-warnings .",
 		"check": "pnpm lint && tsc --noEmit",
 		"format": "biome check --write .",
 		"test": "pnpm test:unit && pnpm test:e2e",
