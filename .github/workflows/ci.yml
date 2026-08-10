@@ -47,11 +47,14 @@ jobs:
 
       - run: pnpm test:e2e
 
-  bundle:
-    name: shipped artifact matches source
+  shipped:
+    name: plugin is shippable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The version comparison needs the base branch's history.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -59,80 +62,30 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # A marketplace install copies plugin/ and nothing else, so
-      # plugin/dist/cli.mjs and plugin/standards/ are committed build outputs.
-      # Rebuild them and prove nothing moved. The pre-push hook checks the
-      # engine bundle only, which is how a rule edit without `pnpm bundle`
-      # could ship stale standards without a word.
+      # scripts/checkShipped.mjs is the only definition of what "shippable"
+      # means: the engine bundle matches src/, the standards copy matches
+      # standards/, and plugin.json carries a new version when either moved.
+      # The pre-push hook runs this same file, so a local pass and a CI pass
+      # cannot mean different things.
       #
-      # git status rather than git diff: a brand new rule folder that was never
-      # copied shows up as untracked, and a diff would not see it at all.
-      - name: Rebuild and compare
-        run: |
-          pnpm bundle
-          drift=$(git status --porcelain -- plugin/dist plugin/standards)
-          if [ -n "$drift" ]; then
-            echo "The committed artifact does not match src/ and standards/."
-            echo "Fix: pnpm bundle && git add plugin/dist plugin/standards"
-            echo
-            echo "$drift"
-            git --no-pager diff --stat -- plugin/dist plugin/standards
-            exit 1
-          fi
-
-  version:
-    name: plugin version bumped
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # A marketplace install reads this repository directly, so merging to main
-      # IS the release. Anything that changes plugin/ reaches users, and a user
-      # cannot tell two different builds apart when both call themselves 0.2.3.
-      #
-      # Note the consequence: every merge that touches src/ rebuilds
-      # plugin/dist/cli.mjs, so in practice every shipping pull request needs a
-      # bump. That is the honest reflection of how this repository ships.
-      - name: Compare the plugin version against the base branch
+      # On a pull request the base is the branch being merged into. On a push
+      # to main there is nothing to bump against, and the script says so and
+      # skips that third question rather than inventing an answer.
+      - name: Check that plugin/ is shippable
         env:
           BASE: ${{ github.base_ref }}
         run: |
-          git fetch --no-tags origin "$BASE"
-          base=$(git rev-parse FETCH_HEAD)
-          manifest=plugin/.claude-plugin/plugin.json
-
-          if git diff --quiet "$base"...HEAD -- plugin; then
-            echo "Nothing under plugin/ changed — no bump required."
-            exit 0
+          if [ -n "$BASE" ]; then
+            git fetch --no-tags origin "$BASE"
+            node scripts/checkShipped.mjs --base FETCH_HEAD
+          else
+            node scripts/checkShipped.mjs --base HEAD
           fi
-
-          head_version=$(node -p "require('./$manifest').version")
-          base_version=$(git show "$base:$manifest" | node -pe "JSON.parse(require('node:fs').readFileSync(0, 'utf8')).version")
-
-          if [ "$head_version" = "$base_version" ]; then
-            echo "This branch changes plugin/, which is what users install, but $manifest is still $base_version."
-            echo "Bump it so the shipped build has a name of its own."
-            exit 1
-          fi
-
-          # Sorting both and checking which lands last catches a version that
-          # moved backwards, not just one that did not move.
-          highest=$(printf '%s\n%s\n' "$base_version" "$head_version" | sort -V | tail -1)
-
-          if [ "$highest" != "$head_version" ]; then
-            echo "$manifest went backwards: $base_version -> $head_version."
-            exit 1
-          fi
-
-          echo "$base_version -> $head_version"
 
   release:
     name: tag and release
     if: github.event_name == 'push'
-    needs: [verify, bundle]
+    needs: [verify, shipped]
     runs-on: ubuntu-latest
     permissions:
       contents: write

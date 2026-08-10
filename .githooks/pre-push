@@ -1,18 +1,20 @@
 #!/bin/sh
 #
-# Refuse to push when the shipped plugin does not match its source.
+# Refuse to push when plugin/ is not shippable.
 #
-# plugin/ is what users actually run — marketplace installs copy it and nothing
-# else. Both halves are committed build outputs: plugin/dist/cli.mjs from src/,
-# and plugin/standards/ from standards/. A branch that changes either source
-# and forgets `pnpm bundle` merges clean, reviews clean, and ships stale.
+# plugin/ is what users actually run — marketplace installs copy it and
+# nothing else. Both halves are committed build outputs (plugin/dist/cli.mjs
+# from src/, plugin/standards/ from standards/), and the version in
+# plugin.json is how a user tells one build from another.
 #
-# The check builds to a temp location and compares. It never writes into the
-# working tree; fixing a failure is your `pnpm bundle`, so the rebuild lands
-# in a commit you chose.
+# What "shippable" means lives in scripts/checkShipped.mjs, not here. CI runs
+# that same file, so this hook cannot quietly be more lenient than the gate
+# that actually blocks a merge. This is the fast local answer; CI is the
+# authority.
 #
-# CI runs the same comparison, so this is the fast local answer rather than the
-# only one standing between a stale artifact and a user.
+# The version is compared against your local origin/main, which is only as
+# fresh as your last fetch. A stale ref can miss a bump someone else already
+# made — CI fetches first and gets the real answer.
 #
 # Enable once per clone:  git config core.hooksPath .githooks
 # Bypass in an emergency: git push --no-verify
@@ -27,62 +29,19 @@ done
 [ "$deleting" = 1 ] && exit 0
 
 root=$(git rev-parse --show-toplevel)
-bundle="$root/plugin/dist/cli.mjs"
-entry="$root/src/cli/index.ts"
 
-# Nothing to check in a tree that predates either path.
-[ -f "$entry" ] || exit 0
-[ -f "$bundle" ] || exit 0
+# Nothing to check in a tree that predates the script.
+[ -f "$root/scripts/checkShipped.mjs" ] || exit 0
 
-work=$(mktemp -d -t lightsout-bundle-check)
-trap 'rm -rf "$work"' EXIT
-tmp="$work/cli.mjs"
-
-if ! npx --no-install esbuild "$entry" \
-	--bundle --platform=node --format=esm --loader:.md=text \
-	--banner:js="import { createRequire as __cjsRequire } from 'node:module'; const require = __cjsRequire(import.meta.url);" \
-	--outfile="$tmp" --log-level=error; then
-	echo "pre-push: could not run esbuild — is the repo installed (pnpm install)?" >&2
-	echo "pre-push: bypass with 'git push --no-verify' if you are sure." >&2
-	exit 1
+if node "$root/scripts/checkShipped.mjs"; then
+	exit 0
 fi
 
-if ! cmp -s "$tmp" "$bundle"; then
-	stale="plugin/dist/cli.mjs does not match src/"
-fi
+cat >&2 <<'MSG'
+  Fix it, add the rebuilt files to a commit, and push again.
 
-# The standards half. Its build script takes --out so this can rebuild into the
-# temp directory rather than over the copy it is asking about — a check that
-# repairs what it measures reports success and leaves the fix uncommitted.
-shipped="$root/plugin/standards"
-
-if [ -d "$root/standards" ] && [ -d "$shipped" ]; then
-	if ! node "$root/scripts/copyStandards.mjs" --out "$work/standards" >/dev/null; then
-		echo "pre-push: could not build the standards package." >&2
-		echo "pre-push: bypass with 'git push --no-verify' if you are sure." >&2
-		exit 1
-	fi
-
-	if ! diff -r -q "$work/standards" "$shipped" >/dev/null 2>&1; then
-		stale="${stale:+$stale, and }plugin/standards/ does not match standards/"
-	fi
-fi
-
-[ -z "${stale:-}" ] && exit 0
-
-cat >&2 <<MSG
-
-  pre-push blocked: $stale.
-
-  plugin/ is what a marketplace install copies and runs. Pushing it stale
-  ships something that is not what you merged.
-
-    pnpm bundle && git add plugin/dist plugin/standards
-
-  then amend or add a commit and push again.
-
-  Note: this checks your working tree, so uncommitted edits will also trip
-  it. Bypass with 'git push --no-verify'.
+  Note: this reads your working tree, so uncommitted edits trip it too.
+  Bypass with 'git push --no-verify'.
 
 MSG
 exit 1

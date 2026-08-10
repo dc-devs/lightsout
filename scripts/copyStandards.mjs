@@ -33,17 +33,20 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const source = join(repoRoot, 'standards');
 const outFlag = process.argv.indexOf('--out');
 
-if (outFlag !== -1 && process.argv[outFlag + 1] === undefined) {
-	console.error('--out needs a directory');
-	process.exit(1);
-}
-
-const destination = outFlag === -1 ? join(repoRoot, 'plugin', 'standards') : resolve(process.argv[outFlag + 1]);
-
 /** True for the evidence a shipped package does not carry: fixture trees and unit tests. */
 const isAuthoringOnly = (path) => path.split(sep).includes('fixtures') || path.endsWith('.unit.test.ts');
 
-rmSync(destination, { recursive: true, force: true });
-cpSync(source, destination, { recursive: true, filter: (from) => !isAuthoringOnly(from) });
+// The exit code is set rather than forced with `process.exit`: stdout is a pipe
+// for every caller that matters, writes to a pipe are asynchronous, and exiting
+// on the line after a log discards it.
+if (outFlag !== -1 && process.argv[outFlag + 1] === undefined) {
+	console.error('--out needs a directory');
+	process.exitCode = 1;
+} else {
+	const destination = outFlag === -1 ? join(repoRoot, 'plugin', 'standards') : resolve(process.argv[outFlag + 1]);
 
-console.log(`built standards → ${destination.replace(`${repoRoot}${sep}`, '')}`);
+	rmSync(destination, { recursive: true, force: true });
+	cpSync(source, destination, { recursive: true, filter: (from) => !isAuthoringOnly(from) });
+
+	console.log(`built standards → ${destination.replace(`${repoRoot}${sep}`, '')}`);
+}
