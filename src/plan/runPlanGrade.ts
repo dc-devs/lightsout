@@ -1,12 +1,12 @@
 import { basename, join } from 'node:path';
-import { GapCheckReport, PlanGrade, type Effort, type GradeReport, type Permissions, type PlanGap } from '@/contracts';
 import { buildPlanGapCheckInvocation } from '@/agents';
+import { writeJsonFile } from '@/common/utils/writeJsonFile';
+import { type Effort, GapCheckReport, type GradeReport, type Permissions, type PlanGap, PlanGrade } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
-import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
+import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 import { lintPlanStructure } from '@/plan/lintPlanStructure';
-import { writeJsonFile } from '@/common/utils/writeJsonFile';
 
 const defaultGradeTimeoutMs = 30 * 60 * 1000;
 

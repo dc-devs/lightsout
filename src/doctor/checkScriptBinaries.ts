@@ -1,5 +1,5 @@
-import type { LightsoutConfig } from '@/contracts';
 import { runCommand } from '@/common/utils/runCommand';
+import type { LightsoutConfig } from '@/contracts';
 import { probeTimeoutMs } from '@/doctor/common/constants/probeTimeoutMs';
 import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
 

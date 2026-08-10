@@ -1,10 +1,11 @@
-import { RunStatus } from '@/contracts';
+import type { CommandResult } from '@/common/types/CommandResult';
+import { messageOf } from '@/common/utils/messageOf';
 import { runCommand } from '@/common/utils/runCommand';
-import { appendCommandLog } from '@/runState';
+import { RunStatus } from '@/contracts';
+import { gates } from '@/pipeline/common/utils/gates';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { gates } from '@/pipeline/common/utils/gates';
-import { messageOf } from '@/common/utils/messageOf';
+import { appendCommandLog } from '@/runState';
 
 const formatTimeoutMs = 10 * 60_000;
 
@@ -29,7 +30,7 @@ export const formatStep = ({ run }: Params): PipelineStep => ({
 		run.progress('step format — running formatter');
 
 		const startedAt = Date.now();
-		let result;
+		let result: CommandResult;
 
 		try {
 			result = await runCommand({ command: formatCommand, cwd: run.cwd, timeoutMs: formatTimeoutMs });
@@ -64,7 +65,11 @@ export const formatStep = ({ run }: Params): PipelineStep => ({
 		const error = await gates({ run, coverage: true });
 
 		if (error) {
-			return run.stop({ record, status: RunStatus.Failed, error: `format: formatting broke verification — review the formatter/gate configuration.\n${error}` });
+			return run.stop({
+				record,
+				status: RunStatus.Failed,
+				error: `format: formatting broke verification — review the formatter/gate configuration.\n${error}`,
+			});
 		}
 
 		// No changed-file merge here: the formatter only rewrites files the

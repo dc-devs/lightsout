@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CoverageWorklist, type LightsoutConfig, type RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { createRun } from '@/runState';
+import { CoverageWorklist, type LightsoutConfig, type RunManifest } from '@/contracts';
 import { runCoverageCheck } from '@/coverage/runCoverageCheck';
+import type { Driver } from '@/drivers';
+import { createRun } from '@/runState';
 
 interface Params {
 	cwd: string;
@@ -24,7 +24,13 @@ interface Params {
  *
  * @throws {Error} When coverage is opted out, the tree is dirty or ungitted, or the run belongs to another pipeline.
  */
-export const initializeCoverageRun = async ({ cwd, runId, driver, config, existing }: Params): Promise<{ manifest: RunManifest; worklist: CoverageWorklist }> => {
+export const initializeCoverageRun = async ({
+	cwd,
+	runId,
+	driver,
+	config,
+	existing,
+}: Params): Promise<{ manifest: RunManifest; worklist: CoverageWorklist }> => {
 	if (existing) {
 		const pipeline = existing.pipeline ?? 'implement';
 

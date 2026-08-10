@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { BrainstormDecisions } from '@/contracts';
 
 /** One brainstorm-settled Decision-Log row, as `/brainstorm` writes it into brainstorm-decisions.json. */

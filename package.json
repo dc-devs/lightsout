@@ -9,8 +9,11 @@
 	"engines": {
 		"node": ">=22.18.0"
 	},
+	"packageManager": "pnpm@10.20.0",
 	"scripts": {
-		"check": "tsc --noEmit",
+		"lint": "biome check .",
+		"check": "pnpm lint && tsc --noEmit",
+		"format": "biome check --write .",
 		"test": "pnpm test:unit && pnpm test:e2e",
 		"test:unit": "jest -c tests/config/jest.config.cjs",
 		"test:unit:coverage": "jest -c tests/config/jest.config.cjs --coverage --passWithNoTests",
@@ -25,6 +28,7 @@
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.5.7",
 		"@jest/globals": "^30.4.1",
 		"@jscpd/core": "^4.2.5",
 		"@jscpd/tokenizer": "^4.2.5",

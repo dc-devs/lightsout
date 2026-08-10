@@ -15,9 +15,7 @@ interface Params {
 export const scanPlanPackagePaths = ({ planContent, packagesDir }: Params) => {
 	const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, 'g');
-	const found = [...planContent.matchAll(pattern)]
-		.map((match) => match[1])
-		.filter((name): name is string => Boolean(name));
+	const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name): name is string => Boolean(name));
 
 	return found.length > 0 ? [...new Set(found)] : undefined;
 };

@@ -97,7 +97,9 @@ test('buildUnitTestWriterInvocation: empty optional inputs emit no section rathe
 test('buildUnitTestWriterInvocation: a solo target group user prompt is the file list and the report reminder alone', () => {
 	const { prompt } = buildUnitTestWriterInvocation({ planContent, changedFiles: ['src/widget.ts'], standards });
 
-	expect(prompt).toBe('# Changed files to cover\n\n- src/widget.ts\n\nRemember: your entire final message must be exactly one JSON report object — nothing else.');
+	expect(prompt).toBe(
+		'# Changed files to cover\n\n- src/widget.ts\n\nRemember: your entire final message must be exactly one JSON report object — nothing else.',
+	);
 });
 
 test('buildUnitTestWriterInvocation: the report reminder closes the user prompt, after the verification failure', () => {

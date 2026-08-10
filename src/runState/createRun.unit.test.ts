@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import type { LightsoutConfig } from '@/contracts';
 import { createRun, getRunDir, readRunManifest } from '@/runState';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 const config: LightsoutConfig = {
 	harness: 'stub',

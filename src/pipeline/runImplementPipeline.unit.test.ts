@@ -1,15 +1,15 @@
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
-import { readFriction, readRunManifest } from '@/runState';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { verdict } from '@tests/helpers/verdict';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
+import { readFriction, readRunManifest } from '@/runState';
 
 const countLog = (dir: string, file: string) => {
 	try {
@@ -54,8 +54,10 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 				return { text: reviewReport(), exitCode: 0 };
 			}
 
-			(prompts[role] ??= []).push(prompt);
-			(systemPrompts[role] ??= []).push(systemPrompt ?? '');
+			prompts[role] ??= [];
+			prompts[role].push(prompt);
+			systemPrompts[role] ??= [];
+			systemPrompts[role].push(systemPrompt ?? '');
 
 			if (role === 'write-tests') {
 				const target = prompt.match(/- (\S+)/)?.[1] ?? 'unknown';
@@ -109,7 +111,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 
 	expect(result.ok).toBe(true);
 	// overview inlined into the executor system prompt
-	expect(systemPrompts['implement']?.[0]?.includes('OVERVIEW-SENTINEL')).toBeTruthy();
+	expect(systemPrompts.implement?.[0]?.includes('OVERVIEW-SENTINEL')).toBeTruthy();
 	// git caught the unreported file
 	expect(result.manifest.changedFiles.includes('src/helper.js')).toBeTruthy();
 	// baseline dirt excluded
@@ -125,7 +127,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	// the .tf is still tracked as changed
 	expect(result.manifest.changedFiles.includes('src/infra.tf')).toBeTruthy();
 	// refactor review list is JS/TS only
-	expect(prompts['refactor']?.[0]?.includes('src/infra.tf')).toBeFalsy();
+	expect(prompts.refactor?.[0]?.includes('src/infra.tf')).toBeFalsy();
 	// refactor looped until an empty pass
 	expect(refactorPass).toBe(2);
 	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.attempts).toBe(2);
@@ -136,18 +138,18 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('passed');
 
 	const commands = readCommandLog(dir, result.manifest.runId);
-	const cleanSlateCheck = commands.find((entry) => entry['kind'] === 'check' && entry['step'] === 'clean-slate');
+	const cleanSlateCheck = commands.find((entry) => entry.kind === 'check' && entry.step === 'clean-slate');
 
 	// commands.jsonl written
 	expect(commands.length > 0).toBeTruthy();
 	// passing commands leave evidence too
 	expect(cleanSlateCheck).toBeTruthy();
-	expect(cleanSlateCheck?.['exitCode']).toBe(0);
-	expect(typeof cleanSlateCheck?.['durationMs']).toBe('number');
+	expect(cleanSlateCheck?.exitCode).toBe(0);
+	expect(typeof cleanSlateCheck?.durationMs).toBe('number');
 	// no output tail on success
-	expect(cleanSlateCheck?.['outputTail']).toBe(undefined);
+	expect(cleanSlateCheck?.outputTail).toBe(undefined);
 	// format command logged
-	expect(commands.some((entry) => entry['kind'] === 'format')).toBeTruthy();
+	expect(commands.some((entry) => entry.kind === 'format')).toBeTruthy();
 
 	// config snapshot recorded in the manifest
 	expect(result.manifest.config?.scripts.check).toBe('true');
@@ -435,19 +437,17 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 	expect(result.manifest.status).toBe('escalated');
 	expect(result.error ?? '').toMatch(/DIAGNOSIS-SENTINEL/);
 	// exactly two cheap fix retries
-	expect(counts['fix']).toBe(2);
+	expect(counts.fix).toBe(2);
 	// supervisor consulted exactly once
-	expect(counts['supervisor']).toBe(1);
+	expect(counts.supervisor).toBe(1);
 	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(3);
 
-	const failed = readCommandLog(dir, result.manifest.runId).find(
-		(entry) => entry['kind'] === 'testUnit' && entry['exitCode'] !== 0,
-	);
+	const failed = readCommandLog(dir, result.manifest.runId).find((entry) => entry.kind === 'testUnit' && entry.exitCode !== 0);
 
 	// failing command logged
 	expect(failed).toBeTruthy();
 	// failure carries an output tail
-	expect(typeof failed?.['outputTail']).toBe('string');
+	expect(typeof failed?.outputTail).toBe('string');
 });
 
 test('supervisor retry-with-guidance heals the run', async () => {
@@ -538,7 +538,7 @@ test('resume skips passed steps and continues attempt counts', async () => {
 
 	expect(resumed.ok).toBe(true);
 	// passed steps are not re-run
-	expect(counts['implement'] ?? 0).toBe(0);
+	expect(counts.implement ?? 0).toBe(0);
 	// parked step re-runs
 	expect(counts['write-tests']).toBe(1);
 	// attempts continue across resume
@@ -745,12 +745,12 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 	// no writer spawned for the generated .ts
 	expect(writers).toStrictEqual(['src/feature.js']);
 	// generate is the first command of the first gate set
-	expect(commands[0]?.['kind']).toBe('generate');
+	expect(commands[0]?.kind).toBe('generate');
 	// generate ran once per gate set (clean-slate + 3 verifies; no format
 	// configured)
 	expect(countLog(dir, 'gen.log')).toBe(4);
 	// every check is preceded by a generate
-	expect(commands.every((entry, index) => entry['kind'] !== 'check' || commands.slice(0, index).some((prior) => prior['kind'] === 'generate'))).toBeTruthy();
+	expect(commands.every((entry, index) => entry.kind !== 'check' || commands.slice(0, index).some((prior) => prior.kind === 'generate'))).toBeTruthy();
 });
 
 test('standards default on when unspecified; false switches them off explicitly', async () => {

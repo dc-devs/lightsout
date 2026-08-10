@@ -1,10 +1,10 @@
 import { dirname, join } from 'node:path';
-import { PhaseReport, RunStatus, type LightsoutConfig, type RunManifest, type RunUsage, type StepRecord } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { runImplementPipeline, type PipelineResult } from '@/pipeline';
-import { readRunManifest, writeRunManifest, RunLockError } from '@/runState';
 import { messageOf } from '@/common/utils/messageOf';
+import { type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '@/contracts';
+import type { Driver } from '@/drivers';
 import { initializeSequence } from '@/phases/initializeSequence';
+import { type PipelineResult, runImplementPipeline } from '@/pipeline';
+import { RunLockError, readRunManifest, writeRunManifest } from '@/runState';
 
 interface Params {
 	cwd: string;
@@ -86,7 +86,16 @@ const addUsage = ({ total, child }: { total?: RunUsage; child?: RunUsage }) => {
  *
  * @throws {RunLockError} When a phase cannot take the repo lock — nothing ran, so the sequence stays exactly resumable.
  */
-export const runPhasesPipeline = async ({ cwd, driver, config, overviewPath, startPhase, existing, skipRefactor, onProgress }: Params): Promise<PipelineResult> => {
+export const runPhasesPipeline = async ({
+	cwd,
+	driver,
+	config,
+	overviewPath,
+	startPhase,
+	existing,
+	skipRefactor,
+	onProgress,
+}: Params): Promise<PipelineResult> => {
 	const initialized = await initializeSequence({ cwd, driver, config, overviewPath, startPhase, existing });
 
 	let manifest = initialized.manifest;
@@ -125,7 +134,16 @@ export const runPhasesPipeline = async ({ cwd, driver, config, overviewPath, sta
 		let childResult: PipelineResult;
 
 		try {
-			childResult = await runImplementPipeline({ cwd, driver, config, planPath, overviewPath: manifest.plan, existing: childManifest, skipRefactor, onProgress });
+			childResult = await runImplementPipeline({
+				cwd,
+				driver,
+				config,
+				planPath,
+				overviewPath: manifest.plan,
+				existing: childManifest,
+				skipRefactor,
+				onProgress,
+			});
 		} catch (error) {
 			if (error instanceof RunLockError) {
 				throw error;
@@ -133,7 +151,13 @@ export const runPhasesPipeline = async ({ cwd, driver, config, overviewPath, sta
 
 			const message = messageOf({ error });
 
-			manifest = await persistStep({ cwd, manifest, index, record: { ...step, status: RunStatus.Failed, error: message }, patch: { status: RunStatus.Failed } });
+			manifest = await persistStep({
+				cwd,
+				manifest,
+				index,
+				record: { ...step, status: RunStatus.Failed, error: message },
+				patch: { status: RunStatus.Failed },
+			});
 
 			return { ok: false, manifest, error: message };
 		}

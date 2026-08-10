@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a path rule: every file in scope, plus the test files among them. */
@@ -89,15 +89,7 @@ describe('folder-census check', () => {
 
 	test('reports every oversized folder separately, so each one carries its own site key', async () => {
 		const input = setupFileListInput({
-			files: [
-				'src/wide/a.ts',
-				'src/wide/b.ts',
-				'src/wide/c.ts',
-				'src/narrow/a.ts',
-				'src/other/a.ts',
-				'src/other/b.ts',
-				'src/other/c.ts',
-			],
+			files: ['src/wide/a.ts', 'src/wide/b.ts', 'src/wide/c.ts', 'src/narrow/a.ts', 'src/other/a.ts', 'src/other/b.ts', 'src/other/c.ts'],
 		});
 
 		const findings = await check.run({ input, settings: { cap: 2 } });

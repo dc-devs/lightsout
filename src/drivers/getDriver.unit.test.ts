@@ -27,5 +27,5 @@ test('getDriver: an unknown name is a hard error naming the drivers that do exis
 });
 
 test('getDriver: an empty name is rejected too, never silently resolved to a default', () => {
-	expect(() => getDriver({ name: '' })).toThrow(/unknown driver:  \(available: claude-code, codex\)/);
+	expect(() => getDriver({ name: '' })).toThrow(/unknown driver: {2}\(available: claude-code, codex\)/);
 });

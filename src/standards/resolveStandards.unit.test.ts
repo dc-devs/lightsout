@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
 import type { LightsoutConfig } from '@/contracts';
 import { resolveStandards } from '@/standards';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 const baseConfig: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
 
@@ -87,16 +87,16 @@ describe('resolveStandards', () => {
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
 		// the declared package replaces the bundled default rather than stacking under it
-		expect(resolved.standards).toBe(
-			"<!-- house: code/house-style -->\n# house code\n\nHow this house writes code.\n\nindent with tabs — the rule's prose.",
-		);
+		expect(resolved.standards).toBe("<!-- house: code/house-style -->\n# house code\n\nHow this house writes code.\n\nindent with tabs — the rule's prose.");
 		expect(resolved.testStandards).toBe(
 			"<!-- house: tests/house-tests -->\n# house tests\n\nHow this house writes tests.\n\none behaviour per test — the rule's prose.",
 		);
 	});
 
 	test('several declared packages stack in config order, set by set', async () => {
-		const { cwd } = setupRepo({ files: { ...packageFiles({ at: 'standards/house', name: 'house' }), ...packageFiles({ at: 'standards/team', name: 'team' }) } });
+		const { cwd } = setupRepo({
+			files: { ...packageFiles({ at: 'standards/house', name: 'house' }), ...packageFiles({ at: 'standards/team', name: 'team' }) },
+		});
 		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/team', 'standards/house'], standardsChannels: [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });

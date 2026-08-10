@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildPromptImproverInvocation } from '@/agents';
-import { Permissions, WorkReport, type Effort } from '@/contracts';
+import { type Effort, Permissions, WorkReport } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
 import { readFriction } from '@/runState';

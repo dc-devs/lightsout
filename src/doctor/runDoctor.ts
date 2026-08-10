@@ -1,5 +1,6 @@
-import type { LightsoutConfig } from '@/contracts';
 import { loadConfig } from '@/common/utils/loadConfig';
+import { messageOf } from '@/common/utils/messageOf';
+import type { LightsoutConfig } from '@/contracts';
 import { checkCoverageSummary } from '@/doctor/checkCoverageSummary';
 import { checkGenerated } from '@/doctor/checkGenerated';
 import { checkGitignore } from '@/doctor/checkGitignore';
@@ -10,7 +11,6 @@ import { checkScriptBinaries } from '@/doctor/checkScriptBinaries';
 import { checkUserEvent } from '@/doctor/checkUserEvent';
 import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
 import { resolvePackageDirs } from '@/doctor/resolvePackageDirs';
-import { messageOf } from '@/common/utils/messageOf';
 
 const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };
 

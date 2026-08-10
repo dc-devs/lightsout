@@ -12,7 +12,7 @@ const base = {
 	changedFiles: [],
 };
 
-test('RunManifest: harness records the run\'s harness and is required', () => {
+test("RunManifest: harness records the run's harness and is required", () => {
 	const parsed = RunManifest.parse({ ...base, harness: 'codex' });
 
 	// the run record names the harness the run was started with — a resumed run

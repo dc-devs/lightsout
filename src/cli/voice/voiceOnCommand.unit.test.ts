@@ -1,9 +1,9 @@
 import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, describe, test } from '@jest/globals';
-import { voiceOnCommand } from '@/cli/voice/voiceOnCommand';
+import { afterEach, describe, expect, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { voiceOnCommand } from '@/cli/voice/voiceOnCommand';
 
 // The read-out is Mac-only, so a suite that took the machine's own platform
 // would pass on a Mac and fail everywhere else. jest.replaceProperty cannot pin

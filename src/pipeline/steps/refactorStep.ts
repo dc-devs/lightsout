@@ -1,17 +1,17 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
-import { RunStatus, WorkReportStatus, type WorkReport } from '@/contracts';
-import { appendFriction } from '@/runState';
-import { detectStandardsChannels } from '@/standards';
-import { runStandardsReview } from '@/standardsCheck';
-import { resolveStandardsPackages, type LoadedStandardsPackage } from '@/standardsPackages';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
+import { RunStatus, type WorkReport, WorkReportStatus } from '@/contracts';
 import { collectChanged } from '@/pipeline/common/utils/collectChanged';
 import { invokeRoleOrStop } from '@/pipeline/common/utils/invokeRoleOrStop';
 import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
 import { withStepFiles } from '@/pipeline/common/utils/withStepFiles';
+import type { PipelineRun } from '@/pipeline/PipelineRun';
+import type { PipelineStep } from '@/pipeline/PipelineStep';
 import { describePersistingFindings } from '@/pipeline/steps/describePersistingFindings';
 import { standardsWorkList } from '@/pipeline/steps/standardsWorkList';
+import { appendFriction } from '@/runState';
+import { detectStandardsChannels } from '@/standards';
+import { runStandardsReview } from '@/standardsCheck';
+import { type LoadedStandardsPackage, resolveStandardsPackages } from '@/standardsPackages';
 
 const maxRefactorPasses = 3;
 

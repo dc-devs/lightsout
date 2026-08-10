@@ -33,7 +33,9 @@ test('resolveConfigAndDriver: global harness and model land in the effective con
 });
 
 test('resolveConfigAndDriver: a per-command harness override drops the global model from the effective config (decision 7)', async () => {
-	const { cwd } = setupConsumerDir({ config: { model: 'opus', commands: { improve: { harness: 'codex' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+	const { cwd } = setupConsumerDir({
+		config: { model: 'opus', commands: { improve: { harness: 'codex' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } },
+	});
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
 
@@ -56,7 +58,9 @@ test('resolveConfigAndDriver: a global effort lands in the effective config', as
 });
 
 test('resolveConfigAndDriver: a per-command effort overrides the global in the effective config', async () => {
-	const { cwd } = setupConsumerDir({ config: { effort: 'low', commands: { plan: { effort: 'max' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+	const { cwd } = setupConsumerDir({
+		config: { effort: 'low', commands: { plan: { effort: 'max' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } },
+	});
 
 	const { config } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 

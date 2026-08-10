@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a file-text rule: every path in scope, with its text. */
@@ -93,10 +93,7 @@ describe('barrel-only-export check', () => {
 	test('names every barrel-only export of one file in a single finding', async () => {
 		const input = setupFileTextInput({
 			contents: [
-				[
-					'src/ingestion/index.ts',
-					["export { ingestRecords } from './ingestRecords';", "export { IngestOptions } from './ingestRecords';"].join('\n'),
-				],
+				['src/ingestion/index.ts', ["export { ingestRecords } from './ingestRecords';", "export { IngestOptions } from './ingestRecords';"].join('\n')],
 				['src/ingestion/ingestRecords.ts', 'export interface IngestOptions {}\nexport const ingestRecords = (): number => 1;'],
 			],
 		});

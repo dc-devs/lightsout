@@ -1,12 +1,12 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { describe, expect, jest, test } from '@jest/globals';
+import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { planCommand } from '@/cli/plan/planCommand';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import type { LightsoutConfig } from '@/contracts';
+import type { Driver } from '@/drivers';
 
 // Mocked Imports
 // -------------------------

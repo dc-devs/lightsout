@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test, jest } from '@jest/globals';
-import { RunStatus, type RunManifest } from '@/contracts';
-import type { RefactorResult } from '@/refactor';
-import { RunLockError } from '@/runState';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { refactorCommand } from '@/cli/refactorCommand';
+import { describe, expect, jest, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { refactorCommand } from '@/cli/refactorCommand';
+import { type RunManifest, RunStatus } from '@/contracts';
+import type { RefactorResult } from '@/refactor';
+import { RunLockError } from '@/runState';
 
 // Mocked Imports
 // -------------------------
@@ -52,7 +52,12 @@ const setupRefactor = ({
 	result,
 	failWith,
 	parkedRunId,
-}: { args?: string[]; result?: Partial<RefactorResult>; failWith?: unknown; parkedRunId?: string } = {}) => {
+}: {
+	args?: string[];
+	result?: Partial<RefactorResult>;
+	failWith?: unknown;
+	parkedRunId?: string;
+} = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo();
 

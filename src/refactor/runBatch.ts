@@ -1,17 +1,25 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
-import { BatchOutcome, WorkReportStatus, type AdvisoryOutcome, type AgentUsage, type LightsoutConfig, type RefactorBatch, type StandardsFinding } from '@/contracts';
+import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
+import {
+	type AdvisoryOutcome,
+	type AgentUsage,
+	BatchOutcome,
+	type LightsoutConfig,
+	type RefactorBatch,
+	type StandardsFinding,
+	WorkReportStatus,
+} from '@/contracts';
 import type { Driver } from '@/drivers';
 import { runBatchGates } from '@/pipeline';
-import { runStandardsCheck } from '@/standardsCheck';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
 import { buildBatchFixInvocation } from '@/refactor/buildBatchFixInvocation';
 import { buildBatchReport } from '@/refactor/buildBatchReport';
 import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
-import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
+import type { BatchStop } from '@/refactor/common/types/BatchStop';
 import { invokeBatchAgent } from '@/refactor/invokeBatchAgent';
 import { matchRemainingFindings } from '@/refactor/matchRemainingFindings';
 import { superviseBatch } from '@/refactor/superviseBatch';
-import type { BatchStop } from '@/refactor/common/types/BatchStop';
+import { runStandardsCheck } from '@/standardsCheck';
+import type { LoadedStandardsPackage } from '@/standardsPackages';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =
@@ -75,7 +83,21 @@ export const runBatch = async ({
 	const invoke = ({ label, invocation }: { label: string; invocation: { systemPrompt: string; prompt: string } }) => {
 		invocationCount += 1;
 
-		return invokeBatchAgent({ cwd, runId, driver, config, batch, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, advisoryOutcomes, recordUsage });
+		return invokeBatchAgent({
+			cwd,
+			runId,
+			driver,
+			config,
+			batch,
+			invocation,
+			label,
+			invocationCount,
+			agentTimeoutMs,
+			reportedFiles,
+			rationale,
+			advisoryOutcomes,
+			recordUsage,
+		});
 	};
 
 	const reportOf = ({ outcome, remainingSiteKeys }: { outcome: BatchOutcome; remainingSiteKeys: string[] }) =>
@@ -106,7 +128,16 @@ export const runBatch = async ({
 		return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
 	}
 
-	const advisories = await collectBatchAdvisories({ cwd, driver, batch, packages, channels, findings: preCheck.findings, timeoutMs: agentTimeoutMs, onProgress });
+	const advisories = await collectBatchAdvisories({
+		cwd,
+		driver,
+		batch,
+		packages,
+		channels,
+		findings: preCheck.findings,
+		timeoutMs: agentTimeoutMs,
+		onProgress,
+	});
 
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever sites survived a pass that DID change the tree (a partial).

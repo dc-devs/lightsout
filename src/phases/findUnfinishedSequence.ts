@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises';
-import { RunStatus, type RunManifest } from '@/contracts';
+import { type RunManifest, RunStatus } from '@/contracts';
 import { getRunsDir, readRunManifest } from '@/runState';
 
 interface Params {

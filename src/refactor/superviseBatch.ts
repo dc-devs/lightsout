@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SupervisorDecision, type AgentUsage, type LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
 import { consultSupervisor } from '@/common/utils/consultSupervisor';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
+import { type AgentUsage, type LightsoutConfig, SupervisorDecision } from '@/contracts';
+import type { Driver } from '@/drivers';
 import type { AgentOutcome } from '@/invoke';
 import { getRunDir } from '@/runState';
 

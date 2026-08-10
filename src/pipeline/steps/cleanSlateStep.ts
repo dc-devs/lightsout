@@ -1,8 +1,8 @@
-import { RunStatus } from '@/contracts';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
+import { RunStatus } from '@/contracts';
+import { gates } from '@/pipeline/common/utils/gates';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { gates } from '@/pipeline/common/utils/gates';
 
 interface Params {
 	run: PipelineRun;
@@ -38,9 +38,7 @@ export const cleanSlateStep = ({ run }: Params): PipelineStep['run'] => {
 
 		await run.setStep({
 			record: { ...record, status: RunStatus.Passed },
-			patch: gateArtifacts
-				? { baselineDirtyFiles: [...new Set([...run.current().baselineDirtyFiles, ...gateArtifacts])] }
-				: undefined,
+			patch: gateArtifacts ? { baselineDirtyFiles: [...new Set([...run.current().baselineDirtyFiles, ...gateArtifacts])] } : undefined,
 		});
 		run.progress('step clean-slate passed');
 

@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { implementCommand } from '@/cli/implementCommand';
-import { parseFlags } from '@/cli/common/args/parseFlags';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { implementCommand } from '@/cli/implementCommand';
 
 /** The plan folder every folder-routing case points `--plan` at. */
 const planFolder = 'plans/demo';

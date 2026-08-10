@@ -1,9 +1,9 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { verifyDraftedFiles } from '@/plan/common/paths/verifyDraftedFiles';
+import { describe, expect, test } from '@jest/globals';
 import { expectDefined } from '@tests/helpers/expectDefined';
+import { verifyDraftedFiles } from '@/plan/common/paths/verifyDraftedFiles';
 
 /** A temp repo holding the given repo-relative plan files. */
 const setupRepo = ({ files = [] }: { files?: string[] } = {}) => {

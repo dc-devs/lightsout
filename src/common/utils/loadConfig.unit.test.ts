@@ -2,8 +2,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '@/common/utils/loadConfig';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { loadConfig } from '@/common/utils/loadConfig';
 
 const setupRepo = ({ raw }: { raw?: string } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-loadconfig-'));

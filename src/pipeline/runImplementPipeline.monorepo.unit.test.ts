@@ -1,14 +1,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
 import { readGateLog } from '@tests/helpers/readGateLog';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
 
 test('front-matter scope: scoped clean-slate, name substitution, expansion, root group', async () => {
 	const dir = setupMonorepo();
@@ -85,9 +85,9 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
 	// command log labels package groups
-	expect(commandLog.some((entry) => entry['group'] === 'api')).toBeTruthy();
+	expect(commandLog.some((entry) => entry.group === 'api')).toBeTruthy();
 	// command log labels the root group
-	expect(commandLog.some((entry) => entry['group'] === 'root')).toBeTruthy();
+	expect(commandLog.some((entry) => entry.group === 'root')).toBeTruthy();
 });
 
 test('no scope anywhere: hard error before any gate or agent', async () => {

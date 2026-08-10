@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -40,7 +50,9 @@ describe('single-use-scalar check', () => {
 	});
 
 	test('reports a module-scope number that one place reads', async () => {
-		const input = setupOneFile({ text: 'const maxRetries = 10;\n\nexport const chargeInvoice = ({ attempt }: { attempt: number }): boolean => attempt < maxRetries;\n' });
+		const input = setupOneFile({
+			text: 'const maxRetries = 10;\n\nexport const chargeInvoice = ({ attempt }: { attempt: number }): boolean => attempt < maxRetries;\n',
+		});
 
 		const findings = await check.run({ input, settings: {} });
 
@@ -79,7 +91,9 @@ describe('single-use-scalar check', () => {
 	});
 
 	test('reads every name of one `const` statement, so a shared declaration hides nothing', async () => {
-		const input = setupOneFile({ text: ["const maxRetries = 10, label = 'charge';", '', 'export const chargeInvoice = (): string => `${label}${maxRetries}`;'].join('\n') });
+		const input = setupOneFile({
+			text: ["const maxRetries = 10, label = 'charge';", '', 'export const chargeInvoice = (): string => `${label}${maxRetries}`;'].join('\n'),
+		});
 
 		const findings = await check.run({ input, settings: {} });
 
@@ -107,7 +121,10 @@ describe('single-use-scalar check', () => {
 	test('answers per file across a repo, so one file’s hoisted scalar never taints a neighbour that reads its own twice', async () => {
 		const input = setupSyntaxTreeInput({
 			sources: [
-				['src/billing/chargeInvoice.ts', 'const maxRetries = 10;\n\nexport const chargeInvoice = ({ attempt }: { attempt: number }): boolean => attempt < maxRetries;\n'],
+				[
+					'src/billing/chargeInvoice.ts',
+					'const maxRetries = 10;\n\nexport const chargeInvoice = ({ attempt }: { attempt: number }): boolean => attempt < maxRetries;\n',
+				],
 				[
 					'src/billing/retryCharge.ts',
 					[
@@ -162,7 +179,13 @@ describe('single-use-scalar check', () => {
 
 	test('leaves a scalar declared inside the function that reads it', async () => {
 		const input = setupOneFile({
-			text: ['export const chargeInvoice = ({ attempt }: { attempt: number }): boolean => {', '\tconst maxRetries = 10;', '', '\treturn attempt < maxRetries;', '};'].join('\n'),
+			text: [
+				'export const chargeInvoice = ({ attempt }: { attempt: number }): boolean => {',
+				'\tconst maxRetries = 10;',
+				'',
+				'\treturn attempt < maxRetries;',
+				'};',
+			].join('\n'),
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -188,7 +211,9 @@ describe('single-use-scalar check', () => {
 
 	test('leaves a lookup map, which the rule names as a carve-out', async () => {
 		const input = setupOneFile({
-			text: ["const chargeLabels: Record<string, string> = { paid: 'Paid' };", '', 'export const chargeInvoice = (): string => chargeLabels.paid ?? "";'].join('\n'),
+			text: ["const chargeLabels: Record<string, string> = { paid: 'Paid' };", '', 'export const chargeInvoice = (): string => chargeLabels.paid ?? "";'].join(
+				'\n',
+			),
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -198,7 +223,12 @@ describe('single-use-scalar check', () => {
 
 	test('leaves a computed value, since the rule speaks about bare scalars rather than anything with moving parts', async () => {
 		const input = setupOneFile({
-			text: ['const retryFlags = { skip: false };', 'const isRetryable = !retryFlags.skip;', '', 'export const chargeInvoice = (): boolean => isRetryable;'].join('\n'),
+			text: [
+				'const retryFlags = { skip: false };',
+				'const isRetryable = !retryFlags.skip;',
+				'',
+				'export const chargeInvoice = (): boolean => isRetryable;',
+			].join('\n'),
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -207,7 +237,9 @@ describe('single-use-scalar check', () => {
 	});
 
 	test('leaves a destructured binding, which names no single value to move into its reader', async () => {
-		const input = setupOneFile({ text: ["const { paid: paidLabel } = { paid: 'Paid' };", '', 'export const chargeInvoice = (): string => paidLabel;'].join('\n') });
+		const input = setupOneFile({
+			text: ["const { paid: paidLabel } = { paid: 'Paid' };", '', 'export const chargeInvoice = (): string => paidLabel;'].join('\n'),
+		});
 
 		const findings = await check.run({ input, settings: {} });
 

@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
 import { collectFunctionNodes } from './collectFunctionNodes.ts';
 
@@ -99,7 +99,11 @@ describe('collectFunctionNodes', () => {
 
 	test.each([
 		{ label: 'a block', text: 'export function greet({ name }: { name: string }) {\n\treturn name;\n}\n', expected: '{\n\treturn name;\n}' },
-		{ label: 'the single expression an arrow returns', text: 'export const double = ({ amount }: { amount: number }) => amount * 2;\n', expected: 'amount * 2' },
+		{
+			label: 'the single expression an arrow returns',
+			text: 'export const double = ({ amount }: { amount: number }) => amount * 2;\n',
+			expected: 'amount * 2',
+		},
 	])('hands the rule $label as the body it reads', ({ text, expected }) => {
 		const { sourceFile, compiler } = setupSourceFile({ text });
 

@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { buildLineSites } from './buildLineSites.ts';
 
 /** The one file and the spans a check found in it — the whole arrangement this builder takes. */
@@ -8,7 +8,10 @@ const setupSites = ({
 		{ startLine: 3, endLine: 5 },
 		{ startLine: 11, endLine: 11 },
 	],
-}: { file?: string; spans?: Array<{ startLine: number; endLine: number }> } = {}) => ({ file, spans });
+}: {
+	file?: string;
+	spans?: Array<{ startLine: number; endLine: number }>;
+} = {}) => ({ file, spans });
 
 describe('buildLineSites', () => {
 	test('gives every span the one file path and keeps the reported order', () => {

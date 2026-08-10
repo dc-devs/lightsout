@@ -1,18 +1,18 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { StandardsSeverity, type LightsoutConfig, type StandardsFinding } from '@/contracts';
-import { getDriver } from '@/drivers';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { detectStandardsChannels } from '@/standards';
-import { listStandardsRules, runStandardsCheck, runStandardsReview } from '@/standardsCheck';
-import { resolveStandardsPackages } from '@/standardsPackages';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
 import { printStandardsRuleList } from '@/cli/common/render/printStandardsRuleList';
 import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
 import { dim } from '@/cli/common/terminal/dim';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { listSourceFiles } from '@/common/utils/listSourceFiles';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { type LightsoutConfig, type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { getDriver } from '@/drivers';
+import { detectStandardsChannels } from '@/standards';
+import { listStandardsRules, runStandardsCheck, runStandardsReview } from '@/standardsCheck';
+import { resolveStandardsPackages } from '@/standardsPackages';
 
 const reportPath = '.lightsout/standards-check.json';
 const defaultAgentTimeoutMinutes = 60;
@@ -45,7 +45,11 @@ const reviewFindings = async ({ cwd, config, path }: { cwd: string; config?: Lig
 /** The typed evidence file the refactor pipeline reads as its work-list, written once per run by the command that owns it. */
 const writeCheckReport = async ({ cwd, path, findings, notes }: { cwd: string; path?: string; findings: StandardsFinding[]; notes: string[] }) => {
 	await mkdir(join(cwd, '.lightsout'), { recursive: true });
-	await writeFile(join(cwd, '.lightsout', 'standards-check.json'), `${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`, 'utf8');
+	await writeFile(
+		join(cwd, '.lightsout', 'standards-check.json'),
+		`${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`,
+		'utf8',
+	);
 };
 
 export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {

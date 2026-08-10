@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { StandardsInputKind, type FileListInput } from '@/contracts';
+import { type FileListInput, StandardsInputKind } from '@/contracts';
 
 interface Params {
 	cwd: string;

@@ -1,6 +1,6 @@
-import { expect, test, jest } from '@jest/globals';
-import type { FrictionRecord } from '@/contracts';
+import { expect, test } from '@jest/globals';
 import { buildPromptImproverInvocation } from '@/agents';
+import type { FrictionRecord } from '@/contracts';
 
 const record = (overrides: Partial<FrictionRecord> = {}): FrictionRecord => ({
 	kind: 'friction',
@@ -41,7 +41,9 @@ test('buildPromptImproverInvocation: each friction record renders as a bullet wi
 	expect(prompt.startsWith('# Friction reports')).toBeTruthy();
 	// the bullet carries every field, with the run id truncated to its first 8
 	// characters
-	expect(prompt.includes('- [friction/prompt] (run 01234567, step unitTests, 2026-08-04T12:00:00.000Z) The role prompt contradicted the plan on where tests live.')).toBeTruthy();
+	expect(
+		prompt.includes('- [friction/prompt] (run 01234567, step unitTests, 2026-08-04T12:00:00.000Z) The role prompt contradicted the plan on where tests live.'),
+	).toBeTruthy();
 });
 
 test('buildPromptImproverInvocation: a record with no kind is reported as friction', () => {
@@ -69,7 +71,11 @@ test('buildPromptImproverInvocation: multiple records render one per line, in th
 	});
 
 	// records are newline-joined in input order
-	expect(prompt.includes('- [friction/prompt] (run 01234567, step unitTests, 2026-08-04T12:00:00.000Z) first\n- [decision/other] (run abcdefgh, step implement, 2026-08-04T12:00:00.000Z) second')).toBeTruthy();
+	expect(
+		prompt.includes(
+			'- [friction/prompt] (run 01234567, step unitTests, 2026-08-04T12:00:00.000Z) first\n- [decision/other] (run abcdefgh, step implement, 2026-08-04T12:00:00.000Z) second',
+		),
+	).toBeTruthy();
 });
 
 test('buildPromptImproverInvocation: a run id shorter than 8 characters passes through whole', () => {
@@ -89,5 +95,7 @@ test('buildPromptImproverInvocation: the editable prompt files are listed as bul
 test('buildPromptImproverInvocation: both sections keep their headings when friction and prompt files are empty', () => {
 	const { prompt } = buildPromptImproverInvocation({ friction: [], promptFiles: [] });
 
-	expect(prompt).toBe('# Friction reports\n\n\n\n# Prompt files you may edit\n\n\n\nRemember: your entire final message must be exactly one JSON report object — nothing else.');
+	expect(prompt).toBe(
+		'# Friction reports\n\n\n\n# Prompt files you may edit\n\n\n\nRemember: your entire final message must be exactly one JSON report object — nothing else.',
+	);
 });

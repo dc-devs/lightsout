@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -39,7 +49,12 @@ describe('type-assertion check', () => {
 
 	test('reports a cast to a keyword type and the line it sits on', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/payloads/readLabel.ts', 'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => (payload.label as string).toUpperCase();\n']],
+			sources: [
+				[
+					'src/payloads/readLabel.ts',
+					'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => (payload.label as string).toUpperCase();\n',
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -56,7 +71,16 @@ describe('type-assertion check', () => {
 
 	test('reports a cast to a named type, which is a reference to something other than `const`', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/payloads/readKind.ts', ["import type { PayloadKind } from './common/constants/PayloadKind.ts';", '', 'export const readKind = ({ raw }: { raw: unknown }): PayloadKind => raw as PayloadKind;'].join('\n')]],
+			sources: [
+				[
+					'src/payloads/readKind.ts',
+					[
+						"import type { PayloadKind } from './common/constants/PayloadKind.ts';",
+						'',
+						'export const readKind = ({ raw }: { raw: unknown }): PayloadKind => raw as PayloadKind;',
+					].join('\n'),
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -66,7 +90,9 @@ describe('type-assertion check', () => {
 
 	test('reports a cast to a type read off another namespace, where the name is qualified rather than plain', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/payloads/readNode.ts', "import type ts from 'typescript';\n\nexport const readNode = ({ raw }: { raw: unknown }): ts.Node => raw as ts.Node;\n"]],
+			sources: [
+				['src/payloads/readNode.ts', "import type ts from 'typescript';\n\nexport const readNode = ({ raw }: { raw: unknown }): ts.Node => raw as ts.Node;\n"],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -79,7 +105,13 @@ describe('type-assertion check', () => {
 			sources: [
 				[
 					'src/payloads/readLabel.ts',
-					['export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => {', '\tconst label = payload.label as string;', '', '\treturn label.toUpperCase();', '};'].join('\n'),
+					[
+						'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => {',
+						'\tconst label = payload.label as string;',
+						'',
+						'\treturn label.toUpperCase();',
+						'};',
+					].join('\n'),
 				],
 			],
 		});
@@ -94,7 +126,11 @@ describe('type-assertion check', () => {
 			sources: [
 				[
 					'src/payloads/readLabel.ts',
-					['export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => (payload.label as string).toUpperCase();', '', 'export const readCount = ({ payload }: { payload: Record<string, unknown> }): number => payload.count as number;'].join('\n'),
+					[
+						'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => (payload.label as string).toUpperCase();',
+						'',
+						'export const readCount = ({ payload }: { payload: Record<string, unknown> }): number => payload.count as number;',
+					].join('\n'),
 				],
 			],
 		});
@@ -113,7 +149,12 @@ describe('type-assertion check', () => {
 
 	test('counts both halves of a double cast, since each one is an assertion of its own', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/payloads/readLabel.ts', 'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => payload.label as unknown as string;\n']],
+			sources: [
+				[
+					'src/payloads/readLabel.ts',
+					'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => payload.label as unknown as string;\n',
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -126,7 +167,14 @@ describe('type-assertion check', () => {
 			sources: [
 				[
 					'src/payloads/common/constants/PayloadKind.ts',
-					['export const PayloadKind = {', "\tLabel: 'label',", "\tAmount: 'amount',", '} as const;', '', 'export type PayloadKind = (typeof PayloadKind)[keyof typeof PayloadKind];'].join('\n'),
+					[
+						'export const PayloadKind = {',
+						"\tLabel: 'label',",
+						"\tAmount: 'amount',",
+						'} as const;',
+						'',
+						'export type PayloadKind = (typeof PayloadKind)[keyof typeof PayloadKind];',
+					].join('\n'),
 				],
 			],
 		});
@@ -159,7 +207,12 @@ describe('type-assertion check', () => {
 
 	test('leaves the word alone where it renames an import rather than casting', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/payloads/readLabel.ts', "import { readLabel as readPayloadLabel } from './common/utils/readLabel.ts';\n\nexport const read = ({ payload }: { payload: Record<string, unknown> }): string => readPayloadLabel({ payload });\n"]],
+			sources: [
+				[
+					'src/payloads/readLabel.ts',
+					"import { readLabel as readPayloadLabel } from './common/utils/readLabel.ts';\n\nexport const read = ({ payload }: { payload: Record<string, unknown> }): string => readPayloadLabel({ payload });\n",
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -180,8 +233,14 @@ describe('type-assertion check', () => {
 	test('reports each offending file on its own and passes over the files that are clean', async () => {
 		const input = setupSyntaxTreeInput({
 			sources: [
-				['src/payloads/readAmount.ts', 'export const readAmount = ({ payload }: { payload: Record<string, unknown> }): number => (typeof payload.amount === \'number\' ? payload.amount : 0);\n'],
-				['src/payloads/readLabel.ts', 'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => (payload.label as string).toUpperCase();\n'],
+				[
+					'src/payloads/readAmount.ts',
+					"export const readAmount = ({ payload }: { payload: Record<string, unknown> }): number => (typeof payload.amount === 'number' ? payload.amount : 0);\n",
+				],
+				[
+					'src/payloads/readLabel.ts',
+					'export const readLabel = ({ payload }: { payload: Record<string, unknown> }): string => (payload.label as string).toUpperCase();\n',
+				],
 			],
 		});
 

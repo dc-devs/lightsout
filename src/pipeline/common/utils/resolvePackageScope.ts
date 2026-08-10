@@ -1,4 +1,4 @@
-import { PackagesSource, type LightsoutConfig } from '@/contracts';
+import { type LightsoutConfig, PackagesSource } from '@/contracts';
 import { readPlanPackages } from '@/pipeline/readPlanPackages';
 import { scanPlanPackagePaths } from '@/pipeline/scanPlanPackagePaths';
 

@@ -2,9 +2,8 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
-import { readRunManifest, RunNotFoundError } from '@/runState';
-import { createRun, getRunDir, writeRunManifest } from '@/runState';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { createRun, getRunDir, RunNotFoundError, readRunManifest, writeRunManifest } from '@/runState';
 
 test('manifest write → read round trip', async () => {
 	const cwd = setupConsumerRepo({ git: false });

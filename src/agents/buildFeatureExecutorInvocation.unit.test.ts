@@ -18,9 +18,11 @@ test('buildFeatureExecutorInvocation: the system prompt carries role, overview, 
 	// the grant lists the exact prefix
 	expect(systemPrompt.includes(`- \`${allowedCommands[0]}\``)).toBeTruthy();
 	// section order is deterministic
-	expect(systemPrompt.indexOf('# Overview (high-level context)') < systemPrompt.indexOf('# Plan\n\n') &&
-		systemPrompt.indexOf('# Plan\n\n') < systemPrompt.indexOf('# Standards\n\n') &&
-		systemPrompt.indexOf('# Standards\n\n') < systemPrompt.indexOf('# Granted commands\n\nYou may run these shell commands')).toBeTruthy();
+	expect(
+		systemPrompt.indexOf('# Overview (high-level context)') < systemPrompt.indexOf('# Plan\n\n') &&
+			systemPrompt.indexOf('# Plan\n\n') < systemPrompt.indexOf('# Standards\n\n') &&
+			systemPrompt.indexOf('# Standards\n\n') < systemPrompt.indexOf('# Granted commands\n\nYou may run these shell commands'),
+	).toBeTruthy();
 });
 
 test('buildFeatureExecutorInvocation: optional sections are omitted when their input is absent or empty', () => {

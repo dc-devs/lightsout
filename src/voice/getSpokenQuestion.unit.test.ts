@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { getSpokenQuestion } from '@/voice';
 
 // The transcript is a real JSONL file in a temp folder: the shape the harness
@@ -154,12 +154,7 @@ describe('getSpokenQuestion', () => {
 
 	test('lines the transcript half-wrote are skipped rather than losing the question beside them', async () => {
 		const { transcriptPath } = setupTranscript({
-			lines: [
-				userSaying({ text: 'plan it' }),
-				'{"type":"assistant","message":',
-				'{"type":"assistant"}',
-				assistantSaying({ text: placementQuestion }),
-			],
+			lines: [userSaying({ text: 'plan it' }), '{"type":"assistant","message":', '{"type":"assistant"}', assistantSaying({ text: placementQuestion })],
 		});
 
 		const spoken = await getSpokenQuestion({ transcriptPath });

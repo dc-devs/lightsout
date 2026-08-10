@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { getNameKey } from './getNameKey.ts';
 
 describe('getNameKey', () => {
@@ -27,11 +27,7 @@ describe('getNameKey', () => {
 		expect(getNameKey({ name: 'userDataGet' })).toBe(getNameKey({ name: 'getUserData' }));
 	});
 
-	test.each([
-		{ name: 'get-user-data' },
-		{ name: 'get_user_data' },
-		{ name: 'user.data.get' },
-	])('reads $name through its separators', ({ name }) => {
+	test.each([{ name: 'get-user-data' }, { name: 'get_user_data' }, { name: 'user.data.get' }])('reads $name through its separators', ({ name }) => {
 		expect(getNameKey({ name })).toBe(getNameKey({ name: 'getUserData' }));
 	});
 

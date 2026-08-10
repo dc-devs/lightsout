@@ -1,9 +1,16 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { StandardsReviewReport } from '@/contracts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const report = {
-		findings: [{ rule: 'path-aliases', files: [{ path: 'src/a.ts', startLine: 3, endLine: 3 }], detail: 'a relative import in an aliased package', guidance: 'use the alias' }],
+		findings: [
+			{
+				rule: 'path-aliases',
+				files: [{ path: 'src/a.ts', startLine: 3, endLine: 3 }],
+				detail: 'a relative import in an aliased package',
+				guidance: 'use the alias',
+			},
+		],
 		...overrides,
 	};
 

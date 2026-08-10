@@ -1,7 +1,7 @@
-import type { LightsoutConfig } from '@/contracts';
 import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { packageOf } from '@/common/utils/packageOf';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
+import { packageOf } from '@/common/utils/packageOf';
+import type { LightsoutConfig } from '@/contracts';
 import { runGates } from '@/pipeline/runGates';
 
 interface Params {

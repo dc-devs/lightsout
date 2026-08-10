@@ -2,10 +2,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runGates } from '@/pipeline';
 import { gateLogCommand } from '@tests/helpers/gateLogCommand';
 import { readGateLog } from '@tests/helpers/readGateLog';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { runGates } from '@/pipeline';
 
 /**
  * A consumer dir with packages whose gate scripts vary, and scoped templates
@@ -25,8 +25,7 @@ const setupScopedRepo = ({ withRunToken = true }: { withRunToken?: boolean } = {
 		writeFileSync(join(dir, 'packages', pkgDir, 'package.json'), JSON.stringify({ name: `@acme/${pkgDir}`, scripts }));
 	}
 
-	const template = ({ kind, script }: { kind: string; script: string }) =>
-		`${gateLogCommand({ kind })} {package}${withRunToken ? ` run ${script}` : ''}`;
+	const template = ({ kind, script }: { kind: string; script: string }) => `${gateLogCommand({ kind })} {package}${withRunToken ? ` run ${script}` : ''}`;
 
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),

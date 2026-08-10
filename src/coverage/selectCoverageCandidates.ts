@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import type { CoverageFile, CoverageTotal } from '@/contracts';
 import { isInertSourceFile } from '@/common/utils/isInertSourceFile';
-import { isTestFile } from '@/common/utils/isTestFile';
 import { isTestableSourceFile } from '@/common/utils/isTestableSourceFile';
+import { isTestFile } from '@/common/utils/isTestFile';
+import type { CoverageFile, CoverageTotal } from '@/contracts';
 
 interface Params {
 	cwd: string;

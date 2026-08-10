@@ -1,10 +1,12 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { getSiteGroupKey } from './getSiteGroupKey.ts';
 
 /** The sites a finding names, exactly as the check reporting them hands them over. */
 const setupSites = ({
 	files = [{ path: 'src/invoices/formatAmount.ts' }, { path: 'src/billing/formatAmount.ts' }],
-}: { files?: Array<{ path: string; startLine?: number; endLine?: number }> } = {}) => ({ files });
+}: {
+	files?: Array<{ path: string; startLine?: number; endLine?: number }>;
+} = {}) => ({ files });
 
 describe('getSiteGroupKey', () => {
 	test('sorts the paths, so one pair keys the same whichever side was reported first', () => {

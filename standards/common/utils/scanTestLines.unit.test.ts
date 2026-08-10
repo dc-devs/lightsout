@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { scanTestLines } from './scanTestLines.ts';
 
 /** The mock-prefix rule's own pattern — a `const` at column 0 whose value is a `jest.fn`. */

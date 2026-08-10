@@ -25,7 +25,9 @@ export const checkLintRules = async ({ config, packageDirs }: Params): Promise<D
 
 	for (const { label, dir } of packageDirs) {
 		const entries = await readdir(dir).catch(() => [] as string[]);
-		const lintConfigs = entries.filter((name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name));
+		const lintConfigs = entries.filter(
+			(name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name),
+		);
 
 		for (const name of lintConfigs) {
 			lintConfigCount += 1;

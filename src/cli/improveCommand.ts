@@ -1,8 +1,8 @@
-import { runPromptImprovement } from '@/runPromptImprovement';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { usage } from '@/cli/common/constants/usage';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
+import { runPromptImprovement } from '@/runPromptImprovement';
 
 export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const engineCwd = getStringFlag({ flags, name: 'engine' });

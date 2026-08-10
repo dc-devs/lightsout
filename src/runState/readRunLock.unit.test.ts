@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { readRunLock } from '@/runState';
+import { describe, expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { readRunLock } from '@/runState';
 
 /** The shape acquireRunLock writes, as raw bytes so malformed holders are expressible. */
 const lockJson = (overrides: Record<string, unknown> = {}) =>

@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { StructuralFinding } from '@/contracts';
 
 const setupFinding = (overrides: Record<string, unknown> = {}) => {
@@ -28,7 +28,15 @@ describe('StructuralFinding', () => {
 	});
 
 	test('check accepts each deterministic lint the plan is graded against', () => {
-		for (const check of ['path-exists', 'script-exists', 'no-placeholders', 'sections-present', 'scope-within-guardrail', 'naming-matches', 'packages-identifiable']) {
+		for (const check of [
+			'path-exists',
+			'script-exists',
+			'no-placeholders',
+			'sections-present',
+			'scope-within-guardrail',
+			'naming-matches',
+			'packages-identifiable',
+		]) {
 			const { finding } = setupFinding({ check });
 
 			const parsed = StructuralFinding.parse(finding);

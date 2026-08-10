@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -39,7 +49,12 @@ describe('import-type-only check', () => {
 
 	test('reports an import whose only reference is a type annotation', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/billing/getChargeLabel.ts', "import { Invoice } from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n"]],
+			sources: [
+				[
+					'src/billing/getChargeLabel.ts',
+					"import { Invoice } from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n",
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -76,7 +91,12 @@ describe('import-type-only check', () => {
 
 	test('accepts an import already written as `import type`', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/billing/getChargeLabel.ts', "import type { Invoice } from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n"]],
+			sources: [
+				[
+					'src/billing/getChargeLabel.ts',
+					"import type { Invoice } from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n",
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -101,7 +121,12 @@ describe('import-type-only check', () => {
 
 	test('leaves an import that is called alone', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/billing/getChargeLabel.ts', "import { formatAmount } from './formatAmount';\n\nexport const getChargeLabel = ({ amount }: { amount: number }): string => formatAmount({ amount });\n"]],
+			sources: [
+				[
+					'src/billing/getChargeLabel.ts',
+					"import { formatAmount } from './formatAmount';\n\nexport const getChargeLabel = ({ amount }: { amount: number }): string => formatAmount({ amount });\n",
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -126,7 +151,12 @@ describe('import-type-only check', () => {
 
 	test('reports a default import whose only reference is a type annotation', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/billing/getChargeLabel.ts', "import Invoice from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n"]],
+			sources: [
+				[
+					'src/billing/getChargeLabel.ts',
+					"import Invoice from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n",
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -184,8 +214,14 @@ describe('import-type-only check', () => {
 	test('reports each offending file on its own and passes over the files that are clean', async () => {
 		const input = setupSyntaxTreeInput({
 			sources: [
-				['src/billing/formatAmount.ts', "import { round } from './round';\n\nexport const formatAmount = ({ amount }: { amount: number }): string => `${round({ amount })}`;\n"],
-				['src/billing/getChargeLabel.ts', "import { Invoice } from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n"],
+				[
+					'src/billing/formatAmount.ts',
+					"import { round } from './round';\n\nexport const formatAmount = ({ amount }: { amount: number }): string => `${round({ amount })}`;\n",
+				],
+				[
+					'src/billing/getChargeLabel.ts',
+					"import { Invoice } from './Invoice';\n\nexport const getChargeLabel = ({ invoice }: { invoice: Invoice }): string => invoice.label;\n",
+				],
 			],
 		});
 
@@ -213,7 +249,12 @@ describe('import-type-only check', () => {
 
 	test('reads `typeof X` as a type position, which is the form `import type` still permits', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/billing/getChargeLabel.ts', "import { invoiceShape } from './invoiceShape';\n\nexport const getChargeLabel = (shape: typeof invoiceShape): string => `${shape}`;\n"]],
+			sources: [
+				[
+					'src/billing/getChargeLabel.ts',
+					"import { invoiceShape } from './invoiceShape';\n\nexport const getChargeLabel = (shape: typeof invoiceShape): string => `${shape}`;\n",
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });

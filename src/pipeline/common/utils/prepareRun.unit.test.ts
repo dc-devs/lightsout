@@ -1,11 +1,11 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { PackagesSource, type LightsoutConfig } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
+import { type LightsoutConfig, PackagesSource } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { PipelineRun } from '@/pipeline/PipelineRun';
 import { prepareRun } from '@/pipeline/common/utils/prepareRun';
+import { PipelineRun } from '@/pipeline/PipelineRun';
 import { createRun } from '@/runState';
 
 const plainRepo: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };

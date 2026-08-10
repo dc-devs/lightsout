@@ -10,5 +10,4 @@ interface Params {
  * counted twice, doubling its test writers). Strip the git prefix so both
  * changed-file truths speak consumer-relative paths.
  */
-export const consumerRelative = ({ gitPrefix, file }: Params): string =>
-	gitPrefix && file.startsWith(gitPrefix) ? file.slice(gitPrefix.length) : file;
+export const consumerRelative = ({ gitPrefix, file }: Params): string => (gitPrefix && file.startsWith(gitPrefix) ? file.slice(gitPrefix.length) : file);

@@ -1,14 +1,12 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { readBarrelExports } from './readBarrelExports.ts';
 
 /** One barrel and the files around it, as a file-text rule hands them over. */
-const setupBarrel = ({
+const setupBarrel = ({ text, paths = ['src/feature/index.ts', 'src/feature/renderGreeting.ts'] }: { text: string; paths?: string[] }) => ({
+	barrelPath: 'src/feature/index.ts',
 	text,
-	paths = ['src/feature/index.ts', 'src/feature/renderGreeting.ts'],
-}: {
-	text: string;
-	paths?: string[];
-}) => ({ barrelPath: 'src/feature/index.ts', text, files: new Set(paths) });
+	files: new Set(paths),
+});
 
 describe('readBarrelExports', () => {
 	test('reads a named re-export as the name it publishes and the file it points at', () => {
@@ -16,9 +14,7 @@ describe('readBarrelExports', () => {
 
 		const exports = readBarrelExports({ barrelPath, text, files });
 
-		expect(exports).toStrictEqual([
-			{ names: ['renderGreeting'], star: false, specifier: './renderGreeting', target: 'src/feature/renderGreeting.ts' },
-		]);
+		expect(exports).toStrictEqual([{ names: ['renderGreeting'], star: false, specifier: './renderGreeting', target: 'src/feature/renderGreeting.ts' }]);
 	});
 
 	test('marks an `export *` line as a star with no names, since it publishes nothing it wrote down', () => {
@@ -44,9 +40,7 @@ describe('readBarrelExports', () => {
 
 		const exports = readBarrelExports({ barrelPath, text, files });
 
-		expect(exports).toStrictEqual([
-			{ names: ['greet', 'Greeting'], star: false, specifier: './renderGreeting', target: 'src/feature/renderGreeting.ts' },
-		]);
+		expect(exports).toStrictEqual([{ names: ['greet', 'Greeting'], star: false, specifier: './renderGreeting', target: 'src/feature/renderGreeting.ts' }]);
 	});
 
 	test('reads a type-only re-export line as the type it publishes', () => {
@@ -65,9 +59,7 @@ describe('readBarrelExports', () => {
 
 		const exports = readBarrelExports({ barrelPath, text, files });
 
-		expect(exports).toStrictEqual([
-			{ names: ['renderGreeting'], star: false, specifier: './renderGreeting', target: 'src/feature/renderGreeting.ts' },
-		]);
+		expect(exports).toStrictEqual([{ names: ['renderGreeting'], star: false, specifier: './renderGreeting', target: 'src/feature/renderGreeting.ts' }]);
 	});
 
 	test('leaves the target undefined when the specifier lands outside the files in scope', () => {
@@ -80,11 +72,9 @@ describe('readBarrelExports', () => {
 
 	test('ignores every line that is not a re-export — local exports, imports, commented-out entries', () => {
 		const { barrelPath, text, files } = setupBarrel({
-			text: [
-				"// export { renderGreeting } from './renderGreeting';",
-				"import { renderGreeting } from './renderGreeting';",
-				'export const version = 1;',
-			].join('\n'),
+			text: ["// export { renderGreeting } from './renderGreeting';", "import { renderGreeting } from './renderGreeting';", 'export const version = 1;'].join(
+				'\n',
+			),
 		});
 
 		const exports = readBarrelExports({ barrelPath, text, files });

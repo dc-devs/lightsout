@@ -2,11 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { GateResult } from '@/contracts';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runGates } from '@/pipeline';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { gateLogCommand } from '@tests/helpers/gateLogCommand';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { GateResult } from '@/contracts';
+import { runGates } from '@/pipeline';
 
 const red = 'node -e "process.exit(1)"';
 
@@ -62,7 +62,13 @@ test('failFast: false threads into scoped groups — every red gate in a package
 
 	const gates: GateResult[] = [];
 
-	const error = await runGates({ cwd: dir, config: await loadConfig({ cwd: dir }), packages: ['api'], failFast: false, onGateResult: (result) => gates.push(result) });
+	const error = await runGates({
+		cwd: dir,
+		config: await loadConfig({ cwd: dir }),
+		packages: ['api'],
+		failFast: false,
+		onGateResult: (result) => gates.push(result),
+	});
 
 	expect(error ?? '').toMatch(/\[api\] check failed/);
 	expect(error ?? '').toMatch(/\[api\] test-unit failed/);

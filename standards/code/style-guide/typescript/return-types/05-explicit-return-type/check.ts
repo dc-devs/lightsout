@@ -4,7 +4,9 @@ import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts'
 
 /** Whether a statement carries the `export` keyword — the bright line the rule is drawn on. */
 const isExported = ({ statement, compiler }: { statement: ts.Statement; compiler: typeof ts }) =>
-	(compiler.canHaveModifiers(statement) ? (compiler.getModifiers(statement) ?? []) : []).some((modifier) => modifier.kind === compiler.SyntaxKind.ExportKeyword);
+	(compiler.canHaveModifiers(statement) ? (compiler.getModifiers(statement) ?? []) : []).some(
+		(modifier) => modifier.kind === compiler.SyntaxKind.ExportKeyword,
+	);
 
 /**
  * The exported functions in one file that state no return type, by the two

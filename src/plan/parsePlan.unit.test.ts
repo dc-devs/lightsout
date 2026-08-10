@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { parsePlan } from '@/plan/parsePlan';
 
 const parse = ({ content, base = 'demo.md' }: { content: string; base?: string }) => parsePlan({ content, base });

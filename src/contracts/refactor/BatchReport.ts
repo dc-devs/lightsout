@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { AdvisoryOutcome } from '@/contracts/standardsCheck/AdvisoryOutcome';
 import { BatchOutcome } from '@/contracts/refactor/BatchOutcome';
+import { AdvisoryOutcome } from '@/contracts/standardsCheck/AdvisoryOutcome';
 
 /** The step-record `report` payload a refactor batch persists. */
 export const BatchReport = z.object({

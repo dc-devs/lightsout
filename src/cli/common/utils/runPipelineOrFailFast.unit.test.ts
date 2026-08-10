@@ -1,12 +1,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test, jest } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
+import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { runPipelineOrFailFast } from '@/cli/common/utils/runPipelineOrFailFast';
+import { loadConfig } from '@/common/utils/loadConfig';
 import type { Driver } from '@/drivers';
 import { RunLockError } from '@/runState';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runPipelineOrFailFast } from '@/cli/common/utils/runPipelineOrFailFast';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
 
 /** A stub agent whose final message is not a report at all — the run fails without throwing. */
 const garbageDriver: Driver = {

@@ -15,10 +15,7 @@ test('writeSystemPromptFile: the file round-trips the system prompt byte-for-byt
 });
 
 test('writeSystemPromptFile: concurrent spawns get distinct paths', async () => {
-	const [first, second] = await Promise.all([
-		writeSystemPromptFile({ systemPrompt: 'first' }),
-		writeSystemPromptFile({ systemPrompt: 'second' }),
-	]);
+	const [first, second] = await Promise.all([writeSystemPromptFile({ systemPrompt: 'first' }), writeSystemPromptFile({ systemPrompt: 'second' })]);
 
 	// two spawns never share a file
 	expect(first.path).not.toBe(second.path);

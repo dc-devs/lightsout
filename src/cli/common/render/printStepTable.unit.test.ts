@@ -1,7 +1,7 @@
-import { expect, test, jest } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
+import { printStepTable } from '@/cli/common/render/printStepTable';
 import { RunStatus } from '@/contracts';
 import type { summarizeRun } from '@/runState';
-import { printStepTable } from '@/cli/common/render/printStepTable';
 
 type StepSummary = Awaited<ReturnType<typeof summarizeRun>>['steps'][number];
 
@@ -22,14 +22,38 @@ const setupStepTable = ({ steps }: { steps: StepSummary[] }) => {
 
 /** Row cells with the alignment padding stripped — the content contract, read apart from the column widths the geometry test pins. */
 const cellsOf = ({ logged }: { logged: string[] }) =>
-	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
+	logged
+		.filter((line) => line.startsWith('│'))
+		.map((line) =>
+			line
+				.split('│')
+				.slice(1, -1)
+				.map((cell) => cell.trim()),
+		);
 
 test('printStepTable: a step with agent activity fills every column, and the total row sums the steps', () => {
 	const { steps, logged } = setupStepTable({
-		
 		steps: [
-			{ id: 'implement', status: RunStatus.Passed, attempts: 1, durationMs: 65000, changedFiles: ['src/a.ts', 'src/b.ts'], invocations: 2, outputTokens: 1500, costUsd: 0.5 },
-			{ id: 'write-tests', status: RunStatus.Pending, attempts: 0, durationMs: undefined, changedFiles: undefined, invocations: 0, outputTokens: 0, costUsd: 0 },
+			{
+				id: 'implement',
+				status: RunStatus.Passed,
+				attempts: 1,
+				durationMs: 65000,
+				changedFiles: ['src/a.ts', 'src/b.ts'],
+				invocations: 2,
+				outputTokens: 1500,
+				costUsd: 0.5,
+			},
+			{
+				id: 'write-tests',
+				status: RunStatus.Pending,
+				attempts: 0,
+				durationMs: undefined,
+				changedFiles: undefined,
+				invocations: 0,
+				outputTokens: 0,
+				costUsd: 0,
+			},
 		],
 	});
 
@@ -45,7 +69,6 @@ test('printStepTable: a step with agent activity fills every column, and the tot
 
 test('printStepTable: a run with no agent invocations dashes out the agent columns, and an explicit empty change list still counts as zero', () => {
 	const { steps, logged } = setupStepTable({
-		
 		steps: [{ id: 'clean-slate', status: RunStatus.Failed, attempts: 2, durationMs: undefined, changedFiles: [], invocations: 0, outputTokens: 0, costUsd: 0 }],
 	});
 
@@ -60,8 +83,9 @@ test('printStepTable: a run with no agent invocations dashes out the agent colum
 
 test('printStepTable: a status with no icon of its own falls back to a question mark rather than blanking the cell', () => {
 	const { steps, logged } = setupStepTable({
-		
-		steps: [{ id: 'park', status: RunStatus.PausedBudget, attempts: 1, durationMs: undefined, changedFiles: undefined, invocations: 0, outputTokens: 0, costUsd: 0 }],
+		steps: [
+			{ id: 'park', status: RunStatus.PausedBudget, attempts: 1, durationMs: undefined, changedFiles: undefined, invocations: 0, outputTokens: 0, costUsd: 0 },
+		],
 	});
 
 	printStepTable({ steps, activeMs: 0 });
@@ -82,8 +106,18 @@ test('printStepTable: a run with no steps still prints the header and a zeroed t
 
 test('printStepTable: every rule and row is padded to one width, so the box closes over seven columns', () => {
 	const { steps, logged } = setupStepTable({
-		
-		steps: [{ id: 'implement', status: RunStatus.Passed, attempts: 1, durationMs: 1000, changedFiles: ['src/a.ts'], invocations: 1, outputTokens: 100, costUsd: 0.01 }],
+		steps: [
+			{
+				id: 'implement',
+				status: RunStatus.Passed,
+				attempts: 1,
+				durationMs: 1000,
+				changedFiles: ['src/a.ts'],
+				invocations: 1,
+				outputTokens: 100,
+				costUsd: 0.01,
+			},
+		],
 	});
 
 	printStepTable({ steps, activeMs: 1000 });

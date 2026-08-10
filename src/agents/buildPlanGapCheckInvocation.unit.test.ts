@@ -11,7 +11,9 @@ test('buildPlanGapCheckInvocation: the system prompt carries the role, the overv
 	// the role prompt leads the system prompt
 	expect(systemPrompt.startsWith('# Role: Check Plan Gaps')).toBeTruthy();
 	expect(systemPrompt.includes(`# Overview (context only — do not grade standalone)\n\n${overviewText}`)).toBeTruthy();
-	expect(systemPrompt.includes(`# Code standards\n\nThe implementing agent loads these too — flag only where the plan contradicts them:\n\n${standards}`)).toBeTruthy();
+	expect(
+		systemPrompt.includes(`# Code standards\n\nThe implementing agent loads these too — flag only where the plan contradicts them:\n\n${standards}`),
+	).toBeTruthy();
 });
 
 test('buildPlanGapCheckInvocation: overview and standards sections are omitted when absent', () => {

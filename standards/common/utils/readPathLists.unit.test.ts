@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { readPathLists } from './readPathLists.ts';
 
 const setupFileListInput = (): StandardsCheckInput => ({
@@ -30,11 +30,19 @@ const setupCloneSpansInput = (): StandardsCheckInput => ({ kind: StandardsInputK
 
 describe('readPathLists', () => {
 	test('reads the paths from a file-list input', () => {
-		expect(readPathLists({ input: setupFileListInput() })).toStrictEqual({ files: ['src/app.ts', 'src/app.unit.test.ts'], tests: ['src/app.unit.test.ts'], standardsPackages: [] });
+		expect(readPathLists({ input: setupFileListInput() })).toStrictEqual({
+			files: ['src/app.ts', 'src/app.unit.test.ts'],
+			tests: ['src/app.unit.test.ts'],
+			standardsPackages: [],
+		});
 	});
 
 	test('reads them from a file-text input too, since both kinds carry them', () => {
-		expect(readPathLists({ input: setupFileTextInput() })).toStrictEqual({ files: ['src/app.ts', 'src/app.unit.test.ts'], tests: ['src/app.unit.test.ts'], standardsPackages: [] });
+		expect(readPathLists({ input: setupFileTextInput() })).toStrictEqual({
+			files: ['src/app.ts', 'src/app.unit.test.ts'],
+			tests: ['src/app.unit.test.ts'],
+			standardsPackages: [],
+		});
 	});
 
 	test('yields empty lists for a kind that carries none, rather than refusing', () => {

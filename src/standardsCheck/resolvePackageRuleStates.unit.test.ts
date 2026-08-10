@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { LightsoutConfig, StandardsSeverity } from '@/contracts';
 import { resolvePackageRuleStates } from '@/standardsCheck';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
@@ -53,7 +53,9 @@ describe('resolvePackageRuleStates', () => {
 
 	test('an object override merges its settings over the front matter rather than replacing them', () => {
 		const { states } = setupStates({
-			packages: [standardsPackage({ rules: [rule({ id: 'size-file', defaultSeverity: StandardsSeverity.Blocking, defaultSettings: { file: 250, tsxFile: 300 } })] })],
+			packages: [
+				standardsPackage({ rules: [rule({ id: 'size-file', defaultSeverity: StandardsSeverity.Blocking, defaultSettings: { file: 250, tsxFile: 300 } })] }),
+			],
 			standardsChecks: { 'size-file': { settings: { file: 400 } } },
 		});
 

@@ -23,8 +23,16 @@ interface Params {
  * Parents are set on the nodes: a rule that has to ask what encloses a node
  * cannot walk back up without them, and there is no cheaper moment to record it.
  */
-export const buildSyntaxTreeInput = async ({ cwd, source, tests, files, referenceFiles,
-	standardsPackages, compiler, cache }: Params): Promise<SyntaxTreeInput> => {
+export const buildSyntaxTreeInput = async ({
+	cwd,
+	source,
+	tests,
+	files,
+	referenceFiles,
+	standardsPackages,
+	compiler,
+	cache,
+}: Params): Promise<SyntaxTreeInput> => {
 	const texts = await readIntoCache({ cwd, paths: source, cache });
 	const trees = new Map<string, ts.SourceFile>();
 

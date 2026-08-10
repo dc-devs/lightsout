@@ -21,7 +21,9 @@ export const loadCheckModule = async ({ checkPath }: Params): Promise<StandardsC
 	const parsed = StandardsCheckModule.safeParse(imported.check);
 
 	if (!parsed.success) {
-		throw new Error(`check.ts must export \`check\` as { inputKind, run } (${checkPath}): ${formatSchemaIssues({ issues: parsed.error.issues, subject: 'check' })}`);
+		throw new Error(
+			`check.ts must export \`check\` as { inputKind, run } (${checkPath}): ${formatSchemaIssues({ issues: parsed.error.issues, subject: 'check' })}`,
+		);
 	}
 
 	return parsed.data;

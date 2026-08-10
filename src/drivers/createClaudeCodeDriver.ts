@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { buildClaudeCodeArgs } from '@/drivers/buildClaudeCodeArgs';
+import type { Driver } from '@/drivers/common/types/Driver';
 import { spawnCollect } from '@/drivers/common/utils/spawnCollect';
 import { writeSystemPromptFile } from '@/drivers/common/utils/writeSystemPromptFile';
-import type { Driver } from '@/drivers/common/types/Driver';
 
 /**
  * The final `result` event of `claude -p --output-format stream-json`

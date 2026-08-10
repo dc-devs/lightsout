@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { StandardsSet } from '@/contracts';
 import { buildStandardsDocuments, loadStandardsPackage } from '@/standardsPackages';
 

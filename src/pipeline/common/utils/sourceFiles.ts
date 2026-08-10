@@ -1,5 +1,5 @@
-import { isTestFile } from '@/common/utils/isTestFile';
 import { isTestableSourceFile } from '@/common/utils/isTestableSourceFile';
+import { isTestFile } from '@/common/utils/isTestFile';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 
 interface Params {

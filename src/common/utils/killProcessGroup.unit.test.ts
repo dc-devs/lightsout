@@ -1,5 +1,5 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { expect, describe, test } from '@jest/globals';
+import { type ChildProcess, spawn } from 'node:child_process';
+import { describe, expect, test } from '@jest/globals';
 import { killProcessGroup } from '@/common/utils/killProcessGroup';
 
 /** True while a pid is still a live process. */

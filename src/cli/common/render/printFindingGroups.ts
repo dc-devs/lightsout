@@ -1,9 +1,9 @@
-import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { wrapText } from '@/cli/common/formatting/wrapText';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 import { terminalWidth } from '@/cli/common/terminal/terminalWidth';
 import { yellow } from '@/cli/common/terminal/yellow';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
 
 interface Params {
 	findings: StandardsFinding[];

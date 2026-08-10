@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test, jest } from '@jest/globals';
-import { FrictionArea, PackagesSource, RunStatus } from '@/contracts';
-import type { FrictionRecord, RunManifest } from '@/contracts';
+import { expect, jest, test } from '@jest/globals';
 import { printResult } from '@/cli/common/render/printResult';
+import type { FrictionRecord, RunManifest } from '@/contracts';
+import { FrictionArea, PackagesSource, RunStatus } from '@/contracts';
 
 // printResult summarizes a run from the evidence the run left on disk, so the
 // arrangement is a real run directory in a temp repo — the summary is driven
@@ -12,7 +12,6 @@ import { printResult } from '@/cli/common/render/printResult';
 // the ANSI paint helpers stay no-ops and the assertions read the plain text a
 // piped consumer sees.
 const setupResult = ({
-	
 	manifest = {},
 	ok = true,
 	error,
@@ -101,7 +100,6 @@ test('printResult: a clean run with no usage, scope, or gate history prints only
 
 test('printResult: a failed run reports active time, usage, gate detail, retries, this run’s friction, scope, and the error on stderr', async () => {
 	const { result, cwd, logged, errors } = setupResult({
-		
 		ok: false,
 		error: 'gate check failed: pnpm check',
 		manifest: {
@@ -146,7 +144,6 @@ test('printResult: a failed run reports active time, usage, gate detail, retries
 
 test('printResult: an invocation that reported no tokens prints usage with no cache share, and the count reads singular', async () => {
 	const { result, cwd, logged } = setupResult({
-		
 		manifest: { usage: { invocations: 1, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 } },
 	});
 

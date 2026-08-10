@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -78,7 +88,12 @@ describe('bare-string-union check', () => {
 
 	test('leaves a literal union whose object sits beside it, even when the union is written out', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/common/constants/Action.ts', ["export const Action = { Add: 'add', Remove: 'remove' } as const;", '', "export type Action = 'add' | 'remove';"].join('\n')]],
+			sources: [
+				[
+					'src/common/constants/Action.ts',
+					["export const Action = { Add: 'add', Remove: 'remove' } as const;", '', "export type Action = 'add' | 'remove';"].join('\n'),
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -99,7 +114,9 @@ describe('bare-string-union check', () => {
 	});
 
 	test('leaves a bare union the file keeps to itself, since no other file can retype its literals', async () => {
-		const input = setupSyntaxTreeInput({ sources: [['src/common/types/Action.ts', "type Action = 'add' | 'remove';\n\nexport const isAdd = (action: Action): boolean => action === 'add';\n"]] });
+		const input = setupSyntaxTreeInput({
+			sources: [['src/common/types/Action.ts', "type Action = 'add' | 'remove';\n\nexport const isAdd = (action: Action): boolean => action === 'add';\n"]],
+		});
 
 		const findings = await check.run({ input, settings: {} });
 
@@ -107,7 +124,9 @@ describe('bare-string-union check', () => {
 	});
 
 	test('reports a union whose same-named binding is reassignable, since only a `const` can be the source of truth', async () => {
-		const input = setupSyntaxTreeInput({ sources: [['src/common/types/Action.ts', ["let Action = { Add: 'add' };", '', "export type Action = 'add' | 'remove';"].join('\n')]] });
+		const input = setupSyntaxTreeInput({
+			sources: [['src/common/types/Action.ts', ["let Action = { Add: 'add' };", '', "export type Action = 'add' | 'remove';"].join('\n')]],
+		});
 
 		const findings = await check.run({ input, settings: {} });
 
@@ -116,7 +135,12 @@ describe('bare-string-union check', () => {
 
 	test('reports a union whose same-named binding was destructured rather than declared', async () => {
 		const input = setupSyntaxTreeInput({
-			sources: [['src/common/types/Action.ts', ["import { registry } from './registry.ts';", '', 'const { Action } = registry;', '', "export type Action = 'add' | 'remove';"].join('\n')]],
+			sources: [
+				[
+					'src/common/types/Action.ts',
+					["import { registry } from './registry.ts';", '', 'const { Action } = registry;', '', "export type Action = 'add' | 'remove';"].join('\n'),
+				],
+			],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -144,7 +168,10 @@ describe('bare-string-union check', () => {
 	test('reports each offending file on its own and passes over the files that are clean', async () => {
 		const input = setupSyntaxTreeInput({
 			sources: [
-				['src/common/constants/Scope.ts', ["export const Scope = { File: 'file' } as const;", '', 'export type Scope = (typeof Scope)[keyof typeof Scope];'].join('\n')],
+				[
+					'src/common/constants/Scope.ts',
+					["export const Scope = { File: 'file' } as const;", '', 'export type Scope = (typeof Scope)[keyof typeof Scope];'].join('\n'),
+				],
 				['src/common/types/Action.ts', "export type Action = 'add' | 'remove';\n"],
 			],
 		});

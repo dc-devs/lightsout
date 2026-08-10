@@ -1,21 +1,21 @@
 import { dirname } from 'node:path';
 import { buildUnitTestWriterInvocation } from '@/agents';
-import { BatchOutcome, WorkReportStatus, type AgentUsage, type CoverageBatchReport, type LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { runBatchGates } from '@/pipeline';
 import { defaultCoverageSummaryPath } from '@/common/constants/defaultCoverageSummaryPath';
 import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
 import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { packageOf } from '@/common/utils/packageOf';
-import { invokeCoverageAgent } from '@/coverage/invokeCoverageAgent';
-import { runCoverageCheck } from '@/coverage/runCoverageCheck';
+import { type AgentUsage, BatchOutcome, type CoverageBatchReport, type LightsoutConfig, WorkReportStatus } from '@/contracts';
 import type { CoverageBatch } from '@/coverage/common/types/CoverageBatch';
 import type { CoverageBatchStop } from '@/coverage/common/types/CoverageBatchStop';
+import { invokeCoverageAgent } from '@/coverage/invokeCoverageAgent';
+import { runCoverageCheck } from '@/coverage/runCoverageCheck';
+import type { Driver } from '@/drivers';
+import { runBatchGates } from '@/pipeline';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =
-	'Standalone coverage run — there is no feature plan. The files listed below are import-connected groups containing the run\'s current worst-covered files; raise their unit-test coverage. Change no source file: tests are the only deliverable.';
+	"Standalone coverage run — there is no feature plan. The files listed below are import-connected groups containing the run's current worst-covered files; raise their unit-test coverage. Change no source file: tests are the only deliverable.";
 
 /**
  * True for the coverage tooling's own output — the measurement must never fail
@@ -78,7 +78,20 @@ export const runCoverageBatch = async ({
 	const invoke = ({ label, invocation }: { label: string; invocation: { systemPrompt: string; prompt: string } }) => {
 		invocationCount += 1;
 
-		return invokeCoverageAgent({ cwd, runId, driver, config, batchId: batch.id, invocation, label, invocationCount, agentTimeoutMs, reportedFiles, rationale, recordUsage });
+		return invokeCoverageAgent({
+			cwd,
+			runId,
+			driver,
+			config,
+			batchId: batch.id,
+			invocation,
+			label,
+			invocationCount,
+			agentTimeoutMs,
+			reportedFiles,
+			rationale,
+			recordUsage,
+		});
 	};
 
 	// Coverage stays OFF: this run exists because that gate is red.
@@ -186,7 +199,12 @@ export const runCoverageBatch = async ({
 
 		const fix = await invoke({
 			label: `fix-${retry}`,
-			invocation: buildUnitTestWriterInvocation({ planContent: standaloneBanner, changedFiles: batch.members, standards: testStandards, errorContext: gateError }),
+			invocation: buildUnitTestWriterInvocation({
+				planContent: standaloneBanner,
+				changedFiles: batch.members,
+				standards: testStandards,
+				errorContext: gateError,
+			}),
 		});
 
 		if (!fix.ok && fix.rateLimited) {

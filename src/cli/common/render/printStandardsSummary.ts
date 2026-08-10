@@ -1,9 +1,9 @@
-import { StandardsSeverity, type StandardsFinding } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
 import { renderTable } from '@/cli/common/render/renderTable';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import type { StandardsRuleListing } from '@/standardsCheck';
 
 interface Params {
 	findings: StandardsFinding[];

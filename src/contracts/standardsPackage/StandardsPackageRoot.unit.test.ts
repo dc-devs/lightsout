@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { StandardsPackageRoot } from '@/contracts';
 
 const setupRoot = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
@@ -43,18 +43,15 @@ describe('StandardsPackageRoot', () => {
 		expect(parsed).toStrictEqual({ name: 'lightsout defaults', formatVersion: 1 });
 	});
 
-	test.each([{ field: 'name' }, { field: 'formatVersion' }])(
-		'rejects a root file with no $field',
-		({ field }) => {
-			const { root } = setupRoot({ omit: field });
+	test.each([{ field: 'name' }, { field: 'formatVersion' }])('rejects a root file with no $field', ({ field }) => {
+		const { root } = setupRoot({ omit: field });
 
-			const result = StandardsPackageRoot.safeParse(root);
+		const result = StandardsPackageRoot.safeParse(root);
 
-			// both fields are required: the loader names the package by one and decides
-			// how to read the tree by the other, so neither can be inferred
-			expect(result.success).toBe(false);
-		},
-	);
+		// both fields are required: the loader names the package by one and decides
+		// how to read the tree by the other, so neither can be inferred
+		expect(result.success).toBe(false);
+	});
 
 	test('rejects an empty name', () => {
 		const { root } = setupRoot({ extra: { name: '' } });
@@ -65,17 +62,14 @@ describe('StandardsPackageRoot', () => {
 		expect(result.success).toBe(false);
 	});
 
-	test.each([{ name: 42 }, { name: ['lightsout defaults'] }, { name: null }])(
-		'rejects a name that is not a string ($name)',
-		({ name }) => {
-			const { root } = setupRoot({ extra: { name } });
+	test.each([{ name: 42 }, { name: ['lightsout defaults'] }, { name: null }])('rejects a name that is not a string ($name)', ({ name }) => {
+		const { root } = setupRoot({ extra: { name } });
 
-			const result = StandardsPackageRoot.safeParse(root);
+		const result = StandardsPackageRoot.safeParse(root);
 
-			// the name is printed into the header line as-is, never coerced
-			expect(result.success).toBe(false);
-		},
-	);
+		// the name is printed into the header line as-is, never coerced
+		expect(result.success).toBe(false);
+	});
 
 	test('accepts the one format version this engine knows how to read', () => {
 		const { root } = setupRoot({ extra: { formatVersion: 1 } });
@@ -85,22 +79,19 @@ describe('StandardsPackageRoot', () => {
 		expect(parsed.formatVersion).toBe(1);
 	});
 
-	test.each([
-		{ formatVersion: 2 },
-		{ formatVersion: 0 },
-		{ formatVersion: '1' },
-		{ formatVersion: true },
-		{ formatVersion: null },
-	])('rejects a format version of $formatVersion', ({ formatVersion }) => {
-		const { root } = setupRoot({ extra: { formatVersion } });
+	test.each([{ formatVersion: 2 }, { formatVersion: 0 }, { formatVersion: '1' }, { formatVersion: true }, { formatVersion: null }])(
+		'rejects a format version of $formatVersion',
+		({ formatVersion }) => {
+			const { root } = setupRoot({ extra: { formatVersion } });
 
-		const result = StandardsPackageRoot.safeParse(root);
+			const result = StandardsPackageRoot.safeParse(root);
 
-		// the version is a single literal, not a range or a coerced number: a package
-		// written against a format this engine does not read is refused at the door
-		// rather than half-loaded
-		expect(result.success).toBe(false);
-	});
+			// the version is a single literal, not a range or a coerced number: a package
+			// written against a format this engine does not read is refused at the door
+			// rather than half-loaded
+			expect(result.success).toBe(false);
+		},
+	);
 
 	test.each([
 		{ label: 'a string', value: 'lightsout defaults' },

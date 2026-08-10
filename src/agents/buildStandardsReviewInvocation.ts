@@ -31,9 +31,7 @@ export const buildStandardsReviewInvocation = ({ rules, files }: Params): { syst
 		byDocument.set(rule.documentPath, [...(byDocument.get(rule.documentPath) ?? []), rule]);
 	}
 
-	const documents = [...byDocument.entries()].map(
-		([path, group]) => `## ${path}\n\n${group.map((rule) => ruleSection({ rule })).join('\n\n')}`,
-	);
+	const documents = [...byDocument.entries()].map(([path, group]) => `## ${path}\n\n${group.map((rule) => ruleSection({ rule })).join('\n\n')}`);
 
 	return {
 		systemPrompt: [standardsReviewerPrompt, `# Rules to review against\n\n${documents.join('\n\n')}`].join('\n\n---\n\n'),

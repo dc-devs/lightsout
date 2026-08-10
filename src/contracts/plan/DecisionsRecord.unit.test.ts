@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { DecisionsRecord } from '@/contracts';
 
 /** One authored Decision-Log row, as the session writes it into decisions.json. */

@@ -1,5 +1,5 @@
-import type { LightsoutConfig } from '@/contracts';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
+import type { LightsoutConfig } from '@/contracts';
 
 interface Params {
 	cwd: string;

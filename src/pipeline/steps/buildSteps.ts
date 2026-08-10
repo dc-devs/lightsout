@@ -1,7 +1,7 @@
 import { buildFeatureExecutorInvocation, buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '@/agents';
+import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
 import { cleanSlateStep } from '@/pipeline/steps/cleanSlateStep';
 import { formatStep } from '@/pipeline/steps/formatStep';
 import { refactorStep } from '@/pipeline/steps/refactorStep';
@@ -41,8 +41,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 						planContent,
 						id: 'verify-refactor',
 						coverage: true,
-						buildFix: (errorContext) =>
-							buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles({ run }), standards, errorContext }),
+						buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles({ run }), standards, errorContext }),
 					}),
 				},
 			];
@@ -90,8 +89,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				planContent,
 				id: 'verify-tests',
 				coverage: true,
-				buildFix: (errorContext) =>
-					buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles({ run }), standards: testStandards, errorContext }),
+				buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles({ run }), standards: testStandards, errorContext }),
 			}),
 		},
 		...refactorSteps,

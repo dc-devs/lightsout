@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { buildCloneSpansInput } from '@/standardsCheck/common/checkInputs/buildCloneSpansInput';
 
 // Well past the detector's floor (50 tokens / 5 lines) so the duplicated span

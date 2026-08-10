@@ -24,7 +24,7 @@ export const readGitChangedFiles = async ({ cwd }: Params) => {
 
 	const status = await runCommand({ command: 'git status --porcelain=v1 -uall -- .', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
 
-	if (!status || status.exitCode !== 0) {
+	if (status?.exitCode !== 0) {
 		return undefined;
 	}
 

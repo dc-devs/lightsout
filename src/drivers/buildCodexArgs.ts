@@ -1,4 +1,4 @@
-import { Permissions, type Effort } from '@/contracts';
+import { type Effort, Permissions } from '@/contracts';
 
 interface Params {
 	/** Temp file codex writes its final message to (`--output-last-message`). */

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { buildFileListInput } from '@/standardsCheck/common/checkInputs/buildFileListInput';
 
 /** A repo whose manifests are whatever the test needs them to be, written verbatim. */

@@ -148,7 +148,8 @@ export const LightsoutConfig = z.object({
 			build: z.string().optional(),
 		})
 		.refine((scripts) => Object.values(scripts).every((command) => command === undefined || command.includes('{package}')), {
-			message: 'every packageScripts command must contain the {package} placeholder — a command without it would run identically for every package and belongs in scripts.* instead',
+			message:
+				'every packageScripts command must contain the {package} placeholder — a command without it would run identically for every package and belongs in scripts.* instead',
 		})
 		.optional(),
 	/**

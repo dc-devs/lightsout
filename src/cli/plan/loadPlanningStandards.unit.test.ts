@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import { loadPlanningStandards } from '@/cli/plan/loadPlanningStandards';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { loadPlanningStandards } from '@/cli/plan/loadPlanningStandards';
+import type { LightsoutConfig } from '@/contracts';
 
 /** A consumer repo whose manifest carries the given dependencies — the signal framework channels are detected from. */
 const setupStandards = ({ dependencies }: { dependencies?: Record<string, string> } = {}) => {
@@ -115,7 +115,14 @@ test('loadPlanningStandards: several declared packages all reach the plan, in co
 test('loadPlanningStandards: a package carrying only a test tree contributes nothing, and that is not a failure', async () => {
 	const { cwd, logged } = setupStandards();
 
-	setupStandardsPackage({ cwd, at: 'standards/tests-only', name: 'tests-only', ruleId: 'mock-prefix', prose: 'Name mocks so they read as mocks.', set: 'tests' });
+	setupStandardsPackage({
+		cwd,
+		at: 'standards/tests-only',
+		name: 'tests-only',
+		ruleId: 'mock-prefix',
+		prose: 'Name mocks so they read as mocks.',
+		set: 'tests',
+	});
 
 	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: ['standards/tests-only'] }) });
 

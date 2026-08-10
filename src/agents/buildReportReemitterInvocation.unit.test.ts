@@ -4,7 +4,10 @@ import { buildReportReemitterInvocation } from '@/agents';
 const setupReemitter = ({
 	rejectedText = 'Sure! Here is the report:\n\n```json\n{ "status": "complete" }\n```',
 	validationError = 'report: Unexpected token in JSON at position 0',
-}: { rejectedText?: string; validationError?: string } = {}) => ({ rejectedText, validationError });
+}: {
+	rejectedText?: string;
+	validationError?: string;
+} = {}) => ({ rejectedText, validationError });
 
 test('buildReportReemitterInvocation: the user prompt leads with the re-emitter role prompt', () => {
 	const params = setupReemitter();
@@ -21,9 +24,7 @@ test('buildReportReemitterInvocation: the validation error and the rejected mess
 	const { prompt } = buildReportReemitterInvocation(params);
 
 	// the error the agent must fix comes before the message it must fix
-	expect(prompt.includes(
-		`# Validation error\n\n${params.validationError}\n\n# Your previous final message\n\n${params.rejectedText}`,
-	)).toBeTruthy();
+	expect(prompt.includes(`# Validation error\n\n${params.validationError}\n\n# Your previous final message\n\n${params.rejectedText}`)).toBeTruthy();
 	// the rejected message closes the prompt
 	expect(prompt.endsWith(params.rejectedText)).toBeTruthy();
 });
@@ -57,7 +58,11 @@ test('buildReportReemitterInvocation: a multi-line validation error keeps every 
 	const { prompt } = buildReportReemitterInvocation(params);
 
 	// every zod issue reaches the agent, one per line
-	expect(prompt.includes('# Validation error\n\nstatus: Invalid enum value. Expected "complete" | "failed"\nchangedFiles: Required\n\n# Your previous final message')).toBeTruthy();
+	expect(
+		prompt.includes(
+			'# Validation error\n\nstatus: Invalid enum value. Expected "complete" | "failed"\nchangedFiles: Required\n\n# Your previous final message',
+		),
+	).toBeTruthy();
 });
 
 test('buildReportReemitterInvocation: both headings survive empty inputs', () => {

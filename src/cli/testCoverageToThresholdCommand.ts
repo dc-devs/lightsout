@@ -1,13 +1,14 @@
-import { getDriver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runCoveragePipeline } from '@/coverage';
-import { readRunManifest, RunLockError } from '@/runState';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { printCoverageResult } from '@/cli/common/render/printCoverageResult';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
+import { loadConfig } from '@/common/utils/loadConfig';
 import { messageOf } from '@/common/utils/messageOf';
+import type { RunManifest } from '@/contracts';
+import { type CoverageResult, runCoveragePipeline } from '@/coverage';
+import { getDriver } from '@/drivers';
+import { RunLockError, readRunManifest } from '@/runState';
 
 export const testCoverageToThresholdCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const resumeRunId = getStringFlag({ flags, name: 'run' });
@@ -26,7 +27,7 @@ export const testCoverageToThresholdCommand = async ({ flags, cwd }: CommandCont
 		process.exit(1);
 	}
 
-	let existing;
+	let existing: RunManifest | undefined;
 
 	try {
 		existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : undefined;
@@ -39,7 +40,7 @@ export const testCoverageToThresholdCommand = async ({ flags, cwd }: CommandCont
 
 	console.log(`lightsout: test-coverage-to-threshold ${existing ? `resuming run ${existing.runId}` : 'starting run'}`);
 
-	let result;
+	let result: CoverageResult;
 
 	try {
 		result = await runCoveragePipeline({ cwd, driver, config, maxBatches, existing, onProgress: createProgressPrinter() });

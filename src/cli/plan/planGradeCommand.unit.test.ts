@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { Effort, GapArea, Permissions } from '@/contracts';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
-import { planGradeCommand } from '@/cli/plan/planGradeCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { writePlanDeliverable } from '@tests/helpers/writePlanDeliverable';
+import { planGradeCommand } from '@/cli/plan/planGradeCommand';
+import type { LightsoutConfig } from '@/contracts';
+import { Effort, GapArea, Permissions } from '@/contracts';
+import type { Driver, DriverInvocation } from '@/drivers';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
 const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));
@@ -86,7 +86,6 @@ test('planGradeCommand: a gap drops the grade below A and prints the decision wi
 
 test('planGradeCommand: a structurally dirty plan prints the lint finding, and an optionless gap prints the decision alone', async () => {
 	const { cwd, name, logged, exitCodes } = setupGrade({
-		
 		body: cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting'),
 	});
 	const gaps = [{ area: GapArea.InsufficientDetail, gap: 'no error handling named', decision: 'say what a failure does', options: [] }];

@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { BatchReport } from '@/contracts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
@@ -157,7 +157,9 @@ describe('BatchReport', () => {
 
 		const parsed = BatchReport.parse(report);
 
-		expect(parsed.advisoryOutcomes).toStrictEqual([{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' }]);
+		expect(parsed.advisoryOutcomes).toStrictEqual([
+			{ rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies' },
+		]);
 	});
 
 	test('an absent advisory account parses — recording advice is an account, never a gate', () => {

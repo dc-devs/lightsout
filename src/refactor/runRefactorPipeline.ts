@@ -1,24 +1,15 @@
-import {
-	BatchOutcome,
-	BatchReport,
-	RunStatus,
-	StandardsSeverity,
-	type AgentUsage,
-	type LightsoutConfig,
-	type RunManifest,
-	type StepRecord,
-} from '@/contracts';
+import { type AgentUsage, BatchOutcome, BatchReport, type LightsoutConfig, type RunManifest, RunStatus, StandardsSeverity, type StepRecord } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { runGates } from '@/pipeline';
-import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '@/runState';
-import { runStandardsCheck } from '@/standardsCheck';
-import { resolveStandards } from '@/standards';
-import { resolveStandardsPackages } from '@/standardsPackages';
 import { countByRule } from '@/refactor/countByRule';
 import { initializeRun } from '@/refactor/initializeRun';
-import { seedResumeState } from '@/refactor/seedResumeState';
-import { runBatch } from '@/refactor/runBatch';
 import type { RefactorResult } from '@/refactor/RefactorResult';
+import { runBatch } from '@/refactor/runBatch';
+import { seedResumeState } from '@/refactor/seedResumeState';
+import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '@/runState';
+import { resolveStandards } from '@/standards';
+import { runStandardsCheck } from '@/standardsCheck';
+import { resolveStandardsPackages } from '@/standardsPackages';
 
 const defaultAgentTimeoutMinutes = 60;
 const maxConsecutiveDeclines = 3;
@@ -148,7 +139,14 @@ const executeRefactor = async ({
 			await update({ status: RunStatus.PausedBudget, currentStep: null });
 			progress(`budget ceiling (${maxBatches} batch(es)) reached — resume with: lightsout refactor --run ${manifest.runId}`);
 
-			return { ok: false, manifest, error: `paused at --max-batches ${maxBatches} — resume with: lightsout refactor --run ${manifest.runId}`, declined, before, after: before };
+			return {
+				ok: false,
+				manifest,
+				error: `paused at --max-batches ${maxBatches} — resume with: lightsout refactor --run ${manifest.runId}`,
+				declined,
+				before,
+				after: before,
+			};
 		}
 
 		const record: StepRecord = { id: batch.id, status: RunStatus.Running, attempts: (prior?.attempts ?? 0) + 1 };
@@ -224,7 +222,13 @@ const executeRefactor = async ({
 
 	// Finding severity only, mirroring the worklist filter — the burn-down
 	// compares work against work, never advisories.
-	return { ok: true, manifest, declined, before, after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Blocking) }) };
+	return {
+		ok: true,
+		manifest,
+		declined,
+		before,
+		after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Blocking) }),
+	};
 };
 
 /**

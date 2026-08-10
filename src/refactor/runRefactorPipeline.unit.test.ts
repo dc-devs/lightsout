@@ -2,16 +2,16 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
-import { readRunManifest } from '@/runState';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { RunManifest } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
+import { readRunManifest } from '@/runState';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
@@ -34,7 +34,15 @@ const fixingDriver = ({ dir }: { dir: string }): Driver => ({
 			writeFileSync(join(dir, target), 'export const alpha = 1;\n');
 			writeFileSync(join(dir, beta), 'export const beta = 2;\n');
 
-			return { text: report({ changedFiles: [{ path: target, summary: 'split' }, { path: beta, summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: target, summary: 'split' },
+						{ path: beta, summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		}
 
 		return { text: report(), exitCode: 0 };
@@ -256,7 +264,15 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 			writeFileSync(join(dir, 'beta/multi.ts'), 'export const alpha = 1;\n');
 			writeFileSync(join(dir, 'beta/beta.ts'), 'export const beta = 2;\n');
 
-			return { text: report({ changedFiles: [{ path: 'beta/multi.ts', summary: 'split' }, { path: 'beta/beta.ts', summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'beta/multi.ts', summary: 'split' },
+						{ path: 'beta/beta.ts', summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -298,7 +314,9 @@ test('refactor: an implement-pipeline manifest is refused with a pointer to the 
 		baselineDirtyFiles: [],
 	});
 
-	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config, existing: implementManifest })).rejects.toThrow(/belongs to the implement pipeline/);
+	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config, existing: implementManifest })).rejects.toThrow(
+		/belongs to the implement pipeline/,
+	);
 });
 
 test('refactor: terminated:scope is a decline that continues, not a run-ending escalation', async () => {
@@ -325,7 +343,15 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 			writeFileSync(join(dir, 'beta/multi.ts'), 'export const alpha = 1;\n');
 			writeFileSync(join(dir, 'beta/beta.ts'), 'export const beta = 2;\n');
 
-			return { text: report({ changedFiles: [{ path: 'beta/multi.ts', summary: 'split' }, { path: 'beta/beta.ts', summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'beta/multi.ts', summary: 'split' },
+						{ path: 'beta/beta.ts', summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -408,7 +434,15 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 			writeFileSync(join(dir, 'alpha/multi.ts'), 'export const alpha = 1;\n');
 			writeFileSync(join(dir, 'alpha/beta.ts'), 'export const beta = 2;\n');
 
-			return { text: report({ changedFiles: [{ path: 'alpha/multi.ts', summary: 'split' }, { path: 'alpha/beta.ts', summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'alpha/multi.ts', summary: 'split' },
+						{ path: 'alpha/beta.ts', summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -487,7 +521,15 @@ const supervisorFixture = () => {
 };
 
 /** A stub whose executor resolves the finding but breaks the gate; cheap fixes are no-ops. */
-const gateBreakingInvoke = ({ dir, prompts, onSupervisor }: { dir: string; prompts: string[]; onSupervisor: () => { text: string; exitCode: number; rateLimited?: boolean } }): Driver['invoke'] => {
+const gateBreakingInvoke = ({
+	dir,
+	prompts,
+	onSupervisor,
+}: {
+	dir: string;
+	prompts: string[];
+	onSupervisor: () => { text: string; exitCode: number; rateLimited?: boolean };
+}): Driver['invoke'] => {
 	let executorCalls = 0;
 
 	return async ({ prompt }) => {
@@ -514,7 +556,15 @@ const gateBreakingInvoke = ({ dir, prompts, onSupervisor }: { dir: string; promp
 			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
 			writeFileSync(join(dir, 'broken.flag'), 'red\n');
 
-			return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }, { path: 'src/beta.ts', summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/multi.ts', summary: 'split' },
+						{ path: 'src/beta.ts', summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		}
 
 		return { text: report(), exitCode: 0 };

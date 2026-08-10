@@ -1,5 +1,5 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { expect, describe, test } from '@jest/globals';
+import { type ChildProcess, spawn } from 'node:child_process';
+import { describe, expect, test } from '@jest/globals';
 import { terminateChildGroups } from '@/common/utils/terminateChildGroups';
 
 /** A detached shell that backgrounds a long sleep and reports its pid. */

@@ -1,15 +1,15 @@
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
+import { describe, expect, test } from '@jest/globals';
 import { readGateLog } from '@tests/helpers/readGateLog';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
 
 /**
  * A monorepo whose only finding sits in packages/api, and a driver that

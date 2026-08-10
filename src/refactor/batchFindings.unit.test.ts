@@ -66,7 +66,13 @@ test('batchFindings: groups by rule × area, mechanical-first order', () => {
 
 	// boundary before multi-export before clone; package dirs, top segments, and
 	// (root) as areas
-	expect(batches.map((batch) => `${batch.rule} ${batch.folder}`)).toStrictEqual(['module-boundary packages/api', 'module-boundary packages/web', 'multi-export (root)', 'multi-export src', 'clone packages/api']);
+	expect(batches.map((batch) => `${batch.rule} ${batch.folder}`)).toStrictEqual([
+		'module-boundary packages/api',
+		'module-boundary packages/web',
+		'multi-export (root)',
+		'multi-export src',
+		'clone packages/api',
+	]);
 	// the ids an agent is handed: a running number in that same order
 	expect(batches.map((batch) => batch.id)).toStrictEqual([
 		'batch-01:module-boundary:packages/api',
@@ -126,11 +132,7 @@ test('batchFindings: rules outside the priority list tie-break alphabetically, a
 	});
 
 	// every listed rule first, then the unlisted ones in id order
-	expect(batches.map((batch) => batch.id)).toStrictEqual([
-		'batch-01:clone:src',
-		'batch-02:alpha-package-rule:src',
-		'batch-03:zeta-package-rule:src',
-	]);
+	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:clone:src', 'batch-02:alpha-package-rule:src', 'batch-03:zeta-package-rule:src']);
 });
 
 test('batchFindings: an oversized group splits into sorted chunks of 12', () => {
@@ -190,10 +192,7 @@ test('batchFindings: paths that name no package folder fall back to their top se
 test('batchFindings: advisories attach to batches whose files overlap, never form batches', () => {
 	const advisory: StandardsFinding = { ...finding({ rule: 'size-function', path: 'src/a.ts', siteKey: 'size-function:src/a.ts' }), severity: 'advisory' };
 	const batches = batchFindings({
-		blocking: [
-			finding({ rule: 'clone', path: 'src/a.ts', siteKey: 'clone:a' }),
-			finding({ rule: 'clone', path: 'lib/b.ts', siteKey: 'clone:b' }),
-		],
+		blocking: [finding({ rule: 'clone', path: 'src/a.ts', siteKey: 'clone:a' }), finding({ rule: 'clone', path: 'lib/b.ts', siteKey: 'clone:b' })],
 		advisories: [advisory],
 		packagesDir: 'packages',
 	});

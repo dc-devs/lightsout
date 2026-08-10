@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { buildSupervisorInvocation } from '@/agents';
 
 interface SetupParams {
@@ -46,10 +46,12 @@ describe('buildSupervisorInvocation', () => {
 	test('the user prompt is the failing step, the gate output, the plan, and the report reminder in that order', () => {
 		const { prompt } = buildSupervisorInvocation(setupConsultation());
 
-		expect(prompt).toBe('# Failing step\n\n`implement:widget` — 3 attempt(s) so far, mechanical retries exhausted.\n\n' +
-			'# Verification output\n\ntsc --noEmit failed\n\nERROR-SENTINEL\n\n' +
-			'# Plan\n\n# Plan: add the widget flag\n\nPLAN-SENTINEL\n\n' +
-			'Remember: your entire final message must be exactly one JSON verdict object — nothing else.');
+		expect(prompt).toBe(
+			'# Failing step\n\n`implement:widget` — 3 attempt(s) so far, mechanical retries exhausted.\n\n' +
+				'# Verification output\n\ntsc --noEmit failed\n\nERROR-SENTINEL\n\n' +
+				'# Plan\n\n# Plan: add the widget flag\n\nPLAN-SENTINEL\n\n' +
+				'Remember: your entire final message must be exactly one JSON verdict object — nothing else.',
+		);
 	});
 
 	test('the failing-step header names the step and its attempt count', () => {

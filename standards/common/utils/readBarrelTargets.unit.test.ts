@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { readBarrelTargets } from './readBarrelTargets.ts';
 
 /** One barrel and the files around it, as a file-text rule hands them over. */

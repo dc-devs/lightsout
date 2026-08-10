@@ -1,6 +1,6 @@
 import type ts from 'typescript';
 import { collectImportEdges } from '@/common/utils/collectImportEdges';
-import { StandardsInputKind, type ImportGraphInput } from '@/contracts';
+import { type ImportGraphInput, StandardsInputKind } from '@/contracts';
 
 interface Params {
 	cwd: string;
@@ -19,8 +19,7 @@ interface Params {
  * it?", and a graph built from the scope alone would answer it wrong whenever
  * the run is narrowed with `--path`.
  */
-export const buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles,
-	standardsPackages, compiler }: Params): Promise<ImportGraphInput> => {
+export const buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler }: Params): Promise<ImportGraphInput> => {
 	const edges = await collectImportEdges({ cwd, files: referenceFiles, compiler });
 
 	return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, standardsPackages, edges };

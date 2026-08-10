@@ -1,7 +1,7 @@
-import { expect, describe, test, jest } from '@jest/globals';
-import { StandardsSeverity, type StandardsFinding } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
+import { describe, expect, jest, test } from '@jest/globals';
 import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import type { StandardsRuleListing } from '@/standardsCheck';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
 	rule: 'size-function',
@@ -40,18 +40,21 @@ const setupPrinter = () => {
 };
 
 const cellsOf = ({ logged }: { logged: string[] }) =>
-	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
+	logged
+		.filter((line) => line.startsWith('│'))
+		.map((line) =>
+			line
+				.split('│')
+				.slice(1, -1)
+				.map((cell) => cell.trim()),
+		);
 
 describe('printStandardsSummary', () => {
 	test('counts blocking and advisory entries in separate columns', () => {
 		const { logged } = setupPrinter();
 
 		printStandardsSummary({
-			findings: [
-				finding({ rule: 'module-boundary', severity: StandardsSeverity.Blocking }),
-				finding(),
-				finding({ siteKey: 'size:two' }),
-			],
+			findings: [finding({ rule: 'module-boundary', severity: StandardsSeverity.Blocking }), finding(), finding({ siteKey: 'size:two' })],
 			rules,
 			reportPath: '.lightsout/standards-check.json',
 		});

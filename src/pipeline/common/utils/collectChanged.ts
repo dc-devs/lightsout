@@ -1,8 +1,8 @@
-import type { WorkReport } from '@/contracts';
-import { packageOf } from '@/common/utils/packageOf';
 import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { packageOf } from '@/common/utils/packageOf';
+import type { WorkReport } from '@/contracts';
 import { consumerRelative } from '@/pipeline/common/utils/consumerRelative';
+import type { PipelineRun } from '@/pipeline/PipelineRun';
 
 interface Params {
 	run: PipelineRun;

@@ -1,9 +1,9 @@
 import { execFileSync, execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
+import { describe, expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
 
 /**
  * A committed consumer repo plus working-tree edits. `write` plants files by
@@ -109,7 +109,7 @@ describe('readGitChangedFiles', () => {
 		// git records a staged rename as `old -> new`; only the new path is a file
 		// anything downstream can open
 		execFileSync('git', ['add', '-A'], { cwd });
-        execFileSync('git', ['mv', 'src/renamed.ts', 'src/moved.ts'], { cwd });
+		execFileSync('git', ['mv', 'src/renamed.ts', 'src/moved.ts'], { cwd });
 
 		const changed = await readGitChangedFiles({ cwd });
 

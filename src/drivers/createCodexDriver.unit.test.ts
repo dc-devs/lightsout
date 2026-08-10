@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, test, afterAll } from '@jest/globals';
+import { afterAll, expect, test } from '@jest/globals';
 import { Effort, Permissions } from '@/contracts';
 import { createCodexDriver } from '@/drivers';
 
@@ -22,7 +22,12 @@ const setupCodex = async ({
 	stdout = '',
 	stderr = '',
 	lastMessage = 'FINAL-MESSAGE',
-}: { exitCode?: number; stdout?: string; stderr?: string; lastMessage?: string } = {}) => {
+}: {
+	exitCode?: number;
+	stdout?: string;
+	stderr?: string;
+	lastMessage?: string;
+} = {}) => {
 	const dir = await mkdtemp(join(tmpdir(), 'lightsout-codex-driver-'));
 	const binDir = join(dir, 'bin');
 	const argvPath = join(dir, 'argv.txt');

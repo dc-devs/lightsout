@@ -15,16 +15,47 @@ import { readPathLists } from '../../../../common/utils/readPathLists.ts';
  * are two predicates, not a shared domain, so they never graduate.
  */
 const accessVerbs = new Set([
-	'is', 'has', 'can', 'should', 'was',
-	'get', 'set', 'read', 'write', 'load', 'save', 'fetch', 'list', 'collect', 'gather',
-	'to', 'as', 'from', 'with', 'on',
-	'create', 'make', 'new', 'build', 'init',
-	'resolve', 'find', 'lookup',
-	'run', 'invoke', 'call', 'execute', 'apply',
+	'is',
+	'has',
+	'can',
+	'should',
+	'was',
+	'get',
+	'set',
+	'read',
+	'write',
+	'load',
+	'save',
+	'fetch',
+	'list',
+	'collect',
+	'gather',
+	'to',
+	'as',
+	'from',
+	'with',
+	'on',
+	'create',
+	'make',
+	'new',
+	'build',
+	'init',
+	'resolve',
+	'find',
+	'lookup',
+	'run',
+	'invoke',
+	'call',
+	'execute',
+	'apply',
 ]);
 
 /** The leading word of an export name, camelCase boundaries and separators alike. */
-const getFirstToken = ({ name }: { name: string }) => name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(/[\s\-_.]+/)[0]?.toLowerCase() ?? '';
+const getFirstToken = ({ name }: { name: string }) =>
+	name
+		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+		.split(/[\s\-_.]+/)[0]
+		?.toLowerCase() ?? '';
 
 /** Production files under each `utils/` folder, gathered by the verb their names lead with. */
 const groupUtilsByVerb = ({ files }: { files: string[] }) => {

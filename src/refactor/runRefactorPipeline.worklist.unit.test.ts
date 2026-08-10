@@ -1,16 +1,16 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { RefactorWorklist } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
+import { describe, expect, test } from '@jest/globals';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { RefactorWorklist } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -84,7 +84,15 @@ const setupBaselinedRun = async () => {
 			prompts.push(prompt);
 			splitMulti({ dir, file: 'src/multi.ts' });
 
-			return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }, { path: 'src/betaThing.ts', summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/multi.ts', summary: 'split' },
+						{ path: 'src/betaThing.ts', summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -257,7 +265,10 @@ describe('runRefactorPipeline work-list', () => {
 		// each package is its own batch area — on the default packagesDir both
 		// findings would collapse into a single `modules` batch, pointing one agent
 		// at two packages
-		expect([...new Set(worklist.batches.map((batch) => batch.folder))].filter((folder) => folder.startsWith('modules'))).toStrictEqual(['modules/api', 'modules/web']);
+		expect([...new Set(worklist.batches.map((batch) => batch.folder))].filter((folder) => folder.startsWith('modules'))).toStrictEqual([
+			'modules/api',
+			'modules/web',
+		]);
 	});
 
 	test('an unconfigured packagesDir still batches per package under packages/', async () => {
@@ -272,7 +283,10 @@ describe('runRefactorPipeline work-list', () => {
 		// 'packages' is the default the work-list supplies — without it both
 		// findings would share one `packages` batch, pointing one agent at two
 		// packages
-		expect([...new Set(worklist.batches.map((batch) => batch.folder))].filter((folder) => folder.startsWith('packages'))).toStrictEqual(['packages/api', 'packages/web']);
+		expect([...new Set(worklist.batches.map((batch) => batch.folder))].filter((folder) => folder.startsWith('packages'))).toStrictEqual([
+			'packages/api',
+			'packages/web',
+		]);
 	});
 
 	test('a run given no scope and no mode freezes the whole repo, baseline-filtered', async () => {

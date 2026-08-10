@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { DecisionRow } from '@/contracts';
 
 /** One Decision-Log row as the session authors it during the planning dialogue. */

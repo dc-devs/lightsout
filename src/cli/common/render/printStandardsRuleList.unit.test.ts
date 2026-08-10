@@ -1,7 +1,7 @@
-import { expect, describe, test, jest } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
+import { printStandardsRuleList } from '@/cli/common/render/printStandardsRuleList';
 import { StandardsSeverity } from '@/contracts';
 import type { StandardsRuleListing } from '@/standardsCheck';
-import { printStandardsRuleList } from '@/cli/common/render/printStandardsRuleList';
 
 const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleListing => ({
 	rule: 'multi-export',
@@ -26,7 +26,14 @@ const setupPrinter = () => {
 };
 
 const cellsOf = ({ logged }: { logged: string[] }) =>
-	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
+	logged
+		.filter((line) => line.startsWith('│'))
+		.map((line) =>
+			line
+				.split('│')
+				.slice(1, -1)
+				.map((cell) => cell.trim()),
+		);
 
 describe('printStandardsRuleList', () => {
 	test('each rule gets its state, its checker and the doc it enforces, with its summary beneath', () => {

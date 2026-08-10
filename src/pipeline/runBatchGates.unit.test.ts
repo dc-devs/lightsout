@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runBatchGates } from '@/pipeline';
+import { describe, expect, test } from '@jest/globals';
 import { gateLogCommand } from '@tests/helpers/gateLogCommand';
 import { readGateLog } from '@tests/helpers/readGateLog';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { setupMonorepo } from '@tests/helpers/setupMonorepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { runBatchGates } from '@/pipeline';
 
 /** A monorepo with the given files dirtied — the git diff is what the scope is read from. */
 const setupTouched = async ({ files, git = true }: { files: string[]; git?: boolean }) => {
@@ -74,7 +74,14 @@ describe('runBatchGates', () => {
 		const withCoverage = await setupTouched({ files: ['packages/api/src/added.js'] });
 		const withoutCoverage = await setupTouched({ files: ['packages/api/src/added.js'] });
 
-		await runBatchGates({ cwd: withCoverage.dir, config: withCoverage.config, coverage: true, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
+		await runBatchGates({
+			cwd: withCoverage.dir,
+			config: withCoverage.config,
+			coverage: true,
+			runId: 'run-1',
+			step: 'batch-01:api',
+			onProgress: () => undefined,
+		});
 		await runBatchGates({
 			cwd: withoutCoverage.dir,
 			config: withoutCoverage.config,

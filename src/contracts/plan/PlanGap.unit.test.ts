@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { PlanGap } from '@/contracts';
 
 const setupGap = (overrides: Record<string, unknown> = {}) => {
@@ -37,7 +37,14 @@ describe('PlanGap', () => {
 	});
 
 	test('area accepts each kind of decision-level gap the agent surfaces', () => {
-		for (const area of ['underspecified-surface', 'unwired-dependency', 'insufficient-detail', 'omitted-decision', 'ambiguous-boundary', 'standards-conflict']) {
+		for (const area of [
+			'underspecified-surface',
+			'unwired-dependency',
+			'insufficient-detail',
+			'omitted-decision',
+			'ambiguous-boundary',
+			'standards-conflict',
+		]) {
 			const { gap } = setupGap({ area });
 
 			const parsed = PlanGap.parse(gap);

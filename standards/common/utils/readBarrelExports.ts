@@ -6,7 +6,10 @@ const namedLine = /^export\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/;
 
 /** The public name a re-export exposes: the alias when `A as B`, else the source name, with any leading `type` stripped. */
 const getPublicName = ({ part }: { part: string }) => {
-	const withoutType = part.trim().replace(/^type\s+/, '').trim();
+	const withoutType = part
+		.trim()
+		.replace(/^type\s+/, '')
+		.trim();
 
 	return /\bas\s+([A-Za-z0-9_$]+)$/.exec(withoutType)?.[1] ?? withoutType;
 };
@@ -47,7 +50,13 @@ export const readBarrelExports = ({ barrelPath, text, files }: Params): BarrelEx
 			continue;
 		}
 
-		const names = entries === undefined ? [] : entries.split(',').map((part) => getPublicName({ part })).filter((name) => name.length > 0);
+		const names =
+			entries === undefined
+				? []
+				: entries
+						.split(',')
+						.map((part) => getPublicName({ part }))
+						.filter((name) => name.length > 0);
 
 		exports.push({ names, star: star !== null, specifier, target: resolveRelativeImport({ from: barrelPath, specifier, files }) });
 	}

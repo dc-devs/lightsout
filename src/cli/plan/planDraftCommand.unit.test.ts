@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { PlanDraftStatus, PlanFixStatus, PlanVariant } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planDraftCommand } from '@/cli/plan/planDraftCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { planDraftCommand } from '@/cli/plan/planDraftCommand';
+import { PlanDraftStatus, PlanFixStatus, PlanVariant } from '@/contracts';
+import type { Driver } from '@/drivers';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
 const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));
@@ -54,7 +54,15 @@ const writerDriver = ({ body, variant = PlanVariant.Single, report }: { body?: s
 		}
 
 		return {
-			text: JSON.stringify(report ?? { status: PlanDraftStatus.Drafted, filesWritten: [{ path, variant, scope: 'single' }], decisionsApplied: 0, assumptions: [], discrepancies: [] }),
+			text: JSON.stringify(
+				report ?? {
+					status: PlanDraftStatus.Drafted,
+					filesWritten: [{ path, variant, scope: 'single' }],
+					decisionsApplied: 0,
+					assumptions: [],
+					discrepancies: [],
+				},
+			),
 			exitCode: 0,
 		};
 	},
@@ -84,7 +92,9 @@ const setupDraft = ({ args = [] }: { args?: string[] } = {}) => {
 test('planDraftCommand: a structurally clean draft reports its variant, lists each written path, and exits 0', async () => {
 	const { cwd, planDir, name, flags, logged, errors, exitCodes } = setupDraft();
 
-	await expect(planDraftCommand({ cwd, driver: writerDriver({ body: cleanPlanBody() }), name, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
+	await expect(
+		planDraftCommand({ cwd, driver: writerDriver({ body: cleanPlanBody() }), name, standards: undefined, config: undefined, flags }),
+	).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -97,14 +107,16 @@ test('planDraftCommand: a structurally clean draft reports its variant, lists ea
 test('planDraftCommand: --scope phased drafts the overview variant and says so', async () => {
 	const { cwd, planDir, name, flags, logged, exitCodes } = setupDraft({ args: ['--scope', 'phased'] });
 
-	await expect(planDraftCommand({
-		cwd,
-		driver: writerDriver({ body: overviewPlanBody(), variant: PlanVariant.Overview }),
-		name,
-		standards: undefined,
-		config: undefined,
-		flags,
-	})).rejects.toThrow(/process\.exit/);
+	await expect(
+		planDraftCommand({
+			cwd,
+			driver: writerDriver({ body: overviewPlanBody(), variant: PlanVariant.Overview }),
+			name,
+			standards: undefined,
+			config: undefined,
+			flags,
+		}),
+	).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 
@@ -115,9 +127,17 @@ test('planDraftCommand: --scope phased drafts the overview variant and says so',
 
 test('planDraftCommand: a facts/decisions discrepancy is reported as a facts error, one ⚠ per discrepancy, and exits 1', async () => {
 	const { cwd, name, flags, logged, errors, exitCodes } = setupDraft();
-	const report = { status: PlanDraftStatus.Error, filesWritten: [], decisionsApplied: 0, assumptions: [], discrepancies: ['src/gone.ts does not exist', 'the api package is named core'] };
+	const report = {
+		status: PlanDraftStatus.Error,
+		filesWritten: [],
+		decisionsApplied: 0,
+		assumptions: [],
+		discrepancies: ['src/gone.ts does not exist', 'the api package is named core'],
+	};
 
-	await expect(planDraftCommand({ cwd, driver: writerDriver({ report }), name, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
+	await expect(planDraftCommand({ cwd, driver: writerDriver({ report }), name, standards: undefined, config: undefined, flags })).rejects.toThrow(
+		/process\.exit/,
+	);
 
 	expect(printedLines({ logged })).toStrictEqual([]);
 	expect(errors[0] ?? '').toMatch(/^\nfacts error — the plan-writer found the facts\/decisions do not match the codebase/);
@@ -130,7 +150,9 @@ test('planDraftCommand: a writer that reports a draft but writes no file fails w
 	const { cwd, name, flags, errors, exitCodes } = setupDraft();
 	const report = { status: PlanDraftStatus.Drafted, filesWritten: [], decisionsApplied: 0, assumptions: [], discrepancies: [] };
 
-	await expect(planDraftCommand({ cwd, driver: writerDriver({ report }), name, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
+	await expect(planDraftCommand({ cwd, driver: writerDriver({ report }), name, standards: undefined, config: undefined, flags })).rejects.toThrow(
+		/process\.exit/,
+	);
 
 	expect(errors[0]).toBe('\nplan-writer reported drafted but listed no files written');
 	expect(exitCodes).toStrictEqual([1]);
@@ -140,7 +162,9 @@ test('planDraftCommand: structural findings that survive the repair loop print w
 	const { cwd, name, flags, logged, errors, exitCodes } = setupDraft();
 	const dirtyBody = cleanPlanBody().replace('A new module exporting', 'TBD — a new module exporting');
 
-	await expect(planDraftCommand({ cwd, driver: writerDriver({ body: dirtyBody }), name, standards: undefined, config: undefined, flags })).rejects.toThrow(/process\.exit/);
+	await expect(planDraftCommand({ cwd, driver: writerDriver({ body: dirtyBody }), name, standards: undefined, config: undefined, flags })).rejects.toThrow(
+		/process\.exit/,
+	);
 
 	expect(printedLines({ logged })).toStrictEqual([]);
 	expect(errors[0] ?? '').toMatch(/^\n1 structural issue\(s\) remain after re-drafting — resolve, then re-draft:$/);
@@ -152,14 +176,16 @@ test('planDraftCommand: structural findings that survive the repair loop print w
 test('planDraftCommand: --scope single forces the one-file variant instead of leaving it to the estimate', async () => {
 	const { cwd, planDir, name, flags, logged, exitCodes } = setupDraft({ args: ['--scope', 'single'] });
 
-	await expect(planDraftCommand({
-		cwd,
-		driver: writerDriver({ body: cleanPlanBody() }),
-		name,
-		standards: undefined,
-		config: undefined,
-		flags,
-	})).rejects.toThrow(/process\.exit/);
+	await expect(
+		planDraftCommand({
+			cwd,
+			driver: writerDriver({ body: cleanPlanBody() }),
+			name,
+			standards: undefined,
+			config: undefined,
+			flags,
+		}),
+	).rejects.toThrow(/process\.exit/);
 
 	const printed = printedLines({ logged });
 

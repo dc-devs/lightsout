@@ -47,7 +47,9 @@ export const groupTestTargets = async ({ run, targets, compiler }: Params): Prom
 
 		for (const component of groupConnectedFiles({ files: partitionFiles, edges })) {
 			if (component.length > maxWriterGroupFiles) {
-				run.progress(`write-tests: import component of ${component.length} files exceeds the ${maxWriterGroupFiles}-file writer cap — splitting into sorted chunks`);
+				run.progress(
+					`write-tests: import component of ${component.length} files exceeds the ${maxWriterGroupFiles}-file writer cap — splitting into sorted chunks`,
+				);
 			}
 
 			groups.push(...chunkFileGroup({ files: component, max: maxWriterGroupFiles }));

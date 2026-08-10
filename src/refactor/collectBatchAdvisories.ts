@@ -1,4 +1,4 @@
-import { StandardsSeverity, type RefactorBatch, type StandardsFinding } from '@/contracts';
+import { type RefactorBatch, type StandardsFinding, StandardsSeverity } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { runStandardsReview } from '@/standardsCheck';
 import type { LoadedStandardsPackage } from '@/standardsPackages';
@@ -42,9 +42,7 @@ export const collectBatchAdvisories = async ({
 	onProgress,
 }: Params): Promise<StandardsFinding[]> => {
 	const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file) => file.path)));
-	const machine = findings.filter(
-		(finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file) => batchFiles.has(file.path)),
-	);
+	const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file) => batchFiles.has(file.path)));
 	const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
 
 	for (const note of review.notes) {

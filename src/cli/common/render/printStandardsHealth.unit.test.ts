@@ -1,6 +1,6 @@
-import { expect, describe, test, jest } from '@jest/globals';
-import type { StandardsHealth, StandardsHealthRule } from '@/standardsCheck';
+import { describe, expect, jest, test } from '@jest/globals';
 import { printStandardsHealth } from '@/cli/common/render/printStandardsHealth';
+import type { StandardsHealth, StandardsHealthRule } from '@/standardsCheck';
 
 const healthRule = (overrides: Partial<StandardsHealthRule> & { id: string }): StandardsHealthRule => ({
 	set: 'code',
@@ -33,7 +33,14 @@ const setupPrinter = () => {
 };
 
 const cellsOf = ({ logged }: { logged: string[] }) =>
-	logged.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
+	logged
+		.filter((line) => line.startsWith('│'))
+		.map((line) =>
+			line
+				.split('│')
+				.slice(1, -1)
+				.map((cell) => cell.trim()),
+		);
 
 describe('printStandardsHealth', () => {
 	test('a rule nobody has ever put to the test reads as dashes, never as zeroes', () => {
@@ -62,7 +69,14 @@ describe('printStandardsHealth', () => {
 
 		printStandardsHealth({
 			health: healthOf({
-				rules: [healthRule({ id: 'multi-export', attempted: 1, declined: 1, reasons: ['[plan] the barrel would break', '[plan] the barrel would break', '[other] deliberate'] })],
+				rules: [
+					healthRule({
+						id: 'multi-export',
+						attempted: 1,
+						declined: 1,
+						reasons: ['[plan] the barrel would break', '[plan] the barrel would break', '[other] deliberate'],
+					}),
+				],
 			}),
 		});
 

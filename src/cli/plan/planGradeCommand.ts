@@ -1,14 +1,14 @@
-import { runPlanGrade } from '@/plan';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
-import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
-import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
 import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
+import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
+import type { LightsoutConfig } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { runPlanGrade } from '@/plan';
 
 interface Params {
 	cwd: string;

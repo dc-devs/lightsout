@@ -1,11 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import { report } from '@tests/helpers/report';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { Effort } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPromptImprovement } from '@/runPromptImprovement';
-import { report } from '@tests/helpers/report';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 
 const setupEngineRepo = () => {
 	const dir = setupConsumerRepo({ git: false });
@@ -96,7 +96,9 @@ test('the resolved model and effort ride the improver invocation at the write ca
 	expect(result.status === 'invoked' && result.outcome.ok && result.outcome.report.status).toBe('complete');
 	// the caller-resolved model and effort reach the harness; the improver edits
 	// prompt files, so it needs write
-	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'write' }]);
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([
+		{ model: 'gpt-5.2', effort: 'xhigh', permissions: 'write' },
+	]);
 });
 
 test('an unset effort reaches the driver undefined, while the write level still stands', async () => {
@@ -112,7 +114,9 @@ test('an unset effort reaches the driver undefined, while the write level still 
 	expect(result.status === 'invoked' && result.outcome.ok && result.outcome.report.status).toBe('complete');
 	// the harness default stands for an unset effort; the capability level belongs
 	// to the role, never to a config read
-	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: 'write' }]);
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([
+		{ model: undefined, effort: undefined, permissions: 'write' },
+	]);
 });
 
 test('only the markdown files in the prompts directory are offered as editable surface', async () => {

@@ -1,8 +1,9 @@
-import type { GateResult } from '@/contracts';
-import { appendCommandLog } from '@/runState';
-import { runCommand } from '@/common/utils/runCommand';
-import type { RunGate } from '@/pipeline/common/types/RunGate';
+import type { CommandResult } from '@/common/types/CommandResult';
 import { messageOf } from '@/common/utils/messageOf';
+import { runCommand } from '@/common/utils/runCommand';
+import type { GateResult } from '@/contracts';
+import type { RunGate } from '@/pipeline/common/types/RunGate';
+import { appendCommandLog } from '@/runState';
 
 const gateTimeoutMs = 10 * 60_000;
 const outputTailChars = 2000;
@@ -33,7 +34,7 @@ interface Params {
 export const createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }: Params): RunGate => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
 		const startedAt = Date.now();
-		let result;
+		let result: CommandResult;
 
 		try {
 			result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });

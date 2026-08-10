@@ -1,12 +1,12 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { z } from 'zod';
-import type { CoverageFile, CoverageTotal, LightsoutConfig } from '@/contracts';
 import { defaultCoverageSummaryPath } from '@/common/constants/defaultCoverageSummaryPath';
 import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
 import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
 import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
 import { runCommand } from '@/common/utils/runCommand';
+import type { CoverageFile, CoverageTotal, LightsoutConfig } from '@/contracts';
 import { appendCommandLog } from '@/runState';
 
 const rootScope = 'root';

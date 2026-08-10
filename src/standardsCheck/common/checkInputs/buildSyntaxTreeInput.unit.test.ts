@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { expectDefined } from '@tests/helpers/expectDefined';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
 import { buildSyntaxTreeInput } from '@/standardsCheck/common/checkInputs/buildSyntaxTreeInput';
-import { expectDefined } from '@tests/helpers/expectDefined';
 
 const setupRepo = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-syntax-tree-'));

@@ -1,5 +1,5 @@
-import { expect, describe, test } from '@jest/globals';
-import { BatchOutcome, RunStatus, type CoverageBatchReport, type LightsoutConfig, type RunManifest, type StepRecord } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
+import { BatchOutcome, type CoverageBatchReport, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 import { seedCoverageResumeState } from '@/coverage/seedCoverageResumeState';
 
 const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: 'true' } };

@@ -1,9 +1,9 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { loadStandardsPackage } from '@/standardsPackages';
+import { describe, expect, test } from '@jest/globals';
 import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { loadStandardsPackage } from '@/standardsPackages';
 
 /** A temp standards package holding the given package-relative files, plus any empty folders. */
 const setupPackage = ({ files = {}, folders = [] }: { files?: Record<string, string>; folders?: string[] } = {}) => {
@@ -48,7 +48,10 @@ describe('loadStandardsPackage', () => {
 					markdown: '---\nsummary: cross-module imports go through index.ts\n---\n\nA folder-module has a public API.\n',
 				}),
 				'tests/unit-testing/document.md': '---\nchannel: react\n---\n\n# Unit Testing\n\nHow to write tests.\n',
-				...ruleFiles({ path: 'tests/unit-testing/01-mock-prefix', markdown: '---\nsummary: mock variables carry a mock prefix\n---\n\nName mocks so they read as mocks.\n' }),
+				...ruleFiles({
+					path: 'tests/unit-testing/01-mock-prefix',
+					markdown: '---\nsummary: mock variables carry a mock prefix\n---\n\nName mocks so they read as mocks.\n',
+				}),
 			},
 		});
 

@@ -1,8 +1,8 @@
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BrainstormDecisions } from '@/contracts';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
 import { readPlanWorkspaceFile } from '@/plan/common/utils/readPlanWorkspaceFile';
+import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
 
 const brainstormDecisionsFile = 'brainstorm-decisions.json';
 

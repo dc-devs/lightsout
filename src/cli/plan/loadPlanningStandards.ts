@@ -1,8 +1,8 @@
-import { detectStandardsChannels } from '@/standards';
-import { buildStandardsDocuments, resolveStandardsPackages } from '@/standardsPackages';
-import type { LightsoutConfig } from '@/contracts';
 import { dim } from '@/cli/common/terminal/dim';
 import { messageOf } from '@/common/utils/messageOf';
+import type { LightsoutConfig } from '@/contracts';
+import { detectStandardsChannels } from '@/standards';
+import { buildStandardsDocuments, resolveStandardsPackages } from '@/standardsPackages';
 
 interface Params {
 	cwd: string;

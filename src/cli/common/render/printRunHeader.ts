@@ -1,4 +1,4 @@
-import { Permissions, type LightsoutConfig } from '@/contracts';
+import { type LightsoutConfig, Permissions } from '@/contracts';
 import type { Driver } from '@/drivers';
 
 interface Params {

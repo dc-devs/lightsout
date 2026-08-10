@@ -1,12 +1,12 @@
 import { resolve } from 'node:path';
-import { messageOf } from '@/common/utils/messageOf';
-import { validateStandardsPackage } from '@/standardsCheck';
-import { loadStandardsPackage, resolveDefaultStandardsPackage } from '@/standardsPackages';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { messageOf } from '@/common/utils/messageOf';
+import { validateStandardsPackage } from '@/standardsCheck';
+import { loadStandardsPackage, resolveDefaultStandardsPackage } from '@/standardsPackages';
 
 /**
  * The package named by `--package`, or the bundled default when the flag is

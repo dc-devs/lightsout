@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { getRunsDir, resolveRunId, RunNotFoundError } from '@/runState';
+import { describe, expect, test } from '@jest/globals';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { getRunsDir, RunNotFoundError, resolveRunId } from '@/runState';
 
 interface SetupParams {
 	/** Directory names to create under .lightsout/runs, as a run would leave behind. */

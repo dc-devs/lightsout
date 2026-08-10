@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { AgentUsage, RunUsage } from '@/contracts';
 
 const setupTotals = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {

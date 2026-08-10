@@ -1,10 +1,10 @@
 import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { AuthoredFacts, type PlanFacts } from '@/contracts';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
-import { readPlanWorkspaceFile } from '@/plan/common/utils/readPlanWorkspaceFile';
-import { verifyFacts } from '@/plan/verifyFacts';
 import { messageOf } from '@/common/utils/messageOf';
+import { AuthoredFacts, type PlanFacts } from '@/contracts';
+import { readPlanWorkspaceFile } from '@/plan/common/utils/readPlanWorkspaceFile';
+import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
+import { verifyFacts } from '@/plan/verifyFacts';
 
 interface Params {
 	cwd: string;
@@ -90,7 +90,8 @@ export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: P
 			name,
 			fileName: 'facts.json',
 			schema: AuthoredFacts,
-			notFound: (filePath) => `no authored facts for plan ${name} at ${filePath} — author facts.json ({ request, areas }), then re-run: lightsout plan verify-facts --name ${name}`,
+			notFound: (filePath) =>
+				`no authored facts for plan ${name} at ${filePath} — author facts.json ({ request, areas }), then re-run: lightsout plan verify-facts --name ${name}`,
 		});
 	} catch (error) {
 		return { status: 'failed' as const, workspaceDir, error: messageOf({ error }) };

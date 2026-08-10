@@ -1,14 +1,14 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from '@jest/globals';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
+import { expect, test } from '@jest/globals';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
 
 test('write-tests warm gate: a real driver stream event releases the held-back writer before the warm one finishes, and the events still reach the transcript', async () => {
 	const dir = setupConsumerRepo();

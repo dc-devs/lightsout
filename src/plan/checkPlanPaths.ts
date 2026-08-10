@@ -1,7 +1,7 @@
 import { basename, join } from 'node:path';
 import { StructuralCheck, type StructuralFinding } from '@/contracts';
-import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
 import { pathExists } from '@/plan/common/paths/pathExists';
+import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
 
 interface Params {
 	plan: ParsedPlan;

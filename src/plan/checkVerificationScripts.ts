@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { StructuralCheck, type StructuralFinding } from '@/contracts';
 import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
+import { StructuralCheck, type StructuralFinding } from '@/contracts';
 import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
 
 interface Params {

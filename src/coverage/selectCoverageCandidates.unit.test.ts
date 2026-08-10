@@ -1,13 +1,17 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { CoverageFile, CoverageTotal } from '@/contracts';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { selectCoverageCandidates } from '@/coverage/selectCoverageCandidates';
+import { describe, expect, test } from '@jest/globals';
 import { linkTypescript } from '@tests/helpers/linkTypescript';
+import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
+import type { CoverageFile, CoverageTotal } from '@/contracts';
+import { selectCoverageCandidates } from '@/coverage/selectCoverageCandidates';
 
-const file = ({ path, statementsPct = 10, scope = 'root' }: { path: string; statementsPct?: number; scope?: string }): CoverageFile => ({ path, scope, statementsPct });
+const file = ({ path, statementsPct = 10, scope = 'root' }: { path: string; statementsPct?: number; scope?: string }): CoverageFile => ({
+	path,
+	scope,
+	statementsPct,
+});
 
 const total = ({ scope = 'root', passed = false }: { scope?: string; passed?: boolean } = {}): CoverageTotal => ({ scope, statementsPct: 40, passed });
 
@@ -23,8 +27,19 @@ const setupRepo = ({ contents = {} }: { contents?: Record<string, string> } = {}
 	return dir;
 };
 
-const select = async ({ cwd, files, totals, setAside = [], compiler }: { cwd: string; files: CoverageFile[]; totals: CoverageTotal[]; setAside?: string[]; compiler?: ReturnType<typeof resolveConsumerTypescript> }) =>
-	(await selectCoverageCandidates({ cwd, measured: { files, totals }, setAsidePaths: new Set(setAside), compiler })).map((entry) => entry.path);
+const select = async ({
+	cwd,
+	files,
+	totals,
+	setAside = [],
+	compiler,
+}: {
+	cwd: string;
+	files: CoverageFile[];
+	totals: CoverageTotal[];
+	setAside?: string[];
+	compiler?: ReturnType<typeof resolveConsumerTypescript>;
+}) => (await selectCoverageCandidates({ cwd, measured: { files, totals }, setAsidePaths: new Set(setAside), compiler })).map((entry) => entry.path);
 
 describe('selectCoverageCandidates', () => {
 	test('keeps the measurement’s worst-first order, so the round works the worst file first', async () => {

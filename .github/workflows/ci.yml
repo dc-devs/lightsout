@@ -1,0 +1,158 @@
+name: ci
+
+# The same gates the pipeline runs, run somewhere other than one laptop.
+# Before this existed, main was green on trust.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A second push to the same branch makes the first run's answer worthless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      # One Node version failing should not hide the other's result.
+      fail-fast: false
+      matrix:
+        # The floor declared in package.json engines, and the version
+        # development actually happens on.
+        node: ['22.18.0', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from package.json packageManager.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Biome then TypeScript — the same command lightsout.config.json points
+      # its `check` gate at.
+      - run: pnpm check
+
+      # Runs the unit suite AND the 95% coverage thresholds declared in
+      # tests/config/jest.config.cjs. No git identity setup is needed: the
+      # helpers that build throwaway repos pass their own with `git -c`.
+      - run: pnpm test:unit:coverage
+
+      - run: pnpm test:e2e
+
+  bundle:
+    name: shipped artifact matches source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # A marketplace install copies plugin/ and nothing else, so
+      # plugin/dist/cli.mjs and plugin/standards/ are committed build outputs.
+      # Rebuild them and prove nothing moved. The pre-push hook checks the
+      # engine bundle only, which is how a rule edit without `pnpm bundle`
+      # could ship stale standards without a word.
+      #
+      # git status rather than git diff: a brand new rule folder that was never
+      # copied shows up as untracked, and a diff would not see it at all.
+      - name: Rebuild and compare
+        run: |
+          pnpm bundle
+          drift=$(git status --porcelain -- plugin/dist plugin/standards)
+          if [ -n "$drift" ]; then
+            echo "The committed artifact does not match src/ and standards/."
+            echo "Fix: pnpm bundle && git add plugin/dist plugin/standards"
+            echo
+            echo "$drift"
+            git --no-pager diff --stat -- plugin/dist plugin/standards
+            exit 1
+          fi
+
+  version:
+    name: plugin version bumped
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A marketplace install reads this repository directly, so merging to main
+      # IS the release. Anything that changes plugin/ reaches users, and a user
+      # cannot tell two different builds apart when both call themselves 0.2.3.
+      #
+      # Note the consequence: every merge that touches src/ rebuilds
+      # plugin/dist/cli.mjs, so in practice every shipping pull request needs a
+      # bump. That is the honest reflection of how this repository ships.
+      - name: Compare the plugin version against the base branch
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "$BASE"
+          base=$(git rev-parse FETCH_HEAD)
+          manifest=plugin/.claude-plugin/plugin.json
+
+          if git diff --quiet "$base"...HEAD -- plugin; then
+            echo "Nothing under plugin/ changed — no bump required."
+            exit 0
+          fi
+
+          head_version=$(node -p "require('./$manifest').version")
+          base_version=$(git show "$base:$manifest" | node -pe "JSON.parse(require('node:fs').readFileSync(0, 'utf8')).version")
+
+          if [ "$head_version" = "$base_version" ]; then
+            echo "This branch changes plugin/, which is what users install, but $manifest is still $base_version."
+            echo "Bump it so the shipped build has a name of its own."
+            exit 1
+          fi
+
+          # Sorting both and checking which lands last catches a version that
+          # moved backwards, not just one that did not move.
+          highest=$(printf '%s\n%s\n' "$base_version" "$head_version" | sort -V | tail -1)
+
+          if [ "$highest" != "$head_version" ]; then
+            echo "$manifest went backwards: $base_version -> $head_version."
+            exit 1
+          fi
+
+          echo "$base_version -> $head_version"
+
+  release:
+    name: tag and release
+    if: github.event_name == 'push'
+    needs: [verify, bundle]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # The tag follows the version rather than leading it, so the release notes
+      # describe a build that already passed every gate above.
+      - name: Release when the version is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./plugin/.claude-plugin/plugin.json').version")
+          tag="v$version"
+
+          # Asked over the API rather than from local tags, so a shallow
+          # checkout still gets a truthful answer.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag is already released — nothing to do."
+            exit 0
+          fi
+
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --generate-notes

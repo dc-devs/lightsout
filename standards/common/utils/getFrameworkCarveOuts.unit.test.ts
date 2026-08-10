@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { getFrameworkCarveOuts } from './getFrameworkCarveOuts.ts';
 
 /** Declared dependency names per package directory, exactly as the file-list input carries them. */
@@ -29,9 +29,7 @@ describe('getFrameworkCarveOuts', () => {
 
 		const carveOuts = getFrameworkCarveOuts({ dependencies });
 
-		expect(carveOuts).toStrictEqual([
-			{ directory: '.', exemptFolderNames: ['components', 'hooks'], kebabCase: false, routerRoots: ['app', 'pages'] },
-		]);
+		expect(carveOuts).toStrictEqual([{ directory: '.', exemptFolderNames: ['components', 'hooks'], kebabCase: false, routerRoots: ['app', 'pages'] }]);
 	});
 
 	test('still gives a package whose dependencies name no known framework an entry, with no exemptions at all', () => {

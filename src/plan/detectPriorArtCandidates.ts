@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import type { LightsoutConfig } from '@/contracts';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import { collapseCasing } from '@/common/naming/collapseCasing';
 import { nameKey } from '@/common/naming/nameKey';
 import { nameOf } from '@/common/naming/nameOf';
+import { isTestFile } from '@/common/utils/isTestFile';
+import { listSourceFiles } from '@/common/utils/listSourceFiles';
+import type { LightsoutConfig } from '@/contracts';
 import type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';
 import { planCreatePaths } from '@/plan/planCreatePaths';
 
@@ -79,9 +79,7 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 		// A different name that collapses to the same casing key (`GetStarted` vs
 		// `get-started`) is a framework pair, not a duplicate — exempt it. An
 		// exact-name match is a real duplicate and stays.
-		const collidesWith = bucket.filter(
-			(entry) => entry.name === plannedSymbol || collapseCasing(entry.name) !== collapseCasing(plannedSymbol),
-		);
+		const collidesWith = bucket.filter((entry) => entry.name === plannedSymbol || collapseCasing(entry.name) !== collapseCasing(plannedSymbol));
 
 		if (collidesWith.length > 0) {
 			candidates.push({ plannedSymbol, plannedPath, collidesWith });

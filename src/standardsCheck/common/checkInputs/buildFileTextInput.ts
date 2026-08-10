@@ -1,4 +1,4 @@
-import { StandardsInputKind, type FileTextInput } from '@/contracts';
+import { type FileTextInput, StandardsInputKind } from '@/contracts';
 import { readIntoCache } from '@/standardsCheck/common/checkInputs/readIntoCache';
 
 interface Params {

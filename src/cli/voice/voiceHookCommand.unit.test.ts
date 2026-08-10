@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, describe, test, jest } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { voiceHookCommand } from '@/cli/voice/voiceHookCommand';
 
 // Mocked Imports
@@ -32,7 +32,13 @@ afterEach(() => {
 	pinPlatform({ platform: realPlatform });
 });
 
-const placementQuestion = ['**Context:** the switch has to live somewhere.', '', '**Question:** should it be per project?', '', '**Recommendation:** yes.'].join('\n');
+const placementQuestion = [
+	'**Context:** the switch has to live somewhere.',
+	'',
+	'**Question:** should it be per project?',
+	'',
+	'**Recommendation:** yes.',
+].join('\n');
 
 const assistantSaying = ({ text }: { text: string }) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
 

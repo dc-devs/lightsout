@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { StructuralFinding } from '@/contracts';
 import { buildPlanRepairInvocation } from '@/agents';
+import type { StructuralFinding } from '@/contracts';
 
 /** A full StructuralFinding with per-test overrides. */
 const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding => ({
@@ -79,7 +79,13 @@ test('buildPlanRepairInvocation: decisions and facts arrive as paths to Read, ne
 test('buildPlanRepairInvocation: a brainstorm path lists both decision files, labelling the brainstorm one as settled before planning', () => {
 	const { decisionsPath, brainstormDecisionsPath, factsPath } = setupRepair();
 
-	const { prompt } = buildPlanRepairInvocation({ findings: [finding()], planPaths: ['/tmp/plans/widget-flag.md'], decisionsPath, brainstormDecisionsPath, factsPath });
+	const { prompt } = buildPlanRepairInvocation({
+		findings: [finding()],
+		planPaths: ['/tmp/plans/widget-flag.md'],
+		decisionsPath,
+		brainstormDecisionsPath,
+		factsPath,
+	});
 
 	// the full section pins the order: plan decisions first, brainstorm second, facts closing
 	expect(

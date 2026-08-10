@@ -1,14 +1,14 @@
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import type { Driver, DriverInvocation } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
+import { describe, expect, test } from '@jest/globals';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { Driver, DriverInvocation } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
@@ -45,7 +45,15 @@ const setupBatchPolicy = async ({ config }: { config?: Record<string, unknown> }
 			writeFileSync(join(dir, target), 'export const alpha = 1;\n');
 			writeFileSync(join(dir, beta), 'export const beta = 2;\n');
 
-			return { text: report({ changedFiles: [{ path: target, summary: 'split' }, { path: beta, summary: 'split' }] }), exitCode: 0 };
+			return {
+				text: report({
+					changedFiles: [
+						{ path: target, summary: 'split' },
+						{ path: beta, summary: 'split' },
+					],
+				}),
+				exitCode: 0,
+			};
 		},
 	};
 
@@ -53,8 +61,9 @@ const setupBatchPolicy = async ({ config }: { config?: Record<string, unknown> }
 };
 
 /** The distinct effort/permission pairs a run's invocations were spawned at. */
-const distinctPolicies = (invocations: DriverInvocation[]) =>
-	[...new Set(invocations.map((invocation) => `${String(invocation.effort)}/${String(invocation.permissions)}`))];
+const distinctPolicies = (invocations: DriverInvocation[]) => [
+	...new Set(invocations.map((invocation) => `${String(invocation.effort)}/${String(invocation.permissions)}`)),
+];
 
 describe('invokeBatchAgent — via runRefactorPipeline', () => {
 	test('defaults a batch invocation to write permissions and the harness default effort when config sets neither', async () => {

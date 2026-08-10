@@ -24,9 +24,7 @@ const hasModifier = ({ member, kind, compiler }: { member: ts.ClassElement; kind
  * describes, so neither is the module-in-a-costume this rule bans.
  */
 const getBannedShape = ({ node, compiler }: { node: ts.ClassDeclaration; compiler: typeof ts }) => {
-	const isFrameworkOwned = (node.modifiers ?? []).some(
-		(modifier) => compiler.isDecorator(modifier) || modifier.kind === compiler.SyntaxKind.AbstractKeyword,
-	);
+	const isFrameworkOwned = (node.modifiers ?? []).some((modifier) => compiler.isDecorator(modifier) || modifier.kind === compiler.SyntaxKind.AbstractKeyword);
 	const name = node.name === undefined ? '(anonymous)' : node.name.text;
 	const members = node.members;
 	const methods = members.filter((member) => compiler.isMethodDeclaration(member));

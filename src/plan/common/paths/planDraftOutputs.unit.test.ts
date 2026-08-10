@@ -1,9 +1,9 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { PlanVariant } from '@/contracts';
 import { planDraftOutputs } from '@/plan/common/paths/planDraftOutputs';
 
 describe('planDraftOutputs', () => {
-	test('a single plan is one plan.md inside the plan\'s own folder', () => {
+	test("a single plan is one plan.md inside the plan's own folder", () => {
 		const outputs = planDraftOutputs({ cwd: '/repo', name: 'add-search', variant: PlanVariant.Single });
 
 		expect(outputs).toStrictEqual([{ path: '/repo/.lightsout/plans/add-search/plan.md', variant: PlanVariant.Single }]);

@@ -2,9 +2,9 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { doctorCommand } from '@/cli/doctorCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { doctorCommand } from '@/cli/doctorCommand';
 
 /**
  * doctorCommand hands runDoctor no probe seam, so the harness check shells the
@@ -39,8 +39,6 @@ const setupHealthyRepo = () => {
 const setupRepoWithNoHarness = () => {
 	const captured = captureCommandOutput();
 	const emptyBinDir = mkdtempSync(join(tmpdir(), 'lightsout-doctor-nobin-'));
-	const wasPath = process.env.PATH;
-
 	process.env.PATH = emptyBinDir;
 
 	const cwd = setupConsumerRepo({ git: false });

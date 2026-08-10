@@ -1,6 +1,6 @@
-import type { StructuralFinding } from '@/contracts';
 import { dim } from '@/cli/common/terminal/dim';
 import { yellow } from '@/cli/common/terminal/yellow';
+import type { StructuralFinding } from '@/contracts';
 
 interface Params {
 	finding: StructuralFinding;

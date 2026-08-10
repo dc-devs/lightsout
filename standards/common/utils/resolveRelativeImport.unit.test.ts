@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { resolveRelativeImport } from './resolveRelativeImport.ts';
 
 /** The universe a specifier resolves against, as every caller hands it over. */

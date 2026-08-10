@@ -1,8 +1,8 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LightsoutConfig } from '@/contracts';
 import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
 import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
+import type { LightsoutConfig } from '@/contracts';
 import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
 import type { PackageDir } from '@/doctor/common/types/PackageDir';
 
@@ -18,11 +18,7 @@ interface Params {
  * check: a package with no matching script is legitimate (infra, docs) — the
  * doctor names it so intent and accident are distinguishable.
  */
-export const resolvePackageDirs = async ({
-	cwd,
-	config,
-	packagesDir,
-}: Params): Promise<{ packageDirs: PackageDir[]; scopedGatesCheck?: DoctorCheck }> => {
+export const resolvePackageDirs = async ({ cwd, config, packagesDir }: Params): Promise<{ packageDirs: PackageDir[]; scopedGatesCheck?: DoctorCheck }> => {
 	const packageDirs: PackageDir[] = [{ label: 'root', dir: cwd }];
 
 	if (!config.packageScripts) {

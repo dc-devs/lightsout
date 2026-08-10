@@ -1,17 +1,17 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { PipelineRun } from '@/pipeline/PipelineRun';
-import { formatStep } from '@/pipeline/steps/formatStep';
-import { createRun } from '@/runState';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runImplementPipeline } from '@/pipeline';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import type { LightsoutConfig } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { runImplementPipeline } from '@/pipeline';
+import { PipelineRun } from '@/pipeline/PipelineRun';
+import { formatStep } from '@/pipeline/steps/formatStep';
+import { createRun } from '@/runState';
 
 /** The run's command log as parsed records — the format step's evidence trail. */
 const readCommandLog = ({ dir, runId }: { dir: string; runId: string }): Record<string, unknown>[] =>
@@ -62,12 +62,12 @@ test('format: a formatter that exits non-zero fails the run and files its output
 	expect(result.error ?? '').toMatch(/FORMATTER-SENTINEL/);
 	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('failed');
 
-	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry['kind'] === 'format');
+	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry.kind === 'format');
 
 	// the failing formatter is logged with its exit code
-	expect(logged?.['exitCode']).toBe(3);
+	expect(logged?.exitCode).toBe(3);
 	// and with the output tail a human needs
-	expect(String(logged?.['outputTail'])).toMatch(/FORMATTER-SENTINEL/);
+	expect(String(logged?.outputTail)).toMatch(/FORMATTER-SENTINEL/);
 });
 
 test('format: a green formatter that turns a gate red fails the run as a configuration problem', async () => {
@@ -85,12 +85,12 @@ test('format: a green formatter that turns a gate red fails the run as a configu
 	expect(result.error ?? '').toMatch(/test-unit failed/);
 	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('failed');
 
-	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry['kind'] === 'format');
+	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry.kind === 'format');
 
 	// the formatter itself was green — only the gate after it was not
-	expect(logged?.['exitCode']).toBe(0);
+	expect(logged?.exitCode).toBe(0);
 	// a green command carries no output tail
-	expect(logged?.['outputTail']).toBe(undefined);
+	expect(logged?.outputTail).toBe(undefined);
 });
 
 test('formatStep: called with no formatter configured it does nothing, whatever order it was reached in', async () => {

@@ -24,7 +24,14 @@ interface Params {
  * re-invocation pays only for what actually changed: the changed-file list and
  * the gate output.
  */
-export const buildFeatureExecutorInvocation = ({ planContent, overviewContent, standards, errorContext, changedFiles, allowedCommands }: Params): { systemPrompt: string; prompt: string } => {
+export const buildFeatureExecutorInvocation = ({
+	planContent,
+	overviewContent,
+	standards,
+	errorContext,
+	changedFiles,
+	allowedCommands,
+}: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [featureExecutorPrompt];
 
 	if (overviewContent) {

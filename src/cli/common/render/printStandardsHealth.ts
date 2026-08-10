@@ -1,7 +1,7 @@
-import type { StandardsHealth, StandardsHealthRule } from '@/standardsCheck';
 import { renderTable } from '@/cli/common/render/renderTable';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
+import type { StandardsHealth, StandardsHealthRule } from '@/standardsCheck';
 
 /** Longest a recorded reason may print before it is cut — one long rationale must not stretch the whole table. */
 const reasonWidth = 96;
@@ -42,8 +42,7 @@ const ruleRows = ({ rule }: { rule: StandardsHealthRule }) => {
 	];
 };
 
-const sum = ({ rules, of }: { rules: StandardsHealthRule[]; of: (rule: StandardsHealthRule) => number }) =>
-	rules.reduce((total, rule) => total + of(rule), 0);
+const sum = ({ rules, of }: { rules: StandardsHealthRule[]; of: (rule: StandardsHealthRule) => number }) => rules.reduce((total, rule) => total + of(rule), 0);
 
 interface Params {
 	health: StandardsHealth;

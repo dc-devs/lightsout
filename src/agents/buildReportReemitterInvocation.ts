@@ -15,11 +15,7 @@ interface Params {
  * the user prompt.
  */
 export const buildReportReemitterInvocation = ({ rejectedText, validationError }: Params) => {
-	const sections = [
-		reportReemitterPrompt,
-		`# Validation error\n\n${validationError}`,
-		`# Your previous final message\n\n${rejectedText}`,
-	];
+	const sections = [reportReemitterPrompt, `# Validation error\n\n${validationError}`, `# Your previous final message\n\n${rejectedText}`];
 
 	return {
 		prompt: sections.join('\n\n'),

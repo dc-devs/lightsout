@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { getStreamText } from '@/cli/voice/common/utils/getStreamText';
 
 describe('getStreamText', () => {

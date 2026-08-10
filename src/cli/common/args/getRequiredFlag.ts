@@ -1,5 +1,5 @@
-import { usage } from '@/cli/common/constants/usage';
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
+import { usage } from '@/cli/common/constants/usage';
 
 interface Params {
 	flags: Map<string, string | true>;

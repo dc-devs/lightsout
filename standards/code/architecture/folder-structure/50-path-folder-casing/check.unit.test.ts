@@ -1,16 +1,10 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a path rule: every file in scope, plus each package's declared dependencies. */
-const setupFileListInput = ({
-	files,
-	dependencies = [],
-}: {
-	files: string[];
-	dependencies?: Array<[string, string[]]>;
-}): StandardsCheckInput => ({
+const setupFileListInput = ({ files, dependencies = [] }: { files: string[]; dependencies?: Array<[string, string[]]> }): StandardsCheckInput => ({
 	kind: StandardsInputKind.FileList,
 	cwd: '/repo',
 	source: files,

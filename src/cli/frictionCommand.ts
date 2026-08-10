@@ -1,5 +1,5 @@
-import { readFriction } from '@/runState';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { readFriction } from '@/runState';
 
 export const frictionCommand = async ({ cwd }: CommandContext): Promise<void> => {
 	const entries = await readFriction({ cwd });

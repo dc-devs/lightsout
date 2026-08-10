@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { checkCoverageSummary } from '@/doctor/checkCoverageSummary';
 import type { PackageDir } from '@/doctor/common/types/PackageDir';

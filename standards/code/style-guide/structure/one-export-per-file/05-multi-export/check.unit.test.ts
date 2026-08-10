@@ -1,6 +1,6 @@
-import { expect, describe, test } from '@jest/globals';
-import { StandardsInputKind } from '@/contracts';
+import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /**
@@ -8,13 +8,7 @@ import { check } from './check.ts';
  * its text. `listedWithoutText` names paths the run found but never read, so a
  * file can appear in scope with no contents entry behind it.
  */
-const setupFileTextInput = ({
-	contents,
-	listedWithoutText = [],
-}: {
-	contents: Array<[string, string]>;
-	listedWithoutText?: string[];
-}): StandardsCheckInput => {
+const setupFileTextInput = ({ contents, listedWithoutText = [] }: { contents: Array<[string, string]>; listedWithoutText?: string[] }): StandardsCheckInput => {
 	const files = [...contents.map(([path]) => path), ...listedWithoutText];
 
 	return {
@@ -175,7 +169,7 @@ describe('multi-export check', () => {
 						'}',
 						'',
 						'export type SyncEvent = FileAddedEvent;',
-						'export type SyncEventKind = SyncEvent[\'kind\'];',
+						"export type SyncEventKind = SyncEvent['kind'];",
 					].join('\n'),
 				],
 			],
@@ -251,11 +245,9 @@ describe('multi-export check', () => {
 			contents: [
 				[
 					'src/common/constants/SyncState.ts',
-					[
-						"export const SyncState = { idle: 'idle', busy: 'busy' } as const;",
-						'',
-						'export type SyncState = (typeof SyncState)[keyof typeof SyncState];',
-					].join('\n'),
+					["export const SyncState = { idle: 'idle', busy: 'busy' } as const;", '', 'export type SyncState = (typeof SyncState)[keyof typeof SyncState];'].join(
+						'\n',
+					),
 				],
 			],
 		});
@@ -349,11 +341,7 @@ describe('multi-export check', () => {
 			contents: [
 				[
 					'tools/generateBarrels.ts',
-					[
-						'export const generateBarrels = (exportName: string): string => `',
-						"export const ${exportName}: string = '';",
-						'`;',
-					].join('\n'),
+					['export const generateBarrels = (exportName: string): string => `', "export const ${exportName}: string = '';", '`;'].join('\n'),
 				],
 			],
 		});

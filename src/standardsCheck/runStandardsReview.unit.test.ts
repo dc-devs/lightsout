@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { StandardsSeverity } from '@/contracts';
 import type { Driver, DriverInvocation, DriverResult } from '@/drivers';
 import { runStandardsReview } from '@/standardsCheck';
@@ -48,7 +48,9 @@ describe('runStandardsReview', () => {
 	test('a reported violation becomes an advisory finding with an engine-derived site key', async () => {
 		const { driver } = setupDriver({
 			result: {
-				text: reviewText([{ rule: 'common-placement', files: [{ path: 'src/a.ts', startLine: 4 }], detail: 'promoted on one consumer', guidance: 'move it back' }]),
+				text: reviewText([
+					{ rule: 'common-placement', files: [{ path: 'src/a.ts', startLine: 4 }], detail: 'promoted on one consumer', guidance: 'move it back' },
+				]),
 				exitCode: 0,
 			},
 		});

@@ -1,15 +1,15 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
-import { BatchReport } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runRefactorPipeline } from '@/refactor';
+import { describe, expect, test } from '@jest/globals';
 import { report } from '@tests/helpers/report';
 import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { loadConfig } from '@/common/utils/loadConfig';
+import { BatchReport } from '@/contracts';
+import type { Driver } from '@/drivers';
+import { runRefactorPipeline } from '@/refactor';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -77,7 +77,15 @@ const setupRedGateBatch = async () => {
 		splitFile({ dir, file: 'src/multi.ts', first: 'alphaThing', second: 'betaThing' });
 		writeFileSync(join(dir, 'broken.flag'), 'red\n');
 
-		return { text: report({ changedFiles: [{ path: 'src/multi.ts', summary: 'split' }, { path: 'src/betaThing.ts', summary: 'split' }] }), exitCode: 0 };
+		return {
+			text: report({
+				changedFiles: [
+					{ path: 'src/multi.ts', summary: 'split' },
+					{ path: 'src/betaThing.ts', summary: 'split' },
+				],
+			}),
+			exitCode: 0,
+		};
 	};
 
 	return { dir, prompts, gateBreakingExecutor, config: await loadConfig({ cwd: dir }) };
@@ -196,7 +204,9 @@ describe('runRefactorPipeline batch outcomes', () => {
 		// the requeue is not repeated once spent
 		expect(prompts.length).toBe(2);
 		// what survived is named for the human, not swallowed
-		expect(result.declined.map(({ batchId, remainingSiteKeys }) => ({ batchId, remainingSiteKeys }))).toStrictEqual([{ batchId: 'batch-01:multi-export:src', remainingSiteKeys: ['multi-export:src/two.ts'] }]);
+		expect(result.declined.map(({ batchId, remainingSiteKeys }) => ({ batchId, remainingSiteKeys }))).toStrictEqual([
+			{ batchId: 'batch-01:multi-export:src', remainingSiteKeys: ['multi-export:src/two.ts'] },
+		]);
 		// the resolved half still burned down
 		expect(result.after['multi-export'] ?? 0).toBe(1);
 	});
@@ -353,8 +363,15 @@ describe('runRefactorPipeline batch outcomes', () => {
 					text: report({
 						changedFiles: [{ path: pass === 1 ? 'src/one.ts' : 'src/two.ts', summary: 'split' }],
 						advisoryOutcomes: [
-							{ rule: 'size-function', siteKey: 'size-function:src/one.ts', outcome: pass === 1 ? 'declined' : 'applied', ...(pass === 1 ? { reason: 'orchestration exemption' } : {}) },
-							...(pass === 2 ? [{ rule: 'dead-export', siteKey: 'dead-export:src/two.ts', outcome: 'declined', reason: 'deleting an export is a public-API change' }] : []),
+							{
+								rule: 'size-function',
+								siteKey: 'size-function:src/one.ts',
+								outcome: pass === 1 ? 'declined' : 'applied',
+								...(pass === 1 ? { reason: 'orchestration exemption' } : {}),
+							},
+							...(pass === 2
+								? [{ rule: 'dead-export', siteKey: 'dead-export:src/two.ts', outcome: 'declined', reason: 'deleting an export is a public-API change' }]
+								: []),
 						],
 					}),
 					exitCode: 0,

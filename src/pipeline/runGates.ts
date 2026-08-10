@@ -1,8 +1,8 @@
 import type { GateResult, LightsoutConfig } from '@/contracts';
+import type { GateCommands } from '@/pipeline/common/types/GateCommands';
 import { createGateRunner } from '@/pipeline/createGateRunner';
 import { runGateSet } from '@/pipeline/runGateSet';
 import { runPackageGates } from '@/pipeline/runPackageGates';
-import type { GateCommands } from '@/pipeline/common/types/GateCommands';
 
 const defaultPackagesDir = 'packages';
 
@@ -46,7 +46,18 @@ interface Params {
  * labelled per package. Every command execution is logged to the run's
  * commands.jsonl.
  */
-export const runGates = async ({ cwd, config, coverage, packages, includeRoot, runId, step, failFast, onGateResult, onProgress }: Params): Promise<string | undefined> => {
+export const runGates = async ({
+	cwd,
+	config,
+	coverage,
+	packages,
+	includeRoot,
+	runId,
+	step,
+	failFast,
+	onGateResult,
+	onProgress,
+}: Params): Promise<string | undefined> => {
 	const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
 
 	// Codegen runs once, before any group fans out — gates verify, generate

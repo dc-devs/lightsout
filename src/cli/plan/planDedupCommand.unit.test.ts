@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { Driver } from '@/drivers';
-import { planDedupCommand } from '@/cli/plan/planDedupCommand';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { planDedupCommand } from '@/cli/plan/planDedupCommand';
+import type { Driver } from '@/drivers';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
 const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));
@@ -51,7 +51,9 @@ test('planDedupCommand: a plan with no colliding symbols reports no duplication,
 	const { cwd, name, logged, errors, exitCodes } = setupDedup({ existing: ['src/index.ts'], creates: ['src/brandNewWidget.ts'] });
 	const calls = { count: 0 };
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
 
 	const printed = printedLines({ logged });
 
@@ -68,7 +70,9 @@ test('planDedupCommand: a confirmed duplicate prints its recommendation, what it
 	const calls = { count: 0 };
 	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' }];
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
 
 	const printed = printedLines({ logged });
 
@@ -86,7 +90,9 @@ test('planDedupCommand: a verdict that rules the collision distinct leaves no fi
 	const calls = { count: 0 };
 	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: false, recommendation: 'distinct', rationale: 'different concept' }];
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts, calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
 
 	const printed = printedLines({ logged });
 
@@ -101,7 +107,9 @@ test('planDedupCommand: an unresolvable deliverable reports the error on stderr 
 	const { cwd, name, logged, errors, exitCodes } = setupDedup({ plan: false });
 	const calls = { count: 0 };
 
-	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
+	await expect(planDedupCommand({ cwd, driver: judgeDriver({ verdicts: [], calls }), name, standards: undefined, config: undefined })).rejects.toThrow(
+		/process\.exit/,
+	);
 
 	expect(printedLines({ logged })).toStrictEqual([]);
 	expect(errors[0] ?? '').toMatch(/no plan found for 'demo'/);

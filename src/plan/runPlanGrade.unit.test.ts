@@ -1,11 +1,11 @@
-import { expect, test } from '@jest/globals';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { expect, test } from '@jest/globals';
+import { expectStatus } from '@tests/helpers/expectStatus';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { Effort, GradeReport, Permissions } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPlanGrade } from '@/plan';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { expectStatus } from '@tests/helpers/expectStatus';
 
 /** Write a single-file plan deliverable at `.lightsout/plans/<name>/plan.md`. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
@@ -150,7 +150,10 @@ const cleanOverview = () => `# Graded Plan — Overview
 `;
 
 /** The clean plan again, creating a different file — so each phase's gap-check prompt is identifiable. */
-const secondPhasePlan = () => cleanPlan().replace(/new-thing/g, 'other-thing').replace(/newThing/g, 'otherThing');
+const secondPhasePlan = () =>
+	cleanPlan()
+		.replace(/new-thing/g, 'other-thing')
+		.replace(/newThing/g, 'otherThing');
 
 /** Write a phased deliverable — an overview plus its phase files — into `.lightsout/plans/<name>/`. */
 const writePhasedPlan = ({ cwd, name, files }: { cwd: string; name: string; files: Record<string, string> }) => {
@@ -222,7 +225,9 @@ test('plan grade: the resolved model, effort and permissions reach the gap-check
 	});
 
 	expectStatus(result, 'complete');
-	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access' }]);
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([
+		{ model: 'gpt-5.2', effort: 'high', permissions: 'full-access' },
+	]);
 });
 
 test('plan grade: an omitted effort and permissions stay absent so the harness default stands', async () => {
@@ -233,7 +238,9 @@ test('plan grade: an omitted effort and permissions stay absent so the harness d
 	const result = await runPlanGrade({ cwd, driver, name: 'defaulted' });
 
 	expectStatus(result, 'complete');
-	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([{ model: undefined, effort: undefined, permissions: undefined }]);
+	expect(invocations.map(({ model, effort, permissions }) => ({ model, effort, permissions }))).toStrictEqual([
+		{ model: undefined, effort: undefined, permissions: undefined },
+	]);
 });
 
 test('plan grade: no deliverable on disk fails before any agent is spawned', async () => {

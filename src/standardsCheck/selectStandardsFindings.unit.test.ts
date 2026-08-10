@@ -16,11 +16,20 @@ test('selectStandardsFindings keeps every finding-severity item touching a chang
 		finding({ siteKey: 'multi-export:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
 		finding({ rule: 'ast-duplicate', siteKey: 'ast-duplicate:src/changed.ts|src/legacy.ts', files: [{ path: 'src/changed.ts' }, { path: 'src/legacy.ts' }] }),
 		finding({ rule: 'size-file', siteKey: 'size-file:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
-		finding({ rule: 'size-function', severity: 'advisory', siteKey: 'size-function:src/changed.ts', files: [{ path: 'src/changed.ts', startLine: 5, endLine: 99 }] }),
+		finding({
+			rule: 'size-function',
+			severity: 'advisory',
+			siteKey: 'size-function:src/changed.ts',
+			files: [{ path: 'src/changed.ts', startLine: 5, endLine: 99 }],
+		}),
 		finding({ rule: 'filename-mismatch', severity: 'advisory', siteKey: 'filename-mismatch:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
 		finding({ siteKey: 'multi-export:src/untouched.ts', files: [{ path: 'src/untouched.ts' }] }),
 		finding({ rule: 'module-boundary', siteKey: 'module-boundary:src/changed.ts|src/other.ts', files: [{ path: 'src/changed.ts' }, { path: 'src/other.ts' }] }),
-		finding({ rule: 'placement', siteKey: 'placement:src/changed.ts|src/other/common/x.ts', files: [{ path: 'src/other/common/x.ts' }, { path: 'src/changed.ts' }] }),
+		finding({
+			rule: 'placement',
+			siteKey: 'placement:src/changed.ts|src/other/common/x.ts',
+			files: [{ path: 'src/other/common/x.ts' }, { path: 'src/changed.ts' }],
+		}),
 	];
 
 	const { workList, advisories } = selectStandardsFindings({ findings, changedFiles: ['src/changed.ts'] });
@@ -41,8 +50,18 @@ test('selectStandardsFindings keeps every finding-severity item touching a chang
 
 test('selectStandardsFindings drops advisories in files the run never touched', () => {
 	const findings: StandardsFinding[] = [
-		finding({ rule: 'size-function', severity: 'advisory', siteKey: 'size-function:src/untouched.ts', files: [{ path: 'src/untouched.ts', startLine: 5, endLine: 99 }] }),
-		finding({ rule: 'size-function', severity: 'advisory', siteKey: 'size-function:src/changed.ts', files: [{ path: 'src/changed.ts', startLine: 5, endLine: 99 }] }),
+		finding({
+			rule: 'size-function',
+			severity: 'advisory',
+			siteKey: 'size-function:src/untouched.ts',
+			files: [{ path: 'src/untouched.ts', startLine: 5, endLine: 99 }],
+		}),
+		finding({
+			rule: 'size-function',
+			severity: 'advisory',
+			siteKey: 'size-function:src/changed.ts',
+			files: [{ path: 'src/changed.ts', startLine: 5, endLine: 99 }],
+		}),
 	];
 
 	const { advisories } = selectStandardsFindings({ findings, changedFiles: ['src/changed.ts'] });

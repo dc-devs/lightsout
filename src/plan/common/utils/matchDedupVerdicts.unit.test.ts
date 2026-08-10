@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { DedupResolution, type DedupVerdict } from '@/contracts';
 import type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';
 import { matchDedupVerdicts } from '@/plan/common/utils/matchDedupVerdicts';

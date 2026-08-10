@@ -1,6 +1,6 @@
-import { StandardsSeverity, type LightsoutConfig, type RefactorWorklist } from '@/contracts';
-import { runStandardsCheck } from '@/standardsCheck';
+import { type LightsoutConfig, type RefactorWorklist, StandardsSeverity } from '@/contracts';
 import { batchFindings } from '@/refactor/batchFindings';
+import { runStandardsCheck } from '@/standardsCheck';
 
 interface Params {
 	cwd: string;

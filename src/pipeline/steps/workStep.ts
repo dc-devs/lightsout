@@ -1,10 +1,10 @@
 import { RunStatus, WorkReportStatus } from '@/contracts';
-import { appendFriction } from '@/runState';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
 import { collectChanged } from '@/pipeline/common/utils/collectChanged';
 import { invokeRoleOrStop } from '@/pipeline/common/utils/invokeRoleOrStop';
 import { withStepFiles } from '@/pipeline/common/utils/withStepFiles';
+import type { PipelineRun } from '@/pipeline/PipelineRun';
+import type { PipelineStep } from '@/pipeline/PipelineStep';
+import { appendFriction } from '@/runState';
 
 interface Params {
 	run: PipelineRun;

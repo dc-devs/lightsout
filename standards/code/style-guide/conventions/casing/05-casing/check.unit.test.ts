@@ -1,8 +1,8 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type ts from 'typescript';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { StandardsInputKind } from '@/contracts';
 import type { StandardsCheckInput } from '@/contracts';
+import { StandardsInputKind } from '@/contracts';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a syntax-tree rule: one parsed tree per source file, plus the compiler it borrowed. */
@@ -21,7 +21,17 @@ const setupSyntaxTreeInput = ({ sources }: { sources: Array<[string, string]> })
 
 	const paths = sources.map(([path]) => path);
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd: '/repo', source: paths, tests: [], files: paths, referenceFiles: [], standardsPackages: [], compiler, trees };
+	return {
+		kind: StandardsInputKind.SyntaxTree,
+		cwd: '/repo',
+		source: paths,
+		tests: [],
+		files: paths,
+		referenceFiles: [],
+		standardsPackages: [],
+		compiler,
+		trees,
+	};
 };
 
 /** The input a rule that did NOT declare `syntax-tree` would receive — an arm the union permits but a run never produces. */
@@ -57,7 +67,11 @@ describe('casing check', () => {
 	test.each([
 		{ kind: 'class', text: 'export class userService {}', expected: "class 'userService' is not PascalCase" },
 		{ kind: 'type', text: 'export type userId = string;', expected: "type 'userId' is not PascalCase" },
-		{ kind: 'interface with an underscore', text: 'export interface User_Profile {\n\tname: string;\n}\n', expected: "interface 'User_Profile' is not PascalCase" },
+		{
+			kind: 'interface with an underscore',
+			text: 'export interface User_Profile {\n\tname: string;\n}\n',
+			expected: "interface 'User_Profile' is not PascalCase",
+		},
 	])('reports a $kind the table pins to PascalCase', async ({ text, expected }) => {
 		const input = setupOneFile({ text });
 
@@ -163,7 +177,9 @@ describe('casing check', () => {
 	});
 
 	test('leaves a destructured binding alone, whose name a payload picked rather than this repo', async () => {
-		const input = setupOneFile({ text: 'export const getLabel = (payload: { user_name: string }): string => {\n\tconst { user_name } = payload;\n\n\treturn user_name;\n};\n' });
+		const input = setupOneFile({
+			text: 'export const getLabel = (payload: { user_name: string }): string => {\n\tconst { user_name } = payload;\n\n\treturn user_name;\n};\n',
+		});
 
 		const findings = await check.run({ input, settings: {} });
 

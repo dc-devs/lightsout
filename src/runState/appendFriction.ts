@@ -1,6 +1,6 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { FrictionRecord, type FrictionEntry } from '@/contracts';
+import { type FrictionEntry, FrictionRecord } from '@/contracts';
 
 interface Params {
 	cwd: string;
@@ -21,9 +21,7 @@ export const appendFriction = async ({ cwd, runId, step, friction }: Params) => 
 	}
 
 	const at = new Date().toISOString();
-	const lines = friction
-		.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step })))
-		.join('\n');
+	const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join('\n');
 
 	await mkdir(join(cwd, '.lightsout'), { recursive: true });
 	await appendFile(join(cwd, '.lightsout', 'friction.jsonl'), `${lines}\n`, 'utf8');

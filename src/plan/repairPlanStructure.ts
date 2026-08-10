@@ -1,8 +1,8 @@
 import { join } from 'node:path';
-import { PlanFixReport, PlanFixStatus, type Effort, type LightsoutConfig, type Permissions, type StructuralFinding } from '@/contracts';
 import { buildPlanRepairInvocation } from '@/agents';
-import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
+import { type Effort, type LightsoutConfig, type Permissions, PlanFixReport, PlanFixStatus, type StructuralFinding } from '@/contracts';
 import type { Driver } from '@/drivers';
+import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
 import { lintPlanStructure } from '@/plan/lintPlanStructure';
 
 const maxRepairAttempts = 3;
@@ -51,7 +51,20 @@ const findingSetKey = ({ findings }: { findings: StructuralFinding[] }) =>
  * result carries the surviving findings — empty when the plan converged — so
  * the caller decides what a survivor means.
  */
-export const repairPlanStructure = async ({ cwd, driver, name, planPaths, workspaceDir, brainstormDecisionsPath, config, model, effort, permissions, timeoutMs, progress }: Params): Promise<RepairPlanStructureResult> => {
+export const repairPlanStructure = async ({
+	cwd,
+	driver,
+	name,
+	planPaths,
+	workspaceDir,
+	brainstormDecisionsPath,
+	config,
+	model,
+	effort,
+	permissions,
+	timeoutMs,
+	progress,
+}: Params): Promise<RepairPlanStructureResult> => {
 	let findings = await lintPlanStructure({ cwd, planPaths, config });
 
 	for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {

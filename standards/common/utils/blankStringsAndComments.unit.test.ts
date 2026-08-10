@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { blankStringsAndComments } from './blankStringsAndComments.ts';
 
 describe('blankStringsAndComments', () => {

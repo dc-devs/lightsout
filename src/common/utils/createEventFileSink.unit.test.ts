@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
 
 const setupSink = ({ ready, subdir }: { ready?: Promise<unknown>; subdir?: string } = {}) => {

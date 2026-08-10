@@ -1,5 +1,5 @@
-import type { StructuralFinding } from '@/contracts';
 import planRepairPrompt from '@/agents/prompts/planRepair.md';
+import type { StructuralFinding } from '@/contracts';
 
 interface Params {
 	/** The typed structural findings to resolve, each with its exact fix. */
@@ -21,7 +21,13 @@ interface Params {
  * content — the common mechanical repair never pays for them. The plan
  * template is deliberately absent — the repair role edits, never re-authors.
  */
-export const buildPlanRepairInvocation = ({ findings, planPaths, decisionsPath, brainstormDecisionsPath, factsPath }: Params): { systemPrompt: string; prompt: string } => {
+export const buildPlanRepairInvocation = ({
+	findings,
+	planPaths,
+	decisionsPath,
+	brainstormDecisionsPath,
+	factsPath,
+}: Params): { systemPrompt: string; prompt: string } => {
 	const findingLines = findings.map((finding) => `- [${finding.check}] ${finding.location} — ${finding.issue}\n  fix: ${finding.fix}`);
 	const referenceLines = [
 		`- Decisions record: ${decisionsPath}`,

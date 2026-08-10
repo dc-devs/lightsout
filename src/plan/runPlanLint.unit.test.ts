@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
+import { expectStatus } from '@tests/helpers/expectStatus';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { StructuralCheck } from '@/contracts';
 import { runPlanLint } from '@/plan';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { expectStatus } from '@tests/helpers/expectStatus';
 
 /** Write a plan deliverable at `.lightsout/plans/<name>/plan.md`. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
@@ -249,9 +249,9 @@ test('plan lint: the target repo config reaches the structural lint', async () =
 	expect('findings' in result).toBeTruthy();
 	// the configured packagesDir drove the check, got:
 	// ${JSON.stringify(result.findings)}
-	expect(result.findings.some(
-		(finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/'),
-	)).toBeTruthy();
+	expect(
+		result.findings.some((finding) => finding.check === StructuralCheck.PackagesIdentifiable && finding.issue.includes('directly under modules/')),
+	).toBeTruthy();
 });
 
 test('plan lint: an unreadable config leaves the lint running on defaults', async () => {

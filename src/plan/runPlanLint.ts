@@ -9,9 +9,7 @@ interface Params {
 	onProgress?: (message: string) => void;
 }
 
-type RunPlanLintResult =
-	| { status: 'complete'; findings: StructuralFinding[]; planPaths: string[] }
-	| { status: 'failed'; error: string };
+type RunPlanLintResult = { status: 'complete'; findings: StructuralFinding[]; planPaths: string[] } | { status: 'failed'; error: string };
 
 /**
  * The structural lint as a standalone pass — no agent, no driver, no workspace

@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { PathVerification } from '@/contracts';
 
 const setupVerification = (overrides: Record<string, unknown> = {}) => {

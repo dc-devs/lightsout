@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { StandardsSeverity, type StandardsFinding } from '@/contracts';
 import { buildRefactorExecutorInvocation } from '@/agents';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
 
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';
@@ -100,7 +100,11 @@ test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, af
 
 	// without the guidance the agent reads a bare line count and rewrites the
 	// orchestration the rule meant to spare
-	expect(prompt.includes("- [size-function] src/widget.ts — function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt.")).toBeTruthy();
+	expect(
+		prompt.includes(
+			"- [size-function] src/widget.ts — function 'one' is 114 lines (cap ~80) — Extract logic. Orchestration that only sequences step calls is exempt.",
+		),
+	).toBeTruthy();
 });
 
 test('buildRefactorExecutorInvocation: a multi-site finding renders every location with its line span, joined by the clone marker', () => {
@@ -248,7 +252,11 @@ test('buildRefactorExecutorInvocation: the advisory-outcomes ask names the two o
 	// the health report ties an entry back to its rule by these two fields, copied not invented
 	expect(prompt.includes('`rule` and `siteKey` copied exactly as given')).toBeTruthy();
 	// and the worked example carries the same field names the parser reads
-	expect(prompt.includes('{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }')).toBeTruthy();
+	expect(
+		prompt.includes(
+			'{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }',
+		),
+	).toBeTruthy();
 });
 
 test('buildRefactorExecutorInvocation: asking for advisory outcomes leaves the cached system prompt untouched', () => {

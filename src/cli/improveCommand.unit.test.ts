@@ -2,9 +2,9 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { improveCommand } from '@/cli/improveCommand';
-import { parseFlags } from '@/cli/common/args/parseFlags';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { improveCommand } from '@/cli/improveCommand';
 
 // improve resolves its config and driver BEFORE the friction check, and its
 // config load is non-fatal only when no config file exists — both arrangements
@@ -53,7 +53,6 @@ test('improveCommand: no recorded friction reports there is nothing to improve f
 
 test('improveCommand: a present-but-invalid config is a hard error, not the missing-config fallback', async () => {
 	const { context } = setupImprove({
-		
 		args: ['--engine', '/does/not/need/to/exist'],
 		config: { driver: 'codex', scripts: { check: 'c', testUnit: 't', testCoverage: false } },
 	});
@@ -66,7 +65,13 @@ test('improveCommand: a present-but-invalid config is a hard error, not the miss
  * `claude` on PATH that answers with the given report. Nothing else is stubbed —
  * the driver is the real one, spawning a real process.
  */
-const setupImproveRun = ({ report, friction = [{ area: 'prompt', detail: 'the executor guessed at scope' }] }: { report: unknown; friction?: Record<string, unknown>[] }) => {
+const setupImproveRun = ({
+	report,
+	friction = [{ area: 'prompt', detail: 'the executor guessed at scope' }],
+}: {
+	report: unknown;
+	friction?: Record<string, unknown>[];
+}) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-improve-run-'));
 	const engineCwd = mkdtempSync(join(tmpdir(), 'lightsout-improve-engine-'));

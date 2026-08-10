@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import type { RunUsage } from '@/contracts';
 import { seedUsageTotals } from '@/runState';
 

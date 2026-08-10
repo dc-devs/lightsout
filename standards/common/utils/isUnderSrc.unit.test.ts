@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { isUnderSrc } from './isUnderSrc.ts';
 
 describe('isUnderSrc', () => {

@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Permissions, RunStatus, WorkReport, type AgentUsage, type LightsoutConfig, type RunManifest, type RunUsage, type StepRecord } from '@/contracts';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
+import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type RunUsage, type StepRecord, WorkReport } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
-import { getRunDir, recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '@/runState';
 import type { PipelineResult } from '@/pipeline/PipelineResult';
+import { getRunDir, recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '@/runState';
 
 const defaultAgentTimeoutMinutes = 60;
 
@@ -110,7 +110,15 @@ export class PipelineRun {
 	}
 
 	async recordUsage({ step, usage }: { step: string; usage?: AgentUsage }): Promise<void> {
-		await recordAgentUsage({ cwd: this.cwd, runId: this.manifest.runId, step, model: this.config.model, effort: this.config.effort, totals: this.usageTotals, usage });
+		await recordAgentUsage({
+			cwd: this.cwd,
+			runId: this.manifest.runId,
+			step,
+			model: this.config.model,
+			effort: this.config.effort,
+			totals: this.usageTotals,
+			usage,
+		});
 
 		if (usage) {
 			this.progress(`  ${step} · usage: ${formatUsage(usage)}`);

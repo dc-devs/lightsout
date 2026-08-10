@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { StandardsFinding, StandardsSeverity } from '@/contracts';
 
 const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
@@ -208,7 +208,10 @@ describe('StandardsFinding', () => {
 	});
 
 	test('rejects line numbers given as numeric strings rather than coercing them', () => {
-		for (const files of [[{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: '12' }], [{ path: 'src/standardsCheck/runStandardsCheck.ts', endLine: '48' }]]) {
+		for (const files of [
+			[{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: '12' }],
+			[{ path: 'src/standardsCheck/runStandardsCheck.ts', endLine: '48' }],
+		]) {
 			const { finding } = setupFinding({ extra: { files } });
 
 			const result = StandardsFinding.safeParse(finding);
@@ -285,7 +288,9 @@ describe('StandardsFinding', () => {
 	});
 
 	test('keys the contract does not declare are stripped from the finding and from each site', () => {
-		const { finding } = setupFinding({ extra: { tier: 1, files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48, tokens: 180 }] } });
+		const { finding } = setupFinding({
+			extra: { tier: 1, files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48, tokens: 180 }] },
+		});
 
 		const parsed = StandardsFinding.parse(finding);
 

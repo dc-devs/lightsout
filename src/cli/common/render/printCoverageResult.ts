@@ -1,10 +1,10 @@
-import { RunStatus } from '@/contracts';
-import type { CoverageResult } from '@/coverage';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
+import { RunStatus } from '@/contracts';
+import type { CoverageResult } from '@/coverage';
 
 interface Params {
 	result: CoverageResult;

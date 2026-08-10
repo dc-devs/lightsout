@@ -1,8 +1,5 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { renderTable } from '@/cli/common/render/renderTable';
-
-const cellsOf = ({ lines }: { lines: string[] }) =>
-	lines.filter((line) => line.startsWith('│')).map((line) => line.split('│').slice(1, -1).map((cell) => cell.trim()));
 
 describe('renderTable', () => {
 	test('sizes every column to its widest cell, header included', () => {
@@ -20,7 +17,13 @@ describe('renderTable', () => {
 	});
 
 	test('rules the header off even when the first row asks for no rule above it', () => {
-		const lines = renderTable({ headers: ['a'], rows: [{ cells: ['one'], ruleAbove: false }, { cells: ['two'], ruleAbove: false }] });
+		const lines = renderTable({
+			headers: ['a'],
+			rows: [
+				{ cells: ['one'], ruleAbove: false },
+				{ cells: ['two'], ruleAbove: false },
+			],
+		});
 
 		// the header is always separated; ruleAbove governs only the gaps between rows
 		expect(lines).toStrictEqual(['┌─────┐', '│ a   │', '├─────┤', '│ one │', '│ two │', '└─────┘']);
@@ -39,10 +42,10 @@ describe('renderTable', () => {
 	});
 
 	test('measures geometry before painting, so a coloured cell does not shift the column', () => {
-		const escape = '';
+		const esc = '';
 		const plain = renderTable({ headers: ['a'], rows: [{ cells: ['one'] }] });
-		const painted = renderTable({ headers: ['a'], rows: [{ cells: ['one'], paintCell: ({ padded }) => `${escape}[2m${padded}${escape}[0m` }] });
-		const stripped = painted.map((line) => line.replaceAll(`${escape}[2m`, '').replaceAll(`${escape}[0m`, ''));
+		const painted = renderTable({ headers: ['a'], rows: [{ cells: ['one'], paintCell: ({ padded }) => `${esc}[2m${padded}${esc}[0m` }] });
+		const stripped = painted.map((line) => line.replaceAll(`${esc}[2m`, '').replaceAll(`${esc}[0m`, ''));
 
 		// an ANSI code is invisible on screen but counts toward String.length, so
 		// padding measured on painted text would widen the cell it decorates

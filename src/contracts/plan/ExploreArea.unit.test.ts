@@ -1,4 +1,4 @@
-import { expect, describe, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { ExploreArea } from '@/contracts';
 
 const setupArea = (overrides: Record<string, unknown> = {}) => {
@@ -55,7 +55,15 @@ describe('ExploreArea', () => {
 		const parsed = ExploreArea.parse({ ...area, fileContents: 'the whole file pasted in', confidence: 0.9 });
 
 		// the area carries data, not file contents — extra keys never reach facts.json
-		expect(Object.keys(parsed).sort()).toStrictEqual(['affectedPackages', 'area', 'filesToModify', 'integrationPoints', 'namingConvention', 'patternsToMirror', 'scripts']);
+		expect(Object.keys(parsed).sort()).toStrictEqual([
+			'affectedPackages',
+			'area',
+			'filesToModify',
+			'integrationPoints',
+			'namingConvention',
+			'patternsToMirror',
+			'scripts',
+		]);
 	});
 
 	for (const field of ['area', 'namingConvention']) {
@@ -73,7 +81,10 @@ describe('ExploreArea', () => {
 	for (const { label, entry } of [
 		{ label: 'a filesToModify entry with no role', entry: { filesToModify: [{ path: 'src/plan/runPlanDraft.ts' }] } },
 		{ label: 'a patternsToMirror entry with no takeaway', entry: { patternsToMirror: [{ path: 'src/plan/runPlanDraft.ts' }] } },
-		{ label: 'an integrationPoints entry with no at', entry: { integrationPoints: [{ name: 'verifyFacts', signature: '({ cwd, facts }) => Promise<PathVerification>' }] } },
+		{
+			label: 'an integrationPoints entry with no at',
+			entry: { integrationPoints: [{ name: 'verifyFacts', signature: '({ cwd, facts }) => Promise<PathVerification>' }] },
+		},
 		{ label: 'a scripts entry with no command', entry: { scripts: [{ key: 'check' }] } },
 	]) {
 		test(`rejects ${label}`, () => {
