@@ -1,0 +1,33 @@
+{
+	"name": "@lightsout/standards-testkit",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Builds the input a standards check receives, in memory, so a rule's own tests can prove it catches what it claims.",
+	"license": "MIT",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"dependencies": {
+		"@lightsout/standards-contracts": "workspace:*"
+	},
+	"peerDependencies": {
+		"typescript": ">=5"
+	},
+	"devDependencies": {
+		"@jest/globals": "catalog:",
+		"@types/node": "catalog:",
+		"typescript": "catalog:"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test:unit": "jest -c jest.config.cjs",
+		"test:unit:coverage": "jest -c jest.config.cjs --coverage"
+	},
+	"nx": {
+		"name": "standards-testkit"
+	}
+}

@@ -1,0 +1,78 @@
+{
+	"$schema": "./node_modules/nx/schemas/nx-schema.json",
+
+	// What `nx affected` diffs against. The repo has one long-lived branch.
+	"defaultBase": "main",
+
+	// No Nx Cloud, and stated rather than left to a prompt. Three reasons, in
+	// order: a gate has to be answerable offline, or `pnpm test` depends on
+	// someone else's uptime; the graph is four projects, where a local cache
+	// captures nearly all of the available win; and a remote cache would weaken
+	// the shipped-artifact check, whose whole job is to prove plugin/dist/cli.mjs
+	// regenerates from source rather than being restored from somewhere.
+	"neverConnectToCloud": true,
+
+	// The interactive terminal UI rewrites the screen as it goes. Every gate
+	// lightsout runs is captured into a run log and read back as text, so a
+	// static, appendable transcript is the only useful kind here.
+	"tui": { "enabled": false },
+
+	"namedInputs": {
+		// Everything in the project, plus the root files that change what all of
+		// their commands mean. `default` deliberately INCLUDES fixtures: a rule's
+		// fixtures are what its unit test reads, so editing one has to miss the
+		// test cache.
+		//
+		// coverage/ is excluded because it is output, not input. Left in, running
+		// the tests changes the hash of every other target in that project, so a
+		// build would re-run for a reason that cannot affect it — and, worse, a
+		// build that happened to run while a coverage report was on disk would
+		// cache an output containing it.
+		"default": ["{projectRoot}/**/*", "!{projectRoot}/coverage/**/*", "sharedGlobals"],
+		"sharedGlobals": [
+			"{workspaceRoot}/tsconfig.base.json",
+			"{workspaceRoot}/tooling/jest/**/*",
+			"{workspaceRoot}/biome.jsonc",
+			"{workspaceRoot}/pnpm-lock.yaml"
+		],
+		// What actually ships. These exclusions mirror the filter in
+		// scripts/copyStandards.mjs one for one — the shipped standards package
+		// carries no fixtures, no co-located tests and no workspace metadata, so
+		// editing any of those must NOT rebuild plugin/standards/. If that filter
+		// changes, change this with it.
+		"production": [
+			"default",
+			"!{projectRoot}/**/*.unit.test.ts",
+			"!{projectRoot}/**/*.test.ts",
+			"!{projectRoot}/**/fixtures/**/*",
+			"!{projectRoot}/jest.config.cjs",
+			"!{projectRoot}/jest.e2e.config.cjs",
+			"!{projectRoot}/tsconfig.jest.json",
+			"!{projectRoot}/README.md"
+		]
+	},
+
+	"targetDefaults": {
+		// `^default` is the whole dependency story. These packages ship SOURCE, not
+		// a built dist/, so nothing compiles ahead of anything else and no target
+		// needs to depend on another target. What a consumer depends on is its
+		// dependencies' FILES — so editing standards-contracts misses the engine's
+		// typecheck cache and the standards package's test cache, with no build
+		// step in between to model.
+		"typecheck": { "cache": true, "inputs": ["default", "^default"] },
+		"test:unit": { "cache": true, "inputs": ["default", "^default"] },
+		"test:unit:coverage": {
+			"cache": true,
+			"inputs": ["default", "^default"],
+			"outputs": ["{projectRoot}/coverage"]
+		},
+		"test:e2e": {
+			"cache": true,
+			"inputs": ["default", "^default", { "externalDependencies": ["esbuild"] }]
+		},
+		"bundle": {
+			"cache": true,
+			"inputs": ["production", "^production", { "externalDependencies": ["esbuild"] }]
+		}
+	}
+}

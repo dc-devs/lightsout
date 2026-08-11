@@ -1,0 +1,7 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"include": ["src/**/*.ts"],
+	// Restated because naming `exclude` at all replaces TypeScript's default, and
+	// `src/**` would otherwise sweep the symlinked dependency tree.
+	"exclude": ["node_modules"]
+}

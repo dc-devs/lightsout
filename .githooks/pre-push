@@ -4,7 +4,8 @@
 #
 # plugin/ is what users actually run — marketplace installs copy it and
 # nothing else. Both halves are committed build outputs (plugin/dist/cli.mjs
-# from src/, plugin/standards/ from standards/), and the version in
+# from packages/engine/src/, plugin/standards/ from
+# packages/standards-typescript/), and the version in
 # plugin.json is how a user tells one build from another.
 #
 # What "shippable" means lives in scripts/checkShipped.mjs, not here. CI runs

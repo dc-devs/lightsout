@@ -16,7 +16,8 @@ import { buildEngine } from './buildEngine.mjs';
  * read last.
  *
  *   1. `plugin/dist/cli.mjs` is what `src/` currently builds to.
- *   2. `plugin/standards/` is what `standards/` currently builds to.
+ *   2. `plugin/standards/` is what the authored default package currently
+ *      builds to.
  *   3. If either moved, `plugin.json` carries a version of its own — users
  *      cannot tell two builds apart when both call themselves 0.2.4.
  *
@@ -110,7 +111,7 @@ export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 		await buildEngine({ out: join(work, 'cli.mjs') });
 
 		if (!readFileSync(join(work, 'cli.mjs')).equals(readFileSync(join(repoRoot, 'plugin', 'dist', 'cli.mjs')))) {
-			problems.push('plugin/dist/cli.mjs does not match src/');
+			problems.push('plugin/dist/cli.mjs does not match packages/engine/src/');
 		}
 
 		execFileSync('node', [join(repoRoot, 'scripts', 'copyStandards.mjs'), '--out', join(work, 'standards')], { cwd: repoRoot, stdio: 'ignore' });
@@ -118,7 +119,7 @@ export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 		const difference = firstDifference({ built: join(work, 'standards'), shipped: join(repoRoot, 'plugin', 'standards') });
 
 		if (difference !== undefined) {
-			problems.push(`plugin/standards/ does not match standards/ — ${difference}`);
+			problems.push(`plugin/standards/ does not match packages/standards-typescript/ — ${difference}`);
 		}
 	} finally {
 		rmSync(work, { recursive: true, force: true });

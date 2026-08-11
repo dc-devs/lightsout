@@ -1,0 +1,18 @@
+packages:
+  - packages/*
+
+# One version of every shared tool, declared once. Manifests write `catalog:`
+# instead of a range, so four packages cannot drift onto three versions of
+# TypeScript. pnpm links from a single store either way, so naming a tool in
+# several manifests costs nothing on disk.
+catalog:
+  '@jest/globals': ^30.4.1
+  '@jscpd/core': ^4.2.5
+  '@jscpd/tokenizer': ^4.2.5
+  '@types/node': ^22.10.0
+  esbuild: ^0.24.0
+  jest: ^30.4.2
+  ts-jest: ^29.4.12
+  typescript: ^5.7.0
+  yaml: ^2.9.0
+  zod: ^4.0.0
