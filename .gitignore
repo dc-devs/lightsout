@@ -8,12 +8,20 @@ node_modules/
 # source directory.
 *.tsbuildinfo
 .test-dist/
+.nx/
 coverage/
 # ...but the coverage PIPELINE is source, not a report. The bare pattern above
 # matches a `coverage` directory at ANY depth, which silently swallowed the
 # whole `lightsout test-coverage-to-threshold` module.
-!src/coverage/
-!src/contracts/coverage/
+#
+# The `**/` prefix is load-bearing, not decoration. A negation containing an
+# interior slash is anchored to this file's directory, so the earlier
+# `!src/coverage/` form stopped matching the moment src/ moved under packages/
+# — and the 28 files it rescues would have gone quietly untracked, since
+# `git mv` moves an ignored file without complaint and `git status` never
+# mentions it again.
+!**/src/coverage/
+!**/src/contracts/coverage/
 
 # os / editor
 .DS_Store

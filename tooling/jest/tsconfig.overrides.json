@@ -1,0 +1,10 @@
+{
+	// What ts-jest needs on top of a package's own config: it runs the compiled
+	// output under Node's CommonJS loader, which the repo's ESM settings do not
+	// describe. Kept here so four packages cannot drift onto three answers.
+	"compilerOptions": {
+		"module": "CommonJS",
+		"moduleResolution": "Node10",
+		"esModuleInterop": true
+	}
+}

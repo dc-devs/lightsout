@@ -1,0 +1,32 @@
+{
+	"name": "@lightsout/standards-typescript",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "The standards lightsout ships: the TypeScript rules its own agents write against.",
+	"license": "MIT",
+	"devDependencies": {
+		"@jest/globals": "catalog:",
+		"@lightsout/standards-contracts": "workspace:*",
+		"@lightsout/standards-testkit": "workspace:*",
+		"@types/node": "catalog:",
+		"typescript": "catalog:",
+		"zod": "catalog:"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test:unit": "jest -c jest.config.cjs",
+		"bundle": "node ../../scripts/copyStandards.mjs",
+		"test:unit:coverage": "jest -c jest.config.cjs --coverage"
+	},
+	"nx": {
+		"name": "standards-typescript",
+		"targets": {
+			"bundle": {
+				"outputs": [
+					"{workspaceRoot}/plugin/standards"
+				]
+			}
+		}
+	}
+}

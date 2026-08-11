@@ -1,22 +1,13 @@
 {
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"moduleResolution": "Bundler",
-		"strict": true,
-		"noEmit": true,
-		"skipLibCheck": true,
-		"isolatedModules": true,
-		"forceConsistentCasingInFileNames": true,
-		"allowImportingTsExtensions": true,
-		"types": ["node"],
-		"paths": {
-			"@/*": ["./src/*"],
-			"@tests/*": ["./tests/*"]
-		}
-	},
-	// `standards/` is the source of truth. `plugin/standards/` is its committed
-	// build copy — type-checking both would report every error twice.
-	"include": ["src/**/*.ts", "tests/**/*.ts", "standards/**/*.ts"],
-	"exclude": ["standards/**/fixtures/**", "plugin/standards/**"]
+	// Covers what is not inside a package. Every package typechecks itself
+	// through its own tsconfig — that is what proves it stands alone, and it is
+	// what `nx run-many -t typecheck` runs. This file is left holding the shared
+	// tooling, which belongs to no package and would otherwise be checked by
+	// nothing at all.
+	//
+	// Editors pick the nearest config, so opening a file under packages/ still
+	// gets that package's settings rather than these.
+	"extends": "./tsconfig.base.json",
+	"include": ["tooling/**/*.ts"],
+	"exclude": ["node_modules"]
 }

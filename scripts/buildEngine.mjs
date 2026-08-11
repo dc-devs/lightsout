@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 
 /**
- * Build the shipped engine from `src/`.
+ * Build the shipped engine from `packages/engine/src/`.
  *
  * `plugin/dist/cli.mjs` is what users actually run — marketplace installs copy
  * only the plugin directory, never `src/`. Like `plugin/standards/`, it is
@@ -20,16 +20,21 @@ import { build } from 'esbuild';
  * rebuilds without writing over the file it is asking about.
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const enginePackage = join(repoRoot, 'packages', 'engine');
 
 export const buildEngine = async ({ out }) =>
 	build({
-		entryPoints: [join(repoRoot, 'src', 'cli', 'index.ts')],
-		// Pinned to the repo root, because esbuild writes each bundled module's
-		// path into the output as a comment, relative to this directory. Left to
-		// default to process.cwd(), the same source would build to different
-		// bytes depending on where the command was run from — and the committed
-		// bundle would look stale to anyone who ran it from a subdirectory.
-		absWorkingDir: repoRoot,
+		entryPoints: [join(enginePackage, 'src', 'cli', 'index.ts')],
+		// Pinned, because esbuild writes each bundled module's path into the output
+		// as a comment, relative to this directory. Left to default to
+		// process.cwd(), the same source would build to different bytes depending
+		// on where the command was run from — and the committed bundle would look
+		// stale to anyone who ran it from a subdirectory.
+		//
+		// Pinned to the engine package rather than the repo root because that is
+		// the thing being built: the comments then read `src/...`, and stay that
+		// way if the package is ever built on its own.
+		absWorkingDir: enginePackage,
 		bundle: true,
 		platform: 'node',
 		format: 'esm',

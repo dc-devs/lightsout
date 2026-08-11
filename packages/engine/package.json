@@ -1,0 +1,40 @@
+{
+	"name": "@lightsout/engine",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "The deterministic engine: gates, typed contracts, resumable manifests, supervisor.",
+	"license": "MIT",
+	"exports": {
+		".": "./src/cli/index.ts"
+	},
+	"dependencies": {
+		"@jscpd/core": "catalog:",
+		"@jscpd/tokenizer": "catalog:",
+		"@lightsout/standards-contracts": "workspace:*",
+		"yaml": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@jest/globals": "catalog:",
+		"@types/node": "catalog:",
+		"typescript": "catalog:"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test:unit": "jest -c jest.config.cjs",
+		"test:unit:coverage": "jest -c jest.config.cjs --coverage",
+		"test:e2e": "jest -c jest.e2e.config.cjs",
+		"bundle": "node ../../scripts/buildEngine.mjs"
+	},
+	"nx": {
+		"name": "engine",
+		"targets": {
+			"bundle": {
+				"outputs": [
+					"{workspaceRoot}/plugin/dist"
+				]
+			}
+		}
+	}
+}
