@@ -111,7 +111,7 @@ export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 		await buildEngine({ out: join(work, 'cli.mjs') });
 
 		if (!readFileSync(join(work, 'cli.mjs')).equals(readFileSync(join(repoRoot, 'plugin', 'dist', 'cli.mjs')))) {
-			problems.push('plugin/dist/cli.mjs does not match src/');
+			problems.push('plugin/dist/cli.mjs does not match packages/engine/src/');
 		}
 
 		execFileSync('node', [join(repoRoot, 'scripts', 'copyStandards.mjs'), '--out', join(work, 'standards')], { cwd: repoRoot, stdio: 'ignore' });

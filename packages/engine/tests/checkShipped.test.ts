@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import { cp, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
@@ -25,7 +26,13 @@ const commitAll = ({ cwd, message }: { cwd: string; message: string }) => {
 
 /**
  * A clone of this repo with its own history, sharing node_modules by symlink —
- * the check builds the engine, which needs esbuild.
+ * the check builds the engine, which needs esbuild and the engine's own
+ * dependencies.
+ *
+ * Every node_modules is linked, not just the root one. This is a workspace, and
+ * the package manager installs nothing at the root that a package declared for
+ * itself, so a clone with only the root link cannot resolve `zod` and the build
+ * fails on the first import.
  *
  * `scripts/` is copied from the working tree over what the clone checked out,
  * so these tests exercise the scripts as they stand rather than as they were
@@ -45,6 +52,15 @@ const setupClone = async () => {
 	run({ cwd: repoRoot, command: 'git', args: ['clone', '--quiet', '--no-hardlinks', '--shared', repoRoot, dir] });
 	await cp(join(repoRoot, 'scripts'), join(dir, 'scripts'), { recursive: true });
 	await symlink(join(repoRoot, 'node_modules'), join(dir, 'node_modules'), 'dir');
+
+	for (const entry of await readdir(join(repoRoot, 'packages'), { withFileTypes: true })) {
+		const installed = join(repoRoot, 'packages', entry.name, 'node_modules');
+
+		if (entry.isDirectory() && existsSync(installed)) {
+			await symlink(installed, join(dir, 'packages', entry.name, 'node_modules'), 'dir');
+		}
+	}
+
 	run({ cwd: dir, command: 'node', args: [join(dir, 'scripts', 'buildEngine.mjs')] });
 
 	// A local clone checks out whatever branch this repo is on, so `main` is not
@@ -68,6 +84,17 @@ const checkShipped = ({ cwd, base }: { cwd: string; base: string }) => {
 	}
 };
 
+/**
+ * The version this repo is on right now. Read rather than written down: these
+ * tests are about the comparison, not about any particular number, and spelling
+ * one out here means every release turns them red for no reason.
+ */
+const currentVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version as string;
+
+/** Unambiguously newer and older than anything this repo will ship. */
+const newer = '99.0.0';
+const older = '0.0.1';
+
 const setVersion = async ({ cwd, version }: { cwd: string; version: string }) => {
 	const manifest = JSON.parse(await readFile(join(cwd, manifestPath), 'utf8'));
 
@@ -89,12 +116,15 @@ test('a clean tree with nothing shipped-facing changed passes, and says the vers
 test('an engine bundle that no longer matches src/ fails', async () => {
 	const cwd = await setupClone();
 
-	await writeFile(join(cwd, 'src/cli/index.ts'), `${await readFile(join(cwd, 'src/cli/index.ts'), 'utf8')}\nconsole.log('drift');\n`);
+	await writeFile(
+		join(cwd, 'packages/engine/src/cli/index.ts'),
+		`${await readFile(join(cwd, 'packages/engine/src/cli/index.ts'), 'utf8')}\nconsole.log('drift');\n`,
+	);
 
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 
 	expect(ok).toBe(false);
-	expect(output).toMatch(/plugin\/dist\/cli\.mjs does not match src\//);
+	expect(output).toMatch(/plugin\/dist\/cli\.mjs does not match packages\/engine\/src\//);
 });
 
 test('a standards package that no longer matches its authored source fails, naming the file that differs', async () => {
@@ -131,31 +161,31 @@ test('changing plugin/ without bumping the version fails, and says which version
 
 	expect(ok).toBe(false);
 	// the version half fires even while the bundle half is also complaining
-	expect(output).toMatch(/plugin\.json is 0\.2\.4 against a base of 0\.2\.4/);
+	expect(output).toContain(`plugin.json is ${currentVersion} against a base of ${currentVersion}`);
 });
 
 test('changing plugin/ with a bumped version passes the version half', async () => {
 	const cwd = await setupClone();
 
-	await setVersion({ cwd, version: '0.3.0' });
+	await setVersion({ cwd, version: newer });
 	commitAll({ cwd, message: 'bump' });
 
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 
 	expect(ok).toBe(true);
-	expect(output).toMatch(/version 0\.2\.4 -> 0\.3\.0/);
+	expect(output).toContain(`version ${currentVersion} -> ${newer}`);
 });
 
 test('a version that moved backwards fails as loudly as one that never moved', async () => {
 	const cwd = await setupClone();
 
-	await setVersion({ cwd, version: '0.1.9' });
+	await setVersion({ cwd, version: older });
 	commitAll({ cwd, message: 'downgrade' });
 
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 
 	expect(ok).toBe(false);
-	expect(output).toMatch(/plugin\.json is 0\.1\.9 against a base of 0\.2\.4/);
+	expect(output).toContain(`plugin.json is ${older} against a base of ${currentVersion}`);
 });
 
 test('a two-digit segment compares as a number, so 0.2.10 is newer than 0.2.9', async () => {
