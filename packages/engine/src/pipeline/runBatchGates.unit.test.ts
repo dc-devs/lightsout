@@ -29,12 +29,12 @@ const setupTouched = async ({ files, git = true }: { files: string[]; git?: bool
  */
 const setupConfiguredPackagesDir = async ({ packagesDir, packageCheck }: { packagesDir: string; packageCheck?: string }) => {
 	const dir = setupConsumerRepo({
-		scripts: { check: `${gateLogCommand({ kind: 'check' })} root`, testUnit: `${gateLogCommand({ kind: 'testUnit' })} root` },
+		scripts: { check: `${gateLogCommand({ kind: 'check' })} root`, test: `${gateLogCommand({ kind: 'test' })} root` },
 		config: {
 			packagesDir,
-			packageScripts: {
+			packageGates: {
 				check: packageCheck ?? `${gateLogCommand({ kind: 'check' })} {package}`,
-				testUnit: `${gateLogCommand({ kind: 'testUnit' })} {package}`,
+				test: `${gateLogCommand({ kind: 'test' })} {package}`,
 			},
 		},
 	});
@@ -96,7 +96,7 @@ describe('runBatchGates', () => {
 		// a coverage batch's own gate is red by definition mid-run — it runs the
 		// plain suite instead, or every batch would fail on the thing it is fixing
 		expect(withoutCoverage.gates().includes('@acme/api coverage')).toBeFalsy();
-		expect(withoutCoverage.gates().includes('@acme/api testUnit')).toBeTruthy();
+		expect(withoutCoverage.gates().includes('@acme/api test')).toBeTruthy();
 	});
 
 	test('the run id and step ride into the command log, so a batch gate leaves evidence', async () => {

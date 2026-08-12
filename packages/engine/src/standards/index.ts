@@ -1,2 +1,3 @@
 export { detectStandardsChannels } from '@/standards/detectStandardsChannels';
-export { type ResolvedStandards, resolveStandards } from '@/standards/resolveStandards';
+export type { ResolvedStandards } from '@/standards/ResolvedStandards';
+export { resolveStandards } from '@/standards/resolveStandards';

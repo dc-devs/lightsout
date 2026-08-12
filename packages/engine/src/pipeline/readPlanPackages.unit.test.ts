@@ -59,29 +59,29 @@ test('scanPlanPackagePaths treats regex characters in packagesDir literally', ()
 	expect(scanPlanPackagePaths({ planContent: 'edit appsXv2/web/src/x.ts', packagesDir: 'apps.v2' })).toBe(undefined);
 });
 
-const baseScripts = { check: 'true', testUnit: 'true', testCoverage: false };
+const baseGates = { check: 'true', test: 'true', testCoverage: false };
 
-test('config rejects a packageScripts command missing {package}', () => {
+test('config rejects a packageGates command missing {package}', () => {
 	const parsed = LightsoutConfig.safeParse({
-		scripts: baseScripts,
-		packageScripts: { check: 'pnpm typecheck', testUnit: 'pnpm --filter {package} test' },
+		gates: baseGates,
+		packageGates: { check: 'pnpm typecheck', test: 'pnpm --filter {package} test' },
 	});
 
 	expect(parsed.success).toBe(false);
 	expect(JSON.stringify(!parsed.success && parsed.error.issues).includes('{package}')).toBeTruthy();
 });
 
-test('config accepts packageScripts with the placeholder everywhere', () => {
+test('config accepts packageGates with the placeholder everywhere', () => {
 	const parsed = LightsoutConfig.safeParse({
-		scripts: baseScripts,
-		packageScripts: { check: 'pnpm --filter {package} typecheck', testUnit: 'pnpm --filter {package} test' },
+		gates: baseGates,
+		packageGates: { check: 'pnpm --filter {package} typecheck', test: 'pnpm --filter {package} test' },
 	});
 
 	expect(parsed.success).toBe(true);
 });
 
 test('config requires testCoverage: a command or an explicit false', () => {
-	expect(LightsoutConfig.safeParse({ scripts: { check: 'true', testUnit: 'true' } }).success).toBe(false);
-	expect(LightsoutConfig.safeParse({ scripts: { ...baseScripts, testCoverage: 'pnpm cov' } }).success).toBe(true);
-	expect(LightsoutConfig.safeParse({ scripts: baseScripts }).success).toBe(true);
+	expect(LightsoutConfig.safeParse({ gates: { check: 'true', test: 'true' } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ gates: { ...baseGates, testCoverage: 'pnpm cov' } }).success).toBe(true);
+	expect(LightsoutConfig.safeParse({ gates: baseGates }).success).toBe(true);
 });

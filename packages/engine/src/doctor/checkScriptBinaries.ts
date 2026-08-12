@@ -10,17 +10,17 @@ interface Params {
 
 /** Every gate command's leading binary must resolve on PATH — a missing one fails every run that depends on it. */
 export const checkScriptBinaries = async ({ cwd, config }: Params): Promise<DoctorCheck> => {
-	const scriptCommands = [...Object.values(config.scripts), ...Object.values(config.packageScripts ?? {})].filter(
+	const gateCommands = [...Object.values(config.gates), ...Object.values(config.packageGates ?? {})].filter(
 		(value): value is string => typeof value === 'string',
 	);
-	const binaries = [...new Set(scriptCommands.map((command) => command.trim().split(/\s+/)[0]).filter(Boolean))];
+	const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name): name is string => Boolean(name)))];
 	const missingBinaries: string[] = [];
 
 	for (const name of binaries) {
 		const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
 
 		if (result.exitCode !== 0) {
-			missingBinaries.push(name as string);
+			missingBinaries.push(name);
 		}
 	}
 

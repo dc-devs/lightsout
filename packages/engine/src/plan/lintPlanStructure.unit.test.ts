@@ -600,12 +600,33 @@ test('lintPlanStructure: a config full-command override is skipped even when it 
 
 	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'true' } }));
 
-	const config = LightsoutConfig.parse({ scripts: { check: 'pnpm ghost-script', testUnit: 'true', testCoverage: false } });
+	const config = LightsoutConfig.parse({ gates: { check: 'pnpm ghost-script', test: 'true', testCoverage: false } });
 	const path = writePlan({ cwd, name: 'config-override.md', body: verificationPlan({ command: 'pnpm ghost-script' }) });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });
 
 	// a command the config declares verbatim is an override, not a package script
 	expect(findings.filter((finding) => finding.check === StructuralCheck.ScriptExists)).toStrictEqual([]);
+});
+
+test('lintPlanStructure: a command the config does not declare as a gate is still flagged', async () => {
+	const cwd = setupConsumerRepo();
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', scripts: { check: 'true' } }));
+
+	const config = LightsoutConfig.parse({ gates: { check: 'pnpm ghost-script', test: 'true', testCoverage: false } });
+	const path = writePlan({ cwd, name: 'config-non-override.md', body: verificationPlan({ command: 'pnpm phantom' }) });
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });
+
+	// the override set holds the gate commands themselves — a config being present
+	// never blanket-skips the check, got: ${JSON.stringify(findings)}
+	expect(findings.filter((finding) => finding.check === StructuralCheck.ScriptExists)).toStrictEqual([
+		{
+			check: StructuralCheck.ScriptExists,
+			issue: "verification command 'pnpm phantom' references package script 'phantom' which is not in any target package.json",
+			location: 'config-non-override.md → Verification',
+			fix: "use a script that exists, or add 'phantom' to the package.json",
+		},
+	]);
 });
 
 /** A plan whose only lint-relevant content is one modify path and one verification command. */
@@ -681,7 +702,7 @@ test('lintPlanStructure: a path directly under packages/ with no package segment
 test('lintPlanStructure: a configured packagesDir moves the package-segment check off the default', async () => {
 	const cwd = setupConsumerRepo();
 
-	const config = LightsoutConfig.parse({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, packagesDir: 'modules' });
+	const config = LightsoutConfig.parse({ gates: { check: 'true', test: 'true', testCoverage: false }, packagesDir: 'modules' });
 	const body = packagePlan({ modifyPath: 'modules/loose.ts', command: 'true' });
 	const path = writePlan({ cwd, name: 'custom-packages-dir.md', body });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });

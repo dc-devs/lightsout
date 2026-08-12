@@ -7,7 +7,7 @@ import { z } from 'zod';
  * runGates' aggregate return, never by counting reds here.
  */
 export const GateResult = z.object({
-	/** Gate kind: 'generate' | 'check' | 'testUnit' | 'testCoverage' | 'build'. */
+	/** Gate kind: 'generate' | 'check' | 'test' | 'testCoverage' | 'build'. */
 	kind: z.string(),
 	/** 'root' or the package directory name. */
 	group: z.string(),

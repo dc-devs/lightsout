@@ -21,7 +21,7 @@ test('nested consumer: agent-reported repo-root-relative paths normalize to cons
 	mkdirSync(join(dir, 'src'), { recursive: true });
 	writeFileSync(join(dir, 'src/index.js'), 'export const one = 1;\n');
 	writeFileSync(join(dir, 'plan.md'), '# Plan: add feature\n');
-	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false } }));
+	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false } }));
 	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: root });
 
 	let writerCount = 0;

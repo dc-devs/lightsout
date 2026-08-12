@@ -1,2 +1,2 @@
-export { renderFeature } from './renderFeature';
-export { getLabel } from './getLabel';
+export { renderFeature } from '@/feature/renderFeature';
+export { getLabel } from '@/feature/getLabel';

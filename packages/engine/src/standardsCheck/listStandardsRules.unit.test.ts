@@ -6,7 +6,7 @@ import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { LightsoutConfig, StandardsSeverity } from '@/contracts';
 import { listStandardsRules } from '@/standardsCheck';
 
-const baseConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false as const } };
+const baseConfig = { gates: { check: 'true', test: 'true', testCoverage: false as const } };
 
 /**
  * The repo the listing is read for — the shipped package answers regardless,

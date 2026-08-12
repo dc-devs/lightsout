@@ -11,8 +11,8 @@ interface Params {
 	packagesDir: string;
 	/** Directory name under packagesDir — also the group label in the evidence. */
 	packageDir: string;
-	/** The `{package}` command templates from config `packageScripts`. */
-	scoped: NonNullable<LightsoutConfig['packageScripts']>;
+	/** The `{package}` command templates from config `packageGates`. */
+	scoped: NonNullable<LightsoutConfig['packageGates']>;
 	/** Also run the scoped coverage gate, when the config defines one. */
 	coverage?: boolean;
 	gate: RunGate;
@@ -60,13 +60,13 @@ export const runPackageGates = async ({
 		return messageOf({ error });
 	}
 
-	const substitute = (command: string) => command.split('{package}').join(manifest.name);
+	const substitute = ({ command }: { command: string }) => command.split('{package}').join(manifest.name);
 
 	const scopedCommand = async ({ kind, template }: { kind: string; template: string }) => {
 		const scriptName = extractRunScriptName({ command: template });
 
 		if (!scriptName || Object.hasOwn(manifest.scripts, scriptName)) {
-			return substitute(template);
+			return substitute({ command: template });
 		}
 
 		onProgress?.(`gate [${packageDir}] ${kind}: skipped (no "${scriptName}" script)`);
@@ -80,14 +80,14 @@ export const runPackageGates = async ({
 					step,
 					group: packageDir,
 					kind,
-					command: substitute(template),
+					command: substitute({ command: template }),
 					skipped: true,
 					reason: `no "${scriptName}" script`,
 				},
 			});
 		}
 
-		onGateResult?.({ kind, group: packageDir, command: substitute(template), skipped: true, reason: `no "${scriptName}" script` });
+		onGateResult?.({ kind, group: packageDir, command: substitute({ command: template }), skipped: true, reason: `no "${scriptName}" script` });
 
 		return undefined;
 	};
@@ -101,8 +101,8 @@ export const runPackageGates = async ({
 		commands: {
 			check: await scopedCommand({ kind: 'check', template: scoped.check }),
 			// Coverage replaces the plain test run; only when coverage is
-			// absent or skipped does testUnit get its own script lookup.
-			testUnit: testCoverage ? undefined : await scopedCommand({ kind: 'testUnit', template: scoped.testUnit }),
+			// absent or skipped does test get its own script lookup.
+			test: testCoverage ? undefined : await scopedCommand({ kind: 'test', template: scoped.test }),
 			testCoverage,
 			build: scoped.build ? await scopedCommand({ kind: 'build', template: scoped.build }) : undefined,
 		},

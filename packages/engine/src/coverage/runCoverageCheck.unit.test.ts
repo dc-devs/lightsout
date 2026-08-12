@@ -62,9 +62,9 @@ const setupScopedRepo = ({
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: {
+			packageGates: {
 				check: 'true {package}',
-				testUnit: 'true {package}',
+				test: 'true {package}',
 				testCoverage: `${gateLogCommand({ kind: 'coverage' })} {package}${runScript}${guard}`,
 			},
 		},
@@ -150,12 +150,29 @@ describe('runCoverageCheck', () => {
 
 		writeFileSync(
 			join(dir, 'lightsout.config.json'),
-			JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: 'true' }, coverageSummaryPath: 'reports/summary.json' }),
+			JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: 'true' }, coverageSummaryPath: 'reports/summary.json' }),
 		);
 
 		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
 
 		expect(measured.files.map((file) => file.path)).toStrictEqual(['src/a.ts']);
+	});
+
+	test('naming the root scope re-measures the root command, the way a post-batch re-measure asks for it', async () => {
+		const dir = setupRootRepo();
+
+		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }), scope: 'root' });
+
+		expect(measured.totals).toStrictEqual([{ scope: 'root', statementsPct: 61.5, passed: true }]);
+	});
+
+	test('naming a package scope in a single-package repo measures nothing — there is no such scope', async () => {
+		const dir = setupRootRepo();
+
+		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }), scope: 'api' });
+
+		// the root command is not a stand-in for a package that was never configured
+		expect(measured).toStrictEqual({ passed: false, files: [], totals: [] });
 	});
 
 	test('monorepo mode measures packages only, merging both summaries into one worst-first list', async () => {
@@ -239,7 +256,7 @@ describe('runCoverageCheck', () => {
 	test('a repo that opted out of the coverage gate measures nothing and reports not passed', async () => {
 		const dir = setupRootRepo();
 
-		writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false } }));
+		writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false } }));
 
 		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
 

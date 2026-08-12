@@ -5,7 +5,7 @@ import { getBaseName } from '../../../common/utils/getBaseName.ts';
 import { getTestSubject } from '../../../common/utils/getTestSubject.ts';
 import { isUnderSrc } from '../../../common/utils/isUnderSrc.ts';
 import { mapFolderModules } from '../../../common/utils/mapFolderModules.ts';
-import { readBarrelTargets } from '../../../common/utils/readBarrelTargets.ts';
+import { readBarrelSurface } from '../../../common/utils/readBarrelSurface.ts';
 import { readFileTexts } from '../../../common/utils/readFileTexts.ts';
 
 /**
@@ -52,7 +52,7 @@ export const check: StandardsCheckModule = {
 		const moduleFolders = [
 			...mapFolderModules({
 				files,
-				getTargets: ({ barrelPath }) => readBarrelTargets({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet }),
+				getSurface: ({ barrelPath }) => readBarrelSurface({ barrelPath, contents, files: fileSet }),
 				standardsPackages,
 			}),
 		].sort(([first], [second]) => second.length - first.length);

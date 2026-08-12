@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { BatchOutcome, type CoverageBatchReport, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 import { seedCoverageResumeState } from '@/coverage/seedCoverageResumeState';
 
-const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: 'true' } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: 'true' } };
 
 const batchStep = ({
 	id,

@@ -1,5 +1,6 @@
 import type { BarrelExport } from '../types/BarrelExport.ts';
-import { resolveRelativeImport } from './resolveRelativeImport.ts';
+import { findPathAliases } from './findPathAliases.ts';
+import { resolveImport } from './resolveImport.ts';
 
 const starLine = /^export\s+\*\s+(?:as\s+[A-Za-z0-9_$]+\s+)?from\s+['"]([^'"]+)['"]/;
 const namedLine = /^export\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/;
@@ -15,17 +16,17 @@ const getPublicName = ({ part }: { part: string }) => {
 };
 
 interface Params {
-	/** Repo-relative path of the barrel whose text this is — its folder anchors relative specifiers. */
+	/** Repo-relative path of the barrel to read — its folder anchors relative specifiers, and its package supplies the aliases. */
 	barrelPath: string;
-	/** The barrel file's contents. */
-	text: string;
-	/** Every file in scope — the universe relative specifiers resolve against. */
+	/** The run's file text, holding the barrel and every tsconfig.json in scope. */
+	contents: Map<string, string>;
+	/** Every file in scope — the universe specifiers resolve against. */
 	files: Set<string>;
 }
 
 /**
- * The re-export lines of one barrel, each with the names it exposes and the
- * file it resolves to.
+ * The re-export lines of one barrel, each with the names it exposes and what
+ * its specifier points at.
  *
  * Line-regex parsing is enough because a barrel is named re-exports plus the
  * occasional `export *`, never arbitrary TypeScript — so the rules that judge a
@@ -33,14 +34,17 @@ interface Params {
  * `star: true` and no names at all, which is exactly what makes it the thing
  * `barrel-star` objects to: a public API nobody wrote down.
  *
- * @param barrelPath - repo-relative path of the barrel
- * @param text - the barrel file's contents
- * @param files - every file in scope
+ * Specifiers are resolved through the barrel's own package aliases, because
+ * that is how barrels are written wherever the standards apply — the
+ * import-path-alias rule requires it. A target that could not be resolved is
+ * reported as `unknown` rather than dropped, so a caller can tell a barrel it
+ * read from a barrel it merely failed to read.
  */
-export const readBarrelExports = ({ barrelPath, text, files }: Params): BarrelExport[] => {
+export const readBarrelExports = ({ barrelPath, contents, files }: Params): BarrelExport[] => {
+	const aliases = findPathAliases({ path: barrelPath, contents });
 	const exports: BarrelExport[] = [];
 
-	for (const line of text.split('\n')) {
+	for (const line of (contents.get(barrelPath) ?? '').split('\n')) {
 		const star = starLine.exec(line);
 		const named = star === null ? namedLine.exec(line) : null;
 		const specifier = star?.[1] ?? named?.[2];
@@ -58,7 +62,7 @@ export const readBarrelExports = ({ barrelPath, text, files }: Params): BarrelEx
 						.map((part) => getPublicName({ part }))
 						.filter((name) => name.length > 0);
 
-		exports.push({ names, star: star !== null, specifier, target: resolveRelativeImport({ from: barrelPath, specifier, files }) });
+		exports.push({ names, star: star !== null, specifier, target: resolveImport({ from: barrelPath, specifier, files, aliases }) });
 	}
 
 	return exports;

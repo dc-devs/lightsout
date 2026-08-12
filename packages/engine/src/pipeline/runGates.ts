@@ -1,10 +1,9 @@
+import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
 import type { GateResult, LightsoutConfig } from '@/contracts';
 import type { GateCommands } from '@/pipeline/common/types/GateCommands';
 import { createGateRunner } from '@/pipeline/createGateRunner';
 import { runGateSet } from '@/pipeline/runGateSet';
 import { runPackageGates } from '@/pipeline/runPackageGates';
-
-const defaultPackagesDir = 'packages';
 
 interface Params {
 	cwd: string;
@@ -17,10 +16,10 @@ interface Params {
 	coverage?: boolean;
 	/**
 	 * Package scope for scoped gates (directory names under packagesDir).
-	 * Ignored unless `config.packageScripts` is set.
+	 * Ignored unless `config.packageGates` is set.
 	 */
 	packages?: string[];
-	/** In scoped mode, also run the root group (whole-repo `scripts.*`). */
+	/** In scoped mode, also run the root group (whole-repo `gates.*`). */
 	includeRoot?: boolean;
 	/** When set, every command execution is appended to the run's commands.jsonl. */
 	runId?: string;
@@ -38,9 +37,9 @@ interface Params {
 }
 
 /**
- * Run the consumer's verification gates. Non-monorepo (no `packageScripts`):
- * the whole-repo `scripts.*` run as one group — exit codes are the only
- * evidence accepted. Monorepo: `packageScripts` templates run once per
+ * Run the consumer's verification gates. Non-monorepo (no `packageGates`):
+ * the whole-repo `gates.*` run as one group — exit codes are the only
+ * evidence accepted. Monorepo: `packageGates` templates run once per
  * package in scope, in parallel, and the root group runs only when requested
  * (files outside the packages dir changed). Errors aggregate across groups,
  * labelled per package. Every command execution is logged to the run's
@@ -62,8 +61,8 @@ export const runGates = async ({
 
 	// Codegen runs once, before any group fans out — gates verify, generate
 	// mutates, and parallel per-package gates must never race a generator.
-	if (config.scripts.generate) {
-		const generated = await gate({ kind: 'generate', command: config.scripts.generate, group: 'root' });
+	if (config.gates.generate) {
+		const generated = await gate({ kind: 'generate', command: config.gates.generate, group: 'root' });
 
 		if (generated.exitCode !== 0) {
 			return `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`;
@@ -71,12 +70,12 @@ export const runGates = async ({
 	}
 
 	const rootCommands: GateCommands = {
-		check: config.scripts.check,
-		testUnit: config.scripts.testUnit,
-		testCoverage: coverage && typeof config.scripts.testCoverage === 'string' ? config.scripts.testCoverage : undefined,
-		build: config.scripts.build,
+		check: config.gates.check,
+		test: config.gates.test,
+		testCoverage: coverage && typeof config.gates.testCoverage === 'string' ? config.gates.testCoverage : undefined,
+		build: config.gates.build,
 	};
-	const scoped = config.packageScripts;
+	const scoped = config.packageGates;
 
 	if (!scoped || !packages || packages.length === 0) {
 		return runGateSet({ commands: rootCommands, gate, failFast });

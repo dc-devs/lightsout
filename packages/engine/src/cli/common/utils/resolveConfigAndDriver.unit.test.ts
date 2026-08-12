@@ -24,17 +24,17 @@ test('resolveConfigAndDriver: only a genuinely absent config file is non-fatal â
 });
 
 test('resolveConfigAndDriver: global harness and model land in the effective config and the driver', async () => {
-	const { cwd } = setupConsumerDir({ config: { harness: 'codex', model: 'gpt-5.2', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+	const { cwd } = setupConsumerDir({ config: { harness: 'codex', model: 'gpt-5.2', gates: { check: 'c', test: 't', testCoverage: false } } });
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 
 	expect(driver.name).toBe('codex');
-	expect(config).toStrictEqual({ harness: 'codex', model: 'gpt-5.2', effort: undefined, scripts: { check: 'c', testUnit: 't', testCoverage: false } });
+	expect(config).toStrictEqual({ harness: 'codex', model: 'gpt-5.2', effort: undefined, gates: { check: 'c', test: 't', testCoverage: false } });
 });
 
 test('resolveConfigAndDriver: a per-command harness override drops the global model from the effective config (decision 7)', async () => {
 	const { cwd } = setupConsumerDir({
-		config: { model: 'opus', commands: { improve: { harness: 'codex' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } },
+		config: { model: 'opus', commands: { improve: { harness: 'codex' } }, gates: { check: 'c', test: 't', testCoverage: false } },
 	});
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
@@ -45,21 +45,21 @@ test('resolveConfigAndDriver: a per-command harness override drops the global mo
 		model: undefined,
 		effort: undefined,
 		commands: { improve: { harness: 'codex' } },
-		scripts: { check: 'c', testUnit: 't', testCoverage: false },
+		gates: { check: 'c', test: 't', testCoverage: false },
 	});
 });
 
 test('resolveConfigAndDriver: a global effort lands in the effective config', async () => {
-	const { cwd } = setupConsumerDir({ config: { effort: 'high', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+	const { cwd } = setupConsumerDir({ config: { effort: 'high', gates: { check: 'c', test: 't', testCoverage: false } } });
 
 	const { config } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 
-	expect(config).toStrictEqual({ harness: 'claude-code', model: undefined, effort: 'high', scripts: { check: 'c', testUnit: 't', testCoverage: false } });
+	expect(config).toStrictEqual({ harness: 'claude-code', model: undefined, effort: 'high', gates: { check: 'c', test: 't', testCoverage: false } });
 });
 
 test('resolveConfigAndDriver: a per-command effort overrides the global in the effective config', async () => {
 	const { cwd } = setupConsumerDir({
-		config: { effort: 'low', commands: { plan: { effort: 'max' } }, scripts: { check: 'c', testUnit: 't', testCoverage: false } },
+		config: { effort: 'low', commands: { plan: { effort: 'max' } }, gates: { check: 'c', test: 't', testCoverage: false } },
 	});
 
 	const { config } = await resolveConfigAndDriver({ cwd, command: 'plan' });
@@ -69,12 +69,12 @@ test('resolveConfigAndDriver: a per-command effort overrides the global in the e
 		model: undefined,
 		effort: 'max',
 		commands: { plan: { effort: 'max' } },
-		scripts: { check: 'c', testUnit: 't', testCoverage: false },
+		gates: { check: 'c', test: 't', testCoverage: false },
 	});
 });
 
 test('resolveConfigAndDriver: a present-but-invalid config (typoed commands key) is a hard error', async () => {
-	const { cwd } = setupConsumerDir({ config: { commands: { implment: {} }, scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+	const { cwd } = setupConsumerDir({ config: { commands: { implment: {} }, gates: { check: 'c', test: 't', testCoverage: false } } });
 
 	// continuing would silently discard every setting in the file and run with
 	// defaults (decision 26)
@@ -82,7 +82,7 @@ test('resolveConfigAndDriver: a present-but-invalid config (typoed commands key)
 });
 
 test('resolveConfigAndDriver: a stale top-level driver key rejects with a message naming harness', async () => {
-	const { cwd } = setupConsumerDir({ config: { driver: 'codex', scripts: { check: 'c', testUnit: 't', testCoverage: false } } });
+	const { cwd } = setupConsumerDir({ config: { driver: 'codex', gates: { check: 'c', test: 't', testCoverage: false } } });
 
 	await expect(resolveConfigAndDriver({ cwd, command: 'plan' })).rejects.toThrow(/renamed to `harness`/);
 });

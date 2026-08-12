@@ -28,7 +28,7 @@ export const check: StandardsCheckModule = {
 		return files
 			.filter((path) => isInternalBarrel({ path }))
 			.map((barrelPath) => {
-				const stars = readBarrelExports({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet }).filter(({ star }) => star);
+				const stars = readBarrelExports({ barrelPath, contents, files: fileSet }).filter(({ star }) => star);
 
 				return stars.length === 0
 					? undefined

@@ -14,7 +14,7 @@ test('the build gate runs last in the root set, after check and the test run', a
 	const dir = setupConsumerRepo({
 		scripts: {
 			check: `${gateLogCommand({ kind: 'check' })} root`,
-			testUnit: `${gateLogCommand({ kind: 'testUnit' })} root`,
+			test: `${gateLogCommand({ kind: 'test' })} root`,
 			build: `${gateLogCommand({ kind: 'build' })} root`,
 		},
 	});
@@ -23,7 +23,7 @@ test('the build gate runs last in the root set, after check and the test run', a
 	const error = await runGates({ cwd: dir, config });
 
 	expect(error).toBe(undefined);
-	expect(readGateLog({ dir })).toStrictEqual(['root check', 'root testUnit', 'root build']);
+	expect(readGateLog({ dir })).toStrictEqual(['root check', 'root test', 'root build']);
 });
 
 test('a red build fails the set with its exit code and output', async () => {

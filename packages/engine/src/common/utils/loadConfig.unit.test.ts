@@ -19,14 +19,14 @@ test('loadConfig: a valid config at the repo root parses into the typed shape', 
 	const { cwd } = setupRepo({
 		raw: JSON.stringify({
 			harness: 'codex',
-			scripts: { check: 'tsc --noEmit', testUnit: 'node --test', testCoverage: false },
+			gates: { check: 'tsc --noEmit', test: 'node --test', testCoverage: false },
 			generated: ['plugin/dist/'],
 		}),
 	});
 
 	const config = await loadConfig({ cwd });
 
-	expect(config.scripts).toStrictEqual({ check: 'tsc --noEmit', testUnit: 'node --test', testCoverage: false });
+	expect(config.gates).toStrictEqual({ check: 'tsc --noEmit', test: 'node --test', testCoverage: false });
 	expect(config.harness).toBe('codex');
 	expect(config.generated).toStrictEqual(['plugin/dist/']);
 });
@@ -40,7 +40,7 @@ test('loadConfig: a missing config is a hard error naming the exact path it look
 });
 
 test('loadConfig: malformed JSON surfaces as a syntax error, distinct from a missing file', async () => {
-	const { cwd } = setupRepo({ raw: '{ "scripts": ' });
+	const { cwd } = setupRepo({ raw: '{ "gates": ' });
 
 	await expect(loadConfig({ cwd })).rejects.toThrow(SyntaxError);
 });
@@ -52,5 +52,5 @@ test('loadConfig: a config that parses as JSON but violates the schema fails val
 
 	// a malformed file is a distinct failure from an absent one
 	expect(error.message).not.toMatch(/not found/);
-	expect(error.message).toMatch(/scripts/);
+	expect(error.message).toMatch(/gates/);
 });

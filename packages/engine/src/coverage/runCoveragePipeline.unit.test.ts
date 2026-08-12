@@ -65,7 +65,7 @@ const setupMonorepoRepo = ({ scopes }: { scopes: Record<string, Record<string, n
 		scripts: { testCoverage: 'node coverageGate.cjs' },
 		config: {
 			standardsPackages: false,
-			packageScripts: { check: 'true {package}', testUnit: 'true {package}', testCoverage: 'node coverageGate.cjs packages/{package}' },
+			packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'node coverageGate.cjs packages/{package}' },
 		},
 	});
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { buildFileTextInput } from '@/standardsCheck/common/checkInputs/buildFileTextInput';
 
-const setupRepo = ({ tsconfig = true }: { tsconfig?: boolean } = {}) => {
+const setupRepo = ({ tsconfig = true, packageTsconfig = false }: { tsconfig?: boolean; packageTsconfig?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-file-text-'));
 
 	mkdirSync(join(cwd, 'src'), { recursive: true });
@@ -15,16 +15,22 @@ const setupRepo = ({ tsconfig = true }: { tsconfig?: boolean } = {}) => {
 		writeFileSync(join(cwd, 'tsconfig.json'), '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } } }\n');
 	}
 
+	if (packageTsconfig) {
+		mkdirSync(join(cwd, 'packages/engine/src'), { recursive: true });
+		writeFileSync(join(cwd, 'packages/engine/src/beta.ts'), 'export const beta = 3;\n');
+		writeFileSync(join(cwd, 'packages/engine/tsconfig.json'), '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } } }\n');
+	}
+
 	return { cwd };
 };
 
-const buildInput = ({ cwd, cache }: { cwd: string; cache: Map<string, string> }) =>
+const buildInput = ({ cwd, cache, files = ['src/alpha.ts'] }: { cwd: string; cache: Map<string, string>; files?: string[] }) =>
 	buildFileTextInput({
 		cwd,
-		source: ['src/alpha.ts'],
+		source: files,
 		tests: [],
-		files: ['src/alpha.ts'],
-		referenceFiles: ['src/alpha.ts', 'src/outside.ts'],
+		files,
+		referenceFiles: [...files, 'src/outside.ts'],
 		standardsPackages: [],
 		cache,
 	});
@@ -55,6 +61,33 @@ describe('buildFileTextInput', () => {
 		const input = await buildInput({ cwd, cache: new Map() });
 
 		expect(input.contents.has('tsconfig.json')).toBe(false);
+	});
+
+	test("adds a package's own tsconfig, which in a workspace is the only place its aliases are declared", async () => {
+		const { cwd } = setupRepo({ packageTsconfig: true });
+
+		const input = await buildInput({ cwd, cache: new Map(), files: ['packages/engine/src/beta.ts'] });
+
+		// reading only the root config found no aliases anywhere in a monorepo,
+		// which made every aliased barrel in it look like it exported nothing
+		expect(input.contents.get('packages/engine/tsconfig.json')).toContain('"@/*"');
+	});
+
+	test('probes every folder above a file, so a config at any depth is found', async () => {
+		const { cwd } = setupRepo({ tsconfig: false, packageTsconfig: true });
+
+		const input = await buildInput({ cwd, cache: new Map(), files: ['packages/engine/src/beta.ts'] });
+
+		expect([...input.contents.keys()]).toContain('packages/engine/tsconfig.json');
+	});
+
+	test('a folder holding no tsconfig contributes nothing rather than an empty entry', async () => {
+		const { cwd } = setupRepo({ packageTsconfig: true });
+
+		const input = await buildInput({ cwd, cache: new Map(), files: ['packages/engine/src/beta.ts'] });
+
+		expect(input.contents.has('packages/engine/src/tsconfig.json')).toBe(false);
+		expect(input.contents.has('packages/tsconfig.json')).toBe(false);
 	});
 
 	test('hands back the run cache itself, so a second kind reuses what it read', async () => {

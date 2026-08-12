@@ -36,7 +36,7 @@ describe('appendCommandLog', () => {
 				at: '2026-07-03T00:00:00.000Z',
 				step: 'clean-slate',
 				group: 'root',
-				kind: 'testUnit',
+				kind: 'test',
 				command: 'pnpm test',
 				exitCode: 0,
 				durationMs: 1234,
@@ -48,7 +48,7 @@ describe('appendCommandLog', () => {
 				at: '2026-07-03T00:00:00.000Z',
 				step: 'clean-slate',
 				group: 'root',
-				kind: 'testUnit',
+				kind: 'test',
 				command: 'pnpm test',
 				exitCode: 0,
 				durationMs: 1234,
@@ -108,7 +108,7 @@ describe('appendCommandLog', () => {
 			record: {
 				at: '2026-07-03T00:00:00.000Z',
 				group: 'root',
-				kind: 'testUnit',
+				kind: 'test',
 				command: 'pnpm test',
 				exitCode: 1,
 				outputTail: 'FAIL first\nFAIL second\n',
@@ -128,14 +128,14 @@ describe('appendCommandLog', () => {
 		await appendCommandLog({
 			cwd,
 			runId,
-			record: { at: '2026-07-03T00:01:00.000Z', group: 'root', kind: 'testUnit', command: 'pnpm test', exitCode: 0 },
+			record: { at: '2026-07-03T00:01:00.000Z', group: 'root', kind: 'test', command: 'pnpm test', exitCode: 0 },
 		});
 
 		const log = readLog();
 
 		// every command leaves its own line: ${JSON.stringify(log)}
 		expect(log.length).toBe(2);
-		expect(log.map((record) => record.kind)).toStrictEqual(['check', 'testUnit']);
+		expect(log.map((record) => record.kind)).toStrictEqual(['check', 'test']);
 	});
 
 	test('keeps every run gate evidence in its own run directory', async () => {

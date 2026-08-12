@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
+import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
 import { isTestFile } from '@/common/utils/isTestFile';
 import { type LightsoutConfig, StructuralCheck, type StructuralFinding } from '@/contracts';
 import { checkPlanPaths } from '@/plan/checkPlanPaths';
@@ -71,7 +72,7 @@ const isSourceFile = (path: string) => !isTestFile({ path }) && !/(^|\/)index\.[
  * plan template pins (the `##` heading set, the `###` create/modify subheadings,
  * the Patterns-to-Mirror bullet code spans, the Verification command spans) and
  * reports each defect as typed data. Every path is `stat`ed, every verification
- * script is looked up in a package.json (honoring `config.scripts` full-command
+ * script is looked up in a package.json (honoring `config.gates` full-command
  * overrides), placeholders and required sections are matched textually, and the
  * create/modify source-file count is checked against the executor guardrail. The
  * `naming-matches` check no-ops without a machine-checkable convention (the
@@ -81,8 +82,8 @@ const isSourceFile = (path: string) => !isTestFile({ path }) && !/(^|\/)index\.[
  */
 export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Promise<StructuralFinding[]> => {
 	const findings: StructuralFinding[] = [];
-	const packagesDir = config?.packagesDir ?? 'packages';
-	const configCommands = new Set(Object.values(config?.scripts ?? {}).filter((value): value is string => typeof value === 'string'));
+	const packagesDir = config?.packagesDir ?? defaultPackagesDir;
+	const configCommands = new Set(Object.values(config?.gates ?? {}).filter((value): value is string => typeof value === 'string'));
 
 	for (const planPath of planPaths) {
 		const content = await readFile(planPath, 'utf8').catch(() => undefined);

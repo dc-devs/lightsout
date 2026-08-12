@@ -1,5 +1,6 @@
 import { type LightsoutConfig, StandardsSet } from '@/contracts';
 import { detectStandardsChannels } from '@/standards/detectStandardsChannels';
+import type { ResolvedStandards } from '@/standards/ResolvedStandards';
 import { buildStandardsDocuments, resolveStandardsPackages } from '@/standardsPackages';
 
 interface Params {
@@ -7,17 +8,6 @@ interface Params {
 	config: LightsoutConfig;
 	/** Scoped packages whose dependencies decide the framework channels. Empty = base docs only. */
 	packages: string[];
-}
-
-export interface ResolvedStandards {
-	standards?: string;
-	testStandards?: string;
-	/** Framework channels in play, for the caller's progress line. */
-	channels: string[];
-	/** Channels came from config rather than dependency detection. */
-	configured: boolean;
-	/** Some standards were asked for — false when the consumer loaded no packages. */
-	requested: boolean;
 }
 
 /**

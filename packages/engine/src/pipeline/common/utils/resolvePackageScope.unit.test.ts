@@ -3,11 +3,11 @@ import { type LightsoutConfig, PackagesSource } from '@/contracts';
 import { resolvePackageScope } from '@/pipeline/common/utils/resolvePackageScope';
 
 const monorepo: LightsoutConfig = {
-	scripts: { check: 'true', testUnit: 'true', testCoverage: false },
-	packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test' },
+	gates: { check: 'true', test: 'true', testCoverage: false },
+	packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' },
 };
 
-const singleRepo: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+const singleRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 
 const call = ({ config = monorepo, current = [], packages, planContent = '# Plan\n' }: Partial<Parameters<typeof resolvePackageScope>[0]> = {}) =>
 	resolvePackageScope({ config, current, packages, planContent, packagesDir: 'packages' });
@@ -45,6 +45,14 @@ describe('resolvePackageScope', () => {
 	test('a monorepo run that can name no scope stops instead of guessing', () => {
 		const resolved = call({ planContent: '# Plan\nNothing concrete here.\n' });
 
-		expect('error' in resolved && resolved.error).toContain('no package scope could be resolved');
+		expect('error' in resolved && resolved.error).toContain('packageGates is configured but no package scope could be resolved');
+	});
+
+	test('an empty --packages flag stops the run instead of falling back to the plan', () => {
+		const resolved = call({ packages: [], planContent: '---\npackages:\n  - web\n---\n# Plan\n' });
+
+		// passing the flag at all means the caller settled scope; an empty list is a
+		// caller mistake, not permission to re-derive scope from the plan
+		expect('error' in resolved && resolved.error).toContain('packageGates is configured but no package scope could be resolved');
 	});
 });

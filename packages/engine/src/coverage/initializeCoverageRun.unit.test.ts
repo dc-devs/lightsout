@@ -44,6 +44,25 @@ const setupMeasurable = ({ git = true }: { git?: boolean } = {}) => {
 	return dir;
 };
 
+/** A monorepo whose root coverage gate is off but whose packages each measure themselves. */
+const setupScopedMeasurable = () => {
+	const dir = setupConsumerRepo({
+		git: false,
+		config: { packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'true {package}' } },
+	});
+
+	mkdirSync(join(dir, 'packages/api/coverage'), { recursive: true });
+	writeFileSync(join(dir, 'packages/api/package.json'), JSON.stringify({ name: '@acme/api' }));
+	writeFileSync(
+		join(dir, 'packages/api/coverage/coverage-summary.json'),
+		JSON.stringify({ total: { statements: { pct: 43 } }, [join(dir, 'packages/api/src/a.ts')]: { statements: { pct: 7 } } }),
+	);
+
+	execSync('git init -q && printf "coverage\\n" > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });
+
+	return dir;
+};
+
 describe('initializeCoverageRun', () => {
 	test('a config that opted out of the coverage gate is refused before any run state exists', async () => {
 		const cwd = setupConsumerRepo();
@@ -51,7 +70,16 @@ describe('initializeCoverageRun', () => {
 		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) }) });
 
 		// the command has nothing to run, and silently skipping would look like success
-		expect(error.message).toMatch(/opted out \(scripts\.testCoverage: false\) — test-coverage-to-threshold has nothing to run/);
+		expect(error.message).toMatch(/opted out \(gates\.testCoverage: false\) — test-coverage-to-threshold has nothing to run/);
+	});
+
+	test('a per-package coverage gate keeps the run alive even with the root gate switched off', async () => {
+		const cwd = setupScopedMeasurable();
+
+		const { worklist } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) });
+
+		// a monorepo measures per package — the root gate being off is not an opt-out
+		expect(worklist.totals).toStrictEqual([{ scope: 'api', statementsPct: 43, passed: true }]);
 	});
 
 	test('without git the run refuses to start, because its diff could never be attributed', async () => {

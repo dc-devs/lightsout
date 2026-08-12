@@ -30,7 +30,15 @@ export interface FileTextInput {
 	tests: string[];
 	files: string[];
 	referenceFiles: string[];
-	/** Text for every path in `files` ∪ `referenceFiles`, plus the repo root's tsconfig.json when present; each file read once for the whole run. */
+	/**
+	 * Text for every path in `files` ∪ `referenceFiles`, plus every tsconfig.json
+	 * sitting above one of them, when present; each file read once for the whole
+	 * run.
+	 *
+	 * Every tsconfig, not just the root's, because path aliases are declared per
+	 * package — a rule resolving one file's imports must read the nearest config
+	 * above THAT file, not the workspace's.
+	 */
 	contents: Map<string, string>;
 	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
 	standardsPackages: string[];

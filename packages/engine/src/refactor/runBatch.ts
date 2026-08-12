@@ -17,11 +17,10 @@ import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
 import type { BatchStop } from '@/refactor/common/types/BatchStop';
 import { invokeBatchAgent } from '@/refactor/invokeBatchAgent';
 import { matchRemainingFindings } from '@/refactor/matchRemainingFindings';
-import { superviseBatch } from '@/refactor/superviseBatch';
+import { settleBatchGates } from '@/refactor/settleBatchGates';
 import { runStandardsCheck } from '@/standardsCheck';
 import type { LoadedStandardsPackage } from '@/standardsPackages';
 
-const maxCheapFixRetries = 2;
 const standaloneBanner =
 	'Standalone refactor run — there is no feature plan. The standards findings below are the entire work-list; nothing else about the repo is being changed.';
 
@@ -200,46 +199,28 @@ export const runBatch = async ({
 			return { kind, error: `${batch.id}: ${report.status} — ${report.failures.join('; ')}` };
 		}
 
-		// Verify — cheap mechanical retries with gate-kind routing.
-		let gateError = await gates();
+		// Verify — cheap mechanical retries with gate-kind routing, then the
+		// supervisor's exception path if those are spent.
+		const settled = await settleBatchGates({
+			cwd,
+			runId,
+			driver,
+			config,
+			batchId: batch.id,
+			planContent: standaloneBanner,
+			attempts: invocationCount,
+			onProgress,
+			recordUsage,
+			invokeFix: ({ label, gateError, guidance }) => invoke({ label, invocation: buildFixInvocation({ gateError, guidance }) }),
+			gates,
+		});
 
-		for (let retry = 1; gateError && retry <= maxCheapFixRetries; retry += 1) {
-			onProgress(`${batch.id}: gate red — fix attempt ${retry}/${maxCheapFixRetries}`);
-
-			const fix = await invoke({ label: `fix-${retry}`, invocation: buildFixInvocation({ gateError }) });
-
-			if (!fix.ok && fix.rateLimited) {
-				return { kind: 'parked' };
-			}
-
-			gateError = await gates();
+		if (settled.kind === 'parked') {
+			return { kind: 'parked' };
 		}
 
-		// Exception path: mechanical retries exhausted — bring in judgment.
-		if (gateError) {
-			const supervised = await superviseBatch({
-				cwd,
-				runId,
-				driver,
-				config,
-				batchId: batch.id,
-				planContent: standaloneBanner,
-				gateError,
-				attempts: invocationCount,
-				maxCheapFixRetries,
-				onProgress,
-				recordUsage,
-				invokeGuidedFix: ({ guidance }) => invoke({ label: 'supervised-fix', invocation: buildFixInvocation({ gateError, guidance }) }),
-				gates,
-			});
-
-			if (supervised.kind === 'parked') {
-				return { kind: 'parked' };
-			}
-
-			if (supervised.kind === 'escalated') {
-				return { kind: 'escalated', error: supervised.error };
-			}
+		if (settled.kind === 'escalated') {
+			return { kind: 'escalated', error: settled.error };
 		}
 
 		const remaining = await remainingSiteKeys({ frozen: workFindings });

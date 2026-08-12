@@ -38,7 +38,7 @@ const stubDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exit
 const setupPlan = ({ args }: { args: string[] }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-plan-command-'));
-	const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 
 	mockResolveConfigAndDriver.mockResolvedValue({ config, driver: stubDriver });
 	mockLoadPlanningStandards.mockResolvedValue('STANDARDS');

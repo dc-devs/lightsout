@@ -1,4 +1,6 @@
-/** One re-export line of a barrel: the surface it exposes and the file it points at. */
+import type { ImportTarget } from './ImportTarget.ts';
+
+/** One re-export line of a barrel: the surface it exposes and what it points at. */
 export interface BarrelExport {
 	/** The public names the line exposes — empty for an `export *` line, which names none. */
 	names: string[];
@@ -6,6 +8,6 @@ export interface BarrelExport {
 	star: boolean;
 	/** The module specifier exactly as written. */
 	specifier: string;
-	/** Repo-relative file the specifier resolves to, or undefined when it lands outside the files in scope. */
-	target: string | undefined;
+	/** The file it resolves to, a package, or an answer this run could not give. */
+	target: ImportTarget;
 }

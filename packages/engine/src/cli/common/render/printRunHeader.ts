@@ -20,7 +20,7 @@ const describeStandardsPackages = ({ value }: { value: string[] | false | undefi
 };
 
 export const printRunHeader = ({ config, driver, cwd }: Params): void => {
-	const coverage = config.scripts.testCoverage === false ? 'off (explicit)' : config.scripts.testCoverage;
+	const coverage = config.gates.testCoverage === false ? 'off (explicit)' : config.gates.testCoverage;
 
 	console.log(`  cwd: ${cwd}`);
 	console.log(`  standards packages: ${describeStandardsPackages({ value: config.standardsPackages })}`);
@@ -28,10 +28,10 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 		`  harness: ${driver.name} · model: ${config.model ?? 'harness default'} · effort: ${config.effort ?? 'harness default'} · permissions: ${config.permissions ?? Permissions.Write}`,
 	);
 	console.log(`  timeouts: agent ${config.timeouts?.agentMinutes ?? 60}m · supervisor ${config.timeouts?.supervisorMinutes ?? 15}m`);
-	console.log(`  gates (root): check=[${config.scripts.check}] testUnit=[${config.scripts.testUnit}] coverage=[${coverage}]`);
+	console.log(`  gates (root): check=[${config.gates.check}] test=[${config.gates.test}] coverage=[${coverage}]`);
 
-	if (config.scripts.generate) {
-		console.log(`  generate (before every gate set): [${config.scripts.generate}]`);
+	if (config.gates.generate) {
+		console.log(`  generate (before every gate set): [${config.gates.generate}]`);
 	}
 
 	if (config.agentCommands && config.agentCommands.length > 0) {
@@ -42,17 +42,17 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 		console.log(`  generated (never attributed): ${config.generated.join(', ')}`);
 	}
 
-	if (config.scripts.build) {
-		console.log(`  gates (root, opt-in): build=[${config.scripts.build}]`);
+	if (config.gates.build) {
+		console.log(`  gates (root, opt-in): build=[${config.gates.build}]`);
 	}
 
-	if (config.scripts.format) {
-		console.log(`  format: [${config.scripts.format}]`);
+	if (config.gates.format) {
+		console.log(`  format: [${config.gates.format}]`);
 	}
 
-	if (config.packageScripts) {
-		const scopedCoverage = config.packageScripts.testCoverage ? ` coverage=[${config.packageScripts.testCoverage}]` : '';
+	if (config.packageGates) {
+		const scopedCoverage = config.packageGates.testCoverage ? ` coverage=[${config.packageGates.testCoverage}]` : '';
 
-		console.log(`  gates (per package): check=[${config.packageScripts.check}] testUnit=[${config.packageScripts.testUnit}]${scopedCoverage}`);
+		console.log(`  gates (per package): check=[${config.packageGates.check}] test=[${config.packageGates.test}]${scopedCoverage}`);
 	}
 };

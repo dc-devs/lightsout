@@ -1,3 +1,4 @@
+import type { BarrelSurface } from '../types/BarrelSurface.ts';
 import type { FolderModule } from '../types/FolderModule.ts';
 import { getBaseName } from './getBaseName.ts';
 import { getDirectory } from './getDirectory.ts';
@@ -9,13 +10,13 @@ interface Params {
 	/** Every file in scope — barrels are found here and measured against it. */
 	files: string[];
 	/**
-	 * The repo-relative files one barrel re-exports. Supplied by the caller
-	 * because only it knows what its input carries: a rule handed file text reads
-	 * the barrel's own re-export lines, a rule handed the import graph reads the
-	 * edges leaving the barrel. Either answers the same question, and neither
-	 * opens a file.
+	 * What one barrel makes public, and whether all of it could be read. Supplied
+	 * by the caller because only it knows what its input carries: a rule handed
+	 * file text reads the barrel's own re-export lines, a rule handed the import
+	 * graph reads the edges leaving the barrel. Either answers the same question,
+	 * and neither opens a file.
 	 */
-	getTargets: ({ barrelPath }: { barrelPath: string }) => Set<string>;
+	getSurface: ({ barrelPath }: { barrelPath: string }) => BarrelSurface;
 	/** Repo-relative standards package roots, so a package's `tests/` document set is not read as test code. */
 	standardsPackages: string[];
 }
@@ -31,8 +32,14 @@ interface Params {
  * contents are internal by definition. Files inside a nested module are removed
  * before the omission test, so a folder whose only descendants live in nested
  * modules omits nothing and is not itself a boundary.
+ *
+ * A barrel whose surface could not be fully read is left out entirely, however
+ * it looks. Every rule downstream argues from `exportedTargets` — that a file
+ * is not in it, that a published name is unused — and a partial set makes all
+ * of those arguments wrong in the direction that invents findings. Silence for
+ * one folder is the cheap failure; a package-wide flood of them is not.
  */
-export const mapFolderModules = ({ files, getTargets, standardsPackages }: Params): Map<string, FolderModule> => {
+export const mapFolderModules = ({ files, getSurface, standardsPackages }: Params): Map<string, FolderModule> => {
 	const barrelDirs = new Map<string, string>();
 
 	for (const file of files) {
@@ -47,7 +54,7 @@ export const mapFolderModules = ({ files, getTargets, standardsPackages }: Param
 	const modules = new Map<string, FolderModule>();
 
 	for (const [folder, barrelPath] of barrelDirs) {
-		const exportedTargets = getTargets({ barrelPath });
+		const { targets: exportedTargets, complete } = getSurface({ barrelPath });
 		const prefix = `${folder}/`;
 		const hasOwnCommon = files.some((file) => file.startsWith(`${folder}/common/`));
 		const ownFiles = files.filter(
@@ -59,7 +66,7 @@ export const mapFolderModules = ({ files, getTargets, standardsPackages }: Param
 				!nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file.startsWith(`${other}/`)),
 		);
 
-		if (hasOwnCommon || ownFiles.some((file) => !exportedTargets.has(file))) {
+		if (complete && (hasOwnCommon || ownFiles.some((file) => !exportedTargets.has(file)))) {
 			modules.set(folder, { barrelPath, exportedTargets });
 		}
 	}

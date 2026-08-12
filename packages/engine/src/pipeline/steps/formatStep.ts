@@ -16,9 +16,9 @@ interface Params {
 /** The formatter step: behavior-preserving by contract — verified anyway; a red gate here is a human's configuration problem, not an agent's. */
 export const formatStep = ({ run }: Params): PipelineStep => ({
 	id: 'format',
-	skip: () => (run.config.scripts.format ? undefined : 'no format command configured'),
+	skip: () => (run.config.gates.format ? undefined : 'no format command configured'),
 	run: async () => {
-		const formatCommand = run.config.scripts.format;
+		const formatCommand = run.config.gates.format;
 
 		if (!formatCommand) {
 			return undefined;

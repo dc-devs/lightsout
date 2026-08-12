@@ -25,8 +25,8 @@ const readCommandLog = ({ dir, runId }: { dir: string; runId: string }): Record<
  * source file, each writer drops one stub test, and the refactor pair is
  * skipped so the formatter is the only thing left to decide the run.
  */
-const setupFormatRun = async ({ format, testUnit = 'true' }: { format: string; testUnit?: string }) => {
-	const dir = setupConsumerRepo({ scripts: { format, testUnit } });
+const setupFormatRun = async ({ format, test: testCommand = 'true' }: { format: string; test?: string }) => {
+	const dir = setupConsumerRepo({ scripts: { format, test: testCommand } });
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
@@ -73,7 +73,7 @@ test('format: a formatter that exits non-zero fails the run and files its output
 test('format: a green formatter that turns a gate red fails the run as a configuration problem', async () => {
 	const { dir, driver, config } = await setupFormatRun({
 		format: `node -e "require('fs').writeFileSync('BROKEN','x')"`,
-		testUnit: 'test ! -f BROKEN',
+		test: 'test ! -f BROKEN',
 	});
 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', skipRefactor: true });
@@ -82,7 +82,7 @@ test('format: a green formatter that turns a gate red fails the run as a configu
 	expect(result.manifest.status).toBe('failed');
 	expect(result.error ?? '').toMatch(/format: formatting broke verification — review the formatter\/gate configuration\./);
 	// the red gate that caught it is named
-	expect(result.error ?? '').toMatch(/test-unit failed/);
+	expect(result.error ?? '').toMatch(/test failed/);
 	expect(result.manifest.steps.find((step) => step.id === 'format')?.status).toBe('failed');
 
 	const logged = readCommandLog({ dir, runId: result.manifest.runId }).find((entry) => entry.kind === 'format');
@@ -95,7 +95,7 @@ test('format: a green formatter that turns a gate red fails the run as a configu
 
 test('formatStep: called with no formatter configured it does nothing, whatever order it was reached in', async () => {
 	const cwd = setupConsumerRepo();
-	const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 	const manifest = await createRun({ cwd, plan: 'plan.md', pipeline: 'implement', driver: 'stub', config });
 	const run = new PipelineRun({ cwd, config, driver: { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) }, manifest });
 
@@ -106,4 +106,17 @@ test('formatStep: called with no formatter configured it does nothing, whatever 
 	expect(step.skip?.()).toBe('no format command configured');
 	expect(await step.run()).toBe(undefined);
 	expect(run.current().steps).toStrictEqual([]);
+});
+
+test('formatStep: a formatter configured under gates.format leaves the step with nothing to skip for', async () => {
+	const cwd = setupConsumerRepo();
+	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false, format: 'true' } };
+	const manifest = await createRun({ cwd, plan: 'plan.md', pipeline: 'implement', driver: 'stub', config });
+	const run = new PipelineRun({ cwd, config, driver: { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) }, manifest });
+
+	const step = formatStep({ run });
+
+	// the other half of the same decision: the step reads the formatter from
+	// gates.format, so a configured one produces no skip reason at all
+	expect(step.skip?.()).toBe(undefined);
 });

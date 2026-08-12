@@ -3,7 +3,7 @@ import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts'
 import { isTestFile } from '../../../../../common/utils/isTestFile.ts';
 import { mapFolderModules } from '../../../../../common/utils/mapFolderModules.ts';
 import { readBarrelExports } from '../../../../../common/utils/readBarrelExports.ts';
-import { readBarrelTargets } from '../../../../../common/utils/readBarrelTargets.ts';
+import { readBarrelSurface } from '../../../../../common/utils/readBarrelSurface.ts';
 import { readFileTexts } from '../../../../../common/utils/readFileTexts.ts';
 
 /**
@@ -48,11 +48,11 @@ export const check: StandardsCheckModule = {
 	run: ({ input }): RawStandardsFinding[] => {
 		const { files, contents, standardsPackages } = readFileTexts({ input });
 		const fileSet = new Set(files);
-		const getTargets = ({ barrelPath }: { barrelPath: string }) => readBarrelTargets({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet });
+		const getSurface = ({ barrelPath }: { barrelPath: string }) => readBarrelSurface({ barrelPath, contents, files: fileSet });
 
-		return [...mapFolderModules({ files, getTargets, standardsPackages })]
+		return [...mapFolderModules({ files, getSurface, standardsPackages })]
 			.map(([folder, { barrelPath }]) => {
-				const names = readBarrelExports({ barrelPath, text: contents.get(barrelPath) ?? '', files: fileSet }).flatMap((entry) => entry.names);
+				const names = readBarrelExports({ barrelPath, contents, files: fileSet }).flatMap((entry) => entry.names);
 				const orphans = getUnconsumedNames({ names, prefix: `${folder}/`, barrelPath, contents, standardsPackages });
 
 				return orphans.length === 0

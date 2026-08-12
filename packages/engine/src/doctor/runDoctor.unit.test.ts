@@ -20,6 +20,8 @@ test('doctor passes a healthy consumer repo — gitignore judged by git, not by 
 	expect(checks.get('config')?.status).toBe('pass');
 	// a config with no harness key reports the default by name
 	expect(checks.get('config')?.detail ?? '').toMatch(/harness claude-code/);
+	// a config with no scoped gates is not announced as a monorepo
+	expect(checks.get('config')?.detail ?? '').not.toMatch(/monorepo/);
 	expect(checks.get('harness')?.status).toBe('pass');
 	expect(checks.get('harness')?.detail ?? '').toMatch(/claude 2\.1\.201/);
 	expect(checks.get('gitignore')?.status).toBe('pass');
@@ -27,7 +29,7 @@ test('doctor passes a healthy consumer repo — gitignore judged by git, not by 
 
 	// Checks with nothing to say emit no line at all — a single-package repo
 	// has no scoped gates, no Jest config, and no testing-library to weigh in on.
-	// a config without packageScripts is not a monorepo to scope-check
+	// a config without packageGates is not a monorepo to scope-check
 	expect(checks.get('scoped-gates')).toBe(undefined);
 	// no Jest config found means no mock-cleanup opinion
 	expect(checks.get('jest-mocks')).toBe(undefined);
@@ -145,6 +147,23 @@ test('doctor names the configured global harness in the config check detail', as
 	expect(checks.get('config')?.detail ?? '').toMatch(/harness codex/);
 });
 
+test('doctor announces monorepo mode and the packages directory in the config check detail', async () => {
+	const dir = setupConsumerRepo({
+		git: false,
+		config: {
+			packagesDir: 'apps',
+			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
+		},
+	});
+
+	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
+
+	expect(checks.get('config')?.status).toBe('pass');
+	// scoped gates are what make a repo a monorepo to the doctor, and the
+	// directory it names is the configured one, not the default
+	expect(checks.get('config')?.detail ?? '').toMatch(/monorepo \(apps\/\)/);
+});
+
 test('doctor probes both the global harness and a command that overrides it', async () => {
 	const dir = setupConsumerRepo({ git: false, config: { harness: 'codex', commands: { plan: { harness: 'claude-code' } } } });
 	const probedBinaries: string[] = [];
@@ -196,9 +215,9 @@ test('doctor warns on missing gitignore entries, scriptless packages, jest confi
 	const dir = setupConsumerRepo({
 		config: {
 			generated: ['packages/api/src/gen/', 'packages/api/schema.gql'],
-			packageScripts: {
+			packageGates: {
 				check: 'pnpm --filter {package} run check',
-				testUnit: 'pnpm --filter {package} run test:unit',
+				test: 'pnpm --filter {package} run test:unit',
 			},
 		},
 	});
@@ -253,7 +272,7 @@ test('doctor notes packages with @testing-library/react but no user-event — an
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: { check: 'pnpm --filter {package} run check', testUnit: 'pnpm --filter {package} run test:unit' },
+			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 	const scripts = { check: 'x', 'test:unit': 'x' };
@@ -349,7 +368,7 @@ test('doctor passes scoped-gates when every package defines every scoped gate sc
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: { check: 'pnpm --filter {package} run check', testUnit: 'pnpm --filter {package} run test:unit' },
+			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -366,7 +385,7 @@ test('doctor treats only manifest-bearing, non-dot directories as packages', asy
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: { check: 'pnpm --filter {package} run check', testUnit: 'pnpm --filter {package} run test:unit' },
+			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -394,7 +413,7 @@ test('doctor skips an unparseable package.json and keeps auditing the rest', asy
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: { check: 'pnpm --filter {package} run check', testUnit: 'pnpm --filter {package} run test:unit' },
+			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -419,7 +438,7 @@ test('doctor skips a package.json whose dependency fields have the wrong shape',
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: { check: 'pnpm --filter {package} run check', testUnit: 'pnpm --filter {package} run test:unit' },
+			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -440,13 +459,13 @@ test('doctor skips a package.json whose dependency fields have the wrong shape',
 	expect((checks.get('user-event')?.detail ?? '').includes('root')).toBeFalsy();
 });
 
-test('doctor probes the binaries of scoped gate commands too, not just the root scripts', async () => {
+test('doctor probes the binaries of scoped gate commands too, not just the root gates', async () => {
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: {
+			packageGates: {
 				check: 'definitely-not-a-real-binary-xyz --filter {package} run check',
-				testUnit: 'definitely-not-a-real-binary-xyz --filter {package} run test:unit',
+				test: 'definitely-not-a-real-binary-xyz --filter {package} run test:unit',
 			},
 		},
 	});
@@ -461,9 +480,9 @@ test('doctor probes the binaries of scoped gate commands too, not just the root 
 test('doctor orders checks positives-first: pass, then note, then warn/fail', async () => {
 	const dir = setupConsumerRepo({
 		config: {
-			packageScripts: {
+			packageGates: {
 				check: 'pnpm --filter {package} run check',
-				testUnit: 'pnpm --filter {package} run test:unit',
+				test: 'pnpm --filter {package} run test:unit',
 			},
 		},
 	});
@@ -525,21 +544,21 @@ test('doctor checks the coverage summary of every package a monorepo measures, n
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageScripts: {
+			packageGates: {
 				check: 'pnpm --filter {package} run check',
-				testUnit: 'pnpm --filter {package} run test:unit',
+				test: 'pnpm --filter {package} run test:unit',
 				testCoverage: 'pnpm --filter {package} run test:coverage',
 			},
 		},
 	});
-	const packageScripts = { check: 'x', 'test:unit': 'x', 'test:coverage': 'x' };
+	const manifestScripts = { check: 'x', 'test:unit': 'x', 'test:coverage': 'x' };
 
 	mkdirSync(join(dir, 'packages/api/coverage'), { recursive: true });
-	writeFileSync(join(dir, 'packages/api/package.json'), JSON.stringify({ name: '@acme/api', scripts: packageScripts }));
+	writeFileSync(join(dir, 'packages/api/package.json'), JSON.stringify({ name: '@acme/api', scripts: manifestScripts }));
 	writeFileSync(join(dir, 'packages/api/coverage/coverage-summary.json'), '{}');
 
 	mkdirSync(join(dir, 'packages/web'), { recursive: true });
-	writeFileSync(join(dir, 'packages/web/package.json'), JSON.stringify({ name: '@acme/web', scripts: packageScripts }));
+	writeFileSync(join(dir, 'packages/web/package.json'), JSON.stringify({ name: '@acme/web', scripts: manifestScripts }));
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 

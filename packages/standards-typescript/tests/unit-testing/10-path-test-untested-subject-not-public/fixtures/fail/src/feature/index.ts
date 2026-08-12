@@ -1,1 +1,1 @@
-export { renderFeature } from './renderFeature';
+export { renderFeature } from '@/feature/renderFeature';

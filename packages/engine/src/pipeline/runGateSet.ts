@@ -26,7 +26,7 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 
 	// Coverage REPLACES the plain test run when the set includes it: a
 	// coverage command runs the same suites with instrumentation on (the
-	// config contract requires it to run the unit tests), so running both is
+	// config contract requires it to run the tests), so running both is
 	// the same fleet twice back-to-back. A red here is a test failure or an
 	// unmet threshold — the output tells the fix agent which.
 	if (!stop() && commands.testCoverage) {
@@ -35,11 +35,11 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 		if (coverageResult.exitCode !== 0) {
 			failures.push(`${prefix}test-coverage failed (exit ${coverageResult.exitCode}):\n${coverageResult.stdout}\n${coverageResult.stderr}`);
 		}
-	} else if (!stop() && commands.testUnit) {
-		const tests = await gate({ kind: 'testUnit', command: commands.testUnit, group });
+	} else if (!stop() && commands.test) {
+		const tests = await gate({ kind: 'test', command: commands.test, group });
 
 		if (tests.exitCode !== 0) {
-			failures.push(`${prefix}test-unit failed (exit ${tests.exitCode}):\n${tests.stdout}\n${tests.stderr}`);
+			failures.push(`${prefix}test failed (exit ${tests.exitCode}):\n${tests.stdout}\n${tests.stderr}`);
 		}
 	}
 
