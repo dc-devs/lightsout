@@ -14,7 +14,7 @@ const setupHeader = ({ config = {}, driverName = 'claude-code' }: { config?: Par
 	});
 
 	const driver: Driver = { name: driverName, invoke: async () => ({ text: '', exitCode: 0 }) };
-	const fullConfig: LightsoutConfig = { scripts: { check: 'pnpm check', testUnit: 'pnpm test:unit', testCoverage: 'pnpm test:coverage' }, ...config };
+	const fullConfig: LightsoutConfig = { gates: { check: 'pnpm check', test: 'pnpm test:unit', testCoverage: 'pnpm test:coverage' }, ...config };
 
 	return { config: fullConfig, driver, cwd: '/repo', logged };
 };
@@ -31,7 +31,7 @@ test('printRunHeader: a minimal config renders exactly the always-present lines,
 		'  standards packages: lightsout-defaults (none configured — set to false to disable, or list package roots)',
 		'  harness: claude-code · model: harness default · effort: harness default · permissions: write',
 		'  timeouts: agent 60m · supervisor 15m',
-		'  gates (root): check=[pnpm check] testUnit=[pnpm test:unit] coverage=[pnpm test:coverage]',
+		'  gates (root): check=[pnpm check] test=[pnpm test:unit] coverage=[pnpm test:coverage]',
 	]);
 });
 
@@ -78,17 +78,17 @@ test('printRunHeader: configured timeouts replace the 60m/15m defaults', () => {
 });
 
 test('printRunHeader: a coverage gate disabled explicitly prints off (explicit) in place of a command', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { scripts: { check: 'pnpm check', testUnit: 'pnpm test:unit', testCoverage: false } } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { gates: { check: 'pnpm check', test: 'pnpm test:unit', testCoverage: false } } });
 
 	printRunHeader({ config, driver, cwd });
 
-	expect(lineFor({ logged, label: 'gates (root)' })).toBe('  gates (root): check=[pnpm check] testUnit=[pnpm test:unit] coverage=[off (explicit)]');
+	expect(lineFor({ logged, label: 'gates (root)' })).toBe('  gates (root): check=[pnpm check] test=[pnpm test:unit] coverage=[off (explicit)]');
 });
 
 test('printRunHeader: the opt-in generate, build, and format lines print only when their commands are configured', () => {
 	const { config, driver, cwd, logged } = setupHeader({
 		config: {
-			scripts: { check: 'pnpm check', testUnit: 'pnpm test:unit', testCoverage: false, generate: 'pnpm gen', build: 'pnpm build', format: 'pnpm format' },
+			gates: { check: 'pnpm check', test: 'pnpm test:unit', testCoverage: false, generate: 'pnpm gen', build: 'pnpm build', format: 'pnpm format' },
 		},
 	});
 
@@ -126,26 +126,26 @@ test('printRunHeader: generated path prefixes print as the never-attributed list
 
 test('printRunHeader: package-scoped gates print with no coverage entry when none is configured', () => {
 	const { config, driver, cwd, logged } = setupHeader({
-		config: { packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test' } },
+		config: { packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' } },
 	});
 
 	printRunHeader({ config, driver, cwd });
 
 	expect(lineFor({ logged, label: 'gates (per package)' })).toBe(
-		'  gates (per package): check=[pnpm --filter {package} check] testUnit=[pnpm --filter {package} test]',
+		'  gates (per package): check=[pnpm --filter {package} check] test=[pnpm --filter {package} test]',
 	);
 });
 
 test('printRunHeader: a scoped coverage gate is appended to the per-package line', () => {
 	const { config, driver, cwd, logged } = setupHeader({
 		config: {
-			packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test', testCoverage: 'pnpm --filter {package} coverage' },
+			packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test', testCoverage: 'pnpm --filter {package} coverage' },
 		},
 	});
 
 	printRunHeader({ config, driver, cwd });
 
 	expect(lineFor({ logged, label: 'gates (per package)' })).toBe(
-		'  gates (per package): check=[pnpm --filter {package} check] testUnit=[pnpm --filter {package} test] coverage=[pnpm --filter {package} coverage]',
+		'  gates (per package): check=[pnpm --filter {package} check] test=[pnpm --filter {package} test] coverage=[pnpm --filter {package} coverage]',
 	);
 });

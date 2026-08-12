@@ -9,7 +9,7 @@ interface Params {
 		step?: string;
 		/** Gate group: a package directory, or 'root'. */
 		group: string;
-		/** Which gate: check | testUnit | testCoverage | build | format. */
+		/** Which gate: generate | check | test | testCoverage | build | format. */
 		kind: string;
 		command: string;
 		/** Absent on skipped records — nothing was executed. */

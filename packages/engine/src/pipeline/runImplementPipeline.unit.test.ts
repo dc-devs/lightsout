@@ -152,7 +152,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(commands.some((entry) => entry.kind === 'format')).toBeTruthy();
 
 	// config snapshot recorded in the manifest
-	expect(result.manifest.config?.scripts.check).toBe('true');
+	expect(result.manifest.config?.gates.check).toBe('true');
 	// step-start progress emitted
 	expect(progress.some((line) => line.startsWith('step clean-slate — attempt 1'))).toBeTruthy();
 	// gate results streamed
@@ -401,8 +401,8 @@ test('terminated:* report escalates instead of failing', async () => {
 });
 
 test('verify failure: cheap retries, then supervisor escalate with diagnosis', async () => {
-	// testUnit is green until implement drops BROKEN; fixes never remove it.
-	const dir = setupConsumerRepo({ scripts: { testUnit: 'test ! -f BROKEN' } });
+	// the test gate is green until implement drops BROKEN; fixes never remove it.
+	const dir = setupConsumerRepo({ scripts: { test: 'test ! -f BROKEN' } });
 	const counts: Record<string, number> = {};
 	const driver: Driver = {
 		name: 'stub',
@@ -442,7 +442,7 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 	expect(counts.supervisor).toBe(1);
 	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(3);
 
-	const failed = readCommandLog(dir, result.manifest.runId).find((entry) => entry.kind === 'testUnit' && entry.exitCode !== 0);
+	const failed = readCommandLog(dir, result.manifest.runId).find((entry) => entry.kind === 'test' && entry.exitCode !== 0);
 
 	// failing command logged
 	expect(failed).toBeTruthy();
@@ -451,7 +451,7 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 });
 
 test('supervisor retry-with-guidance heals the run', async () => {
-	const dir = setupConsumerRepo({ scripts: { testUnit: 'test ! -f BROKEN' } });
+	const dir = setupConsumerRepo({ scripts: { test: 'test ! -f BROKEN' } });
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {

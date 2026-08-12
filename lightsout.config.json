@@ -1,7 +1,7 @@
 {
-	"scripts": {
+	"gates": {
 		"check": "pnpm check",
-		"testUnit": "pnpm test",
+		"test": "pnpm test",
 		"testCoverage": "pnpm test:unit:coverage",
 		"format": "pnpm format"
 	},

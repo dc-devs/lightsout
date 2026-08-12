@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { BatchOutcome, type LightsoutConfig, type RefactorBatch, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 import { seedResumeState } from '@/refactor/seedResumeState';
 
-const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 
 const batch = (id: string): RefactorBatch => ({ id, rule: 'clone', folder: 'src', blocking: [], advisories: [] });
 

@@ -6,7 +6,7 @@ import { getRejectionError } from '@tests/helpers/getRejectionError';
 import type { LightsoutConfig } from '@/contracts';
 import { resolveStandards } from '@/standards';
 
-const baseConfig: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+const baseConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 
 /** A temp consumer repo holding the given repo-relative files. */
 const setupRepo = ({ files = {} }: { files?: Record<string, string> } = {}) => {

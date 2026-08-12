@@ -11,7 +11,7 @@ import { runGates } from '@/pipeline';
 const flakyCommand = `node -e "const fs=require('fs'); if (fs.existsSync('flaked')) process.exit(0); fs.writeFileSync('flaked',''); process.exit(1)"`;
 
 test('a red gate is re-run once — a one-shot flake does not fail the gate set', async () => {
-	const dir = setupConsumerRepo({ scripts: { testUnit: flakyCommand } });
+	const dir = setupConsumerRepo({ scripts: { test: flakyCommand } });
 	const config = await loadConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config });
@@ -21,18 +21,18 @@ test('a red gate is re-run once — a one-shot flake does not fail the gate set'
 });
 
 test('two consecutive reds are a genuine red, both executions in the command log', async () => {
-	const dir = setupConsumerRepo({ scripts: { testUnit: 'node -e "process.exit(1)"' } });
+	const dir = setupConsumerRepo({ scripts: { test: 'node -e "process.exit(1)"' } });
 	const config = await loadConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config, runId: 'r1', step: 'verify' });
 
-	expect(error ?? '').toMatch(/test-unit failed/);
+	expect(error ?? '').toMatch(/test failed/);
 
 	const log = readFileSync(join(dir, '.lightsout', 'runs', 'r1', 'commands.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>)
-		.filter((record) => record.kind === 'testUnit');
+		.filter((record) => record.kind === 'test');
 
 	// both executions logged
 	expect(log.length).toBe(2);
@@ -53,7 +53,7 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 	// coverage ran
 	expect(coveredLines.some((line) => line.endsWith(' coverage'))).toBeTruthy();
 	// plain test run replaced — same suites, one fleet
-	expect(coveredLines.some((line) => line.endsWith(' testUnit'))).toBeFalsy();
+	expect(coveredLines.some((line) => line.endsWith(' test'))).toBeFalsy();
 
 	const withoutCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true });
 
@@ -62,7 +62,7 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 	const allLines = readGateLog({ dir }).slice(coveredLines.length);
 
 	// plain test run returns when the set has no coverage
-	expect(allLines.some((line) => line.endsWith(' testUnit'))).toBeTruthy();
+	expect(allLines.some((line) => line.endsWith(' test'))).toBeTruthy();
 	// no coverage outside coverage sets
 	expect(allLines.some((line) => line.endsWith(' coverage'))).toBeFalsy();
 });

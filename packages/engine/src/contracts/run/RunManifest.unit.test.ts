@@ -104,7 +104,7 @@ test('RunManifest: the run status is a closed set — every pausable state parse
 });
 
 test('RunManifest: the config snapshot and the usage aggregate are optional and survive parsing intact', () => {
-	const config = { harness: 'codex', effort: 'high', scripts: { check: 'c', testUnit: 't', testCoverage: false } };
+	const config = { harness: 'codex', effort: 'high', gates: { check: 'c', test: 't', testCoverage: false } };
 	const usage = { invocations: 7, inputTokens: 10, outputTokens: 100, cacheReadTokens: 880, cacheCreationTokens: 110, costUsd: 0.5 };
 
 	const parsed = RunManifest.parse({ ...base, harness: 'codex', config, usage });
@@ -120,7 +120,7 @@ test('RunManifest: the config snapshot and the usage aggregate are optional and 
 });
 
 test('RunManifest: an unparseable config snapshot fails the manifest', () => {
-	const stale = { ...base, harness: 'codex', config: { driver: 'codex', scripts: { check: 'c', testUnit: 't', testCoverage: false } } };
+	const stale = { ...base, harness: 'codex', config: { driver: 'codex', gates: { check: 'c', test: 't', testCoverage: false } } };
 
 	// the snapshot is a real config, held to the same read boundary — a manifest
 	// cannot smuggle in a shape the config schema refuses

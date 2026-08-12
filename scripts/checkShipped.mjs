@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildEngine } from './buildEngine.mjs';
+import { invokedDirectly } from './invokedDirectly.mjs';
 
 /**
  * Is `plugin/` shippable?
@@ -154,26 +155,6 @@ export const checkShipped = async ({ base = 'origin/main' } = {}) => {
 };
 
 /**
- * True when this file was run as a command rather than imported.
- *
- * Compared through realpath on both sides: a path can reach the same file
- * through a symlink — every macOS temp directory does — and a plain string
- * comparison would then decide it was imported, run nothing, and exit 0. For a
- * gate, silently passing is the worst answer available.
- */
-const invokedDirectly = (() => {
-	if (process.argv[1] === undefined) {
-		return false;
-	}
-
-	try {
-		return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-	} catch {
-		return false;
-	}
-})();
-
-/**
  * Exit codes are set rather than forced with `process.exit`. When stdout is a
  * pipe — which is every caller that matters here, the hook and CI — writes are
  * asynchronous, and exiting on the line after a log discards it. The check
@@ -211,6 +192,6 @@ const main = async () => {
 	process.exitCode = 1;
 };
 
-if (invokedDirectly) {
+if (invokedDirectly({ moduleUrl: import.meta.url })) {
 	await main();
 }

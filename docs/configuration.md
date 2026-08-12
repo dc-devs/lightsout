@@ -12,9 +12,9 @@ To run lightsout, define the commands it should use to verify the work:
 
 ```json
 {
-  "scripts": {
+  "gates": {
     "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
+    "test": "pnpm test:unit",
     "testCoverage": "pnpm test:unit:coverage"
   }
 }
@@ -28,9 +28,9 @@ The minimal configuration uses lightsout’s bundled JavaScript and TypeScript s
 
 ```json
 {
-  "scripts": {
+  "gates": {
     "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
+    "test": "pnpm test:unit",
     "testCoverage": "pnpm test:unit:coverage"
   }
 }
@@ -44,9 +44,9 @@ folder holding a `lightsout-standards.json` file:
 ```json
 {
   "standardsPackages": ["standards/house-rules"],
-  "scripts": {
+  "gates": {
     "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
+    "test": "pnpm test:unit",
     "testCoverage": "pnpm test:unit:coverage"
   }
 }
@@ -54,20 +54,20 @@ folder holding a `lightsout-standards.json` file:
 
 ### Configure a monorepo
 
-Use `packageScripts` to run gates only for packages affected by the current change. The `{package}` placeholder is replaced with each package name.
+Use `packageGates` to run gates only for packages affected by the current change. The `{package}` placeholder is replaced with each package name.
 
 ```json
 {
   "packagesDir": "packages",
-  "packageScripts": {
+  "packageGates": {
     "check": "pnpm --filter {package} check",
-    "testUnit": "pnpm --filter {package} test:unit",
+    "test": "pnpm --filter {package} test:unit",
     "testCoverage": "pnpm --filter {package} test:unit:coverage",
     "build": "pnpm --filter {package} build"
   },
-  "scripts": {
+  "gates": {
     "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
+    "test": "pnpm test:unit",
     "testCoverage": "pnpm test:unit:coverage"
   }
 }
@@ -83,7 +83,7 @@ At every verification stage, commands run in this order:
 
 1. `generate`, when configured
 2. `check`
-3. `testUnit`
+3. `test`
 4. `testCoverage`
 5. `build`, when configured
 
@@ -119,9 +119,9 @@ To use your own instead, list its root folder:
 ```json
 {
   "standardsPackages": ["standards/house-rules"],
-  "scripts": {
+  "gates": {
     "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
+    "test": "pnpm test:unit",
     "testCoverage": "pnpm test:unit:coverage"
   }
 }
@@ -167,12 +167,12 @@ failure.
 
 | Field                        | Required | What it controls                                                                                                                                                                                                                                                                          |
 | ---------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts.check`              |      yes | The type-check and lint gate. Provide the full shell command lightsout should run at every verification stage.                                                                                                                                                                            |
-| `scripts.testUnit`           |      yes | The unit-test gate. Provide the full shell command required to pass.                                                                                                                                                                                                                      |
-| `scripts.testCoverage`       |      yes | The coverage gate. Provide a shell command, or set it to `false` to opt out. Skipping the strongest gate must be an explicit decision, not an accident.                                                                                                                                   |
-| `scripts.generate`           |       no | An opt-in code-generation command, such as `prisma generate`. Runs once before each set of gates.                                                                                                                                                                                         |
-| `scripts.build`              |       no | An opt-in build gate. Runs last during every verification stage.                                                                                                                                                                                                                          |
-| `scripts.format`             |       no | An opt-in formatting command. Runs once at the end of the pipeline.                                                                                                                                                                                                                       |
+| `gates.check`                |      yes | The type-check and lint gate. Provide the full shell command lightsout should run at every verification stage.                                                                                                                                                                            |
+| `gates.test`                 |      yes | The test gate. Provide the full shell command required to pass.                                                                                                                                                                                                                           |
+| `gates.testCoverage`         |      yes | The coverage gate. Provide a shell command, or set it to `false` to opt out. Skipping the strongest gate must be an explicit decision, not an accident.                                                                                                                                   |
+| `gates.generate`             |       no | An opt-in code-generation command, such as `prisma generate`. Runs once before each set of gates.                                                                                                                                                                                         |
+| `gates.build`                |       no | An opt-in build gate. Runs last during every verification stage.                                                                                                                                                                                                                          |
+| `gates.format`               |       no | An opt-in formatting command. Runs once at the end of the pipeline.                                                                                                                                                                                                                       |
 | `harness`                    |       no | The default harness used to run agents. Supported values are `claude-code` and `codex`. Defaults to `claude-code`.                                                                                                                                                                        |
 | `model`                      |       no | A model override passed through to the selected harness.                                                                                                                                                                                                                                  |
 | `effort`                     |       no | The reasoning effort passed to the selected harness. One of `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, each harness uses its own default.                                                                                                                                   |
@@ -182,7 +182,7 @@ failure.
 | `timeouts.supervisorMinutes` |       no | The maximum runtime for the read-only supervisor, in minutes. Defaults to `15`.                                                                                                                                                                                                           |
 | `agentCommands`              |       no | Command prefixes that implementation agents are allowed to run when producing deliverables that cannot be created another way. These commands are never used for verification; lightsout runs all gates itself.                                                                           |
 | `generated`                  |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                   |
-| `packageScripts`             |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](docs/monorepos.md).                                                                                                                    |
+| `packageGates`               |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](docs/monorepos.md).                                                                                                                    |
 | `packagesDir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                           |
 | `standardsPackages`          |       no | The standards packages a run works against. When omitted, the package lightsout ships is used. Set to `false` to run with no standards at all, or provide an array of package roots — each the folder holding a `lightsout-standards.json` file, relative to your repository root or absolute. One package carries both the code and the test documents, which is why there is a single key rather than two. |
 | `standardsChannels`          |       no | Controls which framework-specific documents of the loaded packages are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                        |
@@ -252,9 +252,9 @@ The following example shows how the optional configuration fields fit together:
   "standardsChannels": [],
 
   // Repository-wide gates
-  "scripts": {
+  "gates": {
     "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
+    "test": "pnpm test:unit",
     "testCoverage": "pnpm test:unit:coverage",
     "generate": "pnpm prisma:generate",
     "build": "pnpm build",
@@ -263,9 +263,9 @@ The following example shows how the optional configuration fields fit together:
 
   // Per-package gates for monorepos
   "packagesDir": "packages",
-  "packageScripts": {
+  "packageGates": {
     "check": "pnpm --filter {package} check",
-    "testUnit": "pnpm --filter {package} test:unit",
+    "test": "pnpm --filter {package} test:unit",
     "testCoverage": "pnpm --filter {package} test:unit:coverage",
     "build": "pnpm --filter {package} build",
   },

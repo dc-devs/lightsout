@@ -17,6 +17,10 @@ const setupRepo = ({ typescript = false }: { typescript?: boolean } = {}) => {
 	writeFileSync(join(cwd, 'src/alpha.ts'), 'export const alpha = 1;\n');
 	writeFileSync(join(cwd, 'src/feature/internal.ts'), 'export const internal = 2;\n');
 	writeFileSync(join(cwd, 'src/alpha.unit.test.ts'), "test('alpha', () => {});\n");
+	// A real repo has one, and without it the run rightly notes that it could not
+	// know this repo's path aliases — a second note every unrelated case would
+	// then have to carry.
+	writeFileSync(join(cwd, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }\n');
 
 	if (typescript) {
 		mkdirSync(join(cwd, 'node_modules'), { recursive: true });

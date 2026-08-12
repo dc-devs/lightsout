@@ -359,7 +359,7 @@ test('cli: improve resolves a commands.improve driver override from the config a
 	const cwd = await freshCwd();
 	await writeFile(
 		join(cwd, 'lightsout.config.json'),
-		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, commands: { improve: { harness: 'codex' } } }),
+		JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false }, commands: { improve: { harness: 'codex' } } }),
 		'utf8',
 	);
 
@@ -383,7 +383,7 @@ const seedResumeFixture = async ({ manifestHarness, configHarness }: { manifestH
 	await mkdir(runDir, { recursive: true });
 	await writeFile(
 		join(cwd, 'lightsout.config.json'),
-		JSON.stringify({ harness: configHarness, scripts: { check: 'true', testUnit: 'true', testCoverage: false } }),
+		JSON.stringify({ harness: configHarness, gates: { check: 'true', test: 'true', testCoverage: false } }),
 		'utf8',
 	);
 	await writeFile(
@@ -440,7 +440,7 @@ test('cli: plan verify-facts --notes freezes the notes snapshot into the workspa
 const seedConfiguredCwd = async () => {
 	const cwd = await freshCwd();
 
-	await writeFile(join(cwd, 'lightsout.config.json'), JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false } }), 'utf8');
+	await writeFile(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false } }), 'utf8');
 
 	return cwd;
 };
@@ -753,7 +753,7 @@ test('cli: standards-check --list marks the rules this repo configured', async (
 
 	await writeFile(
 		join(cwd, 'lightsout.config.json'),
-		JSON.stringify({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, standardsChecks: { 'name-synonym': 'off' } }),
+		JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false }, standardsChecks: { 'name-synonym': 'off' } }),
 		'utf8',
 	);
 

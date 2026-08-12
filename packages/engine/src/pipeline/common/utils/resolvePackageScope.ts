@@ -33,7 +33,7 @@ export const resolvePackageScope = ({
 	planContent,
 	packagesDir,
 }: Params): { scope?: { packages: string[]; packagesSource: PackagesSource } } | { error: string } => {
-	if (!config.packageScripts || current.length > 0) {
+	if (!config.packageGates || current.length > 0) {
 		return {};
 	}
 
@@ -44,7 +44,7 @@ export const resolvePackageScope = ({
 
 	if (!declared || declared.length === 0) {
 		return {
-			error: `packageScripts is configured but no package scope could be resolved — add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`,
+			error: `packageGates is configured but no package scope could be resolved — add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`,
 		};
 	}
 

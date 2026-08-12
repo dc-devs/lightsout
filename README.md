@@ -46,14 +46,14 @@ Completing the task is not enough. Agents should leave the repository better tha
 
 2. **Define your standards and gate commands.**
 
-Add a `lightsout.config.json` to the repository with your code standards and validation commands. Only the `scripts` commands are mandatory — everything else is optional with sensible defaults. Leave `standardsPackages` out and lightsout uses the standards package it ships with. See [docs/configuration.md](docs/configuration.md) for all available options.
+Add a `lightsout.config.json` to the repository with your code standards and validation commands. Only the `gates` commands are mandatory — everything else is optional with sensible defaults. Leave `standardsPackages` out and lightsout uses the standards package it ships with. See [docs/configuration.md](docs/configuration.md) for all available options.
 
 ```json
 {
   "standardsPackages": ["standards/house-rules"],
-  "scripts": {
+  "gates": {
     "check": "pnpm check",
-    "testUnit": "pnpm test:unit",
+    "test": "pnpm test:unit",
     "testCoverage": "pnpm test:coverage"
   }
 }

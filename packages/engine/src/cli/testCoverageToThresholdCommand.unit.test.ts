@@ -181,7 +181,7 @@ describe('testCoverageToThresholdCommand', () => {
 
 	test('any other pipeline failure reaches stderr as its message and exits 1', async () => {
 		const { context, errors, exitCodes } = setupCommand({
-			failWith: new Error('the coverage gate is opted out (scripts.testCoverage: false) — test-coverage-to-threshold has nothing to run'),
+			failWith: new Error('the coverage gate is opted out (gates.testCoverage: false) — test-coverage-to-threshold has nothing to run'),
 		});
 
 		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);

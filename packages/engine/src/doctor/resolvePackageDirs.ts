@@ -21,12 +21,12 @@ interface Params {
 export const resolvePackageDirs = async ({ cwd, config, packagesDir }: Params): Promise<{ packageDirs: PackageDir[]; scopedGatesCheck?: DoctorCheck }> => {
 	const packageDirs: PackageDir[] = [{ label: 'root', dir: cwd }];
 
-	if (!config.packageScripts) {
+	if (!config.packageGates) {
 		return { packageDirs };
 	}
 
 	const entries = await readdir(join(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
-	const templates = Object.entries(config.packageScripts).filter((pair): pair is [string, string] => typeof pair[1] === 'string');
+	const templates = Object.entries(config.packageGates).filter((pair): pair is [string, string] => typeof pair[1] === 'string');
 	const skips: string[] = [];
 
 	for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith('.'))) {

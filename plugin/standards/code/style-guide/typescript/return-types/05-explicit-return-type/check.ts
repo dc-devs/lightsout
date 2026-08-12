@@ -22,7 +22,7 @@ const isExported = ({ statement, compiler }: { statement: ts.Statement; compiler
  * type is the unreadable expression the exception describes. An arrow whose
  * variable is annotated is interface-pinned: the contract is already declared,
  * one line above. The third exception, framework components, is handled by the
- * caller skipping `.tsx` files whole.
+ * caller judging only the files an annotation can be written in.
  */
 const getUnannotated = ({ sourceFile, compiler }: { sourceFile: ts.SourceFile; compiler: typeof ts }) => {
 	const missing: string[] = [];
@@ -55,14 +55,26 @@ const getUnannotated = ({ sourceFile, compiler }: { sourceFile: ts.SourceFile; c
 	return missing;
 };
 
+/**
+ * A file this rule can ask anything of: one where a return type annotation is
+ * syntax that exists.
+ *
+ * Named as an allow-list rather than a list of extensions to skip. `.tsx` is
+ * the document's own first exception — framework components live there.
+ * JavaScript is a harder no: `.js`, `.mjs` and friends have no syntax for the
+ * annotation this rule demands, so every hit would be a finding nobody could
+ * fix, and a burn-down would stall on work that cannot be done. These standards
+ * deliberately run at full strength on JavaScript-only repos, which is exactly
+ * why a TypeScript-only rule has to state its own scope instead of assuming it.
+ */
+const isAnnotatable = ({ path }: { path: string }) => /\.(ts|mts|cts)$/.test(path);
+
 /** One finding per file: annotating the exports of a file is one pass through it. */
 const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
 	const findings: RawStandardsFinding[] = [];
 
 	for (const [path, tree] of input.trees) {
-		// Framework components are the document's first exception, and a `.tsx`
-		// file is where they live.
-		const missing = path.endsWith('.tsx') ? [] : getUnannotated({ sourceFile: tree, compiler: input.compiler });
+		const missing = isAnnotatable({ path }) ? getUnannotated({ sourceFile: tree, compiler: input.compiler }) : [];
 
 		if (missing.length > 0) {
 			findings.push(

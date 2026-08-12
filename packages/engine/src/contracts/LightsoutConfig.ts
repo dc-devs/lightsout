@@ -52,6 +52,10 @@ export const LightsoutConfig = z.object({
 	driver: z.never('`driver` was renamed to `harness`').optional(),
 	/** Removed — replaced by `permissions`. Same reason. */
 	permissionMode: z.never('`permissionMode` was replaced by `permissions` (`write` or `full-access`)').optional(),
+	/** Removed — renamed to `gates`. Same reason. */
+	scripts: z.never('`scripts` was renamed to `gates`').optional(),
+	/** Removed — renamed to `packageGates`. Same reason. */
+	packageScripts: z.never('`packageScripts` was renamed to `packageGates`').optional(),
 	/**
 	 * Per-command harness selection (`plan` covers draft/dedup/grade; `resume`
 	 * always keeps the run manifest's recorded harness). Each entry overrides the
@@ -71,9 +75,11 @@ export const LightsoutConfig = z.object({
 		.strict()
 		.optional(),
 	/** Verification commands — the mechanical gates. Full shell commands. */
-	scripts: z.object({
+	gates: z.object({
 		check: z.string(),
-		testUnit: z.string(),
+		test: z.string(),
+		/** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
+		testUnit: z.never('`testUnit` was renamed to `test`').optional(),
 		/**
 		 * Coverage gate — on by default. Required: either a full shell command
 		 * (run at clean-slate and every post-test verify) or the literal
@@ -135,21 +141,23 @@ export const LightsoutConfig = z.object({
 	 * `{package}` replaced by that package's package.json `name`. When set,
 	 * verifies run scoped to the run's package scope (plan front-matter
 	 * `packages:` list or `--packages`, expanded as changed files reveal the
-	 * true blast radius) and `scripts.*` becomes the root-group commands, run
+	 * true blast radius) and `gates.*` becomes the root-group commands, run
 	 * only when files outside the packages directory change.
 	 */
-	packageScripts: z
+	packageGates: z
 		.object({
 			check: z.string(),
-			testUnit: z.string(),
+			test: z.string(),
+			/** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
+			testUnit: z.never('`testUnit` was renamed to `test`').optional(),
 			/** Scoped coverage gate. Omitted = no coverage gate for package groups. */
 			testCoverage: z.string().optional(),
 			/** Opt-in scoped build gate. */
 			build: z.string().optional(),
 		})
-		.refine((scripts) => Object.values(scripts).every((command) => command === undefined || command.includes('{package}')), {
+		.refine((templates) => Object.values(templates).every((command) => command === undefined || command.includes('{package}')), {
 			message:
-				'every packageScripts command must contain the {package} placeholder — a command without it would run identically for every package and belongs in scripts.* instead',
+				'every packageGates command must contain the {package} placeholder — a command without it would run identically for every package and belongs in gates.* instead',
 		})
 		.optional(),
 	/**

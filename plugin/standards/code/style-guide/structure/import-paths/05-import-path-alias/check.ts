@@ -1,17 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { findPathAliases } from '../../../../../common/utils/findPathAliases.ts';
 import { isUnderSrc } from '../../../../../common/utils/isUnderSrc.ts';
 import { readFileTexts } from '../../../../../common/utils/readFileTexts.ts';
-import { resolveRelativeImport } from '../../../../../common/utils/resolveRelativeImport.ts';
-
-/**
- * A `paths` block holding at least one alias — the tsconfig fact that turns a
- * relative import from the only option into the wrong one. Matched on the text
- * rather than parsed, because a tsconfig is routinely written with comments and
- * trailing commas that no JSON parser accepts, and the question here is only
- * whether the block has an entry in it.
- */
-const aliasBlock = /"paths"\s*:\s*\{\s*"[^"]+"\s*:/;
+import { resolveImport } from '../../../../../common/utils/resolveImport.ts';
 
 /** The specifier of an import or re-export: the one-line form, and the closing line of a wrapped one. */
 const fromClause = /^(?:import|export)\s[^'"]*from\s*['"]([^'"]+)['"]|^\}\s*from\s*['"]([^'"]+)['"]/;
@@ -36,31 +28,37 @@ const getSpecifiers = ({ text }: { text: string }) => {
 export const check: StandardsCheckModule = {
 	inputKind: 'file-text',
 	/**
-	 * Judged only where the repo's own tsconfig declares aliases — a package with
-	 * none is told by this very document to use relative paths, so the rule has
-	 * nothing to say there — and only for files inside a `src` tree, which is
-	 * what those aliases are configured to reach.
+	 * Judged per file against the aliases of the package that holds it — which in
+	 * a monorepo is the only place they are declared, since a shared base config
+	 * cannot name paths that would mean something different in each package.
+	 * Asking the repo root alone, as this rule once did, found no aliases
+	 * anywhere in a workspace and quietly judged nothing.
 	 *
-	 * A specifier counts only when it resolves to a file in scope. That silences
-	 * asset imports and package specifiers, which are relative for reasons an
-	 * alias cannot answer, and keeps the rule to what it is about: one source
-	 * file reaching another by walking the folder tree.
+	 * A package with no aliases is told by this very document to use relative
+	 * paths, so the rule has nothing to say there. A package whose aliases could
+	 * not be read is not judged at all: the fix this rule asks for is "write the
+	 * alias instead", and it cannot name one it never saw.
+	 *
+	 * Only files inside a `src` tree, which is what those aliases are configured
+	 * to reach, and only specifiers that resolve to a file in scope — which
+	 * silences asset imports, relative for reasons an alias cannot answer.
 	 */
 	run: ({ input }): RawStandardsFinding[] => {
 		const { files, contents } = readFileTexts({ input });
-
-		if (!aliasBlock.test(contents.get('tsconfig.json') ?? '')) {
-			return [];
-		}
-
 		const fileSet = new Set(files);
 
 		return files
 			.filter((file) => isUnderSrc({ path: file }))
 			.map((file) => {
-				const relative = getSpecifiers({ text: contents.get(file) ?? '' }).filter(
-					(specifier) => resolveRelativeImport({ from: file, specifier, files: fileSet }) !== undefined,
-				);
+				const aliases = findPathAliases({ path: file, contents });
+
+				if (aliases === undefined || aliases.patterns.size === 0) {
+					return undefined;
+				}
+
+				const relative = getSpecifiers({ text: contents.get(file) ?? '' })
+					.filter((specifier) => specifier.startsWith('.'))
+					.filter((specifier) => resolveImport({ from: file, specifier, files: fileSet, aliases }).kind === 'file');
 
 				return relative.length === 0
 					? undefined

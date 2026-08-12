@@ -43,8 +43,8 @@ export const initializeCoverageRun = async ({
 		return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile(join(cwd, existing.plan), 'utf8'))) };
 	}
 
-	if (typeof config.scripts.testCoverage !== 'string' && config.packageScripts?.testCoverage === undefined) {
-		throw new Error('the coverage gate is opted out (scripts.testCoverage: false) — test-coverage-to-threshold has nothing to run');
+	if (typeof config.gates.testCoverage !== 'string' && config.packageGates?.testCoverage === undefined) {
+		throw new Error('the coverage gate is opted out (gates.testCoverage: false) — test-coverage-to-threshold has nothing to run');
 	}
 
 	const dirty = await readGitChangedFiles({ cwd });

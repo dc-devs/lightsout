@@ -3,8 +3,8 @@ import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import type { LightsoutConfig } from '@/contracts';
 import { checkScriptBinaries } from '@/doctor/checkScriptBinaries';
 
-const configWith = (scripts: Partial<LightsoutConfig['scripts']>): LightsoutConfig => ({
-	scripts: { check: 'true', testUnit: 'true', testCoverage: false, ...scripts },
+const configWith = (gates: Partial<LightsoutConfig['gates']>): LightsoutConfig => ({
+	gates: { check: 'true', test: 'true', testCoverage: false, ...gates },
 });
 
 describe('checkScriptBinaries', () => {
@@ -30,12 +30,27 @@ describe('checkScriptBinaries', () => {
 		const cwd = setupConsumerRepo();
 		const config: LightsoutConfig = {
 			...configWith({}),
-			packageScripts: { check: 'lightsout-absent-runner --filter {package}', testUnit: 'true {package}' },
+			packageGates: { check: 'lightsout-absent-runner --filter {package}', test: 'true {package}' },
 		};
 
 		const check = await checkScriptBinaries({ cwd, config });
 
 		expect(check.detail).toMatch(/lightsout-absent-runner/);
+	});
+
+	test('names each distinct binary once across the root and scoped gate commands', async () => {
+		const cwd = setupConsumerRepo();
+		const config: LightsoutConfig = {
+			...configWith({}),
+			packageGates: { check: 'true --filter {package}', test: 'node --version {package}' },
+		};
+
+		const check = await checkScriptBinaries({ cwd, config });
+
+		expect(check.status).toBe('pass');
+		// both blocks feed one probe list, and the binary the root and scoped
+		// commands share is probed once, not twice
+		expect(check.detail).toMatch(/\(true, node\)/);
 	});
 
 	test('a directory that does not exist reports the binaries as unresolvable rather than crashing', async () => {

@@ -12,13 +12,13 @@ import { runImplementPipeline } from '@/pipeline';
 
 /**
  * A consumer repo whose unit gate goes red the moment implement lands (it
- * drops a BROKEN marker `testUnit` refuses) and never recovers, so
+ * drops a BROKEN marker the `test` gate refuses) and never recovers, so
  * verify-implement always walks its full retry path. `fix` and `supervisor`
  * override what those two roles answer; `counts` records how many turns each
  * role was actually bought.
  */
 const setupRedVerifyRun = async ({ fix, supervisor }: { fix?: () => DriverResult; supervisor?: () => DriverResult } = {}) => {
-	const dir = setupConsumerRepo({ scripts: { testUnit: 'test ! -f BROKEN' } });
+	const dir = setupConsumerRepo({ scripts: { test: 'test ! -f BROKEN' } });
 	const counts: Record<string, number> = {};
 	const driver: Driver = {
 		name: 'stub',

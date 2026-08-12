@@ -30,10 +30,10 @@ const setupScopedRepo = ({ withRunToken = true }: { withRunToken?: boolean } = {
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
-			scripts: { check: 'echo root-check', testUnit: 'echo root-test', testCoverage: false },
-			packageScripts: {
+			gates: { check: 'echo root-check', test: 'echo root-test', testCoverage: false },
+			packageGates: {
 				check: template({ kind: 'check', script: 'gate:check' }),
-				testUnit: template({ kind: 'testUnit', script: 'gate:test' }),
+				test: template({ kind: 'test', script: 'gate:test' }),
 				testCoverage: template({ kind: 'coverage', script: 'gate:coverage' }),
 			},
 		}),
@@ -60,12 +60,12 @@ test('a package without a gate script is skipped with narration and a log record
 
 	// package with scripts ran its gates
 	expect(gates.includes('@acme/api check')).toBeTruthy();
-	expect(gates.includes('@acme/api testUnit')).toBeTruthy();
+	expect(gates.includes('@acme/api test')).toBeTruthy();
 	// scriptless package ran nothing
 	expect(gates.some((line) => line.startsWith('@acme/bare '))).toBeFalsy();
 	// narrated:\n${progress.join('\n')}
 	expect(progress.includes('gate [bare] check: skipped (no "gate:check" script)')).toBeTruthy();
-	expect(progress.includes('gate [bare] testUnit: skipped (no "gate:test" script)')).toBeTruthy();
+	expect(progress.includes('gate [bare] test: skipped (no "gate:test" script)')).toBeTruthy();
 
 	const records = readFileSync(join(dir, '.lightsout', 'runs', 'run-skip', 'commands.jsonl'), 'utf8')
 		.trim()
@@ -75,7 +75,7 @@ test('a package without a gate script is skipped with narration and a log record
 
 	expect(skips.map((record) => [record.group, record.kind, record.reason])).toStrictEqual([
 		['bare', 'check', 'no "gate:check" script'],
-		['bare', 'testUnit', 'no "gate:test" script'],
+		['bare', 'test', 'no "gate:test" script'],
 	]);
 	// a skipped gate records no exit code — nothing ran
 	expect(skips.every((record) => !('exitCode' in record))).toBeTruthy();
@@ -99,9 +99,9 @@ test('a package missing only the coverage script falls back to its plain test ru
 	// coverage ran where the script exists
 	expect(gates.includes('@acme/api coverage')).toBeTruthy();
 	// coverage replaced the plain test run
-	expect(gates.includes('@acme/api testUnit')).toBeFalsy();
+	expect(gates.includes('@acme/api test')).toBeFalsy();
 	// coverage-less package fell back to plain tests
-	expect(gates.includes('@acme/semi testUnit')).toBeTruthy();
+	expect(gates.includes('@acme/semi test')).toBeTruthy();
 	expect(gates.includes('@acme/semi coverage')).toBeFalsy();
 	expect(progress.includes('gate [semi] testCoverage: skipped (no "gate:coverage" script)')).toBeTruthy();
 });

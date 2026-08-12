@@ -14,9 +14,47 @@ interface Params {
 }
 
 /**
- * Text for every file in scope, plus the repo's own tsconfig.json when it has
- * one — the file that answers "what are this package's path aliases?", which no
- * rule may open for itself and several need.
+ * Where a tsconfig could sit for these files: one candidate per folder holding
+ * one, per ancestor of those folders, and the repo root.
+ *
+ * Every folder rather than a known list of package roots, because nothing here
+ * has decided yet what a package is — and a candidate that does not exist costs
+ * a failed read that `readIntoCache` drops, while a package missed costs every
+ * rule in it the aliases it needs.
+ */
+const tsconfigCandidates = ({ files }: { files: string[] }) => {
+	const folders = new Set<string>();
+
+	for (const file of files) {
+		let cut = file.lastIndexOf('/');
+
+		while (cut !== -1) {
+			const folder = file.slice(0, cut);
+
+			if (folders.has(folder)) {
+				break;
+			}
+
+			folders.add(folder);
+			cut = folder.lastIndexOf('/');
+		}
+	}
+
+	return ['tsconfig.json', ...[...folders].map((folder) => `${folder}/tsconfig.json`)];
+};
+
+/**
+ * Text for every file in scope, plus every tsconfig.json above one of them —
+ * the files that answer "what are this package's path aliases?", which no rule
+ * may open for itself and several need.
+ *
+ * Every tsconfig rather than the repo root's alone. Path aliases are per
+ * package by necessity: a shared base config cannot name paths that would have
+ * to mean a different folder in each package that extends it, so in a workspace
+ * the root config carries none and each package declares its own. Reading only
+ * the root therefore found no aliases anywhere in a monorepo — which left every
+ * aliased re-export unresolvable, made every barrel look empty, and had one rule
+ * report all 225 of a package's tests as testing private internals.
  *
  * The cache is handed straight back as `contents`: it is the run's one copy of
  * the repo's text, and copying it per rule would defeat the point of reading
@@ -25,10 +63,13 @@ interface Params {
  * @param cache - the run's shared cache, filled in place and returned as the input's contents
  */
 export const buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, cache }: Params): Promise<FileTextInput> => {
-	await readIntoCache({ cwd, paths: [...new Set([...files, ...referenceFiles])], cache });
-	// Absent on a JS-only repo — readIntoCache simply leaves it out, which is
-	// the "when present" the contract promises.
-	await readIntoCache({ cwd, paths: ['tsconfig.json'], cache });
+	const inScope = [...new Set([...files, ...referenceFiles])];
+
+	await readIntoCache({ cwd, paths: inScope, cache });
+	// A candidate folder holding no tsconfig is simply left out of the cache,
+	// which is the "when present" the contract promises — and what makes probing
+	// every folder cheaper than deciding in advance which ones are packages.
+	await readIntoCache({ cwd, paths: tsconfigCandidates({ files: inScope }), cache });
 
 	return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache, standardsPackages };
 };

@@ -203,7 +203,7 @@ test('the standards check resolves typescript from workspace packages and honors
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
-			scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+			gates: { check: 'true', test: 'true', testCoverage: false },
 			standardsChecks: { clone: { settings: { minTokens: 5000 } }, 'size-file': { settings: { file: 5 } } },
 		}),
 	);
@@ -448,6 +448,9 @@ const setupForkedRepo = () => {
 	mkdirSync(join(dir, 'src/generated/alpha'), { recursive: true });
 	mkdirSync(join(dir, 'src/generated/beta'), { recursive: true });
 	mkdirSync(join(dir, 'lib'), { recursive: true });
+	// So the only note about folders is the dominant-directory one this case is
+	// about, rather than the run also reporting it could not read any aliases.
+	writeFileSync(join(dir, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }\n');
 
 	for (let index = 0; index < 10; index += 1) {
 		writeFileSync(
@@ -542,7 +545,7 @@ const setupOwnPackageRepo = ({ roots, standardsChecks }: { roots: string[]; stan
 			'src/alpha.ts': 'export const alpha = 1;\n',
 			'src/beta.ts': 'export const beta = 2;\n',
 			'lightsout.config.json': JSON.stringify({
-				scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+				gates: { check: 'true', test: 'true', testCoverage: false },
 				standardsPackages: roots,
 				...(standardsChecks ? { standardsChecks } : {}),
 			}),
@@ -595,7 +598,7 @@ const setupScopedRepo = ({ roots, generated }: { roots: string[]; generated?: st
 			'src/core/inner.ts': 'export const inner = 2;\n',
 			'src/gen/output.ts': 'export const output = 3;\n',
 			'lightsout.config.json': JSON.stringify({
-				scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+				gates: { check: 'true', test: 'true', testCoverage: false },
 				standardsPackages: roots,
 				...(generated ? { generated } : {}),
 			}),
@@ -677,7 +680,7 @@ const setupChannelRepo = ({
 			'package.json': JSON.stringify({ name: 'channel-fixture', dependencies }),
 			'src/alpha.ts': 'export const alpha = 1;\n',
 			'lightsout.config.json': JSON.stringify({
-				scripts: { check: 'true', testUnit: 'true', testCoverage: false },
+				gates: { check: 'true', test: 'true', testCoverage: false },
 				standardsPackages: roots,
 				...(standardsChannels ? { standardsChannels } : {}),
 			}),

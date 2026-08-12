@@ -84,18 +84,18 @@ const listPackageScopes = async ({
 
 /**
  * Which commands make up this measurement. Monorepo mode — a scoped coverage
- * template — measures packages ONLY: `scripts.*` is the root-group gate, and a
+ * template — measures packages ONLY: `gates.*` is the root-group gate, and a
  * whole-repo root measure would count every package file a second time under a
  * scope no batch belongs to.
  */
 const resolveScopes = async ({ cwd, config, summaryPath, scope }: { cwd: string; config: LightsoutConfig; summaryPath: string; scope?: string }) => {
-	const template = config.packageScripts?.testCoverage;
+	const template = config.packageGates?.testCoverage;
 
 	if (template) {
 		return listPackageScopes({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir, template, summaryPath, scope });
 	}
 
-	const command = config.scripts.testCoverage;
+	const command = config.gates.testCoverage;
 	const scoped: ScopeCommand[] =
 		typeof command === 'string' && (scope === undefined || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
 

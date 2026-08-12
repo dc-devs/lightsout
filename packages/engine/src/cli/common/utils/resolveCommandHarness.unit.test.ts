@@ -2,7 +2,7 @@ import { expect, test } from '@jest/globals';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
 import type { LightsoutConfig } from '@/contracts';
 
-const base: LightsoutConfig = { scripts: { check: 'c', testUnit: 't', testCoverage: false } };
+const base: LightsoutConfig = { gates: { check: 'c', test: 't', testCoverage: false } };
 
 test('resolveCommandHarness: no config at all resolves the claude-code default with no model', () => {
 	expect(resolveCommandHarness({ config: undefined, command: 'implement' })).toStrictEqual({ driverName: 'claude-code', model: undefined, effort: undefined });

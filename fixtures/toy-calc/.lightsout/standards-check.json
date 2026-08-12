@@ -1,0 +1,107 @@
+{
+	"at": "2026-08-11T19:29:14.696Z",
+	"path": ".",
+	"findings": [
+		{
+			"siteKey": "explicit-return-type:src/add.js",
+			"files": [
+				{
+					"path": "src/add.js"
+				}
+			],
+			"detail": "exported 'add' declares no return type",
+			"guidance": "Declare the return type — it is the output half of the contract, and it fails at the definition site rather than in a consumer.",
+			"rule": "explicit-return-type",
+			"severity": "advisory"
+		},
+		{
+			"siteKey": "explicit-return-type:src/divide.js",
+			"files": [
+				{
+					"path": "src/divide.js"
+				}
+			],
+			"detail": "exported 'divide' declares no return type",
+			"guidance": "Declare the return type — it is the output half of the contract, and it fails at the definition site rather than in a consumer.",
+			"rule": "explicit-return-type",
+			"severity": "advisory"
+		},
+		{
+			"siteKey": "explicit-return-type:src/multiply.js",
+			"files": [
+				{
+					"path": "src/multiply.js"
+				}
+			],
+			"detail": "exported 'multiply' declares no return type",
+			"guidance": "Declare the return type — it is the output half of the contract, and it fails at the definition site rather than in a consumer.",
+			"rule": "explicit-return-type",
+			"severity": "advisory"
+		},
+		{
+			"siteKey": "explicit-return-type:src/subtract.js",
+			"files": [
+				{
+					"path": "src/subtract.js"
+				}
+			],
+			"detail": "exported 'subtract' declares no return type",
+			"guidance": "Declare the return type — it is the output half of the contract, and it fails at the definition site rather than in a consumer.",
+			"rule": "explicit-return-type",
+			"severity": "advisory"
+		},
+		{
+			"rule": "naming-and-test-placement",
+			"severity": "advisory",
+			"siteKey": "naming-and-test-placement:test/add.test.js",
+			"files": [
+				{
+					"path": "test/add.test.js"
+				},
+				{
+					"path": "test/divide.test.js"
+				},
+				{
+					"path": "test/multiply.test.js"
+				},
+				{
+					"path": "test/subtract.test.js"
+				}
+			],
+			"detail": "All four test files live in a top-level `test/` directory, separated from the code they exercise in `src/`. The rule states test files live adjacent to the file they test — never in separate test directories — and the module-boundary classification assumes a co-located `*.unit.test.js` beside the file it marks as a boundary. As written, nothing beside `src/add.js` signals that `add` is a tested public surface, and the tests reach their subjects through `../src/index.js` relative paths that must be rewritten if either tree moves.",
+			"guidance": "Move each test beside its source file — `src/add.test.js` next to `src/add.js`, and so on — and import the subject from the sibling barrel (`./index.js`) so the boundary-through-the-barrel rule still holds."
+		},
+		{
+			"rule": "test-structure-arrange-act-assert-with-setup-factories",
+			"severity": "advisory",
+			"siteKey": "test-structure-arrange-act-assert-with-setup-factories:test/divide.test.js",
+			"files": [
+				{
+					"path": "test/divide.test.js",
+					"startLine": 5,
+					"endLine": 23
+				},
+				{
+					"path": "test/add.test.js",
+					"startLine": 5,
+					"endLine": 11
+				},
+				{
+					"path": "test/multiply.test.js",
+					"startLine": 5,
+					"endLine": 11
+				},
+				{
+					"path": "test/subtract.test.js",
+					"startLine": 5,
+					"endLine": 15
+				}
+			],
+			"detail": "Every test collapses act and assert into a single expression — `assert.equal(add({ number1: 2, number2: 3 }), 5)`. The rule asks for Arrange-Act-Assert with the act assigned to a named const and a blank line between blocks, and names async rejection assertions as the one place the act is allowed to sit inside the assertion. These units take no collaborators, so there is nothing to arrange and no setup factory is warranted; the deviation is only the missing named act. Splitting it makes the failure output name the value under test rather than an anonymous expression.",
+			"guidance": "Give the act a name and let the assertion read it, e.g. `const sum = add({ number1: 2, number2: 3 });` then `assert.equal(sum, 5);`, with a blank line between. Low priority — the assertions already pin contracts with literals, which is what the section most cares about."
+		}
+	],
+	"notes": [
+		"no tsconfig above 2 folder(s) — path aliases are unknown there, so the barrel and import rules stayed silent rather than guess: src, test"
+	]
+}

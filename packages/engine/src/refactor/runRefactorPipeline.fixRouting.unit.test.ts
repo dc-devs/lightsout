@@ -85,10 +85,10 @@ const setupMixedRed = async () => {
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
-			scripts: { check: 'true', testUnit: 'true', testCoverage: 'true' },
-			packageScripts: {
+			gates: { check: 'true', test: 'true', testCoverage: 'true' },
+			packageGates: {
 				check: packageGateCommand({ pkg: '@acme/api', flag: 'check.flag' }),
-				testUnit: 'node -e "process.exit(0)" {package}',
+				test: 'node -e "process.exit(0)" {package}',
 				testCoverage: packageGateCommand({ pkg: '@acme/web', flag: 'coverage.flag' }),
 			},
 		}),

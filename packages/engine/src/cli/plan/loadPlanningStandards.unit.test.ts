@@ -51,7 +51,7 @@ const setupStandardsPackage = ({
 };
 
 /** The gate config every LightsoutConfig needs, so each case only states the standards keys it is about. */
-const configWith = (fields: Partial<LightsoutConfig>): LightsoutConfig => ({ scripts: { check: 'true', testUnit: 'true', testCoverage: false }, ...fields });
+const configWith = (fields: Partial<LightsoutConfig>): LightsoutConfig => ({ gates: { check: 'true', test: 'true', testCoverage: false }, ...fields });
 
 test('loadPlanningStandards: with no config it loads the shipped default package, base channel only', async () => {
 	const { cwd, logged } = setupStandards();

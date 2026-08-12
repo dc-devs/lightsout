@@ -61,9 +61,9 @@ describe('GateResult', () => {
 	test('a fully populated failure entry carries the whole audit trail through parsing intact', () => {
 		const { result } = setupGateResult({
 			extra: {
-				kind: 'testUnit',
+				kind: 'test',
 				group: 'api',
-				command: 'pnpm testUnit',
+				command: 'pnpm test',
 				exitCode: 1,
 				durationMs: 4200,
 				rerun: true,
@@ -74,9 +74,9 @@ describe('GateResult', () => {
 		const parsed = GateResult.parse(result);
 
 		expect(parsed).toStrictEqual({
-			kind: 'testUnit',
+			kind: 'test',
 			group: 'api',
-			command: 'pnpm testUnit',
+			command: 'pnpm test',
 			exitCode: 1,
 			durationMs: 4200,
 			rerun: true,

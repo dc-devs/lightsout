@@ -30,14 +30,14 @@ export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: ap
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
-			scripts: {
+			gates: {
 				check: `${gateLogCommand({ kind: 'check' })} root`,
-				testUnit: `${gateLogCommand({ kind: 'testUnit' })} root`,
+				test: `${gateLogCommand({ kind: 'test' })} root`,
 				testCoverage: `${gateLogCommand({ kind: 'coverage' })} root`,
 			},
-			packageScripts: {
+			packageGates: {
 				check: `${gateLogCommand({ kind: 'check' })} {package}`,
-				testUnit: `${gateLogCommand({ kind: 'testUnit' })} {package}`,
+				test: `${gateLogCommand({ kind: 'test' })} {package}`,
 				testCoverage: `${gateLogCommand({ kind: 'coverage' })} {package}`,
 			},
 		}),

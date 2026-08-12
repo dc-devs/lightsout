@@ -1,7 +1,7 @@
-import { realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { invokedDirectly } from './invokedDirectly.mjs';
 
 /**
  * Build the shipped engine from `packages/engine/src/`.
@@ -46,27 +46,7 @@ export const buildEngine = async ({ out }) =>
 		logLevel: 'error',
 	});
 
-/**
- * True when this file was run as a command rather than imported.
- *
- * Compared through realpath on both sides: a path can reach the same file
- * through a symlink — every macOS temp directory does — and a plain string
- * comparison would then decide it was imported, run nothing, and exit 0. For a
- * gate, silently passing is the worst answer available.
- */
-const invokedDirectly = (() => {
-	if (process.argv[1] === undefined) {
-		return false;
-	}
-
-	try {
-		return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
-	} catch {
-		return false;
-	}
-})();
-
-if (invokedDirectly) {
+if (invokedDirectly({ moduleUrl: import.meta.url })) {
 	const outFlag = process.argv.indexOf('--out');
 
 	// The exit code is set rather than forced with `process.exit`: stdout is a

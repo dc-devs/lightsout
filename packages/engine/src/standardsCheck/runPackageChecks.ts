@@ -5,6 +5,7 @@ import { type StandardsCheckInput, type StandardsCheckRun, type StandardsFinding
 import { buildCheckInput } from '@/standardsCheck/common/checkInputs/buildCheckInput';
 import { typescriptInputKinds } from '@/standardsCheck/common/constants/typescriptInputKinds';
 import type { ResolvedRuleState } from '@/standardsCheck/common/types/ResolvedRuleState';
+import { findFoldersWithoutTsconfig } from '@/standardsCheck/common/utils/findFoldersWithoutTsconfig';
 import { runRuleCheck } from '@/standardsCheck/common/utils/runRuleCheck';
 import type { LoadedStandardsPackage } from '@/standardsPackages';
 
@@ -152,6 +153,18 @@ export const runPackageChecks = async ({
 
 	if (skipped.length > 0) {
 		notes.push(`${skipped.join(', ')} skipped — no typescript resolvable from the target repo`);
+	}
+
+	// Asked only when a file-text rule actually ran, since that is the pass whose
+	// answer depends on finding a tsconfig. Gated on the rules rather than on
+	// whether the cache holds one: a repo with no tsconfig anywhere is precisely
+	// the case worth reporting, and testing the cache would stay silent about it.
+	const uncovered = live.some((rule) => rule.inputKind === StandardsInputKind.FileText) ? findFoldersWithoutTsconfig({ files: allFiles, contents: cache }) : [];
+
+	if (uncovered.length > 0) {
+		notes.push(
+			`no tsconfig above ${uncovered.length} folder(s) — path aliases are unknown there, so the barrel and import rules stayed silent rather than guess: ${uncovered.slice(0, 5).join(', ')}${uncovered.length > 5 ? ', …' : ''}`,
+		);
 	}
 
 	return { findings, notes };

@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
 import { LightsoutConfig } from '@/contracts';
 
-const base = { scripts: { check: 'c', testUnit: 't', testCoverage: false } };
+const base = { gates: { check: 'c', test: 't', testCoverage: false } };
 
 test('LightsoutConfig: a stale traverse key parses without error and is stripped from the result', () => {
 	const parsed = LightsoutConfig.parse({ ...base, traverse: { connections: 'docs/connections' } });
@@ -149,38 +149,99 @@ test('LightsoutConfig: a typoed field inside a commands entry fails parsing', ()
 	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { modle: 'x' } } }).success).toBe(false);
 });
 
-test('LightsoutConfig: a packageScripts block whose every command carries the {package} placeholder parses intact', () => {
-	const packageScripts = {
+test('LightsoutConfig: a packageGates block whose every command carries the {package} placeholder parses intact', () => {
+	const packageGates = {
 		check: 'pnpm --filter {package} check',
-		testUnit: 'pnpm --filter {package} test:unit',
+		test: 'pnpm --filter {package} test:unit',
 		testCoverage: 'pnpm --filter {package} test:coverage',
 		build: 'pnpm --filter {package} build',
 	};
 
-	const parsed = LightsoutConfig.parse({ ...base, packageScripts });
+	const parsed = LightsoutConfig.parse({ ...base, packageGates });
 
 	// the scoped commands survive parsing unchanged — the placeholder is checked,
 	// never substituted here
-	expect(parsed.packageScripts).toStrictEqual(packageScripts);
+	expect(parsed.packageGates).toStrictEqual(packageGates);
 	// the two optional scoped gates may be omitted, and the whole block is optional
-	expect(LightsoutConfig.parse({ ...base, packageScripts: { check: 'c {package}', testUnit: 't {package}' } }).packageScripts).toStrictEqual({
+	expect(LightsoutConfig.parse({ ...base, packageGates: { check: 'c {package}', test: 't {package}' } }).packageGates).toStrictEqual({
 		check: 'c {package}',
-		testUnit: 't {package}',
+		test: 't {package}',
 	});
 	// an absent block leaves no key on the parsed config — single-package repos run
-	// scripts.* and nothing else
-	expect('packageScripts' in LightsoutConfig.parse(base)).toBe(false);
+	// gates.* and nothing else
+	expect('packageGates' in LightsoutConfig.parse(base)).toBe(false);
 });
 
-test('LightsoutConfig: a packageScripts command missing the {package} placeholder is refused with a message naming it', () => {
-	const result = LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'pnpm check', testUnit: 'pnpm --filter {package} test:unit' } });
+test('LightsoutConfig: a packageGates command missing the {package} placeholder is refused with a message naming it', () => {
+	const result = LightsoutConfig.safeParse({ ...base, packageGates: { check: 'pnpm check', test: 'pnpm --filter {package} test:unit' } });
 
 	// a command without the placeholder would run identically for every package —
 	// silently doing the same work N times instead of scoping it
 	expect(result.success).toBe(false);
 	expect(result.error?.message ?? '').toMatch(/\{package\} placeholder/);
 	// the check reaches the optional entries too, not just the two required ones
-	expect(LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'c {package}', testUnit: 't {package}', build: 'pnpm build' } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, packageGates: { check: 'c {package}', test: 't {package}', build: 'pnpm build' } }).success).toBe(false);
+});
+
+test('LightsoutConfig: the removed scripts and packageScripts keys are refused with a message naming their new name', () => {
+	const scriptsResult = LightsoutConfig.safeParse({ scripts: { check: 'c', test: 't', testCoverage: false } });
+	const packageScriptsResult = LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'c {package}', test: 't {package}' } });
+
+	// the top level is not strict, so a stale block would otherwise be discarded
+	// silently — leaving a config with no gates at all
+	expect(scriptsResult.success).toBe(false);
+	// the message is the whole point of the rejection — it names the new key
+	expect(scriptsResult.error?.message ?? '').toMatch(/renamed to `gates`/);
+
+	expect(packageScriptsResult.success).toBe(false);
+	expect(packageScriptsResult.error?.message ?? '').toMatch(/renamed to `packageGates`/);
+});
+
+test('LightsoutConfig: a stale testUnit key is refused inside gates and inside packageGates alike', () => {
+	const rootResult = LightsoutConfig.safeParse({ gates: { check: 'c', test: 't', testUnit: 't', testCoverage: false } });
+	const scopedResult = LightsoutConfig.safeParse({ ...base, packageGates: { check: 'c {package}', test: 't {package}', testUnit: 't {package}' } });
+
+	// the rename fails loudly in both halves of the surface, rather than the stale
+	// key being stripped and its command never running
+	expect(rootResult.success).toBe(false);
+	expect(rootResult.error?.message ?? '').toMatch(/renamed to `test`/);
+
+	expect(scopedResult.success).toBe(false);
+	expect(scopedResult.error?.message ?? '').toMatch(/renamed to `test`/);
+});
+
+test('LightsoutConfig: a gates block carries every command through parsing, with test holding the fast red/green command', () => {
+	const gates = {
+		check: 'pnpm check',
+		test: 'pnpm test',
+		testCoverage: 'pnpm test:unit:coverage',
+		generate: 'pnpm codegen',
+		build: 'pnpm build',
+		format: 'pnpm format',
+	};
+
+	const parsed = LightsoutConfig.parse({ gates });
+
+	// the renamed key holds the one fast test command the engine runs, and the
+	// whole block survives parsing unchanged — commands are read straight off it
+	expect(parsed.gates).toStrictEqual(gates);
+	// the three opt-in gates may be omitted, and the coverage gate takes the
+	// literal false as its explicit opt-out
+	expect(LightsoutConfig.parse({ gates: { check: 'c', test: 't', testCoverage: false } }).gates).toStrictEqual({ check: 'c', test: 't', testCoverage: false });
+});
+
+test('LightsoutConfig: gates is required, and check, test, and testCoverage are each required inside it', () => {
+	// with no gates block there is nothing to verify a run with
+	expect(LightsoutConfig.safeParse({}).success).toBe(false);
+	// the fast test command is not optional under its new name — a config naming
+	// only the other two fails rather than running no tests at all
+	expect(LightsoutConfig.safeParse({ gates: { check: 'c', testCoverage: false } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ gates: { test: 't', testCoverage: false } }).success).toBe(false);
+	// silence on coverage is not an option: skipping the strongest gate has to be
+	// the literal false, spelled out
+	expect(LightsoutConfig.safeParse({ gates: { check: 'c', test: 't' } }).success).toBe(false);
+	// and true is not an opt-in — a command or the false is the whole union
+	expect(LightsoutConfig.safeParse({ gates: { check: 'c', test: 't', testCoverage: true } }).success).toBe(false);
 });
 
 test('LightsoutConfig: standardsPackages accepts relative and absolute package roots, in config order', () => {

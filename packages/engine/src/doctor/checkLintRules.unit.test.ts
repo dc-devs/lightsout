@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { checkLintRules } from '@/doctor/checkLintRules';
 
-const config: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 
 /** A package directory holding the given lint config files. */
 const setupPackage = ({ files = {} }: { files?: Record<string, string> } = {}) => {

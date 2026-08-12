@@ -6,7 +6,7 @@ import { getRejectionError } from '@tests/helpers/getRejectionError';
 import type { LightsoutConfig } from '@/contracts';
 import { resolveStandardsPackages } from '@/standardsPackages';
 
-const baseConfig: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+const baseConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 
 /** A temp consumer repo — relative package roots resolve against it. */
 const setupRepo = () => ({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-resolve-packages-')) });

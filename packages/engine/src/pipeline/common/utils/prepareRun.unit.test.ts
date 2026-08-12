@@ -8,10 +8,10 @@ import { prepareRun } from '@/pipeline/common/utils/prepareRun';
 import { PipelineRun } from '@/pipeline/PipelineRun';
 import { createRun } from '@/runState';
 
-const plainRepo: LightsoutConfig = { scripts: { check: 'true', testUnit: 'true', testCoverage: false } };
+const plainRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
 const monorepo: LightsoutConfig = {
 	...plainRepo,
-	packageScripts: { check: 'pnpm --filter {package} check', testUnit: 'pnpm --filter {package} test' },
+	packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' },
 	standardsPackages: false,
 };
 
@@ -33,7 +33,7 @@ const write = ({ cwd, path, content }: { cwd: string; path: string; content: str
 
 describe('prepareRun', () => {
 	test('returns the plan text the steps are built from', async () => {
-		const { run, cwd } = await setupRun({ config: { ...monorepo, packageScripts: undefined } });
+		const { run, cwd } = await setupRun({ config: { ...monorepo, packageGates: undefined } });
 
 		write({ cwd, path: 'plan.md', content: '# Plan\nbody\n' });
 

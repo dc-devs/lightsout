@@ -48,7 +48,11 @@ export const check: StandardsCheckModule = {
 		// handful of files still knows where every module's boundary sits.
 		const modules = mapFolderModules({
 			files: referenceFiles,
-			getTargets: ({ barrelPath }) => targetsByFile.get(barrelPath) ?? new Set<string>(),
+			// Always complete: the graph resolves an aliased specifier by unique path
+			// suffix before an edge is ever recorded, so a barrel with no edge leaving
+			// it re-exports nothing — as opposed to the file-text readers, which can
+			// be handed a barrel whose aliases they were never given.
+			getSurface: ({ barrelPath }) => ({ targets: targetsByFile.get(barrelPath) ?? new Set<string>(), complete: true }),
 			standardsPackages,
 		});
 		const moduleFolders = [...modules.keys()];

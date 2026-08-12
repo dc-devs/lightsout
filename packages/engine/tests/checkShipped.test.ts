@@ -85,11 +85,16 @@ const checkShipped = ({ cwd, base }: { cwd: string; base: string }) => {
 };
 
 /**
- * The version this repo is on right now. Read rather than written down: these
- * tests are about the comparison, not about any particular number, and spelling
- * one out here means every release turns them red for no reason.
+ * The version a clone carries. Read rather than written down: these tests are
+ * about the comparison, not about any particular number, and spelling one out
+ * here means every release turns them red for no reason.
+ *
+ * Read from the clone rather than from this working tree, because a clone
+ * carries the committed version — which is the number the check actually
+ * compares. Reading the working tree would turn these red for the whole time a
+ * version bump sits uncommitted.
  */
-const currentVersion = JSON.parse(readFileSync(join(repoRoot, manifestPath), 'utf8')).version as string;
+const getVersion = ({ cwd }: { cwd: string }) => JSON.parse(readFileSync(join(cwd, manifestPath), 'utf8')).version as string;
 
 /** Unambiguously newer and older than anything this repo will ship. */
 const newer = '99.0.0';
@@ -153,6 +158,7 @@ test('a rule folder that was never copied into the shipped package is caught, th
 
 test('changing plugin/ without bumping the version fails, and says which version it saw', async () => {
 	const cwd = await setupClone();
+	const currentVersion = getVersion({ cwd });
 
 	await writeFile(join(cwd, 'plugin/dist/cli.mjs'), `${await readFile(join(cwd, 'plugin/dist/cli.mjs'), 'utf8')}\n// hand edit\n`);
 	commitAll({ cwd, message: 'change what ships' });
@@ -166,6 +172,7 @@ test('changing plugin/ without bumping the version fails, and says which version
 
 test('changing plugin/ with a bumped version passes the version half', async () => {
 	const cwd = await setupClone();
+	const currentVersion = getVersion({ cwd });
 
 	await setVersion({ cwd, version: newer });
 	commitAll({ cwd, message: 'bump' });
@@ -178,6 +185,7 @@ test('changing plugin/ with a bumped version passes the version half', async () 
 
 test('a version that moved backwards fails as loudly as one that never moved', async () => {
 	const cwd = await setupClone();
+	const currentVersion = getVersion({ cwd });
 
 	await setVersion({ cwd, version: older });
 	commitAll({ cwd, message: 'downgrade' });
