@@ -119,6 +119,31 @@ test('RunManifest: the config snapshot and the usage aggregate are optional and 
 	expect(RunManifest.safeParse({ ...base, harness: 'codex' }).success).toBe(true);
 });
 
+test('RunManifest: testSubjects and unreachableChangedFiles default to empty arrays and round-trip when recorded', () => {
+	const defaulted = RunManifest.parse({ ...base, harness: 'codex' });
+	const recorded = RunManifest.parse({
+		...base,
+		harness: 'codex',
+		testSubjects: ['packages/app/src/feature/index.ts'],
+		unreachableChangedFiles: ['packages/app/src/feature/common/orphan.ts'],
+	});
+
+	// a manifest written before the write-tests step resolved subjects reads back
+	// with none resolved and nothing skipped — pre-feature runs stay parseable
+	expect(defaulted.testSubjects).toStrictEqual([]);
+	expect(defaulted.unreachableChangedFiles).toStrictEqual([]);
+	// the resolved subjects are what verify fix re-invocations hand back to
+	// writers — they must survive the write/read cycle intact
+	expect(recorded.testSubjects).toStrictEqual(['packages/app/src/feature/index.ts']);
+	// the skipped files are re-checked at run end — losing them would silence the
+	// unreachable-changed-files warning
+	expect(recorded.unreachableChangedFiles).toStrictEqual(['packages/app/src/feature/common/orphan.ts']);
+	// both are still string arrays at the read boundary — a non-string entry is a
+	// corrupt manifest, not a subject
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', testSubjects: [3] }).success).toBe(false);
+	expect(RunManifest.safeParse({ ...base, harness: 'codex', unreachableChangedFiles: [3] }).success).toBe(false);
+});
+
 test('RunManifest: an unparseable config snapshot fails the manifest', () => {
 	const stale = { ...base, harness: 'codex', config: { driver: 'codex', gates: { check: 'c', test: 't', testCoverage: false } } };
 

@@ -90,8 +90,8 @@ const setupMonorepoRepo = ({ scopes }: { scopes: Record<string, Record<string, n
 	return dir;
 };
 
-/** The files a writer invocation was handed, read back out of its prompt. */
-const listedFiles = ({ prompt }: { prompt: string }) => [...prompt.matchAll(/^- (\S+)$/gm)].map((match) => match[1]);
+/** The files a writer invocation was handed, read back out of its prompt — each appears under both the subjects and must-execute headers, so the read-back dedupes. */
+const listedFiles = ({ prompt }: { prompt: string }) => [...new Set([...prompt.matchAll(/^- (\S+)$/gm)].map((match) => match[1]))];
 
 /**
  * A stub writer: it writes a test file for each target it is willing to cover

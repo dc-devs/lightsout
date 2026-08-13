@@ -2,8 +2,10 @@ import unitTestWriterPrompt from '@/agents/prompts/unitTestWriter.md';
 
 interface Params {
 	planContent: string;
-	/** Source files changed earlier in the run — the test-writer's target set. */
-	changedFiles: string[];
+	/** Public surfaces to test through — the only files a test file may target. May include unchanged files. */
+	subjects: string[];
+	/** Changed files that must execute under the tests (may overlap subjects when a changed file is itself public). */
+	mustExecute: string[];
 	/** Optional consumer test standards content, inlined verbatim. */
 	standards?: string;
 	/** Verification-gate output from a failed attempt, for fix re-invocations. */
@@ -15,21 +17,33 @@ interface Params {
  * the plan, and the test standards are identical across every writer spawned
  * for a run, so they live in the system prompt — the harness's cache
  * breakpoint sits after it, so the fan-out's spawns share one cached prefix.
- * Only the per-writer target group and any verification failure vary, and
- * those are the user prompt.
+ * Only the per-writer subject/must-execute lists and any verification failure
+ * vary, and those are the user prompt.
  */
-export const buildUnitTestWriterInvocation = ({ planContent, changedFiles, standards, errorContext }: Params): { systemPrompt: string; prompt: string } => {
-	const groupNote =
-		changedFiles.length > 1
-			? '\n\nThese files changed together. Test each module through its public surface and cover internal files through the boundary that owns them — write no dedicated test for a file that is internal to another listed file, and create no test for any file outside this list.'
-			: '';
+export const buildUnitTestWriterInvocation = ({
+	planContent,
+	subjects,
+	mustExecute,
+	standards,
+	errorContext,
+}: Params): { systemPrompt: string; prompt: string } => {
 	const roleSections = [unitTestWriterPrompt, `# Plan (context for intended behavior)\n\n${planContent}`];
 
 	if (standards) {
 		roleSections.push(`# Standards\n\nThese rules are binding for the tests you write:\n\n${standards}`);
 	}
 
-	const sections = [`# Changed files to cover\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}${groupNote}`];
+	const bullets = ({ files }: { files: string[] }) => files.map((file) => `- ${file}`).join('\n');
+	const sections = [
+		`# Test subjects — write tests through these public surfaces\n\n${bullets({ files: subjects })}`,
+		`# Changed internals that must execute under those tests\n\n${bullets({ files: mustExecute })}`,
+		[
+			'Rules for this assignment:',
+			"- Never create a test file for any file outside the subjects list — an internal file's coverage is earned through the public surface that owns it, never through a dedicated test.",
+			"- A subject listed here may be unchanged: it is listed because a changed internal is reached through it. Test the subject's observable behavior so the changed internals execute.",
+			'- The engine will verify, from the coverage report, that every changed file listed above executed under the tests — a changed file that never runs fails the verification gate.',
+		].join('\n'),
+	];
 
 	if (errorContext) {
 		sections.push(

@@ -55,6 +55,10 @@ export const RunManifest = z.object({
 	 * it — agents report what they changed, git reports what actually changed.
 	 */
 	baselineDirtyFiles: z.array(z.string()).default([]),
+	/** Public subject files resolved for the write-tests step — what verify fix re-invocations hand back to writers. */
+	testSubjects: z.array(z.string()).default([]),
+	/** Changed files the write-tests step skipped because nothing public reaches them; re-checked at run end. */
+	unreachableChangedFiles: z.array(z.string()).default([]),
 });
 
 export type RunManifest = z.infer<typeof RunManifest>;

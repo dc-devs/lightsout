@@ -123,7 +123,9 @@ test('write-tests fan-out: every executable-code kind earns a writer; barrels an
 
 	// The fan-out count reflects the filtered (behavioral-only) set.
 	// fan-out count reflects the filtered set — got:\n${progress.join('\n')}
-	expect(progress.some((line) => line.includes('step write-tests') && line.includes(`${Object.keys(behavioralFiles).length} file(s)`))).toBeTruthy();
+	expect(
+		progress.some((line) => line.includes('step write-tests') && line.includes(`covering ${Object.keys(behavioralFiles).length} changed file(s)`)),
+	).toBeTruthy();
 });
 
 // A pure-removal plan lists deleted files in changed-file truth (git reports

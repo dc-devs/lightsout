@@ -122,8 +122,10 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(result.manifest.changedFiles.some((file) => file === 'cov.log' || file === 'fmt.log' || file.startsWith('.lightsout/'))).toBeFalsy();
 	// one writer per JS/TS file — the .tf earned no writer
 	expect(prompts['write-tests']?.length).toBe(2);
-	// each writer got exactly one file in its target list
-	expect(prompts['write-tests']?.every((prompt) => (prompt.match(/^- /gm) ?? []).length === 1)).toBeTruthy();
+	// each writer got exactly one file — the same lone file under both the
+	// subjects and must-execute headers (rules bullets carry spaces, so the
+	// single-token match reads back only file bullets)
+	expect(prompts['write-tests']?.every((prompt) => new Set([...prompt.matchAll(/^- (\S+)$/gm)].map((match) => match[1])).size === 1)).toBeTruthy();
 	// the .tf is still tracked as changed
 	expect(result.manifest.changedFiles.includes('src/infra.tf')).toBeTruthy();
 	// refactor review list is JS/TS only
@@ -161,7 +163,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(progress.some((line) => line.includes('step implement: agent report complete'))).toBeTruthy();
 	// No consumer TypeScript in this repo → grouping degrades to one file per group.
 	// writer fan-out announced
-	expect(progress.some((line) => line.includes('2 group(s) across 2 file(s) (import-graph), up to 5 writers in parallel'))).toBeTruthy();
+	expect(progress.some((line) => line.includes('2 group(s): 2 subject(s) covering 2 changed file(s), up to 5 writers in parallel'))).toBeTruthy();
 	// refactor loop end announced
 	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
 });

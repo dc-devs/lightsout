@@ -28,6 +28,8 @@ const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({
 	changedFiles: [],
 	packages: [],
 	baselineDirtyFiles: [],
+	testSubjects: [],
+	unreachableChangedFiles: [],
 });
 
 describe('seedResumeState', () => {

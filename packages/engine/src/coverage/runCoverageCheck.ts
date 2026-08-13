@@ -1,15 +1,12 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { z } from 'zod';
 import { defaultCoverageSummaryPath } from '@/common/constants/defaultCoverageSummaryPath';
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
-import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
 import { runCommand } from '@/common/utils/runCommand';
 import type { CoverageFile, CoverageTotal, LightsoutConfig } from '@/contracts';
+import { buildMissingSummaryMessage } from '@/coverage/common/utils/buildMissingSummaryMessage';
+import { resolveCoverageScopes } from '@/coverage/resolveCoverageScopes';
 import { appendCommandLog } from '@/runState';
-
-const rootScope = 'root';
 
 /**
  * The Istanbul json-summary shape, parsed at the boundary: one entry per file
@@ -18,14 +15,6 @@ const rootScope = 'root';
  * rather than failing a measurement that does not read them.
  */
 const CoverageSummaryReport = z.record(z.string(), z.looseObject({ statements: z.looseObject({ pct: z.unknown() }) }));
-
-/** One scope's coverage command, and where that scope writes its summary. */
-interface ScopeCommand {
-	scope: string;
-	command: string;
-	/** Repo-relative path to this scope's summary report. */
-	summaryPath: string;
-}
 
 const readJsonFile = async ({ path }: { path: string }) => {
 	try {
@@ -37,79 +26,12 @@ const readJsonFile = async ({ path }: { path: string }) => {
 	}
 };
 
-/**
- * Every package under packagesDir that defines the coverage template's run
- * script, narrowed to one package when the caller named a scope. The
- * script-missing skip mirrors `runPackageGates`: a scoped template fans out to
- * packages the consumer never hand-tuned, and one with nothing to measure is
- * legitimate.
- */
-const listPackageScopes = async ({
-	cwd,
-	packagesDir,
-	template,
-	summaryPath,
-	scope,
-}: {
-	cwd: string;
-	packagesDir: string;
-	template: string;
-	summaryPath: string;
-	scope?: string;
-}) => {
-	const entries = await readdir(join(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
-	const scriptName = extractRunScriptName({ command: template });
-	const scopes: ScopeCommand[] = [];
-
-	for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith('.'))) {
-		if (scope !== undefined && scope !== entry.name) {
-			continue;
-		}
-
-		const manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => undefined);
-
-		if (!manifest || (scriptName !== undefined && !Object.hasOwn(manifest.scripts, scriptName))) {
-			continue;
-		}
-
-		scopes.push({
-			scope: entry.name,
-			command: template.split('{package}').join(manifest.name),
-			summaryPath: join(packagesDir, entry.name, summaryPath),
-		});
-	}
-
-	return scopes;
-};
-
-/**
- * Which commands make up this measurement. Monorepo mode — a scoped coverage
- * template — measures packages ONLY: `gates.*` is the root-group gate, and a
- * whole-repo root measure would count every package file a second time under a
- * scope no batch belongs to.
- */
-const resolveScopes = async ({ cwd, config, summaryPath, scope }: { cwd: string; config: LightsoutConfig; summaryPath: string; scope?: string }) => {
-	const template = config.packageGates?.testCoverage;
-
-	if (template) {
-		return listPackageScopes({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir, template, summaryPath, scope });
-	}
-
-	const command = config.gates.testCoverage;
-	const scoped: ScopeCommand[] =
-		typeof command === 'string' && (scope === undefined || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
-
-	return scoped;
-};
-
 /** One scope's measured files and total, read from the summary its command just wrote. */
 const readScopeSummary = async ({ cwd, scope, summaryPath, passed }: { cwd: string; scope: string; summaryPath: string; passed: boolean }) => {
 	const parsed = CoverageSummaryReport.safeParse(await readJsonFile({ path: join(cwd, summaryPath) }));
 
 	if (!parsed.success) {
-		throw new Error(
-			`no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran — configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverageSummaryPath in lightsout.config.json. \`lightsout doctor\` checks this.`,
-		);
+		throw new Error(buildMissingSummaryMessage({ summaryPath, scope }));
 	}
 
 	const files: CoverageFile[] = [];
@@ -171,7 +93,7 @@ export const runCoverageCheck = async ({
 	onProgress,
 }: Params): Promise<{ passed: boolean; files: CoverageFile[]; totals: CoverageTotal[] }> => {
 	const summaryPath = config.coverageSummaryPath ?? defaultCoverageSummaryPath;
-	const scopes = await resolveScopes({ cwd, config, summaryPath, scope });
+	const scopes = await resolveCoverageScopes({ cwd, config, summaryPath, scope });
 	const files: CoverageFile[] = [];
 	const totals: CoverageTotal[] = [];
 

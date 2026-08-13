@@ -135,7 +135,7 @@ export const runCoverageBatch = async ({
 
 	const attempt = await invoke({
 		label: '',
-		invocation: buildUnitTestWriterInvocation({ planContent: standaloneBanner, changedFiles: batch.members, standards: testStandards }),
+		invocation: buildUnitTestWriterInvocation({ planContent: standaloneBanner, subjects: batch.members, mustExecute: batch.members, standards: testStandards }),
 	});
 
 	if (!attempt.ok) {
@@ -201,7 +201,8 @@ export const runCoverageBatch = async ({
 			label: `fix-${retry}`,
 			invocation: buildUnitTestWriterInvocation({
 				planContent: standaloneBanner,
-				changedFiles: batch.members,
+				subjects: batch.members,
+				mustExecute: batch.members,
 				standards: testStandards,
 				errorContext: gateError,
 			}),

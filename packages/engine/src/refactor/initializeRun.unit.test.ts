@@ -22,6 +22,8 @@ const manifestWith = ({ pipeline }: { pipeline?: string }): RunManifest => ({
 	changedFiles: [],
 	packages: [],
 	baselineDirtyFiles: [],
+	testSubjects: [],
+	unreachableChangedFiles: [],
 });
 
 describe('initializeRun', () => {

@@ -206,6 +206,21 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 		expect(fixPrompt).toContain('test-coverage failed');
 	});
 
+	test('hands the batch files to the test writer as both subjects and must-execute', async () => {
+		const { dir, driver, config, prompts } = await setupSingleGateRed({ gate: 'testCoverage', flag: 'coverage.flag' });
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config });
+
+		const fixPrompt = fixPromptOf(prompts) ?? '';
+
+		expect(result.ok).toBe(true);
+		// a refactor batch has no upward subject resolution — the batch's finding
+		// files are handed over as the surfaces to test through AND the files that
+		// must execute, so the writer's assignment is self-consistent
+		expect(fixPrompt).toContain('# Test subjects — write tests through these public surfaces\n\n- src/multi.ts');
+		expect(fixPrompt).toContain('# Changed internals that must execute under those tests\n\n- src/multi.ts');
+	});
+
 	test('routes a non-coverage red back to the refactor executor', async () => {
 		const { dir, driver, config, prompts } = await setupSingleGateRed({ gate: 'check', flag: 'check.flag' });
 
