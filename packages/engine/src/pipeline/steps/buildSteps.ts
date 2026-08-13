@@ -89,7 +89,14 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				planContent,
 				id: 'verify-tests',
 				coverage: true,
-				buildFix: (errorContext) => buildUnitTestWriterInvocation({ planContent, changedFiles: sourceFiles({ run }), standards: testStandards, errorContext }),
+				buildFix: (errorContext) =>
+					buildUnitTestWriterInvocation({
+						planContent,
+						subjects: run.current().testSubjects,
+						mustExecute: sourceFiles({ run }).filter((file) => !run.current().unreachableChangedFiles.includes(file)),
+						standards: testStandards,
+						errorContext,
+					}),
 			}),
 		},
 		...refactorSteps,

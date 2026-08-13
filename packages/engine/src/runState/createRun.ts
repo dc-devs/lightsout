@@ -22,7 +22,7 @@ interface Params {
 }
 
 /** Create a new run: fresh id, run directory, and initial manifest on disk. */
-export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config, baselineDirtyFiles }: Params) => {
+export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config, baselineDirtyFiles }: Params): Promise<RunManifest> => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
 		runId: runId ?? randomUUID(),
@@ -39,6 +39,8 @@ export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, 
 		changedFiles: [],
 		packages: [],
 		baselineDirtyFiles: baselineDirtyFiles ?? [],
+		testSubjects: [],
+		unreachableChangedFiles: [],
 	};
 
 	await mkdir(getRunDir({ cwd, runId: manifest.runId }), { recursive: true });

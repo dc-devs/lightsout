@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
@@ -78,16 +79,97 @@ test('write-tests fan-out: files that import each other share ONE writer; unrela
 
 	// boundary and its internal share one writer
 	expect(grouped?.includes('src/helper.ts')).toBeTruthy();
-	// multi-file group carries the boundary-coverage instruction
-	expect(grouped?.includes('These files changed together')).toBeTruthy();
+	// the assignment names its subjects and the changed files that must execute
+	expect(grouped?.includes('# Test subjects — write tests through these public surfaces')).toBeTruthy();
+	expect(grouped?.includes('# Changed internals that must execute under those tests')).toBeTruthy();
 	// unrelated file gets its own writer
 	expectDefined(solo);
 	expect(solo.includes('src/feature.ts')).toBeFalsy();
 	expect(solo.includes('src/helper.ts')).toBeFalsy();
-	// single-file group carries no group note
-	expect(solo.includes('These files changed together')).toBeFalsy();
+	// every assignment carries the binding subject rule
+	expect(solo.includes('Never create a test file for any file outside the subjects list')).toBeTruthy();
 	// grouping narrated — got:\n${progress.join('\n')}
-	expect(progress.some((line) => line.includes('2 group(s) across 3 file(s) (import-graph)'))).toBeTruthy();
+	expect(progress.some((line) => line.includes('2 group(s): 3 subject(s) covering 3 changed file(s)'))).toBeTruthy();
+});
+
+test('write-tests fan-out: two internals sharing an UNCHANGED public subject group into one writer, with the subject leading the assignment', async () => {
+	const dir = setupConsumerRepo();
+
+	linkTypescript({ dir });
+
+	// The module pre-exists the run: its barrel exports pub.ts only, and pub.ts
+	// imports both internals — the run will change ONLY the internals.
+	mkdirSync(join(dir, 'src/mod'), { recursive: true });
+	writeFileSync(join(dir, 'src/mod/index.ts'), "export { pub } from './pub';\n");
+	writeFileSync(join(dir, 'src/mod/pub.ts'), "import { a } from './a';\nimport { b } from './b';\n\nexport const pub = () => a() + b();\n");
+	writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = () => 1;\n');
+	writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = () => 2;\n');
+	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm module', { cwd: dir });
+
+	const writerPrompts: string[] = [];
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
+			if (role === 'write-tests') {
+				writerPrompts.push(prompt);
+
+				const testFile = `test/writer-${writerPrompts.length}.test.js`;
+
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, testFile), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: testFile, summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			// Implement: both internals change; pub.ts and the barrel do not.
+			writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = () => 10;\n');
+			writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = () => 20;\n');
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/mod/a.ts', summary: 'internal' },
+						{ path: 'src/mod/b.ts', summary: 'internal' },
+					],
+				}),
+				exitCode: 0,
+			};
+		},
+	};
+
+	const progress: string[] = [];
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await loadConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	expect(result.ok).toBe(true);
+	// no import edge joins a.ts and b.ts — the shared subject alone makes them one writer
+	expect(writerPrompts.length).toBe(1);
+	// the unchanged public file is the subject; the changed internals ride the must-execute list
+	expect(
+		writerPrompts[0]?.includes(
+			'# Test subjects — write tests through these public surfaces\n\n- src/mod/pub.ts\n\n# Changed internals that must execute under those tests\n\n- src/mod/a.ts\n- src/mod/b.ts',
+		),
+	).toBeTruthy();
+	// the unchanged subject is what the run records for fix re-invocations
+	expect(result.manifest.testSubjects).toStrictEqual(['src/mod/pub.ts']);
+	// the counts narrate subjects and changed files separately — got:\n${progress.join('\n')}
+	expect(progress.some((line) => line.includes('1 group(s): 1 subject(s) covering 2 changed file(s)'))).toBeTruthy();
 });
 
 // An import component larger than the writer cap would hand one agent a

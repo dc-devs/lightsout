@@ -139,6 +139,21 @@ describe('runCoverageBatch', () => {
 		expect(prompts[0]).toContain('src/boundary.ts');
 	});
 
+	test('every member is both a surface the writer tests through and a file those tests must execute', async () => {
+		const dir = setupBatchRepo();
+		const { driver, prompts } = stubDriver({ write: writesTests({ dir, pct: 80 }), results: completed });
+
+		await runBatch({ dir, driver, batch: batchOf({ members: [target, 'src/boundary.ts'] }) });
+
+		// a standalone run has no changed set to walk up from: the batch's own members are both lists
+		const [testThrough, mustExecute] = prompts[0].split('# Changed internals');
+
+		expect([testThrough, mustExecute]).toEqual([
+			expect.stringContaining(`- ${target}\n- src/boundary.ts`),
+			expect.stringContaining(`- ${target}\n- src/boundary.ts`),
+		]);
+	});
+
 	test('tests written with nothing to show for them decline the batch', async () => {
 		const dir = setupBatchRepo();
 		const { driver } = stubDriver({ write: writesTests({ dir, pct: 10 }), results: completed });

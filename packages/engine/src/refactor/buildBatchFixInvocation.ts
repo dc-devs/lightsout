@@ -37,6 +37,6 @@ export const buildBatchFixInvocation = ({
 	// shown: a batch persists that answer, and a fix retry is the same agent still
 	// working the same advisory list.
 	return coverageRed
-		? buildUnitTestWriterInvocation({ planContent, changedFiles: files, standards: testStandards, errorContext })
+		? buildUnitTestWriterInvocation({ planContent, subjects: files, mustExecute: files, standards: testStandards, errorContext })
 		: buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, reportAdvisoryOutcomes: true, errorContext });
 };

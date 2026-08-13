@@ -44,6 +44,8 @@ const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	changedFiles: [],
 	packages: [],
 	baselineDirtyFiles: [],
+	testSubjects: [],
+	unreachableChangedFiles: [],
 	...overrides,
 });
 

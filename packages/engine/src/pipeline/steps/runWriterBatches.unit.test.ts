@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
 import { type WorkReport, WorkReportStatus } from '@/contracts';
+import type { TestTargetGroup } from '@/pipeline/common/types/TestTargetGroup';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
 import { runWriterBatches } from '@/pipeline/steps/runWriterBatches';
 
@@ -55,7 +56,12 @@ const setupRun = ({ respond }: { respond: (params: { file: string; onFirstEvent?
 	return { run: run as unknown as PipelineRun, log, gated };
 };
 
-const groupsOf = (count: number) => Array.from({ length: count }, (_, index) => [`src/file${index}.ts`]);
+const groupsOf = (count: number): TestTargetGroup[] =>
+	Array.from({ length: count }, (_, index) => ({
+		subjects: [`src/file${index}.ts`],
+		mustExecute: [`src/file${index}.ts`],
+		cluster: `#${index}`,
+	}));
 
 test('runWriterBatches: the held-back writers start as soon as the warm spawn streams its first event — not when it finishes', async () => {
 	const { run, log } = setupRun({
@@ -112,6 +118,36 @@ test('runWriterBatches: a single group runs ungated — there is nothing to warm
 	expect(reports.length).toBe(1);
 	// the lone writer is spawned without a first-event gate
 	expect(gated).toStrictEqual([false]);
+});
+
+test('runWriterBatches: groups sharing a cluster run one after another while distinct clusters stay parallel', async () => {
+	const { run, log } = setupRun({
+		respond: async ({ onFirstEvent }) => {
+			if (onFirstEvent) {
+				onFirstEvent();
+				await delay(20);
+			}
+
+			return answered(workReport());
+		},
+	});
+	// Two chunks of one oversized component (same cluster) plus one unrelated
+	// group: the warm spawn is the first chunk, so its trailing chunk must wait
+	// for it to settle — the unrelated group must not.
+	const groups: TestTargetGroup[] = [
+		{ subjects: ['src/a1.ts'], mustExecute: ['src/a1.ts'], cluster: '#a' },
+		{ subjects: ['src/a2.ts'], mustExecute: ['src/a2.ts'], cluster: '#a' },
+		{ subjects: ['src/b.ts'], mustExecute: ['src/b.ts'], cluster: '#b' },
+	];
+
+	const { reports, parked } = await runWriterBatches({ run, groups, planContent: '# Plan' });
+
+	expect(parked).toBe(false);
+	expect(reports.length).toBe(3);
+	// the same-cluster chunk waits for its predecessor to settle
+	expect(log.indexOf('end:src/a1.ts') < log.indexOf('start:src/a2.ts')).toBeTruthy();
+	// the distinct cluster does not
+	expect(log.indexOf('start:src/b.ts') < log.indexOf('end:src/a1.ts')).toBeTruthy();
 });
 
 test('runWriterBatches: a rate limit in a released batch parks the run and the warm report is still collected', async () => {

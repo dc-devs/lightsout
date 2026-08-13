@@ -312,6 +312,8 @@ test('refactor: an implement-pipeline manifest is refused with a pointer to the 
 		changedFiles: [],
 		packages: [],
 		baselineDirtyFiles: [],
+		testSubjects: [],
+		unreachableChangedFiles: [],
 	});
 
 	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config, existing: implementManifest })).rejects.toThrow(

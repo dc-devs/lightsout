@@ -123,6 +123,8 @@ const foreignManifest = ({ pipeline }: { pipeline?: string }): RunManifest => ({
 	changedFiles: [],
 	packages: [],
 	baselineDirtyFiles: [],
+	testSubjects: [],
+	unreachableChangedFiles: [],
 });
 
 /**
@@ -166,6 +168,8 @@ const plantSequence = ({
 				changedFiles: [],
 				packages: [],
 				baselineDirtyFiles: [],
+				testSubjects: [],
+				unreachableChangedFiles: [],
 			}),
 	);
 };

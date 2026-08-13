@@ -25,6 +25,8 @@ const manifestWith = ({ pipeline, config }: { pipeline?: string; config: Lightso
 	changedFiles: [],
 	packages: [],
 	baselineDirtyFiles: [],
+	testSubjects: [],
+	unreachableChangedFiles: [],
 });
 
 /** A measurable consumer repo: a coverage command that exits green and a summary already on disk. */

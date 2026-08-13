@@ -109,6 +109,8 @@ test('summarizeRun tolerates a run dir with no ledger, no commands, no friction'
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 		},
 	});
 
@@ -181,6 +183,8 @@ test('summarizeRun attributes supervisor consultations to the step they supervis
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 		},
 	});
 
@@ -218,6 +222,8 @@ test('summarizeRun separates gates that ran from re-runs and skips', async () =>
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 		},
 	});
 
@@ -249,6 +255,8 @@ test('summarizeRun counts the rejected reports that cost a re-emit retry', async
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 		},
 	});
 
@@ -288,6 +296,8 @@ test('summarizeRun counts only this run friction, not the repo accumulated histo
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 		},
 	});
 
@@ -324,6 +334,8 @@ test('summarizeRun skips ledger lines it cannot trust instead of failing the rep
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 		},
 	});
 
@@ -347,6 +359,8 @@ test('summarizeRun reports no cache share for a run whose input tokens are all z
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 			usage: { invocations: 1, inputTokens: 0, outputTokens: 40, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 },
 		},
 	});
@@ -372,6 +386,8 @@ test('summarizeRun clamps wall time for a manifest stamped out of order', async 
 			changedFiles: [],
 			packages: [],
 			baselineDirtyFiles: [],
+			testSubjects: [],
+			unreachableChangedFiles: [],
 		},
 	});
 

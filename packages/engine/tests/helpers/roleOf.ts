@@ -16,7 +16,7 @@ export const roleOf = (prompt: string) => {
 		return 'supervisor';
 	}
 
-	if (prompt.includes('# Changed files to cover')) {
+	if (prompt.includes('# Test subjects — write tests through these public surfaces')) {
 		return 'write-tests';
 	}
 

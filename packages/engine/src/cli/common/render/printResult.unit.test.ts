@@ -51,6 +51,8 @@ const setupResult = ({
 		changedFiles: [],
 		packages: [],
 		baselineDirtyFiles: [],
+		testSubjects: [],
+		unreachableChangedFiles: [],
 		...manifest,
 	};
 
@@ -176,4 +178,20 @@ test('printResult: a scope with no recorded source prints bare, and a failure ca
 		'evidence  .lightsout/runs/run-1234-abcd/',
 	]);
 	expect(errors).toStrictEqual([]);
+});
+
+test('printResult: files that finished the run unreachable surface as a named warning line', async () => {
+	const { result, cwd, logged } = setupResult({ manifest: { unreachableChangedFiles: ['src/orphan.ts', 'src/other.ts'] } });
+
+	await printResult({ result, cwd });
+
+	expect(labelLines({ logged })).toStrictEqual([
+		'run       run-1234 · PASSED',
+		'plan      feature.md',
+		'wall      3s',
+		'gates     0s',
+		'gates     0 commands',
+		'warning   unreachable-changed-files: src/orphan.ts, src/other.ts — changed, but no public surface reaches them; no tests cover them',
+		'evidence  .lightsout/runs/run-1234-abcd/',
+	]);
 });
