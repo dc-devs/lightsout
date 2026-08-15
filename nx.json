@@ -74,5 +74,9 @@
 			"cache": true,
 			"inputs": ["production", "^production", { "externalDependencies": ["esbuild"] }]
 		}
-	}
+	},
+
+	// No usage telemetry, for the same reason as no Nx Cloud: gates run offline
+	// and phone home to nobody.
+	"analytics": false
 }

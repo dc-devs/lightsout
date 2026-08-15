@@ -50,11 +50,11 @@ Add a `lightsout.config.json` to the repository with your code standards and val
 
 ```json
 {
-  "standardsPackages": ["standards/house-rules"],
   "gates": {
     "check": "pnpm check",
-    "test": "pnpm test:unit",
-    "testCoverage": "pnpm test:coverage"
+    "test": "pnpm test",
+    "testCoverage": "pnpm test:coverage",
+    "build": "pnpm bundle"
   }
 }
 ```
