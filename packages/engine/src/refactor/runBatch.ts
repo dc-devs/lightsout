@@ -1,20 +1,14 @@
 import { buildRefactorExecutorInvocation } from '@/agents';
 import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
-import {
-	type AdvisoryOutcome,
-	type AgentUsage,
-	BatchOutcome,
-	type LightsoutConfig,
-	type RefactorBatch,
-	type StandardsFinding,
-	WorkReportStatus,
-} from '@/contracts';
+import { type AdvisoryOutcome, type AgentUsage, BatchOutcome, type LightsoutConfig, type RefactorBatch, type StandardsFinding } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { runBatchGates } from '@/pipeline';
 import { buildBatchFixInvocation } from '@/refactor/buildBatchFixInvocation';
 import { buildBatchReport } from '@/refactor/buildBatchReport';
 import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
+import { BatchStopKind } from '@/refactor/common/constants/BatchStopKind';
 import type { BatchStop } from '@/refactor/common/types/BatchStop';
+import { getAttemptStop } from '@/refactor/getAttemptStop';
 import { invokeBatchAgent } from '@/refactor/invokeBatchAgent';
 import { matchRemainingFindings } from '@/refactor/matchRemainingFindings';
 import { settleBatchGates } from '@/refactor/settleBatchGates';
@@ -105,6 +99,13 @@ export const runBatch = async ({
 	const reportOf = ({ outcome, remainingSiteKeys }: { outcome: BatchOutcome; remainingSiteKeys: string[] }) =>
 		buildBatchReport({ outcome, remainingSiteKeys, rationale, advisoryOutcomes: [...advisoryOutcomes.values()] });
 
+	/** Every classified end of the batch goes through here, so no branch can report an outcome without the files it changed. */
+	const finish = async ({ outcome, remainingSiteKeys }: { outcome: BatchOutcome; remainingSiteKeys: string[] }): Promise<BatchStop> => ({
+		kind: BatchStopKind.Done,
+		report: reportOf({ outcome, remainingSiteKeys }),
+		changedFiles: await collectBatchChanges({ cwd, config, reportedFiles, attributedFiles }),
+	});
+
 	// Coverage stays on: a refactor must not drop coverage.
 	const gates = () => runBatchGates({ cwd, config, coverage: true, runId, step: batch.id, onProgress });
 
@@ -116,8 +117,6 @@ export const runBatch = async ({
 		return matchRemainingFindings({ frozen, live: findings });
 	};
 
-	const batchChangedFiles = () => collectBatchChanges({ cwd, config, reportedFiles, attributedFiles });
-
 	// One live check up front serves two purposes: the staleness check (earlier
 	// batches may have already eliminated these sites — no agent spent) and
 	// FRESH advisories (frozen worklist advisories cite pre-run line numbers;
@@ -127,7 +126,7 @@ export const runBatch = async ({
 	if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
 		onProgress(`${batch.id}: sites already resolved by earlier work — no agent spent`);
 
-		return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
+		return { kind: BatchStopKind.Done, report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
 	}
 
 	const advisories = await collectBatchAdvisories({
@@ -145,13 +144,14 @@ export const runBatch = async ({
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever sites survived a pass that DID change the tree (a partial).
 	let workFindings: StandardsFinding[] = batch.blocking;
+	let stop: BatchStop | undefined;
 
 	for (let pass = 1; pass <= 2; pass += 1) {
 		const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file) => file.path)))];
 
 		const buildFixInvocation = ({ gateError, guidance }: { gateError: string; guidance?: string }) =>
 			buildBatchFixInvocation({ planContent: standaloneBanner, files, standards, testStandards, findings: workFindings, advisories, gateError, guidance });
-		const attemptOutcome = await invoke({
+		const attempt = await invoke({
 			label: pass === 1 ? '' : 'requeue',
 			invocation: buildRefactorExecutorInvocation({
 				planContent: standaloneBanner,
@@ -162,45 +162,14 @@ export const runBatch = async ({
 				reportAdvisoryOutcomes: true,
 			}),
 		});
+		// Read before the pass is classified: past the classification the report
+		// is known complete, but only the union's `ok` arm carries it.
+		const changedNothing = attempt.ok && attempt.report.changedFiles.length === 0;
 
-		if (!attemptOutcome.ok) {
-			if (attemptOutcome.rateLimited) {
-				return { kind: 'parked' };
-			}
+		stop = await getAttemptStop({ batchId: batch.id, attempt, workFindings, rationale, onProgress, remainingSiteKeys, gates, finish });
 
-			const { failure } = attemptOutcome;
-
-			// Salvage check (live lesson: a laptop-sleep-killed agent had finished
-			// its edits but never reported): if the sites are verifiably gone
-			// AND gates are green, the work is done — classify it, don't discard it.
-			if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !(await gates())) {
-				rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
-				onProgress(`${batch.id}: invocation failed but work verified on disk — salvaged as resolved`);
-
-				return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
-			}
-
-			return { kind: 'failed', error: `${batch.id}: ${failure}` };
-		}
-
-		const { report } = attemptOutcome;
-
-		if (report.status === WorkReportStatus.TerminatedScope) {
-			// A scope refusal is judgment, not failure — record it as a decline
-			// and let the run continue; the human reviews it with the report.
-			rationale.push(...report.failures.map((entry) => `[scope] ${entry}`));
-
-			return {
-				kind: 'done',
-				report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }) }),
-				changedFiles: await batchChangedFiles(),
-			};
-		}
-
-		if (report.status !== WorkReportStatus.Complete) {
-			const kind = report.status === WorkReportStatus.Failed ? ('failed' as const) : ('escalated' as const);
-
-			return { kind, error: `${batch.id}: ${report.status} — ${report.failures.join('; ')}` };
+		if (stop) {
+			break;
 		}
 
 		// Verify — cheap mechanical retries with gate-kind routing, then the
@@ -220,33 +189,33 @@ export const runBatch = async ({
 		});
 
 		if (settled.kind === 'parked') {
-			return { kind: 'parked' };
+			stop = { kind: BatchStopKind.Parked };
+			break;
 		}
 
 		if (settled.kind === 'escalated') {
-			return { kind: 'escalated', error: settled.error };
+			stop = { kind: BatchStopKind.Escalated, error: settled.error };
+			break;
 		}
 
 		const remaining = await remainingSiteKeys({ frozen: workFindings });
 
 		if (remaining.length === 0) {
-			return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
+			stop = await finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
+			break;
 		}
 
-		if (report.changedFiles.length === 0 || pass === 2) {
+		if (changedNothing || pass === 2) {
 			// Nothing changed (a judged decline) or the requeue is spent — record
 			// honestly and move on; a decline never fails the run by itself.
-			return {
-				kind: 'done',
-				report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining }),
-				changedFiles: await batchChangedFiles(),
-			};
+			stop = await finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining });
+			break;
 		}
 
 		onProgress(`${batch.id}: ${remaining.length} site(s) persist after a changing pass — one requeue`);
 		workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
 	}
 
-	// Unreachable: the pass-2 branch above always returns.
-	return { kind: 'failed', error: `${batch.id}: batch loop exited without a terminal condition` };
+	// The fallback is unreachable: a pass-2 iteration always sets a stop.
+	return stop ?? { kind: BatchStopKind.Failed, error: `${batch.id}: batch loop exited without a terminal condition` };
 };

@@ -3,8 +3,12 @@ import type { PackageGates } from '@/contracts';
 /** The kebab keys the scoped block fixes; anything else that made it through the schema is a custom `test-*` suite. */
 const fixedKeys = new Set(['check', 'test', 'test-coverage', 'build']);
 
+interface Params {
+	packageGates: PackageGates;
+}
+
 /** The scoped `packageGates` block, read into the engine's own spelling. */
-export interface ResolvedPackageGates {
+interface ResolvedPackageGates {
 	check: string;
 	test: string;
 	testCoverage?: string;
@@ -18,7 +22,7 @@ export interface ResolvedPackageGates {
  * config's own kebab spelling (so manifests round-trip); this is the one
  * place that spelling is translated for the engine.
  */
-export const resolvePackageGatesConfig = ({ packageGates }: { packageGates: PackageGates }): ResolvedPackageGates => ({
+export const resolvePackageGatesConfig = ({ packageGates }: Params): ResolvedPackageGates => ({
 	check: packageGates.check,
 	test: packageGates.test,
 	...(packageGates['test-coverage'] === undefined ? {} : { testCoverage: packageGates['test-coverage'] }),

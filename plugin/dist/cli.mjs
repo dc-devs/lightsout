@@ -42300,6 +42300,48 @@ var batchFindings = ({ blocking, advisories, packagesDir }) => {
   return batches;
 };
 
+// src/refactor/common/constants/BatchStopKind.ts
+var BatchStopKind = {
+  Parked: "parked",
+  Failed: "failed",
+  Escalated: "escalated",
+  Done: "done"
+};
+
+// src/refactor/getAttemptStop.ts
+var getAttemptStop = async ({
+  batchId,
+  attempt,
+  workFindings,
+  rationale,
+  onProgress,
+  remainingSiteKeys,
+  gates: gates2,
+  finish
+}) => {
+  let stop;
+  if (!attempt.ok) {
+    if (attempt.rateLimited) {
+      stop = { kind: BatchStopKind.Parked };
+    } else if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates2()) {
+      rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but the sites are resolved and gates are green`);
+      onProgress(`${batchId}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
+      stop = await finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
+    } else {
+      stop = { kind: BatchStopKind.Failed, error: `${batchId}: ${attempt.failure}` };
+    }
+  } else if (attempt.report.status === WorkReportStatus.TerminatedScope) {
+    rationale.push(...attempt.report.failures.map((entry) => `[scope] ${entry}`));
+    stop = await finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }) });
+  } else if (attempt.report.status !== WorkReportStatus.Complete) {
+    stop = {
+      kind: attempt.report.status === WorkReportStatus.Failed ? BatchStopKind.Failed : BatchStopKind.Escalated,
+      error: `${batchId}: ${attempt.report.status} \u2014 ${attempt.report.failures.join("; ")}`
+    };
+  }
+  return stop;
+};
+
 // src/refactor/matchRemainingFindings.ts
 var matchRemainingFindings = ({ frozen, live: live2 }) => {
   const liveSiteKeys = new Set(live2.map((finding) => finding.siteKey));
@@ -42631,17 +42673,21 @@ var runBatch = async ({
     });
   };
   const reportOf = ({ outcome, remainingSiteKeys: remainingSiteKeys2 }) => buildBatchReport({ outcome, remainingSiteKeys: remainingSiteKeys2, rationale, advisoryOutcomes: [...advisoryOutcomes.values()] });
+  const finish = async ({ outcome, remainingSiteKeys: remainingSiteKeys2 }) => ({
+    kind: BatchStopKind.Done,
+    report: reportOf({ outcome, remainingSiteKeys: remainingSiteKeys2 }),
+    changedFiles: await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })
+  });
   const gates2 = () => runBatchGates({ cwd, config: config2, coverage: true, runId, step: batch.id, onProgress });
   const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
   const remainingSiteKeys = async ({ frozen }) => {
     const { findings } = await checkLive();
     return matchRemainingFindings({ frozen, live: findings });
   };
-  const batchChangedFiles = () => collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles });
   const preCheck = await checkLive();
   if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
     onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
-    return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
+    return { kind: BatchStopKind.Done, report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
   }
   const advisories = await collectBatchAdvisories({
     cwd,
@@ -42655,10 +42701,11 @@ var runBatch = async ({
     onProgress
   });
   let workFindings = batch.blocking;
+  let stop;
   for (let pass = 1; pass <= 2; pass += 1) {
     const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
     const buildFixInvocation = ({ gateError, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner2, files, standards, testStandards, findings: workFindings, advisories, gateError, guidance });
-    const attemptOutcome = await invoke({
+    const attempt = await invoke({
       label: pass === 1 ? "" : "requeue",
       invocation: buildRefactorExecutorInvocation({
         planContent: standaloneBanner2,
@@ -42669,30 +42716,10 @@ var runBatch = async ({
         reportAdvisoryOutcomes: true
       })
     });
-    if (!attemptOutcome.ok) {
-      if (attemptOutcome.rateLimited) {
-        return { kind: "parked" };
-      }
-      const { failure } = attemptOutcome;
-      if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates2()) {
-        rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
-        onProgress(`${batch.id}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
-        return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
-      }
-      return { kind: "failed", error: `${batch.id}: ${failure}` };
-    }
-    const { report } = attemptOutcome;
-    if (report.status === WorkReportStatus.TerminatedScope) {
-      rationale.push(...report.failures.map((entry) => `[scope] ${entry}`));
-      return {
-        kind: "done",
-        report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }) }),
-        changedFiles: await batchChangedFiles()
-      };
-    }
-    if (report.status !== WorkReportStatus.Complete) {
-      const kind = report.status === WorkReportStatus.Failed ? "failed" : "escalated";
-      return { kind, error: `${batch.id}: ${report.status} \u2014 ${report.failures.join("; ")}` };
+    const changedNothing = attempt.ok && attempt.report.changedFiles.length === 0;
+    stop = await getAttemptStop({ batchId: batch.id, attempt, workFindings, rationale, onProgress, remainingSiteKeys, gates: gates2, finish });
+    if (stop) {
+      break;
     }
     const settled2 = await settleBatchGates({
       cwd,
@@ -42708,26 +42735,26 @@ var runBatch = async ({
       gates: gates2
     });
     if (settled2.kind === "parked") {
-      return { kind: "parked" };
+      stop = { kind: BatchStopKind.Parked };
+      break;
     }
     if (settled2.kind === "escalated") {
-      return { kind: "escalated", error: settled2.error };
+      stop = { kind: BatchStopKind.Escalated, error: settled2.error };
+      break;
     }
     const remaining = await remainingSiteKeys({ frozen: workFindings });
     if (remaining.length === 0) {
-      return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
+      stop = await finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
+      break;
     }
-    if (report.changedFiles.length === 0 || pass === 2) {
-      return {
-        kind: "done",
-        report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining }),
-        changedFiles: await batchChangedFiles()
-      };
+    if (changedNothing || pass === 2) {
+      stop = await finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining });
+      break;
     }
     onProgress(`${batch.id}: ${remaining.length} site(s) persist after a changing pass \u2014 one requeue`);
     workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
   }
-  return { kind: "failed", error: `${batch.id}: batch loop exited without a terminal condition` };
+  return stop ?? { kind: BatchStopKind.Failed, error: `${batch.id}: batch loop exited without a terminal condition` };
 };
 
 // src/refactor/seedResumeState.ts

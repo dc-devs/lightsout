@@ -3,8 +3,12 @@ import type { ConfigGates } from '@/contracts';
 /** The kebab keys every gates block fixes; anything else that made it through the schema is a custom `test-*` suite. */
 const fixedKeys = new Set(['check', 'test', 'test-coverage', 'generate', 'build', 'format']);
 
+interface Params {
+	gates: ConfigGates;
+}
+
 /** The root gates block, read into the engine's own spelling. */
-export interface ResolvedGates {
+interface ResolvedGates {
 	check: string;
 	test: string;
 	/** `false` is the explicit coverage opt-out the config contract requires. */
@@ -21,7 +25,7 @@ export interface ResolvedGates {
  * own kebab spelling (so manifests round-trip); this is the one place that
  * spelling is translated for the engine, custom `test-*` suites included.
  */
-export const resolveGates = ({ gates }: { gates: ConfigGates }): ResolvedGates => ({
+export const resolveGates = ({ gates }: Params): ResolvedGates => ({
 	check: gates.check,
 	test: gates.test,
 	testCoverage: gates['test-coverage'],
