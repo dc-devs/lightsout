@@ -23,6 +23,9 @@
 		"format": "pnpm format",
 		"build": "pnpm bundle"
 	},
+	"standardsChecks": {
+		"path-test-untested-subject-not-public": "blocking"
+	},
 	"agentCommands": ["pnpm", "python3", "rsvg-convert"],
 	"generated": ["plugin/dist/", "plugin/standards/"]
 }
