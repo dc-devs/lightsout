@@ -4,6 +4,7 @@ import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
 import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
 import type { LightsoutConfig } from '@/contracts';
@@ -19,9 +20,7 @@ interface Params {
 }
 
 export const planGradeCommand = async ({ cwd, driver, name, standards, config }: Params): Promise<void> => {
-	const result = await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config }));
-
-	exitOnPlanFailure(result);
+	const result = await exitOnPlanFailure(await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config })));
 
 	const { grade } = result;
 
@@ -38,5 +37,5 @@ export const planGradeCommand = async ({ cwd, driver, name, standards, config }:
 	}
 
 	console.log(`\ngrade: ${result.gradePath}`);
-	process.exit(0);
+	return exitCli({ code: 0 });
 };

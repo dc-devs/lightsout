@@ -1,5 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { PhaseReport, type RunLock, type RunManifest, RunStatus } from '@/contracts';
 import { getRunsDir, isPidAlive, readRunLock, readRunManifest } from '@/runState';
 
@@ -36,7 +37,7 @@ export const statusCommand = async ({ cwd }: CommandContext): Promise<void> => {
 
 	if (runIds.length === 0) {
 		console.log('no runs found');
-		process.exit(0);
+		return exitCli({ code: 0 });
 	}
 
 	const lock = await readRunLock({ cwd });
@@ -56,5 +57,5 @@ export const statusCommand = async ({ cwd }: CommandContext): Promise<void> => {
 		}
 	}
 
-	process.exit(0);
+	return exitCli({ code: 0 });
 };

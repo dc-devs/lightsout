@@ -6,7 +6,7 @@ import { parseFlags } from '@/cli/common/args/parseFlags';
 // halves of that response: the usage text on stderr and the exit itself. The
 // real process.exit never returns — a mock that returned would let
 // getRequiredFlag fall through and hand back the value it promised never to.
-// `t.mock.method` restores both originals when the test ends.
+// `jest.spyOn` restores both originals when the test ends.
 const setupRequiredFlag = ({ args }: { args: string[] }) => {
 	const errors: string[] = [];
 	const exitCodes: (number | string | null | undefined)[] = [];
@@ -24,20 +24,20 @@ const setupRequiredFlag = ({ args }: { args: string[] }) => {
 	return { flags: parseFlags({ args }), errors, exitCodes };
 };
 
-test('getRequiredFlag: returns the value and stays quiet when the flag carries one', () => {
+test('getRequiredFlag: returns the value and stays quiet when the flag carries one', async () => {
 	const { flags, errors, exitCodes } = setupRequiredFlag({ args: ['--plan', 'plans/feature.md', '--cwd', '/repo'] });
 
-	const value = getRequiredFlag({ flags, name: 'plan' });
+	const value = await getRequiredFlag({ flags, name: 'plan' });
 
 	expect(value).toBe('plans/feature.md');
 	expect(errors).toStrictEqual([]);
 	expect(exitCodes).toStrictEqual([]);
 });
 
-test('getRequiredFlag: an absent flag prints the usage text on stderr and exits 1 instead of returning', () => {
+test('getRequiredFlag: an absent flag prints the usage text on stderr and exits 1 instead of resolving', async () => {
 	const { flags, errors, exitCodes } = setupRequiredFlag({ args: ['--cwd', '/repo'] });
 
-	expect(() => getRequiredFlag({ flags, name: 'plan' })).toThrow(/process\.exit/);
+	await expect(getRequiredFlag({ flags, name: 'plan' })).rejects.toThrow(/process\.exit/);
 
 	expect(exitCodes).toStrictEqual([1]);
 	expect(errors.length).toBe(1);
@@ -45,19 +45,19 @@ test('getRequiredFlag: an absent flag prints the usage text on stderr and exits 
 	expect(errors[0] ?? '').toMatch(/lightsout implement --plan <path>/);
 });
 
-test('getRequiredFlag: a flag given with no value is boolean, not a value — it fails the same way', () => {
+test('getRequiredFlag: a flag given with no value is boolean, not a value — it fails the same way', async () => {
 	const { flags, errors, exitCodes } = setupRequiredFlag({ args: ['--plan', '--cwd', '/repo'] });
 
-	expect(() => getRequiredFlag({ flags, name: 'plan' })).toThrow(/process\.exit/);
+	await expect(getRequiredFlag({ flags, name: 'plan' })).rejects.toThrow(/process\.exit/);
 
 	expect(exitCodes).toStrictEqual([1]);
 	expect(errors.length).toBe(1);
 });
 
-test('getRequiredFlag: an empty string is a present-but-empty flag and is rejected too', () => {
+test('getRequiredFlag: an empty string is a present-but-empty flag and is rejected too', async () => {
 	const { flags, exitCodes } = setupRequiredFlag({ args: ['--plan', '', '--cwd', '/repo'] });
 
-	expect(() => getRequiredFlag({ flags, name: 'plan' })).toThrow(/process\.exit/);
+	await expect(getRequiredFlag({ flags, name: 'plan' })).rejects.toThrow(/process\.exit/);
 
 	expect(exitCodes).toStrictEqual([1]);
 });

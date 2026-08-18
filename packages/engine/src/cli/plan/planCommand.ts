@@ -2,6 +2,7 @@ import { getPositionals } from '@/cli/common/args/getPositionals';
 import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
 import { usage } from '@/cli/common/constants/usage';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
 import { loadPlanningStandards } from '@/cli/plan/loadPlanningStandards';
 import { planDedupCommand } from '@/cli/plan/planDedupCommand';
@@ -26,7 +27,7 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 	}
 
 	if (subcommand === 'draft' || subcommand === 'dedup' || subcommand === 'grade') {
-		const name = getRequiredFlag({ flags, name: 'name' });
+		const name = await getRequiredFlag({ flags, name: 'name' });
 		const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'plan' });
 		const standards = await loadPlanningStandards({ cwd, config });
 
@@ -45,5 +46,5 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 	}
 
 	console.error(usage);
-	process.exit(1);
+	return exitCli({ code: 1 });
 };

@@ -2,6 +2,7 @@ import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { yellow } from '@/cli/common/terminal/yellow';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
 import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
 import type { LightsoutConfig } from '@/contracts';
@@ -17,9 +18,7 @@ interface Params {
 }
 
 export const planDedupCommand = async ({ cwd, driver, name, standards, config }: Params): Promise<void> => {
-	const result = await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config }));
-
-	exitOnPlanFailure(result);
+	const result = await exitOnPlanFailure(await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config })));
 
 	const { dedup } = result;
 	const count = dedup.findings.length;
@@ -36,5 +35,5 @@ export const planDedupCommand = async ({ cwd, driver, name, standards, config }:
 	}
 
 	console.log(`\ndedup: ${result.dedupPath}`);
-	process.exit(0);
+	return exitCli({ code: 0 });
 };

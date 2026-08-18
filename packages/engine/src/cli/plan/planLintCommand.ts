@@ -5,15 +5,16 @@ import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { runPlanLint } from '@/plan';
 
 export const planLintCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	const name = getRequiredFlag({ flags, name: 'name' });
+	const name = await getRequiredFlag({ flags, name: 'name' });
 	const result = await runPlanLint({ cwd, name, onProgress: createProgressPrinter() });
 
 	if (result.status === 'failed') {
 		console.error(`\n${result.error}`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const { findings, planPaths } = result;
@@ -28,5 +29,5 @@ export const planLintCommand = async ({ flags, cwd }: CommandContext): Promise<v
 
 	// Findings print either way; the exit code is the signal the writer's
 	// self-lint loop and humans both read.
-	process.exit(findings.length > 0 ? 1 : 0);
+	return exitCli({ code: findings.length > 0 ? 1 : 0 });
 };

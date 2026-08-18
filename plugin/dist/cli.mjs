@@ -8028,6 +8028,12 @@ var red = paint({ code: "31" });
 // src/cli/common/terminal/yellow.ts
 var yellow = paint({ code: "33" });
 
+// src/cli/common/utils/exitCli.ts
+var exitCli = async ({ code }) => {
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve8) => stream.write("", () => resolve8()))));
+  return process.exit(code);
+};
+
 // src/doctor/checkCoverageSummary.ts
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -23975,7 +23981,7 @@ var doctorCommand = async ({ cwd }) => {
   const tally = Object.entries(counts).filter(([, count2]) => count2 > 0).map(([status, count2]) => `${count2} ${status}`).join(" \xB7 ");
   console.log(`
 ${checks.length} check(s) \xB7 ${tally}`);
-  process.exit(counts.fail > 0 ? 1 : 0);
+  return exitCli({ code: counts.fail > 0 ? 1 : 0 });
 };
 
 // src/runState/acquireRunLock.ts
@@ -24318,12 +24324,12 @@ var frictionCommand = async ({ cwd }) => {
   const entries = await readFriction({ cwd });
   if (entries.length === 0) {
     console.log("no friction recorded");
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   for (const entry of entries) {
     console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
   }
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printResult.ts
@@ -40629,7 +40635,7 @@ var runPhasesOrFailFast = async (params) => {
   } catch (error51) {
     console.error(`
 ${error51 instanceof RunLockError ? error51.message : messageOf({ error: error51 })}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
 };
 
@@ -40641,7 +40647,7 @@ var runPipelineOrFailFast = async (params) => {
     if (error51 instanceof RunLockError) {
       console.error(`
 ${error51.message}`);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     throw error51;
   }
@@ -40855,30 +40861,30 @@ var implementCommand = async ({ flags, cwd }) => {
   const packages = packagesFlag ? packagesFlag.split(",").map((name) => name.trim()).filter(Boolean) : void 0;
   if (!planPath) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const startPhase = startPhaseFlag === void 0 ? void 0 : Number.parseInt(startPhaseFlag, 10);
   if (startPhase !== void 0 && (!Number.isFinite(startPhase) || startPhase < 1)) {
     console.error(`--start-phase must be a positive integer, got '${startPhaseFlag}'`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const target = await resolvePlanTarget({ cwd, planPath });
   if ("error" in target) {
     console.error(target.error);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const phased = "overviewPath" in target;
   if (phased && overviewPath !== void 0) {
     console.error("--overview applies to a single-plan run \u2014 a plan folder with an overview.md already runs every phase");
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (phased && packages !== void 0) {
     console.error("--packages applies to a single-plan run \u2014 every phase of a plan folder reads its own scope");
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (!phased && startPhase !== void 0) {
     console.error("--start-phase applies to a plan folder holding an overview.md \u2014 a single plan has one phase");
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const loaded = await loadConfig({ cwd });
   const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: "implement" });
@@ -40903,7 +40909,7 @@ var implementCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
@@ -40952,17 +40958,17 @@ var improveCommand = async ({ flags, cwd }) => {
   const engineCwd = getStringFlag({ flags, name: "engine" });
   if (!engineCwd) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { config: config2, driver } = await resolveConfigAndDriver({ cwd, command: "improve" });
   const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config2?.model, effort: config2?.effort });
   if (result.status === "no-friction") {
     console.log("no friction recorded \u2014 nothing to improve from");
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   if (!result.outcome.ok) {
     console.error(result.outcome.failure);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { report } = result.outcome;
   console.log(`
@@ -40975,7 +40981,7 @@ improve: ${report.status} (${result.friction.length} friction entries considered
     console.log(`
 review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
   }
-  process.exit(report.status === "complete" ? 0 : 1);
+  return exitCli({ code: report.status === "complete" ? 0 : 1 });
 };
 
 // src/cli/loadStandardsLedger.ts
@@ -41020,22 +41026,23 @@ var getPositionals = ({ args }) => {
 };
 
 // src/cli/common/args/getRequiredFlag.ts
-var getRequiredFlag = ({ flags, name }) => {
+var getRequiredFlag = async ({ flags, name }) => {
   const value = getStringFlag({ flags, name });
   if (!value) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   return value;
 };
 
 // src/cli/plan/common/utils/exitOnPlanFailure.ts
-var exitOnPlanFailure = (result) => {
+var exitOnPlanFailure = async (result) => {
   if (result.status === "paused-rate-limit" || result.status === "failed") {
     console.error(`
 ${result.error}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
+  return result;
 };
 
 // src/cli/plan/common/utils/planRunOptions.ts
@@ -42009,8 +42016,7 @@ var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
 
 // src/cli/plan/planDedupCommand.ts
 var planDedupCommand = async ({ cwd, driver, name, standards, config: config2 }) => {
-  const result = await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config: config2 }));
-  exitOnPlanFailure(result);
+  const result = await exitOnPlanFailure(await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config: config2 })));
   const { dedup } = result;
   const count2 = dedup.findings.length;
   console.log(
@@ -42025,22 +42031,21 @@ ${bold(`plan dedup ${name}`)} \u2014 ${count2 > 0 ? yellow(`${count2} duplicatio
   }
   console.log(`
 dedup: ${result.dedupPath}`);
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/plan/planDraftCommand.ts
 var planDraftCommand = async ({ cwd, driver, name, standards, config: config2, flags }) => {
   const scopeFlag = getStringFlag({ flags, name: "scope" });
   const scope = scopeFlag === "phased" ? PlanVariant.Overview : scopeFlag === "single" ? PlanVariant.Single : void 0;
-  const result = await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config: config2 }), scope });
-  exitOnPlanFailure(result);
+  const result = await exitOnPlanFailure(await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config: config2 }), scope }));
   if (result.status === "facts-error") {
     console.error(`
 ${red("facts error")} \u2014 the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
     for (const discrepancy of result.discrepancies) {
       console.error(`  ${yellow("\u26A0")} ${discrepancy}`);
     }
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (result.status === "structural-issues") {
     console.error(`
@@ -42049,14 +42054,14 @@ ${red(`${result.findings.length} structural issue(s)`)} remain after re-drafting
       console.error(`  ${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
       console.error(dim(`     fix: ${finding.fix}`));
     }
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(`
 ${bold(`plan draft ${name}`)} \u2014 ${result.variant}, structurally clean`);
   for (const path of result.planPaths) {
     console.log(`  ${green("\u2713")} ${path}`);
   }
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printStructuralFinding.ts
@@ -42067,8 +42072,7 @@ var printStructuralFinding = ({ finding }) => {
 
 // src/cli/plan/planGradeCommand.ts
 var planGradeCommand = async ({ cwd, driver, name, standards, config: config2 }) => {
-  const result = await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config: config2 }));
-  exitOnPlanFailure(result);
+  const result = await exitOnPlanFailure(await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config: config2 })));
   const { grade } = result;
   console.log(`
 ${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
@@ -42082,17 +42086,17 @@ ${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(g
   }
   console.log(`
 grade: ${result.gradePath}`);
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/plan/planLintCommand.ts
 var planLintCommand = async ({ flags, cwd }) => {
-  const name = getRequiredFlag({ flags, name: "name" });
+  const name = await getRequiredFlag({ flags, name: "name" });
   const result = await runPlanLint({ cwd, name, onProgress: createProgressPrinter() });
   if (result.status === "failed") {
     console.error(`
 ${result.error}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { findings, planPaths } = result;
   console.log(
@@ -42102,7 +42106,7 @@ ${bold(`plan lint ${name}`)} \u2014 ${findings.length === 0 ? green("clean") : r
   for (const finding of findings) {
     printStructuralFinding({ finding });
   }
-  process.exit(findings.length > 0 ? 1 : 0);
+  return exitCli({ code: findings.length > 0 ? 1 : 0 });
 };
 
 // src/cli/plan/planVerifyFactsCommand.ts
@@ -42110,14 +42114,14 @@ var planVerifyFactsCommand = async ({ flags, cwd }) => {
   const name = getStringFlag({ flags, name: "name" });
   if (!name) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const notesFile = getStringFlag({ flags, name: "notes" });
   const result = await runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() });
   if (result.status === "failed" || !result.facts) {
     console.error(`
 ${result.error ?? "plan verify-facts failed"}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { verification } = result.facts;
   console.log(`
@@ -42132,7 +42136,7 @@ ${bold(`plan verify-facts ${name}`)} \u2014 ${result.facts.areas.length} area(s)
   }
   console.log(`
 facts: ${result.factsPath}`);
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/plan/planCommand.ts
@@ -42147,7 +42151,7 @@ var planCommand = async ({ flags, rest, cwd }) => {
     return;
   }
   if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {
-    const name = getRequiredFlag({ flags, name: "name" });
+    const name = await getRequiredFlag({ flags, name: "name" });
     const { config: config2, driver } = await resolveConfigAndDriver({ cwd, command: "plan" });
     const standards = await loadPlanningStandards({ cwd, config: config2 });
     if (subcommand === "draft") {
@@ -42162,7 +42166,7 @@ var planCommand = async ({ flags, rest, cwd }) => {
     return;
   }
   console.error(usage);
-  process.exit(1);
+  return exitCli({ code: 1 });
 };
 
 // src/cli/common/render/printRefactorResult.ts
@@ -42933,14 +42937,14 @@ var refactorCommand = async ({ flags, cwd }) => {
   const maxBatches = maxBatchesFlag === void 0 ? void 0 : Number.parseInt(maxBatchesFlag, 10);
   if (maxBatches !== void 0 && (!Number.isFinite(maxBatches) || maxBatches < 1)) {
     console.error(`--max-batches must be a positive integer, got '${maxBatchesFlag}'`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   let existing;
   try {
     existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : void 0;
   } catch (error51) {
     console.error(messageOf({ error: error51 }));
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(`lightsout: refactor ${existing ? `resuming run ${existing.runId}` : "starting run"}`);
   let result;
@@ -42962,14 +42966,14 @@ var refactorCommand = async ({ flags, cwd }) => {
     if (error51 instanceof RunLockError) {
       console.error(`
 ${error51.message}`);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     console.error(`
 ${messageOf({ error: error51 })}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   printRefactorResult({ result });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/resumeCommand.ts
@@ -42979,12 +42983,12 @@ var resumeCommand = async ({ flags, cwd }) => {
   const runId = getStringFlag({ flags, name: "run" });
   if (!runId) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const manifest = await readRunManifest({ cwd, runId }).catch((error51) => {
     if (error51 instanceof RunNotFoundError) {
       console.error(error51.message);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     throw error51;
   });
@@ -42992,11 +42996,11 @@ var resumeCommand = async ({ flags, cwd }) => {
   const ownCommand = resumeCommandByPipeline[pipeline];
   if (ownCommand) {
     console.error(`run ${manifest.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${ownCommand} --run ${manifest.runId}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (manifest.status === RunStatus.Passed) {
     console.error(`run ${manifest.runId} already passed \u2014 nothing to resume`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const loaded = await loadConfig({ cwd });
   const resolved = resolveCommandHarness({ config: loaded, command: "implement" });
@@ -43018,7 +43022,7 @@ var resumeCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/reviewStandards.ts
@@ -43225,7 +43229,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
   const { config: config2, rules } = await loadStandardsLedger({ cwd });
   if (flags.get("list") === true) {
     printStandardsRuleList({ rules });
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   const codeChecksOnly = flags.get("code-checks") === true;
   const agentReviewOnly = flags.get("agent-review") === true;
@@ -43266,7 +43270,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
     await writeCheckReport({ cwd, path: checkPath, findings: ordered, notes });
   }
   printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? reportPath : void 0 });
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printStandardsHealth.ts
@@ -43333,7 +43337,7 @@ var standardsHealthCommand = async ({ cwd }) => {
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const health = await buildStandardsHealth({ cwd, packages });
   printStandardsHealth({ health });
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/standardsValidateCommand.ts
@@ -43347,8 +43351,7 @@ var standardsValidateCommand = async ({ flags, cwd }) => {
   const requested = getStringFlag({ flags, name: "package" });
   const pkg = await loadRequestedPackage({ requested, cwd }).catch((error51) => {
     console.error(messageOf({ error: error51 }));
-    process.exit(1);
-    throw error51;
+    return exitCli({ code: 1 });
   });
   const { problems, notes } = await validateStandardsPackage({ pkg });
   for (const note of notes) {
@@ -43362,10 +43365,10 @@ var standardsValidateCommand = async ({ flags, cwd }) => {
   console.log("");
   if (problems.length > 0) {
     console.log(`${pkg.name} \u2014 ${problems.length} problem(s) across ${checked} checked rule(s)`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(green(`${pkg.name} \u2014 ${checked} checked rule(s) validated, ${judgment} judgment-only rule(s)`));
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/statusCommand.ts
@@ -43388,7 +43391,7 @@ var statusCommand = async ({ cwd }) => {
   const runIds = await readdir16(getRunsDir({ cwd })).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   const lock = await readRunLock({ cwd });
   for (const runId of runIds) {
@@ -43400,7 +43403,7 @@ var statusCommand = async ({ cwd }) => {
       console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}${phases}  updated: ${manifest.updatedAt}`);
     }
   }
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printCoverageResult.ts
@@ -43460,14 +43463,14 @@ var testCoverageToThresholdCommand = async ({ flags, cwd }) => {
   const maxBatches = maxBatchesFlag === void 0 ? void 0 : Number.parseInt(maxBatchesFlag, 10);
   if (maxBatches !== void 0 && (!Number.isFinite(maxBatches) || maxBatches < 1)) {
     console.error(`--max-batches must be a positive integer, got '${maxBatchesFlag}'`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   let existing;
   try {
     existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : void 0;
   } catch (error51) {
     console.error(messageOf({ error: error51 }));
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(`lightsout: test-coverage-to-threshold ${existing ? `resuming run ${existing.runId}` : "starting run"}`);
   let result;
@@ -43477,14 +43480,14 @@ var testCoverageToThresholdCommand = async ({ flags, cwd }) => {
     if (error51 instanceof RunLockError) {
       console.error(`
 ${error51.message}`);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     console.error(`
 ${messageOf({ error: error51 })}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   printCoverageResult({ result });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/voice/common/utils/getStreamText.ts
@@ -43766,7 +43769,7 @@ var voiceCommand = async ({ rest, cwd }) => {
     return;
   }
   console.error(usage);
-  process.exit(1);
+  return exitCli({ code: 1 });
 };
 
 // src/main.ts
@@ -43795,6 +43798,6 @@ var main = async () => {
     return;
   }
   console.error(usage);
-  process.exit(command === void 0 || command === "help" ? 0 : 1);
+  return exitCli({ code: command === void 0 || command === "help" ? 0 : 1 });
 };
 await main();

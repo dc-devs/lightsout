@@ -1,6 +1,7 @@
 import { getPositionals } from '@/cli/common/args/getPositionals';
 import { usage } from '@/cli/common/constants/usage';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { getStreamText } from '@/cli/voice/common/utils/getStreamText';
 import { voiceHookCommand } from '@/cli/voice/voiceHookCommand';
 import { voiceOffCommand } from '@/cli/voice/voiceOffCommand';
@@ -29,5 +30,5 @@ export const voiceCommand = async ({ rest, cwd }: CommandContext): Promise<void>
 	}
 
 	console.error(usage);
-	process.exit(1);
+	return exitCli({ code: 1 });
 };

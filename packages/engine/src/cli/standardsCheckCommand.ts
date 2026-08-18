@@ -6,6 +6,7 @@ import { printStandardsRuleList } from '@/cli/common/render/printStandardsRuleLi
 import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
 import { dim } from '@/cli/common/terminal/dim';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { loadStandardsLedger } from '@/cli/loadStandardsLedger';
 import { reviewStandards } from '@/cli/reviewStandards';
 import { type StandardsFinding, StandardsSeverity } from '@/contracts';
@@ -31,7 +32,7 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 	// --list answers "what does this repo enforce?" and runs nothing.
 	if (flags.get('list') === true) {
 		printStandardsRuleList({ rules });
-		process.exit(0);
+		return exitCli({ code: 0 });
 	}
 
 	// Neither flag names a half, so both run: this is a standards check, and both
@@ -94,5 +95,5 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 	}
 
 	printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? reportPath : undefined });
-	process.exit(0);
+	return exitCli({ code: 0 });
 };

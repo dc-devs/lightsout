@@ -1,3 +1,4 @@
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { messageOf } from '@/common/utils/messageOf';
 import { runPhasesPipeline } from '@/phases';
 import type { PipelineResult } from '@/pipeline';
@@ -18,6 +19,6 @@ export const runPhasesOrFailFast = async (params: Parameters<typeof runPhasesPip
 		return await runPhasesPipeline(params);
 	} catch (error) {
 		console.error(`\n${error instanceof RunLockError ? error.message : messageOf({ error })}`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 };

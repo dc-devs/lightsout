@@ -1,6 +1,7 @@
 import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { usage } from '@/cli/common/constants/usage';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
 import { runPromptImprovement } from '@/runPromptImprovement';
 
@@ -9,7 +10,7 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 
 	if (!engineCwd) {
 		console.error(usage);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
@@ -17,12 +18,12 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 
 	if (result.status === 'no-friction') {
 		console.log('no friction recorded — nothing to improve from');
-		process.exit(0);
+		return exitCli({ code: 0 });
 	}
 
 	if (!result.outcome.ok) {
 		console.error(result.outcome.failure);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const { report } = result.outcome;
@@ -38,5 +39,5 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 		console.log(`\nreview the diff in ${engineCwd} — the loop proposes, a human ships.`);
 	}
 
-	process.exit(report.status === 'complete' ? 0 : 1);
+	return exitCli({ code: report.status === 'complete' ? 0 : 1 });
 };

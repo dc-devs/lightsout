@@ -4,6 +4,7 @@ import { bold } from '@/cli/common/terminal/bold';
 import { yellow } from '@/cli/common/terminal/yellow';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { runPlanVerifyFacts } from '@/plan';
 
 export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
@@ -11,7 +12,7 @@ export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Pr
 
 	if (!name) {
 		console.error(usage);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const notesFile = getStringFlag({ flags, name: 'notes' });
@@ -19,7 +20,7 @@ export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Pr
 
 	if (result.status === 'failed' || !result.facts) {
 		console.error(`\n${result.error ?? 'plan verify-facts failed'}`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const { verification } = result.facts;
@@ -37,5 +38,5 @@ export const planVerifyFactsCommand = async ({ flags, cwd }: CommandContext): Pr
 	}
 
 	console.log(`\nfacts: ${result.factsPath}`);
-	process.exit(0);
+	return exitCli({ code: 0 });
 };

@@ -4,6 +4,7 @@ import { dim } from '@/cli/common/terminal/dim';
 import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { messageOf } from '@/common/utils/messageOf';
 import { validateStandardsPackage } from '@/standardsCheck';
 import { loadStandardsPackage, resolveDefaultStandardsPackage } from '@/standardsPackages';
@@ -31,10 +32,7 @@ export const standardsValidateCommand = async ({ flags, cwd }: CommandContext): 
 	const requested = getStringFlag({ flags, name: 'package' });
 	const pkg = await loadRequestedPackage({ requested, cwd }).catch((error: unknown) => {
 		console.error(messageOf({ error }));
-		process.exit(1);
-
-		// process.exit never returns; the throw is what says so to the compiler.
-		throw error;
+		return exitCli({ code: 1 });
 	});
 	const { problems, notes } = await validateStandardsPackage({ pkg });
 
@@ -53,9 +51,9 @@ export const standardsValidateCommand = async ({ flags, cwd }: CommandContext): 
 
 	if (problems.length > 0) {
 		console.log(`${pkg.name} — ${problems.length} problem(s) across ${checked} checked rule(s)`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	console.log(green(`${pkg.name} — ${checked} checked rule(s) validated, ${judgment} judgment-only rule(s)`));
-	process.exit(0);
+	return exitCli({ code: 0 });
 };
