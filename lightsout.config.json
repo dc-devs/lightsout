@@ -3,7 +3,6 @@
 	"model": "claude-opus-5",
 	"effort": "high",
 	"permissions": "full-access",
-
 	"commands": {
 		"plan": {
 			"harness": "claude-code",
@@ -18,8 +17,9 @@
 	},
 	"gates": {
 		"check": "pnpm check",
-		"test": "pnpm test",
-		"testCoverage": "pnpm test:unit:coverage",
+		"test": "pnpm test:unit",
+		"test-coverage": "pnpm test:unit:coverage",
+		"test-e2e": "pnpm test:e2e",
 		"format": "pnpm format",
 		"build": "pnpm bundle"
 	},

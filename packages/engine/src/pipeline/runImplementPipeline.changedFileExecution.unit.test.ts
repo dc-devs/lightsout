@@ -54,7 +54,7 @@ interface SetupParams {
  * compiler the check stands down entirely.
  */
 const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const feature = () => 1;\n' }, statements, onFix }: SetupParams) => {
-	const dir = setupConsumerRepo({ scripts: { testCoverage: 'true' } });
+	const dir = setupConsumerRepo({ scripts: { 'test-coverage': 'true' } });
 
 	linkTypescript({ dir });
 	writeCoverageSummary({ dir, statements });

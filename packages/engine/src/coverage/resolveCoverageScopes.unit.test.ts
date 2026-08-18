@@ -47,13 +47,13 @@ const setupCustomPackagesDir = () => {
 };
 
 const scopedConfig = ({ testCoverage, packagesDir }: { testCoverage: string; packagesDir?: string }): LightsoutConfig => ({
-	gates: { check: 'true', test: 'true', testCoverage: false },
+	gates: { check: 'true', test: 'true', 'test-coverage': false },
 	...(packagesDir === undefined ? {} : { packagesDir }),
-	packageGates: { check: 'true {package}', test: 'true {package}', testCoverage },
+	packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': testCoverage },
 });
 
 test('resolveCoverageScopes: root mode yields the single root scope for a string command, and nothing for an opted-out gate', async () => {
-	const configured: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: 'npm run coverage' } };
+	const configured: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': 'npm run coverage' } };
 
 	expect(await resolveCoverageScopes({ cwd: '/nowhere', config: configured, summaryPath })).toStrictEqual([
 		{ scope: 'root', command: 'npm run coverage', summaryPath },
@@ -61,7 +61,7 @@ test('resolveCoverageScopes: root mode yields the single root scope for a string
 	// a foreign scope name never matches the root scope
 	expect(await resolveCoverageScopes({ cwd: '/nowhere', config: configured, summaryPath, scope: 'api' })).toStrictEqual([]);
 
-	const optedOut: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+	const optedOut: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 	expect(await resolveCoverageScopes({ cwd: '/nowhere', config: optedOut, summaryPath })).toStrictEqual([]);
 });
@@ -69,8 +69,8 @@ test('resolveCoverageScopes: root mode yields the single root scope for a string
 test('resolveCoverageScopes: monorepo mode lists every package with the template script, substitutes {package}, and narrows to a named scope', async () => {
 	const cwd = setupMonorepo();
 	const config: LightsoutConfig = {
-		gates: { check: 'true', test: 'true', testCoverage: false },
-		packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'pnpm --filter {package} run test:coverage' },
+		gates: { check: 'true', test: 'true', 'test-coverage': false },
+		packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
 	};
 
 	const all = await resolveCoverageScopes({ cwd, config, summaryPath });

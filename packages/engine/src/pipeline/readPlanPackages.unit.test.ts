@@ -59,7 +59,7 @@ test('scanPlanPackagePaths treats regex characters in packagesDir literally', ()
 	expect(scanPlanPackagePaths({ planContent: 'edit appsXv2/web/src/x.ts', packagesDir: 'apps.v2' })).toBe(undefined);
 });
 
-const baseGates = { check: 'true', test: 'true', testCoverage: false };
+const baseGates = { check: 'true', test: 'true', 'test-coverage': false };
 
 test('config rejects a packageGates command missing {package}', () => {
 	const parsed = LightsoutConfig.safeParse({
@@ -80,8 +80,8 @@ test('config accepts packageGates with the placeholder everywhere', () => {
 	expect(parsed.success).toBe(true);
 });
 
-test('config requires testCoverage: a command or an explicit false', () => {
+test('config requires test-coverage: a command or an explicit false', () => {
 	expect(LightsoutConfig.safeParse({ gates: { check: 'true', test: 'true' } }).success).toBe(false);
-	expect(LightsoutConfig.safeParse({ gates: { ...baseGates, testCoverage: 'pnpm cov' } }).success).toBe(true);
+	expect(LightsoutConfig.safeParse({ gates: { ...baseGates, 'test-coverage': 'pnpm cov' } }).success).toBe(true);
 	expect(LightsoutConfig.safeParse({ gates: baseGates }).success).toBe(true);
 });

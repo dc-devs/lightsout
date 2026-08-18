@@ -22,7 +22,7 @@ const countLog = (dir: string, file: string) => {
 test('happy path: git truth, per-file writers, refactor loop, coverage/format wiring, overview', async () => {
 	const dir = setupConsumerRepo({
 		scripts: {
-			testCoverage: `node -e "require('fs').appendFileSync('cov.log','x')"`,
+			'test-coverage': `node -e "require('fs').appendFileSync('cov.log','x')"`,
 			format: `node -e "require('fs').appendFileSync('fmt.log','x')"`,
 		},
 	});

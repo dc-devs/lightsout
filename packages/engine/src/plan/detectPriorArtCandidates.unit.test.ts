@@ -111,7 +111,7 @@ test('detectPriorArtCandidates: a plan with no Files to Create yields no candida
 test('detectPriorArtCandidates: a collision inside a configured generated path is excluded', async () => {
 	const { cwd, planPaths } = setup({ existing: ['generated-src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const config = LightsoutConfig.parse({
-		gates: { check: 'true', test: 'true', testCoverage: false },
+		gates: { check: 'true', test: 'true', 'test-coverage': false },
 		generated: ['generated-src/'],
 	});
 

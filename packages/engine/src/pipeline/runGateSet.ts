@@ -43,6 +43,21 @@ export const runGateSet = async ({ commands, label, gate, failFast = true }: Par
 		}
 	}
 
+	// Custom `test-*` suites are their own gates — never substituted by
+	// coverage, run in the order the config wrote them, after the unit suite
+	// and before build so the cheap gates keep their chance to fail first.
+	for (const { name, command } of commands.extraTests ?? []) {
+		if (stop() || !command) {
+			continue;
+		}
+
+		const extra = await gate({ kind: name, command, group });
+
+		if (extra.exitCode !== 0) {
+			failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):\n${extra.stdout}\n${extra.stderr}`);
+		}
+	}
+
 	if (!stop() && commands.build) {
 		const build = await gate({ kind: 'build', command: commands.build, group });
 

@@ -119,7 +119,7 @@ test("planGradeCommand: the config's model, effort and permissions are handed to
 			model: 'claude-opus-5',
 			effort: Effort.High,
 			permissions: Permissions.FullAccess,
-			gates: { check: 'true', test: 'true', testCoverage: false },
+			gates: { check: 'true', test: 'true', 'test-coverage': false },
 		},
 	});
 

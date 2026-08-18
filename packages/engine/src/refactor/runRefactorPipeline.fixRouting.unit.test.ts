@@ -28,7 +28,7 @@ const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c
  * re-invocation clears the flag, so the run ends green whichever role the
  * routing picked — the recorded prompts are the evidence, not the outcome.
  */
-const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'testCoverage'; flag: string }) => {
+const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'test-coverage'; flag: string }) => {
 	const dir = setupConsumerRepo({ scripts: { [gate]: `test ! -f ${flag}` } });
 
 	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
@@ -85,11 +85,11 @@ const setupMixedRed = async () => {
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
-			gates: { check: 'true', test: 'true', testCoverage: 'true' },
+			gates: { check: 'true', test: 'true', 'test-coverage': 'true' },
 			packageGates: {
 				check: packageGateCommand({ pkg: '@acme/api', flag: 'check.flag' }),
 				test: 'node -e "process.exit(0)" {package}',
-				testCoverage: packageGateCommand({ pkg: '@acme/web', flag: 'coverage.flag' }),
+				'test-coverage': packageGateCommand({ pkg: '@acme/web', flag: 'coverage.flag' }),
 			},
 		}),
 	);
@@ -189,7 +189,7 @@ const fixPromptOf = (prompts: string[]) => prompts.find((prompt) => prompt.inclu
 
 describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 	test('routes a coverage-only red to the test writer', async () => {
-		const { dir, driver, config, prompts } = await setupSingleGateRed({ gate: 'testCoverage', flag: 'coverage.flag' });
+		const { dir, driver, config, prompts } = await setupSingleGateRed({ gate: 'test-coverage', flag: 'coverage.flag' });
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 
@@ -207,7 +207,7 @@ describe('buildBatchFixInvocation — via runRefactorPipeline', () => {
 	});
 
 	test('hands the batch files to the test writer as both subjects and must-execute', async () => {
-		const { dir, driver, config, prompts } = await setupSingleGateRed({ gate: 'testCoverage', flag: 'coverage.flag' });
+		const { dir, driver, config, prompts } = await setupSingleGateRed({ gate: 'test-coverage', flag: 'coverage.flag' });
 
 		const result = await runRefactorPipeline({ cwd: dir, driver, config });
 

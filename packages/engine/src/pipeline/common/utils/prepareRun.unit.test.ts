@@ -8,7 +8,7 @@ import { prepareRun } from '@/pipeline/common/utils/prepareRun';
 import { PipelineRun } from '@/pipeline/PipelineRun';
 import { createRun } from '@/runState';
 
-const plainRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+const plainRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const monorepo: LightsoutConfig = {
 	...plainRepo,
 	packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' },

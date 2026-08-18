@@ -20,7 +20,7 @@ const describeStandardsPackages = ({ value }: { value: string[] | false | undefi
 };
 
 export const printRunHeader = ({ config, driver, cwd }: Params): void => {
-	const coverage = config.gates.testCoverage === false ? 'off (explicit)' : config.gates.testCoverage;
+	const coverage = config.gates['test-coverage'] === false ? 'off (explicit)' : config.gates['test-coverage'];
 
 	console.log(`  cwd: ${cwd}`);
 	console.log(`  standards packages: ${describeStandardsPackages({ value: config.standardsPackages })}`);
@@ -51,7 +51,7 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 	}
 
 	if (config.packageGates) {
-		const scopedCoverage = config.packageGates.testCoverage ? ` coverage=[${config.packageGates.testCoverage}]` : '';
+		const scopedCoverage = config.packageGates['test-coverage'] ? ` coverage=[${config.packageGates['test-coverage']}]` : '';
 
 		console.log(`  gates (per package): check=[${config.packageGates.check}] test=[${config.packageGates.test}]${scopedCoverage}`);
 	}

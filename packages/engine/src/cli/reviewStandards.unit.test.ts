@@ -31,7 +31,7 @@ jest.mock('@/standardsCheck', () => ({
 jest.mock('@/standardsPackages', () => ({ resolveStandardsPackages: async () => [] }));
 // -------------------------
 
-const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', testCoverage: false };
+const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** A repo the review reads its own answers off: source files, and a manifest whose dependencies decide the channels. */
 const setupRepo = ({ dependencies = {}, sources = ['src/index.ts'] }: { dependencies?: Record<string, string>; sources?: string[] } = {}) => {

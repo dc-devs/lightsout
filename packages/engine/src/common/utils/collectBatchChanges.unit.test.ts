@@ -6,7 +6,7 @@ import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
 import type { LightsoutConfig } from '@/contracts';
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 describe('collectBatchChanges', () => {
 	test('unions what the agent reported with what git saw', async () => {

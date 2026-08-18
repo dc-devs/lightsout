@@ -15,7 +15,7 @@ interface Params {
 export const seedConfiguredCwd = async ({ config }: Params = {}): Promise<string> => {
 	const cwd = await freshCwd();
 
-	await writeFile(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false }, ...config }), 'utf8');
+	await writeFile(join(cwd, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, ...config }), 'utf8');
 
 	return cwd;
 };

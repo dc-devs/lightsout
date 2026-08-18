@@ -5,7 +5,7 @@ test('PackageGates: a block whose every command carries the {package} placeholde
 	const packageGates = {
 		check: 'pnpm --filter {package} check',
 		test: 'pnpm --filter {package} test:unit',
-		testCoverage: 'pnpm --filter {package} test:coverage',
+		'test-coverage': 'pnpm --filter {package} test:coverage',
 		build: 'pnpm --filter {package} build',
 	};
 
@@ -33,4 +33,26 @@ test('PackageGates: a stale testUnit key is refused with a message naming its ne
 	// the rename fails loudly in the scoped half of the surface too
 	expect(result.success).toBe(false);
 	expect(result.error?.message ?? '').toMatch(/renamed to `test`/);
+});
+
+test('PackageGates: a stale camelCase testCoverage is refused with a message naming the kebab key', () => {
+	const result = PackageGates.safeParse({ check: 'c {package}', test: 't {package}', testCoverage: 'x {package}' });
+
+	expect(result.success).toBe(false);
+	expect(result.error?.message ?? '').toMatch(/renamed to `test-coverage`/);
+});
+
+test('PackageGates: a custom `test-*` suite parses in place, and the placeholder check reaches it too', () => {
+	const gates = { check: 'c {package}', test: 't {package}', 'test-e2e': 'e {package}' };
+
+	expect(PackageGates.parse(gates)).toStrictEqual(gates);
+	// a custom suite without the placeholder would run identically for every package
+	expect(PackageGates.safeParse({ ...gates, 'test-e2e': 'pnpm test:e2e' }).success).toBe(false);
+});
+
+test('PackageGates: an unknown key that is not a `test-*` suite fails parsing instead of being stripped', () => {
+	const result = PackageGates.safeParse({ check: 'c {package}', test: 't {package}', bulid: 'b {package}' });
+
+	expect(result.success).toBe(false);
+	expect(result.error?.message ?? '').toMatch(/unknown scoped gate 'bulid'/);
 });

@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { checkHarness } from '@/doctor/checkHarness';
 
-const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', testCoverage: false };
+const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** A config referencing whichever harnesses the case names — the probe seam keeps every binary imaginary. */
 const setupConfig = ({ harness, commands }: Pick<LightsoutConfig, 'harness' | 'commands'> = {}): LightsoutConfig => ({ gates, harness, commands });

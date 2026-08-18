@@ -33,12 +33,12 @@ export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: ap
 			gates: {
 				check: `${gateLogCommand({ kind: 'check' })} root`,
 				test: `${gateLogCommand({ kind: 'test' })} root`,
-				testCoverage: `${gateLogCommand({ kind: 'coverage' })} root`,
+				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} root`,
 			},
 			packageGates: {
 				check: `${gateLogCommand({ kind: 'check' })} {package}`,
 				test: `${gateLogCommand({ kind: 'test' })} {package}`,
-				testCoverage: `${gateLogCommand({ kind: 'coverage' })} {package}`,
+				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} {package}`,
 			},
 		}),
 	);

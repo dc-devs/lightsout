@@ -19,14 +19,14 @@ test('loadConfig: a valid config at the repo root parses into the typed shape', 
 	const { cwd } = setupRepo({
 		raw: JSON.stringify({
 			harness: 'codex',
-			gates: { check: 'tsc --noEmit', test: 'node --test', testCoverage: false },
+			gates: { check: 'tsc --noEmit', test: 'node --test', 'test-coverage': false },
 			generated: ['plugin/dist/'],
 		}),
 	});
 
 	const config = await loadConfig({ cwd });
 
-	expect(config.gates).toStrictEqual({ check: 'tsc --noEmit', test: 'node --test', testCoverage: false });
+	expect(config.gates).toStrictEqual({ check: 'tsc --noEmit', test: 'node --test', 'test-coverage': false });
 	expect(config.harness).toBe('codex');
 	expect(config.generated).toStrictEqual(['plugin/dist/']);
 });

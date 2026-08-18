@@ -21,8 +21,8 @@ interface Params {
  * freshly cloned repo that has never run its coverage script.
  */
 export const checkCoverageSummary = async ({ config, packageDirs }: Params): Promise<DoctorCheck | undefined> => {
-	const scoped = config.packageGates?.testCoverage;
-	const rootApplies = typeof config.gates.testCoverage === 'string';
+	const scoped = config.packageGates?.['test-coverage'];
+	const rootApplies = typeof config.gates['test-coverage'] === 'string';
 
 	if (!scoped && !rootApplies) {
 		return undefined;

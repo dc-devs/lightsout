@@ -8037,8 +8037,8 @@ var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
 
 // src/doctor/checkCoverageSummary.ts
 var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
-  const scoped = config2.packageGates?.testCoverage;
-  const rootApplies = typeof config2.gates.testCoverage === "string";
+  const scoped = config2.packageGates?.["test-coverage"];
+  const rootApplies = typeof config2.gates["test-coverage"] === "string";
   if (!scoped && !rootApplies) {
     return void 0;
   }
@@ -23037,18 +23037,24 @@ var ConfigCommands = external_exports.object({
 }).strict();
 
 // src/contracts/ConfigGates.ts
+var knownGateKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "testCoverage", "testUnit", "generate", "build", "format"]);
+var customTestKey = /^test-[a-z0-9]+(-[a-z0-9]+)*$/;
 var ConfigGates = external_exports.object({
   check: external_exports.string(),
   test: external_exports.string(),
   /** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
   testUnit: external_exports.never("`testUnit` was renamed to `test`").optional(),
+  /** Removed — renamed to `test-coverage`. Same reason. */
+  testCoverage: external_exports.never("`testCoverage` was renamed to `test-coverage`").optional(),
   /**
    * Coverage gate — on by default. Required: either a full shell command
    * (run at clean-slate and every post-test verify) or the literal
    * `false` to explicitly opt out. Silence is not an option: skipping
-   * the strongest gate must be a decision, not an accident.
+   * the strongest gate must be a decision, not an accident. The command
+   * must run the same suite `test` runs, instrumented — the engine
+   * substitutes it for `test`, never runs both.
    */
-  testCoverage: external_exports.union([external_exports.string(), external_exports.literal(false)]),
+  "test-coverage": external_exports.union([external_exports.string(), external_exports.literal(false)]),
   /**
    * Opt-in codegen, run once BEFORE every gate set (not inside check:
    * gates verify, generate mutates). Red exit fails the gate set.
@@ -23058,6 +23064,20 @@ var ConfigGates = external_exports.object({
   build: external_exports.string().optional(),
   /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
   format: external_exports.string().optional()
+}).catchall(external_exports.unknown()).superRefine((gates2, ctx) => {
+  for (const [key, value] of Object.entries(gates2)) {
+    if (knownGateKeys.has(key)) {
+      continue;
+    }
+    if (!customTestKey.test(key)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `unknown gate '${key}' \u2014 gates are check, test, test-coverage, generate, build, format, or a custom \`test-*\` suite`
+      });
+    } else if (typeof value !== "string") {
+      ctx.addIssue({ code: "custom", message: `custom test gate '${key}' must be a full shell command string` });
+    }
+  }
 });
 
 // src/contracts/refactor/BatchOutcome.ts
@@ -23199,17 +23219,43 @@ var GateResult = external_exports.object({
 });
 
 // src/contracts/PackageGates.ts
+var knownGateKeys2 = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "testCoverage", "testUnit", "build"]);
+var customTestKey2 = /^test-[a-z0-9]+(-[a-z0-9]+)*$/;
 var PackageGates = external_exports.object({
   check: external_exports.string(),
   test: external_exports.string(),
   /** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
   testUnit: external_exports.never("`testUnit` was renamed to `test`").optional(),
+  /** Removed — renamed to `test-coverage`. Same reason. */
+  testCoverage: external_exports.never("`testCoverage` was renamed to `test-coverage`").optional(),
   /** Scoped coverage gate. Omitted = no coverage gate for package groups. */
-  testCoverage: external_exports.string().optional(),
+  "test-coverage": external_exports.string().optional(),
   /** Opt-in scoped build gate. */
   build: external_exports.string().optional()
-}).refine((templates) => Object.values(templates).every((command) => command === void 0 || command.includes("{package}")), {
-  message: "every packageGates command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in gates.* instead"
+}).catchall(external_exports.unknown()).superRefine((gates2, ctx) => {
+  const customCommands = [];
+  for (const [key, value] of Object.entries(gates2)) {
+    if (knownGateKeys2.has(key)) {
+      continue;
+    }
+    if (!customTestKey2.test(key)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `unknown scoped gate '${key}' \u2014 packageGates are check, test, test-coverage, build, or a custom \`test-*\` suite`
+      });
+    } else if (typeof value !== "string") {
+      ctx.addIssue({ code: "custom", message: `custom test gate '${key}' must be a full shell command string` });
+    } else {
+      customCommands.push(value);
+    }
+  }
+  const commands2 = [gates2.check, gates2.test, gates2["test-coverage"], gates2.build, ...customCommands];
+  if (!commands2.every((command) => command === void 0 || typeof command === "string" && command.includes("{package}"))) {
+    ctx.addIssue({
+      code: "custom",
+      message: "every packageGates command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in gates.* instead"
+    });
+  }
 });
 
 // src/contracts/Permissions.ts
@@ -24463,7 +24509,7 @@ var describeStandardsPackages = ({ value }) => {
   return value.join(", ");
 };
 var printRunHeader = ({ config: config2, driver, cwd }) => {
-  const coverage = config2.gates.testCoverage === false ? "off (explicit)" : config2.gates.testCoverage;
+  const coverage = config2.gates["test-coverage"] === false ? "off (explicit)" : config2.gates["test-coverage"];
   console.log(`  cwd: ${cwd}`);
   console.log(`  standards packages: ${describeStandardsPackages({ value: config2.standardsPackages })}`);
   console.log(
@@ -24487,7 +24533,7 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
     console.log(`  format: [${config2.gates.format}]`);
   }
   if (config2.packageGates) {
-    const scopedCoverage = config2.packageGates.testCoverage ? ` coverage=[${config2.packageGates.testCoverage}]` : "";
+    const scopedCoverage = config2.packageGates["test-coverage"] ? ` coverage=[${config2.packageGates["test-coverage"]}]` : "";
     console.log(`  gates (per package): check=[${config2.packageGates.check}] test=[${config2.packageGates.test}]${scopedCoverage}`);
   }
 };
@@ -24752,6 +24798,18 @@ var packageOf = ({ file: file2, packagesDir }) => {
   return separator > 0 ? rest.slice(0, separator) : void 0;
 };
 
+// src/common/utils/resolveGates.ts
+var fixedKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "generate", "build", "format"]);
+var resolveGates = ({ gates: gates2 }) => ({
+  check: gates2.check,
+  test: gates2.test,
+  testCoverage: gates2["test-coverage"],
+  ...gates2.generate === void 0 ? {} : { generate: gates2.generate },
+  ...gates2.build === void 0 ? {} : { build: gates2.build },
+  ...gates2.format === void 0 ? {} : { format: gates2.format },
+  extraTests: Object.entries(gates2).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
+});
+
 // src/pipeline/createGateRunner.ts
 var gateTimeoutMs = 10 * 6e4;
 var outputTailChars = 2e3;
@@ -24820,6 +24878,17 @@ ${tests.stdout}
 ${tests.stderr}`);
     }
   }
+  for (const { name, command } of commands2.extraTests ?? []) {
+    if (stop() || !command) {
+      continue;
+    }
+    const extra = await gate({ kind: name, command, group });
+    if (extra.exitCode !== 0) {
+      failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):
+${extra.stdout}
+${extra.stderr}`);
+    }
+  }
   if (!stop() && commands2.build) {
     const build = await gate({ kind: "build", command: commands2.build, group });
     if (build.exitCode !== 0) {
@@ -24830,6 +24899,16 @@ ${build.stderr}`);
   }
   return failures.length > 0 ? failures.join("\n\n") : void 0;
 };
+
+// src/common/utils/resolvePackageGatesConfig.ts
+var fixedKeys2 = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "build"]);
+var resolvePackageGatesConfig = ({ packageGates }) => ({
+  check: packageGates.check,
+  test: packageGates.test,
+  ...packageGates["test-coverage"] === void 0 ? {} : { testCoverage: packageGates["test-coverage"] },
+  ...packageGates.build === void 0 ? {} : { build: packageGates.build },
+  extraTests: Object.entries(packageGates).filter((entry) => !fixedKeys2.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
+});
 
 // src/pipeline/runPackageGates.ts
 var runPackageGates = async ({
@@ -24851,6 +24930,7 @@ var runPackageGates = async ({
   } catch (error51) {
     return messageOf({ error: error51 });
   }
+  const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
   const scopedCommand = async ({ kind, template }) => {
     const scriptName = extractRunScriptName({ command: template });
@@ -24876,18 +24956,23 @@ var runPackageGates = async ({
     onGateResult?.({ kind, group: packageDir, command: substitute({ command: template }), skipped: true, reason: `no "${scriptName}" script` });
     return void 0;
   };
-  const testCoverage = coverage && scoped.testCoverage ? await scopedCommand({ kind: "testCoverage", template: scoped.testCoverage }) : void 0;
+  const testCoverage = coverage && templates.testCoverage ? await scopedCommand({ kind: "testCoverage", template: templates.testCoverage }) : void 0;
+  const extraTests = [];
+  for (const { name, command } of templates.extraTests) {
+    extraTests.push({ name, command: await scopedCommand({ kind: name, template: command }) });
+  }
   return runGateSet({
     label: packageDir,
     gate,
     failFast,
     commands: {
-      check: await scopedCommand({ kind: "check", template: scoped.check }),
+      check: await scopedCommand({ kind: "check", template: templates.check }),
       // Coverage replaces the plain test run; only when coverage is
       // absent or skipped does test get its own script lookup.
-      test: testCoverage ? void 0 : await scopedCommand({ kind: "test", template: scoped.test }),
+      test: testCoverage ? void 0 : await scopedCommand({ kind: "test", template: templates.test }),
       testCoverage,
-      build: scoped.build ? await scopedCommand({ kind: "build", template: scoped.build }) : void 0
+      extraTests,
+      build: templates.build ? await scopedCommand({ kind: "build", template: templates.build }) : void 0
     }
   });
 };
@@ -24906,8 +24991,9 @@ var runGates = async ({
   onProgress
 }) => {
   const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
-  if (config2.gates.generate) {
-    const generated = await gate({ kind: "generate", command: config2.gates.generate, group: "root" });
+  const gates2 = resolveGates({ gates: config2.gates });
+  if (gates2.generate) {
+    const generated = await gate({ kind: "generate", command: gates2.generate, group: "root" });
     if (generated.exitCode !== 0) {
       return `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
@@ -24915,10 +25001,11 @@ ${generated.stderr}`;
     }
   }
   const rootCommands = {
-    check: config2.gates.check,
-    test: config2.gates.test,
-    testCoverage: coverage && typeof config2.gates.testCoverage === "string" ? config2.gates.testCoverage : void 0,
-    build: config2.gates.build
+    check: gates2.check,
+    test: gates2.test,
+    testCoverage: coverage && typeof gates2.testCoverage === "string" ? gates2.testCoverage : void 0,
+    extraTests: gates2.extraTests,
+    build: gates2.build
   };
   const scoped = config2.packageGates;
   if (!scoped || !packages || packages.length === 0) {
@@ -26551,11 +26638,11 @@ var listPackageScopes = async ({
   return scopes;
 };
 var resolveCoverageScopes = async ({ cwd, config: config2, summaryPath, scope }) => {
-  const template = config2.packageGates?.testCoverage;
+  const template = config2.packageGates?.["test-coverage"];
   if (template) {
     return listPackageScopes({ cwd, packagesDir: config2.packagesDir ?? defaultPackagesDir, template, summaryPath, scope });
   }
-  const command = config2.gates.testCoverage;
+  const command = config2.gates["test-coverage"];
   const scoped = typeof command === "string" && (scope === void 0 || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
   return scoped;
 };
@@ -26587,7 +26674,7 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   const summaryPath = config2.coverageSummaryPath ?? defaultCoverageSummaryPath;
   const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath });
   const packagesDir = config2.packagesDir ?? defaultPackagesDir;
-  const monorepo = config2.packageGates?.testCoverage !== void 0;
+  const monorepo = config2.packageGates?.["test-coverage"] !== void 0;
   const scopeOf = ({ file: file2 }) => {
     const packageDir = packageOf({ file: file2, packagesDir });
     if (monorepo) {
@@ -26762,8 +26849,8 @@ var initializeCoverageRun = async ({
     }
     return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile20(join35(cwd, existing.plan), "utf8"))) };
   }
-  if (typeof config2.gates.testCoverage !== "string" && config2.packageGates?.testCoverage === void 0) {
-    throw new Error("the coverage gate is opted out (gates.testCoverage: false) \u2014 test-coverage-to-threshold has nothing to run");
+  if (typeof config2.gates["test-coverage"] !== "string" && config2.packageGates?.["test-coverage"] === void 0) {
+    throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {

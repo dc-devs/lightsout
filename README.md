@@ -52,8 +52,9 @@ Add a `lightsout.config.json` to the repository with your code standards and val
 {
   "gates": {
     "check": "pnpm check",
-    "test": "pnpm test",
-    "testCoverage": "pnpm test:coverage",
+    "test": "pnpm test:unit",
+    "test-coverage": "pnpm test:coverage",
+    "test-e2e": "pnpm test:e2e",
     "build": "pnpm bundle"
   }
 }

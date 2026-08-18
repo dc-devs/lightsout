@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
 import { LightsoutConfig } from '@/contracts';
 
-const base = { gates: { check: 'c', test: 't', testCoverage: false } };
+const base = { gates: { check: 'c', test: 't', 'test-coverage': false } };
 
 // The block contracts — Gates, PackageGates, ConfigCommands,
 // StandardsCheckOverrides — each pin their own shape in their own test. What
@@ -120,7 +120,7 @@ test('LightsoutConfig: coverageSummaryPath is optional and parses as the path th
 });
 
 test('LightsoutConfig: the removed scripts and packageScripts keys are refused with a message naming their new name', () => {
-	const scriptsResult = LightsoutConfig.safeParse({ scripts: { check: 'c', test: 't', testCoverage: false } });
+	const scriptsResult = LightsoutConfig.safeParse({ scripts: { check: 'c', test: 't', 'test-coverage': false } });
 	const packageScriptsResult = LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'c {package}', test: 't {package}' } });
 
 	// the top level is not strict, so a stale block would otherwise be discarded

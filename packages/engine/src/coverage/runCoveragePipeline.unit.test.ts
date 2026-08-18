@@ -40,7 +40,7 @@ const readSummary = ({ dir, scopeDir = '.' }: { dir: string; scopeDir?: string }
 
 /** A single-package consumer whose measured files start at the given percentages. */
 const setupRepo = ({ files, check = 'true', contents = {} }: { files: Record<string, number>; check?: string; contents?: Record<string, string> }) => {
-	const dir = setupConsumerRepo({ git: false, scripts: { check, testCoverage: 'node coverageGate.cjs' }, config: { standardsPackages: false } });
+	const dir = setupConsumerRepo({ git: false, scripts: { check, 'test-coverage': 'node coverageGate.cjs' }, config: { standardsPackages: false } });
 
 	writeFileSync(join(dir, 'coverageGate.cjs'), coverageGate);
 
@@ -62,10 +62,10 @@ const setupRepo = ({ files, check = 'true', contents = {} }: { files: Record<str
 const setupMonorepoRepo = ({ scopes }: { scopes: Record<string, Record<string, number>> }) => {
 	const dir = setupConsumerRepo({
 		git: false,
-		scripts: { testCoverage: 'node coverageGate.cjs' },
+		scripts: { 'test-coverage': 'node coverageGate.cjs' },
 		config: {
 			standardsPackages: false,
-			packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'node coverageGate.cjs packages/{package}' },
+			packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'node coverageGate.cjs packages/{package}' },
 		},
 	});
 

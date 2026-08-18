@@ -18,7 +18,7 @@ const seedResumeFixture = async ({ manifestHarness, configHarness }: { manifestH
 	await mkdir(runDir, { recursive: true });
 	await writeFile(
 		join(cwd, 'lightsout.config.json'),
-		JSON.stringify({ harness: configHarness, gates: { check: 'true', test: 'true', testCoverage: false } }),
+		JSON.stringify({ harness: configHarness, gates: { check: 'true', test: 'true', 'test-coverage': false } }),
 		'utf8',
 	);
 	await writeFile(

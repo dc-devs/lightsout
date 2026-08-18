@@ -54,7 +54,7 @@ test('improveCommand: no recorded friction reports there is nothing to improve f
 test('improveCommand: a present-but-invalid config is a hard error, not the missing-config fallback', async () => {
 	const { context } = setupImprove({
 		args: ['--engine', '/does/not/need/to/exist'],
-		config: { driver: 'codex', gates: { check: 'c', test: 't', testCoverage: false } },
+		config: { driver: 'codex', gates: { check: 'c', test: 't', 'test-coverage': false } },
 	});
 
 	await expect(improveCommand(context)).rejects.toThrow(/renamed to `harness`/);

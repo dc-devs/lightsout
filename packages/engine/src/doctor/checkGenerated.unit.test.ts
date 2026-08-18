@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { checkGenerated } from '@/doctor/checkGenerated';
 
-const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', testCoverage: false };
+const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
 /** A repo root holding whichever generated paths the case says exist. */
 const setupRepo = ({ dirs = [], files = [] }: { dirs?: string[]; files?: string[] } = {}) => {

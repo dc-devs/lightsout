@@ -1,4 +1,5 @@
 import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
+import { resolveGates } from '@/common/utils/resolveGates';
 import type { GateResult, LightsoutConfig } from '@/contracts';
 import type { GateCommands } from '@/pipeline/common/types/GateCommands';
 import { createGateRunner } from '@/pipeline/createGateRunner';
@@ -61,8 +62,10 @@ export const runGates = async ({
 
 	// Codegen runs once, before any group fans out — gates verify, generate
 	// mutates, and parallel per-package gates must never race a generator.
-	if (config.gates.generate) {
-		const generated = await gate({ kind: 'generate', command: config.gates.generate, group: 'root' });
+	const gates = resolveGates({ gates: config.gates });
+
+	if (gates.generate) {
+		const generated = await gate({ kind: 'generate', command: gates.generate, group: 'root' });
 
 		if (generated.exitCode !== 0) {
 			return `generate failed (exit ${generated.exitCode}):\n${generated.stdout}\n${generated.stderr}`;
@@ -70,10 +73,11 @@ export const runGates = async ({
 	}
 
 	const rootCommands: GateCommands = {
-		check: config.gates.check,
-		test: config.gates.test,
-		testCoverage: coverage && typeof config.gates.testCoverage === 'string' ? config.gates.testCoverage : undefined,
-		build: config.gates.build,
+		check: gates.check,
+		test: gates.test,
+		testCoverage: coverage && typeof gates.testCoverage === 'string' ? gates.testCoverage : undefined,
+		extraTests: gates.extraTests,
+		build: gates.build,
 	};
 	const scoped = config.packageGates;
 

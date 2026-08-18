@@ -262,7 +262,7 @@ const setupOwnPackageRepo = ({ roots, standardsChecks }: { roots: string[]; stan
 			'src/alpha.ts': 'export const alpha = 1;\n',
 			'src/beta.ts': 'export const beta = 2;\n',
 			'lightsout.config.json': JSON.stringify({
-				gates: { check: 'true', test: 'true', testCoverage: false },
+				gates: { check: 'true', test: 'true', 'test-coverage': false },
 				standardsPackages: roots,
 				...(standardsChecks ? { standardsChecks } : {}),
 			}),
@@ -294,7 +294,7 @@ const setupScopedRepo = ({ roots }: { roots: string[] }) => {
 		files: {
 			'src/keep.ts': 'export const keep = 1;\n',
 			'src/core/inner.ts': 'export const inner = 2;\n',
-			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false }, standardsPackages: roots }),
+			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, standardsPackages: roots }),
 		},
 	});
 
@@ -364,7 +364,7 @@ const setupChannelRepo = ({
 			'package.json': JSON.stringify({ name: 'channel-fixture', dependencies }),
 			'src/alpha.ts': 'export const alpha = 1;\n',
 			'lightsout.config.json': JSON.stringify({
-				gates: { check: 'true', test: 'true', testCoverage: false },
+				gates: { check: 'true', test: 'true', 'test-coverage': false },
 				standardsPackages: roots,
 				...(standardsChannels ? { standardsChannels } : {}),
 			}),
