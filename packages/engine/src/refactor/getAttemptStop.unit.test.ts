@@ -1,9 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
 import { BatchOutcome, type StandardsFinding, StandardsSeverity, type WorkReport, WorkReportStatus } from '@/contracts';
 import type { AgentOutcome } from '@/invoke';
+import { getAttemptStop } from '@/refactor';
 import { BatchStopKind } from '@/refactor/common/constants/BatchStopKind';
 import type { BatchStop } from '@/refactor/common/types/BatchStop';
-import { getAttemptStop } from '@/refactor/getAttemptStop';
 
 const finding: StandardsFinding = {
 	rule: 'multi-export',
