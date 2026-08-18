@@ -97,4 +97,15 @@ describe('readBrainstormDecisions', () => {
 		// the file was read — it is the shape that failed
 		expect(error.message).toMatch(/planName/);
 	});
+
+	test('a file that is present but unreadable names the mid-draft race, not the missing-file path', async () => {
+		const { cwd, name, brainstormPath } = setupWorkspace();
+
+		// a directory standing where the file should be: access() sees it, readFile cannot
+		mkdirSync(brainstormPath, { recursive: true });
+
+		const error = await getRejectionError({ promise: readBrainstormDecisions({ cwd, name }) });
+
+		expect(error.message).toMatch(/became unreadable during drafting/);
+	});
 });

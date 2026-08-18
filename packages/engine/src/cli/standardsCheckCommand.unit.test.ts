@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -7,17 +7,14 @@ import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { parseFlags } from '@/cli/common/args/parseFlags';
 import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
 import { type LightsoutConfig, type StandardsFinding, StandardsSeverity } from '@/contracts';
-import type { Driver } from '@/drivers';
 import type { StandardsRuleListing } from '@/standardsCheck';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
 
 // Mocked Imports
 // -------------------------
-// Both halves of the check are other modules' entry points: one reads the whole
-// repo from disk, the other spawns a harness, and each has its own tests. What
-// this command owns is the flags it hands over, which halves it runs, the order
-// it prints the result in, what it writes, and how it ends — all of which are
-// observable with both halves stubbed.
+// Both halves of the check are other modules' entry points, and each has its own tests — the review's
+// resolution beside reviewStandards.ts, the table shapes beside their renderers. What this command owns
+// is the flags it hands over, which halves it runs, the order it prints the result in, what it writes,
+// and how it ends — all of which are observable with both halves stubbed.
 
 interface RunStandardsCheckParams {
 	cwd: string;
@@ -29,6 +26,7 @@ interface RunStandardsCheckParams {
 }
 
 const mockRunStandardsCheck = jest.fn<(params: RunStandardsCheckParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
+
 interface ListStandardsRulesParams {
 	cwd: string;
 	config?: LightsoutConfig;
@@ -36,24 +34,19 @@ interface ListStandardsRulesParams {
 
 const mockListStandardsRules = jest.fn<(params: ListStandardsRulesParams) => Promise<StandardsRuleListing[]>>();
 
-interface RunStandardsReviewParams {
+interface ReviewStandardsParams {
 	cwd: string;
-	driver: Driver;
-	packages: LoadedStandardsPackage[];
-	channels: string[];
-	files: string[];
-	timeoutMs?: number;
-	onProgress?: (message: string) => void;
+	config?: LightsoutConfig;
+	path?: string;
 }
 
-const mockRunStandardsReview = jest.fn<(params: RunStandardsReviewParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
+const mockReviewStandards = jest.fn<(params: ReviewStandardsParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
 jest.mock('@/standardsCheck', () => ({
 	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
 	listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params),
-	runStandardsReview: (params: RunStandardsReviewParams) => mockRunStandardsReview(params),
 }));
-jest.mock('@/standardsPackages', () => ({ resolveStandardsPackages: async () => [] }));
+jest.mock('@/cli/reviewStandards', () => ({ reviewStandards: (params: ReviewStandardsParams) => mockReviewStandards(params) }));
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
@@ -67,21 +60,17 @@ const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding =>
 
 const setupCheck = ({
 	args = ['--code-checks'],
-	findings = [],
-	notes = [],
-	progress = [],
+	check = {},
+	review = {},
 	rules,
-	reviewFindings = [],
-	reviewNotes = [],
 	cwd = mkdtempSync(join(tmpdir(), 'lightsout-test-')),
 }: {
 	args?: string[];
-	findings?: StandardsFinding[];
-	notes?: string[];
-	progress?: string[];
+	/** What the machine half returns, and the progress it reports on the way. */
+	check?: { findings?: StandardsFinding[]; notes?: string[]; progress?: string[] };
+	/** What the agent half returns. */
+	review?: { findings?: StandardsFinding[]; notes?: string[] };
 	rules?: StandardsRuleListing[];
-	reviewFindings?: StandardsFinding[];
-	reviewNotes?: string[];
 	cwd?: string;
 } = {}) => {
 	const captured = captureCommandOutput();
@@ -91,14 +80,14 @@ const setupCheck = ({
 	mockListStandardsRules.mockResolvedValue(rules ?? [listing({ rule: 'size-function', summary: 'a function longer than the size cap' })]);
 
 	mockRunStandardsCheck.mockImplementation(async ({ onProgress }) => {
-		for (const message of progress) {
+		for (const message of check.progress ?? []) {
 			onProgress?.(message);
 		}
 
-		return { findings, notes };
+		return { findings: check.findings ?? [], notes: check.notes ?? [] };
 	});
 
-	mockRunStandardsReview.mockResolvedValue({ findings: reviewFindings, notes: reviewNotes });
+	mockReviewStandards.mockResolvedValue({ findings: review.findings ?? [], notes: review.notes ?? [] });
 
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
 };
@@ -136,24 +125,6 @@ const setupRuleList = ({ cwd, rules = [listing()] }: { cwd: string; rules?: Stan
 	return { context: { flags: parseFlags({ args: ['--list'] }), rest: [], cwd }, ...captured };
 };
 
-/**
- * A repo the review has to read its own defaults off: no lightsout config at
- * all, and a manifest whose dependencies are the only thing that can decide the
- * channels.
- */
-const setupUnconfiguredRepo = ({ dependencies = {} }: { dependencies?: Record<string, string> } = {}) => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-test-'));
-
-	mkdirSync(join(cwd, 'src'), { recursive: true });
-	writeFileSync(join(cwd, 'src/index.ts'), 'export const one = 1;\n');
-	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', dependencies }));
-
-	return cwd;
-};
-
-/** What the command handed the agent review. */
-const reviewParams = () => mockRunStandardsReview.mock.calls[0]?.[0];
-
 /** The group headings the renderer printed, in the order they were printed. */
 const headingsOf = ({ logged }: { logged: string[] }) => logged.filter((line) => line.includes(' · '));
 
@@ -175,20 +146,9 @@ const checkParams = () => mockRunStandardsCheck.mock.calls[0]?.[0];
 const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];
 
 describe('standardsCheckCommand', () => {
-	test('blocking is printed before advisories, whatever order the check returned them in', async () => {
+	test('blocking is printed before advisories — in the finding groups and again in the summary table', async () => {
 		const { context, logged } = setupCheck({
-			findings: [finding(), finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })],
-		});
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		// an advisory read first would set the wrong expectation about the work
-		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 blocking', 'ℹ size-function · 1 advisory']);
-	});
-
-	test('the same findings-first order carries into the summary table', async () => {
-		const { context, logged } = setupCheck({
-			findings: [finding(), finding({ rule: 'module-boundary', severity: StandardsSeverity.Blocking, siteKey: 'boundary:src/a.ts' })],
+			check: { findings: [finding(), finding({ rule: 'module-boundary', severity: StandardsSeverity.Blocking, siteKey: 'boundary:src/a.ts' })] },
 			rules: [
 				listing({ rule: 'size-function', summary: 'a function longer than the size cap' }),
 				listing({ rule: 'module-boundary', summary: 'a file deep-imported across a module boundary' }),
@@ -197,10 +157,13 @@ describe('standardsCheckCommand', () => {
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
+		// an advisory read first would set the wrong expectation about the work
+		expect(headingsOf({ logged })).toStrictEqual(['⚠ module-boundary · 1 blocking', 'ℹ size-function · 1 advisory']);
+
 		const ruleColumn = logged.filter((line) => line.startsWith('│')).map((line) => line.split('│')[1]?.trim());
 
-		// blocking leads, and each rule's summary sits under its own row rather
-		// than under whichever row the check happened to report first
+		// the same order carries into the table, each rule's summary under its own
+		// row rather than under whichever row the check happened to report first
 		expect(ruleColumn).toStrictEqual([
 			'rule',
 			'module-boundary',
@@ -212,7 +175,7 @@ describe('standardsCheckCommand', () => {
 	});
 
 	test('names the report file and exits 0, so a caller reads success from the exit code', async () => {
-		const { context, logged, errors, exitCodes } = setupCheck({ findings: [finding()] });
+		const { context, logged, errors, exitCodes } = setupCheck({ check: { findings: [finding()] } });
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -247,7 +210,7 @@ describe('standardsCheckCommand', () => {
 	});
 
 	test('progress reaches the terminal as the check reports it, ahead of any result', async () => {
-		const { context, logged } = setupCheck({ progress: ['checking 12 source file(s)', 'tier 0 (names): done'], findings: [finding()] });
+		const { context, logged } = setupCheck({ check: { progress: ['checking 12 source file(s)', 'tier 0 (names): done'], findings: [finding()] } });
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -255,7 +218,7 @@ describe('standardsCheckCommand', () => {
 	});
 
 	test("the check's notes are printed under their own marker", async () => {
-		const { context, logged } = setupCheck({ findings: [finding()], notes: ['3 site(s) held back by the baseline'] });
+		const { context, logged } = setupCheck({ check: { findings: [finding()], notes: ['3 site(s) held back by the baseline'] } });
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -272,71 +235,20 @@ describe('standardsCheckCommand', () => {
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('--list prints every rule with the state it runs at, its checker and the doc it enforces', async () => {
-		const { context, logged } = setupRuleList({
-			cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')),
-			rules: [
-				listing(),
-				listing({
-					rule: 'clone',
-					doc: 'lightsout-defaults: code/architecture/architecture-decisions',
-					summary: 'copy-pasted spans',
-					severity: StandardsSeverity.Advisory,
-					settings: { minTokens: 50 },
-				}),
-				listing({
-					rule: 'premature-abstraction',
-					doc: 'lightsout-defaults: code/architecture/architecture-decisions',
-					summary: 'abstracting before the third use',
-					checked: false,
-					severity: StandardsSeverity.Advisory,
-				}),
-			],
-		});
+	test('--list prints the resolved ledger and answers without running a single check', async () => {
+		// the table's full shape is printStandardsRuleList's own test's to pin —
+		// what the command owns is that the resolved rules reach it, and that
+		// listing is a read, never a run. The bare directory is also the no-config
+		// case: every rule still answers, at its default.
+		const { context, logged, exitCodes } = setupRuleList({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')) });
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(cellsOf({ logged })).toStrictEqual([
-			['rule', 'state', 'checked by', 'standards doc'],
-			['multi-export', 'blocking', 'code', 'lightsout-defaults: code/style-guide/structure/one-export-per-file'],
-			['more than one export in a file', '', '', ''],
-			['clone', 'advisory', 'code', 'lightsout-defaults: code/architecture/architecture-decisions'],
-			['copy-pasted spans — minTokens 50', '', '', ''],
-			['premature-abstraction', 'advisory', 'judgment', 'lightsout-defaults: code/architecture/architecture-decisions'],
-			['abstracting before the third use', '', '', ''],
-			['3 rule(s)', '1 blocking', '2 advisory, 0 off', '2 by code, 1 by judgment'],
-		]);
-	});
-
-	test('--list answers the question without running a single check, and exits 0', async () => {
-		const { context, exitCodes } = setupRuleList({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')) });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(mockRunStandardsCheck).not.toHaveBeenCalled();
-		expect(exitCodes).toStrictEqual([0]);
-	});
-
-	test("the repo's own config and path reach the ledger, so what prints is this repo's policy", async () => {
-		const cwd = setupConsumerRepo({ git: false, config: { standardsChecks: { clone: 'off' } } });
-		const { context } = setupRuleList({ cwd });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(listParams()?.config).toEqual(expect.objectContaining({ standardsChecks: { clone: 'off' } }));
-		// the repo path travels too: the packages a listing is built from are the
-		// ones this repo asked for, resolved against it
-		expect(listParams()?.cwd).toBe(cwd);
-	});
-
-	test('a repo with no config still gets an answer — every rule at its default', async () => {
-		const { context, logged } = setupRuleList({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')) });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		// a missing config is tolerated here exactly as the run path tolerates it
 		expect(listParams()?.config).toBeUndefined();
 		expect(cellsOf({ logged })).toContainEqual(['multi-export', 'blocking', 'code', 'lightsout-defaults: code/style-guide/structure/one-export-per-file']);
+		expect(mockRunStandardsCheck).not.toHaveBeenCalled();
+		expect(mockReviewStandards).not.toHaveBeenCalled();
+		expect(exitCodes).toStrictEqual([0]);
 	});
 
 	test('a ledger that cannot be built stops the command before any check runs', async () => {
@@ -351,22 +263,13 @@ describe('standardsCheckCommand', () => {
 		expect(exitCodes).toStrictEqual([]);
 	});
 
-	test('a ledger that cannot be built fails --list too, rather than printing an empty table', async () => {
-		const { context, logged } = setupRuleList({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-test-')) });
-		mockListStandardsRules.mockRejectedValue(new Error('standards package "acme" could not be loaded'));
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow('standards package "acme" could not be loaded');
-
-		expect(logged).toStrictEqual([]);
-	});
-
 	test('with no selector both halves run — this is a standards check, and both halves are the check', async () => {
 		const { context } = setupCheck({ args: [] });
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockRunStandardsCheck).toHaveBeenCalled();
-		expect(mockRunStandardsReview).toHaveBeenCalled();
+		expect(mockReviewStandards).toHaveBeenCalled();
 	});
 
 	test('--code-checks runs only the half code does', async () => {
@@ -375,7 +278,7 @@ describe('standardsCheckCommand', () => {
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockRunStandardsCheck).toHaveBeenCalled();
-		expect(mockRunStandardsReview).not.toHaveBeenCalled();
+		expect(mockReviewStandards).not.toHaveBeenCalled();
 	});
 
 	test('--agent-review runs only the half an agent does', async () => {
@@ -384,7 +287,7 @@ describe('standardsCheckCommand', () => {
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockRunStandardsCheck).not.toHaveBeenCalled();
-		expect(mockRunStandardsReview).toHaveBeenCalled();
+		expect(mockReviewStandards).toHaveBeenCalled();
 	});
 
 	test('naming both halves runs both, exactly as naming neither does', async () => {
@@ -394,53 +297,29 @@ describe('standardsCheckCommand', () => {
 
 		// each flag names an actor to keep, so keeping both is not a contradiction
 		expect(mockRunStandardsCheck).toHaveBeenCalled();
-		expect(mockRunStandardsReview).toHaveBeenCalled();
+		expect(mockReviewStandards).toHaveBeenCalled();
 	});
 
-	test('a repo that configured nothing gets the default harness and the default bound', async () => {
-		const { context } = setupCheck({ args: ['--agent-review'], cwd: setupUnconfiguredRepo() });
+	test('the review gets the repo, its config, and the subpath the flag named', async () => {
+		const cwd = setupConsumerRepo({ git: false, config: { harness: 'codex' } });
+		const { context } = setupCheck({ args: ['--agent-review', '--path', 'src'], cwd });
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(reviewParams()).toEqual(expect.objectContaining({ timeoutMs: 60 * 60_000 }));
-		expect(reviewParams()?.driver.name).toBe('claude-code');
-	});
+		// resolution is reviewStandards' own concern, tested beside it — what the
+		// command owes it is the repo, the loaded config, and the scope
+		const params = mockReviewStandards.mock.calls[0]?.[0];
 
-	test('a repo that never named its channels has them read off its own manifest', async () => {
-		const { context } = setupCheck({ args: ['--agent-review'], cwd: setupUnconfiguredRepo({ dependencies: { react: '^19.0.0' } }) });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		// the same answer the machine half reaches, so one repo is judged once
-		expect(reviewParams()?.channels).toStrictEqual(['react']);
-	});
-
-	test('without a --path filter the review covers every source file in the repo', async () => {
-		const { context } = setupCheck({ args: ['--agent-review'], cwd: setupUnconfiguredRepo() });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(reviewParams()?.files).toStrictEqual(['src/index.ts']);
-	});
-
-	test("the review's progress reaches the terminal as it reports it", async () => {
-		const { context, logged } = setupCheck({ args: ['--agent-review'] });
-		mockRunStandardsReview.mockImplementation(async ({ onProgress }) => {
-			onProgress?.('reviewing 4 judgment rule(s) over 12 file(s)');
-
-			return { findings: [], notes: [] };
-		});
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged[0]).toBe('reviewing 4 judgment rule(s) over 12 file(s)');
+		expect(params?.cwd).toBe(cwd);
+		expect(params?.config).toEqual(expect.objectContaining({ harness: 'codex' }));
+		expect(params?.path).toBe('src');
 	});
 
 	test('review findings join the same stream, printed after the blocking work', async () => {
 		const { context, logged } = setupCheck({
 			args: [],
-			findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })],
-			reviewFindings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts', detail: 'a relative import in an aliased package' })],
+			check: { findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })] },
+			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts', detail: 'a relative import in an aliased package' })] },
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
@@ -449,7 +328,10 @@ describe('standardsCheckCommand', () => {
 	});
 
 	test("the review's skip note prints under the same marker the check's notes use", async () => {
-		const { context, logged } = setupCheck({ args: ['--agent-review'], reviewNotes: ['agent review skipped — agent invocation failed: spawn claude ENOENT'] });
+		const { context, logged } = setupCheck({
+			args: ['--agent-review'],
+			review: { notes: ['agent review skipped — agent invocation failed: spawn claude ENOENT'] },
+		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
@@ -461,9 +343,11 @@ describe('standardsCheckCommand', () => {
 	test('the command writes the merged stream itself, so one run leaves one report', async () => {
 		const { context, cwd } = setupCheck({
 			args: [],
-			findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })],
-			reviewFindings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })],
-			notes: ['3 site(s) held back by the baseline'],
+			check: {
+				findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })],
+				notes: ['3 site(s) held back by the baseline'],
+			},
+			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })] },
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
@@ -478,29 +362,10 @@ describe('standardsCheckCommand', () => {
 		expect(written?.notes).toStrictEqual(['3 site(s) held back by the baseline']);
 	});
 
-	test("the review is bounded and scoped by the repo's own config, over the files the --path filter leaves", async () => {
-		const cwd = setupConsumerRepo({
-			git: false,
-			config: { harness: 'codex', standardsChannels: ['react'], timeouts: { agentMinutes: 5 } },
-		});
-		const { context } = setupCheck({ args: ['--agent-review', '--path', 'src'], cwd });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		const params = mockRunStandardsReview.mock.calls[0]?.[0];
-
-		expect(params?.driver.name).toBe('codex');
-		// configured channels are taken as given — the same answer the machine half gets
-		expect(params?.channels).toStrictEqual(['react']);
-		expect(params?.timeoutMs).toBe(5 * 60_000);
-		// and the scope is the subtree the flag named
-		expect(params?.files).toStrictEqual(['src/index.js']);
-	});
-
 	test('a review-only run prints but writes nothing — the evidence file is the machine half’s', async () => {
 		const { context, cwd, logged } = setupCheck({
 			args: ['--agent-review'],
-			reviewFindings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })],
+			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })] },
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);

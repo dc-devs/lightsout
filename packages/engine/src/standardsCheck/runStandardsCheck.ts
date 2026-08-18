@@ -3,49 +3,11 @@ import { join } from 'node:path';
 import { loadConfig } from '@/common/utils/loadConfig';
 import type { StandardsFinding } from '@/contracts';
 import { detectStandardsChannels } from '@/standards';
-import { applyStandardsBaseline } from '@/standardsCheck/common/utils/applyStandardsBaseline';
+import { applyStandardsBaseline } from '@/standardsCheck/applyStandardsBaseline';
+import { buildDominantPathNote } from '@/standardsCheck/buildDominantPathNote';
 import { resolvePackageRuleStates } from '@/standardsCheck/resolvePackageRuleStates';
 import { runPackageChecks } from '@/standardsCheck/runPackageChecks';
 import { resolveStandardsPackages } from '@/standardsPackages';
-
-/** Deepest directory (depth ≥ 2) holding >50% of findings — a report dominated by one path should diagnose its own config gap (live case: a generated Prisma dir missing from `generated`). */
-const dominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
-	const paths = findings.map((finding) => finding.files[0]?.path).filter((path): path is string => path !== undefined);
-
-	if (paths.length < 20) {
-		return undefined;
-	}
-
-	let prefix = '';
-	let count = paths.length;
-
-	for (;;) {
-		const children = new Map<string, number>();
-
-		for (const path of paths) {
-			if (prefix && !path.startsWith(`${prefix}/`)) {
-				continue;
-			}
-
-			const segment = path.slice(prefix ? prefix.length + 1 : 0).split('/')[0];
-
-			if (segment && !segment.includes('.')) {
-				children.set(segment, (children.get(segment) ?? 0) + 1);
-			}
-		}
-
-		const next = [...children.entries()].sort((a, b) => b[1] - a[1])[0];
-
-		if (!next || next[1] / paths.length <= 0.5) {
-			break;
-		}
-
-		prefix = prefix ? `${prefix}/${next[0]}` : next[0];
-		count = next[1];
-	}
-
-	return prefix.split('/').length >= 2 ? { dir: prefix, count, total: paths.length } : undefined;
-};
 
 interface Params {
 	cwd: string;
@@ -108,12 +70,10 @@ export const runStandardsCheck = async ({
 	});
 	const findings = checked.findings;
 	const notes = [...checked.notes];
-	const dominant = dominantPath({ findings });
+	const dominantNote = buildDominantPathNote({ findings });
 
-	if (dominant) {
-		notes.push(
-			`${Math.round((dominant.count / dominant.total) * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ — if that path is generated output, add it to the config's "generated" list`,
-		);
+	if (dominantNote !== undefined) {
+		notes.push(dominantNote);
 	}
 
 	const dir = join(cwd, '.lightsout');

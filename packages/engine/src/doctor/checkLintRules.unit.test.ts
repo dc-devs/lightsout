@@ -50,7 +50,11 @@ describe('checkLintRules', () => {
 			files: { 'eslint.config.js': "export default [{ rules: { 'consistent-type-imports': 'error', 'no-explicit-any': 'error' } }];" },
 		});
 
-		expect((await checkLintRules({ config, packageDirs }))?.status).toBe('pass');
+		const check = await checkLintRules({ config, packageDirs });
+
+		expect(check?.status).toBe('pass');
+		// one file found means one config counted, not one per rule it enforces
+		expect(check?.detail ?? '').toMatch(/1 lint config/);
 	});
 
 	test('a package directory that is not there contributes nothing rather than failing the doctor', async () => {

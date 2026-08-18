@@ -1,1 +1,9 @@
+export { checkCoverageSummary } from '@/doctor/checkCoverageSummary';
+export { checkGenerated } from '@/doctor/checkGenerated';
+export { checkGitignore } from '@/doctor/checkGitignore';
+export { checkHarness } from '@/doctor/checkHarness';
+export { checkJestMocks } from '@/doctor/checkJestMocks';
+export { checkLintRules } from '@/doctor/checkLintRules';
+export { checkScriptBinaries } from '@/doctor/checkScriptBinaries';
+export { checkUserEvent } from '@/doctor/checkUserEvent';
 export { runDoctor } from '@/doctor/runDoctor';

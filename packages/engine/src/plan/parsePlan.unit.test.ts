@@ -69,4 +69,25 @@ describe('parsePlan', () => {
 
 		expect(plan.verificationCommands).toStrictEqual(['pnpm check']);
 	});
+
+	test('a `###` code span in a later section is not a Files-to-Create path', () => {
+		const plan = parse({ content: '# Plan\n\n## Files to Create\n\n### `src/new.ts`\n\n## Notes\n\n### `src/index.js`\n\nBackground reading.\n' });
+
+		// the create-path scan closes at the next `##` heading
+		expect(plan.createPaths).toStrictEqual(['src/new.ts']);
+	});
+
+	test('a create heading whose first code span is not a path falls through to the path span', () => {
+		const plan = parse({ content: '# Plan\n\n## Files to Create\n\n### `oneConst` in `src/index.js`\n' });
+
+		// the path-shaped span is the create path
+		expect(plan.createPaths).toStrictEqual(['src/index.js']);
+	});
+
+	test('a create heading with no path-shaped code span contributes no create path', () => {
+		const plan = parse({ content: '# Plan\n\n## Files to Create\n\n### `newThing`\n' });
+
+		// a bare symbol name is not a path and is never stat-ed
+		expect(plan.createPaths).toStrictEqual([]);
+	});
 });

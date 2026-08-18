@@ -3,6 +3,11 @@ import { LightsoutConfig } from '@/contracts';
 
 const base = { gates: { check: 'c', test: 't', testCoverage: false } };
 
+// The block contracts — Gates, PackageGates, ConfigCommands,
+// StandardsCheckOverrides — each pin their own shape in their own test. What
+// this file owns is the composed config: which blocks are required, which are
+// optional, the top-level fields, and the retired keys' loud refusals.
+
 test('LightsoutConfig: a stale traverse key parses without error and is stripped from the result', () => {
 	const parsed = LightsoutConfig.parse({ ...base, traverse: { connections: 'docs/connections' } });
 
@@ -20,48 +25,52 @@ test('LightsoutConfig: a leftover plansDir key parses without error and is strip
 	// plan now always lives in its own workspace folder, so a config still carrying
 	// the old key keeps parsing instead of failing the run
 	expect(LightsoutConfig.safeParse({ ...base, plansDir: 'docs/plans' }).success).toBe(true);
-	// the removed field leaves no plansDir key on the parsed config, so nothing
-	// downstream can read a plans root back out of it
+	// the removed field leaves no plansDir key on the parsed config
 	expect('plansDir' in parsed).toBe(false);
 });
 
-test('LightsoutConfig: a commands block parses — full entries, partial entries, and absence all valid', () => {
-	const commands = {
-		implement: { harness: 'codex', model: 'gpt-5.2' },
-		refactor: { harness: 'claude-code', model: 'opus' },
-		improve: { harness: 'codex' },
-		plan: { model: 'haiku' },
-	};
-
-	const parsed = LightsoutConfig.parse({ ...base, commands });
-
-	// every entry survives parsing with its harness/model intact — commands is a
-	// recognized schema field, not a stripped unknown key like traverse
-	expect(parsed.commands).toStrictEqual(commands);
-	// a partial entry overriding only the model parses
-	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { model: 'x' } } }).success).toBe(true);
-	// an absent commands block keeps existing configs valid (decision 2: backward
-	// compatibility)
+test('LightsoutConfig: gates is required, and every other block is optional', () => {
+	// with no gates block there is nothing to verify a run with
+	expect(LightsoutConfig.safeParse({}).success).toBe(false);
+	// a config carrying only gates parses — commands, packageGates, and
+	// standardsChecks are all opt-in (decision 2: backward compatibility)
 	expect(LightsoutConfig.safeParse(base).success).toBe(true);
 });
 
-test('LightsoutConfig: effort parses at the top level and inside a commands entry, for every level', () => {
+test('LightsoutConfig: each block reaches its own contract, valid and invalid alike', () => {
+	// a valid entry in each block parses at the config level…
+	const parsed = LightsoutConfig.parse({
+		...base,
+		commands: { implement: { harness: 'codex' } },
+		packageGates: { check: 'c {package}', test: 't {package}' },
+		standardsChecks: { clone: 'off' },
+	});
+
+	expect(parsed.commands).toStrictEqual({ implement: { harness: 'codex' } });
+	expect(parsed.packageGates).toStrictEqual({ check: 'c {package}', test: 't {package}' });
+	expect(parsed.standardsChecks).toStrictEqual({ clone: 'off' });
+
+	// …and each block's own refusals fire through the composition, so wiring a
+	// block in optional never softened it
+	expect(LightsoutConfig.safeParse({ ...base, commands: { implment: {} } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, packageGates: { check: 'pnpm check', test: 't {package}' } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: 'warn' } }).success).toBe(false);
+
+	// an absent block leaves no key on the parsed config
+	expect('packageGates' in LightsoutConfig.parse(base)).toBe(false);
+	expect('standardsChecks' in LightsoutConfig.parse(base)).toBe(false);
+});
+
+test('LightsoutConfig: effort parses at the top level for every level, and an out-of-enum effort fails', () => {
 	for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
 		// ${effort} is one of the five levels every harness shares
 		expect(LightsoutConfig.parse({ ...base, effort }).effort).toBe(effort);
-		// ${effort} parses inside a commands entry too
-		expect(LightsoutConfig.parse({ ...base, commands: { implement: { effort } } }).commands?.implement?.effort).toBe(effort);
 	}
 
-	// effort stays optional — absence means each harness uses its own default
-	expect(LightsoutConfig.safeParse(base).success).toBe(true);
-});
-
-test('LightsoutConfig: an out-of-enum effort fails parsing at both levels', () => {
 	// a typo is caught when config is read, not after a run has burned a request
 	expect(LightsoutConfig.safeParse({ ...base, effort: 'ultra' }).success).toBe(false);
-	// the per-command enum is the same closed set
-	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { effort: 'ultra' } } }).success).toBe(false);
+	// effort stays optional — absence means each harness uses its own default
+	expect(LightsoutConfig.safeParse(base).success).toBe(true);
 });
 
 test('LightsoutConfig: permissions accepts the two settable levels and rejects everything else', () => {
@@ -93,23 +102,6 @@ test('LightsoutConfig: the removed driver and permissionMode keys are refused wi
 	expect(permissionModeResult.error?.message ?? '').toMatch(/replaced by `permissions`/);
 });
 
-test('LightsoutConfig: a stale driver inside a commands entry is a hard parse error too', () => {
-	// the strict block makes the rename fail loudly in both halves of the surface
-	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { driver: 'codex' } } }).success).toBe(false);
-});
-
-test('LightsoutConfig: permissions is global only — a commands entry may not carry it', () => {
-	// the global level applies to every command; a command entry still overrides
-	// harness/model/effort
-	expect(LightsoutConfig.safeParse({ ...base, permissions: 'full-access', commands: { implement: { harness: 'codex' } } }).success).toBe(true);
-	// permissions expresses a repo-wide trust posture (decision 13) — the strict
-	// block refuses it per command rather than silently ignoring it
-	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { permissions: 'full-access' } } }).success).toBe(false);
-	// the removed name is refused inside a commands entry too, so the replacement
-	// fails loudly in both halves of the surface
-	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { permissionMode: 'bypassPermissions' } } }).success).toBe(false);
-});
-
 test('LightsoutConfig: a config carrying neither removed key still parses clean', () => {
 	const parsed = LightsoutConfig.parse({ ...base, harness: 'codex', model: 'gpt-5.2', effort: 'high', permissions: 'write' });
 
@@ -119,68 +111,12 @@ test('LightsoutConfig: a config carrying neither removed key still parses clean'
 	expect('permissionMode' in parsed).toBe(false);
 });
 
-test('LightsoutConfig: a typoed command key inside commands fails parsing', () => {
-	// a typoed command name is a hard error, not a silently ignored override
-	// (decision 8)
-	expect(LightsoutConfig.safeParse({ ...base, commands: { implment: {} } }).success).toBe(false);
-});
-
-test('LightsoutConfig: the coverage command has its own commands entry, and a typo near it is still refused', () => {
-	const parsed = LightsoutConfig.parse({ ...base, commands: { 'test-coverage-to-threshold': { harness: 'codex', effort: 'high' } } });
-
-	// the coverage run is a long unattended loop — it earns a harness of its own
-	expect(parsed.commands?.['test-coverage-to-threshold']).toStrictEqual({ harness: 'codex', effort: 'high' });
-	// the strict block means a near-miss disables an override the user believes
-	// is active, so it fails loudly instead
-	expect(LightsoutConfig.safeParse({ ...base, commands: { 'test-coverage': {} } }).success).toBe(false);
-});
-
 test('LightsoutConfig: coverageSummaryPath is optional and parses as the path the coverage tooling writes', () => {
 	expect(LightsoutConfig.parse({ ...base, coverageSummaryPath: 'reports/coverage-summary.json' }).coverageSummaryPath).toBe('reports/coverage-summary.json');
 	// absent means the Istanbul default location — every existing config stays valid
 	expect(LightsoutConfig.parse(base).coverageSummaryPath).toBe(undefined);
 	// a path is a path: anything else would be read as a file name at run time
 	expect(LightsoutConfig.safeParse({ ...base, coverageSummaryPath: 42 }).success).toBe(false);
-});
-
-test('LightsoutConfig: a typoed field inside a commands entry fails parsing', () => {
-	// a typoed entry field is a hard error, not a silently dropped model (decision
-	// 8)
-	expect(LightsoutConfig.safeParse({ ...base, commands: { implement: { modle: 'x' } } }).success).toBe(false);
-});
-
-test('LightsoutConfig: a packageGates block whose every command carries the {package} placeholder parses intact', () => {
-	const packageGates = {
-		check: 'pnpm --filter {package} check',
-		test: 'pnpm --filter {package} test:unit',
-		testCoverage: 'pnpm --filter {package} test:coverage',
-		build: 'pnpm --filter {package} build',
-	};
-
-	const parsed = LightsoutConfig.parse({ ...base, packageGates });
-
-	// the scoped commands survive parsing unchanged — the placeholder is checked,
-	// never substituted here
-	expect(parsed.packageGates).toStrictEqual(packageGates);
-	// the two optional scoped gates may be omitted, and the whole block is optional
-	expect(LightsoutConfig.parse({ ...base, packageGates: { check: 'c {package}', test: 't {package}' } }).packageGates).toStrictEqual({
-		check: 'c {package}',
-		test: 't {package}',
-	});
-	// an absent block leaves no key on the parsed config — single-package repos run
-	// gates.* and nothing else
-	expect('packageGates' in LightsoutConfig.parse(base)).toBe(false);
-});
-
-test('LightsoutConfig: a packageGates command missing the {package} placeholder is refused with a message naming it', () => {
-	const result = LightsoutConfig.safeParse({ ...base, packageGates: { check: 'pnpm check', test: 'pnpm --filter {package} test:unit' } });
-
-	// a command without the placeholder would run identically for every package —
-	// silently doing the same work N times instead of scoping it
-	expect(result.success).toBe(false);
-	expect(result.error?.message ?? '').toMatch(/\{package\} placeholder/);
-	// the check reaches the optional entries too, not just the two required ones
-	expect(LightsoutConfig.safeParse({ ...base, packageGates: { check: 'c {package}', test: 't {package}', build: 'pnpm build' } }).success).toBe(false);
 });
 
 test('LightsoutConfig: the removed scripts and packageScripts keys are refused with a message naming their new name', () => {
@@ -195,53 +131,6 @@ test('LightsoutConfig: the removed scripts and packageScripts keys are refused w
 
 	expect(packageScriptsResult.success).toBe(false);
 	expect(packageScriptsResult.error?.message ?? '').toMatch(/renamed to `packageGates`/);
-});
-
-test('LightsoutConfig: a stale testUnit key is refused inside gates and inside packageGates alike', () => {
-	const rootResult = LightsoutConfig.safeParse({ gates: { check: 'c', test: 't', testUnit: 't', testCoverage: false } });
-	const scopedResult = LightsoutConfig.safeParse({ ...base, packageGates: { check: 'c {package}', test: 't {package}', testUnit: 't {package}' } });
-
-	// the rename fails loudly in both halves of the surface, rather than the stale
-	// key being stripped and its command never running
-	expect(rootResult.success).toBe(false);
-	expect(rootResult.error?.message ?? '').toMatch(/renamed to `test`/);
-
-	expect(scopedResult.success).toBe(false);
-	expect(scopedResult.error?.message ?? '').toMatch(/renamed to `test`/);
-});
-
-test('LightsoutConfig: a gates block carries every command through parsing, with test holding the fast red/green command', () => {
-	const gates = {
-		check: 'pnpm check',
-		test: 'pnpm test',
-		testCoverage: 'pnpm test:unit:coverage',
-		generate: 'pnpm codegen',
-		build: 'pnpm build',
-		format: 'pnpm format',
-	};
-
-	const parsed = LightsoutConfig.parse({ gates });
-
-	// the renamed key holds the one fast test command the engine runs, and the
-	// whole block survives parsing unchanged — commands are read straight off it
-	expect(parsed.gates).toStrictEqual(gates);
-	// the three opt-in gates may be omitted, and the coverage gate takes the
-	// literal false as its explicit opt-out
-	expect(LightsoutConfig.parse({ gates: { check: 'c', test: 't', testCoverage: false } }).gates).toStrictEqual({ check: 'c', test: 't', testCoverage: false });
-});
-
-test('LightsoutConfig: gates is required, and check, test, and testCoverage are each required inside it', () => {
-	// with no gates block there is nothing to verify a run with
-	expect(LightsoutConfig.safeParse({}).success).toBe(false);
-	// the fast test command is not optional under its new name — a config naming
-	// only the other two fails rather than running no tests at all
-	expect(LightsoutConfig.safeParse({ gates: { check: 'c', testCoverage: false } }).success).toBe(false);
-	expect(LightsoutConfig.safeParse({ gates: { test: 't', testCoverage: false } }).success).toBe(false);
-	// silence on coverage is not an option: skipping the strongest gate has to be
-	// the literal false, spelled out
-	expect(LightsoutConfig.safeParse({ gates: { check: 'c', test: 't' } }).success).toBe(false);
-	// and true is not an opt-in — a command or the false is the whole union
-	expect(LightsoutConfig.safeParse({ gates: { check: 'c', test: 't', testCoverage: true } }).success).toBe(false);
 });
 
 test('LightsoutConfig: standardsPackages accepts relative and absolute package roots, in config order', () => {
@@ -316,112 +205,4 @@ test('LightsoutConfig: the removed scan key is refused with a message naming sta
 	expect(scanResult.error?.message ?? '').toMatch(/renamed to `standardsChecks`/);
 	// the rejection is about the key, not its contents: even an empty block fails
 	expect(LightsoutConfig.safeParse({ ...base, scan: {} }).success).toBe(false);
-});
-
-test('LightsoutConfig: the renamed finding severity is refused with a message naming blocking', () => {
-	const bare = LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: 'finding' } });
-
-	// a value copied from the pre-rename docs is told what happened, rather than
-	// being handed a bare list of the three valid options
-	expect(bare.success).toBe(false);
-	expect(bare.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
-
-	// the object form takes the same value in a different position — both reject
-	const nested = LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: { severity: 'finding' } } });
-
-	expect(nested.success).toBe(false);
-	expect(nested.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
-
-	// an ordinary typo keeps the ordinary enum error — only the retired spelling is called out
-	expect(LightsoutConfig.safeParse({ ...base, standardsChecks: { clone: 'blockign' } }).error?.message ?? '').not.toMatch(/was renamed/);
-});
-
-test('LightsoutConfig: standardsChecks carries both override forms through parsing intact', () => {
-	const standardsChecks = {
-		clone: 'off',
-		'size-file': { severity: 'advisory', settings: { file: 200, tsxFile: 260 } },
-	};
-
-	const parsed = LightsoutConfig.parse({ ...base, standardsChecks });
-
-	// a bare severity and a full object are both recognized, so neither is
-	// stripped as an unknown shape
-	expect(parsed.standardsChecks).toStrictEqual(standardsChecks);
-});
-
-test('LightsoutConfig: a rule the map never names is left alone entirely', () => {
-	const parsed = LightsoutConfig.parse({ ...base, standardsChecks: { 'size-function': { settings: { function: 40 } } } });
-
-	// naming one rule says nothing about the other sixteen — silence is never a change
-	expect(parsed.standardsChecks).toStrictEqual({ 'size-function': { settings: { function: 40 } } });
-	// an empty map is valid — every rule already has a default
-	expect(LightsoutConfig.parse({ ...base, standardsChecks: {} }).standardsChecks).toStrictEqual({});
-	// an absent map leaves no key on the parsed config
-	expect('standardsChecks' in LightsoutConfig.parse(base)).toBe(false);
-});
-
-test.each([{ severity: 'blocking' }, { severity: 'advisory' }, { severity: 'off' }])(
-	'LightsoutConfig: standardsChecks accepts $severity as a bare value and inside an override object',
-	({ severity }) => {
-		const bare = LightsoutConfig.parse({ ...base, standardsChecks: { clone: severity } });
-		const wrapped = LightsoutConfig.parse({ ...base, standardsChecks: { clone: { severity } } });
-
-		// all three states are settable, including off — the only way a repo stops a
-		// rule blocking is by naming it here
-		expect(bare.standardsChecks).toStrictEqual({ clone: severity });
-		// the object form reaches the same state, so a repo adding settings later
-		// never has to restate the severity in a different vocabulary
-		expect(wrapped.standardsChecks).toStrictEqual({ clone: { severity } });
-	},
-);
-
-test('LightsoutConfig: an override object may carry severity alone, settings alone, or neither', () => {
-	const parsed = LightsoutConfig.parse({
-		...base,
-		standardsChecks: {
-			clone: { severity: 'advisory' },
-			'folder-census': { settings: { cap: 30 } },
-			'barrel-star': {},
-		},
-	});
-
-	// both fields are independently optional: severity without settings keeps the
-	// rule's default knobs, settings without severity keeps its default severity,
-	// and an empty object changes nothing at all
-	expect(parsed.standardsChecks).toStrictEqual({
-		clone: { severity: 'advisory' },
-		'folder-census': { settings: { cap: 30 } },
-		'barrel-star': {},
-	});
-});
-
-test('LightsoutConfig: a settings value is checked as a number and nothing more', () => {
-	const parsed = LightsoutConfig.parse({ ...base, standardsChecks: { clone: { settings: { minTokens: 0, ratio: 1.5 } } } });
-
-	// settings keys belong to the rule, not the config schema, so a zero or a
-	// fraction parses here — whether a value makes sense is the rule's own
-	// business, not this schema's
-	expect(parsed.standardsChecks).toStrictEqual({ clone: { settings: { minTokens: 0, ratio: 1.5 } } });
-});
-
-test('LightsoutConfig: a rule id this schema has never heard of parses, because the packages own the vocabulary', () => {
-	const parsed = LightsoutConfig.parse({ ...base, standardsChecks: { 'house-style-no-default-export': 'off', 'size-fil': 'off' } });
-
-	// a third-party standards package brings its own rule ids, so a closed list
-	// here would refuse every package but the bundled one. The typo `size-fil`
-	// is still caught — by `resolvePackageRuleStates`, where the loaded packages
-	// make the valid ids knowable, and it names them in the refusal
-	expect(parsed.standardsChecks).toStrictEqual({ 'house-style-no-default-export': 'off', 'size-fil': 'off' });
-});
-
-test.each([
-	{ label: 'a severity outside the three states', standardsChecks: { clone: 'warn' } },
-	{ label: 'a severity outside the three states inside an object', standardsChecks: { clone: { severity: 'warn' } } },
-	{ label: 'a settings key that is not a number', standardsChecks: { clone: { settings: { minTokens: '50' } } } },
-	{ label: 'an override object carrying a key the shape does not declare', standardsChecks: { clone: { severty: 'off' } } },
-	{ label: 'a standardsChecks that is not an object', standardsChecks: true },
-])('LightsoutConfig: $label fails parsing', ({ standardsChecks }) => {
-	// a mistyped severity would silently disable an override the user believes is
-	// active — the same reason the commands block is strict
-	expect(LightsoutConfig.safeParse({ ...base, standardsChecks }).success).toBe(false);
 });

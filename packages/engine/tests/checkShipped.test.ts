@@ -121,10 +121,7 @@ test('a clean tree with nothing shipped-facing changed passes, and says the vers
 test('an engine bundle that no longer matches src/ fails', async () => {
 	const cwd = await setupClone();
 
-	await writeFile(
-		join(cwd, 'packages/engine/src/cli/index.ts'),
-		`${await readFile(join(cwd, 'packages/engine/src/cli/index.ts'), 'utf8')}\nconsole.log('drift');\n`,
-	);
+	await writeFile(join(cwd, 'packages/engine/src/main.ts'), `${await readFile(join(cwd, 'packages/engine/src/main.ts'), 'utf8')}\nconsole.log('drift');\n`);
 
 	const { ok, output } = checkShipped({ cwd, base: 'main' });
 

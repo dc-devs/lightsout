@@ -6,7 +6,7 @@
 	"description": "The deterministic engine: gates, typed contracts, resumable manifests, supervisor.",
 	"license": "MIT",
 	"exports": {
-		".": "./src/cli/index.ts"
+		".": "./src/main.ts"
 	},
 	"dependencies": {
 		"@jscpd/core": "catalog:",

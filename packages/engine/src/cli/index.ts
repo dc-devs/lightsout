@@ -1,50 +1,19 @@
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { usage } from '@/cli/common/constants/usage';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { doctorCommand } from '@/cli/doctorCommand';
-import { frictionCommand } from '@/cli/frictionCommand';
-import { implementCommand } from '@/cli/implementCommand';
-import { improveCommand } from '@/cli/improveCommand';
-import { planCommand } from '@/cli/plan';
-import { refactorCommand } from '@/cli/refactorCommand';
-import { resumeCommand } from '@/cli/resumeCommand';
-import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
-import { standardsHealthCommand } from '@/cli/standardsHealthCommand';
-import { standardsValidateCommand } from '@/cli/standardsValidateCommand';
-import { statusCommand } from '@/cli/statusCommand';
-import { testCoverageToThresholdCommand } from '@/cli/testCoverageToThresholdCommand';
-import { voiceCommand } from '@/cli/voice';
-
-const commands: Record<string, (context: CommandContext) => Promise<void>> = {
-	implement: implementCommand,
-	resume: resumeCommand,
-	status: statusCommand,
-	doctor: doctorCommand,
-	'standards-check': standardsCheckCommand,
-	'standards-validate': standardsValidateCommand,
-	'standards-health': standardsHealthCommand,
-	refactor: refactorCommand,
-	'test-coverage-to-threshold': testCoverageToThresholdCommand,
-	plan: planCommand,
-	friction: frictionCommand,
-	improve: improveCommand,
-	voice: voiceCommand,
-};
-
-const main = async (): Promise<void> => {
-	const [command, ...rest] = process.argv.slice(2);
-	const flags = parseFlags({ args: rest });
-	const cwd = getStringFlag({ flags, name: 'cwd' }) ?? process.cwd();
-	const run = command === undefined ? undefined : commands[command];
-
-	if (run) {
-		await run({ flags, rest, cwd });
-		return;
-	}
-
-	console.error(usage);
-	process.exit(command === undefined || command === 'help' ? 0 : 1);
-};
-
-await main();
+export { getStringFlag } from '@/cli/common/args/getStringFlag';
+export { parseFlags } from '@/cli/common/args/parseFlags';
+export { usage } from '@/cli/common/constants/usage';
+export type { CommandContext } from '@/cli/common/types/CommandContext';
+export { doctorCommand } from '@/cli/doctorCommand';
+export { frictionCommand } from '@/cli/frictionCommand';
+export { implementCommand } from '@/cli/implementCommand';
+export { improveCommand } from '@/cli/improveCommand';
+export { loadStandardsLedger } from '@/cli/loadStandardsLedger';
+export { planCommand } from '@/cli/plan';
+export { refactorCommand } from '@/cli/refactorCommand';
+export { resumeCommand } from '@/cli/resumeCommand';
+export { reviewStandards } from '@/cli/reviewStandards';
+export { standardsCheckCommand } from '@/cli/standardsCheckCommand';
+export { standardsHealthCommand } from '@/cli/standardsHealthCommand';
+export { standardsValidateCommand } from '@/cli/standardsValidateCommand';
+export { statusCommand } from '@/cli/statusCommand';
+export { testCoverageToThresholdCommand } from '@/cli/testCoverageToThresholdCommand';
+export { voiceCommand } from '@/cli/voice';

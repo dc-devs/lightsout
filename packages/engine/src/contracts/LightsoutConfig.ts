@@ -1,39 +1,19 @@
 import { z } from 'zod';
+import { ConfigCommands } from '@/contracts/ConfigCommands';
+import { ConfigGates } from '@/contracts/ConfigGates';
 import { Effort } from '@/contracts/Effort';
+import { PackageGates } from '@/contracts/PackageGates';
 import { Permissions } from '@/contracts/Permissions';
-// Through the barrel, not the file: `standardsCheck` is a module of its own
-// inside contracts, and its index.ts is the path in. No cycle — nothing under
-// it reads the config.
-import { StandardsSeverity } from '@/contracts/standardsCheck';
-
-/**
- * A rule's severity, with the pre-rename spelling called out by name.
- *
- * `finding` was this severity's value until it collided with the umbrella noun
- * — every hit the check reports is a finding, at any severity. A config written
- * against the older docs gets told what happened rather than a bare list of
- * valid options, the same courtesy the renamed `scan` key gets below.
- */
-const standardsSeverityValue = z.enum(StandardsSeverity, {
-	error: (issue) => (issue.input === 'finding' ? 'severity `finding` was renamed to `blocking`' : undefined),
-});
-
-/** One command's harness override: harness, model, and/or effort, each falling back to the global field. */
-const commandHarness = z
-	.object({
-		/** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
-		harness: z.string().optional(),
-		/** Model for this command's harness. The global `model` falls through only when this command resolves to the global harness. */
-		model: z.string().optional(),
-		/** Reasoning effort for this command. Falls back to the global `effort` regardless of which harness the command selects — the five levels mean the same thing everywhere. */
-		effort: z.enum(Effort).optional(),
-	})
-	.strict();
+import { StandardsCheckOverrides } from '@/contracts/StandardsCheckOverrides';
 
 /**
  * Consumer configuration (`lightsout.config.json` at the target repo root).
  * This is the only coupling point between the engine and a consumer — the
  * engine never knows a consumer by name.
+ *
+ * Composed from the block contracts beside it — `ConfigGates`, `PackageGates`,
+ * `ConfigCommands`, `StandardsCheckOverrides` — each of which pins its own
+ * shape in its own test.
  */
 export const LightsoutConfig = z.object({
 	/** Harness name. Defaults to 'claude-code'. */
@@ -56,47 +36,10 @@ export const LightsoutConfig = z.object({
 	scripts: z.never('`scripts` was renamed to `gates`').optional(),
 	/** Removed — renamed to `packageGates`. Same reason. */
 	packageScripts: z.never('`packageScripts` was renamed to `packageGates`').optional(),
-	/**
-	 * Per-command harness selection (`plan` covers draft/dedup/grade; `resume`
-	 * always keeps the run manifest's recorded harness). Each entry overrides the
-	 * global `harness`/`model`/`effort` for that command; unlisted commands use
-	 * the globals. Both objects are `.strict()` — unlike the rest of the config,
-	 * a typoed key here would silently disable an override the user believes
-	 * is active, so it fails parsing loudly instead.
-	 */
-	commands: z
-		.object({
-			implement: commandHarness.optional(),
-			refactor: commandHarness.optional(),
-			improve: commandHarness.optional(),
-			plan: commandHarness.optional(),
-			'test-coverage-to-threshold': commandHarness.optional(),
-		})
-		.strict()
-		.optional(),
-	/** Verification commands — the mechanical gates. Full shell commands. */
-	gates: z.object({
-		check: z.string(),
-		test: z.string(),
-		/** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
-		testUnit: z.never('`testUnit` was renamed to `test`').optional(),
-		/**
-		 * Coverage gate — on by default. Required: either a full shell command
-		 * (run at clean-slate and every post-test verify) or the literal
-		 * `false` to explicitly opt out. Silence is not an option: skipping
-		 * the strongest gate must be a decision, not an accident.
-		 */
-		testCoverage: z.union([z.string(), z.literal(false)]),
-		/**
-		 * Opt-in codegen, run once BEFORE every gate set (not inside check:
-		 * gates verify, generate mutates). Red exit fails the gate set.
-		 */
-		generate: z.string().optional(),
-		/** Opt-in build gate, run last in every verify. Omit when nothing compiles. */
-		build: z.string().optional(),
-		/** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
-		format: z.string().optional(),
-	}),
+	/** Per-command harness selection. See `ConfigCommands`. */
+	commands: ConfigCommands.optional(),
+	/** Verification commands — the mechanical gates. See `ConfigGates`. */
+	gates: ConfigGates,
 	/**
 	 * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
 	 * failure the run can resume from — never a crash.
@@ -136,30 +79,8 @@ export const LightsoutConfig = z.object({
 	coverageSummaryPath: z.string().optional(),
 	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
 	packagesDir: z.string().optional(),
-	/**
-	 * Monorepo mode: gate command templates run per affected package, with
-	 * `{package}` replaced by that package's package.json `name`. When set,
-	 * verifies run scoped to the run's package scope (plan front-matter
-	 * `packages:` list or `--packages`, expanded as changed files reveal the
-	 * true blast radius) and `gates.*` becomes the root-group commands, run
-	 * only when files outside the packages directory change.
-	 */
-	packageGates: z
-		.object({
-			check: z.string(),
-			test: z.string(),
-			/** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
-			testUnit: z.never('`testUnit` was renamed to `test`').optional(),
-			/** Scoped coverage gate. Omitted = no coverage gate for package groups. */
-			testCoverage: z.string().optional(),
-			/** Opt-in scoped build gate. */
-			build: z.string().optional(),
-		})
-		.refine((templates) => Object.values(templates).every((command) => command === undefined || command.includes('{package}')), {
-			message:
-				'every packageGates command must contain the {package} placeholder — a command without it would run identically for every package and belongs in gates.* instead',
-		})
-		.optional(),
+	/** Monorepo scoped gate templates. See `PackageGates`. */
+	packageGates: PackageGates.optional(),
 	/**
 	 * Standards packages a run works against. Unspecified = the package the
 	 * plugin ships (announced in the run header); `false` = explicitly none; an
@@ -183,32 +104,8 @@ export const LightsoutConfig = z.object({
 	standardsChannels: z.array(z.string()).optional(),
 	/** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
 	scan: z.never('`scan` was renamed to `standardsChecks`').optional(),
-	/**
-	 * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
-	 * value is either a severity, or an object with a severity and/or that
-	 * rule's own settings. A rule not named here keeps its default — silence
-	 * is never a change.
-	 *
-	 * The ids come from the loaded standards packages, so a mistyped one cannot
-	 * be caught while parsing this file: `resolvePackageRuleStates` refuses a
-	 * key naming no loaded rule and lists the valid ids. The protection is the
-	 * same, it just happens where the answer exists. Read the live state with
-	 * `lightsout standards-check --list`.
-	 */
-	standardsChecks: z
-		.record(
-			z.string(),
-			z.union([
-				standardsSeverityValue,
-				z
-					.object({
-						severity: standardsSeverityValue.optional(),
-						settings: z.record(z.string(), z.number()).optional(),
-					})
-					.strict(),
-			]),
-		)
-		.optional(),
+	/** Per-rule severity/settings overrides. See `StandardsCheckOverrides`. */
+	standardsChecks: StandardsCheckOverrides.optional(),
 });
 
 export type LightsoutConfig = z.infer<typeof LightsoutConfig>;

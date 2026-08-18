@@ -126,4 +126,14 @@ describe('checkVerificationScripts', () => {
 		// a leading flag means the next token is not the script name
 		expect(await check({ cwd, planPath, plan: planWith({ commands: ['yarn --version'] }) })).toStrictEqual([]);
 	});
+
+	test('a config being present never blanket-skips the check — only its own commands are overrides', async () => {
+		const { cwd, planPath } = setupRepo({ manifests: rootManifest({ check: 'true' }) });
+
+		const findings = await check({ cwd, planPath, plan: planWith({ commands: ['pnpm phantom'] }), configCommands: new Set(['pnpm ghost-script']) });
+
+		// the override set holds the gate commands themselves, so a different
+		// command still resolves as a package script and is flagged
+		expect(findings.some((finding) => finding.issue.includes("'phantom'"))).toBe(true);
+	});
 });

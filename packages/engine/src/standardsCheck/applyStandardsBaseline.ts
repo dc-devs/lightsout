@@ -36,8 +36,7 @@ interface Params {
  *
  * Split out of `runStandardsCheck` so that function reads as detection then
  * persistence: which findings a repo has already accepted is policy, not
- * detection. A module internal — its behaviour is pinned through
- * `runStandardsCheck`'s own baseline tests.
+ * detection.
  */
 export const applyStandardsBaseline = async ({
 	cwd,

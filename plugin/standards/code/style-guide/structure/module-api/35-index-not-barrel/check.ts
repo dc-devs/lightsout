@@ -1,0 +1,51 @@
+import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
+import type ts from 'typescript';
+import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { getBaseName } from '../../../../../common/utils/getBaseName.ts';
+import { getDirectory } from '../../../../../common/utils/getDirectory.ts';
+
+/**
+ * Every index file, wherever it stands — a src root barrel holds no code any
+ * more than an internal one does, so unlike barrel-star there is no root
+ * exemption. A barrel under `common/` is spared the same way barrel-star
+ * spares it: `path-common-barrel` objects to its existing at all.
+ */
+const isIndexFile = ({ path }: { path: string }) => /^index\.tsx?$/.test(getBaseName({ path })) && !getDirectory({ path }).split('/').includes('common');
+
+/** The one statement kind a barrel may hold. `export *` passes here too — how a barrel re-exports is barrel-star's objection, not this rule's. */
+const isReExport = ({ statement, compiler }: { statement: ts.Statement; compiler: typeof ts }) =>
+	compiler.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined;
+
+const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
+	const findings: RawStandardsFinding[] = [];
+
+	for (const [path, tree] of input.trees) {
+		if (isIndexFile({ path })) {
+			const offending = tree.statements.filter((statement) => !isReExport({ statement, compiler: input.compiler }));
+			const [first] = offending;
+
+			if (first !== undefined) {
+				const line = tree.getLineAndCharacterOfPosition(first.getStart(tree)).line + 1;
+
+				findings.push(
+					buildRawFinding({
+						rule: 'index-not-barrel',
+						files: [{ path }],
+						detail: `${offending.length} statement(s) other than re-export lines, the first at line ${line}`,
+						guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+					}),
+				);
+			}
+		}
+	}
+
+	return findings;
+};
+
+export const check: StandardsCheckModule = {
+	inputKind: 'syntax-tree',
+	// Barrels in this codebase hold multi-line re-export statements, so the
+	// verdict needs parsed statements — a line scan cannot tell the middle of an
+	// `export type { … } from` block from a declaration.
+	run: ({ input }): RawStandardsFinding[] => (input.kind === 'syntax-tree' ? buildFileFindings({ input }) : []),
+};

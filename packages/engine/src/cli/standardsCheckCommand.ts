@@ -6,41 +6,12 @@ import { printStandardsRuleList } from '@/cli/common/render/printStandardsRuleLi
 import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
 import { dim } from '@/cli/common/terminal/dim';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { type LightsoutConfig, type StandardsFinding, StandardsSeverity } from '@/contracts';
-import { getDriver } from '@/drivers';
-import { detectStandardsChannels } from '@/standards';
-import { listStandardsRules, runStandardsCheck, runStandardsReview } from '@/standardsCheck';
-import { resolveStandardsPackages } from '@/standardsPackages';
+import { loadStandardsLedger } from '@/cli/loadStandardsLedger';
+import { reviewStandards } from '@/cli/reviewStandards';
+import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { runStandardsCheck } from '@/standardsCheck';
 
 const reportPath = '.lightsout/standards-check.json';
-const defaultAgentTimeoutMinutes = 60;
-
-/**
- * The agent's read of the judgment-only rules, over the same scope the machine
- * half checked. Everything it needs is resolved here rather than by the runner,
- * so a run that never asks for the review never loads a package or a harness
- * for it.
- */
-const reviewFindings = async ({ cwd, config, path }: { cwd: string; config?: LightsoutConfig; path?: string }) => {
-	const packages = await resolveStandardsPackages({ cwd, config });
-	// No package scope on a standalone command, so the root package.json decides
-	// the channels — the same call the machine half makes.
-	const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config?.packagesDir ?? 'packages', packages: [] }));
-	const { files: walked } = await listSourceFiles({ cwd, exclude: config?.generated });
-	const files = walked.filter((file) => !path || file.startsWith(path));
-
-	return runStandardsReview({
-		cwd,
-		driver: getDriver({ name: config?.harness ?? 'claude-code' }),
-		packages,
-		channels,
-		files,
-		timeoutMs: (config?.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000,
-		onProgress: (message) => console.log(dim(message)),
-	});
-};
 
 /** The typed evidence file the refactor pipeline reads as its work-list, written once per run by the command that owns it. */
 const writeCheckReport = async ({ cwd, path, findings, notes }: { cwd: string; path?: string; findings: StandardsFinding[]; notes: string[] }) => {
@@ -53,11 +24,9 @@ const writeCheckReport = async ({ cwd, path, findings, notes }: { cwd: string; p
 };
 
 export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
-	// A repo without a config still has an answer — every rule at its default —
-	// so a missing config is tolerated on both paths, and both need the listing:
-	// `--list` prints it whole, the run path reads each rule's summary from it.
-	const config = await loadConfig({ cwd }).catch(() => undefined);
-	const rules = await listStandardsRules({ cwd, config });
+	// Both paths need the ledger: `--list` prints it whole, the run path reads
+	// each rule's summary from it.
+	const { config, rules } = await loadStandardsLedger({ cwd });
 
 	// --list answers "what does this repo enforce?" and runs nothing.
 	if (flags.get('list') === true) {
@@ -94,7 +63,7 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 	}
 
 	if (runAgentReview) {
-		const reviewed = await reviewFindings({ cwd, config, path: checkPath });
+		const reviewed = await reviewStandards({ cwd, config, path: checkPath });
 
 		findings.push(...reviewed.findings);
 		notes.push(...reviewed.notes);
