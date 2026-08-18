@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
 import { type WorkReport, WorkReportStatus } from '@/contracts';
+import { runWriterBatches } from '@/pipeline';
 import type { TestTargetGroup } from '@/pipeline/common/types/TestTargetGroup';
 import type { PipelineRun } from '@/pipeline/PipelineRun';
-import { runWriterBatches } from '@/pipeline/steps/runWriterBatches';
 
 /** A complete WorkReport with per-test overrides. */
 const workReport = (overrides: Partial<WorkReport> = {}): WorkReport => ({

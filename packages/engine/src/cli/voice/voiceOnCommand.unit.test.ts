@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { voiceOnCommand } from '@/cli/voice/voiceOnCommand';
+import { voiceOnCommand } from '@/cli/voice';
 
 // The read-out is Mac-only, so a suite that took the machine's own platform
 // would pass on a Mac and fail everywhere else. jest.replaceProperty cannot pin

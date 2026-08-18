@@ -146,6 +146,20 @@ describe('runRefactorPipeline agent review', () => {
 		expect(reviewRuleIds[1]).toStrictEqual(reviewRuleIds[0]);
 	});
 
+	test('with the agent review off, no reviewer is invoked and the run says so once', async () => {
+		const { dir, driver, config, reviewScopes, progress, onProgress } = await setupReviewedRun({
+			onReview: () => {
+				throw new Error('the reviewer must not be invoked when the run opted out');
+			},
+		});
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config, agentReview: false, onProgress });
+
+		expect(result.ok).toBe(true);
+		expect(reviewScopes).toStrictEqual([]);
+		expect(progress).toContain('code checks only — the per-batch agent review is off for this run');
+	});
+
 	test('a review that could not run is narrated against its batch and the batch is still worked', async () => {
 		const { dir, driver, config, progress, onProgress } = await setupReviewedRun({ onReview: () => 'the harness fell over' });
 

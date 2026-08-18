@@ -7998,7 +7998,7 @@ usage:
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
   lightsout standards-validate [--package <path>] [--cwd <path>]   (run every check against its own fixtures)
   lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
-  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
+  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>] [--code-checks]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>]
   lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
@@ -8027,6 +8027,12 @@ var red = paint({ code: "31" });
 
 // src/cli/common/terminal/yellow.ts
 var yellow = paint({ code: "33" });
+
+// src/cli/common/utils/exitCli.ts
+var exitCli = async ({ code }) => {
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve8) => stream.write("", () => resolve8()))));
+  return process.exit(code);
+};
 
 // src/doctor/checkCoverageSummary.ts
 import { stat } from "node:fs/promises";
@@ -23975,7 +23981,7 @@ var doctorCommand = async ({ cwd }) => {
   const tally = Object.entries(counts).filter(([, count2]) => count2 > 0).map(([status, count2]) => `${count2} ${status}`).join(" \xB7 ");
   console.log(`
 ${checks.length} check(s) \xB7 ${tally}`);
-  process.exit(counts.fail > 0 ? 1 : 0);
+  return exitCli({ code: counts.fail > 0 ? 1 : 0 });
 };
 
 // src/runState/acquireRunLock.ts
@@ -24318,12 +24324,12 @@ var frictionCommand = async ({ cwd }) => {
   const entries = await readFriction({ cwd });
   if (entries.length === 0) {
     console.log("no friction recorded");
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   for (const entry of entries) {
     console.log(`[${entry.area}] (run ${entry.runId.slice(0, 8)}, ${entry.step}, ${entry.at}) ${entry.detail}`);
   }
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printResult.ts
@@ -25864,6 +25870,73 @@ var createEventFileSink = ({ path, ready }) => {
   };
 };
 
+// src/invoke/extractJsonReport.ts
+var findBalancedEnd = ({ text, start }) => {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+};
+var lastEmbeddedJsonObject = ({ text }) => {
+  let found;
+  let start = text.indexOf("{");
+  while (start !== -1) {
+    const end = findBalancedEnd({ text, start });
+    if (end === -1) {
+      start = text.indexOf("{", start + 1);
+      continue;
+    }
+    try {
+      found = JSON.parse(text.slice(start, end + 1));
+      start = text.indexOf("{", end + 1);
+    } catch {
+      start = text.indexOf("{", start + 1);
+    }
+  }
+  return found;
+};
+var extractJsonReport = ({ text }) => {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+  }
+  const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
+  for (const body of fencedBodies.reverse()) {
+    if (!body) {
+      continue;
+    }
+    try {
+      return JSON.parse(body.trim());
+    } catch {
+    }
+  }
+  return lastEmbeddedJsonObject({ text: trimmed });
+};
+
 // src/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
@@ -26315,73 +26388,6 @@ ${errorContext}`
     systemPrompt: roleSections.join("\n\n---\n\n"),
     prompt: sections.join("\n\n")
   };
-};
-
-// src/invoke/extractJsonReport.ts
-var findBalancedEnd = ({ text, start }) => {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index];
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (char === '"') {
-      inString = true;
-    } else if (char === "{") {
-      depth += 1;
-    } else if (char === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return index;
-      }
-    }
-  }
-  return -1;
-};
-var lastEmbeddedJsonObject = ({ text }) => {
-  let found;
-  let start = text.indexOf("{");
-  while (start !== -1) {
-    const end = findBalancedEnd({ text, start });
-    if (end === -1) {
-      start = text.indexOf("{", start + 1);
-      continue;
-    }
-    try {
-      found = JSON.parse(text.slice(start, end + 1));
-      start = text.indexOf("{", end + 1);
-    } catch {
-      start = text.indexOf("{", start + 1);
-    }
-  }
-  return found;
-};
-var extractJsonReport = ({ text }) => {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-  }
-  const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
-  for (const body of fencedBodies.reverse()) {
-    if (!body) {
-      continue;
-    }
-    try {
-      return JSON.parse(body.trim());
-    } catch {
-    }
-  }
-  return lastEmbeddedJsonObject({ text: trimmed });
 };
 
 // src/invoke/invokeAgentWithContract.ts
@@ -40629,7 +40635,7 @@ var runPhasesOrFailFast = async (params) => {
   } catch (error51) {
     console.error(`
 ${error51 instanceof RunLockError ? error51.message : messageOf({ error: error51 })}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
 };
 
@@ -40641,7 +40647,7 @@ var runPipelineOrFailFast = async (params) => {
     if (error51 instanceof RunLockError) {
       console.error(`
 ${error51.message}`);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     throw error51;
   }
@@ -40669,6 +40675,24 @@ var buildClaudeCodeArgs = ({ systemPromptPath, model, effort, permissions, allow
   }
   if (allowedCommands && allowedCommands.length > 0) {
     args.push("--allowedTools", ...allowedCommands.map((prefix) => `Bash(${prefix}:*)`));
+  }
+  return args;
+};
+
+// src/drivers/buildCodexArgs.ts
+var buildCodexArgs = ({ outFile, model, effort, permissions }) => {
+  const args = ["exec", "--skip-git-repo-check", "--color", "never", "--output-last-message", outFile];
+  if (permissions === Permissions.FullAccess) {
+    args.push("--dangerously-bypass-approvals-and-sandbox");
+  } else {
+    args.push("--sandbox", permissions === Permissions.ReadOnly ? "read-only" : "workspace-write");
+    args.push("-c", 'approval_policy="never"');
+  }
+  if (model) {
+    args.push("--model", model);
+  }
+  if (effort) {
+    args.push("-c", `model_reasoning_effort="${effort}"`);
   }
   return args;
 };
@@ -40776,26 +40800,6 @@ ${stderr}`),
 import { mkdtemp as mkdtemp2, readFile as readFile27, rm as rm2 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join47 } from "node:path";
-
-// src/drivers/buildCodexArgs.ts
-var buildCodexArgs = ({ outFile, model, effort, permissions }) => {
-  const args = ["exec", "--skip-git-repo-check", "--color", "never", "--output-last-message", outFile];
-  if (permissions === Permissions.FullAccess) {
-    args.push("--dangerously-bypass-approvals-and-sandbox");
-  } else {
-    args.push("--sandbox", permissions === Permissions.ReadOnly ? "read-only" : "workspace-write");
-    args.push("-c", 'approval_policy="never"');
-  }
-  if (model) {
-    args.push("--model", model);
-  }
-  if (effort) {
-    args.push("-c", `model_reasoning_effort="${effort}"`);
-  }
-  return args;
-};
-
-// src/drivers/createCodexDriver.ts
 var rateLimitPattern2 = /usage limit|rate limit|limit reached|quota/i;
 var createCodexDriver = () => {
   const driver = {
@@ -40857,30 +40861,30 @@ var implementCommand = async ({ flags, cwd }) => {
   const packages = packagesFlag ? packagesFlag.split(",").map((name) => name.trim()).filter(Boolean) : void 0;
   if (!planPath) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const startPhase = startPhaseFlag === void 0 ? void 0 : Number.parseInt(startPhaseFlag, 10);
   if (startPhase !== void 0 && (!Number.isFinite(startPhase) || startPhase < 1)) {
     console.error(`--start-phase must be a positive integer, got '${startPhaseFlag}'`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const target = await resolvePlanTarget({ cwd, planPath });
   if ("error" in target) {
     console.error(target.error);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const phased = "overviewPath" in target;
   if (phased && overviewPath !== void 0) {
     console.error("--overview applies to a single-plan run \u2014 a plan folder with an overview.md already runs every phase");
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (phased && packages !== void 0) {
     console.error("--packages applies to a single-plan run \u2014 every phase of a plan folder reads its own scope");
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (!phased && startPhase !== void 0) {
     console.error("--start-phase applies to a plan folder holding an overview.md \u2014 a single plan has one phase");
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const loaded = await loadConfig({ cwd });
   const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: "implement" });
@@ -40905,7 +40909,7 @@ var implementCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
@@ -40954,17 +40958,17 @@ var improveCommand = async ({ flags, cwd }) => {
   const engineCwd = getStringFlag({ flags, name: "engine" });
   if (!engineCwd) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { config: config2, driver } = await resolveConfigAndDriver({ cwd, command: "improve" });
   const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config2?.model, effort: config2?.effort });
   if (result.status === "no-friction") {
     console.log("no friction recorded \u2014 nothing to improve from");
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   if (!result.outcome.ok) {
     console.error(result.outcome.failure);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { report } = result.outcome;
   console.log(`
@@ -40977,7 +40981,7 @@ improve: ${report.status} (${result.friction.length} friction entries considered
     console.log(`
 review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
   }
-  process.exit(report.status === "complete" ? 0 : 1);
+  return exitCli({ code: report.status === "complete" ? 0 : 1 });
 };
 
 // src/cli/loadStandardsLedger.ts
@@ -40985,6 +40989,22 @@ var loadStandardsLedger = async ({ cwd }) => {
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const rules = await listStandardsRules({ cwd, config: config2 });
   return { config: config2, rules };
+};
+
+// src/cli/plan/loadPlanningStandards.ts
+var loadPlanningStandards = async ({ cwd, config: config2 }) => {
+  const packagesDir = config2?.packagesDir ?? "packages";
+  let standards;
+  try {
+    const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
+    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
+    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
+    standards = texts.length === 0 ? void 0 : texts.join("\n\n");
+  } catch (error51) {
+    console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
+    standards = void 0;
+  }
+  return standards;
 };
 
 // src/cli/common/args/getPositionals.ts
@@ -41006,38 +41026,23 @@ var getPositionals = ({ args }) => {
 };
 
 // src/cli/common/args/getRequiredFlag.ts
-var getRequiredFlag = ({ flags, name }) => {
+var getRequiredFlag = async ({ flags, name }) => {
   const value = getStringFlag({ flags, name });
   if (!value) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   return value;
 };
 
-// src/cli/plan/loadPlanningStandards.ts
-var loadPlanningStandards = async ({ cwd, config: config2 }) => {
-  const packagesDir = config2?.packagesDir ?? "packages";
-  let standards;
-  try {
-    const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
-    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
-    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
-    standards = texts.length === 0 ? void 0 : texts.join("\n\n");
-  } catch (error51) {
-    console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
-    standards = void 0;
-  }
-  return standards;
-};
-
 // src/cli/plan/common/utils/exitOnPlanFailure.ts
-var exitOnPlanFailure = (result) => {
+var exitOnPlanFailure = async (result) => {
   if (result.status === "paused-rate-limit" || result.status === "failed") {
     console.error(`
 ${result.error}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
+  return result;
 };
 
 // src/cli/plan/common/utils/planRunOptions.ts
@@ -42011,8 +42016,7 @@ var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
 
 // src/cli/plan/planDedupCommand.ts
 var planDedupCommand = async ({ cwd, driver, name, standards, config: config2 }) => {
-  const result = await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config: config2 }));
-  exitOnPlanFailure(result);
+  const result = await exitOnPlanFailure(await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config: config2 })));
   const { dedup } = result;
   const count2 = dedup.findings.length;
   console.log(
@@ -42027,22 +42031,21 @@ ${bold(`plan dedup ${name}`)} \u2014 ${count2 > 0 ? yellow(`${count2} duplicatio
   }
   console.log(`
 dedup: ${result.dedupPath}`);
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/plan/planDraftCommand.ts
 var planDraftCommand = async ({ cwd, driver, name, standards, config: config2, flags }) => {
   const scopeFlag = getStringFlag({ flags, name: "scope" });
   const scope = scopeFlag === "phased" ? PlanVariant.Overview : scopeFlag === "single" ? PlanVariant.Single : void 0;
-  const result = await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config: config2 }), scope });
-  exitOnPlanFailure(result);
+  const result = await exitOnPlanFailure(await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config: config2 }), scope }));
   if (result.status === "facts-error") {
     console.error(`
 ${red("facts error")} \u2014 the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
     for (const discrepancy of result.discrepancies) {
       console.error(`  ${yellow("\u26A0")} ${discrepancy}`);
     }
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (result.status === "structural-issues") {
     console.error(`
@@ -42051,14 +42054,14 @@ ${red(`${result.findings.length} structural issue(s)`)} remain after re-drafting
       console.error(`  ${yellow("\u26A0")} [${finding.check}] ${finding.location} \u2014 ${finding.issue}`);
       console.error(dim(`     fix: ${finding.fix}`));
     }
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(`
 ${bold(`plan draft ${name}`)} \u2014 ${result.variant}, structurally clean`);
   for (const path of result.planPaths) {
     console.log(`  ${green("\u2713")} ${path}`);
   }
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printStructuralFinding.ts
@@ -42069,8 +42072,7 @@ var printStructuralFinding = ({ finding }) => {
 
 // src/cli/plan/planGradeCommand.ts
 var planGradeCommand = async ({ cwd, driver, name, standards, config: config2 }) => {
-  const result = await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config: config2 }));
-  exitOnPlanFailure(result);
+  const result = await exitOnPlanFailure(await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config: config2 })));
   const { grade } = result;
   console.log(`
 ${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
@@ -42084,17 +42086,17 @@ ${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(g
   }
   console.log(`
 grade: ${result.gradePath}`);
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/plan/planLintCommand.ts
 var planLintCommand = async ({ flags, cwd }) => {
-  const name = getRequiredFlag({ flags, name: "name" });
+  const name = await getRequiredFlag({ flags, name: "name" });
   const result = await runPlanLint({ cwd, name, onProgress: createProgressPrinter() });
   if (result.status === "failed") {
     console.error(`
 ${result.error}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { findings, planPaths } = result;
   console.log(
@@ -42104,7 +42106,7 @@ ${bold(`plan lint ${name}`)} \u2014 ${findings.length === 0 ? green("clean") : r
   for (const finding of findings) {
     printStructuralFinding({ finding });
   }
-  process.exit(findings.length > 0 ? 1 : 0);
+  return exitCli({ code: findings.length > 0 ? 1 : 0 });
 };
 
 // src/cli/plan/planVerifyFactsCommand.ts
@@ -42112,14 +42114,14 @@ var planVerifyFactsCommand = async ({ flags, cwd }) => {
   const name = getStringFlag({ flags, name: "name" });
   if (!name) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const notesFile = getStringFlag({ flags, name: "notes" });
   const result = await runPlanVerifyFacts({ cwd, name, notesFile, onProgress: createProgressPrinter() });
   if (result.status === "failed" || !result.facts) {
     console.error(`
 ${result.error ?? "plan verify-facts failed"}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const { verification } = result.facts;
   console.log(`
@@ -42134,7 +42136,7 @@ ${bold(`plan verify-facts ${name}`)} \u2014 ${result.facts.areas.length} area(s)
   }
   console.log(`
 facts: ${result.factsPath}`);
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/plan/planCommand.ts
@@ -42149,7 +42151,7 @@ var planCommand = async ({ flags, rest, cwd }) => {
     return;
   }
   if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {
-    const name = getRequiredFlag({ flags, name: "name" });
+    const name = await getRequiredFlag({ flags, name: "name" });
     const { config: config2, driver } = await resolveConfigAndDriver({ cwd, command: "plan" });
     const standards = await loadPlanningStandards({ cwd, config: config2 });
     if (subcommand === "draft") {
@@ -42164,7 +42166,7 @@ var planCommand = async ({ flags, rest, cwd }) => {
     return;
   }
   console.error(usage);
-  process.exit(1);
+  return exitCli({ code: 1 });
 };
 
 // src/cli/common/render/printRefactorResult.ts
@@ -42300,19 +42302,75 @@ var batchFindings = ({ blocking, advisories, packagesDir }) => {
   return batches;
 };
 
-// src/refactor/matchRemainingFindings.ts
-var matchRemainingFindings = ({ frozen, live: live2 }) => {
-  const liveSiteKeys = new Set(live2.map((finding) => finding.siteKey));
-  return frozen.filter((finding) => liveSiteKeys.has(finding.siteKey)).map((finding) => finding.siteKey);
+// src/refactor/buildBatchReport.ts
+var buildBatchReport = ({ outcome, remainingSiteKeys, rationale, advisoryOutcomes }) => {
+  return { outcome, remainingSiteKeys, rationale, ...advisoryOutcomes.length > 0 ? { advisoryOutcomes } : {} };
 };
 
-// src/refactor/countByRule.ts
-var countByRule = ({ findings }) => {
-  const counts = {};
-  for (const finding of findings) {
-    counts[finding.rule] = (counts[finding.rule] ?? 0) + 1;
+// src/refactor/collectBatchAdvisories.ts
+var collectBatchAdvisories = async ({
+  cwd,
+  driver,
+  batch,
+  packages,
+  channels,
+  findings,
+  agentReview,
+  timeoutMs,
+  onProgress
+}) => {
+  const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
+  const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path)));
+  if (!agentReview) {
+    return machine;
   }
-  return counts;
+  const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
+  for (const note of review.notes) {
+    onProgress(`${batch.id}: ${note}`);
+  }
+  return [...machine, ...review.findings];
+};
+
+// src/refactor/common/constants/BatchStopKind.ts
+var BatchStopKind = {
+  Parked: "parked",
+  Failed: "failed",
+  Escalated: "escalated",
+  Done: "done"
+};
+
+// src/refactor/getAttemptStop.ts
+var getAttemptStop = async ({
+  batchId,
+  attempt,
+  workFindings,
+  rationale,
+  onProgress,
+  remainingSiteKeys,
+  gates: gates2,
+  finish
+}) => {
+  let stop;
+  if (!attempt.ok) {
+    if (attempt.rateLimited) {
+      stop = { kind: BatchStopKind.Parked };
+    } else if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates2()) {
+      rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but the sites are resolved and gates are green`);
+      onProgress(`${batchId}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
+      stop = await finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
+    } else {
+      stop = { kind: BatchStopKind.Failed, error: `${batchId}: ${attempt.failure}` };
+    }
+  } else if (attempt.report.status === WorkReportStatus.TerminatedScope) {
+    rationale.push(...attempt.report.failures.map((entry) => `[scope] ${entry}`));
+    stop = await finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }) });
+  } else if (attempt.report.status !== WorkReportStatus.Complete) {
+    stop = {
+      kind: attempt.report.status === WorkReportStatus.Failed ? BatchStopKind.Failed : BatchStopKind.Escalated,
+      error: `${batchId}: ${attempt.report.status} \u2014 ${attempt.report.failures.join("; ")}`
+    };
+  }
+  return stop;
 };
 
 // src/refactor/initializeRun.ts
@@ -42371,6 +42429,21 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`);
   return { manifest, worklist };
 };
 
+// src/refactor/matchRemainingFindings.ts
+var matchRemainingFindings = ({ frozen, live: live2 }) => {
+  const liveSiteKeys = new Set(live2.map((finding) => finding.siteKey));
+  return frozen.filter((finding) => liveSiteKeys.has(finding.siteKey)).map((finding) => finding.siteKey);
+};
+
+// src/refactor/countByRule.ts
+var countByRule = ({ findings }) => {
+  const counts = {};
+  for (const finding of findings) {
+    counts[finding.rule] = (counts[finding.rule] ?? 0) + 1;
+  }
+  return counts;
+};
+
 // src/refactor/buildBatchFixInvocation.ts
 var buildBatchFixInvocation = ({
   planContent,
@@ -42387,31 +42460,6 @@ var buildBatchFixInvocation = ({
 ${guidance}` : gateError;
   const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
   return coverageRed ? buildUnitTestWriterInvocation({ planContent, subjects: files, mustExecute: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, reportAdvisoryOutcomes: true, errorContext });
-};
-
-// src/refactor/buildBatchReport.ts
-var buildBatchReport = ({ outcome, remainingSiteKeys, rationale, advisoryOutcomes }) => {
-  return { outcome, remainingSiteKeys, rationale, ...advisoryOutcomes.length > 0 ? { advisoryOutcomes } : {} };
-};
-
-// src/refactor/collectBatchAdvisories.ts
-var collectBatchAdvisories = async ({
-  cwd,
-  driver,
-  batch,
-  packages,
-  channels,
-  findings,
-  timeoutMs,
-  onProgress
-}) => {
-  const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
-  const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path)));
-  const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
-  for (const note of review.notes) {
-    onProgress(`${batch.id}: ${note}`);
-  }
-  return [...machine, ...review.findings];
 };
 
 // src/refactor/invokeBatchAgent.ts
@@ -42596,6 +42644,7 @@ var runBatch = async ({
   channels,
   checkPath,
   checkAll,
+  agentReview,
   standards,
   testStandards,
   agentTimeoutMs,
@@ -42626,17 +42675,21 @@ var runBatch = async ({
     });
   };
   const reportOf = ({ outcome, remainingSiteKeys: remainingSiteKeys2 }) => buildBatchReport({ outcome, remainingSiteKeys: remainingSiteKeys2, rationale, advisoryOutcomes: [...advisoryOutcomes.values()] });
+  const finish = async ({ outcome, remainingSiteKeys: remainingSiteKeys2 }) => ({
+    kind: BatchStopKind.Done,
+    report: reportOf({ outcome, remainingSiteKeys: remainingSiteKeys2 }),
+    changedFiles: await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })
+  });
   const gates2 = () => runBatchGates({ cwd, config: config2, coverage: true, runId, step: batch.id, onProgress });
   const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
   const remainingSiteKeys = async ({ frozen }) => {
     const { findings } = await checkLive();
     return matchRemainingFindings({ frozen, live: findings });
   };
-  const batchChangedFiles = () => collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles });
   const preCheck = await checkLive();
   if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
     onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
-    return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
+    return { kind: BatchStopKind.Done, report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
   }
   const advisories = await collectBatchAdvisories({
     cwd,
@@ -42645,14 +42698,16 @@ var runBatch = async ({
     packages,
     channels,
     findings: preCheck.findings,
+    agentReview,
     timeoutMs: agentTimeoutMs,
     onProgress
   });
   let workFindings = batch.blocking;
+  let stop;
   for (let pass = 1; pass <= 2; pass += 1) {
     const files = [...new Set(workFindings.flatMap((finding) => finding.files.map((file2) => file2.path)))];
     const buildFixInvocation = ({ gateError, guidance }) => buildBatchFixInvocation({ planContent: standaloneBanner2, files, standards, testStandards, findings: workFindings, advisories, gateError, guidance });
-    const attemptOutcome = await invoke({
+    const attempt = await invoke({
       label: pass === 1 ? "" : "requeue",
       invocation: buildRefactorExecutorInvocation({
         planContent: standaloneBanner2,
@@ -42663,30 +42718,10 @@ var runBatch = async ({
         reportAdvisoryOutcomes: true
       })
     });
-    if (!attemptOutcome.ok) {
-      if (attemptOutcome.rateLimited) {
-        return { kind: "parked" };
-      }
-      const { failure } = attemptOutcome;
-      if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates2()) {
-        rationale.push(`[other] salvaged: agent invocation failed (${failure}) but the sites are resolved and gates are green`);
-        onProgress(`${batch.id}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
-        return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
-      }
-      return { kind: "failed", error: `${batch.id}: ${failure}` };
-    }
-    const { report } = attemptOutcome;
-    if (report.status === WorkReportStatus.TerminatedScope) {
-      rationale.push(...report.failures.map((entry) => `[scope] ${entry}`));
-      return {
-        kind: "done",
-        report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: await remainingSiteKeys({ frozen: workFindings }) }),
-        changedFiles: await batchChangedFiles()
-      };
-    }
-    if (report.status !== WorkReportStatus.Complete) {
-      const kind = report.status === WorkReportStatus.Failed ? "failed" : "escalated";
-      return { kind, error: `${batch.id}: ${report.status} \u2014 ${report.failures.join("; ")}` };
+    const changedNothing = attempt.ok && attempt.report.changedFiles.length === 0;
+    stop = await getAttemptStop({ batchId: batch.id, attempt, workFindings, rationale, onProgress, remainingSiteKeys, gates: gates2, finish });
+    if (stop) {
+      break;
     }
     const settled2 = await settleBatchGates({
       cwd,
@@ -42702,26 +42737,26 @@ var runBatch = async ({
       gates: gates2
     });
     if (settled2.kind === "parked") {
-      return { kind: "parked" };
+      stop = { kind: BatchStopKind.Parked };
+      break;
     }
     if (settled2.kind === "escalated") {
-      return { kind: "escalated", error: settled2.error };
+      stop = { kind: BatchStopKind.Escalated, error: settled2.error };
+      break;
     }
     const remaining = await remainingSiteKeys({ frozen: workFindings });
     if (remaining.length === 0) {
-      return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: await batchChangedFiles() };
+      stop = await finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
+      break;
     }
-    if (report.changedFiles.length === 0 || pass === 2) {
-      return {
-        kind: "done",
-        report: reportOf({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining }),
-        changedFiles: await batchChangedFiles()
-      };
+    if (changedNothing || pass === 2) {
+      stop = await finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: remaining });
+      break;
     }
     onProgress(`${batch.id}: ${remaining.length} site(s) persist after a changing pass \u2014 one requeue`);
     workFindings = workFindings.filter((finding) => remaining.includes(finding.siteKey));
   }
-  return { kind: "failed", error: `${batch.id}: batch loop exited without a terminal condition` };
+  return stop ?? { kind: BatchStopKind.Failed, error: `${batch.id}: batch loop exited without a terminal condition` };
 };
 
 // src/refactor/seedResumeState.ts
@@ -42756,6 +42791,7 @@ var executeRefactor = async ({
   path,
   all,
   maxBatches,
+  agentReview = true,
   existing,
   onProgress
 }) => {
@@ -42806,6 +42842,9 @@ ${gateError}` });
   const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes3) * 6e4;
   let declineStreak = seeded.declineStreak;
   let processed = 0;
+  if (!agentReview) {
+    progress("code checks only \u2014 the per-batch agent review is off for this run");
+  }
   for (const batch of worklist.batches) {
     const prior = manifest.steps.find((step) => step.id === batch.id);
     if (prior?.status === RunStatus.Passed) {
@@ -42836,6 +42875,7 @@ ${gateError}` });
       channels,
       checkPath: worklist.path === "." ? void 0 : worklist.path,
       checkAll: worklist.all,
+      agentReview,
       standards,
       testStandards,
       agentTimeoutMs,
@@ -42897,14 +42937,14 @@ var refactorCommand = async ({ flags, cwd }) => {
   const maxBatches = maxBatchesFlag === void 0 ? void 0 : Number.parseInt(maxBatchesFlag, 10);
   if (maxBatches !== void 0 && (!Number.isFinite(maxBatches) || maxBatches < 1)) {
     console.error(`--max-batches must be a positive integer, got '${maxBatchesFlag}'`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   let existing;
   try {
     existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : void 0;
   } catch (error51) {
     console.error(messageOf({ error: error51 }));
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(`lightsout: refactor ${existing ? `resuming run ${existing.runId}` : "starting run"}`);
   let result;
@@ -42916,6 +42956,9 @@ var refactorCommand = async ({ flags, cwd }) => {
       path: getStringFlag({ flags, name: "path" }),
       all: flags.get("all") === true,
       maxBatches,
+      // The same flag the standards check takes: run against the deterministic
+      // checks alone, skipping each batch's agent review.
+      agentReview: flags.get("code-checks") !== true,
       existing,
       onProgress: createProgressPrinter()
     });
@@ -42923,14 +42966,14 @@ var refactorCommand = async ({ flags, cwd }) => {
     if (error51 instanceof RunLockError) {
       console.error(`
 ${error51.message}`);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     console.error(`
 ${messageOf({ error: error51 })}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   printRefactorResult({ result });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/resumeCommand.ts
@@ -42940,12 +42983,12 @@ var resumeCommand = async ({ flags, cwd }) => {
   const runId = getStringFlag({ flags, name: "run" });
   if (!runId) {
     console.error(usage);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const manifest = await readRunManifest({ cwd, runId }).catch((error51) => {
     if (error51 instanceof RunNotFoundError) {
       console.error(error51.message);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     throw error51;
   });
@@ -42953,11 +42996,11 @@ var resumeCommand = async ({ flags, cwd }) => {
   const ownCommand = resumeCommandByPipeline[pipeline];
   if (ownCommand) {
     console.error(`run ${manifest.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${ownCommand} --run ${manifest.runId}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   if (manifest.status === RunStatus.Passed) {
     console.error(`run ${manifest.runId} already passed \u2014 nothing to resume`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   const loaded = await loadConfig({ cwd });
   const resolved = resolveCommandHarness({ config: loaded, command: "implement" });
@@ -42979,7 +43022,7 @@ var resumeCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/reviewStandards.ts
@@ -43186,7 +43229,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
   const { config: config2, rules } = await loadStandardsLedger({ cwd });
   if (flags.get("list") === true) {
     printStandardsRuleList({ rules });
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   const codeChecksOnly = flags.get("code-checks") === true;
   const agentReviewOnly = flags.get("agent-review") === true;
@@ -43227,7 +43270,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
     await writeCheckReport({ cwd, path: checkPath, findings: ordered, notes });
   }
   printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? reportPath : void 0 });
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printStandardsHealth.ts
@@ -43294,7 +43337,7 @@ var standardsHealthCommand = async ({ cwd }) => {
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const health = await buildStandardsHealth({ cwd, packages });
   printStandardsHealth({ health });
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/standardsValidateCommand.ts
@@ -43308,8 +43351,7 @@ var standardsValidateCommand = async ({ flags, cwd }) => {
   const requested = getStringFlag({ flags, name: "package" });
   const pkg = await loadRequestedPackage({ requested, cwd }).catch((error51) => {
     console.error(messageOf({ error: error51 }));
-    process.exit(1);
-    throw error51;
+    return exitCli({ code: 1 });
   });
   const { problems, notes } = await validateStandardsPackage({ pkg });
   for (const note of notes) {
@@ -43323,10 +43365,10 @@ var standardsValidateCommand = async ({ flags, cwd }) => {
   console.log("");
   if (problems.length > 0) {
     console.log(`${pkg.name} \u2014 ${problems.length} problem(s) across ${checked} checked rule(s)`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(green(`${pkg.name} \u2014 ${checked} checked rule(s) validated, ${judgment} judgment-only rule(s)`));
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/statusCommand.ts
@@ -43349,7 +43391,7 @@ var statusCommand = async ({ cwd }) => {
   const runIds = await readdir16(getRunsDir({ cwd })).catch(() => []);
   if (runIds.length === 0) {
     console.log("no runs found");
-    process.exit(0);
+    return exitCli({ code: 0 });
   }
   const lock = await readRunLock({ cwd });
   for (const runId of runIds) {
@@ -43361,7 +43403,7 @@ var statusCommand = async ({ cwd }) => {
       console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}${phases}  updated: ${manifest.updatedAt}`);
     }
   }
-  process.exit(0);
+  return exitCli({ code: 0 });
 };
 
 // src/cli/common/render/printCoverageResult.ts
@@ -43421,14 +43463,14 @@ var testCoverageToThresholdCommand = async ({ flags, cwd }) => {
   const maxBatches = maxBatchesFlag === void 0 ? void 0 : Number.parseInt(maxBatchesFlag, 10);
   if (maxBatches !== void 0 && (!Number.isFinite(maxBatches) || maxBatches < 1)) {
     console.error(`--max-batches must be a positive integer, got '${maxBatchesFlag}'`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   let existing;
   try {
     existing = resumeRunId ? await readRunManifest({ cwd, runId: resumeRunId }) : void 0;
   } catch (error51) {
     console.error(messageOf({ error: error51 }));
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   console.log(`lightsout: test-coverage-to-threshold ${existing ? `resuming run ${existing.runId}` : "starting run"}`);
   let result;
@@ -43438,14 +43480,14 @@ var testCoverageToThresholdCommand = async ({ flags, cwd }) => {
     if (error51 instanceof RunLockError) {
       console.error(`
 ${error51.message}`);
-      process.exit(1);
+      return exitCli({ code: 1 });
     }
     console.error(`
 ${messageOf({ error: error51 })}`);
-    process.exit(1);
+    return exitCli({ code: 1 });
   }
   printCoverageResult({ result });
-  process.exit(result.ok ? 0 : 1);
+  return exitCli({ code: result.ok ? 0 : 1 });
 };
 
 // src/cli/voice/common/utils/getStreamText.ts
@@ -43727,7 +43769,7 @@ var voiceCommand = async ({ rest, cwd }) => {
     return;
   }
   console.error(usage);
-  process.exit(1);
+  return exitCli({ code: 1 });
 };
 
 // src/main.ts
@@ -43756,6 +43798,6 @@ var main = async () => {
     return;
   }
   console.error(usage);
-  process.exit(command === void 0 || command === "help" ? 0 : 1);
+  return exitCli({ code: command === void 0 || command === "help" ? 0 : 1 });
 };
 await main();

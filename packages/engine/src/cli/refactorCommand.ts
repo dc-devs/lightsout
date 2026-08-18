@@ -2,6 +2,7 @@ import { getStringFlag } from '@/cli/common/args/getStringFlag';
 import { printRefactorResult } from '@/cli/common/render/printRefactorResult';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { messageOf } from '@/common/utils/messageOf';
@@ -24,7 +25,7 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 
 	if (maxBatches !== undefined && (!Number.isFinite(maxBatches) || maxBatches < 1)) {
 		console.error(`--max-batches must be a positive integer, got '${maxBatchesFlag}'`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	let existing: RunManifest | undefined;
@@ -35,7 +36,7 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 		// An unknown id says which id; a manifest that will not parse says that
 		// instead, rather than being reported as a run that does not exist.
 		console.error(messageOf({ error }));
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	console.log(`lightsout: refactor ${existing ? `resuming run ${existing.runId}` : 'starting run'}`);
@@ -50,20 +51,23 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 			path: getStringFlag({ flags, name: 'path' }),
 			all: flags.get('all') === true,
 			maxBatches,
+			// The same flag the standards check takes: run against the deterministic
+			// checks alone, skipping each batch's agent review.
+			agentReview: flags.get('code-checks') !== true,
 			existing,
 			onProgress: createProgressPrinter(),
 		});
 	} catch (error) {
 		if (error instanceof RunLockError) {
 			console.error(`\n${error.message}`);
-			process.exit(1);
+			return exitCli({ code: 1 });
 		}
 
 		console.error(`\n${messageOf({ error })}`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	printRefactorResult({ result });
 
-	process.exit(result.ok ? 0 : 1);
+	return exitCli({ code: result.ok ? 0 : 1 });
 };

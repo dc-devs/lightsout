@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { loadPlanningStandards } from '@/cli/plan/loadPlanningStandards';
+import { loadPlanningStandards } from '@/cli/plan';
 import type { LightsoutConfig } from '@/contracts';
 
 /** A consumer repo whose manifest carries the given dependencies — the signal framework channels are detected from. */

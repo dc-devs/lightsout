@@ -4,6 +4,7 @@ import { printResult } from '@/cli/common/render/printResult';
 import { printRunHeader } from '@/cli/common/render/printRunHeader';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
 import { runPhasesOrFailFast } from '@/cli/common/utils/runPhasesOrFailFast';
 import { runPipelineOrFailFast } from '@/cli/common/utils/runPipelineOrFailFast';
@@ -22,7 +23,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	if (!runId) {
 		console.error(usage);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	// A run id the user typed is theirs to get wrong: an unknown one is a
@@ -30,7 +31,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 	const manifest = await readRunManifest({ cwd, runId }).catch((error: unknown) => {
 		if (error instanceof RunNotFoundError) {
 			console.error(error.message);
-			process.exit(1);
+			return exitCli({ code: 1 });
 		}
 
 		throw error;
@@ -41,12 +42,12 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 
 	if (ownCommand) {
 		console.error(`run ${manifest.runId} belongs to the ${pipeline} pipeline — resume it with: lightsout ${ownCommand} --run ${manifest.runId}`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	if (manifest.status === RunStatus.Passed) {
 		console.error(`run ${manifest.runId} already passed — nothing to resume`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const loaded = await loadConfig({ cwd });
@@ -78,5 +79,5 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 				});
 
 	await printResult({ result, cwd });
-	process.exit(result.ok ? 0 : 1);
+	return exitCli({ code: result.ok ? 0 : 1 });
 };

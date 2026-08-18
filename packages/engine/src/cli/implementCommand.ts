@@ -4,6 +4,7 @@ import { printResult } from '@/cli/common/render/printResult';
 import { printRunHeader } from '@/cli/common/render/printRunHeader';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
 import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
 import { resolvePlanTarget } from '@/cli/common/utils/resolvePlanTarget';
 import { runPhasesOrFailFast } from '@/cli/common/utils/runPhasesOrFailFast';
@@ -27,38 +28,38 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 
 	if (!planPath) {
 		console.error(usage);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const startPhase = startPhaseFlag === undefined ? undefined : Number.parseInt(startPhaseFlag, 10);
 
 	if (startPhase !== undefined && (!Number.isFinite(startPhase) || startPhase < 1)) {
 		console.error(`--start-phase must be a positive integer, got '${startPhaseFlag}'`);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const target = await resolvePlanTarget({ cwd, planPath });
 
 	if ('error' in target) {
 		console.error(target.error);
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const phased = 'overviewPath' in target;
 
 	if (phased && overviewPath !== undefined) {
 		console.error('--overview applies to a single-plan run — a plan folder with an overview.md already runs every phase');
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	if (phased && packages !== undefined) {
 		console.error('--packages applies to a single-plan run — every phase of a plan folder reads its own scope');
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	if (!phased && startPhase !== undefined) {
 		console.error('--start-phase applies to a plan folder holding an overview.md — a single plan has one phase');
-		process.exit(1);
+		return exitCli({ code: 1 });
 	}
 
 	const loaded = await loadConfig({ cwd });
@@ -89,5 +90,5 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 				});
 
 	await printResult({ result, cwd });
-	process.exit(result.ok ? 0 : 1);
+	return exitCli({ code: result.ok ? 0 : 1 });
 };

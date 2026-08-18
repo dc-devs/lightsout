@@ -4,7 +4,7 @@ import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { writePlanDeliverable } from '@tests/helpers/writePlanDeliverable';
-import { planGradeCommand } from '@/cli/plan/planGradeCommand';
+import { planGradeCommand } from '@/cli/plan';
 import type { LightsoutConfig } from '@/contracts';
 import { Effort, GapArea, Permissions } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';

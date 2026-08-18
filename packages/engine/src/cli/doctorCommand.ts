@@ -3,6 +3,7 @@ import { green } from '@/cli/common/terminal/green';
 import { red } from '@/cli/common/terminal/red';
 import { yellow } from '@/cli/common/terminal/yellow';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { runDoctor } from '@/doctor';
 
 export const doctorCommand = async ({ cwd }: CommandContext): Promise<void> => {
@@ -29,5 +30,5 @@ export const doctorCommand = async ({ cwd }: CommandContext): Promise<void> => {
 		.join(' · ');
 
 	console.log(`\n${checks.length} check(s) · ${tally}`);
-	process.exit(counts.fail > 0 ? 1 : 0);
+	return exitCli({ code: counts.fail > 0 ? 1 : 0 });
 };

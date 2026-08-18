@@ -9,14 +9,16 @@ import { readBarrelSurface } from '../../../common/utils/readBarrelSurface.ts';
 import { readFileTexts } from '../../../common/utils/readFileTexts.ts';
 
 /**
- * A root-layer `common/` — one whose parent segment is `src`. The document's
- * classification table calls those files boundaries outright, and they have no
- * barrel to ask by design.
+ * A root-layer `common/` — one sitting directly under `src`, or under a layer
+ * directly under `src`. Both are the document's own boundary examples
+ * (`src/common/utils/`, `src/app/common/`): the classification table calls
+ * those files boundaries outright, and they have no barrel to ask by design.
+ * A `common/` deeper than that belongs to a feature and stays internal.
  */
 const isUnderRootLayerCommon = ({ path }: { path: string }) => {
 	const segments = path.split('/');
 
-	return segments.some((segment, index) => segment === 'common' && segments[index - 1] === 'src');
+	return segments.some((segment, index) => segment === 'common' && (segments[index - 1] === 'src' || segments[index - 2] === 'src'));
 };
 
 const notPublicFinding = ({ test, files, moduleFolders }: { test: string; files: Set<string>; moduleFolders: Array<[string, FolderModule]> }) => {
@@ -35,7 +37,11 @@ const notPublicFinding = ({ test, files, moduleFolders }: { test: string; files:
 		? undefined
 		: buildRawFinding({
 				rule: 'path-test-untested-subject-not-public',
-				files: [{ path: test }],
+				// The barrel is a reported file, not just prose in the detail: a
+				// refactor batch's writable set is the finding's files, and the
+				// promotion remedy is an edit to exactly this barrel (live lesson:
+				// run 59afe535, where every batch declined the fix as unreachable).
+				files: [{ path: test }, { path: nearest[1].barrelPath }],
 				detail: `'${getBaseName({ path: subject })}' is not re-exported from ${nearest[1].barrelPath}`,
 				guidance:
 					"A direct test is a promotion, not an exception: add the subject to its module's barrel, or drive its coverage through the module's boundary instead. Existing ones are migration debt to leave in place — judge before acting.",

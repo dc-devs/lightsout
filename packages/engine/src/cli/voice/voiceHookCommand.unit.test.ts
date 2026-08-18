@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
-import { voiceHookCommand } from '@/cli/voice/voiceHookCommand';
+import { voiceHookCommand } from '@/cli/voice';
 
 // Mocked Imports
 // -------------------------

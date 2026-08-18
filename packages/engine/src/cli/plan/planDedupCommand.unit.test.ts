@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { planDedupCommand } from '@/cli/plan/planDedupCommand';
+import { planDedupCommand } from '@/cli/plan';
 import type { Driver } from '@/drivers';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */

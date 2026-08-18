@@ -17,6 +17,7 @@ import {
 	usage,
 	voiceCommand,
 } from '@/cli';
+import { exitCli } from '@/cli/common/utils/exitCli';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	implement: implementCommand,
@@ -46,7 +47,7 @@ const main = async (): Promise<void> => {
 	}
 
 	console.error(usage);
-	process.exit(command === undefined || command === 'help' ? 0 : 1);
+	return exitCli({ code: command === undefined || command === 'help' ? 0 : 1 });
 };
 
 await main();

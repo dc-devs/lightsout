@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { type RefactorBatch, type StandardsFinding, StandardsSeverity } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
+import { collectBatchAdvisories } from '@/refactor';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
@@ -67,6 +67,7 @@ describe('collectBatchAdvisories', () => {
 				// and blocking work is never advice
 				finding({ rule: 'multi-export', severity: StandardsSeverity.Blocking, siteKey: 'multi-export:src/a.ts' }),
 			],
+			agentReview: true,
 			timeoutMs: 1000,
 			onProgress,
 		});
@@ -86,6 +87,7 @@ describe('collectBatchAdvisories', () => {
 			packages: [packageOf({ rules: [judgmentRule] })],
 			channels: [],
 			findings: [finding()],
+			agentReview: true,
 			timeoutMs: 1000,
 			onProgress,
 		});
@@ -93,6 +95,29 @@ describe('collectBatchAdvisories', () => {
 		expect(advisories.map((entry) => entry.rule)).toStrictEqual(['size-function', 'path-aliases']);
 		// and it arrives as advice, like everything else in this list
 		expect(advisories[1]?.severity).toBe(StandardsSeverity.Advisory);
+	});
+
+	test('code-checks-only mode keeps the machine advisories and never spends an agent', async () => {
+		const driver: Driver = {
+			name: 'stub',
+			invoke: async () => {
+				throw new Error('the reviewer must not be invoked when the caller opted out');
+			},
+		};
+
+		const advisories = await collectBatchAdvisories({
+			cwd: '/repo',
+			driver,
+			batch: batch({ paths: ['src/a.ts'] }),
+			packages: [packageOf({ rules: [judgmentRule] })],
+			channels: [],
+			findings: [finding()],
+			agentReview: false,
+			timeoutMs: 1000,
+			onProgress: () => undefined,
+		});
+
+		expect(advisories.map((entry) => entry.siteKey)).toStrictEqual(['size-function:src/a.ts']);
 	});
 
 	test('a review that could not run leaves a note against the batch and no findings', async () => {
@@ -105,6 +130,7 @@ describe('collectBatchAdvisories', () => {
 			packages: [packageOf({ rules: [judgmentRule] })],
 			channels: [],
 			findings: [],
+			agentReview: true,
 			timeoutMs: 1000,
 			onProgress,
 		});

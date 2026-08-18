@@ -1,3 +1,4 @@
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { type PipelineResult, runImplementPipeline } from '@/pipeline';
 import { RunLockError } from '@/runState';
 
@@ -13,7 +14,7 @@ export const runPipelineOrFailFast = async (params: Parameters<typeof runImpleme
 	} catch (error) {
 		if (error instanceof RunLockError) {
 			console.error(`\n${error.message}`);
-			process.exit(1);
+			return exitCli({ code: 1 });
 		}
 
 		throw error;

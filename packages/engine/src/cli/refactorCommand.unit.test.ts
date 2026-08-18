@@ -23,6 +23,7 @@ interface RunRefactorPipelineParams {
 	path?: string;
 	all?: boolean;
 	maxBatches?: number;
+	agentReview?: boolean;
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
 }
@@ -99,8 +100,16 @@ describe('refactorCommand', () => {
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(pipelineParams()).toEqual(expect.objectContaining({ path: undefined, all: false, maxBatches: undefined }));
+		expect(pipelineParams()).toEqual(expect.objectContaining({ path: undefined, all: false, maxBatches: undefined, agentReview: true }));
 		expect(logged[0]).toBe('lightsout: refactor starting run');
+	});
+
+	test('--code-checks turns each batch’s agent review off, the same flag the standards check takes', async () => {
+		const { context } = setupRefactor({ args: ['--code-checks'] });
+
+		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(pipelineParams()).toEqual(expect.objectContaining({ agentReview: false }));
 	});
 
 	test('the resolved harness rides into the config the pipeline runs with', async () => {

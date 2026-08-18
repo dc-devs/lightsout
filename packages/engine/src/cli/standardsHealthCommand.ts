@@ -1,5 +1,6 @@
 import { printStandardsHealth } from '@/cli/common/render/printStandardsHealth';
 import type { CommandContext } from '@/cli/common/types/CommandContext';
+import { exitCli } from '@/cli/common/utils/exitCli';
 import { loadConfig } from '@/common/utils/loadConfig';
 import { buildStandardsHealth } from '@/standardsCheck';
 import { resolveStandardsPackages } from '@/standardsPackages';
@@ -22,5 +23,5 @@ export const standardsHealthCommand = async ({ cwd }: CommandContext): Promise<v
 	const health = await buildStandardsHealth({ cwd, packages });
 
 	printStandardsHealth({ health });
-	process.exit(0);
+	return exitCli({ code: 0 });
 };

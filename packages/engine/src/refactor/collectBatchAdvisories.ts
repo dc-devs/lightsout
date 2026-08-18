@@ -13,6 +13,8 @@ interface Params {
 	channels: string[];
 	/** A live check's findings, which the machine advisories are filtered out of. */
 	findings: StandardsFinding[];
+	/** false skips the agent's read entirely — code-checks-only mode. */
+	agentReview: boolean;
 	timeoutMs: number;
 	onProgress: (message: string) => void;
 }
@@ -30,6 +32,9 @@ interface Params {
  *
  * A review that could not run leaves a note on the progress stream and no
  * findings — the batch is still real work, and a missing harness must not stop it.
+ *
+ * Code-checks-only mode (`agentReview: false`) keeps the machine advisories and
+ * skips the agent's read — the caller opted out of that spend for the run.
  */
 export const collectBatchAdvisories = async ({
 	cwd,
@@ -38,11 +43,17 @@ export const collectBatchAdvisories = async ({
 	packages,
 	channels,
 	findings,
+	agentReview,
 	timeoutMs,
 	onProgress,
 }: Params): Promise<StandardsFinding[]> => {
 	const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file) => file.path)));
 	const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file) => batchFiles.has(file.path)));
+
+	if (!agentReview) {
+		return machine;
+	}
+
 	const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
 
 	for (const note of review.notes) {

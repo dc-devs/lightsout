@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import { describe, expect, test } from '@jest/globals';
-import { getStreamText } from '@/cli/voice/common/utils/getStreamText';
+import { getStreamText } from '@/cli/voice';
 
 describe('getStreamText', () => {
 	test('joins the pieces a payload arrives in back into one string', async () => {

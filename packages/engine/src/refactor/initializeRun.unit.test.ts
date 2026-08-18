@@ -3,7 +3,7 @@ import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { initializeRun } from '@/refactor/initializeRun';
+import { initializeRun } from '@/refactor';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
