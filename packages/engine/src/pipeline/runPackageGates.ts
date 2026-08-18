@@ -1,7 +1,9 @@
 import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
 import { messageOf } from '@/common/utils/messageOf';
+import { resolvePackageGatesConfig } from '@/common/utils/resolvePackageGatesConfig';
 import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
 import type { GateResult, LightsoutConfig } from '@/contracts';
+import type { GateCommands } from '@/pipeline/common/types/GateCommands';
 import type { RunGate } from '@/pipeline/common/types/RunGate';
 import { runGateSet } from '@/pipeline/runGateSet';
 import { appendCommandLog } from '@/runState';
@@ -60,6 +62,7 @@ export const runPackageGates = async ({
 		return messageOf({ error });
 	}
 
+	const templates = resolvePackageGatesConfig({ packageGates: scoped });
 	const substitute = ({ command }: { command: string }) => command.split('{package}').join(manifest.name);
 
 	const scopedCommand = async ({ kind, template }: { kind: string; template: string }) => {
@@ -92,19 +95,25 @@ export const runPackageGates = async ({
 		return undefined;
 	};
 
-	const testCoverage = coverage && scoped.testCoverage ? await scopedCommand({ kind: 'testCoverage', template: scoped.testCoverage }) : undefined;
+	const testCoverage = coverage && templates.testCoverage ? await scopedCommand({ kind: 'testCoverage', template: templates.testCoverage }) : undefined;
+	const extraTests: GateCommands['extraTests'] = [];
+
+	for (const { name, command } of templates.extraTests) {
+		extraTests.push({ name, command: await scopedCommand({ kind: name, template: command }) });
+	}
 
 	return runGateSet({
 		label: packageDir,
 		gate,
 		failFast,
 		commands: {
-			check: await scopedCommand({ kind: 'check', template: scoped.check }),
+			check: await scopedCommand({ kind: 'check', template: templates.check }),
 			// Coverage replaces the plain test run; only when coverage is
 			// absent or skipped does test get its own script lookup.
-			test: testCoverage ? undefined : await scopedCommand({ kind: 'test', template: scoped.test }),
+			test: testCoverage ? undefined : await scopedCommand({ kind: 'test', template: templates.test }),
 			testCoverage,
-			build: scoped.build ? await scopedCommand({ kind: 'build', template: scoped.build }) : undefined,
+			extraTests,
+			build: templates.build ? await scopedCommand({ kind: 'build', template: templates.build }) : undefined,
 		},
 	});
 };

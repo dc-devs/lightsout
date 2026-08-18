@@ -1,3 +1,5 @@
+export { applyStandardsBaseline } from '@/standardsCheck/applyStandardsBaseline';
+export { buildDominantPathNote } from '@/standardsCheck/buildDominantPathNote';
 export { buildStandardsHealth } from '@/standardsCheck/buildStandardsHealth';
 export type { StandardsHealth } from '@/standardsCheck/common/types/StandardsHealth';
 export type { StandardsHealthRule } from '@/standardsCheck/common/types/StandardsHealthRule';

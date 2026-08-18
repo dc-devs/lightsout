@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '@/contracts';
 import { checkLintRules } from '@/doctor/checkLintRules';
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 /** A package directory holding the given lint config files. */
 const setupPackage = ({ files = {} }: { files?: Record<string, string> } = {}) => {
@@ -50,7 +50,11 @@ describe('checkLintRules', () => {
 			files: { 'eslint.config.js': "export default [{ rules: { 'consistent-type-imports': 'error', 'no-explicit-any': 'error' } }];" },
 		});
 
-		expect((await checkLintRules({ config, packageDirs }))?.status).toBe('pass');
+		const check = await checkLintRules({ config, packageDirs });
+
+		expect(check?.status).toBe('pass');
+		// one file found means one config counted, not one per rule it enforces
+		expect(check?.detail ?? '').toMatch(/1 lint config/);
 	});
 
 	test('a package directory that is not there contributes nothing rather than failing the doctor', async () => {

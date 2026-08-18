@@ -31,7 +31,7 @@ const manifestWith = ({ pipeline, config }: { pipeline?: string; config: Lightso
 
 /** A measurable consumer repo: a coverage command that exits green and a summary already on disk. */
 const setupMeasurable = ({ git = true }: { git?: boolean } = {}) => {
-	const dir = setupConsumerRepo({ git: false, scripts: { testCoverage: 'true' } });
+	const dir = setupConsumerRepo({ git: false, scripts: { 'test-coverage': 'true' } });
 
 	mkdirSync(join(dir, 'coverage'), { recursive: true });
 	writeFileSync(
@@ -50,7 +50,7 @@ const setupMeasurable = ({ git = true }: { git?: boolean } = {}) => {
 const setupScopedMeasurable = () => {
 	const dir = setupConsumerRepo({
 		git: false,
-		config: { packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'true {package}' } },
+		config: { packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package}' } },
 	});
 
 	mkdirSync(join(dir, 'packages/api/coverage'), { recursive: true });
@@ -72,7 +72,7 @@ describe('initializeCoverageRun', () => {
 		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) }) });
 
 		// the command has nothing to run, and silently skipping would look like success
-		expect(error.message).toMatch(/opted out \(gates\.testCoverage: false\) — test-coverage-to-threshold has nothing to run/);
+		expect(error.message).toMatch(/opted out \("test-coverage": false\) — test-coverage-to-threshold has nothing to run/);
 	});
 
 	test('a per-package coverage gate keeps the run alive even with the root gate switched off', async () => {

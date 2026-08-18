@@ -5,7 +5,7 @@ import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { initializeRun } from '@/refactor/initializeRun';
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 
 const manifestWith = ({ pipeline }: { pipeline?: string }): RunManifest => ({

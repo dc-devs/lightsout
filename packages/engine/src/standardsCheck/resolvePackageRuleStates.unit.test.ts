@@ -24,7 +24,7 @@ const standardsPackage = ({ name = 'acme', rules }: { name?: string; rules: Load
 	rules,
 });
 
-const baseConfig = { gates: { check: 'true', test: 'true', testCoverage: false as const } };
+const baseConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false as const } };
 
 const setupStates = ({ packages, standardsChecks }: { packages: LoadedStandardsPackage[]; standardsChecks?: Record<string, unknown> }) => {
 	const config = LightsoutConfig.parse(standardsChecks === undefined ? baseConfig : { ...baseConfig, standardsChecks });

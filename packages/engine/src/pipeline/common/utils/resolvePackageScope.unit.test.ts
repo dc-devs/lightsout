@@ -3,11 +3,11 @@ import { type LightsoutConfig, PackagesSource } from '@/contracts';
 import { resolvePackageScope } from '@/pipeline/common/utils/resolvePackageScope';
 
 const monorepo: LightsoutConfig = {
-	gates: { check: 'true', test: 'true', testCoverage: false },
+	gates: { check: 'true', test: 'true', 'test-coverage': false },
 	packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' },
 };
 
-const singleRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+const singleRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
 const call = ({ config = monorepo, current = [], packages, planContent = '# Plan\n' }: Partial<Parameters<typeof resolvePackageScope>[0]> = {}) =>
 	resolvePackageScope({ config, current, packages, planContent, packagesDir: 'packages' });

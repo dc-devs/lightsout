@@ -37,7 +37,7 @@ const setupRootRepo = ({
 	summaryAt?: string;
 	summary?: boolean;
 } = {}) => {
-	const dir = setupConsumerRepo({ git: false, scripts: { testCoverage: exitCode === 0 ? 'true' : 'false' } });
+	const dir = setupConsumerRepo({ git: false, scripts: { 'test-coverage': exitCode === 0 ? 'true' : 'false' } });
 
 	if (summary) {
 		writeSummary({ dir, at: summaryAt, total: 61.5, files });
@@ -65,7 +65,7 @@ const setupScopedRepo = ({
 			packageGates: {
 				check: 'true {package}',
 				test: 'true {package}',
-				testCoverage: `${gateLogCommand({ kind: 'coverage' })} {package}${runScript}${guard}`,
+				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} {package}${runScript}${guard}`,
 			},
 		},
 	});
@@ -150,7 +150,7 @@ describe('runCoverageCheck', () => {
 
 		writeFileSync(
 			join(dir, 'lightsout.config.json'),
-			JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: 'true' }, coverageSummaryPath: 'reports/summary.json' }),
+			JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': 'true' }, coverageSummaryPath: 'reports/summary.json' }),
 		);
 
 		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
@@ -256,7 +256,7 @@ describe('runCoverageCheck', () => {
 	test('a repo that opted out of the coverage gate measures nothing and reports not passed', async () => {
 		const dir = setupRootRepo();
 
-		writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false } }));
+		writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));
 
 		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
 

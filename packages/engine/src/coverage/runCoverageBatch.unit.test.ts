@@ -27,7 +27,7 @@ const writeSummary = ({ dir, pct }: { dir: string; pct?: number }) => {
  * improvement is expressed exactly as the real tooling would express it.
  */
 const setupBatchRepo = ({ check = 'true' }: { check?: string } = {}) => {
-	const dir = setupConsumerRepo({ scripts: { check, testCoverage: 'true' } });
+	const dir = setupConsumerRepo({ scripts: { check, 'test-coverage': 'true' } });
 
 	mkdirSync(join(dir, 'coverage'), { recursive: true });
 	writeFileSync(join(dir, target), 'export const target = () => 1;\n');
@@ -49,7 +49,7 @@ const writeScopedSummary = ({ dir, pct }: { dir: string; pct: number }) => {
 const setupScopedBatchRepo = () => {
 	const dir = setupConsumerRepo({
 		git: false,
-		config: { packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'true {package} run test:coverage' } },
+		config: { packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package} run test:coverage' } },
 	});
 
 	mkdirSync(join(dir, 'packages/api/src'), { recursive: true });

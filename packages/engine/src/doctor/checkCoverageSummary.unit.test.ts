@@ -6,12 +6,12 @@ import type { LightsoutConfig } from '@/contracts';
 import { checkCoverageSummary } from '@/doctor/checkCoverageSummary';
 import type { PackageDir } from '@/doctor/common/types/PackageDir';
 
-const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', testCoverage: 'pnpm test:coverage' };
+const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': 'pnpm test:coverage' };
 
 const packageGates: NonNullable<LightsoutConfig['packageGates']> = {
 	check: 'x {package}',
 	test: 'x {package}',
-	testCoverage: 'x {package}',
+	'test-coverage': 'x {package}',
 };
 
 /** A repo root, plus whichever summary files the case says already exist. */
@@ -36,7 +36,7 @@ describe('checkCoverageSummary', () => {
 		const cwd = setupRepo();
 
 		// nothing measures coverage here, so a missing summary is not a finding
-		expect(await checkCoverageSummary({ config: { gates: { ...gates, testCoverage: false } }, packageDirs: packageDirs({ cwd }) })).toBe(undefined);
+		expect(await checkCoverageSummary({ config: { gates: { ...gates, 'test-coverage': false } }, packageDirs: packageDirs({ cwd }) })).toBe(undefined);
 	});
 
 	test('a single-package repo passes when the summary the run reads is on disk', async () => {
@@ -63,7 +63,7 @@ describe('checkCoverageSummary', () => {
 		const cwd = setupRepo({ summaries: ['coverage/coverage-summary.json', 'packages/api/coverage/coverage-summary.json'] });
 		const config: LightsoutConfig = {
 			gates,
-			packageGates: { check: 'x {package}', test: 'x {package}', testCoverage: 'x {package}' },
+			packageGates: { check: 'x {package}', test: 'x {package}', 'test-coverage': 'x {package}' },
 		};
 
 		const check = await checkCoverageSummary({ config, packageDirs: packageDirs({ cwd, packages: ['api', 'web'] }) });
@@ -98,11 +98,11 @@ describe('checkCoverageSummary', () => {
 		const cwd = setupRepo({ summaries: ['packages/api/coverage/coverage-summary.json'] });
 
 		const check = await checkCoverageSummary({
-			config: { gates: { ...gates, testCoverage: false }, packageGates },
+			config: { gates: { ...gates, 'test-coverage': false }, packageGates },
 			packageDirs: packageDirs({ cwd, packages: ['api'] }),
 		});
 
-		// gates.testCoverage: false only opts the root out; the scoped command still measures
+		// gates.'test-coverage': false only opts the root out; the scoped command still measures
 		expect(check?.status).toBe('pass');
 		expect(check?.detail).toBe('coverage summary found for 1 scope(s)');
 	});

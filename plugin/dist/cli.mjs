@@ -8028,12 +8028,373 @@ var red = paint({ code: "31" });
 // src/cli/common/terminal/yellow.ts
 var yellow = paint({ code: "33" });
 
-// src/common/constants/defaultPackagesDir.ts
-var defaultPackagesDir = "packages";
-
-// src/common/utils/loadConfig.ts
-import { readFile } from "node:fs/promises";
+// src/doctor/checkCoverageSummary.ts
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
+
+// src/common/constants/defaultCoverageSummaryPath.ts
+var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
+
+// src/doctor/checkCoverageSummary.ts
+var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
+  const scoped = config2.packageGates?.["test-coverage"];
+  const rootApplies = typeof config2.gates["test-coverage"] === "string";
+  if (!scoped && !rootApplies) {
+    return void 0;
+  }
+  const summaryPath = config2.coverageSummaryPath ?? defaultCoverageSummaryPath;
+  const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
+  const expected = scopes.map((entry) => ({ label: entry.label, path: join(entry.dir, summaryPath) }));
+  const absent = [];
+  for (const entry of expected) {
+    await stat(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
+  }
+  return absent.length === 0 ? { id: "coverage-summary", status: "pass", detail: `coverage summary found for ${expected.length} scope(s)` } : {
+    id: "coverage-summary",
+    status: "warn",
+    detail: `not found: ${absent.join(", ")}`,
+    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverageSummaryPath`
+  };
+};
+
+// src/doctor/checkGenerated.ts
+import { stat as stat2 } from "node:fs/promises";
+import { join as join2 } from "node:path";
+var checkGenerated = async ({ cwd, config: config2 }) => {
+  if (!config2.generated) {
+    return void 0;
+  }
+  const absent = [];
+  for (const prefix of config2.generated) {
+    await stat2(join2(cwd, prefix)).catch(() => absent.push(prefix));
+  }
+  return absent.length === 0 ? { id: "generated", status: "pass", detail: `${config2.generated.length} generated path(s) exist` } : {
+    id: "generated",
+    status: "warn",
+    detail: `not found: ${absent.join(", ")}`,
+    fix: "run the generator once, or remove stale entries from `generated`"
+  };
+};
+
+// src/common/utils/runCommand.ts
+import { spawn } from "node:child_process";
+
+// src/common/constants/killGraceMs.ts
+var killGraceMs = 2e3;
+
+// src/common/utils/killProcessGroup.ts
+var killProcessGroup = ({ child, signal }) => {
+  if (child.pid !== void 0 && process.platform !== "win32") {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+  }
+};
+
+// src/common/utils/terminateChildGroups.ts
+var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
+var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve8) => child.once("exit", () => resolve8()));
+var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
+  const targets = [...children];
+  for (const child of targets) {
+    killProcessGroup({ child, signal: "SIGTERM" });
+  }
+  if (targets.length === 0) {
+    return;
+  }
+  let grace;
+  await Promise.race([
+    Promise.all(targets.map((child) => exited({ child }))),
+    new Promise((resolve8) => {
+      grace = setTimeout(resolve8, graceMs);
+    })
+  ]);
+  clearTimeout(grace);
+  for (const child of targets) {
+    if (!settled({ child })) {
+      killProcessGroup({ child, signal: "SIGKILL" });
+    }
+  }
+};
+
+// src/common/utils/relayShutdownSignals.ts
+var relayed = ["SIGINT", "SIGTERM"];
+var live = /* @__PURE__ */ new Set();
+var installed = false;
+var shuttingDown = false;
+var onSignal = async (signal) => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  await terminateChildGroups({ children: live });
+  uninstall();
+  process.kill(process.pid, signal);
+};
+var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
+var install = () => {
+  if (installed) {
+    return;
+  }
+  installed = true;
+  for (const signal of relayed) {
+    process.on(signal, handlers.get(signal));
+  }
+};
+function uninstall() {
+  if (!installed) {
+    return;
+  }
+  installed = false;
+  for (const signal of relayed) {
+    process.removeListener(signal, handlers.get(signal));
+  }
+}
+var relayShutdownSignals = ({ child }) => {
+  live.add(child);
+  install();
+  return () => {
+    live.delete(child);
+    if (live.size === 0) {
+      uninstall();
+    }
+  };
+};
+
+// src/common/utils/collectChildOutput.ts
+var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
+  return new Promise((resolve8, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let lineBuffer = "";
+    const emitLines = ({ text, flush = false }) => {
+      if (!onStdoutLine) {
+        return;
+      }
+      lineBuffer += text;
+      const lines = lineBuffer.split("\n");
+      lineBuffer = flush ? "" : lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.trim()) {
+          onStdoutLine(line);
+        }
+      }
+    };
+    const expire = () => {
+      killProcessGroup({ child, signal: "SIGTERM" });
+      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
+      escalation.unref();
+      child.once("close", () => clearTimeout(escalation));
+      reject(new Error(timeout?.message ?? "timed out"));
+    };
+    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
+    const stopRelay = relayShutdownSignals({ child });
+    child.stdout?.on("data", (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      emitLines({ text });
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error51) => {
+      clearTimeout(timer);
+      stopRelay();
+      reject(error51);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      stopRelay();
+      emitLines({ text: "", flush: true });
+      resolve8({ exitCode: code ?? -1, stdout, stderr });
+    });
+  });
+};
+
+// src/common/utils/runCommand.ts
+var runCommand = ({ command, cwd, timeoutMs }) => {
+  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: process.env, detached: true });
+  return collectChildOutput({
+    child,
+    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
+  });
+};
+
+// src/doctor/common/constants/probeTimeoutMs.ts
+var probeTimeoutMs = 15e3;
+
+// src/doctor/checkGitignore.ts
+var gitignoreEntries = [".lightsout/runs/", ".lightsout/plans/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
+var checkGitignore = async ({ cwd }) => {
+  const notIgnored = [];
+  let gitUsable = true;
+  for (const entry of gitignoreEntries) {
+    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
+    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
+      exitCode: 128
+    }));
+    if (result.exitCode === 1) {
+      notIgnored.push(entry);
+    } else if (result.exitCode !== 0) {
+      gitUsable = false;
+    }
+  }
+  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
+    id: "gitignore",
+    status: "warn",
+    detail: `run state not ignored: ${notIgnored.join(", ")}`,
+    fix: `add to .gitignore:
+${notIgnored.join("\n")}`
+  };
+};
+
+// src/common/utils/messageOf.ts
+var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
+
+// src/doctor/checkHarness.ts
+var driverBinaries = { "claude-code": "claude", codex: "codex" };
+var getReferencedDriverNames = ({ config: config2 }) => {
+  const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.harness);
+  const names = [config2.harness ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
+  return [...new Set(names)];
+};
+var checkHarness = async ({ cwd, config: config2, probeHarness }) => {
+  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
+  const binaries = [...new Set(getReferencedDriverNames({ config: config2 }).map((name) => driverBinaries[name] ?? name))];
+  const versions = [];
+  const failures = [];
+  for (const binary of binaries) {
+    try {
+      const probed = await probe({ binary });
+      if (probed.exitCode === 0) {
+        versions.push(`${binary} ${probed.stdout.trim().split("\n")[0]}`);
+      } else {
+        failures.push({
+          binary,
+          detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
+${probed.stderr}`.trim().slice(0, 200)}`,
+          fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
+        });
+      }
+    } catch (error51) {
+      failures.push({
+        binary,
+        detail: `${binary} not runnable: ${messageOf({ error: error51 })}`,
+        fix: `install the ${binary} CLI and log in`
+      });
+    }
+  }
+  return failures.length === 0 ? { id: "harness", status: "pass", detail: `${versions.join(" \xB7 ")} (login not probed \u2014 the first run verifies it)` } : {
+    id: "harness",
+    status: "fail",
+    detail: failures.map((failure) => failure.detail).join("\n"),
+    fix: failures.map((failure) => failure.fix).join("\n")
+  };
+};
+
+// src/doctor/checkJestMocks.ts
+import { readdir, readFile } from "node:fs/promises";
+import { join as join3 } from "node:path";
+var findJestConfigs = async ({ packageDir }) => {
+  const rootEntries = await readdir(packageDir).catch(() => []);
+  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, name));
+  for (const testDir of ["test", "tests"]) {
+    const testEntries = await readdir(join3(packageDir, testDir), { recursive: true }).catch(() => []);
+    found.push(
+      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join3(packageDir, testDir, name))
+    );
+  }
+  return found;
+};
+var checkJestMocks = async ({ cwd, packageDirs }) => {
+  const jestFindings = [];
+  let jestConfigCount = 0;
+  for (const { label, dir } of packageDirs) {
+    for (const configPath of await findJestConfigs({ packageDir: dir })) {
+      jestConfigCount += 1;
+      const text = await readFile(configPath, "utf8").catch(() => "");
+      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
+      if (absent.length > 0) {
+        jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
+      }
+    }
+  }
+  if (jestConfigCount === 0) {
+    return void 0;
+  }
+  return jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
+    id: "jest-mocks",
+    status: "warn",
+    detail: jestFindings.join("; "),
+    fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
+  };
+};
+
+// src/doctor/checkLintRules.ts
+import { readdir as readdir2, readFile as readFile2 } from "node:fs/promises";
+import { join as join4 } from "node:path";
+var checkLintRules = async ({ config: config2, packageDirs }) => {
+  if (config2.standardsPackages === false) {
+    return void 0;
+  }
+  const lintFindings = [];
+  let lintConfigCount = 0;
+  for (const { label, dir } of packageDirs) {
+    const entries = await readdir2(dir).catch(() => []);
+    const lintConfigs = entries.filter(
+      (name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name)
+    );
+    for (const name of lintConfigs) {
+      lintConfigCount += 1;
+      const text = await readFile2(join4(dir, name), "utf8").catch(() => "");
+      const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
+      const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
+      if (unenforced.length > 0) {
+        lintFindings.push(`${label}: ${name} \u2014 ${unenforced.join(", ")} missing or disabled`);
+      }
+    }
+  }
+  return lintConfigCount === 0 ? {
+    id: "lint-rules",
+    status: "note",
+    detail: "no linter config found (biome.json / eslint) \u2014 the standards' mechanical rules (import type, no any) run unenforced"
+  } : lintFindings.length === 0 ? { id: "lint-rules", status: "pass", detail: `mechanical rules enforced across ${lintConfigCount} lint config(s)` } : {
+    id: "lint-rules",
+    status: "note",
+    detail: `${lintFindings.join("; ")} \u2014 the standards state these rules as binding; enabling them makes the linter catch what agents miss`
+  };
+};
+
+// src/doctor/checkScriptBinaries.ts
+var checkScriptBinaries = async ({ cwd, config: config2 }) => {
+  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2.packageGates ?? {})].filter(
+    (value) => typeof value === "string"
+  );
+  const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name) => Boolean(name)))];
+  const missingBinaries = [];
+  for (const name of binaries) {
+    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
+    if (result.exitCode !== 0) {
+      missingBinaries.push(name);
+    }
+  }
+  return missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
+    id: "script-binaries",
+    status: "fail",
+    detail: `not on PATH: ${missingBinaries.join(", ")}`,
+    fix: "install the missing tool(s) \u2014 every gate depends on them"
+  };
+};
+
+// src/doctor/checkUserEvent.ts
+import { readFile as readFile3 } from "node:fs/promises";
+import { join as join5 } from "node:path";
 
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 var external_exports = {};
@@ -22549,6 +22910,48 @@ function date4(params) {
 // ../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/external.js
 config(en_default());
 
+// src/doctor/checkUserEvent.ts
+var packageDependencies = external_exports.object({
+  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var checkUserEvent = async ({ packageDirs }) => {
+  const fireEventOnly = [];
+  for (const { label, dir } of packageDirs) {
+    const raw = await readFile3(join5(dir, "package.json"), "utf8").catch(() => void 0);
+    let json2;
+    try {
+      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
+    if (!parsed?.success) {
+      continue;
+    }
+    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
+    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
+    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
+      fireEventOnly.push(label);
+    }
+  }
+  if (fireEventOnly.length === 0) {
+    return void 0;
+  }
+  return {
+    id: "user-event",
+    status: "note",
+    detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
+  };
+};
+
+// src/common/constants/defaultPackagesDir.ts
+var defaultPackagesDir = "packages";
+
+// src/common/utils/loadConfig.ts
+import { readFile as readFile4 } from "node:fs/promises";
+import { join as join6 } from "node:path";
+
 // ../standards-contracts/src/RawStandardsFinding.ts
 var RawStandardsFinding = external_exports.object({
   /** Grouping key — findings sharing a site key are one remediation unit, and it is the identity the debt ledger records. */
@@ -22606,6 +23009,76 @@ var StandardsSet = {
   /** The document tree handed to the test-writing role. */
   Tests: "tests"
 };
+
+// src/contracts/Effort.ts
+var Effort = {
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+  XHigh: "xhigh",
+  Max: "max"
+};
+
+// src/contracts/ConfigCommands.ts
+var commandHarness = external_exports.object({
+  /** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
+  harness: external_exports.string().optional(),
+  /** Model for this command's harness. The global `model` falls through only when this command resolves to the global harness. */
+  model: external_exports.string().optional(),
+  /** Reasoning effort for this command. Falls back to the global `effort` regardless of which harness the command selects — the five levels mean the same thing everywhere. */
+  effort: external_exports.enum(Effort).optional()
+}).strict();
+var ConfigCommands = external_exports.object({
+  implement: commandHarness.optional(),
+  refactor: commandHarness.optional(),
+  improve: commandHarness.optional(),
+  plan: commandHarness.optional(),
+  "test-coverage-to-threshold": commandHarness.optional()
+}).strict();
+
+// src/contracts/ConfigGates.ts
+var knownGateKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "testCoverage", "testUnit", "generate", "build", "format"]);
+var customTestKey = /^test-[a-z0-9]+(-[a-z0-9]+)*$/;
+var ConfigGates = external_exports.object({
+  check: external_exports.string(),
+  test: external_exports.string(),
+  /** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  testUnit: external_exports.never("`testUnit` was renamed to `test`").optional(),
+  /** Removed — renamed to `test-coverage`. Same reason. */
+  testCoverage: external_exports.never("`testCoverage` was renamed to `test-coverage`").optional(),
+  /**
+   * Coverage gate — on by default. Required: either a full shell command
+   * (run at clean-slate and every post-test verify) or the literal
+   * `false` to explicitly opt out. Silence is not an option: skipping
+   * the strongest gate must be a decision, not an accident. The command
+   * must run the same suite `test` runs, instrumented — the engine
+   * substitutes it for `test`, never runs both.
+   */
+  "test-coverage": external_exports.union([external_exports.string(), external_exports.literal(false)]),
+  /**
+   * Opt-in codegen, run once BEFORE every gate set (not inside check:
+   * gates verify, generate mutates). Red exit fails the gate set.
+   */
+  generate: external_exports.string().optional(),
+  /** Opt-in build gate, run last in every verify. Omit when nothing compiles. */
+  build: external_exports.string().optional(),
+  /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
+  format: external_exports.string().optional()
+}).catchall(external_exports.unknown()).superRefine((gates2, ctx) => {
+  for (const [key, value] of Object.entries(gates2)) {
+    if (knownGateKeys.has(key)) {
+      continue;
+    }
+    if (!customTestKey.test(key)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `unknown gate '${key}' \u2014 gates are check, test, test-coverage, generate, build, format, or a custom \`test-*\` suite`
+      });
+    } else if (typeof value !== "string") {
+      ctx.addIssue({ code: "custom", message: `custom test gate '${key}' must be a full shell command string` });
+    }
+  }
+});
 
 // src/contracts/refactor/BatchOutcome.ts
 var BatchOutcome = {
@@ -22684,15 +23157,6 @@ var DedupReport = external_exports.object({
   reviewedAt: external_exports.string()
 });
 
-// src/contracts/Effort.ts
-var Effort = {
-  Low: "low",
-  Medium: "medium",
-  High: "high",
-  XHigh: "xhigh",
-  Max: "max"
-};
-
 // src/contracts/friction/FrictionArea.ts
 var FrictionArea = {
   /** The plan was ambiguous, stale, or underspecified. */
@@ -22752,6 +23216,46 @@ var GateResult = external_exports.object({
   reason: external_exports.string().optional(),
   /** Last 2000 chars of stdout+stderr — present only on non-zero exit. */
   outputTail: external_exports.string().optional()
+});
+
+// src/contracts/PackageGates.ts
+var knownGateKeys2 = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "testCoverage", "testUnit", "build"]);
+var customTestKey2 = /^test-[a-z0-9]+(-[a-z0-9]+)*$/;
+var PackageGates = external_exports.object({
+  check: external_exports.string(),
+  test: external_exports.string(),
+  /** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  testUnit: external_exports.never("`testUnit` was renamed to `test`").optional(),
+  /** Removed — renamed to `test-coverage`. Same reason. */
+  testCoverage: external_exports.never("`testCoverage` was renamed to `test-coverage`").optional(),
+  /** Scoped coverage gate. Omitted = no coverage gate for package groups. */
+  "test-coverage": external_exports.string().optional(),
+  /** Opt-in scoped build gate. */
+  build: external_exports.string().optional()
+}).catchall(external_exports.unknown()).superRefine((gates2, ctx) => {
+  const customCommands = [];
+  for (const [key, value] of Object.entries(gates2)) {
+    if (knownGateKeys2.has(key)) {
+      continue;
+    }
+    if (!customTestKey2.test(key)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `unknown scoped gate '${key}' \u2014 packageGates are check, test, test-coverage, build, or a custom \`test-*\` suite`
+      });
+    } else if (typeof value !== "string") {
+      ctx.addIssue({ code: "custom", message: `custom test gate '${key}' must be a full shell command string` });
+    } else {
+      customCommands.push(value);
+    }
+  }
+  const commands2 = [gates2.check, gates2.test, gates2["test-coverage"], gates2.build, ...customCommands];
+  if (!commands2.every((command) => command === void 0 || typeof command === "string" && command.includes("{package}"))) {
+    ctx.addIssue({
+      code: "custom",
+      message: "every packageGates command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in gates.* instead"
+    });
+  }
 });
 
 // src/contracts/Permissions.ts
@@ -22819,18 +23323,22 @@ var StandardsReviewReport = external_exports.object({
   )
 });
 
-// src/contracts/LightsoutConfig.ts
+// src/contracts/StandardsCheckOverrides.ts
 var standardsSeverityValue = external_exports.enum(StandardsSeverity, {
   error: (issue2) => issue2.input === "finding" ? "severity `finding` was renamed to `blocking`" : void 0
 });
-var commandHarness = external_exports.object({
-  /** Harness name for this command ('claude-code' or 'codex'). Falls back to the global `harness`. */
-  harness: external_exports.string().optional(),
-  /** Model for this command's harness. The global `model` falls through only when this command resolves to the global harness. */
-  model: external_exports.string().optional(),
-  /** Reasoning effort for this command. Falls back to the global `effort` regardless of which harness the command selects — the five levels mean the same thing everywhere. */
-  effort: external_exports.enum(Effort).optional()
-}).strict();
+var StandardsCheckOverrides = external_exports.record(
+  external_exports.string(),
+  external_exports.union([
+    standardsSeverityValue,
+    external_exports.object({
+      severity: standardsSeverityValue.optional(),
+      settings: external_exports.record(external_exports.string(), external_exports.number()).optional()
+    }).strict()
+  ])
+);
+
+// src/contracts/LightsoutConfig.ts
 var LightsoutConfig = external_exports.object({
   /** Harness name. Defaults to 'claude-code'. */
   harness: external_exports.string().optional(),
@@ -22852,44 +23360,10 @@ var LightsoutConfig = external_exports.object({
   scripts: external_exports.never("`scripts` was renamed to `gates`").optional(),
   /** Removed — renamed to `packageGates`. Same reason. */
   packageScripts: external_exports.never("`packageScripts` was renamed to `packageGates`").optional(),
-  /**
-   * Per-command harness selection (`plan` covers draft/dedup/grade; `resume`
-   * always keeps the run manifest's recorded harness). Each entry overrides the
-   * global `harness`/`model`/`effort` for that command; unlisted commands use
-   * the globals. Both objects are `.strict()` — unlike the rest of the config,
-   * a typoed key here would silently disable an override the user believes
-   * is active, so it fails parsing loudly instead.
-   */
-  commands: external_exports.object({
-    implement: commandHarness.optional(),
-    refactor: commandHarness.optional(),
-    improve: commandHarness.optional(),
-    plan: commandHarness.optional(),
-    "test-coverage-to-threshold": commandHarness.optional()
-  }).strict().optional(),
-  /** Verification commands — the mechanical gates. Full shell commands. */
-  gates: external_exports.object({
-    check: external_exports.string(),
-    test: external_exports.string(),
-    /** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
-    testUnit: external_exports.never("`testUnit` was renamed to `test`").optional(),
-    /**
-     * Coverage gate — on by default. Required: either a full shell command
-     * (run at clean-slate and every post-test verify) or the literal
-     * `false` to explicitly opt out. Silence is not an option: skipping
-     * the strongest gate must be a decision, not an accident.
-     */
-    testCoverage: external_exports.union([external_exports.string(), external_exports.literal(false)]),
-    /**
-     * Opt-in codegen, run once BEFORE every gate set (not inside check:
-     * gates verify, generate mutates). Red exit fails the gate set.
-     */
-    generate: external_exports.string().optional(),
-    /** Opt-in build gate, run last in every verify. Omit when nothing compiles. */
-    build: external_exports.string().optional(),
-    /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
-    format: external_exports.string().optional()
-  }),
+  /** Per-command harness selection. See `ConfigCommands`. */
+  commands: ConfigCommands.optional(),
+  /** Verification commands — the mechanical gates. See `ConfigGates`. */
+  gates: ConfigGates,
   /**
    * Agent invocation ceilings, in minutes. A hit ceiling is a recorded step
    * failure the run can resume from — never a crash.
@@ -22927,26 +23401,8 @@ var LightsoutConfig = external_exports.object({
   coverageSummaryPath: external_exports.string().optional(),
   /** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
   packagesDir: external_exports.string().optional(),
-  /**
-   * Monorepo mode: gate command templates run per affected package, with
-   * `{package}` replaced by that package's package.json `name`. When set,
-   * verifies run scoped to the run's package scope (plan front-matter
-   * `packages:` list or `--packages`, expanded as changed files reveal the
-   * true blast radius) and `gates.*` becomes the root-group commands, run
-   * only when files outside the packages directory change.
-   */
-  packageGates: external_exports.object({
-    check: external_exports.string(),
-    test: external_exports.string(),
-    /** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
-    testUnit: external_exports.never("`testUnit` was renamed to `test`").optional(),
-    /** Scoped coverage gate. Omitted = no coverage gate for package groups. */
-    testCoverage: external_exports.string().optional(),
-    /** Opt-in scoped build gate. */
-    build: external_exports.string().optional()
-  }).refine((templates) => Object.values(templates).every((command) => command === void 0 || command.includes("{package}")), {
-    message: "every packageGates command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in gates.* instead"
-  }).optional(),
+  /** Monorepo scoped gate templates. See `PackageGates`. */
+  packageGates: PackageGates.optional(),
   /**
    * Standards packages a run works against. Unspecified = the package the
    * plugin ships (announced in the run header); `false` = explicitly none; an
@@ -22970,28 +23426,8 @@ var LightsoutConfig = external_exports.object({
   standardsChannels: external_exports.array(external_exports.string()).optional(),
   /** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
   scan: external_exports.never("`scan` was renamed to `standardsChecks`").optional(),
-  /**
-   * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
-   * value is either a severity, or an object with a severity and/or that
-   * rule's own settings. A rule not named here keeps its default — silence
-   * is never a change.
-   *
-   * The ids come from the loaded standards packages, so a mistyped one cannot
-   * be caught while parsing this file: `resolvePackageRuleStates` refuses a
-   * key naming no loaded rule and lists the valid ids. The protection is the
-   * same, it just happens where the answer exists. Read the live state with
-   * `lightsout standards-check --list`.
-   */
-  standardsChecks: external_exports.record(
-    external_exports.string(),
-    external_exports.union([
-      standardsSeverityValue,
-      external_exports.object({
-        severity: standardsSeverityValue.optional(),
-        settings: external_exports.record(external_exports.string(), external_exports.number()).optional()
-      }).strict()
-    ])
-  ).optional()
+  /** Per-rule severity/settings overrides. See `StandardsCheckOverrides`. */
+  standardsChecks: StandardsCheckOverrides.optional()
 });
 
 // src/contracts/plan/ExploreArea.ts
@@ -23399,412 +23835,11 @@ var WorkReport = external_exports.object({
 
 // src/common/utils/loadConfig.ts
 var loadConfig = async ({ cwd }) => {
-  const configPath = join(cwd, "lightsout.config.json");
-  const raw = await readFile(configPath, "utf8").catch(() => {
+  const configPath = join6(cwd, "lightsout.config.json");
+  const raw = await readFile4(configPath, "utf8").catch(() => {
     throw new Error(`lightsout.config.json not found at ${configPath}`);
   });
   return LightsoutConfig.parse(JSON.parse(raw));
-};
-
-// src/common/utils/messageOf.ts
-var messageOf = ({ error: error51 }) => error51 instanceof Error ? error51.message : String(error51);
-
-// src/doctor/checkCoverageSummary.ts
-import { stat } from "node:fs/promises";
-import { join as join2 } from "node:path";
-
-// src/common/constants/defaultCoverageSummaryPath.ts
-var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
-
-// src/doctor/checkCoverageSummary.ts
-var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
-  const scoped = config2.packageGates?.testCoverage;
-  const rootApplies = typeof config2.gates.testCoverage === "string";
-  if (!scoped && !rootApplies) {
-    return void 0;
-  }
-  const summaryPath = config2.coverageSummaryPath ?? defaultCoverageSummaryPath;
-  const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
-  const expected = scopes.map((entry) => ({ label: entry.label, path: join2(entry.dir, summaryPath) }));
-  const absent = [];
-  for (const entry of expected) {
-    await stat(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
-  }
-  return absent.length === 0 ? { id: "coverage-summary", status: "pass", detail: `coverage summary found for ${expected.length} scope(s)` } : {
-    id: "coverage-summary",
-    status: "warn",
-    detail: `not found: ${absent.join(", ")}`,
-    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverageSummaryPath`
-  };
-};
-
-// src/doctor/checkGenerated.ts
-import { stat as stat2 } from "node:fs/promises";
-import { join as join3 } from "node:path";
-var checkGenerated = async ({ cwd, config: config2 }) => {
-  if (!config2.generated) {
-    return void 0;
-  }
-  const absent = [];
-  for (const prefix of config2.generated) {
-    await stat2(join3(cwd, prefix)).catch(() => absent.push(prefix));
-  }
-  return absent.length === 0 ? { id: "generated", status: "pass", detail: `${config2.generated.length} generated path(s) exist` } : {
-    id: "generated",
-    status: "warn",
-    detail: `not found: ${absent.join(", ")}`,
-    fix: "run the generator once, or remove stale entries from `generated`"
-  };
-};
-
-// src/common/utils/runCommand.ts
-import { spawn } from "node:child_process";
-
-// src/common/constants/killGraceMs.ts
-var killGraceMs = 2e3;
-
-// src/common/utils/killProcessGroup.ts
-var killProcessGroup = ({ child, signal }) => {
-  if (child.pid !== void 0 && process.platform !== "win32") {
-    try {
-      process.kill(-child.pid, signal);
-      return;
-    } catch {
-    }
-  }
-  try {
-    child.kill(signal);
-  } catch {
-  }
-};
-
-// src/common/utils/terminateChildGroups.ts
-var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
-var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve8) => child.once("exit", () => resolve8()));
-var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
-  const targets = [...children];
-  for (const child of targets) {
-    killProcessGroup({ child, signal: "SIGTERM" });
-  }
-  if (targets.length === 0) {
-    return;
-  }
-  let grace;
-  await Promise.race([
-    Promise.all(targets.map((child) => exited({ child }))),
-    new Promise((resolve8) => {
-      grace = setTimeout(resolve8, graceMs);
-    })
-  ]);
-  clearTimeout(grace);
-  for (const child of targets) {
-    if (!settled({ child })) {
-      killProcessGroup({ child, signal: "SIGKILL" });
-    }
-  }
-};
-
-// src/common/utils/relayShutdownSignals.ts
-var relayed = ["SIGINT", "SIGTERM"];
-var live = /* @__PURE__ */ new Set();
-var installed = false;
-var shuttingDown = false;
-var onSignal = async (signal) => {
-  if (shuttingDown) {
-    return;
-  }
-  shuttingDown = true;
-  await terminateChildGroups({ children: live });
-  uninstall();
-  process.kill(process.pid, signal);
-};
-var handlers = new Map(relayed.map((signal) => [signal, () => void onSignal(signal)]));
-var install = () => {
-  if (installed) {
-    return;
-  }
-  installed = true;
-  for (const signal of relayed) {
-    process.on(signal, handlers.get(signal));
-  }
-};
-function uninstall() {
-  if (!installed) {
-    return;
-  }
-  installed = false;
-  for (const signal of relayed) {
-    process.removeListener(signal, handlers.get(signal));
-  }
-}
-var relayShutdownSignals = ({ child }) => {
-  live.add(child);
-  install();
-  return () => {
-    live.delete(child);
-    if (live.size === 0) {
-      uninstall();
-    }
-  };
-};
-
-// src/common/utils/collectChildOutput.ts
-var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
-  return new Promise((resolve8, reject) => {
-    let stdout = "";
-    let stderr = "";
-    let lineBuffer = "";
-    const emitLines = ({ text, flush = false }) => {
-      if (!onStdoutLine) {
-        return;
-      }
-      lineBuffer += text;
-      const lines = lineBuffer.split("\n");
-      lineBuffer = flush ? "" : lines.pop() ?? "";
-      for (const line of lines) {
-        if (line.trim()) {
-          onStdoutLine(line);
-        }
-      }
-    };
-    const expire = () => {
-      killProcessGroup({ child, signal: "SIGTERM" });
-      const escalation = setTimeout(() => killProcessGroup({ child, signal: "SIGKILL" }), killGraceMs);
-      escalation.unref();
-      child.once("close", () => clearTimeout(escalation));
-      reject(new Error(timeout?.message ?? "timed out"));
-    };
-    const timer = timeout ? setTimeout(expire, timeout.ms) : void 0;
-    const stopRelay = relayShutdownSignals({ child });
-    child.stdout?.on("data", (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      emitLines({ text });
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", (error51) => {
-      clearTimeout(timer);
-      stopRelay();
-      reject(error51);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      stopRelay();
-      emitLines({ text: "", flush: true });
-      resolve8({ exitCode: code ?? -1, stdout, stderr });
-    });
-  });
-};
-
-// src/common/utils/runCommand.ts
-var runCommand = ({ command, cwd, timeoutMs }) => {
-  const child = spawn(command, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"], env: process.env, detached: true });
-  return collectChildOutput({
-    child,
-    timeout: timeoutMs ? { ms: timeoutMs, message: `command timed out after ${timeoutMs}ms: ${command}` } : void 0
-  });
-};
-
-// src/doctor/common/constants/probeTimeoutMs.ts
-var probeTimeoutMs = 15e3;
-
-// src/doctor/checkGitignore.ts
-var gitignoreEntries = [".lightsout/runs/", ".lightsout/plans/", ".lightsout/friction.jsonl", ".lightsout/lock.json"];
-var checkGitignore = async ({ cwd }) => {
-  const notIgnored = [];
-  let gitUsable = true;
-  for (const entry of gitignoreEntries) {
-    const probePath = entry.endsWith("/") ? `${entry}probe` : entry;
-    const result = await runCommand({ command: `git check-ignore -q -- '${probePath}'`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({
-      exitCode: 128
-    }));
-    if (result.exitCode === 1) {
-      notIgnored.push(entry);
-    } else if (result.exitCode !== 0) {
-      gitUsable = false;
-    }
-  }
-  return !gitUsable ? { id: "gitignore", status: "warn", detail: "not a git repository \u2014 .gitignore not evaluated" } : notIgnored.length === 0 ? { id: "gitignore", status: "pass", detail: "run state is ignored (verified via git check-ignore)" } : {
-    id: "gitignore",
-    status: "warn",
-    detail: `run state not ignored: ${notIgnored.join(", ")}`,
-    fix: `add to .gitignore:
-${notIgnored.join("\n")}`
-  };
-};
-
-// src/doctor/checkHarness.ts
-var driverBinaries = { "claude-code": "claude", codex: "codex" };
-var getReferencedDriverNames = ({ config: config2 }) => {
-  const entryDrivers = Object.values(config2.commands ?? {}).map((entry) => entry?.harness);
-  const names = [config2.harness ?? "claude-code", ...entryDrivers].filter((name) => typeof name === "string");
-  return [...new Set(names)];
-};
-var checkHarness = async ({ cwd, config: config2, probeHarness }) => {
-  const probe = probeHarness ?? (({ binary: name }) => runCommand({ command: `${name} --version`, cwd, timeoutMs: probeTimeoutMs }));
-  const binaries = [...new Set(getReferencedDriverNames({ config: config2 }).map((name) => driverBinaries[name] ?? name))];
-  const versions = [];
-  const failures = [];
-  for (const binary of binaries) {
-    try {
-      const probed = await probe({ binary });
-      if (probed.exitCode === 0) {
-        versions.push(`${binary} ${probed.stdout.trim().split("\n")[0]}`);
-      } else {
-        failures.push({
-          binary,
-          detail: `\`${binary} --version\` exited ${probed.exitCode}: ${`${probed.stdout}
-${probed.stderr}`.trim().slice(0, 200)}`,
-          fix: `reinstall or repair the ${binary} CLI \u2014 the engine shells your own logged-in binary and cannot run without it`
-        });
-      }
-    } catch (error51) {
-      failures.push({
-        binary,
-        detail: `${binary} not runnable: ${messageOf({ error: error51 })}`,
-        fix: `install the ${binary} CLI and log in`
-      });
-    }
-  }
-  return failures.length === 0 ? { id: "harness", status: "pass", detail: `${versions.join(" \xB7 ")} (login not probed \u2014 the first run verifies it)` } : {
-    id: "harness",
-    status: "fail",
-    detail: failures.map((failure) => failure.detail).join("\n"),
-    fix: failures.map((failure) => failure.fix).join("\n")
-  };
-};
-
-// src/doctor/checkJestMocks.ts
-import { readdir, readFile as readFile2 } from "node:fs/promises";
-import { join as join4 } from "node:path";
-var findJestConfigs = async ({ packageDir }) => {
-  const rootEntries = await readdir(packageDir).catch(() => []);
-  const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join4(packageDir, name));
-  for (const testDir of ["test", "tests"]) {
-    const testEntries = await readdir(join4(packageDir, testDir), { recursive: true }).catch(() => []);
-    found.push(
-      ...testEntries.filter((name) => typeof name === "string" && /(^|\/)jest[^/]*\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join4(packageDir, testDir, name))
-    );
-  }
-  return found;
-};
-var checkJestMocks = async ({ cwd, packageDirs }) => {
-  const jestFindings = [];
-  let jestConfigCount = 0;
-  for (const { label, dir } of packageDirs) {
-    for (const configPath of await findJestConfigs({ packageDir: dir })) {
-      jestConfigCount += 1;
-      const text = await readFile2(configPath, "utf8").catch(() => "");
-      const absent = ["clearMocks", "restoreMocks"].filter((flag) => !new RegExp(`${flag}\\s*:\\s*true`).test(text));
-      if (absent.length > 0) {
-        jestFindings.push(`${label}: ${configPath.slice(cwd.length + 1)} lacks ${absent.join(", ")}`);
-      }
-    }
-  }
-  if (jestConfigCount === 0) {
-    return void 0;
-  }
-  return jestFindings.length === 0 ? { id: "jest-mocks", status: "pass", detail: "all Jest configs set clearMocks + restoreMocks" } : {
-    id: "jest-mocks",
-    status: "warn",
-    detail: jestFindings.join("; "),
-    fix: "add clearMocks: true, restoreMocks: true \u2014 then run that package\u2019s FULL test suite: tests relying on import-time or beforeAll mock calls will break and need rework (see test standards, Mock Cleanup)"
-  };
-};
-
-// src/doctor/checkLintRules.ts
-import { readdir as readdir2, readFile as readFile3 } from "node:fs/promises";
-import { join as join5 } from "node:path";
-var checkLintRules = async ({ config: config2, packageDirs }) => {
-  if (config2.standardsPackages === false) {
-    return void 0;
-  }
-  const lintFindings = [];
-  let lintConfigCount = 0;
-  for (const { label, dir } of packageDirs) {
-    const entries = await readdir2(dir).catch(() => []);
-    const lintConfigs = entries.filter(
-      (name) => /^biome\.jsonc?$/.test(name) || /^eslint\.config\.(js|cjs|mjs|ts)$/.test(name) || /^\.eslintrc(\..+)?$/.test(name)
-    );
-    for (const name of lintConfigs) {
-      lintConfigCount += 1;
-      const text = await readFile3(join5(dir, name), "utf8").catch(() => "");
-      const rules = name.startsWith("biome") ? ["useImportType", "noExplicitAny"] : ["consistent-type-imports", "no-explicit-any"];
-      const unenforced = rules.filter((rule) => !text.includes(rule) || new RegExp(`${rule}"?\\s*:\\s*"off"`).test(text));
-      if (unenforced.length > 0) {
-        lintFindings.push(`${label}: ${name} \u2014 ${unenforced.join(", ")} missing or disabled`);
-      }
-    }
-  }
-  return lintConfigCount === 0 ? {
-    id: "lint-rules",
-    status: "note",
-    detail: "no linter config found (biome.json / eslint) \u2014 the standards' mechanical rules (import type, no any) run unenforced"
-  } : lintFindings.length === 0 ? { id: "lint-rules", status: "pass", detail: `mechanical rules enforced across ${lintConfigCount} lint config(s)` } : {
-    id: "lint-rules",
-    status: "note",
-    detail: `${lintFindings.join("; ")} \u2014 the standards state these rules as binding; enabling them makes the linter catch what agents miss`
-  };
-};
-
-// src/doctor/checkScriptBinaries.ts
-var checkScriptBinaries = async ({ cwd, config: config2 }) => {
-  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2.packageGates ?? {})].filter(
-    (value) => typeof value === "string"
-  );
-  const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name) => Boolean(name)))];
-  const missingBinaries = [];
-  for (const name of binaries) {
-    const result = await runCommand({ command: `command -v ${name}`, cwd, timeoutMs: probeTimeoutMs }).catch(() => ({ exitCode: -1 }));
-    if (result.exitCode !== 0) {
-      missingBinaries.push(name);
-    }
-  }
-  return missingBinaries.length === 0 ? { id: "script-binaries", status: "pass", detail: `gate commands resolve (${binaries.join(", ")})` } : {
-    id: "script-binaries",
-    status: "fail",
-    detail: `not on PATH: ${missingBinaries.join(", ")}`,
-    fix: "install the missing tool(s) \u2014 every gate depends on them"
-  };
-};
-
-// src/doctor/checkUserEvent.ts
-import { readFile as readFile4 } from "node:fs/promises";
-import { join as join6 } from "node:path";
-var packageDependencies = external_exports.object({
-  dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
-  devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
-});
-var checkUserEvent = async ({ packageDirs }) => {
-  const fireEventOnly = [];
-  for (const { label, dir } of packageDirs) {
-    const raw = await readFile4(join6(dir, "package.json"), "utf8").catch(() => void 0);
-    let json2;
-    try {
-      json2 = raw === void 0 ? void 0 : JSON.parse(raw);
-    } catch {
-      continue;
-    }
-    const parsed = json2 === void 0 ? void 0 : packageDependencies.safeParse(json2);
-    if (!parsed?.success) {
-      continue;
-    }
-    const dependencies = { ...parsed.data.dependencies, ...parsed.data.devDependencies };
-    const hasTestingLibrary = ["@testing-library/react", "@testing-library/preact"].some((name) => name in dependencies);
-    if (hasTestingLibrary && !("@testing-library/user-event" in dependencies)) {
-      fireEventOnly.push(label);
-    }
-  }
-  if (fireEventOnly.length === 0) {
-    return void 0;
-  }
-  return {
-    id: "user-event",
-    status: "note",
-    detail: `${fireEventOnly.join(", ")}: has @testing-library/react but not @testing-library/user-event \u2014 component tests will use fireEvent; consider installing user-event for full interaction simulation`
-  };
 };
 
 // src/doctor/resolvePackageDirs.ts
@@ -24474,7 +24509,7 @@ var describeStandardsPackages = ({ value }) => {
   return value.join(", ");
 };
 var printRunHeader = ({ config: config2, driver, cwd }) => {
-  const coverage = config2.gates.testCoverage === false ? "off (explicit)" : config2.gates.testCoverage;
+  const coverage = config2.gates["test-coverage"] === false ? "off (explicit)" : config2.gates["test-coverage"];
   console.log(`  cwd: ${cwd}`);
   console.log(`  standards packages: ${describeStandardsPackages({ value: config2.standardsPackages })}`);
   console.log(
@@ -24498,7 +24533,7 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
     console.log(`  format: [${config2.gates.format}]`);
   }
   if (config2.packageGates) {
-    const scopedCoverage = config2.packageGates.testCoverage ? ` coverage=[${config2.packageGates.testCoverage}]` : "";
+    const scopedCoverage = config2.packageGates["test-coverage"] ? ` coverage=[${config2.packageGates["test-coverage"]}]` : "";
     console.log(`  gates (per package): check=[${config2.packageGates.check}] test=[${config2.packageGates.test}]${scopedCoverage}`);
   }
 };
@@ -24546,13 +24581,6 @@ var resolvePlanTarget = async ({ cwd, planPath }) => {
   return { error: `plan folder holds neither overview.md nor plan.md: ${planPath}` };
 };
 
-// src/phases/runPhasesPipeline.ts
-import { dirname as dirname6, join as join45 } from "node:path";
-
-// src/phases/initializeSequence.ts
-import { access, readFile as readFile9 } from "node:fs/promises";
-import { dirname as dirname2, join as join19, relative, resolve as resolve2 } from "node:path";
-
 // src/phases/findUnfinishedSequence.ts
 import { readdir as readdir7 } from "node:fs/promises";
 var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
@@ -24566,6 +24594,10 @@ var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
   }
   return unfinished.sort((first, second) => Date.parse(second.updatedAt) - Date.parse(first.updatedAt))[0];
 };
+
+// src/phases/initializeSequence.ts
+import { access, readFile as readFile9 } from "node:fs/promises";
+import { dirname as dirname2, join as join19, relative, resolve as resolve2 } from "node:path";
 
 // src/phases/readOverviewPhases.ts
 var readOverviewPhases = ({ overviewContent }) => {
@@ -24655,6 +24687,9 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
   }));
   return { manifest: await writeRunManifest({ cwd, manifest: { ...created, steps } }) };
 };
+
+// src/phases/runPhasesPipeline.ts
+import { dirname as dirname6, join as join45 } from "node:path";
 
 // src/pipeline/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
@@ -24763,6 +24798,18 @@ var packageOf = ({ file: file2, packagesDir }) => {
   return separator > 0 ? rest.slice(0, separator) : void 0;
 };
 
+// src/common/utils/resolveGates.ts
+var fixedKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "generate", "build", "format"]);
+var resolveGates = ({ gates: gates2 }) => ({
+  check: gates2.check,
+  test: gates2.test,
+  testCoverage: gates2["test-coverage"],
+  ...gates2.generate === void 0 ? {} : { generate: gates2.generate },
+  ...gates2.build === void 0 ? {} : { build: gates2.build },
+  ...gates2.format === void 0 ? {} : { format: gates2.format },
+  extraTests: Object.entries(gates2).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
+});
+
 // src/pipeline/createGateRunner.ts
 var gateTimeoutMs = 10 * 6e4;
 var outputTailChars = 2e3;
@@ -24831,6 +24878,17 @@ ${tests.stdout}
 ${tests.stderr}`);
     }
   }
+  for (const { name, command } of commands2.extraTests ?? []) {
+    if (stop() || !command) {
+      continue;
+    }
+    const extra = await gate({ kind: name, command, group });
+    if (extra.exitCode !== 0) {
+      failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):
+${extra.stdout}
+${extra.stderr}`);
+    }
+  }
   if (!stop() && commands2.build) {
     const build = await gate({ kind: "build", command: commands2.build, group });
     if (build.exitCode !== 0) {
@@ -24841,6 +24899,16 @@ ${build.stderr}`);
   }
   return failures.length > 0 ? failures.join("\n\n") : void 0;
 };
+
+// src/common/utils/resolvePackageGatesConfig.ts
+var fixedKeys2 = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "build"]);
+var resolvePackageGatesConfig = ({ packageGates }) => ({
+  check: packageGates.check,
+  test: packageGates.test,
+  ...packageGates["test-coverage"] === void 0 ? {} : { testCoverage: packageGates["test-coverage"] },
+  ...packageGates.build === void 0 ? {} : { build: packageGates.build },
+  extraTests: Object.entries(packageGates).filter((entry) => !fixedKeys2.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
+});
 
 // src/pipeline/runPackageGates.ts
 var runPackageGates = async ({
@@ -24862,6 +24930,7 @@ var runPackageGates = async ({
   } catch (error51) {
     return messageOf({ error: error51 });
   }
+  const templates = resolvePackageGatesConfig({ packageGates: scoped });
   const substitute = ({ command }) => command.split("{package}").join(manifest.name);
   const scopedCommand = async ({ kind, template }) => {
     const scriptName = extractRunScriptName({ command: template });
@@ -24887,18 +24956,23 @@ var runPackageGates = async ({
     onGateResult?.({ kind, group: packageDir, command: substitute({ command: template }), skipped: true, reason: `no "${scriptName}" script` });
     return void 0;
   };
-  const testCoverage = coverage && scoped.testCoverage ? await scopedCommand({ kind: "testCoverage", template: scoped.testCoverage }) : void 0;
+  const testCoverage = coverage && templates.testCoverage ? await scopedCommand({ kind: "testCoverage", template: templates.testCoverage }) : void 0;
+  const extraTests = [];
+  for (const { name, command } of templates.extraTests) {
+    extraTests.push({ name, command: await scopedCommand({ kind: name, template: command }) });
+  }
   return runGateSet({
     label: packageDir,
     gate,
     failFast,
     commands: {
-      check: await scopedCommand({ kind: "check", template: scoped.check }),
+      check: await scopedCommand({ kind: "check", template: templates.check }),
       // Coverage replaces the plain test run; only when coverage is
       // absent or skipped does test get its own script lookup.
-      test: testCoverage ? void 0 : await scopedCommand({ kind: "test", template: scoped.test }),
+      test: testCoverage ? void 0 : await scopedCommand({ kind: "test", template: templates.test }),
       testCoverage,
-      build: scoped.build ? await scopedCommand({ kind: "build", template: scoped.build }) : void 0
+      extraTests,
+      build: templates.build ? await scopedCommand({ kind: "build", template: templates.build }) : void 0
     }
   });
 };
@@ -24917,8 +24991,9 @@ var runGates = async ({
   onProgress
 }) => {
   const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
-  if (config2.gates.generate) {
-    const generated = await gate({ kind: "generate", command: config2.gates.generate, group: "root" });
+  const gates2 = resolveGates({ gates: config2.gates });
+  if (gates2.generate) {
+    const generated = await gate({ kind: "generate", command: gates2.generate, group: "root" });
     if (generated.exitCode !== 0) {
       return `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
@@ -24926,10 +25001,11 @@ ${generated.stderr}`;
     }
   }
   const rootCommands = {
-    check: config2.gates.check,
-    test: config2.gates.test,
-    testCoverage: coverage && typeof config2.gates.testCoverage === "string" ? config2.gates.testCoverage : void 0,
-    build: config2.gates.build
+    check: gates2.check,
+    test: gates2.test,
+    testCoverage: coverage && typeof gates2.testCoverage === "string" ? gates2.testCoverage : void 0,
+    extraTests: gates2.extraTests,
+    build: gates2.build
   };
   const scoped = config2.packageGates;
   if (!scoped || !packages || packages.length === 0) {
@@ -26562,11 +26638,11 @@ var listPackageScopes = async ({
   return scopes;
 };
 var resolveCoverageScopes = async ({ cwd, config: config2, summaryPath, scope }) => {
-  const template = config2.packageGates?.testCoverage;
+  const template = config2.packageGates?.["test-coverage"];
   if (template) {
     return listPackageScopes({ cwd, packagesDir: config2.packagesDir ?? defaultPackagesDir, template, summaryPath, scope });
   }
-  const command = config2.gates.testCoverage;
+  const command = config2.gates["test-coverage"];
   const scoped = typeof command === "string" && (scope === void 0 || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
   return scoped;
 };
@@ -26598,7 +26674,7 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   const summaryPath = config2.coverageSummaryPath ?? defaultCoverageSummaryPath;
   const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath });
   const packagesDir = config2.packagesDir ?? defaultPackagesDir;
-  const monorepo = config2.packageGates?.testCoverage !== void 0;
+  const monorepo = config2.packageGates?.["test-coverage"] !== void 0;
   const scopeOf = ({ file: file2 }) => {
     const packageDir = packageOf({ file: file2, packagesDir });
     if (monorepo) {
@@ -26773,8 +26849,8 @@ var initializeCoverageRun = async ({
     }
     return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile20(join35(cwd, existing.plan), "utf8"))) };
   }
-  if (typeof config2.gates.testCoverage !== "string" && config2.packageGates?.testCoverage === void 0) {
-    throw new Error("the coverage gate is opted out (gates.testCoverage: false) \u2014 test-coverage-to-threshold has nothing to run");
+  if (typeof config2.gates["test-coverage"] !== "string" && config2.packageGates?.["test-coverage"] === void 0) {
+    throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -27324,9 +27400,99 @@ var describePersistingFindings = ({ findings, report, passes }) => {
   ].join("\n");
 };
 
-// src/standardsCheck/buildStandardsHealth.ts
-import { readFile as readFile22 } from "node:fs/promises";
+// src/standardsCheck/applyStandardsBaseline.ts
+import { readFile as readFile22, writeFile as writeFile6 } from "node:fs/promises";
 import { join as join38 } from "node:path";
+var StandardsBaseline = external_exports.object({
+  at: external_exports.string(),
+  path: external_exports.string(),
+  siteKeys: external_exports.array(external_exports.string())
+});
+var applyStandardsBaseline = async ({
+  cwd,
+  path,
+  findings,
+  all,
+  writeBaseline
+}) => {
+  const baselinePath = join38(cwd, "lightsout.standards-baseline.json");
+  const baselineRaw = await readFile22(baselinePath, "utf8").catch(() => void 0);
+  const notes = [];
+  let baselineJson;
+  try {
+    baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
+  } catch {
+    baselineJson = null;
+  }
+  const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
+  if (writeBaseline) {
+    const siteKeys = [...new Set(findings.map((finding) => finding.siteKey))];
+    await writeFile6(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
+`, "utf8");
+    notes.push(
+      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
+    );
+    return { reported: findings, notes };
+  }
+  if (baseline === void 0) {
+    if (findings.some((finding) => finding.severity === StandardsSeverity.Blocking)) {
+      notes.push(`no baseline \u2014 \`lightsout standards-check --baseline\` accepts these findings as existing debt so future runs report only what's new`);
+    }
+    return { reported: findings, notes };
+  }
+  if (!baseline.success) {
+    notes.push("lightsout.standards-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
+    return { reported: findings, notes };
+  }
+  const accepted = new Set(baseline.data.siteKeys);
+  const fresh = findings.filter((finding) => !accepted.has(finding.siteKey));
+  const currentSiteKeys = new Set(findings.map((finding) => finding.siteKey));
+  const resolved = baseline.data.siteKeys.filter((siteKey) => !currentSiteKeys.has(siteKey)).length;
+  if (!all && findings.length > fresh.length) {
+    notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
+  }
+  if (resolved > 0) {
+    notes.push(`${resolved} baselined site(s) no longer found \u2014 burn-down progress (--baseline to refresh the ledger)`);
+  }
+  return { reported: all ? findings : fresh, notes };
+};
+
+// src/standardsCheck/buildDominantPathNote.ts
+var findDominantPath = ({ findings }) => {
+  const paths = findings.map((finding) => finding.files[0]?.path).filter((path) => path !== void 0);
+  if (paths.length < 20) {
+    return void 0;
+  }
+  let prefix = "";
+  let count2 = paths.length;
+  for (; ; ) {
+    const children = /* @__PURE__ */ new Map();
+    for (const path of paths) {
+      if (prefix && !path.startsWith(`${prefix}/`)) {
+        continue;
+      }
+      const segment = path.slice(prefix ? prefix.length + 1 : 0).split("/")[0];
+      if (segment && !segment.includes(".")) {
+        children.set(segment, (children.get(segment) ?? 0) + 1);
+      }
+    }
+    const next = [...children.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (!next || next[1] / paths.length <= 0.5) {
+      break;
+    }
+    prefix = prefix ? `${prefix}/${next[0]}` : next[0];
+    count2 = next[1];
+  }
+  return prefix.split("/").length >= 2 ? { dir: prefix, count: count2, total: paths.length } : void 0;
+};
+var buildDominantPathNote = ({ findings }) => {
+  const dominant = findDominantPath({ findings });
+  return dominant === void 0 ? void 0 : `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`;
+};
+
+// src/standardsCheck/buildStandardsHealth.ts
+import { readFile as readFile23 } from "node:fs/promises";
+import { join as join39 } from "node:path";
 var emptyTally = () => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
 var tallyFor = ({ tallies, rule }) => {
   const existing = tallies.get(rule);
@@ -27342,7 +27508,7 @@ var readRefactorRun = async ({ cwd, runId }) => {
   if ((manifest.pipeline ?? "implement") !== "refactor") {
     return void 0;
   }
-  const worklist = RefactorWorklist.parse(JSON.parse(await readFile22(join38(cwd, manifest.plan), "utf8")));
+  const worklist = RefactorWorklist.parse(JSON.parse(await readFile23(join39(cwd, manifest.plan), "utf8")));
   return { worklist, steps: manifest.steps };
 };
 var countBatchSites = ({ tallies, blocking, report }) => {
@@ -39178,13 +39344,13 @@ var Tokenizer = class {
 };
 
 // src/standardsCheck/common/checkInputs/readIntoCache.ts
-import { readFile as readFile23 } from "node:fs/promises";
-import { join as join39 } from "node:path";
+import { readFile as readFile24 } from "node:fs/promises";
+import { join as join40 } from "node:path";
 var readIntoCache = async ({ cwd, paths, cache }) => {
   const texts = /* @__PURE__ */ new Map();
   for (const path of paths) {
     if (!cache.has(path)) {
-      const text = await readFile23(join39(cwd, path), "utf8").catch(() => void 0);
+      const text = await readFile24(join40(cwd, path), "utf8").catch(() => void 0);
       if (text !== void 0) {
         cache.set(path, text);
       }
@@ -39230,15 +39396,15 @@ var buildCloneSpansInput = async ({ cwd, source, settings, cache }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildFileListInput.ts
-import { readdir as readdir12, readFile as readFile24 } from "node:fs/promises";
-import { join as join40 } from "node:path";
+import { readdir as readdir12, readFile as readFile25 } from "node:fs/promises";
+import { join as join41 } from "node:path";
 var Manifest2 = external_exports.object({
   dependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   devDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional(),
   peerDependencies: external_exports.record(external_exports.string(), external_exports.string()).optional()
 });
 var getDependencyNames = async ({ manifestPath }) => {
-  const text = await readFile24(manifestPath, "utf8").catch(() => void 0);
+  const text = await readFile25(manifestPath, "utf8").catch(() => void 0);
   if (text === void 0) {
     return void 0;
   }
@@ -39256,10 +39422,10 @@ var getDependencyNames = async ({ manifestPath }) => {
 };
 var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir }) => {
   const dependencies = /* @__PURE__ */ new Map();
-  dependencies.set(".", await getDependencyNames({ manifestPath: join40(cwd, "package.json") }) ?? []);
-  const children = await readdir12(join40(cwd, packagesDir)).catch(() => []);
+  dependencies.set(".", await getDependencyNames({ manifestPath: join41(cwd, "package.json") }) ?? []);
+  const children = await readdir12(join41(cwd, packagesDir)).catch(() => []);
   for (const name of children.sort()) {
-    const names = await getDependencyNames({ manifestPath: join40(cwd, packagesDir, name, "package.json") });
+    const names = await getDependencyNames({ manifestPath: join41(cwd, packagesDir, name, "package.json") });
     if (names !== void 0) {
       dependencies.set(`${packagesDir}/${name}`, names);
     }
@@ -39486,92 +39652,6 @@ var runPackageChecks = async ({
 // src/standardsCheck/runStandardsCheck.ts
 import { mkdir as mkdir7, writeFile as writeFile7 } from "node:fs/promises";
 import { join as join42 } from "node:path";
-
-// src/standardsCheck/common/utils/applyStandardsBaseline.ts
-import { readFile as readFile25, writeFile as writeFile6 } from "node:fs/promises";
-import { join as join41 } from "node:path";
-var StandardsBaseline = external_exports.object({
-  at: external_exports.string(),
-  path: external_exports.string(),
-  siteKeys: external_exports.array(external_exports.string())
-});
-var applyStandardsBaseline = async ({
-  cwd,
-  path,
-  findings,
-  all,
-  writeBaseline
-}) => {
-  const baselinePath = join41(cwd, "lightsout.standards-baseline.json");
-  const baselineRaw = await readFile25(baselinePath, "utf8").catch(() => void 0);
-  const notes = [];
-  let baselineJson;
-  try {
-    baselineJson = baselineRaw === void 0 ? void 0 : JSON.parse(baselineRaw);
-  } catch {
-    baselineJson = null;
-  }
-  const baseline = baselineRaw === void 0 ? void 0 : StandardsBaseline.safeParse(baselineJson);
-  if (writeBaseline) {
-    const siteKeys = [...new Set(findings.map((finding) => finding.siteKey))];
-    await writeFile6(baselinePath, `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", siteKeys }, void 0, "	")}
-`, "utf8");
-    notes.push(
-      `baseline ${baseline === void 0 ? "written" : "refreshed"}: ${siteKeys.length} site(s) accepted as existing debt \u2014 commit lightsout.standards-baseline.json; future runs report only NEW findings (--all shows everything)`
-    );
-    return { reported: findings, notes };
-  }
-  if (baseline === void 0) {
-    if (findings.some((finding) => finding.severity === StandardsSeverity.Blocking)) {
-      notes.push(`no baseline \u2014 \`lightsout standards-check --baseline\` accepts these findings as existing debt so future runs report only what's new`);
-    }
-    return { reported: findings, notes };
-  }
-  if (!baseline.success) {
-    notes.push("lightsout.standards-baseline.json is unreadable \u2014 ignored; re-run with --baseline to rewrite it");
-    return { reported: findings, notes };
-  }
-  const accepted = new Set(baseline.data.siteKeys);
-  const fresh = findings.filter((finding) => !accepted.has(finding.siteKey));
-  const currentSiteKeys = new Set(findings.map((finding) => finding.siteKey));
-  const resolved = baseline.data.siteKeys.filter((siteKey) => !currentSiteKeys.has(siteKey)).length;
-  if (!all && findings.length > fresh.length) {
-    notes.push(`${findings.length - fresh.length} baselined finding(s) suppressed (--all to include)`);
-  }
-  if (resolved > 0) {
-    notes.push(`${resolved} baselined site(s) no longer found \u2014 burn-down progress (--baseline to refresh the ledger)`);
-  }
-  return { reported: all ? findings : fresh, notes };
-};
-
-// src/standardsCheck/runStandardsCheck.ts
-var dominantPath = ({ findings }) => {
-  const paths = findings.map((finding) => finding.files[0]?.path).filter((path) => path !== void 0);
-  if (paths.length < 20) {
-    return void 0;
-  }
-  let prefix = "";
-  let count2 = paths.length;
-  for (; ; ) {
-    const children = /* @__PURE__ */ new Map();
-    for (const path of paths) {
-      if (prefix && !path.startsWith(`${prefix}/`)) {
-        continue;
-      }
-      const segment = path.slice(prefix ? prefix.length + 1 : 0).split("/")[0];
-      if (segment && !segment.includes(".")) {
-        children.set(segment, (children.get(segment) ?? 0) + 1);
-      }
-    }
-    const next = [...children.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (!next || next[1] / paths.length <= 0.5) {
-      break;
-    }
-    prefix = prefix ? `${prefix}/${next[0]}` : next[0];
-    count2 = next[1];
-  }
-  return prefix.split("/").length >= 2 ? { dir: prefix, count: count2, total: paths.length } : void 0;
-};
 var runStandardsCheck = async ({
   cwd,
   path,
@@ -39596,11 +39676,9 @@ var runStandardsCheck = async ({
   });
   const findings = checked.findings;
   const notes = [...checked.notes];
-  const dominant = dominantPath({ findings });
-  if (dominant) {
-    notes.push(
-      `${Math.round(dominant.count / dominant.total * 100)}% of findings (${dominant.count}/${dominant.total}) sit under ${dominant.dir}/ \u2014 if that path is generated output, add it to the config's "generated" list`
-    );
+  const dominantNote = buildDominantPathNote({ findings });
+  if (dominantNote !== void 0) {
+    notes.push(dominantNote);
   }
   const dir = join42(cwd, ".lightsout");
   await mkdir7(dir, { recursive: true });
@@ -40902,6 +40980,13 @@ review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
   process.exit(report.status === "complete" ? 0 : 1);
 };
 
+// src/cli/loadStandardsLedger.ts
+var loadStandardsLedger = async ({ cwd }) => {
+  const config2 = await loadConfig({ cwd }).catch(() => void 0);
+  const rules = await listStandardsRules({ cwd, config: config2 });
+  return { config: config2, rules };
+};
+
 // src/cli/common/args/getPositionals.ts
 var getPositionals = ({ args }) => {
   const positionals = [];
@@ -40967,8 +41052,111 @@ var planRunOptions = ({ cwd, driver, name, standards, config: config2 }) => ({
   onProgress: createProgressPrinter()
 });
 
-// src/plan/detectPriorArtCandidates.ts
+// src/plan/checkPlanPaths.ts
+import { basename as basename3, join as join50 } from "node:path";
+
+// src/plan/common/paths/pathExists.ts
+import { stat as stat7 } from "node:fs/promises";
+var pathExists = ({ path }) => stat7(path).then(
+  () => true,
+  () => false
+);
+
+// src/plan/checkPlanPaths.ts
+var checkPlanPaths = async ({ plan, cwd, planPath }) => {
+  const findings = [];
+  for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
+    if (!await pathExists({ path: join50(cwd, path) })) {
+      findings.push({
+        check: StructuralCheck.PathExists,
+        issue: `referenced path does not exist: ${path}`,
+        location: `${basename3(planPath)} \u2192 ${path}`,
+        fix: `correct the path or move it under Files to Create if it does not exist yet`
+      });
+    }
+  }
+  for (const path of plan.createPaths) {
+    if (await pathExists({ path: join50(cwd, path) })) {
+      findings.push({
+        check: StructuralCheck.PathExists,
+        issue: `Files to Create path already exists: ${path}`,
+        location: `${basename3(planPath)} \u2192 ${path}`,
+        fix: `move it to Files to Modify, or choose a new path`
+      });
+    }
+  }
+  return findings;
+};
+
+// src/plan/checkVerificationScripts.ts
 import { readFile as readFile28 } from "node:fs/promises";
+import { basename as basename4, join as join51 } from "node:path";
+var scriptNameOf = (command) => {
+  const runScript = extractRunScriptName({ command });
+  if (runScript !== void 0) {
+    return runScript;
+  }
+  const tokens = command.split(/\s+/);
+  if (tokens[0] === "pnpm") {
+    let index = 1;
+    while (tokens[index]?.startsWith("-")) {
+      index += tokens[index] === "--filter" || tokens[index] === "-F" ? 2 : 1;
+    }
+    return tokens[index];
+  }
+  if (tokens[0] === "yarn" && tokens[1] !== void 0 && !tokens[1].startsWith("-")) {
+    return tokens[1];
+  }
+  return void 0;
+};
+var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, configCommands }) => {
+  const findings = [];
+  const packageDirs = /* @__PURE__ */ new Set();
+  for (const path of [...plan.createPaths, ...plan.modifyPaths, ...plan.mirrorPaths]) {
+    if (path.startsWith(`${packagesDir}/`)) {
+      const segment = path.slice(packagesDir.length + 1).split("/")[0];
+      if (segment) {
+        packageDirs.add(segment);
+      }
+    }
+  }
+  const manifestPaths = [join51(cwd, "package.json"), ...[...packageDirs].map((dir) => join51(cwd, packagesDir, dir, "package.json"))];
+  const availableScripts = /* @__PURE__ */ new Set();
+  for (const manifestPath of manifestPaths) {
+    const raw = await readFile28(manifestPath, "utf8").catch(() => void 0);
+    if (!raw) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      for (const key of Object.keys(parsed.scripts ?? {})) {
+        availableScripts.add(key);
+      }
+    } catch {
+    }
+  }
+  for (const command of plan.verificationCommands) {
+    if (configCommands.has(command)) {
+      continue;
+    }
+    const scriptName = scriptNameOf(command);
+    if (scriptName === void 0) {
+      continue;
+    }
+    if (!availableScripts.has(scriptName)) {
+      findings.push({
+        check: StructuralCheck.ScriptExists,
+        issue: `verification command '${command}' references package script '${scriptName}' which is not in any target package.json`,
+        location: `${basename4(planPath)} \u2192 Verification`,
+        fix: `use a script that exists, or add '${scriptName}' to the package.json`
+      });
+    }
+  }
+  return findings;
+};
+
+// src/plan/detectPriorArtCandidates.ts
+import { readFile as readFile29 } from "node:fs/promises";
 
 // src/common/naming/collapseCasing.ts
 var collapseCasing = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -40994,8 +41182,8 @@ var nameKey = ({ name }) => {
 };
 
 // src/common/naming/nameOf.ts
-import { basename as basename3 } from "node:path";
-var nameOf = (path) => basename3(path).replace(/\.(m|c)?[jt]sx?$/, "");
+import { basename as basename5 } from "node:path";
+var nameOf = (path) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
 
 // src/plan/common/paths/pathFromLine.ts
 var pathFromLine = ({ line }) => {
@@ -41033,7 +41221,7 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   const planned = [];
   const plannedPaths = /* @__PURE__ */ new Set();
   for (const planPath of planPaths) {
-    const planText = await readFile28(planPath, "utf8").catch(() => void 0);
+    const planText = await readFile29(planPath, "utf8").catch(() => void 0);
     if (planText === void 0) {
       continue;
     }
@@ -41067,112 +41255,24 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   return candidates;
 };
 
+// src/plan/estimatePlanScope.ts
+var phasedThreshold = 40;
+var estimatePlanScope = ({ facts }) => {
+  const paths = /* @__PURE__ */ new Set();
+  for (const area of facts.areas) {
+    for (const file2 of area.filesToModify) {
+      paths.add(file2.path);
+    }
+    for (const pattern of area.patternsToMirror) {
+      paths.add(pattern.path);
+    }
+  }
+  return paths.size > phasedThreshold ? PlanVariant.Overview : PlanVariant.Single;
+};
+
 // src/plan/lintPlanStructure.ts
 import { readFile as readFile30 } from "node:fs/promises";
 import { basename as basename6 } from "node:path";
-
-// src/plan/checkPlanPaths.ts
-import { basename as basename4, join as join50 } from "node:path";
-
-// src/plan/common/paths/pathExists.ts
-import { stat as stat7 } from "node:fs/promises";
-var pathExists = ({ path }) => stat7(path).then(
-  () => true,
-  () => false
-);
-
-// src/plan/checkPlanPaths.ts
-var checkPlanPaths = async ({ plan, cwd, planPath }) => {
-  const findings = [];
-  for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join50(cwd, path) })) {
-      findings.push({
-        check: StructuralCheck.PathExists,
-        issue: `referenced path does not exist: ${path}`,
-        location: `${basename4(planPath)} \u2192 ${path}`,
-        fix: `correct the path or move it under Files to Create if it does not exist yet`
-      });
-    }
-  }
-  for (const path of plan.createPaths) {
-    if (await pathExists({ path: join50(cwd, path) })) {
-      findings.push({
-        check: StructuralCheck.PathExists,
-        issue: `Files to Create path already exists: ${path}`,
-        location: `${basename4(planPath)} \u2192 ${path}`,
-        fix: `move it to Files to Modify, or choose a new path`
-      });
-    }
-  }
-  return findings;
-};
-
-// src/plan/checkVerificationScripts.ts
-import { readFile as readFile29 } from "node:fs/promises";
-import { basename as basename5, join as join51 } from "node:path";
-var scriptNameOf = (command) => {
-  const runScript = extractRunScriptName({ command });
-  if (runScript !== void 0) {
-    return runScript;
-  }
-  const tokens = command.split(/\s+/);
-  if (tokens[0] === "pnpm") {
-    let index = 1;
-    while (tokens[index]?.startsWith("-")) {
-      index += tokens[index] === "--filter" || tokens[index] === "-F" ? 2 : 1;
-    }
-    return tokens[index];
-  }
-  if (tokens[0] === "yarn" && tokens[1] !== void 0 && !tokens[1].startsWith("-")) {
-    return tokens[1];
-  }
-  return void 0;
-};
-var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, configCommands }) => {
-  const findings = [];
-  const packageDirs = /* @__PURE__ */ new Set();
-  for (const path of [...plan.createPaths, ...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (path.startsWith(`${packagesDir}/`)) {
-      const segment = path.slice(packagesDir.length + 1).split("/")[0];
-      if (segment) {
-        packageDirs.add(segment);
-      }
-    }
-  }
-  const manifestPaths = [join51(cwd, "package.json"), ...[...packageDirs].map((dir) => join51(cwd, packagesDir, dir, "package.json"))];
-  const availableScripts = /* @__PURE__ */ new Set();
-  for (const manifestPath of manifestPaths) {
-    const raw = await readFile29(manifestPath, "utf8").catch(() => void 0);
-    if (!raw) {
-      continue;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      for (const key of Object.keys(parsed.scripts ?? {})) {
-        availableScripts.add(key);
-      }
-    } catch {
-    }
-  }
-  for (const command of plan.verificationCommands) {
-    if (configCommands.has(command)) {
-      continue;
-    }
-    const scriptName = scriptNameOf(command);
-    if (scriptName === void 0) {
-      continue;
-    }
-    if (!availableScripts.has(scriptName)) {
-      findings.push({
-        check: StructuralCheck.ScriptExists,
-        issue: `verification command '${command}' references package script '${scriptName}' which is not in any target package.json`,
-        location: `${basename5(planPath)} \u2192 Verification`,
-        fix: `use a script that exists, or add '${scriptName}' to the package.json`
-      });
-    }
-  }
-  return findings;
-};
 
 // src/plan/parsePlan.ts
 var parseSections = (lines) => {
@@ -41240,12 +41340,7 @@ var parsePlan = ({ content, base }) => {
   };
 };
 
-// src/plan/lintPlanStructure.ts
-var scopeGuardrail = 50;
-var requiredSections = {
-  implementable: ["Prerequisites", "Global Constraints", "Scope Boundaries", "Verification", "What Next Plan Expects"],
-  overview: ["Phases", "Cross-Phase Dependencies", "Global Constraints"]
-};
+// src/plan/scanPlaceholders.ts
 var placeholderPatterns = [
   { label: "???", re: /\?\?\?/ },
   { label: "TBD", re: /\bTBD\b/ },
@@ -41272,6 +41367,13 @@ var scanPlaceholders = ({ lines }) => {
     }
   }
   return matches;
+};
+
+// src/plan/lintPlanStructure.ts
+var scopeGuardrail = 50;
+var requiredSections = {
+  implementable: ["Prerequisites", "Global Constraints", "Scope Boundaries", "Verification", "What Next Plan Expects"],
+  overview: ["Phases", "Cross-Phase Dependencies", "Global Constraints"]
 };
 var isSourceFile = (path) => !isTestFile({ path }) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
@@ -41385,18 +41487,22 @@ var readDecisions = async ({ cwd, name }) => {
   });
 };
 
-// src/plan/runPlanDedup.ts
-import { join as join57 } from "node:path";
-
-// src/common/utils/writeJsonFile.ts
-import { writeFile as writeFile9 } from "node:fs/promises";
-var writeJsonFile = async ({ path, value }) => {
-  await writeFile9(path, `${JSON.stringify(value, void 0, "	")}
-`, "utf8");
+// src/plan/readPlanFacts.ts
+var readPlanFacts = async ({ cwd, name }) => {
+  return readPlanWorkspaceFile({
+    cwd,
+    name,
+    fileName: "facts.json",
+    schema: PlanFacts,
+    notFound: (filePath) => `no facts found for plan ${name} at ${filePath} \u2014 author facts.json ({ request, areas }), then run: lightsout plan verify-facts --name ${name}`
+  });
 };
 
+// src/plan/repairPlanStructure.ts
+import { join as join56 } from "node:path";
+
 // src/plan/common/utils/createPlanAgentRunner.ts
-import { writeFile as writeFile10 } from "node:fs/promises";
+import { writeFile as writeFile9 } from "node:fs/promises";
 import { join as join55 } from "node:path";
 var createPlanAgentRunner = ({ cwd, driver, workspaceDir, step, model, effort, permissions, timeoutMs }) => {
   const onEvent = createEventFileSink({ path: join55(workspaceDir, `${step}-stream.jsonl`) });
@@ -41413,9 +41519,73 @@ var createPlanAgentRunner = ({ cwd, driver, workspaceDir, step, model, effort, p
     onEvent,
     onRejectedOutput: async ({ text, attempt }) => {
       const name = `${step}-rejected-${label === void 0 ? "" : `${label}-`}${attempt}.txt`;
-      await writeFile10(join55(workspaceDir, name), text, "utf8").catch(() => void 0);
+      await writeFile9(join55(workspaceDir, name), text, "utf8").catch(() => void 0);
     }
   });
+};
+
+// src/plan/repairPlanStructure.ts
+var maxRepairAttempts = 3;
+var findingSetKey = ({ findings }) => findings.map((finding) => [finding.check, finding.issue].join("|")).sort().join("\n");
+var repairPlanStructure = async ({
+  cwd,
+  driver,
+  name,
+  planPaths,
+  workspaceDir,
+  brainstormDecisionsPath,
+  config: config2,
+  model,
+  effort,
+  permissions,
+  timeoutMs,
+  progress
+}) => {
+  let findings = await lintPlanStructure({ cwd, planPaths, config: config2 });
+  for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {
+    progress(`plan draft ${name}: ${findings.length} structural finding(s) \u2014 repair ${repair}/${maxRepairAttempts}`);
+    const beforeKey = findingSetKey({ findings });
+    const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: `repair-${repair}`, model, effort, permissions, timeoutMs });
+    const outcome = await invokePlanAgent({
+      invocation: buildPlanRepairInvocation({
+        findings,
+        planPaths,
+        decisionsPath: join56(workspaceDir, "decisions.json"),
+        brainstormDecisionsPath,
+        factsPath: join56(workspaceDir, "facts.json")
+      }),
+      contract: PlanFixReport
+    });
+    if (!outcome.ok) {
+      return outcome.rateLimited ? { status: "paused-rate-limit", error: `rate limit reached \u2014 re-run: lightsout plan draft --name ${name}` } : { status: "failed", error: outcome.failure };
+    }
+    const { report } = outcome;
+    const declined = report.status === PlanFixStatus.Error;
+    if (declined) {
+      for (const discrepancy of report.discrepancies) {
+        progress(`plan draft ${name}: repair declined \u2014 ${discrepancy}`);
+      }
+    }
+    findings = await lintPlanStructure({ cwd, planPaths, config: config2 });
+    if (declined) {
+      break;
+    }
+    if (findings.length > 0 && findingSetKey({ findings }) === beforeKey) {
+      progress(`plan draft ${name}: repair ${repair} made no progress \u2014 stopping`);
+      break;
+    }
+  }
+  return { status: "complete", findings };
+};
+
+// src/plan/runPlanDedup.ts
+import { join as join58 } from "node:path";
+
+// src/common/utils/writeJsonFile.ts
+import { writeFile as writeFile10 } from "node:fs/promises";
+var writeJsonFile = async ({ path, value }) => {
+  await writeFile10(path, `${JSON.stringify(value, void 0, "	")}
+`, "utf8");
 };
 
 // src/plan/common/utils/getPlanDetectionPass.ts
@@ -41423,10 +41593,10 @@ import { mkdir as mkdir8 } from "node:fs/promises";
 
 // src/plan/common/utils/resolvePlanDeliverable.ts
 import { readdir as readdir15, readFile as readFile32 } from "node:fs/promises";
-import { join as join56 } from "node:path";
+import { join as join57 } from "node:path";
 var resolvePlanDeliverable = async ({ cwd, name }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  const singlePath = join56(dir, "plan.md");
+  const singlePath = join57(dir, "plan.md");
   let overviewPath;
   let overviewText;
   const files = [];
@@ -41435,7 +41605,7 @@ var resolvePlanDeliverable = async ({ cwd, name }) => {
   } else {
     const entries = (await readdir15(dir).catch(() => [])).filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
     for (const entry of entries) {
-      const path = join56(dir, entry);
+      const path = join57(dir, entry);
       const text = await readFile32(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -41514,7 +41684,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join57(workspaceDir, "dedup.json");
+    const dedupPath2 = join58(workspaceDir, "dedup.json");
     await writeJsonFile({ path: dedupPath2, value: dedup2 });
     return { dedup: dedup2, dedupPath: dedupPath2 };
   };
@@ -41545,16 +41715,16 @@ import { mkdir as mkdir9 } from "node:fs/promises";
 import { join as join61 } from "node:path";
 
 // src/plan/common/paths/planDraftOutputs.ts
-import { join as join58 } from "node:path";
+import { join as join59 } from "node:path";
 var planDraftOutputs = ({ cwd, name, variant }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  return variant === PlanVariant.Single ? [{ path: join58(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join58(dir, "overview.md"), variant: PlanVariant.Overview }];
+  return variant === PlanVariant.Single ? [{ path: join59(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join59(dir, "overview.md"), variant: PlanVariant.Overview }];
 };
 
 // src/plan/common/paths/verifyDraftedFiles.ts
-import { isAbsolute as isAbsolute2, join as join59 } from "node:path";
+import { isAbsolute as isAbsolute2, join as join60 } from "node:path";
 var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
-  const planPaths = filesWritten.map((file2) => isAbsolute2(file2.path) ? file2.path : join59(cwd, file2.path));
+  const planPaths = filesWritten.map((file2) => isAbsolute2(file2.path) ? file2.path : join60(cwd, file2.path));
   if (planPaths.length === 0) {
     return { error: "plan-writer reported drafted but listed no files written" };
   }
@@ -41574,87 +41744,6 @@ var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
 var buildPlanLintCommand = ({ cwd, name }) => {
   const prefix = `node ${process.argv[1]} plan lint`;
   return { prefix, command: `${prefix} --name ${name} --cwd "${cwd}"` };
-};
-
-// src/plan/estimatePlanScope.ts
-var phasedThreshold = 40;
-var estimatePlanScope = ({ facts }) => {
-  const paths = /* @__PURE__ */ new Set();
-  for (const area of facts.areas) {
-    for (const file2 of area.filesToModify) {
-      paths.add(file2.path);
-    }
-    for (const pattern of area.patternsToMirror) {
-      paths.add(pattern.path);
-    }
-  }
-  return paths.size > phasedThreshold ? PlanVariant.Overview : PlanVariant.Single;
-};
-
-// src/plan/readPlanFacts.ts
-var readPlanFacts = async ({ cwd, name }) => {
-  return readPlanWorkspaceFile({
-    cwd,
-    name,
-    fileName: "facts.json",
-    schema: PlanFacts,
-    notFound: (filePath) => `no facts found for plan ${name} at ${filePath} \u2014 author facts.json ({ request, areas }), then run: lightsout plan verify-facts --name ${name}`
-  });
-};
-
-// src/plan/repairPlanStructure.ts
-import { join as join60 } from "node:path";
-var maxRepairAttempts = 3;
-var findingSetKey = ({ findings }) => findings.map((finding) => [finding.check, finding.issue].join("|")).sort().join("\n");
-var repairPlanStructure = async ({
-  cwd,
-  driver,
-  name,
-  planPaths,
-  workspaceDir,
-  brainstormDecisionsPath,
-  config: config2,
-  model,
-  effort,
-  permissions,
-  timeoutMs,
-  progress
-}) => {
-  let findings = await lintPlanStructure({ cwd, planPaths, config: config2 });
-  for (let repair = 1; repair <= maxRepairAttempts && findings.length > 0; repair += 1) {
-    progress(`plan draft ${name}: ${findings.length} structural finding(s) \u2014 repair ${repair}/${maxRepairAttempts}`);
-    const beforeKey = findingSetKey({ findings });
-    const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: `repair-${repair}`, model, effort, permissions, timeoutMs });
-    const outcome = await invokePlanAgent({
-      invocation: buildPlanRepairInvocation({
-        findings,
-        planPaths,
-        decisionsPath: join60(workspaceDir, "decisions.json"),
-        brainstormDecisionsPath,
-        factsPath: join60(workspaceDir, "facts.json")
-      }),
-      contract: PlanFixReport
-    });
-    if (!outcome.ok) {
-      return outcome.rateLimited ? { status: "paused-rate-limit", error: `rate limit reached \u2014 re-run: lightsout plan draft --name ${name}` } : { status: "failed", error: outcome.failure };
-    }
-    const { report } = outcome;
-    const declined = report.status === PlanFixStatus.Error;
-    if (declined) {
-      for (const discrepancy of report.discrepancies) {
-        progress(`plan draft ${name}: repair declined \u2014 ${discrepancy}`);
-      }
-    }
-    findings = await lintPlanStructure({ cwd, planPaths, config: config2 });
-    if (declined) {
-      break;
-    }
-    if (findings.length > 0 && findingSetKey({ findings }) === beforeKey) {
-      progress(`plan draft ${name}: repair ${repair} made no progress \u2014 stopping`);
-      break;
-    }
-  }
-  return { status: "complete", findings };
 };
 
 // src/plan/runPlanDraft.ts
@@ -42893,6 +42982,24 @@ var resumeCommand = async ({ flags, cwd }) => {
   process.exit(result.ok ? 0 : 1);
 };
 
+// src/cli/reviewStandards.ts
+var reviewStandards = async ({ cwd, config: config2, path }) => {
+  const defaultAgentTimeoutMinutes4 = 60;
+  const packages = await resolveStandardsPackages({ cwd, config: config2 });
+  const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2?.packagesDir ?? "packages", packages: [] });
+  const { files: walked } = await listSourceFiles({ cwd, exclude: config2?.generated });
+  const files = walked.filter((file2) => !path || file2.startsWith(path));
+  return runStandardsReview({
+    cwd,
+    driver: getDriver({ name: config2?.harness ?? "claude-code" }),
+    packages,
+    channels,
+    files,
+    timeoutMs: (config2?.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes4) * 6e4,
+    onProgress: (message) => console.log(dim(message))
+  });
+};
+
 // src/cli/standardsCheckCommand.ts
 import { mkdir as mkdir13, writeFile as writeFile15 } from "node:fs/promises";
 import { join as join68 } from "node:path";
@@ -43066,22 +43173,6 @@ var printStandardsSummary = ({ findings, rules, reportPath: reportPath2 }) => {
 
 // src/cli/standardsCheckCommand.ts
 var reportPath = ".lightsout/standards-check.json";
-var defaultAgentTimeoutMinutes4 = 60;
-var reviewFindings = async ({ cwd, config: config2, path }) => {
-  const packages = await resolveStandardsPackages({ cwd, config: config2 });
-  const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2?.packagesDir ?? "packages", packages: [] });
-  const { files: walked } = await listSourceFiles({ cwd, exclude: config2?.generated });
-  const files = walked.filter((file2) => !path || file2.startsWith(path));
-  return runStandardsReview({
-    cwd,
-    driver: getDriver({ name: config2?.harness ?? "claude-code" }),
-    packages,
-    channels,
-    files,
-    timeoutMs: (config2?.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes4) * 6e4,
-    onProgress: (message) => console.log(dim(message))
-  });
-};
 var writeCheckReport = async ({ cwd, path, findings, notes }) => {
   await mkdir13(join68(cwd, ".lightsout"), { recursive: true });
   await writeFile15(
@@ -43092,8 +43183,7 @@ var writeCheckReport = async ({ cwd, path, findings, notes }) => {
   );
 };
 var standardsCheckCommand = async ({ flags, cwd }) => {
-  const config2 = await loadConfig({ cwd }).catch(() => void 0);
-  const rules = await listStandardsRules({ cwd, config: config2 });
+  const { config: config2, rules } = await loadStandardsLedger({ cwd });
   if (flags.get("list") === true) {
     printStandardsRuleList({ rules });
     process.exit(0);
@@ -43118,7 +43208,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
     notes.push(...checked.notes);
   }
   if (runAgentReview) {
-    const reviewed = await reviewFindings({ cwd, config: config2, path: checkPath });
+    const reviewed = await reviewStandards({ cwd, config: config2, path: checkPath });
     findings.push(...reviewed.findings);
     notes.push(...reviewed.notes);
   }
@@ -43640,7 +43730,7 @@ var voiceCommand = async ({ rest, cwd }) => {
   process.exit(1);
 };
 
-// src/cli/index.ts
+// src/main.ts
 var commands = {
   implement: implementCommand,
   resume: resumeCommand,

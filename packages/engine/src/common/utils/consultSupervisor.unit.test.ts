@@ -27,7 +27,7 @@ const setupSupervisor = ({ overrides = {}, text = verdict() }: { overrides?: Par
 	};
 
 	const config: LightsoutConfig = {
-		gates: { check: 'true', test: 'true', testCoverage: 'true' },
+		gates: { check: 'true', test: 'true', 'test-coverage': 'true' },
 		...overrides,
 	};
 

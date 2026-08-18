@@ -22,7 +22,7 @@ export const setupConsumerRepo = ({ git = true, plan = '# Plan: add feature\n', 
 	mkdirSync(join(dir, 'src'), { recursive: true });
 	writeFileSync(join(dir, 'src/index.js'), 'export const one = 1;\n');
 	writeFileSync(join(dir, 'plan.md'), plan);
-	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', testCoverage: false, ...scripts }, ...config }));
+	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false, ...scripts }, ...config }));
 
 	if (git) {
 		execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });

@@ -4,7 +4,7 @@ import type { LightsoutConfig } from '@/contracts';
 import { checkScriptBinaries } from '@/doctor/checkScriptBinaries';
 
 const configWith = (gates: Partial<LightsoutConfig['gates']>): LightsoutConfig => ({
-	gates: { check: 'true', test: 'true', testCoverage: false, ...gates },
+	gates: { check: 'true', test: 'true', 'test-coverage': false, ...gates },
 });
 
 describe('checkScriptBinaries', () => {

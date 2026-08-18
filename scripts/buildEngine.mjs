@@ -24,7 +24,7 @@ const enginePackage = join(repoRoot, 'packages', 'engine');
 
 export const buildEngine = async ({ out }) =>
 	build({
-		entryPoints: [join(enginePackage, 'src', 'cli', 'index.ts')],
+		entryPoints: [join(enginePackage, 'src', 'main.ts')],
 		// Pinned, because esbuild writes each bundled module's path into the output
 		// as a comment, relative to this directory. Left to default to
 		// process.cwd(), the same source would build to different bytes depending

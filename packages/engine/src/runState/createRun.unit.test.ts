@@ -6,7 +6,7 @@ import { createRun, getRunDir, readRunManifest } from '@/runState';
 
 const config: LightsoutConfig = {
 	harness: 'stub',
-	gates: { check: 'true', test: 'true', testCoverage: false },
+	gates: { check: 'true', test: 'true', 'test-coverage': false },
 };
 
 const setupRepo = () => {
@@ -102,7 +102,7 @@ describe('createRun', () => {
 		const manifest = await createRun({ cwd, plan: 'plan.md', driver: 'stub', config });
 		const read = await readRunManifest({ cwd, runId: manifest.runId });
 
-		expect(read.config).toStrictEqual({ harness: 'stub', gates: { check: 'true', test: 'true', testCoverage: false } });
+		expect(read.config).toStrictEqual({ harness: 'stub', gates: { check: 'true', test: 'true', 'test-coverage': false } });
 	});
 
 	test('seeds the dirty paths that changed-file attribution subtracts', async () => {

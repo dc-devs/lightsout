@@ -69,13 +69,13 @@ interface Params {
  * count every package file a second time under a scope no batch belongs to.
  */
 export const resolveCoverageScopes = async ({ cwd, config, summaryPath, scope }: Params): Promise<CoverageScope[]> => {
-	const template = config.packageGates?.testCoverage;
+	const template = config.packageGates?.['test-coverage'];
 
 	if (template) {
 		return listPackageScopes({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir, template, summaryPath, scope });
 	}
 
-	const command = config.gates.testCoverage;
+	const command = config.gates['test-coverage'];
 	const scoped: CoverageScope[] =
 		typeof command === 'string' && (scope === undefined || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
 

@@ -69,7 +69,7 @@ export const checkChangedFilesExecuted = async ({ cwd, config, changedFiles, com
 	const summaryPath = config.coverageSummaryPath ?? defaultCoverageSummaryPath;
 	const scopes = await resolveCoverageScopes({ cwd, config, summaryPath });
 	const packagesDir = config.packagesDir ?? defaultPackagesDir;
-	const monorepo = config.packageGates?.testCoverage !== undefined;
+	const monorepo = config.packageGates?.['test-coverage'] !== undefined;
 
 	// Monorepo mode measures packages only, so root files sit outside the
 	// measurement; root mode's single scope owns files outside the packages dir.

@@ -11,7 +11,7 @@ import { checkChangedFilesExecuted } from '@/coverage/checkChangedFilesExecuted'
 // `require` is already the local resolver — `import.meta` does not exist there.
 const ts = require('typescript') as typeof import('typescript');
 
-const rootConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: 'npm run coverage' } };
+const rootConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': 'npm run coverage' } };
 
 const setupRepo = ({
 	files,
@@ -63,7 +63,7 @@ test('checkChangedFilesExecuted: an empty changed set, a missing compiler, or an
 	expect(await checkChangedFilesExecuted({ cwd: '/nowhere', config: rootConfig, changedFiles: [], compiler: ts })).toBe(undefined);
 	expect(await checkChangedFilesExecuted({ cwd: '/nowhere', config: rootConfig, changedFiles: ['src/a.ts'], compiler: undefined })).toBe(undefined);
 
-	const optedOut: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+	const optedOut: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 	const cwd = setupRepo({ files: { 'src/a.ts': 'export const a = () => 1;' } });
 
 	// no scope owns the file — outside the measurement, outside the check
@@ -119,8 +119,8 @@ test('checkChangedFilesExecuted: a missing summary fails with the doctor guidanc
 
 test('checkChangedFilesExecuted: monorepo mode reads each package summary, and root files sit outside the measurement', async () => {
 	const config: LightsoutConfig = {
-		gates: { check: 'true', test: 'true', testCoverage: false },
-		packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'pnpm --filter {package} run test:coverage' },
+		gates: { check: 'true', test: 'true', 'test-coverage': false },
+		packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
 	};
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-executed-mono-'));
 
@@ -179,8 +179,8 @@ test('checkChangedFilesExecuted: a configured summary path is read instead of th
 
 test('checkChangedFilesExecuted: a package whose coverage command was never configured is outside the measurement', async () => {
 	const config: LightsoutConfig = {
-		gates: { check: 'true', test: 'true', testCoverage: false },
-		packageGates: { check: 'true {package}', test: 'true {package}', testCoverage: 'pnpm --filter {package} run test:coverage' },
+		gates: { check: 'true', test: 'true', 'test-coverage': false },
+		packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
 	};
 	const cwd = setupUnmeasuredPackage();
 

@@ -61,7 +61,7 @@ const setupCommand = ({
 	config?: Record<string, unknown>;
 } = {}) => {
 	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo({ scripts: { testCoverage: 'pnpm test:coverage' }, config });
+	const cwd = setupConsumerRepo({ scripts: { 'test-coverage': 'pnpm test:coverage' }, config });
 
 	if (parkedRunId) {
 		mkdirSync(join(cwd, '.lightsout', 'runs', parkedRunId), { recursive: true });
@@ -183,7 +183,7 @@ describe('testCoverageToThresholdCommand', () => {
 
 	test('any other pipeline failure reaches stderr as its message and exits 1', async () => {
 		const { context, errors, exitCodes } = setupCommand({
-			failWith: new Error('the coverage gate is opted out (gates.testCoverage: false) — test-coverage-to-threshold has nothing to run'),
+			failWith: new Error('the coverage gate is opted out ("test-coverage": false) — test-coverage-to-threshold has nothing to run'),
 		});
 
 		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);

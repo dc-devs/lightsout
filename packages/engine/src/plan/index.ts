@@ -1,11 +1,18 @@
+export { checkPlanPaths } from '@/plan/checkPlanPaths';
+export { checkVerificationScripts } from '@/plan/checkVerificationScripts';
 export type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';
 export { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
+export { estimatePlanScope } from '@/plan/estimatePlanScope';
 export { lintPlanStructure } from '@/plan/lintPlanStructure';
+export { parsePlan } from '@/plan/parsePlan';
 export { readBrainstormDecisions } from '@/plan/readBrainstormDecisions';
 export { readDecisions } from '@/plan/readDecisions';
+export { readPlanFacts } from '@/plan/readPlanFacts';
+export { repairPlanStructure } from '@/plan/repairPlanStructure';
 export { runPlanDedup } from '@/plan/runPlanDedup';
 export { runPlanDraft } from '@/plan/runPlanDraft';
 export { runPlanGrade } from '@/plan/runPlanGrade';
 export { runPlanLint } from '@/plan/runPlanLint';
 export { runPlanVerifyFacts } from '@/plan/runPlanVerifyFacts';
+export { scanPlaceholders } from '@/plan/scanPlaceholders';
 export { verifyFacts } from '@/plan/verifyFacts';

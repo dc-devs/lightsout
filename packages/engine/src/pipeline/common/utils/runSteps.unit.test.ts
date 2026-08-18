@@ -9,7 +9,7 @@ import { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
 import { createRun } from '@/runState';
 
-const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const idleDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 
 /**

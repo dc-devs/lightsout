@@ -9,7 +9,7 @@ import { loadConfig } from '@/common/utils/loadConfig';
 import type { GateResult } from '@/contracts';
 import { runGates } from '@/pipeline';
 
-/** A single-package consumer whose config opts out of coverage (`gates.testCoverage: false`), with gates that log "root <kind>". */
+/** A single-package consumer whose config opts out of coverage (`gates.'test-coverage': false`), with gates that log "root <kind>". */
 const setupOptedOutRepo = () =>
 	setupConsumerRepo({
 		scripts: {
@@ -31,7 +31,7 @@ const setupScopedBuildRepo = () => {
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
-			gates: { check: 'true', test: 'true', testCoverage: false },
+			gates: { check: 'true', test: 'true', 'test-coverage': false },
 			packageGates: {
 				check: `${gateLogCommand({ kind: 'check' })} {package}`,
 				test: `${gateLogCommand({ kind: 'test' })} {package}`,
@@ -52,7 +52,7 @@ describe('runGates', () => {
 		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
 
 		expect(error).toBe(undefined);
-		// `testCoverage: false` is a decision, not a missing command — the run's
+		// `'test-coverage': false` is a decision, not a missing command — the run's
 		// coverage request cannot revive a gate the consumer opted out of, and
 		// the plain test gate must not be dropped along with it
 		expect(gates.map((gate) => [gate.group, gate.kind])).toStrictEqual([
@@ -77,5 +77,35 @@ describe('runGates', () => {
 		]);
 		// each template ran against the package.json name, not the directory
 		expect(readGateLog({ dir })).toStrictEqual(['@acme/api check', '@acme/api test', '@acme/api build']);
+	});
+
+	test('a custom `test-*` suite runs after the unit run and before build, and coverage never substitutes it', async () => {
+		const dir = setupConsumerRepo({
+			scripts: {
+				check: `${gateLogCommand({ kind: 'check' })} root`,
+				test: `${gateLogCommand({ kind: 'test' })} root`,
+				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} root`,
+				'test-e2e': `${gateLogCommand({ kind: 'e2e' })} root`,
+				build: `${gateLogCommand({ kind: 'build' })} root`,
+			},
+		});
+		const config = await loadConfig({ cwd: dir });
+		const gates: GateResult[] = [];
+
+		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
+
+		expect(error).toBe(undefined);
+		// coverage replaces `test` alone — the custom suite is its own gate, in
+		// order, with the expensive slots as late as the config allows
+		expect(gates.map((gate) => gate.kind)).toStrictEqual(['check', 'testCoverage', 'test-e2e', 'build']);
+	});
+
+	test('a red custom suite fails the gate set under its own name', async () => {
+		const dir = setupConsumerRepo({ scripts: { 'test-e2e': 'false' } });
+		const config = await loadConfig({ cwd: dir });
+
+		const error = await runGates({ cwd: dir, config, coverage: false });
+
+		expect(error ?? '').toMatch(/test-e2e failed \(exit 1\)/);
 	});
 });

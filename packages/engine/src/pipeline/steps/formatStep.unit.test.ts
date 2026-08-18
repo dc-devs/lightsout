@@ -95,7 +95,7 @@ test('format: a green formatter that turns a gate red fails the run as a configu
 
 test('formatStep: called with no formatter configured it does nothing, whatever order it was reached in', async () => {
 	const cwd = setupConsumerRepo();
-	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false } };
+	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 	const manifest = await createRun({ cwd, plan: 'plan.md', pipeline: 'implement', driver: 'stub', config });
 	const run = new PipelineRun({ cwd, config, driver: { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) }, manifest });
 
@@ -110,7 +110,7 @@ test('formatStep: called with no formatter configured it does nothing, whatever 
 
 test('formatStep: a formatter configured under gates.format leaves the step with nothing to skip for', async () => {
 	const cwd = setupConsumerRepo();
-	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', testCoverage: false, format: 'true' } };
+	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false, format: 'true' } };
 	const manifest = await createRun({ cwd, plan: 'plan.md', pipeline: 'implement', driver: 'stub', config });
 	const run = new PipelineRun({ cwd, config, driver: { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) }, manifest });
 

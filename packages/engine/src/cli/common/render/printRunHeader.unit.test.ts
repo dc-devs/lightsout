@@ -14,7 +14,7 @@ const setupHeader = ({ config = {}, driverName = 'claude-code' }: { config?: Par
 	});
 
 	const driver: Driver = { name: driverName, invoke: async () => ({ text: '', exitCode: 0 }) };
-	const fullConfig: LightsoutConfig = { gates: { check: 'pnpm check', test: 'pnpm test:unit', testCoverage: 'pnpm test:coverage' }, ...config };
+	const fullConfig: LightsoutConfig = { gates: { check: 'pnpm check', test: 'pnpm test:unit', 'test-coverage': 'pnpm test:coverage' }, ...config };
 
 	return { config: fullConfig, driver, cwd: '/repo', logged };
 };
@@ -78,7 +78,7 @@ test('printRunHeader: configured timeouts replace the 60m/15m defaults', () => {
 });
 
 test('printRunHeader: a coverage gate disabled explicitly prints off (explicit) in place of a command', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { gates: { check: 'pnpm check', test: 'pnpm test:unit', testCoverage: false } } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { gates: { check: 'pnpm check', test: 'pnpm test:unit', 'test-coverage': false } } });
 
 	printRunHeader({ config, driver, cwd });
 
@@ -88,7 +88,7 @@ test('printRunHeader: a coverage gate disabled explicitly prints off (explicit) 
 test('printRunHeader: the opt-in generate, build, and format lines print only when their commands are configured', () => {
 	const { config, driver, cwd, logged } = setupHeader({
 		config: {
-			gates: { check: 'pnpm check', test: 'pnpm test:unit', testCoverage: false, generate: 'pnpm gen', build: 'pnpm build', format: 'pnpm format' },
+			gates: { check: 'pnpm check', test: 'pnpm test:unit', 'test-coverage': false, generate: 'pnpm gen', build: 'pnpm build', format: 'pnpm format' },
 		},
 	});
 
@@ -139,7 +139,7 @@ test('printRunHeader: package-scoped gates print with no coverage entry when non
 test('printRunHeader: a scoped coverage gate is appended to the per-package line', () => {
 	const { config, driver, cwd, logged } = setupHeader({
 		config: {
-			packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test', testCoverage: 'pnpm --filter {package} coverage' },
+			packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test', 'test-coverage': 'pnpm --filter {package} coverage' },
 		},
 	});
 

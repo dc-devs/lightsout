@@ -52,6 +52,13 @@
 
 	"overrides": [
 		{
+			// Nx parses nx.json as JSON-with-comments, and this repo uses that to
+			// document non-obvious cache decisions in place. Without this, Biome
+			// treats .json as strict and strips or rejects those comments.
+			"includes": ["nx.json"],
+			"json": { "parser": { "allowComments": true } }
+		},
+		{
 			// A check takes source text and reads it as code, so its tests feed it
 			// code as a plain string — and code that builds a string contains
 			// `${...}`. Every one of the 30 sites this rule found was that, and

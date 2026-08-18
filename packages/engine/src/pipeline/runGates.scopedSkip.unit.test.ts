@@ -30,11 +30,11 @@ const setupScopedRepo = ({ withRunToken = true }: { withRunToken?: boolean } = {
 	writeFileSync(
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
-			gates: { check: 'echo root-check', test: 'echo root-test', testCoverage: false },
+			gates: { check: 'echo root-check', test: 'echo root-test', 'test-coverage': false },
 			packageGates: {
 				check: template({ kind: 'check', script: 'gate:check' }),
 				test: template({ kind: 'test', script: 'gate:test' }),
-				testCoverage: template({ kind: 'coverage', script: 'gate:coverage' }),
+				'test-coverage': template({ kind: 'coverage', script: 'gate:coverage' }),
 			},
 		}),
 	);
@@ -103,7 +103,7 @@ test('a package missing only the coverage script falls back to its plain test ru
 	// coverage-less package fell back to plain tests
 	expect(gates.includes('@acme/semi test')).toBeTruthy();
 	expect(gates.includes('@acme/semi coverage')).toBeFalsy();
-	expect(progress.includes('gate [semi] testCoverage: skipped (no "gate:coverage" script)')).toBeTruthy();
+	expect(progress.includes(`gate [semi] testCoverage: skipped (no "gate:coverage" script)`)).toBeTruthy();
 });
 
 test('a template with no run token always executes — unknown script is not missing script', async () => {

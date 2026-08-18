@@ -15,7 +15,7 @@ To run lightsout, define the commands it should use to verify the work:
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
-    "testCoverage": "pnpm test:unit:coverage"
+    "test-coverage": "pnpm test:unit:coverage"
   }
 }
 ```
@@ -31,7 +31,7 @@ The minimal configuration uses lightsout’s bundled JavaScript and TypeScript s
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
-    "testCoverage": "pnpm test:unit:coverage"
+    "test-coverage": "pnpm test:unit:coverage"
   }
 }
 ```
@@ -47,7 +47,7 @@ folder holding a `lightsout-standards.json` file:
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
-    "testCoverage": "pnpm test:unit:coverage"
+    "test-coverage": "pnpm test:unit:coverage"
   }
 }
 ```
@@ -62,13 +62,13 @@ Use `packageGates` to run gates only for packages affected by the current change
   "packageGates": {
     "check": "pnpm --filter {package} check",
     "test": "pnpm --filter {package} test:unit",
-    "testCoverage": "pnpm --filter {package} test:unit:coverage",
+    "test-coverage": "pnpm --filter {package} test:unit:coverage",
     "build": "pnpm --filter {package} build"
   },
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
-    "testCoverage": "pnpm test:unit:coverage"
+    "test-coverage": "pnpm test:unit:coverage"
   }
 }
 ```
@@ -84,7 +84,7 @@ At every verification stage, commands run in this order:
 1. `generate`, when configured
 2. `check`
 3. `test`
-4. `testCoverage`
+4. `test-coverage`
 5. `build`, when configured
 
 If any command fails, the stage fails and the pipeline stops. The agent cannot override, reinterpret, or talk its way past a failing gate.
@@ -122,7 +122,7 @@ To use your own instead, list its root folder:
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
-    "testCoverage": "pnpm test:unit:coverage"
+    "test-coverage": "pnpm test:unit:coverage"
   }
 }
 ```
@@ -168,8 +168,9 @@ failure.
 | Field                        | Required | What it controls                                                                                                                                                                                                                                                                          |
 | ---------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gates.check`                |      yes | The type-check and lint gate. Provide the full shell command lightsout should run at every verification stage.                                                                                                                                                                            |
-| `gates.test`                 |      yes | The test gate. Provide the full shell command required to pass.                                                                                                                                                                                                                           |
-| `gates.testCoverage`         |      yes | The coverage gate. Provide a shell command, or set it to `false` to opt out. Skipping the strongest gate must be an explicit decision, not an accident.                                                                                                                                   |
+| `gates.test`                 |      yes | The fast test gate — the unit suite. `test` and `test-coverage` are two spellings of the same suite (plain and instrumented), so lightsout runs one or the other, never both.                                                                                                                                                                                                                           |
+| `gates.test-coverage`        |      yes | The coverage gate. Provide a shell command, or set it to `false` to opt out. Skipping the strongest gate must be an explicit decision, not an accident. The command must run the same suite `test` runs, instrumented — lightsout substitutes it for `test`.
+| `gates.test-*`               |       no | Any other `test-` key is a custom suite of its own — `test-e2e`, `test-integration`, `test-browser`, whatever your repo calls it. Custom suites are never substituted by coverage and run in the order written here, after the unit suite and before `build`.                                                                                                                                   |
 | `gates.generate`             |       no | An opt-in code-generation command, such as `prisma generate`. Runs once before each set of gates.                                                                                                                                                                                         |
 | `gates.build`                |       no | An opt-in build gate. Runs last during every verification stage.                                                                                                                                                                                                                          |
 | `gates.format`               |       no | An opt-in formatting command. Runs once at the end of the pipeline.                                                                                                                                                                                                                       |
@@ -255,7 +256,7 @@ The following example shows how the optional configuration fields fit together:
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
-    "testCoverage": "pnpm test:unit:coverage",
+    "test-coverage": "pnpm test:unit:coverage",
     "generate": "pnpm prisma:generate",
     "build": "pnpm build",
     "format": "pnpm format:write",
@@ -266,7 +267,7 @@ The following example shows how the optional configuration fields fit together:
   "packageGates": {
     "check": "pnpm --filter {package} check",
     "test": "pnpm --filter {package} test:unit",
-    "testCoverage": "pnpm --filter {package} test:unit:coverage",
+    "test-coverage": "pnpm --filter {package} test:unit:coverage",
     "build": "pnpm --filter {package} build",
   },
 
