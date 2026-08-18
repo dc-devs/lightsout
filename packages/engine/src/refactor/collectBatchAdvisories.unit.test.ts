@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { type RefactorBatch, type StandardsFinding, StandardsSeverity } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
+import { collectBatchAdvisories } from '@/refactor';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({

@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { Permissions } from '@/contracts';
-import { buildClaudeCodeArgs } from '@/drivers/buildClaudeCodeArgs';
+import { buildClaudeCodeArgs } from '@/drivers';
 
 test('buildClaudeCodeArgs: with no options the argv is exactly the base flags', () => {
 	expect(buildClaudeCodeArgs({})).toStrictEqual(['-p', '--output-format', 'stream-json', '--verbose', '--exclude-dynamic-system-prompt-sections']);

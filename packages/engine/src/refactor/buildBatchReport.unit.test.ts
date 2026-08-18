@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildBatchReport } from '@/refactor/buildBatchReport';
+import { buildBatchReport } from '@/refactor';
 
 describe('buildBatchReport', () => {
 	test('carries both accounts a batch keeps — what persisted, and why', () => {

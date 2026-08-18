@@ -5,7 +5,7 @@ import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planDraftCommand } from '@/cli/plan/planDraftCommand';
+import { planDraftCommand } from '@/cli/plan';
 import { PlanDraftStatus, PlanFixStatus, PlanVariant } from '@/contracts';
 import type { Driver } from '@/drivers';
 

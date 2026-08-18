@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { BatchOutcome, type LightsoutConfig, type RefactorBatch, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
-import { seedResumeState } from '@/refactor/seedResumeState';
+import { seedResumeState } from '@/refactor';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
@@ -34,7 +34,9 @@ const manifestWith = ({ steps }: { steps: StepRecord[] }): RunManifest => ({
 
 describe('seedResumeState', () => {
 	test('a run with nothing recorded resumes with a clean slate', () => {
-		expect(seedResumeState({ manifest: manifestWith({ steps: [] }), batches: [batch('batch-01')] })).toStrictEqual({ declined: [], declineStreak: 0 });
+		const state = seedResumeState({ manifest: manifestWith({ steps: [] }), batches: [batch('batch-01')] });
+
+		expect(state).toStrictEqual({ declined: [], declineStreak: 0 });
 	});
 
 	test('carries earlier declines forward, because the human still has to review them', () => {

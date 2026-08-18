@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { voiceOffCommand } from '@/cli/voice/voiceOffCommand';
+import { voiceOffCommand } from '@/cli/voice';
 
 const setupVoiceOff = ({ on = true, playing }: { on?: boolean; playing?: string } = {}) => {
 	const captured = captureCommandOutput();

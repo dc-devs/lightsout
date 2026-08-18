@@ -25864,6 +25864,73 @@ var createEventFileSink = ({ path, ready }) => {
   };
 };
 
+// src/invoke/extractJsonReport.ts
+var findBalancedEnd = ({ text, start }) => {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return -1;
+};
+var lastEmbeddedJsonObject = ({ text }) => {
+  let found;
+  let start = text.indexOf("{");
+  while (start !== -1) {
+    const end = findBalancedEnd({ text, start });
+    if (end === -1) {
+      start = text.indexOf("{", start + 1);
+      continue;
+    }
+    try {
+      found = JSON.parse(text.slice(start, end + 1));
+      start = text.indexOf("{", end + 1);
+    } catch {
+      start = text.indexOf("{", start + 1);
+    }
+  }
+  return found;
+};
+var extractJsonReport = ({ text }) => {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+  }
+  const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
+  for (const body of fencedBodies.reverse()) {
+    if (!body) {
+      continue;
+    }
+    try {
+      return JSON.parse(body.trim());
+    } catch {
+    }
+  }
+  return lastEmbeddedJsonObject({ text: trimmed });
+};
+
 // src/agents/prompts/featureExecutor.md
 var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
@@ -26315,73 +26382,6 @@ ${errorContext}`
     systemPrompt: roleSections.join("\n\n---\n\n"),
     prompt: sections.join("\n\n")
   };
-};
-
-// src/invoke/extractJsonReport.ts
-var findBalancedEnd = ({ text, start }) => {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < text.length; index += 1) {
-    const char = text[index];
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (char === '"') {
-      inString = true;
-    } else if (char === "{") {
-      depth += 1;
-    } else if (char === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return index;
-      }
-    }
-  }
-  return -1;
-};
-var lastEmbeddedJsonObject = ({ text }) => {
-  let found;
-  let start = text.indexOf("{");
-  while (start !== -1) {
-    const end = findBalancedEnd({ text, start });
-    if (end === -1) {
-      start = text.indexOf("{", start + 1);
-      continue;
-    }
-    try {
-      found = JSON.parse(text.slice(start, end + 1));
-      start = text.indexOf("{", end + 1);
-    } catch {
-      start = text.indexOf("{", start + 1);
-    }
-  }
-  return found;
-};
-var extractJsonReport = ({ text }) => {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-  }
-  const fencedBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)].map((match) => match[1]);
-  for (const body of fencedBodies.reverse()) {
-    if (!body) {
-      continue;
-    }
-    try {
-      return JSON.parse(body.trim());
-    } catch {
-    }
-  }
-  return lastEmbeddedJsonObject({ text: trimmed });
 };
 
 // src/invoke/invokeAgentWithContract.ts
@@ -40673,6 +40673,24 @@ var buildClaudeCodeArgs = ({ systemPromptPath, model, effort, permissions, allow
   return args;
 };
 
+// src/drivers/buildCodexArgs.ts
+var buildCodexArgs = ({ outFile, model, effort, permissions }) => {
+  const args = ["exec", "--skip-git-repo-check", "--color", "never", "--output-last-message", outFile];
+  if (permissions === Permissions.FullAccess) {
+    args.push("--dangerously-bypass-approvals-and-sandbox");
+  } else {
+    args.push("--sandbox", permissions === Permissions.ReadOnly ? "read-only" : "workspace-write");
+    args.push("-c", 'approval_policy="never"');
+  }
+  if (model) {
+    args.push("--model", model);
+  }
+  if (effort) {
+    args.push("-c", `model_reasoning_effort="${effort}"`);
+  }
+  return args;
+};
+
 // src/drivers/common/utils/spawnCollect.ts
 import { spawn as spawn2 } from "node:child_process";
 var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) => {
@@ -40776,26 +40794,6 @@ ${stderr}`),
 import { mkdtemp as mkdtemp2, readFile as readFile27, rm as rm2 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
 import { join as join47 } from "node:path";
-
-// src/drivers/buildCodexArgs.ts
-var buildCodexArgs = ({ outFile, model, effort, permissions }) => {
-  const args = ["exec", "--skip-git-repo-check", "--color", "never", "--output-last-message", outFile];
-  if (permissions === Permissions.FullAccess) {
-    args.push("--dangerously-bypass-approvals-and-sandbox");
-  } else {
-    args.push("--sandbox", permissions === Permissions.ReadOnly ? "read-only" : "workspace-write");
-    args.push("-c", 'approval_policy="never"');
-  }
-  if (model) {
-    args.push("--model", model);
-  }
-  if (effort) {
-    args.push("-c", `model_reasoning_effort="${effort}"`);
-  }
-  return args;
-};
-
-// src/drivers/createCodexDriver.ts
 var rateLimitPattern2 = /usage limit|rate limit|limit reached|quota/i;
 var createCodexDriver = () => {
   const driver = {
@@ -40987,6 +40985,22 @@ var loadStandardsLedger = async ({ cwd }) => {
   return { config: config2, rules };
 };
 
+// src/cli/plan/loadPlanningStandards.ts
+var loadPlanningStandards = async ({ cwd, config: config2 }) => {
+  const packagesDir = config2?.packagesDir ?? "packages";
+  let standards;
+  try {
+    const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
+    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
+    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
+    standards = texts.length === 0 ? void 0 : texts.join("\n\n");
+  } catch (error51) {
+    console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
+    standards = void 0;
+  }
+  return standards;
+};
+
 // src/cli/common/args/getPositionals.ts
 var getPositionals = ({ args }) => {
   const positionals = [];
@@ -41013,22 +41027,6 @@ var getRequiredFlag = ({ flags, name }) => {
     process.exit(1);
   }
   return value;
-};
-
-// src/cli/plan/loadPlanningStandards.ts
-var loadPlanningStandards = async ({ cwd, config: config2 }) => {
-  const packagesDir = config2?.packagesDir ?? "packages";
-  let standards;
-  try {
-    const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
-    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
-    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
-    standards = texts.length === 0 ? void 0 : texts.join("\n\n");
-  } catch (error51) {
-    console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
-    standards = void 0;
-  }
-  return standards;
 };
 
 // src/cli/plan/common/utils/exitOnPlanFailure.ts
@@ -42300,6 +42298,35 @@ var batchFindings = ({ blocking, advisories, packagesDir }) => {
   return batches;
 };
 
+// src/refactor/buildBatchReport.ts
+var buildBatchReport = ({ outcome, remainingSiteKeys, rationale, advisoryOutcomes }) => {
+  return { outcome, remainingSiteKeys, rationale, ...advisoryOutcomes.length > 0 ? { advisoryOutcomes } : {} };
+};
+
+// src/refactor/collectBatchAdvisories.ts
+var collectBatchAdvisories = async ({
+  cwd,
+  driver,
+  batch,
+  packages,
+  channels,
+  findings,
+  agentReview,
+  timeoutMs,
+  onProgress
+}) => {
+  const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
+  const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path)));
+  if (!agentReview) {
+    return machine;
+  }
+  const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
+  for (const note of review.notes) {
+    onProgress(`${batch.id}: ${note}`);
+  }
+  return [...machine, ...review.findings];
+};
+
 // src/refactor/common/constants/BatchStopKind.ts
 var BatchStopKind = {
   Parked: "parked",
@@ -42340,21 +42367,6 @@ var getAttemptStop = async ({
     };
   }
   return stop;
-};
-
-// src/refactor/matchRemainingFindings.ts
-var matchRemainingFindings = ({ frozen, live: live2 }) => {
-  const liveSiteKeys = new Set(live2.map((finding) => finding.siteKey));
-  return frozen.filter((finding) => liveSiteKeys.has(finding.siteKey)).map((finding) => finding.siteKey);
-};
-
-// src/refactor/countByRule.ts
-var countByRule = ({ findings }) => {
-  const counts = {};
-  for (const finding of findings) {
-    counts[finding.rule] = (counts[finding.rule] ?? 0) + 1;
-  }
-  return counts;
 };
 
 // src/refactor/initializeRun.ts
@@ -42413,6 +42425,21 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`);
   return { manifest, worklist };
 };
 
+// src/refactor/matchRemainingFindings.ts
+var matchRemainingFindings = ({ frozen, live: live2 }) => {
+  const liveSiteKeys = new Set(live2.map((finding) => finding.siteKey));
+  return frozen.filter((finding) => liveSiteKeys.has(finding.siteKey)).map((finding) => finding.siteKey);
+};
+
+// src/refactor/countByRule.ts
+var countByRule = ({ findings }) => {
+  const counts = {};
+  for (const finding of findings) {
+    counts[finding.rule] = (counts[finding.rule] ?? 0) + 1;
+  }
+  return counts;
+};
+
 // src/refactor/buildBatchFixInvocation.ts
 var buildBatchFixInvocation = ({
   planContent,
@@ -42429,35 +42456,6 @@ var buildBatchFixInvocation = ({
 ${guidance}` : gateError;
   const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
   return coverageRed ? buildUnitTestWriterInvocation({ planContent, subjects: files, mustExecute: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, reportAdvisoryOutcomes: true, errorContext });
-};
-
-// src/refactor/buildBatchReport.ts
-var buildBatchReport = ({ outcome, remainingSiteKeys, rationale, advisoryOutcomes }) => {
-  return { outcome, remainingSiteKeys, rationale, ...advisoryOutcomes.length > 0 ? { advisoryOutcomes } : {} };
-};
-
-// src/refactor/collectBatchAdvisories.ts
-var collectBatchAdvisories = async ({
-  cwd,
-  driver,
-  batch,
-  packages,
-  channels,
-  findings,
-  agentReview,
-  timeoutMs,
-  onProgress
-}) => {
-  const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
-  const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path)));
-  if (!agentReview) {
-    return machine;
-  }
-  const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
-  for (const note of review.notes) {
-    onProgress(`${batch.id}: ${note}`);
-  }
-  return [...machine, ...review.findings];
 };
 
 // src/refactor/invokeBatchAgent.ts

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planVerifyFactsCommand } from '@/cli/plan/planVerifyFactsCommand';
+import { planVerifyFactsCommand } from '@/cli/plan';
 
 // verify-facts is deterministic — no agent — so the arrangement is a real
 // consumer repo whose authored facts claim one real and one missing path plus

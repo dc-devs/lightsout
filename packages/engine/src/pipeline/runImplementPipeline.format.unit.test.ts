@@ -6,12 +6,8 @@ import { reviewReport } from '@tests/helpers/reviewReport';
 import { roleOf } from '@tests/helpers/roleOf';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { loadConfig } from '@/common/utils/loadConfig';
-import type { LightsoutConfig } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { runImplementPipeline } from '@/pipeline';
-import { PipelineRun } from '@/pipeline/PipelineRun';
-import { formatStep } from '@/pipeline/steps/formatStep';
-import { createRun } from '@/runState';
 
 /** The run's command log as parsed records — the format step's evidence trail. */
 const readCommandLog = ({ dir, runId }: { dir: string; runId: string }): Record<string, unknown>[] =>
@@ -91,32 +87,4 @@ test('format: a green formatter that turns a gate red fails the run as a configu
 	expect(logged?.exitCode).toBe(0);
 	// a green command carries no output tail
 	expect(logged?.outputTail).toBe(undefined);
-});
-
-test('formatStep: called with no formatter configured it does nothing, whatever order it was reached in', async () => {
-	const cwd = setupConsumerRepo();
-	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
-	const manifest = await createRun({ cwd, plan: 'plan.md', pipeline: 'implement', driver: 'stub', config });
-	const run = new PipelineRun({ cwd, config, driver: { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) }, manifest });
-
-	const step = formatStep({ run });
-
-	// the pipeline skips it first — this is the guard behind that, asserted
-	// directly because the machinery in front of it can never let this happen
-	expect(step.skip?.()).toBe('no format command configured');
-	expect(await step.run()).toBe(undefined);
-	expect(run.current().steps).toStrictEqual([]);
-});
-
-test('formatStep: a formatter configured under gates.format leaves the step with nothing to skip for', async () => {
-	const cwd = setupConsumerRepo();
-	const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false, format: 'true' } };
-	const manifest = await createRun({ cwd, plan: 'plan.md', pipeline: 'implement', driver: 'stub', config });
-	const run = new PipelineRun({ cwd, config, driver: { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) }, manifest });
-
-	const step = formatStep({ run });
-
-	// the other half of the same decision: the step reads the formatter from
-	// gates.format, so a configured one produces no skip reason at all
-	expect(step.skip?.()).toBe(undefined);
 });

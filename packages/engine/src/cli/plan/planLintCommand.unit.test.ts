@@ -4,7 +4,7 @@ import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
 import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
 import { writePlanDeliverable } from '@tests/helpers/writePlanDeliverable';
 import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planLintCommand } from '@/cli/plan/planLintCommand';
+import { planLintCommand } from '@/cli/plan';
 
 // plan lint is deterministic — no agent, no driver — so the arrangement is a
 // real consumer repo with a real committed deliverable, linted through the same
