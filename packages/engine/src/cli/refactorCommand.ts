@@ -50,6 +50,9 @@ export const refactorCommand = async ({ flags, cwd }: CommandContext): Promise<v
 			path: getStringFlag({ flags, name: 'path' }),
 			all: flags.get('all') === true,
 			maxBatches,
+			// The same flag the standards check takes: run against the deterministic
+			// checks alone, skipping each batch's agent review.
+			agentReview: flags.get('code-checks') !== true,
 			existing,
 			onProgress: createProgressPrinter(),
 		});

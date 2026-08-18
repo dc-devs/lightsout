@@ -24,6 +24,8 @@ interface Params {
 	all?: boolean;
 	/** Stop (parked, resumable) after this many batches — budget control. */
 	maxBatches?: number;
+	/** false skips each batch's agent review of the judgment rules — code-checks-only mode. */
+	agentReview?: boolean;
 	/** Resume: an existing manifest — batches already passed are skipped. */
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
@@ -47,6 +49,7 @@ const executeRefactor = async ({
 	path,
 	all,
 	maxBatches,
+	agentReview = true,
 	existing,
 	onProgress,
 }: Params & { runId: string }): Promise<RefactorResult> => {
@@ -128,6 +131,10 @@ const executeRefactor = async ({
 	let declineStreak = seeded.declineStreak;
 	let processed = 0;
 
+	if (!agentReview) {
+		progress('code checks only — the per-batch agent review is off for this run');
+	}
+
 	for (const batch of worklist.batches) {
 		const prior = manifest.steps.find((step) => step.id === batch.id);
 
@@ -164,6 +171,7 @@ const executeRefactor = async ({
 			channels,
 			checkPath: worklist.path === '.' ? undefined : worklist.path,
 			checkAll: worklist.all,
+			agentReview,
 			standards,
 			testStandards,
 			agentTimeoutMs,

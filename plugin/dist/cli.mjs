@@ -7998,7 +7998,7 @@ usage:
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
   lightsout standards-validate [--package <path>] [--cwd <path>]   (run every check against its own fixtures)
   lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
-  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>]
+  lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>] [--code-checks]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
   lightsout test-coverage-to-threshold [--cwd <path>] [--max-batches <n>]
   lightsout test-coverage-to-threshold --run <id> [--cwd <path>]   (resume a parked coverage run)
@@ -42402,11 +42402,15 @@ var collectBatchAdvisories = async ({
   packages,
   channels,
   findings,
+  agentReview,
   timeoutMs,
   onProgress
 }) => {
   const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
   const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path)));
+  if (!agentReview) {
+    return machine;
+  }
   const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
   for (const note of review.notes) {
     onProgress(`${batch.id}: ${note}`);
@@ -42596,6 +42600,7 @@ var runBatch = async ({
   channels,
   checkPath,
   checkAll,
+  agentReview,
   standards,
   testStandards,
   agentTimeoutMs,
@@ -42645,6 +42650,7 @@ var runBatch = async ({
     packages,
     channels,
     findings: preCheck.findings,
+    agentReview,
     timeoutMs: agentTimeoutMs,
     onProgress
   });
@@ -42756,6 +42762,7 @@ var executeRefactor = async ({
   path,
   all,
   maxBatches,
+  agentReview = true,
   existing,
   onProgress
 }) => {
@@ -42806,6 +42813,9 @@ ${gateError}` });
   const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes3) * 6e4;
   let declineStreak = seeded.declineStreak;
   let processed = 0;
+  if (!agentReview) {
+    progress("code checks only \u2014 the per-batch agent review is off for this run");
+  }
   for (const batch of worklist.batches) {
     const prior = manifest.steps.find((step) => step.id === batch.id);
     if (prior?.status === RunStatus.Passed) {
@@ -42836,6 +42846,7 @@ ${gateError}` });
       channels,
       checkPath: worklist.path === "." ? void 0 : worklist.path,
       checkAll: worklist.all,
+      agentReview,
       standards,
       testStandards,
       agentTimeoutMs,
@@ -42916,6 +42927,9 @@ var refactorCommand = async ({ flags, cwd }) => {
       path: getStringFlag({ flags, name: "path" }),
       all: flags.get("all") === true,
       maxBatches,
+      // The same flag the standards check takes: run against the deterministic
+      // checks alone, skipping each batch's agent review.
+      agentReview: flags.get("code-checks") !== true,
       existing,
       onProgress: createProgressPrinter()
     });

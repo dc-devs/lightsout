@@ -38,6 +38,8 @@ interface Params {
 	checkPath?: string;
 	/** Include baselined findings in re-checks — must match the worklist's mode. */
 	checkAll: boolean;
+	/** false skips this batch's agent review — code-checks-only mode. */
+	agentReview: boolean;
 	standards?: string;
 	testStandards?: string;
 	agentTimeoutMs: number;
@@ -67,6 +69,7 @@ export const runBatch = async ({
 	channels,
 	checkPath,
 	checkAll,
+	agentReview,
 	standards,
 	testStandards,
 	agentTimeoutMs,
@@ -134,6 +137,7 @@ export const runBatch = async ({
 		packages,
 		channels,
 		findings: preCheck.findings,
+		agentReview,
 		timeoutMs: agentTimeoutMs,
 		onProgress,
 	});
