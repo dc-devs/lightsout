@@ -4,7 +4,6 @@ import type ts from 'typescript';
 import { isInertSourceFile } from '@/common/utils/isInertSourceFile';
 import { isTestableSourceFile } from '@/common/utils/isTestableSourceFile';
 import { isTestFile } from '@/common/utils/isTestFile';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import type { CoverageFile, CoverageTotal } from '@/contracts';
 
 interface Params {
@@ -13,6 +12,8 @@ interface Params {
 	measured: { files: CoverageFile[]; totals: CoverageTotal[] };
 	/** Paths already routed to a human — never handed to another writer. */
 	setAsidePaths: Set<string>;
+	/** Repo-relative standards-package roots, resolved once by the pipeline — a rule check under a package's `tests/` document set is source, not a test. */
+	standardsPackages: string[];
 	/** The consumer's TypeScript module, or undefined — nothing is classified inert without one. */
 	compiler: typeof ts | undefined;
 }
@@ -33,14 +34,9 @@ interface Params {
  * stop. Classification borrows the consumer's TypeScript; without one, nothing
  * is inert, the same honest degradation grouping makes.
  */
-export const selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, compiler }: Params): Promise<CoverageFile[]> => {
+export const selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPackages, compiler }: Params): Promise<CoverageFile[]> => {
 	const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
 	const candidates: CoverageFile[] = [];
-	// Standards-package roots make the test-file question answerable: a rule
-	// check under a package's `tests/` document set is source, and calling it a
-	// test excluded 16 zero-coverage checks from every batch until the run
-	// escalated with the debt untouched (live lesson: run 3523f57a).
-	const { standardsPackages } = await listSourceFiles({ cwd });
 
 	for (const file of measured.files) {
 		if (

@@ -27159,10 +27159,9 @@ var seedCoverageResumeState = ({ manifest }) => {
 // src/coverage/selectCoverageCandidates.ts
 import { readFile as readFile21 } from "node:fs/promises";
 import { join as join35 } from "node:path";
-var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, compiler }) => {
+var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPackages, compiler }) => {
   const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
   const candidates = [];
-  const { standardsPackages } = await listSourceFiles({ cwd });
   for (const file2 of measured.files) {
     if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPackages }) || !isTestableSourceFile(file2.path)) {
       continue;
@@ -27230,6 +27229,7 @@ ${gateError}` });
   const { testStandards } = await resolveStandards({ cwd, config: config2, packages: [] });
   const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2.packagesDir ?? defaultPackagesDir });
+  const { standardsPackages } = await listSourceFiles({ cwd });
   let declineStreak = seeded.declineStreak;
   let batchCount = seeded.batchCount;
   let processed = 0;
@@ -27253,7 +27253,7 @@ ${gateError}` });
       };
     }
     const setAsidePaths = new Set(setAside.flatMap((entry) => entry.files));
-    const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, compiler });
+    const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPackages, compiler });
     if (candidates.length === 0) {
       const error51 = "coverage gate is red but no improvable file remains \u2014 set-aside files need source changes, or the threshold binds on a metric other than statements (branches/functions/lines); human required";
       await update({ status: RunStatus.Escalated, currentStep: null });
@@ -27261,10 +27261,16 @@ ${gateError}` });
       return { ok: false, manifest, error: error51, setAside, before, after: before };
     }
     const scope = candidates[0].scope;
-    const memberPool = measured.files.filter((file2) => file2.scope === scope && !setAsidePaths.has(file2.path) && !isTestFile({ path: file2.path })).map((file2) => file2.path);
+    const memberPool = measured.files.filter((file2) => file2.scope === scope && !setAsidePaths.has(file2.path) && !isTestFile({ path: file2.path, standardsPackages })).map((file2) => file2.path);
     const components = compiler ? groupConnectedFiles({ files: memberPool, edges: await collectImportEdges({ cwd, files: memberPool, compiler }) }) : memberPool.map((file2) => [file2]);
     batchCount += 1;
     const batch = buildCoverageBatch({ files: candidates.filter((file2) => file2.scope === scope), components, batchNumber: batchCount });
+    if (batch.members.length === 0) {
+      const error51 = `scope '${scope}' has candidates but the member pool excludes them all \u2014 candidate selection and member filtering disagree; human required`;
+      await update({ status: RunStatus.Escalated, currentStep: null });
+      progress(`coverage run escalated \u2014 ${error51}`);
+      return { ok: false, manifest, error: error51, setAside, before, after: before };
+    }
     const record2 = { id: batch.id, status: RunStatus.Running, attempts: (manifest.steps.find((step) => step.id === batch.id)?.attempts ?? 0) + 1 };
     await setStep({ record: record2 });
     progress(`${batch.id} \u2014 ${batch.files.length} file(s) worst-covered, ${batch.members.length} in the writer's hands`);

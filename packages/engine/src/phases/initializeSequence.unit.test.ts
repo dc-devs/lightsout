@@ -6,7 +6,7 @@ import { getRejectionError } from '@tests/helpers/getRejectionError';
 import { plantSequence } from '@tests/helpers/plantSequence';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { initializeSequence } from '@/phases/initializeSequence';
+import { initializeSequence } from '@/phases';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };

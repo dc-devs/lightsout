@@ -1,6 +1,7 @@
 import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
 import { collectImportEdges } from '@/common/utils/collectImportEdges';
 import { isTestFile } from '@/common/utils/isTestFile';
+import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
 import { type AgentUsage, BatchOutcome, CoverageBatchReport, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 import { buildCoverageBatch } from '@/coverage/buildCoverageBatch';
@@ -121,6 +122,11 @@ const executeCoverage = async ({
 	// Resolved once for the run: without a consumer TypeScript, grouping degrades
 	// to one file per batch component, exactly like the implement fan-out.
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir });
+	// Also once for the run: standards-package roots make the test-file question
+	// answerable. A rule check under a package's `tests/` document set is source
+	// — filtering without this excluded 16 zero-coverage checks from candidates
+	// AND from the member pool, handing writers empty assignments (run 3523f57a).
+	const { standardsPackages } = await listSourceFiles({ cwd });
 
 	let declineStreak = seeded.declineStreak;
 	let batchCount = seeded.batchCount;
@@ -153,7 +159,7 @@ const executeCoverage = async ({
 		}
 
 		const setAsidePaths = new Set(setAside.flatMap((entry) => entry.files));
-		const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, compiler });
+		const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPackages, compiler });
 
 		if (candidates.length === 0) {
 			const error =
@@ -169,7 +175,7 @@ const executeCoverage = async ({
 		// already green never appears among the candidates at all.
 		const scope = candidates[0].scope;
 		const memberPool = measured.files
-			.filter((file) => file.scope === scope && !setAsidePaths.has(file.path) && !isTestFile({ path: file.path }))
+			.filter((file) => file.scope === scope && !setAsidePaths.has(file.path) && !isTestFile({ path: file.path, standardsPackages }))
 			.map((file) => file.path);
 		const components = compiler
 			? groupConnectedFiles({ files: memberPool, edges: await collectImportEdges({ cwd, files: memberPool, compiler }) })
@@ -178,6 +184,19 @@ const executeCoverage = async ({
 		batchCount += 1;
 
 		const batch = buildCoverageBatch({ files: candidates.filter((file) => file.scope === scope), components, batchNumber: batchCount });
+
+		if (batch.members.length === 0) {
+			// A candidate the member pool refuses is a filtering disagreement — an
+			// engine bug to surface, never an empty assignment to spend a writer on
+			// (live lesson: run 3523f57a's batches 07 and 08).
+			const error = `scope '${scope}' has candidates but the member pool excludes them all — candidate selection and member filtering disagree; human required`;
+
+			await update({ status: RunStatus.Escalated, currentStep: null });
+			progress(`coverage run escalated — ${error}`);
+
+			return { ok: false, manifest, error, setAside, before, after: before };
+		}
+
 		const record: StepRecord = { id: batch.id, status: RunStatus.Running, attempts: (manifest.steps.find((step) => step.id === batch.id)?.attempts ?? 0) + 1 };
 
 		await setStep({ record });

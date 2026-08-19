@@ -32,18 +32,23 @@ const select = async ({
 	files,
 	totals,
 	setAside = [],
+	standardsPackages = [],
 	compiler,
 }: {
 	cwd: string;
 	files: CoverageFile[];
 	totals: CoverageTotal[];
 	setAside?: string[];
+	standardsPackages?: string[];
 	compiler?: ReturnType<typeof resolveConsumerTypescript>;
-}) => (await selectCoverageCandidates({ cwd, measured: { files, totals }, setAsidePaths: new Set(setAside), compiler })).map((entry) => entry.path);
+}) =>
+	(await selectCoverageCandidates({ cwd, measured: { files, totals }, setAsidePaths: new Set(setAside), standardsPackages, compiler })).map(
+		(entry) => entry.path,
+	);
 
 describe('selectCoverageCandidates', () => {
 	test('a check under a standards package’s tests/ set is source, not a test — the set name buys no exemption', async () => {
-		const cwd = setupRepo({ contents: { 'packages/acme/lightsout-standards.json': '{ "name": "acme", "formatVersion": 1 }\n' } });
+		const cwd = setupRepo();
 		const files = [
 			// the live lesson: 16 rule checks at 0% were never offered as candidates,
 			// so the run escalated with the debt untouched (run 3523f57a)
@@ -52,7 +57,9 @@ describe('selectCoverageCandidates', () => {
 			file({ path: 'packages/acme/common/utils/helper.unit.test.ts', statementsPct: 0 }),
 		];
 
-		expect(await select({ cwd, files, totals: [total()] })).toStrictEqual(['packages/acme/tests/unit-testing/05-rule/check.ts']);
+		expect(await select({ cwd, files, totals: [total()], standardsPackages: ['packages/acme'] })).toStrictEqual([
+			'packages/acme/tests/unit-testing/05-rule/check.ts',
+		]);
 	});
 
 	test('keeps the measurement’s worst-first order, so the round works the worst file first', async () => {
