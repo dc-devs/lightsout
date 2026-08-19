@@ -240,7 +240,7 @@ test('plan lint: plan.md is the sole deliverable even when the folder also holds
 });
 
 test('plan lint: the target repo config reaches the structural lint', async () => {
-	const cwd = setupConsumerRepo({ config: { packagesDir: 'modules' } });
+	const cwd = setupConsumerRepo({ config: { 'packages-dir': 'modules' } });
 	writePlan({ cwd, name: 'configured', body: cleanPlan().replace('### `src/index.js`', '### `modules/loose.ts`') });
 
 	const result = await runPlanLint({ cwd, name: 'configured' });

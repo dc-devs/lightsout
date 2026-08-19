@@ -238,7 +238,7 @@ describe('runRefactorPipeline work-list', () => {
 	});
 
 	test('a configured packagesDir batches by package rather than by the shared parent folder', async () => {
-		const dir = setupConsumerRepo({ config: { packagesDir: 'modules' } });
+		const dir = setupConsumerRepo({ config: { 'packages-dir': 'modules' } });
 
 		mkdirSync(join(dir, 'modules/api'), { recursive: true });
 		mkdirSync(join(dir, 'modules/web'), { recursive: true });

@@ -69,7 +69,7 @@ describe('resolveStandardsPackages', () => {
 	test('loads nothing at all when packages are turned off explicitly', async () => {
 		const { cwd } = setupRepo();
 
-		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, standardsPackages: false } });
+		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, 'standards-packages': false } });
 
 		expect(loaded).toStrictEqual([]);
 	});
@@ -77,7 +77,7 @@ describe('resolveStandardsPackages', () => {
 	test('an empty list of roots loads nothing rather than falling back to the defaults', async () => {
 		const { cwd } = setupRepo();
 
-		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, standardsPackages: [] } });
+		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, 'standards-packages': [] } });
 
 		// a list is a list even when it is empty — only an absent key asks for the defaults
 		expect(loaded).toStrictEqual([]);
@@ -91,7 +91,7 @@ describe('resolveStandardsPackages', () => {
 			],
 		});
 		const teamPath = join(cwd, 'standards/team');
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', teamPath] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', teamPath] };
 
 		const loaded = await resolveStandardsPackages({ cwd, config });
 
@@ -108,7 +108,7 @@ describe('resolveStandardsPackages', () => {
 				{ at: 'standards/team', name: 'team', ruleId: 'shared-rule' },
 			],
 		});
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', 'standards/team'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', 'standards/team'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 
@@ -120,7 +120,7 @@ describe('resolveStandardsPackages', () => {
 
 	test('a declared root with no package in it is a hard error naming the file it looked for', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/ghost'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/ghost'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 
@@ -130,7 +130,7 @@ describe('resolveStandardsPackages', () => {
 
 	test('reports the first unloadable root, not a later one, when several are broken', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/ghost', 'standards/phantom'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/ghost', 'standards/phantom'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 
@@ -145,7 +145,7 @@ describe('resolveStandardsPackages', () => {
 		mkdirSync(join(cwd, 'standards/empty'), { recursive: true });
 		writeFileSync(join(cwd, 'standards/empty', 'lightsout-standards.json'), '{ "name": "empty", "formatVersion": 1 }\n');
 
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', 'standards/empty'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', 'standards/empty'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 

@@ -44,7 +44,7 @@ interface Params {
  * standards package ships as a bare directory beside the engine, with no
  * manifest and no `node_modules`, so every value it imports has to resolve
  * inside its own tree, and the engine runs against whatever package
- * `standardsPackages` names rather than the default one. Change one, change
+ * `standards-packages` names rather than the default one. Change one, change
  * the other.
  */
 export const isTestFile = ({ path, standardsPackages = [] }: Params): boolean => {

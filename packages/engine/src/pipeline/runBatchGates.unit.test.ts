@@ -31,8 +31,8 @@ const setupConfiguredPackagesDir = async ({ packagesDir, packageCheck }: { packa
 	const dir = setupConsumerRepo({
 		scripts: { check: `${gateLogCommand({ kind: 'check' })} root`, test: `${gateLogCommand({ kind: 'test' })} root` },
 		config: {
-			packagesDir,
-			packageGates: {
+			'packages-dir': packagesDir,
+			'package-gates': {
 				check: packageCheck ?? `${gateLogCommand({ kind: 'check' })} {package}`,
 				test: `${gateLogCommand({ kind: 'test' })} {package}`,
 			},

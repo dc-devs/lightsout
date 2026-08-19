@@ -17,7 +17,7 @@ const standardsSeverityValue = z.enum(StandardsSeverity, {
 });
 
 /**
- * Per-rule overrides for `lightsout standards-check`, keyed by rule id. A
+ * Per-rule overrides for `lightsout standards-check` (the `standards-checks` block), keyed by rule id. A
  * value is either a severity, or an object with a severity and/or that
  * rule's own settings. A rule not named here keeps its default — silence
  * is never a change.

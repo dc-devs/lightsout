@@ -44,7 +44,7 @@ test('printRunHeader: the harness line names the resolved harness, model, effort
 });
 
 test('printRunHeader: an explicit package list is printed verbatim, in config order', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { standardsPackages: ['standards/house', '/opt/acme-standards'] } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packages': ['standards/house', '/opt/acme-standards'] } });
 
 	printRunHeader({ config, driver, cwd });
 
@@ -52,7 +52,7 @@ test('printRunHeader: an explicit package list is printed verbatim, in config or
 });
 
 test('printRunHeader: standards turned off explicitly are announced as such', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { standardsPackages: false } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packages': false } });
 
 	printRunHeader({ config, driver, cwd });
 
@@ -60,7 +60,7 @@ test('printRunHeader: standards turned off explicitly are announced as such', ()
 });
 
 test('printRunHeader: an empty package list is still a configured list — the line prints with nothing after the label', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { standardsPackages: [] } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packages': [] } });
 
 	printRunHeader({ config, driver, cwd });
 
@@ -70,7 +70,7 @@ test('printRunHeader: an empty package list is still a configured list — the l
 });
 
 test('printRunHeader: configured timeouts replace the 60m/15m defaults', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { timeouts: { agentMinutes: 90, supervisorMinutes: 5 } } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { timeouts: { 'agent-minutes': 90, 'supervisor-minutes': 5 } } });
 
 	printRunHeader({ config, driver, cwd });
 
@@ -100,7 +100,7 @@ test('printRunHeader: the opt-in generate, build, and format lines print only wh
 });
 
 test('printRunHeader: granted agent commands print as bracketed prefixes', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { agentCommands: ['pnpm db:migrate', 'npx prisma'] } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'agent-commands': ['pnpm db:migrate', 'npx prisma'] } });
 
 	printRunHeader({ config, driver, cwd });
 
@@ -108,7 +108,7 @@ test('printRunHeader: granted agent commands print as bracketed prefixes', () =>
 });
 
 test('printRunHeader: an empty grant list prints no agent commands line at all', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { agentCommands: [] } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'agent-commands': [] } });
 
 	printRunHeader({ config, driver, cwd });
 
@@ -126,7 +126,7 @@ test('printRunHeader: generated path prefixes print as the never-attributed list
 
 test('printRunHeader: package-scoped gates print with no coverage entry when none is configured', () => {
 	const { config, driver, cwd, logged } = setupHeader({
-		config: { packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' } },
+		config: { 'package-gates': { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' } },
 	});
 
 	printRunHeader({ config, driver, cwd });
@@ -139,7 +139,7 @@ test('printRunHeader: package-scoped gates print with no coverage entry when non
 test('printRunHeader: a scoped coverage gate is appended to the per-package line', () => {
 	const { config, driver, cwd, logged } = setupHeader({
 		config: {
-			packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test', 'test-coverage': 'pnpm --filter {package} coverage' },
+			'package-gates': { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test', 'test-coverage': 'pnpm --filter {package} coverage' },
 		},
 	});
 

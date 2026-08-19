@@ -88,12 +88,12 @@ describe('standardsHealthCommand', () => {
 	});
 
 	test("the repo's own config decides which packages the report has rows for", async () => {
-		const { context, cwd } = setupCommand({ config: { standardsPackages: ['standards/house-rules'] } });
+		const { context, cwd } = setupCommand({ config: { 'standards-packages': ['standards/house-rules'] } });
 
 		await expect(standardsHealthCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(mockResolveStandardsPackages.mock.calls[0]?.[0]).toEqual(
-			expect.objectContaining({ cwd, config: expect.objectContaining({ standardsPackages: ['standards/house-rules'] }) }),
+			expect.objectContaining({ cwd, config: expect.objectContaining({ 'standards-packages': ['standards/house-rules'] }) }),
 		);
 		// and the run history read is this repo's, beside those packages
 		expect(mockBuildStandardsHealth.mock.calls[0]?.[0]).toStrictEqual({ cwd, packages: [loadedPackage] });

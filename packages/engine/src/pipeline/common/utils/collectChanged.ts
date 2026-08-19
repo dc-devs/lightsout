@@ -21,7 +21,7 @@ export const collectChanged = async ({ run, gitPrefix, reports }: Params): Promi
 	// Generated/derived files (configured prefixes) are like gate artifacts:
 	// real in the diff, but never attributed — their source is the change.
 	const isGeneratedFile = (file: string) => (run.config.generated ?? []).some((prefix) => file.startsWith(prefix));
-	const packagesDir = run.config.packagesDir ?? 'packages';
+	const packagesDir = run.config['packages-dir'] ?? 'packages';
 	const fromGit = ((await readGitChangedFiles({ cwd: run.cwd })) ?? []).filter(
 		(file) => !run.current().baselineDirtyFiles.includes(file) && !isGeneratedFile(file),
 	);

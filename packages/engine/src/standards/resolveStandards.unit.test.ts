@@ -70,7 +70,7 @@ describe('resolveStandards', () => {
 
 	test('loads nothing when standards packages are explicitly disabled', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: false };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': false };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -82,7 +82,7 @@ describe('resolveStandards', () => {
 
 	test('assembles both sets from exactly the package the consumer declared', async () => {
 		const { cwd } = setupRepo({ files: packageFiles({ at: 'standards/house', name: 'house' }) });
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house'], standardsChannels: [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -97,7 +97,7 @@ describe('resolveStandards', () => {
 		const { cwd } = setupRepo({
 			files: { ...packageFiles({ at: 'standards/house', name: 'house' }), ...packageFiles({ at: 'standards/team', name: 'team' }) },
 		});
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/team', 'standards/house'], standardsChannels: [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/team', 'standards/house'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -111,7 +111,7 @@ describe('resolveStandards', () => {
 		const { cwd } = setupRepo({
 			files: { ...packageFiles({ at: 'standards/house', name: 'house' }), ...codeOnlyPackageFiles({ at: 'standards/lint', name: 'lint' }) },
 		});
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', 'standards/lint'], standardsChannels: [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', 'standards/lint'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -124,7 +124,7 @@ describe('resolveStandards', () => {
 
 	test('a set no loaded package carries is absent even though standards were asked for', async () => {
 		const { cwd } = setupRepo({ files: codeOnlyPackageFiles({ at: 'standards/lint', name: 'lint' }) });
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/lint'], standardsChannels: [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/lint'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -136,7 +136,7 @@ describe('resolveStandards', () => {
 
 	test('channel detection reads the packages folder the config names', async () => {
 		const { cwd } = setupRepo({ files: { 'apps/web/package.json': JSON.stringify({ name: 'web', dependencies: { react: '^19.0.0' } }) } });
-		const config: LightsoutConfig = { ...baseConfig, packagesDir: 'apps', standardsPackages: false };
+		const config: LightsoutConfig = { ...baseConfig, 'packages-dir': 'apps', 'standards-packages': false };
 
 		const resolved = await resolveStandards({ cwd, config, packages: ['web'] });
 
@@ -147,10 +147,10 @@ describe('resolveStandards', () => {
 
 	test('an inactive channel keeps its document out of the assembled text', async () => {
 		const { cwd } = setupRepo({ files: packageFiles({ at: 'standards/house', name: 'house' }) });
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house'], standardsChannels: [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house'], 'standards-channels': [] };
 
 		const withoutReact = await resolveStandards({ cwd, config, packages: [] });
-		const withReact = await resolveStandards({ cwd, config: { ...config, standardsChannels: ['react'] }, packages: [] });
+		const withReact = await resolveStandards({ cwd, config: { ...config, 'standards-channels': ['react'] }, packages: [] });
 
 		expect(withoutReact.standards ?? '').not.toContain('code/react-style');
 		expect(withReact.standards ?? '').toContain('<!-- house: code/react-style -->');
@@ -158,7 +158,7 @@ describe('resolveStandards', () => {
 
 	test('a configured channel list replaces detection', async () => {
 		const { cwd } = setupRepo({ files: { 'packages/web/package.json': JSON.stringify({ name: 'web', dependencies: { react: '^19.0.0' } }) } });
-		const config: LightsoutConfig = { ...baseConfig, standardsChannels: [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: ['web'] });
 
@@ -178,7 +178,7 @@ describe('resolveStandards', () => {
 
 	test('a declared package that does not exist is a hard error rather than a silent skip', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/ghost'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/ghost'] };
 
 		const error = await getRejectionError({ promise: resolveStandards({ cwd, config, packages: [] }) });
 

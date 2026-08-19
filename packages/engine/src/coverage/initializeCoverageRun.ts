@@ -51,7 +51,7 @@ export const initializeCoverageRun = async ({
 		return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile(join(cwd, existing.plan), 'utf8'))) };
 	}
 
-	if (typeof config.gates['test-coverage'] !== 'string' && config.packageGates?.['test-coverage'] === undefined) {
+	if (typeof config.gates['test-coverage'] !== 'string' && config['package-gates']?.['test-coverage'] === undefined) {
 		throw new Error('the coverage gate is opted out ("test-coverage": false) — test-coverage-to-threshold has nothing to run');
 	}
 

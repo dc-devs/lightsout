@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { freshCwd } from '@tests/helpers/freshCwd';
 
 interface Params {
-	/** Extra top-level config fields merged beside `gates` (commands, standardsChecks, ...). */
+	/** Extra top-level config fields merged beside `gates` (commands, standards-checks, ...). */
 	config?: Record<string, unknown>;
 }
 

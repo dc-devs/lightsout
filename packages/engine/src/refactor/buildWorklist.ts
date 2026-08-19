@@ -33,7 +33,7 @@ export const buildWorklist = async ({ cwd, config, path, all = false }: Params):
 			// it only ever reports to a human (in-pipeline precedent:
 			// selectStandardsFindings).
 			advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory),
-			packagesDir: config.packagesDir ?? 'packages',
+			packagesDir: config['packages-dir'] ?? 'packages',
 		}),
 	};
 };

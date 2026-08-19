@@ -17,7 +17,7 @@ interface Params {
 	coverage?: boolean;
 	/**
 	 * Package scope for scoped gates (directory names under packagesDir).
-	 * Ignored unless `config.packageGates` is set.
+	 * Ignored unless `config['package-gates']` is set.
 	 */
 	packages?: string[];
 	/** In scoped mode, also run the root group (whole-repo `gates.*`). */
@@ -38,9 +38,9 @@ interface Params {
 }
 
 /**
- * Run the consumer's verification gates. Non-monorepo (no `packageGates`):
+ * Run the consumer's verification gates. Non-monorepo (no `package-gates`):
  * the whole-repo `gates.*` run as one group — exit codes are the only
- * evidence accepted. Monorepo: `packageGates` templates run once per
+ * evidence accepted. Monorepo: `package-gates` templates run once per
  * package in scope, in parallel, and the root group runs only when requested
  * (files outside the packages dir changed). Errors aggregate across groups,
  * labelled per package. Every command execution is logged to the run's
@@ -79,13 +79,13 @@ export const runGates = async ({
 		extraTests: gates.extraTests,
 		build: gates.build,
 	};
-	const scoped = config.packageGates;
+	const scoped = config['package-gates'];
 
 	if (!scoped || !packages || packages.length === 0) {
 		return runGateSet({ commands: rootCommands, gate, failFast });
 	}
 
-	const packagesDir = config.packagesDir ?? defaultPackagesDir;
+	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 
 	// Scoped groups run in parallel — they are disjoint per package. The root
 	// group waits for them: whole-repo commands are heavy by nature and

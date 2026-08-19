@@ -14,11 +14,11 @@ interface Params {
 // the mechanism the implement pipeline uses. Only the code set: planning writes
 // a plan, not tests.
 export const loadPlanningStandards = async ({ cwd, config }: Params): Promise<string | undefined> => {
-	const packagesDir = config?.packagesDir ?? 'packages';
+	const packagesDir = config?.['packages-dir'] ?? 'packages';
 	let standards: string | undefined;
 
 	try {
-		const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir, packages: [] }));
+		const channels = config?.['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir, packages: [] }));
 		const loaded = await resolveStandardsPackages({ cwd, config });
 		const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== undefined);
 

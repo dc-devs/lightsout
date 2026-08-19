@@ -62,7 +62,7 @@ const setupScopedRepo = ({
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageGates: {
+			'package-gates': {
 				check: 'true {package}',
 				test: 'true {package}',
 				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} {package}${runScript}${guard}`,
@@ -130,7 +130,7 @@ describe('runCoverageCheck', () => {
 
 		expect(error.message).toContain('coverage/coverage-summary.json');
 		expect(error.message).toMatch(/json-summary/);
-		expect(error.message).toMatch(/coverageSummaryPath/);
+		expect(error.message).toMatch(/coverage-summary-path/);
 	});
 
 	test('a summary whose shape the engine cannot read fails the same way a missing one does', async () => {
@@ -150,7 +150,7 @@ describe('runCoverageCheck', () => {
 
 		writeFileSync(
 			join(dir, 'lightsout.config.json'),
-			JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': 'true' }, coverageSummaryPath: 'reports/summary.json' }),
+			JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': 'true' }, 'coverage-summary-path': 'reports/summary.json' }),
 		);
 
 		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });

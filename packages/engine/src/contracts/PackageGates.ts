@@ -32,7 +32,7 @@ export const PackageGates = z
 			gates,
 			knownGateKeys,
 			ctx,
-			unknownKeyMessage: ({ key }) => `unknown scoped gate '${key}' — packageGates are check, test, test-coverage, build, or a custom \`test-*\` suite`,
+			unknownKeyMessage: ({ key }) => `unknown scoped gate '${key}' — package-gates are check, test, test-coverage, build, or a custom \`test-*\` suite`,
 		});
 
 		const commands = [gates.check, gates.test, gates['test-coverage'], gates.build, ...customCommands];
@@ -41,7 +41,7 @@ export const PackageGates = z
 			ctx.addIssue({
 				code: 'custom',
 				message:
-					'every packageGates command must contain the {package} placeholder — a command without it would run identically for every package and belongs in gates.* instead',
+					'every package-gates command must contain the {package} placeholder — a command without it would run identically for every package and belongs in gates.* instead',
 			});
 		}
 	});

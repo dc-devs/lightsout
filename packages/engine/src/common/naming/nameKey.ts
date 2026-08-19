@@ -40,7 +40,7 @@ interface Params {
  * the other: a standards package ships as a bare directory beside the engine,
  * with no manifest and no `node_modules`, so every value it imports has to
  * resolve inside its own tree — and the engine runs against whatever package
- * `standardsPackages` names, so it cannot reach into the default one. Change
+ * `standards-packages` names, so it cannot reach into the default one. Change
  * one, change the other.
  */
 export const nameKey = ({ name }: Params): string => {

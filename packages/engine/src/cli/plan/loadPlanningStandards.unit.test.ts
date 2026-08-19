@@ -69,7 +69,7 @@ test('loadPlanningStandards: with no config it loads the shipped default package
 test('loadPlanningStandards: standards turned off explicitly loads nothing at all', async () => {
 	const { cwd, logged } = setupStandards();
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: false }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': false }) });
 
 	expect(standards).toBe(undefined);
 	expect(logged).toStrictEqual([]);
@@ -94,7 +94,7 @@ test('loadPlanningStandards: a react dependency in the consumer manifest activat
 test('loadPlanningStandards: configured channels override detection — react docs load with no react dependency present', async () => {
 	const { cwd } = setupStandards();
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsChannels: ['react'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-channels': ['react'] }) });
 
 	expect(standards ?? '').toMatch(/<!-- lightsout-defaults: code\/architecture\/react -->/);
 });
@@ -107,7 +107,7 @@ test('loadPlanningStandards: several declared packages all reach the plan, in co
 		],
 	});
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: ['standards/house', 'standards/team'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['standards/house', 'standards/team'] }) });
 
 	// the second package's text picks up where the first one ends, a blank line on
 	expect(standards ?? '').toContain('<!-- house: code/demo -->');
@@ -121,7 +121,7 @@ test('loadPlanningStandards: a package carrying only a test tree contributes not
 		packages: [{ at: 'standards/tests-only', name: 'tests-only', ruleId: 'mock-prefix', prose: 'Name mocks so they read as mocks.', set: 'tests' }],
 	});
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: ['standards/tests-only'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['standards/tests-only'] }) });
 
 	// the package loaded fine — it simply has no code set, so planning gets nothing and nothing is narrated
 	expect(standards).toBe(undefined);
@@ -131,7 +131,7 @@ test('loadPlanningStandards: a package carrying only a test tree contributes not
 test('loadPlanningStandards: a declared standards package that does not exist is non-fatal — it narrates and returns nothing', async () => {
 	const { cwd, logged, errors } = setupStandards();
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: ['missing-standards'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['missing-standards'] }) });
 
 	// planning continues without standards rather than dying on them
 	expect(standards).toBe(undefined);

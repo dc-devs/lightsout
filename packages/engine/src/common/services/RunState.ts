@@ -47,7 +47,7 @@ export class RunState {
 		this.manifest = manifest;
 		this.onProgress = onProgress;
 		this.usageTotals = seedUsageTotals({ usage: manifest.usage });
-		this.agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
+		this.agentTimeoutMs = (config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000;
 	}
 
 	/** The live manifest — reread after any update/setStep, never cached by callers. */

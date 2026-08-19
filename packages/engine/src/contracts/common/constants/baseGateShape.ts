@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { renamedKey } from '@/contracts/common/utils/renamedKey';
 
 /**
  * The keys every gate block declares, whatever scope it gates: the two
@@ -13,7 +14,7 @@ export const baseGateShape = {
 	check: z.string(),
 	test: z.string(),
 	/** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
-	testUnit: z.never('`testUnit` was renamed to `test`').optional(),
+	testUnit: renamedKey({ from: 'testUnit', to: 'test' }),
 	/** Removed — renamed to `test-coverage`. Same reason. */
-	testCoverage: z.never('`testCoverage` was renamed to `test-coverage`').optional(),
+	testCoverage: renamedKey({ from: 'testCoverage', to: 'test-coverage' }),
 };

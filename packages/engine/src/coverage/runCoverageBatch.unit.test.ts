@@ -49,7 +49,7 @@ const writeScopedSummary = ({ dir, pct }: { dir: string; pct: number }) => {
 const setupScopedBatchRepo = () => {
 	const dir = setupConsumerRepo({
 		git: false,
-		config: { packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package} run test:coverage' } },
+		config: { 'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package} run test:coverage' } },
 	});
 
 	mkdirSync(join(dir, 'packages/api/src'), { recursive: true });

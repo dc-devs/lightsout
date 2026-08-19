@@ -120,7 +120,7 @@ test('checkChangedFilesExecuted: a missing summary fails with the doctor guidanc
 test('checkChangedFilesExecuted: monorepo mode reads each package summary, and root files sit outside the measurement', async () => {
 	const config: LightsoutConfig = {
 		gates: { check: 'true', test: 'true', 'test-coverage': false },
-		packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
+		'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
 	};
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-executed-mono-'));
 
@@ -169,7 +169,7 @@ test('checkChangedFilesExecuted: a configured summary path is read instead of th
 		summary: { 'src/cold.ts': { covered: 0, total: 4 } },
 		summaryAt: 'reports/summary.json',
 	});
-	const config: LightsoutConfig = { ...rootConfig, coverageSummaryPath: 'reports/summary.json' };
+	const config: LightsoutConfig = { ...rootConfig, 'coverage-summary-path': 'reports/summary.json' };
 
 	const error = await checkChangedFilesExecuted({ cwd, config, changedFiles: ['src/cold.ts'], compiler: ts });
 
@@ -180,7 +180,7 @@ test('checkChangedFilesExecuted: a configured summary path is read instead of th
 test('checkChangedFilesExecuted: a package whose coverage command was never configured is outside the measurement', async () => {
 	const config: LightsoutConfig = {
 		gates: { check: 'true', test: 'true', 'test-coverage': false },
-		packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
+		'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
 	};
 	const cwd = setupUnmeasuredPackage();
 

@@ -67,8 +67,8 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		// gate must not be able to change its mind about the rules between passes.
 		const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
 		const channels =
-			run.config.standardsChannels ??
-			(await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config.packagesDir ?? 'packages', packages: run.current().packages }));
+			run.config['standards-channels'] ??
+			(await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config['packages-dir'] ?? 'packages', packages: run.current().packages }));
 
 		for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
 			await run.setStep({ record });

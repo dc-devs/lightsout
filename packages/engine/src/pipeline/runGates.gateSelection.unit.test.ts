@@ -32,7 +32,7 @@ const setupScopedBuildRepo = () => {
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
 			gates: { check: 'true', test: 'true', 'test-coverage': false },
-			packageGates: {
+			'package-gates': {
 				check: `${gateLogCommand({ kind: 'check' })} {package}`,
 				test: `${gateLogCommand({ kind: 'test' })} {package}`,
 				build: `${gateLogCommand({ kind: 'build' })} {package}`,

@@ -50,7 +50,7 @@ const setupMeasurable = ({ git = true }: { git?: boolean } = {}) => {
 const setupScopedMeasurable = () => {
 	const dir = setupConsumerRepo({
 		git: false,
-		config: { packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package}' } },
+		config: { 'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package}' } },
 	});
 
 	mkdirSync(join(dir, 'packages/api/coverage'), { recursive: true });

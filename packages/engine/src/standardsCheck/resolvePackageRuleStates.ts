@@ -9,7 +9,7 @@ interface Params {
 
 /**
  * Every loaded rule's severity and settings for this run: the rule's own front
- * matter, with the repo's `standardsChecks` entries layered over it. A rule the
+ * matter, with the repo's `standards-checks` entries layered over it. A rule the
  * config does not name keeps its default — silence is never a change.
  *
  * Two protections live here because this is the first moment the valid rule ids
@@ -37,11 +37,11 @@ export const resolvePackageRuleStates = ({ packages, config }: Params): Map<stri
 		}
 	}
 
-	for (const [id, override] of Object.entries(config?.standardsChecks ?? {})) {
+	for (const [id, override] of Object.entries(config?.['standards-checks'] ?? {})) {
 		const state = states.get(id);
 
 		if (state === undefined) {
-			throw new Error(`standardsChecks names "${id}", which no loaded standards package declares — valid rule ids: ${[...states.keys()].sort().join(', ')}`);
+			throw new Error(`standards-checks names "${id}", which no loaded standards package declares — valid rule ids: ${[...states.keys()].sort().join(', ')}`);
 		}
 
 		const object = typeof override === 'object' ? override : undefined;

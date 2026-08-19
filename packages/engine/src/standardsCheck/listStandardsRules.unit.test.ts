@@ -272,7 +272,7 @@ describe('listStandardsRules', () => {
 	test('a rule the config named is marked, so policy reads apart from default', async () => {
 		const rules = await listStandardsRules({
 			cwd,
-			config: LightsoutConfig.parse({ ...baseConfig, standardsChecks: { 'filename-mismatch': 'off', clone: { settings: { minTokens: 90 } } } }),
+			config: LightsoutConfig.parse({ ...baseConfig, 'standards-checks': { 'filename-mismatch': 'off', clone: { settings: { minTokens: 90 } } } }),
 		});
 
 		const mismatch = rules.find((rule) => rule.rule === 'filename-mismatch');
@@ -289,12 +289,12 @@ describe('listStandardsRules', () => {
 
 	test('a config key naming no loaded rule refuses the whole listing, and says which ids are real', async () => {
 		const error = await getRejectionError({
-			promise: listStandardsRules({ cwd, config: LightsoutConfig.parse({ ...baseConfig, standardsChecks: { 'clone-typo': 'off' } }) }),
+			promise: listStandardsRules({ cwd, config: LightsoutConfig.parse({ ...baseConfig, 'standards-checks': { 'clone-typo': 'off' } }) }),
 		});
 
 		// printing a ledger that quietly ignored the typo would confirm a policy
 		// the repo does not actually have
-		expect(error.message).toContain('standardsChecks names "clone-typo"');
+		expect(error.message).toContain('standards-checks names "clone-typo"');
 		expect(error.message).toContain('clone');
 	});
 
@@ -303,7 +303,7 @@ describe('listStandardsRules', () => {
 			packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule', severity: StandardsSeverity.Blocking, settings: { maxLines: 40 } }],
 		});
 
-		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: ['standards/house'] }) });
+		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': ['standards/house'] }) });
 
 		// nothing in this package ships with the engine, so the row can only have
 		// come from the rule's own front matter — including that no code checks it
@@ -330,7 +330,7 @@ describe('listStandardsRules', () => {
 
 		const rules = await listStandardsRules({
 			cwd: repo,
-			config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: ['standards/house', 'standards/team'] }),
+			config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': ['standards/house', 'standards/team'] }),
 		});
 
 		// a reader looking a rule up scans one alphabetical list, not one list per
@@ -341,7 +341,7 @@ describe('listStandardsRules', () => {
 	test('a repo that turned standards packages off lists nothing rather than the defaults', async () => {
 		const { cwd: repo } = setupRepo();
 
-		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: false }) });
+		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': false }) });
 
 		// listing the shipped rules here would advertise a policy this repo opted out of
 		expect(rules).toStrictEqual([]);
@@ -351,7 +351,10 @@ describe('listStandardsRules', () => {
 		const { cwd: repo } = setupRepo({ packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule' }] });
 
 		const error = await getRejectionError({
-			promise: listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: ['standards/house', 'standards/ghost'] }) }),
+			promise: listStandardsRules({
+				cwd: repo,
+				config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': ['standards/house', 'standards/ghost'] }),
+			}),
 		});
 
 		// a ledger missing the half that failed to load reads as a repo that enforces less than it does

@@ -11,7 +11,7 @@ interface Params {
 	referenceFiles: string[];
 	/** Repo-relative standards package roots, from the walk that listed the files. */
 	standardsPackages: string[];
-	/** Monorepo package parent dir (config `packagesDir`, default 'packages'). */
+	/** Monorepo package parent dir (config `packages-dir`, default 'packages'). */
 	packagesDir: string;
 }
 

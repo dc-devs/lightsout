@@ -125,7 +125,7 @@ test('cli: standards-check --list prints the enforcement ledger and runs no chec
 });
 
 test('cli: standards-check --list marks the rules this repo configured', async () => {
-	const { cwd } = await seedStandardsFixture({ config: { standardsChecks: { 'name-synonym': 'off' } } });
+	const { cwd } = await seedStandardsFixture({ config: { 'standards-checks': { 'name-synonym': 'off' } } });
 
 	const { stdout, code } = await runCli({ args: ['standards-check', '--list', '--cwd', cwd] });
 

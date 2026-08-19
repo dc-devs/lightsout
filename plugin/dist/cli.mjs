@@ -8043,12 +8043,12 @@ var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
 
 // src/doctor/checkCoverageSummary.ts
 var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
-  const scoped = config2.packageGates?.["test-coverage"];
+  const scoped = config2["package-gates"]?.["test-coverage"];
   const rootApplies = typeof config2.gates["test-coverage"] === "string";
   if (!scoped && !rootApplies) {
     return void 0;
   }
-  const summaryPath = config2.coverageSummaryPath ?? defaultCoverageSummaryPath;
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
   const expected = scopes.map((entry) => ({ label: entry.label, path: join(entry.dir, summaryPath) }));
   const absent = [];
@@ -8059,7 +8059,7 @@ var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
     id: "coverage-summary",
     status: "warn",
     detail: `not found: ${absent.join(", ")}`,
-    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverageSummaryPath`
+    fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverage-summary-path`
   };
 };
 
@@ -8346,7 +8346,7 @@ var checkJestMocks = async ({ cwd, packageDirs }) => {
 import { readdir as readdir2, readFile as readFile2 } from "node:fs/promises";
 import { join as join4 } from "node:path";
 var checkLintRules = async ({ config: config2, packageDirs }) => {
-  if (config2.standardsPackages === false) {
+  if (config2["standards-packages"] === false) {
     return void 0;
   }
   const lintFindings = [];
@@ -8379,7 +8379,7 @@ var checkLintRules = async ({ config: config2, packageDirs }) => {
 
 // src/doctor/checkScriptBinaries.ts
 var checkScriptBinaries = async ({ cwd, config: config2 }) => {
-  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2.packageGates ?? {})].filter(
+  const gateCommands = [...Object.values(config2.gates), ...Object.values(config2["package-gates"] ?? {})].filter(
     (value) => typeof value === "string"
   );
   const binaries = [...new Set(gateCommands.map((command) => command.trim().split(/\s+/)[0]).filter((name) => Boolean(name)))];
@@ -23042,14 +23042,17 @@ var ConfigCommands = external_exports.object({
   "test-coverage-to-threshold": commandHarness.optional()
 }).strict();
 
+// src/contracts/common/utils/renamedKey.ts
+var renamedKey = ({ from, to }) => external_exports.never(`\`${from}\` was renamed to \`${to}\``).optional();
+
 // src/contracts/common/constants/baseGateShape.ts
 var baseGateShape = {
   check: external_exports.string(),
   test: external_exports.string(),
   /** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
-  testUnit: external_exports.never("`testUnit` was renamed to `test`").optional(),
+  testUnit: renamedKey({ from: "testUnit", to: "test" }),
   /** Removed — renamed to `test-coverage`. Same reason. */
-  testCoverage: external_exports.never("`testCoverage` was renamed to `test-coverage`").optional()
+  testCoverage: renamedKey({ from: "testCoverage", to: "test-coverage" })
 };
 
 // src/contracts/common/utils/validateCustomTestGates.ts
@@ -23253,13 +23256,13 @@ var PackageGates = external_exports.object({
     gates: gates2,
     knownGateKeys: knownGateKeys2,
     ctx,
-    unknownKeyMessage: ({ key }) => `unknown scoped gate '${key}' \u2014 packageGates are check, test, test-coverage, build, or a custom \`test-*\` suite`
+    unknownKeyMessage: ({ key }) => `unknown scoped gate '${key}' \u2014 package-gates are check, test, test-coverage, build, or a custom \`test-*\` suite`
   });
   const commands2 = [gates2.check, gates2.test, gates2["test-coverage"], gates2.build, ...customCommands];
   if (!commands2.every((command) => command === void 0 || typeof command === "string" && command.includes("{package}"))) {
     ctx.addIssue({
       code: "custom",
-      message: "every packageGates command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in gates.* instead"
+      message: "every package-gates command must contain the {package} placeholder \u2014 a command without it would run identically for every package and belongs in gates.* instead"
     });
   }
 });
@@ -23359,13 +23362,13 @@ var LightsoutConfig = external_exports.object({
    */
   permissions: external_exports.enum([Permissions.Write, Permissions.FullAccess]).optional(),
   /** Removed — renamed to `harness`. Declared only so a stale key fails loudly instead of being silently stripped. */
-  driver: external_exports.never("`driver` was renamed to `harness`").optional(),
+  driver: renamedKey({ from: "driver", to: "harness" }),
   /** Removed — replaced by `permissions`. Same reason. */
   permissionMode: external_exports.never("`permissionMode` was replaced by `permissions` (`write` or `full-access`)").optional(),
   /** Removed — renamed to `gates`. Same reason. */
-  scripts: external_exports.never("`scripts` was renamed to `gates`").optional(),
-  /** Removed — renamed to `packageGates`. Same reason. */
-  packageScripts: external_exports.never("`packageScripts` was renamed to `packageGates`").optional(),
+  scripts: renamedKey({ from: "scripts", to: "gates" }),
+  /** Removed — renamed twice over; the current name is `package-gates`. Same reason. */
+  packageScripts: renamedKey({ from: "packageScripts", to: "package-gates" }),
   /** Per-command harness selection. See `ConfigCommands`. */
   commands: ConfigCommands.optional(),
   /** Verification commands — the mechanical gates. See `ConfigGates`. */
@@ -23376,9 +23379,13 @@ var LightsoutConfig = external_exports.object({
    */
   timeouts: external_exports.object({
     /** Working roles (executor, test writers, refactorer, fixes). Default 60. */
-    agentMinutes: external_exports.number().positive().optional(),
+    "agent-minutes": external_exports.number().positive().optional(),
     /** The read-only supervisor. Default 15. */
-    supervisorMinutes: external_exports.number().positive().optional()
+    "supervisor-minutes": external_exports.number().positive().optional(),
+    /** Removed — renamed to `agent-minutes`. Declared only so a stale key fails loudly instead of being silently stripped. */
+    agentMinutes: renamedKey({ from: "timeouts.agentMinutes", to: "timeouts.agent-minutes" }),
+    /** Removed — renamed to `supervisor-minutes`. Same reason. */
+    supervisorMinutes: renamedKey({ from: "timeouts.supervisorMinutes", to: "timeouts.supervisor-minutes" })
   }).optional(),
   /**
    * Command prefixes working agents are granted (prefix match, arguments
@@ -23388,7 +23395,9 @@ var LightsoutConfig = external_exports.object({
    * allowed tools. Verification commands never belong here: the engine runs
    * all gates itself, and agents are told grants are not for verifying.
    */
-  agentCommands: external_exports.array(external_exports.string()).optional(),
+  "agent-commands": external_exports.array(external_exports.string()).optional(),
+  /** Removed — renamed to `agent-commands`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  agentCommands: renamedKey({ from: "agentCommands", to: "agent-commands" }),
   /**
    * Path prefixes of generated/derived files (e.g. a Prisma client output
    * dir). Treated like gate artifacts: real files in the diff, but excluded
@@ -23404,11 +23413,17 @@ var LightsoutConfig = external_exports.object({
    * is the tool-agnostic contract, so a printed coverage table changing
    * format never breaks the run.
    */
-  coverageSummaryPath: external_exports.string().optional(),
+  "coverage-summary-path": external_exports.string().optional(),
+  /** Removed — renamed to `coverage-summary-path`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  coverageSummaryPath: renamedKey({ from: "coverageSummaryPath", to: "coverage-summary-path" }),
   /** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
-  packagesDir: external_exports.string().optional(),
+  "packages-dir": external_exports.string().optional(),
+  /** Removed — renamed to `packages-dir`. Same reason. */
+  packagesDir: renamedKey({ from: "packagesDir", to: "packages-dir" }),
   /** Monorepo scoped gate templates. See `PackageGates`. */
-  packageGates: PackageGates.optional(),
+  "package-gates": PackageGates.optional(),
+  /** Removed — renamed to `package-gates`. Same reason. */
+  packageGates: renamedKey({ from: "packageGates", to: "package-gates" }),
   /**
    * Standards packages a run works against. Unspecified = the package the
    * plugin ships (announced in the run header); `false` = explicitly none; an
@@ -23418,22 +23433,28 @@ var LightsoutConfig = external_exports.object({
    * document trees, so a second key could only disagree with this one about
    * which package is loaded. A root that cannot be loaded is a hard error.
    */
-  standardsPackages: external_exports.union([external_exports.array(external_exports.string()), external_exports.literal(false)]).optional(),
-  /** Removed — replaced by `standardsPackages`. Declared only so a stale key fails loudly instead of being silently stripped. */
-  standards: external_exports.never("`standards` was replaced by `standardsPackages` \u2014 standards now load as packages").optional(),
+  "standards-packages": external_exports.union([external_exports.array(external_exports.string()), external_exports.literal(false)]).optional(),
+  /** Removed — renamed to `standards-packages`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  standardsPackages: renamedKey({ from: "standardsPackages", to: "standards-packages" }),
+  /** Removed — replaced by `standards-packages`. Same reason. */
+  standards: external_exports.never("`standards` was replaced by `standards-packages` \u2014 standards now load as packages").optional(),
   /** Removed — the test tree ships inside a standards package. Same reason. */
-  testStandards: external_exports.never("`testStandards` was replaced by `standardsPackages` \u2014 standards now load as packages").optional(),
+  testStandards: external_exports.never("`testStandards` was replaced by `standards-packages` \u2014 standards now load as packages").optional(),
   /**
    * Framework channels of the loaded standards packages (e.g. 'react',
    * 'tanstack'). Unspecified = detected per run from the scoped packages'
    * package.json dependencies; an array REPLACES detection (empty = base
    * docs only).
    */
-  standardsChannels: external_exports.array(external_exports.string()).optional(),
-  /** Removed — renamed to `standardsChecks`. Declared only so a stale key fails loudly instead of being silently stripped. */
-  scan: external_exports.never("`scan` was renamed to `standardsChecks`").optional(),
+  "standards-channels": external_exports.array(external_exports.string()).optional(),
+  /** Removed — renamed to `standards-channels`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  standardsChannels: renamedKey({ from: "standardsChannels", to: "standards-channels" }),
+  /** Removed — renamed twice over; the current name is `standards-checks`. Same reason. */
+  scan: renamedKey({ from: "scan", to: "standards-checks" }),
   /** Per-rule severity/settings overrides. See `StandardsCheckOverrides`. */
-  standardsChecks: StandardsCheckOverrides.optional()
+  "standards-checks": StandardsCheckOverrides.optional(),
+  /** Removed — renamed to `standards-checks`. Same reason. */
+  standardsChecks: renamedKey({ from: "standardsChecks", to: "standards-checks" })
 });
 
 // src/contracts/plan/ExploreArea.ts
@@ -23884,11 +23905,11 @@ var resolvePackageManifest = async ({ cwd, packagesDir, packageDir }) => {
 // src/doctor/resolvePackageDirs.ts
 var resolvePackageDirs = async ({ cwd, config: config2, packagesDir }) => {
   const packageDirs = [{ label: "root", dir: cwd }];
-  if (!config2.packageGates) {
+  if (!config2["package-gates"]) {
     return { packageDirs };
   }
   const entries = await readdir3(join8(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
-  const templates = Object.entries(config2.packageGates).filter((pair) => typeof pair[1] === "string");
+  const templates = Object.entries(config2["package-gates"]).filter((pair) => typeof pair[1] === "string");
   const skips = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
     const manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => void 0);
@@ -23926,11 +23947,11 @@ var runDoctor = async ({ cwd, probeHarness }) => {
       }
     ];
   }
-  const packagesDir = config2.packagesDir ?? defaultPackagesDir;
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   checks.push({
     id: "config",
     status: "pass",
-    detail: `lightsout.config.json valid \xB7 harness ${config2.harness ?? "claude-code"}${config2.packageGates ? ` \xB7 monorepo (${packagesDir}/)` : ""}`
+    detail: `lightsout.config.json valid \xB7 harness ${config2.harness ?? "claude-code"}${config2["package-gates"] ? ` \xB7 monorepo (${packagesDir}/)` : ""}`
   });
   checks.push(await checkHarness({ cwd, config: config2, probeHarness }));
   checks.push(await checkGitignore({ cwd }));
@@ -24527,17 +24548,17 @@ var describeStandardsPackages = ({ value }) => {
 var printRunHeader = ({ config: config2, driver, cwd }) => {
   const coverage = config2.gates["test-coverage"] === false ? "off (explicit)" : config2.gates["test-coverage"];
   console.log(`  cwd: ${cwd}`);
-  console.log(`  standards packages: ${describeStandardsPackages({ value: config2.standardsPackages })}`);
+  console.log(`  standards packages: ${describeStandardsPackages({ value: config2["standards-packages"] })}`);
   console.log(
     `  harness: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 effort: ${config2.effort ?? "harness default"} \xB7 permissions: ${config2.permissions ?? Permissions.Write}`
   );
-  console.log(`  timeouts: agent ${config2.timeouts?.agentMinutes ?? 60}m \xB7 supervisor ${config2.timeouts?.supervisorMinutes ?? 15}m`);
+  console.log(`  timeouts: agent ${config2.timeouts?.["agent-minutes"] ?? 60}m \xB7 supervisor ${config2.timeouts?.["supervisor-minutes"] ?? 15}m`);
   console.log(`  gates (root): check=[${config2.gates.check}] test=[${config2.gates.test}] coverage=[${coverage}]`);
   if (config2.gates.generate) {
     console.log(`  generate (before every gate set): [${config2.gates.generate}]`);
   }
-  if (config2.agentCommands && config2.agentCommands.length > 0) {
-    console.log(`  agent commands (granted, prefix match): ${config2.agentCommands.map((command) => `[${command}]`).join(" ")}`);
+  if (config2["agent-commands"] && config2["agent-commands"].length > 0) {
+    console.log(`  agent commands (granted, prefix match): ${config2["agent-commands"].map((command) => `[${command}]`).join(" ")}`);
   }
   if (config2.generated) {
     console.log(`  generated (never attributed): ${config2.generated.join(", ")}`);
@@ -24548,9 +24569,9 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
   if (config2.gates.format) {
     console.log(`  format: [${config2.gates.format}]`);
   }
-  if (config2.packageGates) {
-    const scopedCoverage = config2.packageGates["test-coverage"] ? ` coverage=[${config2.packageGates["test-coverage"]}]` : "";
-    console.log(`  gates (per package): check=[${config2.packageGates.check}] test=[${config2.packageGates.test}]${scopedCoverage}`);
+  if (config2["package-gates"]) {
+    const scopedCoverage = config2["package-gates"]["test-coverage"] ? ` coverage=[${config2["package-gates"]["test-coverage"]}]` : "";
+    console.log(`  gates (per package): check=[${config2["package-gates"].check}] test=[${config2["package-gates"].test}]${scopedCoverage}`);
   }
 };
 
@@ -25024,11 +25045,11 @@ ${generated.stderr}`;
     extraTests: gates2.extraTests,
     build: gates2.build
   };
-  const scoped = config2.packageGates;
+  const scoped = config2["package-gates"];
   if (!scoped || !packages || packages.length === 0) {
     return runGateSet({ commands: rootCommands, gate, failFast });
   }
-  const packagesDir = config2.packagesDir ?? defaultPackagesDir;
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const results = await Promise.all(
     packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }))
   );
@@ -25042,7 +25063,7 @@ ${generated.stderr}`;
 // src/pipeline/runBatchGates.ts
 var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProgress }) => {
   const changed = await readGitChangedFiles({ cwd }) ?? [];
-  const packagesDir = config2.packagesDir ?? defaultPackagesDir;
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const touched = [
     ...new Set(
       changed.flatMap((file2) => {
@@ -25164,7 +25185,7 @@ var resolvePackageScope = ({
   planContent,
   packagesDir
 }) => {
-  if (!config2.packageGates || current.length > 0) {
+  if (!config2["package-gates"] || current.length > 0) {
     return {};
   }
   const fromFlag = packages;
@@ -25173,7 +25194,7 @@ var resolvePackageScope = ({
   const declared = fromFlag ?? fromFrontMatter ?? fromPlanPaths;
   if (!declared || declared.length === 0) {
     return {
-      error: `packageGates is configured but no package scope could be resolved \u2014 add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`
+      error: `package-gates is configured but no package scope could be resolved \u2014 add a \`packages:\` list to the plan front-matter, pass --packages <a,b>, or reference concrete ${packagesDir}/<name>/ paths in the plan.`
     };
   }
   return {
@@ -25571,7 +25592,7 @@ var findCrossPackageDuplicates = ({ packages }) => {
   return duplicates;
 };
 var resolveStandardsPackages = async ({ cwd, config: config2 }) => {
-  const roots = resolveRoots({ cwd, standardsPackages: config2?.standardsPackages });
+  const roots = resolveRoots({ cwd, standardsPackages: config2?.["standards-packages"] });
   const packages = [];
   for (const packagePath of roots) {
     packages.push(await loadStandardsPackage({ packagePath }));
@@ -25587,7 +25608,7 @@ ${duplicates.map((duplicate) => `- ${duplicate}`).join("\n")}`);
 // src/standards/resolveStandards.ts
 var resolveStandards = async ({ cwd, config: config2, packages }) => {
   const loaded = await resolveStandardsPackages({ cwd, config: config2 });
-  const channels = config2.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2.packagesDir ?? "packages", packages });
+  const channels = config2["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2["packages-dir"] ?? "packages", packages });
   const assembled = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }));
   const stack = ({ set: set2 }) => {
     const texts = assembled.map((documents) => documents[set2]).filter((text) => text !== void 0);
@@ -25597,7 +25618,7 @@ var resolveStandards = async ({ cwd, config: config2, packages }) => {
     standards: stack({ set: StandardsSet.Code }),
     testStandards: stack({ set: StandardsSet.Tests }),
     channels,
-    configured: config2.standardsChannels !== void 0,
+    configured: config2["standards-channels"] !== void 0,
     requested: loaded.length > 0
   };
 };
@@ -25614,7 +25635,7 @@ var prepareRun = async ({ run, cwd, config: config2, packages }) => {
     current: manifest.packages,
     packages,
     planContent: sources.planContent,
-    packagesDir: config2.packagesDir ?? "packages"
+    packagesDir: config2["packages-dir"] ?? "packages"
   });
   if ("error" in scope) {
     return scope;
@@ -25910,7 +25931,7 @@ var RunState = class {
     this.manifest = manifest;
     this.onProgress = onProgress;
     this.usageTotals = seedUsageTotals({ usage: manifest.usage });
-    this.agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes2) * 6e4;
+    this.agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4;
   }
   /** The live manifest — reread after any update/setStep, never cached by callers. */
   current() {
@@ -26650,7 +26671,7 @@ ${text}`, "utf8");
       timeoutMs: this.agentTimeoutMs,
       // Harness-level allowance for all working roles; the binding grant
       // is the prompt section, which only the executor's builder emits.
-      allowedCommands: this.config.agentCommands,
+      allowedCommands: this.config["agent-commands"],
       onEvent: (event) => {
         if (!seenFirst) {
           seenFirst = true;
@@ -26676,7 +26697,7 @@ import { readFile as readFile18 } from "node:fs/promises";
 import { join as join31, relative as relative3 } from "node:path";
 
 // src/coverage/common/utils/buildMissingSummaryMessage.ts
-var buildMissingSummaryMessage = ({ summaryPath, scope }) => `no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran \u2014 configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverageSummaryPath in lightsout.config.json. \`lightsout doctor\` checks this.`;
+var buildMissingSummaryMessage = ({ summaryPath, scope }) => `no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran \u2014 configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverage-summary-path in lightsout.config.json. \`lightsout doctor\` checks this.`;
 
 // src/coverage/resolveCoverageScopes.ts
 import { readdir as readdir11 } from "node:fs/promises";
@@ -26709,9 +26730,9 @@ var listPackageScopes = async ({
   return scopes;
 };
 var resolveCoverageScopes = async ({ cwd, config: config2, summaryPath, scope }) => {
-  const template = config2.packageGates?.["test-coverage"];
+  const template = config2["package-gates"]?.["test-coverage"];
   if (template) {
-    return listPackageScopes({ cwd, packagesDir: config2.packagesDir ?? defaultPackagesDir, template, summaryPath, scope });
+    return listPackageScopes({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir, template, summaryPath, scope });
   }
   const command = config2.gates["test-coverage"];
   const scoped = typeof command === "string" && (scope === void 0 || scope === rootScope) ? [{ scope: rootScope, command, summaryPath }] : [];
@@ -26742,10 +26763,10 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   if (candidates.length === 0) {
     return void 0;
   }
-  const summaryPath = config2.coverageSummaryPath ?? defaultCoverageSummaryPath;
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath });
-  const packagesDir = config2.packagesDir ?? defaultPackagesDir;
-  const monorepo = config2.packageGates?.["test-coverage"] !== void 0;
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const monorepo = config2["package-gates"]?.["test-coverage"] !== void 0;
   const scopeOf = ({ file: file2 }) => {
     const packageDir = packageOf({ file: file2, packagesDir });
     if (monorepo) {
@@ -26877,7 +26898,7 @@ var runCoverageCheck = async ({
   step,
   onProgress
 }) => {
-  const summaryPath = config2.coverageSummaryPath ?? defaultCoverageSummaryPath;
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath, scope });
   const files = [];
   const totals = [];
@@ -26921,7 +26942,7 @@ var initializeCoverageRun = async ({
     }
     return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile20(join33(cwd, existing.plan), "utf8"))) };
   }
-  if (typeof config2.gates["test-coverage"] !== "string" && config2.packageGates?.["test-coverage"] === void 0) {
+  if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
     throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
   }
   const dirty = await readGitChangedFiles({ cwd });
@@ -26984,7 +27005,7 @@ var invokeCoverageAgent = async ({
     effort: config2.effort,
     permissions: config2.permissions ?? Permissions.Write,
     timeoutMs: agentTimeoutMs,
-    allowedCommands: config2.agentCommands,
+    allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
       await writeFile5(join34(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
@@ -27026,8 +27047,8 @@ var runCoverageBatch = async ({
 }) => {
   const rationale = [];
   const reportedFiles = /* @__PURE__ */ new Set();
-  const coverageDir = dirname6(config2.coverageSummaryPath ?? defaultCoverageSummaryPath);
-  const packagesDir = config2.packagesDir ?? defaultPackagesDir;
+  const coverageDir = dirname6(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   let invocationCount = 0;
   const invoke = ({ label, invocation }) => {
     invocationCount += 1;
@@ -27227,8 +27248,8 @@ ${gateError}` });
     await setStep({ record: { ...record2, status: RunStatus.Passed } });
   }
   const { testStandards } = await resolveStandards({ cwd, config: config2, packages: [] });
-  const agentTimeoutMs = (config2.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 6e4;
-  const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2.packagesDir ?? defaultPackagesDir });
+  const agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4;
+  const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir });
   const { standardsPackages } = await listSourceFiles({ cwd });
   let declineStreak = seeded.declineStreak;
   let batchCount = seeded.batchCount;
@@ -27329,7 +27350,7 @@ var runCoveragePipeline = (params) => withRunLock({ params, run: executeCoverage
 
 // src/pipeline/common/utils/gates.ts
 var gates = async ({ run, coverage }) => {
-  const packagesDir = run.config.packagesDir ?? defaultPackagesDir;
+  const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const hasRootChanges = run.current().changedFiles.some((file2) => packageOf({ file: file2, packagesDir }) === void 0);
   const error51 = await runGates({
     cwd: run.cwd,
@@ -27444,7 +27465,7 @@ var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.starts
 // src/pipeline/common/utils/collectChanged.ts
 var collectChanged = async ({ run, gitPrefix, reports }) => {
   const isGeneratedFile = (file2) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const packagesDir = run.config.packagesDir ?? "packages";
+  const packagesDir = run.config["packages-dir"] ?? "packages";
   const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
     (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
   );
@@ -27680,10 +27701,10 @@ var resolvePackageRuleStates = ({ packages, config: config2 }) => {
       states.set(rule.id, { severity: rule.defaultSeverity, settings: { ...rule.defaultSettings }, fromConfig: false });
     }
   }
-  for (const [id, override] of Object.entries(config2?.standardsChecks ?? {})) {
+  for (const [id, override] of Object.entries(config2?.["standards-checks"] ?? {})) {
     const state = states.get(id);
     if (state === void 0) {
-      throw new Error(`standardsChecks names "${id}", which no loaded standards package declares \u2014 valid rule ids: ${[...states.keys()].sort().join(", ")}`);
+      throw new Error(`standards-checks names "${id}", which no loaded standards package declares \u2014 valid rule ids: ${[...states.keys()].sort().join(", ")}`);
     }
     const object2 = typeof override === "object" ? override : void 0;
     states.set(id, {
@@ -39733,13 +39754,13 @@ var runStandardsCheck = async ({
   const config2 = await loadConfig({ cwd }).catch(() => void 0);
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const states = resolvePackageRuleStates({ packages, config: config2 });
-  const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2?.packagesDir ?? "packages", packages: [] });
+  const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
   const checked = await runPackageChecks({
     cwd,
     packages,
     states,
     channels,
-    packagesDir: config2?.packagesDir,
+    packagesDir: config2?.["packages-dir"],
     path,
     exclude: config2?.generated,
     onProgress
@@ -39953,7 +39974,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
     let cleanExit = false;
     let lastDeclined;
     const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
-    const channels = run.config.standardsChannels ?? await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config.packagesDir ?? "packages", packages: run.current().packages });
+    const channels = run.config["standards-channels"] ?? await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config["packages-dir"] ?? "packages", packages: run.current().packages });
     for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
       await run.setStep({ record: record2 });
       const check2 = await standardsWorkList({ run });
@@ -40050,7 +40071,7 @@ var consultSupervisor = async ({
     model: config2.model,
     effort: config2.effort,
     permissions: supervisorPermissions,
-    timeoutMs: (config2.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 6e4,
+    timeoutMs: (config2.timeouts?.["supervisor-minutes"] ?? defaultSupervisorTimeoutMinutes) * 6e4,
     onEvent,
     onRejectedOutput
   });
@@ -40204,7 +40225,7 @@ var groupTestTargets = async ({ run, subjects, compiler }) => {
   if (!compiler) {
     return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target], cluster: target }));
   }
-  const byPackage = partitionByPackage({ files: targets, packagesDir: run.config.packagesDir ?? defaultPackagesDir });
+  const byPackage = partitionByPackage({ files: targets, packagesDir: run.config["packages-dir"] ?? defaultPackagesDir });
   const groups = [];
   for (const partition of [...byPackage.keys()].sort()) {
     const partitionTargets = byPackage.get(partition) ?? [];
@@ -40397,7 +40418,7 @@ var writeTestsStep = ({ run, gitPrefix, planContent, testStandards }) => {
   return async () => {
     let record2 = run.nextRecord({ id: "write-tests" });
     await run.setStep({ record: record2 });
-    const packagesDir = run.config.packagesDir ?? defaultPackagesDir;
+    const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
     const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
     const { targets, inert, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler });
     if (deleted.length > 0) {
@@ -40471,7 +40492,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         gitPrefix,
         id: "implement",
         requireChanges: true,
-        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config.agentCommands })
+        build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config["agent-commands"] })
       })
     },
     {
@@ -40487,7 +40508,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
           standards,
           errorContext,
           changedFiles: run.current().changedFiles,
-          allowedCommands: run.config.agentCommands
+          allowedCommands: run.config["agent-commands"]
         })
       })
     },
@@ -40524,7 +40545,7 @@ var recheckUnreachable = async ({ run }) => {
   if (recorded.length === 0) {
     return;
   }
-  const packagesDir = run.config.packagesDir ?? defaultPackagesDir;
+  const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
   const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
   const targets = recorded.filter((file2) => universe.includes(file2));
@@ -40780,6 +40801,8 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
     timeout: timeoutMs ? { ms: timeoutMs, message: `${command} timed out after ${timeoutMs}ms` } : void 0,
     onStdoutLine
   });
+  child.stdin?.on("error", () => {
+  });
   if (stdinText !== void 0) {
     child.stdin?.write(stdinText);
   }
@@ -40820,7 +40843,7 @@ var parseEnvelope = ({ stdout }) => {
     return void 0;
   }
 };
-var transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|529|overloaded/i;
+var transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|\b(?:status|error|code)\D{0,6}529\b|overloaded/i;
 var createClaudeCodeDriver = () => {
   const driver = {
     name: "claude-code",
@@ -41067,10 +41090,10 @@ var loadStandardsLedger = async ({ cwd }) => {
 
 // src/cli/plan/loadPlanningStandards.ts
 var loadPlanningStandards = async ({ cwd, config: config2 }) => {
-  const packagesDir = config2?.packagesDir ?? "packages";
+  const packagesDir = config2?.["packages-dir"] ?? "packages";
   let standards;
   try {
-    const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
+    const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
     const loaded = await resolveStandardsPackages({ cwd, config: config2 });
     const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
     standards = texts.length === 0 ? void 0 : texts.join("\n\n");
@@ -41468,7 +41491,7 @@ var requiredSections = {
 var isSourceFile = (path) => !isTestFile({ path }) && !/(^|\/)index\.[jt]sx?$/.test(path) && !/\.d\.ts$/.test(path);
 var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
   const findings = [];
-  const packagesDir = config2?.packagesDir ?? defaultPackagesDir;
+  const packagesDir = config2?.["packages-dir"] ?? defaultPackagesDir;
   const configCommands = new Set(Object.values(config2?.gates ?? {}).filter((value) => typeof value === "string"));
   for (const planPath of planPaths) {
     const content = await readFile29(planPath, "utf8").catch(() => void 0);
@@ -42530,7 +42553,7 @@ var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
       // it only ever reports to a human (in-pipeline precedent:
       // selectStandardsFindings).
       advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory),
-      packagesDir: config2.packagesDir ?? "packages"
+      packagesDir: config2["packages-dir"] ?? "packages"
     })
   };
 };
@@ -42720,7 +42743,7 @@ var invokeBatchAgent = async ({
     effort: config2.effort,
     permissions: config2.permissions ?? Permissions.Write,
     timeoutMs: agentTimeoutMs,
-    allowedCommands: config2.agentCommands,
+    allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
       await writeFile13(join64(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
@@ -43217,7 +43240,7 @@ var resumeCommand = async ({ flags, cwd }) => {
 var reviewStandards = async ({ cwd, config: config2, path }) => {
   const defaultAgentTimeoutMinutes2 = 60;
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
-  const channels = config2?.standardsChannels ?? await detectStandardsChannels({ cwd, packagesDir: config2?.packagesDir ?? "packages", packages: [] });
+  const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
   const { files: walked } = await listSourceFiles({ cwd, exclude: config2?.generated });
   const files = walked.filter((file2) => !path || file2.startsWith(path));
   return runStandardsReview({
@@ -43226,7 +43249,7 @@ var reviewStandards = async ({ cwd, config: config2, path }) => {
     packages,
     channels,
     files,
-    timeoutMs: (config2?.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes2) * 6e4,
+    timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4,
     onProgress: (message) => console.log(dim(message))
   });
 };

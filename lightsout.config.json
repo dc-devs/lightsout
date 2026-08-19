@@ -23,11 +23,11 @@
 		"format": "pnpm format",
 		"build": "pnpm bundle"
 	},
-	"packageGates": {
+	"package-gates": {
 		"check": "pnpm --filter {package} run typecheck",
 		"test": "pnpm --filter {package} run test:unit",
 		"test-coverage": "pnpm --filter {package} run test:unit:coverage"
 	},
-	"agentCommands": ["pnpm", "python3", "rsvg-convert"],
+	"agent-commands": ["pnpm", "python3", "rsvg-convert"],
 	"generated": ["plugin/dist/", "plugin/standards/"]
 }

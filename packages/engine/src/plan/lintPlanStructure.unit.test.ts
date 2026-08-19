@@ -281,7 +281,7 @@ test('lintPlanStructure: a path directly under packages/ with no package segment
 test('lintPlanStructure: a configured packagesDir moves the package-segment check off the default', async () => {
 	const cwd = setupConsumerRepo();
 
-	const config = LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false }, packagesDir: 'modules' });
+	const config = LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false }, 'packages-dir': 'modules' });
 	const body = packagePlan({ modifyPath: 'modules/loose.ts', command: 'true' });
 	const path = writePlan({ cwd, name: 'custom-packages-dir.md', body });
 	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });

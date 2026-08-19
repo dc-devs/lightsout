@@ -42,7 +42,7 @@ const isSourceFile = (path: string) => !isTestFile({ path }) && !/(^|\/)index\.[
  */
 export const lintPlanStructure = async ({ cwd, planPaths, config }: Params): Promise<StructuralFinding[]> => {
 	const findings: StructuralFinding[] = [];
-	const packagesDir = config?.packagesDir ?? defaultPackagesDir;
+	const packagesDir = config?.['packages-dir'] ?? defaultPackagesDir;
 	const configCommands = new Set(Object.values(config?.gates ?? {}).filter((value): value is string => typeof value === 'string'));
 
 	for (const planPath of planPaths) {

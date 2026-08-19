@@ -220,7 +220,7 @@ test('standards default on when unspecified; false switches them off explicitly'
 	// bundled defaults inlined
 	expect(defaulted.includes('One Export Per File')).toBeTruthy();
 
-	const disabled = await run({ config: { standardsPackages: false } });
+	const disabled = await run({ config: { 'standards-packages': false } });
 
 	// false → no standards section
 	expect(disabled.includes('# Standards\n\nThese rules are binding')).toBeFalsy();

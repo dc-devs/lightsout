@@ -27,7 +27,7 @@ const standardsPackage = ({ name = 'acme', rules }: { name?: string; rules: Load
 const baseConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false as const } };
 
 const setupStates = ({ packages, standardsChecks }: { packages: LoadedStandardsPackage[]; standardsChecks?: Record<string, unknown> }) => {
-	const config = LightsoutConfig.parse(standardsChecks === undefined ? baseConfig : { ...baseConfig, standardsChecks });
+	const config = LightsoutConfig.parse(standardsChecks === undefined ? baseConfig : { ...baseConfig, 'standards-checks': standardsChecks });
 
 	return { states: resolvePackageRuleStates({ packages, config }) };
 };
@@ -106,7 +106,7 @@ describe('resolvePackageRuleStates', () => {
 
 	test('a config naming a rule no package declares is refused, with the valid ids listed', () => {
 		expect(() => setupStates({ packages: [standardsPackage({ rules: twoRules })], standardsChecks: { 'clone-detector': 'off' } })).toThrow(
-			/standardsChecks names "clone-detector".*valid rule ids: clone, module-boundary/,
+			/standards-checks names "clone-detector".*valid rule ids: clone, module-boundary/,
 		);
 	});
 

@@ -25,7 +25,7 @@ interface Params {
  * so the check is a no-op there.
  */
 export const gates = async ({ run, coverage }: Params): Promise<string | undefined> => {
-	const packagesDir = run.config.packagesDir ?? defaultPackagesDir;
+	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const hasRootChanges = run.current().changedFiles.some((file) => packageOf({ file, packagesDir }) === undefined);
 
 	const error = await runGates({

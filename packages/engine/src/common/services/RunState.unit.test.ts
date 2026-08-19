@@ -73,6 +73,6 @@ describe('RunState', () => {
 		const { cwd } = setupRunState();
 
 		expect(new RunState({ cwd, config, manifest: manifestOf() }).agentTimeoutMs).toBe(60 * 60_000);
-		expect(new RunState({ cwd, config: { ...config, timeouts: { agentMinutes: 5 } }, manifest: manifestOf() }).agentTimeoutMs).toBe(5 * 60_000);
+		expect(new RunState({ cwd, config: { ...config, timeouts: { 'agent-minutes': 5 } }, manifest: manifestOf() }).agentTimeoutMs).toBe(5 * 60_000);
 	});
 });

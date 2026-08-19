@@ -27,12 +27,15 @@ const setupClaude = async ({
 	stderr = '',
 	exitCode = 0,
 	delaySeconds = 0,
+	readsStdin = true,
 }: {
 	stdoutChunks?: string[];
 	chunkDelay?: boolean;
 	stderr?: string;
 	exitCode?: number;
 	delaySeconds?: number;
+	/** `false` exits before touching stdin — a harness that rejects its flags and bails. */
+	readsStdin?: boolean;
 } = {}) => {
 	const dir = await mkdtemp(join(tmpdir(), 'lightsout-claude-driver-'));
 	const binDir = join(dir, 'bin');
@@ -51,7 +54,7 @@ const setupClaude = async ({
 			`  if [ "$prev" = "--append-system-prompt-file" ]; then cp "$arg" '${promptCopyPath}'; fi`,
 			'  prev="$arg"',
 			'done',
-			`cat > '${stdinPath}'`,
+			...(readsStdin ? [`cat > '${stdinPath}'`] : []),
 			// `exec` so the hang IS this process rather than a child of it: a plain
 			// `sleep` would survive the driver's SIGKILL, outlive the test as an
 			// orphan, and keep the inherited stdout pipe open.
@@ -245,6 +248,26 @@ test('createClaudeCodeDriver: an errored 529 overload parks like a rate limit �
 	const result = await driver.invoke({ prompt: 'TASK', cwd });
 
 	expect(result.rateLimited).toBe(true);
+});
+
+test('createClaudeCodeDriver: a harness that exits without reading a large prompt yields its exit code, not a crashed engine', async () => {
+	const { driver, cwd } = await setupClaude({ stdoutChunks: ['unknown option --nope'], exitCode: 2, readsStdin: false });
+
+	// Larger than a pipe buffer, so the write still has bytes in flight when
+	// the child is gone and EPIPE is raised on the stdin stream.
+	const result = await driver.invoke({ prompt: 'x'.repeat(2 * 1024 * 1024), cwd });
+
+	expect(result).toStrictEqual({ text: 'unknown option --nope', exitCode: 2, rateLimited: false, usage: undefined });
+});
+
+test('createClaudeCodeDriver: a failure whose text merely contains the digits 529 is not parked as an overload', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [event({ type: 'result', result: 'src/report.ts:529 — cannot find name `total` (1529 tokens used)', is_error: true })],
+	});
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd });
+
+	expect(result.rateLimited).toBe(false);
 });
 
 test('createClaudeCodeDriver: agent text mentioning an overload on a clean exit is never misread as one', async () => {

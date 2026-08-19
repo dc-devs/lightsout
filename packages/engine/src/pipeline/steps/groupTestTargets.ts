@@ -35,7 +35,7 @@ export const groupTestTargets = async ({ run, subjects, compiler }: Params): Pro
 		return targets.map((target) => ({ subjects: subjects.get(target) ?? [target], mustExecute: [target], cluster: target }));
 	}
 
-	const byPackage = partitionByPackage({ files: targets, packagesDir: run.config.packagesDir ?? defaultPackagesDir });
+	const byPackage = partitionByPackage({ files: targets, packagesDir: run.config['packages-dir'] ?? defaultPackagesDir });
 	const groups: TestTargetGroup[] = [];
 
 	for (const partition of [...byPackage.keys()].sort()) {

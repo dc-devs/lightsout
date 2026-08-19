@@ -46,7 +46,7 @@ export const consultSupervisor = async ({
 		model: config.model,
 		effort: config.effort,
 		permissions: supervisorPermissions,
-		timeoutMs: (config.timeouts?.supervisorMinutes ?? defaultSupervisorTimeoutMinutes) * 60_000,
+		timeoutMs: (config.timeouts?.['supervisor-minutes'] ?? defaultSupervisorTimeoutMinutes) * 60_000,
 		onEvent,
 		onRejectedOutput,
 	});

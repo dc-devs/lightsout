@@ -27,7 +27,7 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 
 		await run.setStep({ record });
 
-		const packagesDir = run.config.packagesDir ?? defaultPackagesDir;
+		const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 		const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
 		const { targets, inert, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler });
 

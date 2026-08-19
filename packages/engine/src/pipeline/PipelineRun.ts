@@ -170,7 +170,7 @@ export class PipelineRun {
 			timeoutMs: this.agentTimeoutMs,
 			// Harness-level allowance for all working roles; the binding grant
 			// is the prompt section, which only the executor's builder emits.
-			allowedCommands: this.config.agentCommands,
+			allowedCommands: this.config['agent-commands'],
 			onEvent: (event) => {
 				if (!seenFirst) {
 					seenFirst = true;

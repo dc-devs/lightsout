@@ -64,7 +64,7 @@ const baseGates = { check: 'true', test: 'true', 'test-coverage': false };
 test('config rejects a packageGates command missing {package}', () => {
 	const parsed = LightsoutConfig.safeParse({
 		gates: baseGates,
-		packageGates: { check: 'pnpm typecheck', test: 'pnpm --filter {package} test' },
+		'package-gates': { check: 'pnpm typecheck', test: 'pnpm --filter {package} test' },
 	});
 
 	expect(parsed.success).toBe(false);
@@ -74,7 +74,7 @@ test('config rejects a packageGates command missing {package}', () => {
 test('config accepts packageGates with the placeholder everywhere', () => {
 	const parsed = LightsoutConfig.safeParse({
 		gates: baseGates,
-		packageGates: { check: 'pnpm --filter {package} typecheck', test: 'pnpm --filter {package} test' },
+		'package-gates': { check: 'pnpm --filter {package} typecheck', test: 'pnpm --filter {package} test' },
 	});
 
 	expect(parsed.success).toBe(true);

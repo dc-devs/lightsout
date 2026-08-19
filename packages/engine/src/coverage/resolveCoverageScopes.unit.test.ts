@@ -48,8 +48,8 @@ const setupCustomPackagesDir = () => {
 
 const scopedConfig = ({ testCoverage, packagesDir }: { testCoverage: string; packagesDir?: string }): LightsoutConfig => ({
 	gates: { check: 'true', test: 'true', 'test-coverage': false },
-	...(packagesDir === undefined ? {} : { packagesDir }),
-	packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': testCoverage },
+	...(packagesDir === undefined ? {} : { 'packages-dir': packagesDir }),
+	'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': testCoverage },
 });
 
 test('resolveCoverageScopes: root mode yields the single root scope for a string command, and nothing for an opted-out gate', async () => {
@@ -70,7 +70,7 @@ test('resolveCoverageScopes: monorepo mode lists every package with the template
 	const cwd = setupMonorepo();
 	const config: LightsoutConfig = {
 		gates: { check: 'true', test: 'true', 'test-coverage': false },
-		packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
+		'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
 	};
 
 	const all = await resolveCoverageScopes({ cwd, config, summaryPath });

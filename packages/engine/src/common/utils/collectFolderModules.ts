@@ -30,7 +30,7 @@ interface Params {
  * Neither copy can import the other: a standards package ships as a bare
  * directory beside the engine, with no manifest and no `node_modules`, so
  * every value it imports has to resolve inside its own tree, and the engine
- * runs against whatever package `standardsPackages` names rather than the
+ * runs against whatever package `standards-packages` names rather than the
  * default one. Change one, change the other.
  */
 export const collectFolderModules = async ({ cwd, files, compiler }: Params): Promise<Map<string, FolderModule>> => {

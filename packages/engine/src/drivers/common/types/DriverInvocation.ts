@@ -19,7 +19,7 @@ export interface DriverInvocation {
 	 */
 	permissions?: Permissions;
 	/**
-	 * Consumer-granted shell command prefixes (config `agentCommands`), mapped
+	 * Consumer-granted shell command prefixes (config `agent-commands`), mapped
 	 * to the harness's allowed-tools mechanism. Additive only: it can open
 	 * these commands where the user's harness settings are strict, never close
 	 * anything their settings already allow — the binding grant the agent is

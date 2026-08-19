@@ -55,7 +55,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				gitPrefix,
 				id: 'implement',
 				requireChanges: true,
-				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config.agentCommands }),
+				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config['agent-commands'] }),
 			}),
 		},
 		{
@@ -72,7 +72,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 						standards,
 						errorContext,
 						changedFiles: run.current().changedFiles,
-						allowedCommands: run.config.agentCommands,
+						allowedCommands: run.config['agent-commands'],
 					}),
 			}),
 		},

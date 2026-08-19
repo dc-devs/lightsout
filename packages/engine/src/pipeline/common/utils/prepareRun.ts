@@ -46,7 +46,7 @@ export const prepareRun = async ({ run, cwd, config, packages }: Params): Promis
 		current: manifest.packages,
 		packages,
 		planContent: sources.planContent,
-		packagesDir: config.packagesDir ?? 'packages',
+		packagesDir: config['packages-dir'] ?? 'packages',
 	});
 
 	if ('error' in scope) {

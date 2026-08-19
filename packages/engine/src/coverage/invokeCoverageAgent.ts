@@ -60,7 +60,7 @@ export const invokeCoverageAgent = async ({
 		effort: config.effort,
 		permissions: config.permissions ?? Permissions.Write,
 		timeoutMs: agentTimeoutMs,
-		allowedCommands: config.agentCommands,
+		allowedCommands: config['agent-commands'],
 		onEvent: createEventFileSink({ path: streamPath }),
 		onRejectedOutput: async ({ text, attempt }) => {
 			await writeFile(join(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, 'utf8').catch(() => undefined);

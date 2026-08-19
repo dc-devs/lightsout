@@ -21,14 +21,14 @@ interface Params {
  * freshly cloned repo that has never run its coverage script.
  */
 export const checkCoverageSummary = async ({ config, packageDirs }: Params): Promise<DoctorCheck | undefined> => {
-	const scoped = config.packageGates?.['test-coverage'];
+	const scoped = config['package-gates']?.['test-coverage'];
 	const rootApplies = typeof config.gates['test-coverage'] === 'string';
 
 	if (!scoped && !rootApplies) {
 		return undefined;
 	}
 
-	const summaryPath = config.coverageSummaryPath ?? defaultCoverageSummaryPath;
+	const summaryPath = config['coverage-summary-path'] ?? defaultCoverageSummaryPath;
 	// Measurement follows the same packages-only rule the coverage run does: a
 	// scoped command means the packages ARE the measurement.
 	const scopes = scoped ? packageDirs.filter((entry) => entry.label !== 'root') : packageDirs.filter((entry) => entry.label === 'root');
@@ -45,6 +45,6 @@ export const checkCoverageSummary = async ({ config, packageDirs }: Params): Pro
 				id: 'coverage-summary',
 				status: 'warn',
 				detail: `not found: ${absent.join(', ')}`,
-				fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverageSummaryPath`,
+				fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverage-summary-path`,
 			};
 };

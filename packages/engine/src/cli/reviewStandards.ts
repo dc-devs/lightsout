@@ -24,7 +24,8 @@ export const reviewStandards = async ({ cwd, config, path }: Params): Promise<{ 
 	const packages = await resolveStandardsPackages({ cwd, config });
 	// No package scope on a standalone command, so the root package.json decides
 	// the channels — the same call the machine half makes.
-	const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config?.packagesDir ?? 'packages', packages: [] }));
+	const channels =
+		config?.['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir: config?.['packages-dir'] ?? 'packages', packages: [] }));
 	const { files: walked } = await listSourceFiles({ cwd, exclude: config?.generated });
 	const files = walked.filter((file) => !path || file.startsWith(path));
 
@@ -34,7 +35,7 @@ export const reviewStandards = async ({ cwd, config, path }: Params): Promise<{ 
 		packages,
 		channels,
 		files,
-		timeoutMs: (config?.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000,
+		timeoutMs: (config?.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000,
 		onProgress: (message) => console.log(dim(message)),
 	});
 };

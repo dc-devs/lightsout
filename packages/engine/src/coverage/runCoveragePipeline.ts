@@ -118,10 +118,10 @@ const executeCoverage = async ({
 	}
 
 	const { testStandards } = await resolveStandards({ cwd, config, packages: [] });
-	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
+	const agentTimeoutMs = (config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000;
 	// Resolved once for the run: without a consumer TypeScript, grouping degrades
 	// to one file per batch component, exactly like the implement fan-out.
-	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir });
+	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config['packages-dir'] ?? defaultPackagesDir });
 	// Also once for the run: standards-package roots make the test-file question
 	// answerable — a rule check under a package's `tests/` document set is
 	// source, and filtering without them excludes it everywhere.

@@ -71,8 +71,8 @@ export const runCoverageBatch = async ({
 }: Params): Promise<CoverageBatchStop> => {
 	const rationale: string[] = [];
 	const reportedFiles = new Set<string>();
-	const coverageDir = dirname(config.coverageSummaryPath ?? defaultCoverageSummaryPath);
-	const packagesDir = config.packagesDir ?? defaultPackagesDir;
+	const coverageDir = dirname(config['coverage-summary-path'] ?? defaultCoverageSummaryPath);
+	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 	let invocationCount = 0;
 
 	const invoke = ({ label, invocation }: { label: string; invocation: { systemPrompt: string; prompt: string } }) => {

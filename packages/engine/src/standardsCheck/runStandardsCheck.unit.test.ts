@@ -263,7 +263,7 @@ const setupOwnPackageRepo = () => {
 			'src/beta.ts': 'export const beta = 2;\n',
 			'lightsout.config.json': JSON.stringify({
 				gates: { check: 'true', test: 'true', 'test-coverage': false },
-				standardsPackages: [writeOwnPackage()],
+				'standards-packages': [writeOwnPackage()],
 			}),
 		},
 	});
@@ -293,7 +293,7 @@ const setupScopedRepo = () => {
 		files: {
 			'src/keep.ts': 'export const keep = 1;\n',
 			'src/core/inner.ts': 'export const inner = 2;\n',
-			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, standardsPackages: [writeOwnPackage()] }),
+			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, 'standards-packages': [writeOwnPackage()] }),
 		},
 	});
 
@@ -356,8 +356,8 @@ const setupChannelRepo = ({ dependencies = {}, standardsChannels }: { dependenci
 			'src/alpha.ts': 'export const alpha = 1;\n',
 			'lightsout.config.json': JSON.stringify({
 				gates: { check: 'true', test: 'true', 'test-coverage': false },
-				standardsPackages: [writeChannelPackage()],
-				...(standardsChannels ? { standardsChannels } : {}),
+				'standards-packages': [writeChannelPackage()],
+				...(standardsChannels ? { 'standards-channels': standardsChannels } : {}),
 			}),
 		},
 	});

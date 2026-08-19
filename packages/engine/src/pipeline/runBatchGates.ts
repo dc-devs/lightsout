@@ -22,7 +22,7 @@ interface Params {
  */
 export const runBatchGates = async ({ cwd, config, coverage, runId, step, onProgress }: Params): Promise<string | undefined> => {
 	const changed = (await readGitChangedFiles({ cwd })) ?? [];
-	const packagesDir = config.packagesDir ?? defaultPackagesDir;
+	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 	const touched = [
 		...new Set(
 			changed.flatMap((file) => {

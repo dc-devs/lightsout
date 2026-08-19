@@ -13,7 +13,7 @@ import { runImplementPipeline } from '@/pipeline';
 const grant = 'pnpm --filter api run prisma:migrate:dev:name';
 
 test('agentCommands: grant section reaches the executor, driver gets allowedCommands, test writers stay ungranted', async () => {
-	const dir = setupConsumerRepo({ config: { agentCommands: [grant] } });
+	const dir = setupConsumerRepo({ config: { 'agent-commands': [grant] } });
 
 	const invocations: { role: string; systemPrompt?: string; allowedCommands?: string[] }[] = [];
 

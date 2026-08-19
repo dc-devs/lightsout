@@ -44,7 +44,7 @@ const parseEnvelope = ({ stdout }: { stdout: string }) => {
  * legitimate agent text about "rate limits" can never trip it. A false
  * negative degrades to a normal step failure.
  */
-const transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|529|overloaded/i;
+const transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|\b(?:status|error|code)\D{0,6}529\b|overloaded/i;
 
 /**
  * Driver for the Claude Code CLI in headless mode (`claude -p`).

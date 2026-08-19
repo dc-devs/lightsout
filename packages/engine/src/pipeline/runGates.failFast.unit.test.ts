@@ -53,7 +53,7 @@ test('failFast: false threads into scoped groups — every red gate in a package
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
 			gates: { check: 'true', test: 'true', 'test-coverage': false },
-			packageGates: {
+			'package-gates': {
 				check: `${red} {package} run gate:check`,
 				test: `${red} {package} run gate:test`,
 			},
@@ -94,7 +94,7 @@ test('a scoped skip surfaces through onGateResult as a skipped entry', async () 
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
 			gates: { check: 'echo root-check', test: 'echo root-test', 'test-coverage': false },
-			packageGates: {
+			'package-gates': {
 				check: `${gateLogCommand({ kind: 'check' })} {package} run gate:check`,
 				test: `${gateLogCommand({ kind: 'test' })} {package} run gate:test`,
 			},
