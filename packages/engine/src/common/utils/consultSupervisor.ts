@@ -1,9 +1,8 @@
 import { buildSupervisorInvocation } from '@/agents';
 import { type LightsoutConfig, Permissions, SupervisorVerdict } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { invokeAgentWithContract } from '@/invoke';
+import { type AgentOutcome, invokeAgentWithContract } from '@/invoke';
 
-const defaultSupervisorTimeoutMinutes = 15;
 const supervisorPermissions = Permissions.ReadOnly;
 
 interface Params {
@@ -26,7 +25,19 @@ interface Params {
  * supervisor diagnoses the failure and either grants one guided retry or
  * rules it a human problem. Callers own usage recording and the verdict.
  */
-export const consultSupervisor = async ({ driver, cwd, config, planContent, stepId, errorOutput, attempts, onEvent, onRejectedOutput }: Params) => {
+export const consultSupervisor = async ({
+	driver,
+	cwd,
+	config,
+	planContent,
+	stepId,
+	errorOutput,
+	attempts,
+	onEvent,
+	onRejectedOutput,
+}: Params): Promise<AgentOutcome<SupervisorVerdict>> => {
+	const defaultSupervisorTimeoutMinutes = 15;
+
 	return invokeAgentWithContract({
 		driver,
 		cwd,

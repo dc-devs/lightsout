@@ -1,12 +1,5 @@
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { z } from 'zod';
-
-const Manifest = z.object({
-	dependencies: z.record(z.string(), z.string()).optional(),
-	devDependencies: z.record(z.string(), z.string()).optional(),
-	peerDependencies: z.record(z.string(), z.string()).optional(),
-});
+import { getDependencyNames } from '@/common/utils/getDependencyNames';
 
 /** A channel activates when ANY scoped package depends on one of its signal packages. */
 const channelSignals: Record<string, string[]> = {
@@ -29,21 +22,13 @@ interface Params {
  * Unreadable manifests contribute nothing (the packages themselves fail
  * later, at gate time, with a better error).
  */
-export const detectStandardsChannels = async ({ cwd, packagesDir, packages }: Params) => {
+export const detectStandardsChannels = async ({ cwd, packagesDir, packages }: Params): Promise<string[]> => {
 	const manifestPaths = packages.length > 0 ? packages.map((name) => join(cwd, packagesDir, name, 'package.json')) : [join(cwd, 'package.json')];
 	const dependencies = new Set<string>();
 
-	for (const path of manifestPaths) {
-		try {
-			const parsed = Manifest.parse(JSON.parse(await readFile(path, 'utf8')));
-
-			for (const record of [parsed.dependencies, parsed.devDependencies, parsed.peerDependencies]) {
-				for (const name of Object.keys(record ?? {})) {
-					dependencies.add(name);
-				}
-			}
-		} catch {
-			// missing/invalid manifest — contributes no channels
+	for (const manifestPath of manifestPaths) {
+		for (const name of (await getDependencyNames({ manifestPath })) ?? []) {
+			dependencies.add(name);
 		}
 	}
 

@@ -12,6 +12,9 @@ const setupChild = async () => {
 	return { child, grandchildPid };
 };
 
+/** Two detached children at once — the arrangement for the shared-listener case. */
+const setupChildPair = async () => ({ first: await setupChild(), second: await setupChild() });
+
 const cleanup = ({ child, grandchildPid }: { child: ChildProcess; grandchildPid: number }) => {
 	for (const pid of [child.pid, grandchildPid]) {
 		try {
@@ -38,15 +41,17 @@ const alive = ({ pid }: { pid: number }) => {
 const listeners = () => ({ interrupt: process.listenerCount('SIGINT'), terminate: process.listenerCount('SIGTERM') });
 
 /**
- * A fresh copy of the module, so one test's shutdown does not latch the flag
- * the next test needs unset, plus the interrupt handler it installed and a
- * record of what it re-raises at the engine itself.
+ * A live child under a fresh copy of the module — fresh so one test's shutdown
+ * does not latch the flag the next test needs unset — plus the interrupt
+ * handler it installed and a record of what it re-raises at the engine itself.
  *
  * `process.kill` is stubbed for the engine's own pid only — a real one would
  * end the test run, which is the very thing the code under test is for. Signals
  * aimed at the children still go through, so what reaches them is real.
  */
-const setupRelay = async ({ child }: { child: ChildProcess }) => {
+const setupRelay = async () => {
+	const { child, grandchildPid } = await setupChild();
+
 	jest.resetModules();
 
 	const { relayShutdownSignals: fresh } = await import('@/common/utils/relayShutdownSignals');
@@ -69,7 +74,7 @@ const setupRelay = async ({ child }: { child: ChildProcess }) => {
 
 	const handler = process.listeners('SIGINT').find((listener) => !before.includes(listener)) as () => void;
 
-	return { handler, raised };
+	return { child, grandchildPid, handler, raised };
 };
 
 /** The handler cannot be awaited — Node calls it for its side effects — so settle on what it records. */
@@ -98,8 +103,7 @@ describe('relayShutdownSignals', () => {
 	});
 
 	test('shares one pair of listeners across every live child', async () => {
-		const first = await setupChild();
-		const second = await setupChild();
+		const { first, second } = await setupChildPair();
 		const before = listeners();
 
 		const stopFirst = relayShutdownSignals({ child: first.child });
@@ -134,8 +138,7 @@ describe('relayShutdownSignals', () => {
 	});
 
 	test('stops the children before re-raising, so nothing outlives the engine', async () => {
-		const { child, grandchildPid } = await setupChild();
-		const { handler, raised } = await setupRelay({ child });
+		const { child, grandchildPid, handler, raised } = await setupRelay();
 
 		handler();
 
@@ -148,8 +151,7 @@ describe('relayShutdownSignals', () => {
 	});
 
 	test('ignores a repeat interrupt instead of restarting the grace period', async () => {
-		const { child, grandchildPid } = await setupChild();
-		const { handler, raised } = await setupRelay({ child });
+		const { child, grandchildPid, handler, raised } = await setupRelay();
 
 		handler();
 		handler();

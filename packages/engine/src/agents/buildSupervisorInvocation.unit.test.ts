@@ -17,6 +17,17 @@ const setupConsultation = ({
 	attempts = 3,
 }: SetupParams = {}) => ({ planContent, stepId, errorOutput, attempts });
 
+/** Two consultations sharing no inputs — the arrangement for the invariance case. */
+const setupConsultationPair = () => ({
+	first: setupConsultation(),
+	other: setupConsultation({
+		planContent: '# Plan: something else entirely',
+		stepId: 'test:unit',
+		errorOutput: 'a different gate, a different failure',
+		attempts: 9,
+	}),
+});
+
 describe('buildSupervisorInvocation', () => {
 	test('the system prompt is the supervisor role prompt, carrying the verdict contract', () => {
 		const { systemPrompt } = buildSupervisorInvocation(setupConsultation());
@@ -28,19 +39,14 @@ describe('buildSupervisorInvocation', () => {
 	});
 
 	test('the system prompt is byte-identical across consultations, whatever the failure', () => {
-		const first = buildSupervisorInvocation(setupConsultation());
-		const later = buildSupervisorInvocation(
-			setupConsultation({
-				planContent: '# Plan: something else entirely',
-				stepId: 'test:unit',
-				errorOutput: 'a different gate, a different failure',
-				attempts: 9,
-			}),
-		);
+		const { first, other } = setupConsultationPair();
+
+		const firstPrompt = buildSupervisorInvocation(first).systemPrompt;
+		const otherPrompt = buildSupervisorInvocation(other).systemPrompt;
 
 		// only the user prompt varies between consultations, so the cached prefix
 		// holds
-		expect(first.systemPrompt).toBe(later.systemPrompt);
+		expect(firstPrompt).toBe(otherPrompt);
 	});
 
 	test('the user prompt is the failing step, the gate output, the plan, and the report reminder in that order', () => {

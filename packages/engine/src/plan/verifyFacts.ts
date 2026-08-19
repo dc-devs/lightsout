@@ -2,21 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AuthoredFacts, PathVerification } from '@/contracts';
 import { pathExists } from '@/plan/common/paths/pathExists';
+import { getManifestScriptKeys } from '@/plan/common/utils/getManifestScriptKeys';
 
 interface Params {
 	cwd: string;
 	facts: AuthoredFacts;
 }
-
-const scriptKeysOf = (raw: string): Set<string> => {
-	try {
-		const parsed = JSON.parse(raw) as { scripts?: Record<string, unknown> };
-
-		return new Set(parsed.scripts && typeof parsed.scripts === 'object' ? Object.keys(parsed.scripts) : []);
-	} catch {
-		return new Set();
-	}
-};
 
 /**
  * Deterministically re-check the session-authored facts' claims on disk — no
@@ -53,7 +44,7 @@ export const verifyFacts = async ({ cwd, facts }: Params): Promise<PathVerificat
 			const raw = await readFile(manifestPath, 'utf8').catch(() => undefined);
 
 			if (raw) {
-				for (const key of scriptKeysOf(raw)) {
+				for (const key of getManifestScriptKeys({ raw })) {
 					available.add(key);
 				}
 			}

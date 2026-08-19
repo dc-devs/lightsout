@@ -67,6 +67,23 @@ describe('no-any check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('numbers lines the way the compiler does, so an annotation below a bare carriage return is still reported', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/parsing/parseRecord.ts',
+					['/** Legacy note\rcarried over from the vendor drop */', 'export const parseRecord = ({ raw }: { raw: any }): string => String(raw);'].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ siteKey, detail }) => ({ siteKey, detail }))).toStrictEqual([
+			{ siteKey: 'no-any:src/parsing/parseRecord.ts', detail: '`any` at line 3' },
+		]);
+	});
+
 	test('leaves a file that narrows from `unknown` instead', async () => {
 		const input = setupSyntaxTreeInput({
 			sources: [['src/parsing/parseRecord.ts', 'export const parseRecord = ({ raw }: { raw: unknown }): string => String(raw);\n']],

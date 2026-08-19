@@ -1,7 +1,6 @@
 import { rename, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { RunManifest } from '@/contracts';
-import { getRunDir } from '@/runState/common/paths/getRunDir';
+import { getRunManifestPath } from '@/runState/common/paths/getRunManifestPath';
 
 interface Params {
 	cwd: string;
@@ -13,9 +12,9 @@ interface Params {
  * never leave a half-written manifest — the resume path depends on this file
  * always being valid JSON. Stamps `updatedAt`; returns the stamped manifest.
  */
-export const writeRunManifest = async ({ cwd, manifest }: Params) => {
+export const writeRunManifest = async ({ cwd, manifest }: Params): Promise<RunManifest> => {
 	const stamped: RunManifest = { ...manifest, updatedAt: new Date().toISOString() };
-	const manifestPath = join(getRunDir({ cwd, runId: manifest.runId }), 'manifest.json');
+	const manifestPath = getRunManifestPath({ cwd, runId: manifest.runId });
 	const tmpPath = `${manifestPath}.tmp`;
 
 	await writeFile(tmpPath, `${JSON.stringify(stamped, null, '\t')}\n`, 'utf8');

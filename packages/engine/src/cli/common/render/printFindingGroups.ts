@@ -9,10 +9,7 @@ interface Params {
 	findings: StandardsFinding[];
 }
 
-/** Widest a location column may grow before its row falls back to two lines. */
-const locationColumnCap = 52;
 const rowIndent = '    ';
-const detailIndent = '      ';
 
 const locationOf = ({ file }: { file: StandardsFinding['files'][number] }) => {
 	if (file.startLine === undefined) {
@@ -49,6 +46,9 @@ const headingOf = ({ rule, severity, count }: { rule: string; severity: Standard
  */
 export const printFindingGroups = ({ findings }: Params): void => {
 	const width = terminalWidth();
+	// Widest a location column may grow before its row falls back to two lines.
+	const locationColumnCap = 52;
+	const detailIndent = '      ';
 	// Keyed on severity as well as rule: `size` reports an oversized file as
 	// work and an oversized function as advice, and one heading cannot honestly
 	// count both. The heading's rule and severity come from the finding that

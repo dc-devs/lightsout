@@ -7,7 +7,7 @@ import { Effort } from '@/contracts';
 import type { Driver, DriverInvocation } from '@/drivers';
 import { runPromptImprovement } from '@/runPromptImprovement';
 
-const setupEngineRepo = () => {
+const writeEngineRepo = () => {
 	const dir = setupConsumerRepo({ git: false });
 
 	mkdirSync(join(dir, 'src/agents/prompts'), { recursive: true });
@@ -15,6 +15,9 @@ const setupEngineRepo = () => {
 
 	return dir;
 };
+
+/** The pair of repos the improver works between: the consumer whose runs recorded the friction, and the engine whose prompts it edits. */
+const setupRepos = () => ({ consumerCwd: setupConsumerRepo({ git: false }), engineCwd: writeEngineRepo() });
 
 /** One valid friction record, so the improver gets past its short-circuit and invokes the driver. */
 const seedFriction = ({ cwd }: { cwd: string }) => {
@@ -36,8 +39,7 @@ const recordingDriver = ({ invocations }: { invocations: DriverInvocation[] }): 
 });
 
 test('empty friction short-circuits without invoking the driver', async () => {
-	const consumerCwd = setupConsumerRepo({ git: false });
-	const engineCwd = setupEngineRepo();
+	const { consumerCwd, engineCwd } = setupRepos();
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async () => {
@@ -52,8 +54,7 @@ test('empty friction short-circuits without invoking the driver', async () => {
 });
 
 test('accumulated friction reaches the improver with kind, provenance, and prompt files', async () => {
-	const consumerCwd = setupConsumerRepo({ git: false });
-	const engineCwd = setupEngineRepo();
+	const { consumerCwd, engineCwd } = setupRepos();
 
 	mkdirSync(join(consumerCwd, '.lightsout'), { recursive: true });
 	writeFileSync(
@@ -84,8 +85,7 @@ test('accumulated friction reaches the improver with kind, provenance, and promp
 });
 
 test('the resolved model and effort ride the improver invocation at the write capability level', async () => {
-	const consumerCwd = setupConsumerRepo({ git: false });
-	const engineCwd = setupEngineRepo();
+	const { consumerCwd, engineCwd } = setupRepos();
 
 	seedFriction({ cwd: consumerCwd });
 
@@ -102,8 +102,7 @@ test('the resolved model and effort ride the improver invocation at the write ca
 });
 
 test('an unset effort reaches the driver undefined, while the write level still stands', async () => {
-	const consumerCwd = setupConsumerRepo({ git: false });
-	const engineCwd = setupEngineRepo();
+	const { consumerCwd, engineCwd } = setupRepos();
 
 	seedFriction({ cwd: consumerCwd });
 
@@ -120,8 +119,7 @@ test('an unset effort reaches the driver undefined, while the write level still 
 });
 
 test('only the markdown files in the prompts directory are offered as editable surface', async () => {
-	const consumerCwd = setupConsumerRepo({ git: false });
-	const engineCwd = setupEngineRepo();
+	const { consumerCwd, engineCwd } = setupRepos();
 
 	seedFriction({ cwd: consumerCwd });
 	writeFileSync(join(engineCwd, 'src/agents/prompts/scratch.txt'), 'not a role prompt\n');

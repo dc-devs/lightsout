@@ -127,6 +127,8 @@ By default, it checks the entire repository. Use --path to target a specific dir
 
 Before each batch, an agent also reads the judgment-only rules against that batch's files and hands its findings to the fixing agent as advice. Use --code-checks to skip that review and run against the deterministic checks alone — faster and cheaper when the findings are mechanical.
 
+A run normally demands a clean tree, so the ending diff is entirely the run's. Use --allow-dirty to accept uncommitted changes instead: they are recorded in the manifest as baseline and never attributed to a batch, which lets runs stack while you hold off committing. The pre-flight gates still have to pass either way.
+
 Verified changes remain in your worktree for review and commit, and the complete record is written to `.lightsout/runs/<id>/`.
 
 ```text

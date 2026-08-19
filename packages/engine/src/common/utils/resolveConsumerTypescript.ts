@@ -17,7 +17,7 @@ interface Params {
  * repo root first, then each workspace package (pnpm hoists nothing by
  * default, so the root often has no typescript while every package does).
  */
-export const resolveConsumerTypescript = ({ cwd, packagesDir = 'packages' }: Params) => {
+export const resolveConsumerTypescript = ({ cwd, packagesDir = 'packages' }: Params): typeof ts | undefined => {
 	// createRequire rejects relative paths outright (observed live with
 	// `--cwd .`: the whole AST tier silently degraded) — anchor first.
 	const root = resolve(cwd);
@@ -34,7 +34,12 @@ export const resolveConsumerTypescript = ({ cwd, packagesDir = 'packages' }: Par
 
 	for (const manifest of manifests) {
 		try {
-			return createRequire(manifest)('typescript') as typeof ts;
+			// A dynamic require is typed `any`; the annotation is what states the
+			// shape. The module either resolves as the compiler or throws, so
+			// there is no runtime shape left to narrow on.
+			const compiler: typeof ts = createRequire(manifest)('typescript');
+
+			return compiler;
 		} catch {}
 	}
 

@@ -14,7 +14,7 @@ const verbSynonyms: Record<string, string> = {
 };
 
 /** camelCase / kebab-case / snake_case → lowercase word tokens, synonyms collapsed. */
-const tokensOf = (name: string): string[] =>
+const getTokens = ({ name }: { name: string }) =>
 	name
 		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
 		.split(/[\s\-_.]+/)
@@ -32,12 +32,19 @@ interface Params {
  * word-order-normalized token string, so `fetchUserData`, `getUserData`, and
  * `userDataGet` collapse to one key. Conversion names are order-sensitive —
  * `hexToRgb` and `rgbToHex` are deliberate opposites, not one concept — so a
- * `to`/`from` token pins word order instead of sorting. Factored out of
- * `checkFilenameDuplicates` (its source of truth) so the standards check and
- * plan-time prior-art detection compare names identically.
+ * `to`/`from` token pins word order instead of sorting.
+ *
+ * A deliberate mirror of `getNameKey` in the default standards package, kept
+ * identical so plan-time prior-art detection and the `name-synonym` rule never
+ * disagree about whether two names are one concept. Neither copy can import
+ * the other: a standards package ships as a bare directory beside the engine,
+ * with no manifest and no `node_modules`, so every value it imports has to
+ * resolve inside its own tree — and the engine runs against whatever package
+ * `standardsPackages` names, so it cannot reach into the default one. Change
+ * one, change the other.
  */
 export const nameKey = ({ name }: Params): string => {
-	const tokens = tokensOf(name);
+	const tokens = getTokens({ name });
 
 	return tokens.includes('to') || tokens.includes('from') ? tokens.join(' ') : [...tokens].sort().join(' ');
 };

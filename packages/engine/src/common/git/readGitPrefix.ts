@@ -1,6 +1,5 @@
+import { gitTimeoutMs } from '@/common/constants/gitTimeoutMs';
 import { runCommand } from '@/common/utils/runCommand';
-
-const gitTimeoutMs = 60_000;
 
 interface Params {
 	cwd: string;
@@ -13,7 +12,7 @@ interface Params {
  * changed-file truths can diverge — git paths need the prefix stripped, and
  * agents sometimes echo repo-root-relative paths in their reports.
  */
-export const readGitPrefix = async ({ cwd }: Params) => {
+export const readGitPrefix = async ({ cwd }: Params): Promise<string | undefined> => {
 	const prefix = await runCommand({ command: 'git rev-parse --show-prefix', cwd, timeoutMs: gitTimeoutMs }).catch(() => undefined);
 
 	return prefix && prefix.exitCode === 0 ? prefix.stdout.trim() : undefined;

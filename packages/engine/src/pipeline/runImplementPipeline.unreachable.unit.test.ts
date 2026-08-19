@@ -65,8 +65,8 @@ const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams
 
 			mkdirSync(join(dir, 'src/feature'), { recursive: true });
 			writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
-			writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = () => 1;\n');
-			writeFileSync(join(dir, 'src/feature/orphan.ts'), 'export const orphan = () => 2;\n');
+			writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
+			writeFileSync(join(dir, 'src/feature/orphan.ts'), 'export const orphan = (): number => 2;\n');
 
 			return {
 				text: report({

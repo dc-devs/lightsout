@@ -3,10 +3,6 @@ import { join, relative } from 'node:path';
 
 const skippedDirs = new Set(['node_modules', 'dist', 'build', 'coverage', 'out']);
 const sourceExtension = /\.(m|c)?[jt]sx?$/;
-/** The file whose presence declares a folder a standards package root. */
-const standardsPackageRootFile = 'lightsout-standards.json';
-/** Inside such a package, the folder holding a rule's pass/fail samples. */
-const fixturesDir = 'fixtures';
 
 interface Params {
 	cwd: string;
@@ -39,6 +35,10 @@ interface Params {
 export const listSourceFiles = async ({ cwd, exclude = [] }: Params): Promise<{ files: string[]; standardsPackages: string[] }> => {
 	const files: string[] = [];
 	const standardsPackages: string[] = [];
+	// The file whose presence declares a folder a standards package root.
+	const standardsPackageRootFile = 'lightsout-standards.json';
+	// Inside such a package, the folder holding a rule's pass/fail samples.
+	const fixturesDir = 'fixtures';
 
 	const walk = async (dir: string, insideStandardsPackage: boolean) => {
 		const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);

@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { RunManifest } from '@/contracts';
+import type { RunManifest, RunStatus, RunUsage } from '@/contracts';
 import { getRunDir } from '@/runState/common/paths/getRunDir';
 import { readJsonlRecords } from '@/runState/common/utils/readJsonlRecords';
 import { readFriction } from '@/runState/readFriction';
@@ -18,6 +18,32 @@ const CommandRecord = z.object({
 	skipped: z.literal(true).optional(),
 });
 
+interface StepSummary {
+	id: string;
+	status: RunStatus;
+	attempts: number;
+	durationMs: number | undefined;
+	changedFiles: string[] | undefined;
+	invocations: number;
+	outputTokens: number;
+	costUsd: number;
+}
+
+interface RunSummary {
+	wallMs: number;
+	/** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
+	activeMs: number;
+	gateMs: number;
+	usage: RunUsage | undefined;
+	/** Share of all input the model read from cache — the run's cost-efficiency dial. */
+	cacheReadShare: number | undefined;
+	steps: StepSummary[];
+	gates: { commands: number; reruns: number; skipped: number };
+	/** Final messages that failed their contract and cost a re-emit retry. */
+	rejectedReports: number;
+	frictionByArea: { area: string; count: number }[];
+}
+
 interface Params {
 	cwd: string;
 	manifest: RunManifest;
@@ -32,11 +58,11 @@ interface Params {
  * view, never a second source of truth. Supervisor invocations are
  * attributed to the step they supervised.
  */
-export const summarizeRun = async ({ cwd, manifest }: Params) => {
+export const summarizeRun = async ({ cwd, manifest }: Params): Promise<RunSummary> => {
 	const runDir = getRunDir({ cwd, runId: manifest.runId });
 	const ledger = await readJsonlRecords({ path: join(runDir, 'agents.jsonl'), schema: LedgerRecord });
 	const commands = await readJsonlRecords({ path: join(runDir, 'commands.jsonl'), schema: CommandRecord });
-	const agentFiles = await readdir(join(runDir, 'agents')).catch(() => [] as string[]);
+	const agentFiles: string[] = await readdir(join(runDir, 'agents')).catch(() => []);
 	const friction = (await readFriction({ cwd })).filter((entry) => entry.runId === manifest.runId);
 
 	const perStepUsage = new Map<string, { invocations: number; outputTokens: number; costUsd: number }>();
@@ -62,11 +88,9 @@ export const summarizeRun = async ({ cwd, manifest }: Params) => {
 
 	return {
 		wallMs: Math.max(0, Date.parse(manifest.updatedAt) - Date.parse(manifest.createdAt)),
-		/** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
 		activeMs: manifest.steps.reduce((total, step) => total + (step.durationMs ?? 0), 0),
 		gateMs: commands.reduce((total, command) => total + (command.durationMs ?? 0), 0),
 		usage,
-		/** Share of all input the model read from cache — the run's cost-efficiency dial. */
 		cacheReadShare: usage && readableInput > 0 ? usage.cacheReadTokens / readableInput : undefined,
 		steps: manifest.steps.map((step) => ({
 			id: step.id,
@@ -81,7 +105,6 @@ export const summarizeRun = async ({ cwd, manifest }: Params) => {
 			reruns: commands.filter((command) => command.rerun).length,
 			skipped: commands.filter((command) => command.skipped).length,
 		},
-		/** Final messages that failed their contract and cost a re-emit retry. */
 		rejectedReports: agentFiles.filter((name) => name.startsWith('rejected-')).length,
 		frictionByArea: [...frictionByArea.entries()].map(([area, count]) => ({ area, count })),
 	};

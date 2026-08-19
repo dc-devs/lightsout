@@ -6,10 +6,10 @@ import type { StandardsHealth } from '@/standardsCheck/common/types/StandardsHea
 import type { StandardsHealthRule } from '@/standardsCheck/common/types/StandardsHealthRule';
 import type { LoadedStandardsPackage } from '@/standardsPackages';
 
-/** The running counts for one rule, before its coverage half is attached. */
-const emptyTally = () => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] as string[] });
+/** The running counts for one rule: every field of its report row except the ones the rule itself supplies. */
+type Tally = Omit<StandardsHealthRule, 'id' | 'set' | 'documentPath' | 'checked'>;
 
-type Tally = ReturnType<typeof emptyTally>;
+const emptyTally = (): Tally => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
 
 const tallyFor = ({ tallies, rule }: { tallies: Map<string, Tally>; rule: string }) => {
 	const existing = tallies.get(rule);

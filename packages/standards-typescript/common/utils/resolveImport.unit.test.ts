@@ -156,4 +156,27 @@ describe('resolveImport', () => {
 			expect(target).toStrictEqual({ kind: 'external' });
 		},
 	);
+
+	test('resolves an alias pattern that carries no wildcard, which TypeScript matches exactly', () => {
+		const { from, files, aliases } = setupScope({
+			paths: ['packages/engine/src/app.ts'],
+			patterns: [
+				['@app', ['./src/app.ts']],
+				['@/*', ['./src/*']],
+			],
+		});
+
+		const target = resolveImport({ from, specifier: '@app', files, aliases });
+
+		expect(target).toStrictEqual({ kind: 'file', path: 'packages/engine/src/app.ts' });
+	});
+
+	test('a wildcard-free pattern claims its own spelling only, not a longer specifier that starts with it', () => {
+		// matched as a prefix instead, @appearance would resolve to the file @app names
+		const { from, files, aliases } = setupScope({ paths: ['packages/engine/src/app.ts'], patterns: [['@app', ['./src/app.ts']]] });
+
+		const target = resolveImport({ from, specifier: '@appearance', files, aliases });
+
+		expect(target).toStrictEqual({ kind: 'unknown' });
+	});
 });

@@ -1,6 +1,7 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
 import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
+import { getTestSubjectName } from '../../../common/utils/getTestSubjectName.ts';
 import { readCallBlocks } from '../../../common/utils/readCallBlocks.ts';
 import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
 
@@ -11,7 +12,13 @@ const setupCall = /\bsetup[A-Za-z0-9_$]*\s*\(/g;
 // factory, so this is a prompt to look rather than a violation — which is why
 // the rule is advisory and says so in its guidance.
 const multipleSetupsFindings = ({ file, text }: { file: string; text: string }) => {
-	const overArranged = readCallBlocks({ text, callees: ['test', 'it'] }).filter((block) => [...block.body.matchAll(setupCall)].length > 1);
+	// In a setup factory's own test file, calling the subject is the ACT, not
+	// arrangement — counting it forced honest tests of setupX into contortions
+	// (live lesson: run 6b0b3e0f's batch rationale).
+	const subject = getTestSubjectName({ test: file });
+	const arrangementCalls = (body: string) =>
+		[...body.matchAll(setupCall)].filter((match) => !match[0].startsWith(`${subject}(`) && !match[0].startsWith(`${subject} (`));
+	const overArranged = readCallBlocks({ text, callees: ['test', 'it'] }).filter((block) => arrangementCalls(block.body).length > 1);
 
 	return overArranged.length === 0
 		? []

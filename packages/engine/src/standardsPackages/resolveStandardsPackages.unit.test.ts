@@ -8,14 +8,16 @@ import { resolveStandardsPackages } from '@/standardsPackages';
 
 const baseConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-/** A temp consumer repo — relative package roots resolve against it. */
-const setupRepo = () => ({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-resolve-packages-')) });
+interface PackageSpec {
+	/** Repo-relative folder the package is written under. */
+	at: string;
+	name: string;
+	/** The id the package claims, so two packages can be made to collide. */
+	ruleId: string;
+}
 
-/**
- * A one-rule standards package written under `at`, absolute or repo-relative.
- * `ruleId` is what the package claims, so two packages can be made to collide.
- */
-const setupPackage = ({ cwd, at, name, ruleId }: { cwd: string; at: string; name: string; ruleId: string }) => {
+/** A one-rule standards package written under `at`. */
+const writePackage = ({ cwd, at, name, ruleId }: PackageSpec & { cwd: string }) => {
 	const packagePath = join(cwd, at);
 	const rulePath = `code/demo/01-${ruleId}`;
 	const files: Record<string, string> = {
@@ -32,8 +34,17 @@ const setupPackage = ({ cwd, at, name, ruleId }: { cwd: string; at: string; name
 		mkdirSync(dirname(absolutePath), { recursive: true });
 		writeFileSync(absolutePath, content);
 	}
+};
 
-	return { packagePath };
+/** A temp consumer repo holding the given packages — relative package roots resolve against it. */
+const setupRepo = ({ packages = [] }: { packages?: PackageSpec[] } = {}) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-resolve-packages-'));
+
+	for (const spec of packages) {
+		writePackage({ cwd, ...spec });
+	}
+
+	return { cwd };
 };
 
 describe('resolveStandardsPackages', () => {
@@ -73,27 +84,30 @@ describe('resolveStandardsPackages', () => {
 	});
 
 	test('loads exactly the declared roots, in config order, resolving relative ones against the repo', async () => {
-		const { cwd } = setupRepo();
-
-		setupPackage({ cwd, at: 'standards/house', name: 'house', ruleId: 'house-rule' });
-
-		const { packagePath } = setupPackage({ cwd, at: 'standards/team', name: 'team', ruleId: 'team-rule' });
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', packagePath] };
+		const { cwd } = setupRepo({
+			packages: [
+				{ at: 'standards/house', name: 'house', ruleId: 'house-rule' },
+				{ at: 'standards/team', name: 'team', ruleId: 'team-rule' },
+			],
+		});
+		const teamPath = join(cwd, 'standards/team');
+		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', teamPath] };
 
 		const loaded = await resolveStandardsPackages({ cwd, config });
 
 		// the bundled default is replaced, not stacked under, what the config lists
 		expect(loaded.map((pkg) => pkg.name)).toStrictEqual(['house', 'team']);
 		// an absolute entry is taken as written
-		expect(loaded[1]?.rootPath).toBe(packagePath);
+		expect(loaded[1]?.rootPath).toBe(teamPath);
 	});
 
 	test('two packages claiming one rule id are refused, with both packages named', async () => {
-		const { cwd } = setupRepo();
-
-		setupPackage({ cwd, at: 'standards/house', name: 'house', ruleId: 'shared-rule' });
-		setupPackage({ cwd, at: 'standards/team', name: 'team', ruleId: 'shared-rule' });
-
+		const { cwd } = setupRepo({
+			packages: [
+				{ at: 'standards/house', name: 'house', ruleId: 'shared-rule' },
+				{ at: 'standards/team', name: 'team', ruleId: 'shared-rule' },
+			],
+		});
 		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', 'standards/team'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
@@ -126,9 +140,8 @@ describe('resolveStandardsPackages', () => {
 	});
 
 	test('a package that fails its own load stops the run even when every other root is sound', async () => {
-		const { cwd } = setupRepo();
+		const { cwd } = setupRepo({ packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule' }] });
 
-		setupPackage({ cwd, at: 'standards/house', name: 'house', ruleId: 'house-rule' });
 		mkdirSync(join(cwd, 'standards/empty'), { recursive: true });
 		writeFileSync(join(cwd, 'standards/empty', 'lightsout-standards.json'), '{ "name": "empty", "formatVersion": 1 }\n');
 

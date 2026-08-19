@@ -30,6 +30,12 @@ interface Params {
  * out. A package sorts its rules into two sets, `code` and `tests`, and the
  * second is a set name rather than a directory of tests: every `check.ts`
  * beneath it is ordinary source. Its own tests still say so in their names.
+ *
+ * That agreement is why this is a deliberate mirror of the engine's
+ * `isTestFile` rather than a shared function. The copy cannot be collapsed:
+ * this package ships as a bare directory with no manifest and no
+ * `node_modules`, so every value it imports has to resolve inside its own
+ * tree. Change one, change the other.
  */
 export const isTestFile = ({ path, standardsPackages = [] }: Params): boolean => {
 	const inStandardsPackage = standardsPackages.some((root) => path.startsWith(`${root}/`));

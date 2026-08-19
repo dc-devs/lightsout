@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { CommandResult } from '@/common/types/CommandResult';
 import { collectChildOutput } from '@/common/utils/collectChildOutput';
 
 interface Params {
@@ -14,7 +15,7 @@ interface Params {
  * sweet-talk. Rejects only on spawn failure or timeout; a non-zero exit is a
  * result, not an exception (the engine owns what failure means).
  */
-export const runCommand = ({ command, cwd, timeoutMs }: Params) => {
+export const runCommand = ({ command, cwd, timeoutMs }: Params): Promise<CommandResult> => {
 	// `env` is passed explicitly rather than left to ambient inheritance. In
 	// production this is identical — the child inherited exactly these values
 	// anyway — but it makes the environment a visible input, which is what lets

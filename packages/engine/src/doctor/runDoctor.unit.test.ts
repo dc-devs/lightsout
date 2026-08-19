@@ -105,7 +105,7 @@ test('doctor names a package that skips a scoped gate, so intent and typo stay d
 	// skips are a decision to surface, not a defect to nag about
 	expect(checks.get('scoped-gates')?.status).toBe('note');
 	expect(checks.get('scoped-gates')?.detail ?? '').toMatch(/infra \(check, test:unit\)/);
-	expect(checks.get('scoped-gates')?.detail ?? '').toMatch(/typo'd script name looks identical/);
+	expect(checks.get('scoped-gates')?.detail ?? '').toContain("a typo'd script name looks identical");
 });
 
 test('doctor treats only manifest-bearing, non-dot directories as packages', async () => {

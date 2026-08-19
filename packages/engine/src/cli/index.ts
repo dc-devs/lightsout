@@ -2,6 +2,7 @@ export { getStringFlag } from '@/cli/common/args/getStringFlag';
 export { parseFlags } from '@/cli/common/args/parseFlags';
 export { usage } from '@/cli/common/constants/usage';
 export type { CommandContext } from '@/cli/common/types/CommandContext';
+export { exitCli } from '@/cli/common/utils/exitCli';
 export { doctorCommand } from '@/cli/doctorCommand';
 export { frictionCommand } from '@/cli/frictionCommand';
 export { implementCommand } from '@/cli/implementCommand';

@@ -40,7 +40,7 @@ const behavioralFiles = {
 	// enum has runtime code
 	'src/Status.ts': 'export enum Status {\n\tOpen,\n\tClosed,\n}\n',
 	// function
-	'src/add.ts': 'export const add = (a: number, b: number) => a + b;\n',
+	'src/add.ts': 'export const add = (a: number, b: number): number => a + b;\n',
 	// export-default value
 	'src/main.ts': 'export default 42;\n',
 	// a value + a type in one file — behavioral because the value statement is
@@ -164,7 +164,7 @@ test('write-tests fan-out: a deleted source file is skipped, never sent to a wri
 			// Implement: delete the committed source file (a pure removal, as a
 			// capability-removal plan does) and add one behavioral file.
 			rmSync(join(dir, 'src/index.js'));
-			writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number) => a + b;\n');
+			writeFileSync(join(dir, 'src/add.ts'), 'export const add = (a: number, b: number): number => a + b;\n');
 
 			return {
 				text: report({

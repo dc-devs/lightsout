@@ -24,6 +24,7 @@ interface RunRefactorPipelineParams {
 	all?: boolean;
 	maxBatches?: number;
 	agentReview?: boolean;
+	allowDirty?: boolean;
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
 }
@@ -100,7 +101,7 @@ describe('refactorCommand', () => {
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(pipelineParams()).toEqual(expect.objectContaining({ path: undefined, all: false, maxBatches: undefined, agentReview: true }));
+		expect(pipelineParams()).toEqual(expect.objectContaining({ path: undefined, all: false, maxBatches: undefined, agentReview: true, allowDirty: false }));
 		expect(logged[0]).toBe('lightsout: refactor starting run');
 	});
 
@@ -110,6 +111,14 @@ describe('refactorCommand', () => {
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(pipelineParams()).toEqual(expect.objectContaining({ agentReview: false }));
+	});
+
+	test('--allow-dirty accepts the standing tree as baseline; without it a run demands a clean tree', async () => {
+		const { context } = setupRefactor({ args: ['--allow-dirty'] });
+
+		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(pipelineParams()).toEqual(expect.objectContaining({ allowDirty: true }));
 	});
 
 	test('the resolved harness rides into the config the pipeline runs with', async () => {
@@ -131,7 +140,7 @@ describe('refactorCommand', () => {
 	});
 
 	test('a parked run exits 1 — the work is unfinished, whatever it managed along the way', async () => {
-		const { context, exitCodes } = setupRefactor({ result: { ok: false, error: 'run parked: harness rate limit reached' } });
+		const { context, exitCodes } = setupRefactor({ result: { ok: false, error: 'run parked: harness rate limited or overloaded' } });
 
 		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
 

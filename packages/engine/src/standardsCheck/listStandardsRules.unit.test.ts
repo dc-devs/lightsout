@@ -74,8 +74,14 @@ const docPartsOf = ({ doc }: { doc: string }) => {
 	return { name: name ?? '', path: path ?? '' };
 };
 
-/** A temp consumer repo — the listing reads exactly the packages its config declares. */
-const setupRepo = () => ({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-list-rules-')) });
+interface PackageSpec {
+	/** Repo-relative folder the package is written under. */
+	at: string;
+	name: string;
+	ruleId: string;
+	severity?: typeof StandardsSeverity.Blocking | typeof StandardsSeverity.Advisory;
+	settings?: Record<string, number>;
+}
 
 /**
  * A judgment-only standards package written under `at`, holding one rule that
@@ -83,21 +89,7 @@ const setupRepo = () => ({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-list-rules
  * so a row read back off it proves the listing carries the package author's own
  * words rather than the defaults.
  */
-const setupPackage = ({
-	cwd,
-	at,
-	name,
-	ruleId,
-	severity = StandardsSeverity.Advisory,
-	settings = {},
-}: {
-	cwd: string;
-	at: string;
-	name: string;
-	ruleId: string;
-	severity?: typeof StandardsSeverity.Blocking | typeof StandardsSeverity.Advisory;
-	settings?: Record<string, number>;
-}) => {
+const writePackage = ({ cwd, at, name, ruleId, severity = StandardsSeverity.Advisory, settings = {} }: PackageSpec & { cwd: string }) => {
 	const packagePath = join(cwd, at);
 	const rulePath = `code/demo/01-${ruleId}`;
 	const settingLines = Object.entries(settings).map(([key, value]) => `  ${key}: ${value}`);
@@ -116,8 +108,17 @@ const setupPackage = ({
 		mkdirSync(dirname(absolutePath), { recursive: true });
 		writeFileSync(absolutePath, content);
 	}
+};
 
-	return { packagePath };
+/** A temp consumer repo holding the given packages — the listing reads exactly the packages its config declares. */
+const setupRepo = ({ packages = [] }: { packages?: PackageSpec[] } = {}) => {
+	const repoCwd = mkdtempSync(join(tmpdir(), 'lightsout-list-rules-'));
+
+	for (const spec of packages) {
+		writePackage({ cwd: repoCwd, ...spec });
+	}
+
+	return { cwd: repoCwd };
 };
 
 describe('listStandardsRules', () => {
@@ -229,10 +230,12 @@ describe('listStandardsRules', () => {
 		const rules = await listStandardsRules({ cwd });
 		const severities = Object.fromEntries(rules.filter((rule) => durablePathRules.includes(rule.rule)).map((rule) => [rule.rule, rule.severity]));
 
-		// six blocking and three advisory, from day one. The blocking six are each a
-		// file move or a rename against a closed list from a doc; the advisory three
-		// rest on judgment the rule can only approximate, or offer the repo more
-		// than one legitimate remedy
+		// seven blocking and two advisory. The blocking rules are each a file move,
+		// a rename against a closed list from a doc, or a barrel promotion with one
+		// prescribed remedy — untested-subject-not-public graduated to blocking
+		// after its burn-down proved agents apply that remedy cleanly. The advisory
+		// two rest on judgment the rule can only approximate, or offer the repo
+		// more than one legitimate remedy
 		expect(severities).toStrictEqual({
 			'path-banned-module-name': StandardsSeverity.Blocking,
 			'path-common-flat': StandardsSeverity.Blocking,
@@ -240,7 +243,7 @@ describe('listStandardsRules', () => {
 			'path-test-in-tests-folder': StandardsSeverity.Blocking,
 			'path-test-not-colocated': StandardsSeverity.Blocking,
 			'path-test-support-in-src': StandardsSeverity.Blocking,
-			'path-test-untested-subject-not-public': StandardsSeverity.Advisory,
+			'path-test-untested-subject-not-public': StandardsSeverity.Blocking,
 			'path-folder-casing': StandardsSeverity.Advisory,
 			'path-domain-folder-single-file': StandardsSeverity.Advisory,
 		});
@@ -296,9 +299,9 @@ describe('listStandardsRules', () => {
 	});
 
 	test('a row restates what the package author declared, down to the numbers', async () => {
-		const { cwd: repo } = setupRepo();
-
-		setupPackage({ cwd: repo, at: 'standards/house', name: 'house', ruleId: 'house-rule', severity: StandardsSeverity.Blocking, settings: { maxLines: 40 } });
+		const { cwd: repo } = setupRepo({
+			packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule', severity: StandardsSeverity.Blocking, settings: { maxLines: 40 } }],
+		});
 
 		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: ['standards/house'] }) });
 
@@ -318,10 +321,12 @@ describe('listStandardsRules', () => {
 	});
 
 	test('rules from several packages are one ledger sorted by id, each row naming the package it came from', async () => {
-		const { cwd: repo } = setupRepo();
-
-		setupPackage({ cwd: repo, at: 'standards/house', name: 'house', ruleId: 'zebra-rule' });
-		setupPackage({ cwd: repo, at: 'standards/team', name: 'team', ruleId: 'aardvark-rule' });
+		const { cwd: repo } = setupRepo({
+			packages: [
+				{ at: 'standards/house', name: 'house', ruleId: 'zebra-rule' },
+				{ at: 'standards/team', name: 'team', ruleId: 'aardvark-rule' },
+			],
+		});
 
 		const rules = await listStandardsRules({
 			cwd: repo,
@@ -343,9 +348,7 @@ describe('listStandardsRules', () => {
 	});
 
 	test('a declared package that cannot load refuses the listing instead of printing a shorter one', async () => {
-		const { cwd: repo } = setupRepo();
-
-		setupPackage({ cwd: repo, at: 'standards/house', name: 'house', ruleId: 'house-rule' });
+		const { cwd: repo } = setupRepo({ packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule' }] });
 
 		const error = await getRejectionError({
 			promise: listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, standardsPackages: ['standards/house', 'standards/ghost'] }) }),

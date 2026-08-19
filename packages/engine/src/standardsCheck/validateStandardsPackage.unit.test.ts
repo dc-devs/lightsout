@@ -40,6 +40,12 @@ const setupFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) => {
 /** A rule folder that ships no fixtures at all — the directory is never created. */
 const setupWithoutFixtures = () => ({ fixturesPath: join(mkdtempSync(join(tmpdir(), 'lightsout-validate-')), 'fixtures') });
 
+/** A fixture pair for each of two rules: one whose check catches what its rule describes, one whose check catches nothing. */
+const setupTwoRuleFixtures = () => ({
+	catching: setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] }).fixturesPath,
+	blind: setupFixtures({ pass: ['allowed.ts'], fail: ['also-allowed.ts'] }).fixturesPath,
+});
+
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPath: string }): LoadedStandardsRule => ({
 	set: 'code',
 	documentPath: 'code/style-guide/structure/module-api',
@@ -160,13 +166,12 @@ describe('validateStandardsPackage', () => {
 	});
 
 	test('validates every rule in the package, whatever channel it sits on', async () => {
-		const first = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
-		const second = setupFixtures({ pass: ['allowed.ts'], fail: ['also-allowed.ts'] });
+		const { catching, blind } = setupTwoRuleFixtures();
 
 		const { problems } = await validate({
 			rules: [
-				rule({ id: 'base-rule', fixturesPath: first.fixturesPath, inputKind: StandardsInputKind.FileList, run: bansTheBannedFile }),
-				rule({ id: 'react-rule', channel: 'react', fixturesPath: second.fixturesPath, inputKind: StandardsInputKind.FileList, run: bansTheBannedFile }),
+				rule({ id: 'base-rule', fixturesPath: catching, inputKind: StandardsInputKind.FileList, run: bansTheBannedFile }),
+				rule({ id: 'react-rule', channel: 'react', fixturesPath: blind, inputKind: StandardsInputKind.FileList, run: bansTheBannedFile }),
 			],
 		});
 

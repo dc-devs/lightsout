@@ -36,6 +36,16 @@ interface Params {
  * into two sets, `code` and `tests`, and the second is a set name, not a
  * directory of tests: every `check.ts` beneath it is engine code the rules
  * apply to. Its own tests are still tests — they say so in their filenames.
+ *
+ * A deliberate mirror of the default standards package's `isTestFile`, kept
+ * identical because the two have to agree: the engine splits a file list into
+ * `source` and `tests` with this copy, and the rules that count references
+ * re-ask the same question with theirs. Neither copy can import the other — a
+ * standards package ships as a bare directory beside the engine, with no
+ * manifest and no `node_modules`, so every value it imports has to resolve
+ * inside its own tree, and the engine runs against whatever package
+ * `standardsPackages` names rather than the default one. Change one, change
+ * the other.
  */
 export const isTestFile = ({ path, standardsPackages = [] }: Params): boolean => {
 	const inStandardsPackage = standardsPackages.some((root) => path.startsWith(`${root}/`));

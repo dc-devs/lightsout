@@ -103,6 +103,17 @@ describe('initializeCoverageRun', () => {
 		expect(error.message).toContain('src/uncommitted.js');
 	});
 
+	test('allowDirty records the standing dirt as baseline instead of refusing the run', async () => {
+		const cwd = setupMeasurable();
+
+		writeFileSync(join(cwd, 'src/uncommitted.js'), 'export const later = 1;\n');
+
+		const { manifest } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }), allowDirty: true });
+
+		// frozen into the manifest, so batch attribution can never claim it
+		expect(manifest.baselineDirtyFiles).toStrictEqual(['src/uncommitted.js']);
+	});
+
 	test('a fresh run freezes the initial measurement and stamps the manifest as this pipeline', async () => {
 		const cwd = setupMeasurable();
 

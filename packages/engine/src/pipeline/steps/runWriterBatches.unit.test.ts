@@ -24,7 +24,7 @@ type Outcome = { ok: true; report: WorkReport } | { ok: false; failure: string; 
 const answered = (report: WorkReport): Outcome => ({ ok: true, report });
 
 /** A writer that parked on the harness rate limit. */
-const rateLimitedOutcome = (): Outcome => ({ ok: false, failure: 'harness rate limit reached', rateLimited: true });
+const rateLimitedOutcome = (): Outcome => ({ ok: false, failure: 'harness rate limited or overloaded', rateLimited: true });
 
 /**
  * A PipelineRun stub that records an ordered event log: `start:<file>` when a

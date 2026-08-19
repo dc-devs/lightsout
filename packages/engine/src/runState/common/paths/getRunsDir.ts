@@ -5,6 +5,6 @@ interface Params {
 }
 
 /** Every run's state gathers in one place: `<repo>/.lightsout/runs`. */
-export const getRunsDir = ({ cwd }: Params) => {
+export const getRunsDir = ({ cwd }: Params): string => {
 	return join(cwd, '.lightsout', 'runs');
 };

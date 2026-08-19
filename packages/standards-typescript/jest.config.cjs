@@ -9,21 +9,14 @@ const createJestConfig = require('../../tooling/jest/createJestConfig.cjs');
 // entirely, so the duplicate-collection hazard the single root config had to warn
 // about cannot arise here.
 //
-// No coverage threshold yet, deliberately.
-//
-// Until this became a package of its own, its tests ran inside the engine's
-// suite and its coverage was collected and then thrown away — so nothing in the
-// repo had ever measured it. Measured now, over every check and helper rather
-// than only the files a test imports: 84 statements, 90 branches, 82 functions,
-// 84 lines. Roughly a third of the checks ship no unit test of their own.
-//
-// Writing 95 here would leave the gate red on arrival; writing 84 would be a
-// debt baseline, which this repo does not do. So the number is printed on every
-// run and gated by nothing, until someone raises it to 95 as its own piece of
-// work. `lightsout test-coverage-to-threshold` is built for exactly that.
+// The 95% threshold arrived as its own piece of work, exactly as the note that
+// used to live here promised: the package started at ~84% with a third of its
+// checks untested, and `lightsout test-coverage-to-threshold` was pointed at
+// the gap rather than a human writing the tests by hand.
 module.exports = createJestConfig({
 	rootDir: __dirname,
 	testMatch: ['<rootDir>/**/*.unit.test.ts'],
+	coverageThreshold: { global: { statements: 95, branches: 95, functions: 95, lines: 95 } },
 	// Measure every check and every shared helper, not just the ones a test
 	// happens to import — a rule whose check has no test at all should score zero
 	// and drag the number down, which is the gap this gate exists to catch.

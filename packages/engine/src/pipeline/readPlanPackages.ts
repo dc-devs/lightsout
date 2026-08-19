@@ -2,6 +2,25 @@ interface Params {
 	planContent: string;
 }
 
+const unquote = (value: string) => value.trim().replace(/^['"]|['"]$/g, '');
+
+/** Consecutive `- item` lines directly under the key, stopping at the first line that is not one. */
+const collectBlockItems = ({ lines, keyIndex }: { lines: string[]; keyIndex: number }) => {
+	const items: string[] = [];
+
+	for (let index = keyIndex + 1; index < lines.length; index += 1) {
+		const entry = lines[index]?.trim().match(/^-\s+(.+)$/);
+
+		if (!entry?.[1]) {
+			break;
+		}
+
+		items.push(unquote(entry[1]));
+	}
+
+	return items;
+};
+
 /**
  * Read the `packages:` list from a plan's YAML front-matter — the plan is
  * where scope knowledge lives, so `/implement plan.md` needs nothing else.
@@ -10,7 +29,7 @@ interface Params {
  * undefined when there is no front-matter, no `packages:` key, or an empty
  * list — the caller decides whether missing scope is an error.
  */
-export const readPlanPackages = ({ planContent }: Params) => {
+export const readPlanPackages = ({ planContent }: Params): string[] | undefined => {
 	const frontMatter = planContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
 
 	if (!frontMatter) {
@@ -25,26 +44,8 @@ export const readPlanPackages = ({ planContent }: Params) => {
 		return undefined;
 	}
 
-	const unquote = (value: string) => value.trim().replace(/^['"]|['"]$/g, '');
 	const inline = keyLine.match(/^packages:\s*\[(.*)\]\s*$/);
-
-	if (inline?.[1] !== undefined) {
-		const items = inline[1].split(',').map(unquote).filter(Boolean);
-
-		return items.length > 0 ? items : undefined;
-	}
-
-	const items: string[] = [];
-
-	for (let index = keyIndex + 1; index < lines.length; index += 1) {
-		const entry = lines[index]?.trim().match(/^-\s+(.+)$/);
-
-		if (!entry?.[1]) {
-			break;
-		}
-
-		items.push(unquote(entry[1]));
-	}
+	const items = inline?.[1] === undefined ? collectBlockItems({ lines, keyIndex }) : inline[1].split(',').map(unquote).filter(Boolean);
 
 	return items.length > 0 ? items : undefined;
 };

@@ -63,7 +63,7 @@ const setupCheck = ({
 	check = {},
 	review = {},
 	rules,
-	cwd = mkdtempSync(join(tmpdir(), 'lightsout-test-')),
+	config,
 }: {
 	args?: string[];
 	/** What the machine half returns, and the progress it reports on the way. */
@@ -71,9 +71,11 @@ const setupCheck = ({
 	/** What the agent half returns. */
 	review?: { findings?: StandardsFinding[]; notes?: string[] };
 	rules?: StandardsRuleListing[];
-	cwd?: string;
+	/** The config the repo carries on disk — given one, the cwd is a repo holding it. */
+	config?: Record<string, unknown>;
 } = {}) => {
 	const captured = captureCommandOutput();
+	const cwd = config === undefined ? mkdtempSync(join(tmpdir(), 'lightsout-test-')) : setupConsumerRepo({ git: false, config });
 
 	// The run path reads the listing too — it is where each reported rule's
 	// one-line summary comes from — so the stub answers on both paths.
@@ -301,8 +303,7 @@ describe('standardsCheckCommand', () => {
 	});
 
 	test('the review gets the repo, its config, and the subpath the flag named', async () => {
-		const cwd = setupConsumerRepo({ git: false, config: { harness: 'codex' } });
-		const { context } = setupCheck({ args: ['--agent-review', '--path', 'src'], cwd });
+		const { context, cwd } = setupCheck({ args: ['--agent-review', '--path', 'src'], config: { harness: 'codex' } });
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 

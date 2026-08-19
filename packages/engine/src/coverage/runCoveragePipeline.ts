@@ -26,6 +26,8 @@ interface Params {
 	config: LightsoutConfig;
 	/** Stop (parked, resumable) after this many batches — budget control. */
 	maxBatches?: number;
+	/** Accept a dirty tree: the standing dirt is recorded as baseline, never attributed to a batch. */
+	allowDirty?: boolean;
 	/** Resume: an existing manifest — set-aside files, streak, and numbering reseed from its steps. */
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
@@ -43,10 +45,19 @@ interface Params {
  * declines stop the run as systemic. The engine never commits — the run ends
  * with tests in the working tree and set-aside files recommended for review.
  */
-const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existing, onProgress }: Params & { runId: string }): Promise<CoverageResult> => {
+const executeCoverage = async ({
+	cwd,
+	runId,
+	driver,
+	config,
+	maxBatches,
+	allowDirty,
+	existing,
+	onProgress,
+}: Params & { runId: string }): Promise<CoverageResult> => {
 	const progress = onProgress ?? (() => undefined);
 
-	const initialized = await initializeCoverageRun({ cwd, runId, driver, config, existing });
+	const initialized = await initializeCoverageRun({ cwd, runId, driver, config, allowDirty, existing });
 	const { worklist } = initialized;
 	let { manifest } = initialized;
 
@@ -180,7 +191,9 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 			batch,
 			testStandards,
 			agentTimeoutMs,
-			attributedFiles: manifest.changedFiles,
+			// The baseline dirt rides along: files dirty before the run started are
+			// no batch's doing, however git sees the union.
+			attributedFiles: [...manifest.changedFiles, ...manifest.baselineDirtyFiles],
 			onProgress: progress,
 			recordUsage,
 		});
@@ -191,7 +204,7 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 			return stop({
 				record,
 				status: RunStatus.PausedRateLimit,
-				error: `run parked: harness rate limit reached — resume with \`lightsout test-coverage-to-threshold --run ${manifest.runId}\` when the window resets.`,
+				error: `run parked: harness rate limited or overloaded — resume with \`lightsout test-coverage-to-threshold --run ${manifest.runId}\` when the window resets.`,
 			});
 		}
 

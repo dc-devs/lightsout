@@ -6,8 +6,6 @@ import type { Driver, DriverResult } from '@/drivers';
 import type { AgentOutcome } from '@/invoke/common/types/AgentOutcome';
 import { extractJsonReport } from '@/invoke/extractJsonReport';
 
-const maxReportAttempts = 2;
-
 /**
  * Usage summed across every attempt — a re-emit retry costs tokens too, and the
  * caller accounts per role invocation, not per process spawn. Stays `undefined`
@@ -70,6 +68,8 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 	onEvent,
 	onRejectedOutput,
 }: Params<Contract>): Promise<AgentOutcome<z.infer<Contract>>> => {
+	const maxReportAttempts = 2;
+
 	let lastFailure = 'no attempts made';
 	let rejected: { rejectedText: string; validationError: string } | undefined;
 	let usage: AgentUsage | undefined;
@@ -104,13 +104,13 @@ export const invokeAgentWithContract = async <Contract extends z.ZodType>({
 		usage = sumUsage({ total: usage, attempt: result.usage });
 
 		if (result.rateLimited) {
-			return { ok: false, failure: 'harness rate limit reached', rateLimited: true, usage };
+			return { ok: false, failure: 'harness rate limited or overloaded', rateLimited: true, usage };
 		}
 
 		const parsed = contract.safeParse(extractJsonReport({ text: result.text }));
 
 		if (parsed.success) {
-			return { ok: true, report: parsed.data as z.infer<Contract>, usage };
+			return { ok: true, report: parsed.data, usage };
 		}
 
 		lastFailure = `agent output did not match contract (exit ${result.exitCode}): ${parsed.error.message}`;

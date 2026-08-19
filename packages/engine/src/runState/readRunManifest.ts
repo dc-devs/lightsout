@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { RunManifest } from '@/contracts';
-import { getRunDir } from '@/runState/common/paths/getRunDir';
+import { getRunManifestPath } from '@/runState/common/paths/getRunManifestPath';
 import { resolveRunId } from '@/runState/common/paths/resolveRunId';
 
 interface Params {
@@ -14,9 +13,9 @@ interface Params {
  * to the shortened id its report printed. Validated at the boundary — a
  * manifest that doesn't parse is a hard error, never a guess.
  */
-export const readRunManifest = async ({ cwd, runId }: Params) => {
+export const readRunManifest = async ({ cwd, runId }: Params): Promise<RunManifest> => {
 	const resolved = await resolveRunId({ cwd, runId });
-	const raw = await readFile(join(getRunDir({ cwd, runId: resolved }), 'manifest.json'), 'utf8');
+	const raw = await readFile(getRunManifestPath({ cwd, runId: resolved }), 'utf8');
 
 	return RunManifest.parse(JSON.parse(raw));
 };

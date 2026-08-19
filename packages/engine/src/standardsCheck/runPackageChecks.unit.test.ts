@@ -80,7 +80,8 @@ const fileListInput = ({ calls }: { calls: Array<{ input: StandardsCheckInput }>
 	return input;
 };
 
-const setupRun = ({
+/** Runs the given rules as one loaded package, at the severities a repo's config would have resolved for them. */
+const runChecks = ({
 	rules,
 	cwd,
 	channels = [],
@@ -112,7 +113,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		const { findings } = await setupRun({
+		const { findings } = await runChecks({
 			cwd,
 			rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: recordingRun({ calls }), defaultSeverity: StandardsSeverity.Advisory })],
 			severities: { 'multi-export': StandardsSeverity.Blocking },
@@ -128,7 +129,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		await setupRun({
+		await runChecks({
 			cwd,
 			rules: [
 				rule({ id: 'first', inputKind: StandardsInputKind.FileText, run: recordingRun({ calls }) }),
@@ -145,7 +146,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		await setupRun({
+		await runChecks({
 			cwd,
 			rules: [
 				rule({ id: 'clone', inputKind: StandardsInputKind.CloneSpans, run: recordingRun({ calls }), defaultSettings: { minTokens: 50 } }),
@@ -162,7 +163,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		const { findings } = await setupRun({
+		const { findings } = await runChecks({
 			cwd,
 			rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: recordingRun({ calls }) })],
 			severities: { 'multi-export': StandardsSeverity.Off },
@@ -176,7 +177,7 @@ describe('runPackageChecks', () => {
 	test('ignores a judgment-only rule, which ships no check to run', async () => {
 		const { cwd } = setupRepo();
 
-		const { findings, notes } = await setupRun({ cwd, rules: [rule({ id: 'premature-abstraction' })] });
+		const { findings, notes } = await runChecks({ cwd, rules: [rule({ id: 'premature-abstraction' })] });
 
 		expect(findings).toStrictEqual([]);
 		expect(notes).toStrictEqual([]);
@@ -187,8 +188,8 @@ describe('runPackageChecks', () => {
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 		const reactRule = rule({ id: 'hook-deps', channel: 'react', inputKind: StandardsInputKind.FileText, run: recordingRun({ calls }) });
 
-		const inactive = await setupRun({ cwd, rules: [reactRule], channels: [] });
-		const active = await setupRun({ cwd, rules: [reactRule], channels: ['react'] });
+		const inactive = await runChecks({ cwd, rules: [reactRule], channels: [] });
+		const active = await runChecks({ cwd, rules: [reactRule], channels: ['react'] });
 
 		// a document out of play contributes no prose, so it contributes no checks
 		expect(inactive.findings).toStrictEqual([]);
@@ -199,7 +200,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		const { findings, notes } = await setupRun({
+		const { findings, notes } = await runChecks({
 			cwd,
 			rules: [
 				rule({ id: 'dead-export', inputKind: StandardsInputKind.SyntaxTree, run: recordingRun({ calls }) }),
@@ -217,7 +218,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo({ typescript: true });
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		const { findings, notes } = await setupRun({
+		const { findings, notes } = await runChecks({
 			cwd,
 			rules: [rule({ id: 'dead-export', inputKind: StandardsInputKind.SyntaxTree, run: recordingRun({ calls }) })],
 		});
@@ -230,7 +231,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupWorkspaceRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		await setupRun({
+		await runChecks({
 			cwd,
 			rules: [rule({ id: 'dependency-drift', inputKind: StandardsInputKind.FileList, run: recordingRun({ calls }) })],
 			packagesDir: 'apps',
@@ -245,7 +246,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupWorkspaceRepo({ typescript: true });
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		const { findings, notes } = await setupRun({
+		const { findings, notes } = await runChecks({
 			cwd,
 			rules: [rule({ id: 'dead-export', inputKind: StandardsInputKind.SyntaxTree, run: recordingRun({ calls }) })],
 			packagesDir: 'apps',
@@ -261,7 +262,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		await setupRun({
+		await runChecks({
 			cwd,
 			rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileList, run: recordingRun({ calls }) })],
 			path: 'src/feature',
@@ -278,7 +279,7 @@ describe('runPackageChecks', () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
-		await setupRun({
+		await runChecks({
 			cwd,
 			rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileList, run: recordingRun({ calls }) })],
 			exclude: ['src/feature'],
@@ -292,7 +293,7 @@ describe('runPackageChecks', () => {
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 		const messages: string[] = [];
 
-		await setupRun({
+		await runChecks({
 			cwd,
 			rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: recordingRun({ calls }) })],
 			onProgress: (message) => messages.push(message),
@@ -306,7 +307,7 @@ describe('runPackageChecks', () => {
 		const brokenRun = (() => 'not findings at all') as unknown as StandardsCheckRun;
 
 		const error = await getRejectionError({
-			promise: setupRun({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: brokenRun })] }),
+			promise: runChecks({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: brokenRun })] }),
 		});
 
 		// a broken check is a package bug, not a finding
@@ -318,7 +319,7 @@ describe('runPackageChecks', () => {
 		const shortRun = (() => [{ siteKey: 'a-site', files: [{ path: 'src/alpha.ts' }] }]) as unknown as StandardsCheckRun;
 
 		const error = await getRejectionError({
-			promise: setupRun({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: shortRun })] }),
+			promise: runChecks({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: shortRun })] }),
 		});
 
 		// the author has to be told which finding and which field, not just "invalid"
@@ -333,7 +334,7 @@ describe('runPackageChecks', () => {
 		};
 
 		const error = await getRejectionError({
-			promise: setupRun({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: throwingRun })] }),
+			promise: runChecks({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: throwingRun })] }),
 		});
 
 		expect(error.message).toBe('standards rule "multi-export" threw while checking: cannot parse that');

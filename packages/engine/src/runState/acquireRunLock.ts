@@ -17,7 +17,7 @@ interface Params {
  * lock that won't parse) is a crash leftover → stolen, with the dead pid
  * reported back so the caller can announce the takeover.
  */
-export const acquireRunLock = async ({ cwd, runId }: Params) => {
+export const acquireRunLock = async ({ cwd, runId }: Params): Promise<{ stalePid: number | undefined }> => {
 	const lockPath = getRunLockPath({ cwd });
 	const payload = `${JSON.stringify({ pid: process.pid, runId, startedAt: new Date().toISOString() }, null, '\t')}\n`;
 
@@ -31,7 +31,9 @@ export const acquireRunLock = async ({ cwd, runId }: Params) => {
 
 			return { stalePid };
 		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+			const isAlreadyHeld = typeof error === 'object' && error !== null && 'code' in error && error.code === 'EEXIST';
+
+			if (!isAlreadyHeld) {
 				throw error;
 			}
 		}

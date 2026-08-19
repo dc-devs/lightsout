@@ -12,7 +12,7 @@ interface Params {
  * caught by scope expansion once changed files reveal it. Returns undefined
  * when the plan references no package paths at all.
  */
-export const scanPlanPackagePaths = ({ planContent, packagesDir }: Params) => {
+export const scanPlanPackagePaths = ({ planContent, packagesDir }: Params): string[] | undefined => {
 	const escaped = packagesDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const pattern = new RegExp(`(?:^|[^\\w@./-])${escaped}/([\\w.@-]+)/`, 'g');
 	const found = [...planContent.matchAll(pattern)].map((match) => match[1]).filter((name): name is string => Boolean(name));

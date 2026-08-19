@@ -237,6 +237,24 @@ test('createClaudeCodeDriver: an is_error result on a zero exit that names a usa
 	expect(result).toStrictEqual({ text: 'Claude usage limit reached, resets at 5pm', exitCode: 0, rateLimited: true, usage: undefined });
 });
 
+test('createClaudeCodeDriver: an errored 529 overload parks like a rate limit — transient, never a failed batch', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [event({ type: 'result', result: 'API Error: 529 Overloaded. This is a server-side issue, usually temporary', is_error: true })],
+	});
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd });
+
+	expect(result.rateLimited).toBe(true);
+});
+
+test('createClaudeCodeDriver: agent text mentioning an overload on a clean exit is never misread as one', async () => {
+	const { driver, cwd } = await setupClaude({ stdoutChunks: [event({ type: 'result', result: 'the queue was overloaded, so I added backpressure' })] });
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd });
+
+	expect(result.rateLimited).toBe(false);
+});
+
 test('createClaudeCodeDriver: an ordinary failure keeps the raw stdout as text and is not misread as a rate limit', async () => {
 	const { driver, cwd } = await setupClaude({ stdoutChunks: ['boom: unrecognized flag'], exitCode: 2 });
 

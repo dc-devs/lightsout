@@ -1,6 +1,7 @@
 import type { CommandContext } from '@/cli';
 import {
 	doctorCommand,
+	exitCli,
 	frictionCommand,
 	getStringFlag,
 	implementCommand,
@@ -17,7 +18,6 @@ import {
 	usage,
 	voiceCommand,
 } from '@/cli';
-import { exitCli } from '@/cli/common/utils/exitCli';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	implement: implementCommand,

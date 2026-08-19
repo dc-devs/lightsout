@@ -1,3 +1,7 @@
+interface Params {
+	code: number;
+}
+
 /**
  * Exit the process, but only after stdout and stderr have drained.
  *
@@ -13,7 +17,7 @@
  * order, so this one runs only after everything queued before it has been
  * accepted by the pipe.
  */
-export const exitCli = async ({ code }: { code: number }): Promise<never> => {
+export const exitCli = async ({ code }: Params): Promise<never> => {
 	await Promise.all([process.stdout, process.stderr].map((stream) => new Promise<void>((resolve) => stream.write('', () => resolve()))));
 
 	return process.exit(code);

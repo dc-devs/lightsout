@@ -39,8 +39,8 @@ const install = () => {
 
 	installed = true;
 
-	for (const signal of relayed) {
-		process.on(signal, handlers.get(signal) as () => void);
+	for (const [signal, handler] of handlers) {
+		process.on(signal, handler);
 	}
 };
 
@@ -51,8 +51,8 @@ function uninstall(): void {
 
 	installed = false;
 
-	for (const signal of relayed) {
-		process.removeListener(signal, handlers.get(signal) as () => void);
+	for (const [signal, handler] of handlers) {
+		process.removeListener(signal, handler);
 	}
 }
 

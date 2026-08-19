@@ -1,6 +1,7 @@
 import { appendFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname } from 'node:path';
 import { type FrictionEntry, FrictionRecord } from '@/contracts';
+import { getFrictionPath } from '@/runState/common/paths/getFrictionPath';
 
 interface Params {
 	cwd: string;
@@ -15,7 +16,7 @@ interface Params {
  * accumulates across runs — that's what lets the improvement loop see
  * systemic patterns instead of one-offs.
  */
-export const appendFriction = async ({ cwd, runId, step, friction }: Params) => {
+export const appendFriction = async ({ cwd, runId, step, friction }: Params): Promise<void> => {
 	if (friction.length === 0) {
 		return;
 	}
@@ -23,6 +24,8 @@ export const appendFriction = async ({ cwd, runId, step, friction }: Params) => 
 	const at = new Date().toISOString();
 	const lines = friction.map((entry) => JSON.stringify(FrictionRecord.parse({ ...entry, at, runId, step }))).join('\n');
 
-	await mkdir(join(cwd, '.lightsout'), { recursive: true });
-	await appendFile(join(cwd, '.lightsout', 'friction.jsonl'), `${lines}\n`, 'utf8');
+	const path = getFrictionPath({ cwd });
+
+	await mkdir(dirname(path), { recursive: true });
+	await appendFile(path, `${lines}\n`, 'utf8');
 };

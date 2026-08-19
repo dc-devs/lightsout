@@ -44,7 +44,8 @@ export const resolvePlanDeliverable = async ({ cwd, name }: Params): Promise<Res
 	if (await pathExists({ path: singlePath })) {
 		files.push({ path: singlePath, text: await readFile(singlePath, 'utf8') });
 	} else {
-		const entries = (await readdir(dir).catch(() => [] as string[])).filter((entry) => entry === 'overview.md' || /^phase\d+.*\.md$/.test(entry)).sort();
+		const dirEntries: string[] = await readdir(dir).catch(() => []);
+		const entries = dirEntries.filter((entry) => entry === 'overview.md' || /^phase\d+.*\.md$/.test(entry)).sort();
 
 		for (const entry of entries) {
 			const path = join(dir, entry);

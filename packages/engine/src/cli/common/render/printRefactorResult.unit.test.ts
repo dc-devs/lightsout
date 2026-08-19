@@ -112,7 +112,7 @@ test('printRefactorResult: every decline offers the escape hatch, naming the com
 test('printRefactorResult: a parked run prints no burn-down, because its after merely echoes before', () => {
 	const { result, output, errors } = setupResult({
 		ok: false,
-		error: 'run parked: harness rate limit reached',
+		error: 'run parked: harness rate limited or overloaded',
 		before: { clone: 3 },
 		after: { clone: 3 },
 		manifest: { status: RunStatus.PausedRateLimit, steps: [{ id: 'batch-1', status: RunStatus.PausedRateLimit, attempts: 1 }] },
@@ -124,7 +124,7 @@ test('printRefactorResult: a parked run prints no burn-down, because its after m
 	expect(output()).not.toContain('burn-down (findings before → after)');
 	expect(output()).toContain('no burn-down until the run completes');
 	expect(output()).toContain('✗ batch-1');
-	expect(errors.join('\n')).toContain('run parked: harness rate limit reached');
+	expect(errors.join('\n')).toContain('run parked: harness rate limited or overloaded');
 });
 
 test('printRefactorResult: the burn-down lists every rule in either count map, alphabetically, treating an absent side as zero', () => {

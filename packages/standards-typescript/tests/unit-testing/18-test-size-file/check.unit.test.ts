@@ -2,7 +2,8 @@ import { describe, expect, test } from '@jest/globals';
 import { setupOtherKindInput, setupTestFileInput } from '@lightsout/standards-testkit';
 import { check } from './check.ts';
 
-const setupLines = ({ count }: { count: number }) => Array.from({ length: count }, (_, index) => `test('case ${index}', () => {});`).join('\n');
+/** A test file spanning exactly `lines` lines, each of them a trivial test case. */
+const buildTestSource = ({ lines }: { lines: number }) => Array.from({ length: lines }, (_, index) => `test('case ${index}', () => {});`).join('\n');
 
 describe('test-size-file check', () => {
 	test('asks for test files, the one input kind that carries test text alone', () => {
@@ -10,7 +11,7 @@ describe('test-size-file check', () => {
 	});
 
 	test('reports a test file past the cap, stating the count and the cap it broke', async () => {
-		const input = setupTestFileInput({ contents: [['src/doctor/runDoctor.unit.test.ts', setupLines({ count: 6 })]] });
+		const input = setupTestFileInput({ contents: [['src/doctor/runDoctor.unit.test.ts', buildTestSource({ lines: 6 })]] });
 
 		const findings = await check.run({ input, settings: { testFile: 5 } });
 
@@ -26,7 +27,7 @@ describe('test-size-file check', () => {
 	});
 
 	test('leaves a test file at the cap alone — the cap is a ceiling, not a target to stay clear of', async () => {
-		const input = setupTestFileInput({ contents: [['src/feature/renderGreeting.unit.test.ts', setupLines({ count: 5 })]] });
+		const input = setupTestFileInput({ contents: [['src/feature/renderGreeting.unit.test.ts', buildTestSource({ lines: 5 })]] });
 
 		const findings = await check.run({ input, settings: { testFile: 5 } });
 
@@ -36,9 +37,9 @@ describe('test-size-file check', () => {
 	test('reports each oversized file on its own, so one monster cannot hide another', async () => {
 		const input = setupTestFileInput({
 			contents: [
-				['src/a/runA.unit.test.ts', setupLines({ count: 7 })],
-				['src/b/runB.unit.test.ts', setupLines({ count: 3 })],
-				['src/c/runC.unit.test.ts', setupLines({ count: 9 })],
+				['src/a/runA.unit.test.ts', buildTestSource({ lines: 7 })],
+				['src/b/runB.unit.test.ts', buildTestSource({ lines: 3 })],
+				['src/c/runC.unit.test.ts', buildTestSource({ lines: 9 })],
 			],
 		});
 

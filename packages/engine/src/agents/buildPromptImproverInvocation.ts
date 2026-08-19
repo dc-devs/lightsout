@@ -9,7 +9,7 @@ interface Params {
 }
 
 /** Assemble the prompt-improver invocation deterministically. */
-export const buildPromptImproverInvocation = ({ friction, promptFiles }: Params) => {
+export const buildPromptImproverInvocation = ({ friction, promptFiles }: Params): { systemPrompt: string; prompt: string } => {
 	const entries = friction
 		.map((record) => `- [${record.kind ?? 'friction'}/${record.area}] (run ${record.runId.slice(0, 8)}, step ${record.step}, ${record.at}) ${record.detail}`)
 		.join('\n');

@@ -15,8 +15,6 @@ import { readDecisions } from '@/plan/readDecisions';
 import { readPlanFacts } from '@/plan/readPlanFacts';
 import { repairPlanStructure } from '@/plan/repairPlanStructure';
 
-const defaultDraftTimeoutMs = 30 * 60 * 1000;
-
 interface Params {
 	cwd: string;
 	driver: Driver;
@@ -63,7 +61,7 @@ export const runPlanDraft = async ({
 	model,
 	effort,
 	permissions,
-	timeoutMs = defaultDraftTimeoutMs,
+	timeoutMs = 30 * 60 * 1000,
 	onProgress,
 }: Params): Promise<RunPlanDraftResult> => {
 	const progress = onProgress ?? (() => undefined);
@@ -101,7 +99,7 @@ export const runPlanDraft = async ({
 
 	if (!outcome.ok) {
 		return outcome.rateLimited
-			? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limit reached — re-run: lightsout plan draft --name ${name}` }
+			? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan draft --name ${name}` }
 			: { status: 'failed' as const, workspaceDir, error: outcome.failure };
 	}
 

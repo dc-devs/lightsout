@@ -229,7 +229,7 @@ const writeTree = ({ dir, files }: { dir: string; files: Record<string, string> 
  * It sits outside the repo it checks, so the package's own files never show up
  * in that repo's file list.
  */
-const setupOwnPackage = () => {
+const writeOwnPackage = () => {
 	const packagePath = mkdtempSync(join(tmpdir(), 'lightsout-house-standards-'));
 
 	writeTree({
@@ -252,8 +252,8 @@ const setupOwnPackage = () => {
 	return packagePath;
 };
 
-/** A repo whose config brings the given package roots instead of the bundled defaults. */
-const setupOwnPackageRepo = ({ roots, standardsChecks }: { roots: string[]; standardsChecks?: Record<string, unknown> }) => {
+/** A repo whose config brings the house package instead of the bundled defaults. */
+const setupOwnPackageRepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-own-'));
 
 	writeTree({
@@ -263,8 +263,7 @@ const setupOwnPackageRepo = ({ roots, standardsChecks }: { roots: string[]; stan
 			'src/beta.ts': 'export const beta = 2;\n',
 			'lightsout.config.json': JSON.stringify({
 				gates: { check: 'true', test: 'true', 'test-coverage': false },
-				standardsPackages: roots,
-				...(standardsChecks ? { standardsChecks } : {}),
+				standardsPackages: [writeOwnPackage()],
 			}),
 		},
 	});
@@ -273,7 +272,7 @@ const setupOwnPackageRepo = ({ roots, standardsChecks }: { roots: string[]; stan
 };
 
 test("a repo's own standards package supplies the rules, and the bundled defaults do not run beside them", async () => {
-	const dir = setupOwnPackageRepo({ roots: [setupOwnPackage()] });
+	const dir = setupOwnPackageRepo();
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
@@ -285,8 +284,8 @@ test("a repo's own standards package supplies the rules, and the bundled default
 	]);
 });
 
-/** A repo whose source spans a nested folder, so a scope has something to bite on. */
-const setupScopedRepo = ({ roots }: { roots: string[] }) => {
+/** A repo on the house package whose source spans a nested folder, so a scope has something to bite on. */
+const setupScopedRepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-scope-'));
 
 	writeTree({
@@ -294,7 +293,7 @@ const setupScopedRepo = ({ roots }: { roots: string[] }) => {
 		files: {
 			'src/keep.ts': 'export const keep = 1;\n',
 			'src/core/inner.ts': 'export const inner = 2;\n',
-			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, standardsPackages: roots }),
+			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, standardsPackages: [writeOwnPackage()] }),
 		},
 	});
 
@@ -302,7 +301,7 @@ const setupScopedRepo = ({ roots }: { roots: string[] }) => {
 };
 
 test('--path checks the subpath it was given, and the evidence file records that scope', async () => {
-	const dir = setupScopedRepo({ roots: [setupOwnPackage()] });
+	const dir = setupScopedRepo();
 
 	const { findings } = await runStandardsCheck({ cwd: dir, path: 'src/core' });
 
@@ -329,7 +328,7 @@ const houseRuleFiles = ({ documentPath, ruleId }: { documentPath: string; ruleId
 });
 
 /** A package whose second document is framework-scoped — the channel gate needs a rule on each side of it. */
-const setupChannelPackage = () => {
+const writeChannelPackage = () => {
 	const packagePath = mkdtempSync(join(tmpdir(), 'lightsout-channel-standards-'));
 
 	writeTree({
@@ -347,15 +346,7 @@ const setupChannelPackage = () => {
 };
 
 /** A repo with one source file, whose root manifest and config between them decide which framework channels are in play. */
-const setupChannelRepo = ({
-	roots,
-	dependencies = {},
-	standardsChannels,
-}: {
-	roots: string[];
-	dependencies?: Record<string, string>;
-	standardsChannels?: string[];
-}) => {
+const setupChannelRepo = ({ dependencies = {}, standardsChannels }: { dependencies?: Record<string, string>; standardsChannels?: string[] }) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-channel-'));
 
 	writeTree({
@@ -365,7 +356,7 @@ const setupChannelRepo = ({
 			'src/alpha.ts': 'export const alpha = 1;\n',
 			'lightsout.config.json': JSON.stringify({
 				gates: { check: 'true', test: 'true', 'test-coverage': false },
-				standardsPackages: roots,
+				standardsPackages: [writeChannelPackage()],
 				...(standardsChannels ? { standardsChannels } : {}),
 			}),
 		},
@@ -375,7 +366,7 @@ const setupChannelRepo = ({
 };
 
 test("a framework rule runs when the repo's own manifest shows it is in that framework", async () => {
-	const dir = setupChannelRepo({ roots: [setupChannelPackage()], dependencies: { react: '^19.0.0' } });
+	const dir = setupChannelRepo({ dependencies: { react: '^19.0.0' } });
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
@@ -385,7 +376,7 @@ test("a framework rule runs when the repo's own manifest shows it is in that fra
 });
 
 test('a configured channel list is the whole answer, overriding what the manifest would have detected', async () => {
-	const dir = setupChannelRepo({ roots: [setupChannelPackage()], dependencies: { react: '^19.0.0' }, standardsChannels: [] });
+	const dir = setupChannelRepo({ dependencies: { react: '^19.0.0' }, standardsChannels: [] });
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 

@@ -20,8 +20,10 @@ deterministic code. Do not add workflow steps to this file.
    node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" test-coverage-to-threshold
    ```
 
-   Pass through when provided: `--max-batches <n>`, `--cwd <path>`. To resume
-   a parked run: `test-coverage-to-threshold --run <id>`.
+   Pass through when provided: `--max-batches <n>`, `--allow-dirty` (accept
+   uncommitted changes as baseline instead of demanding a clean tree),
+   `--cwd <path>`. To resume a parked run:
+   `test-coverage-to-threshold --run <id>`.
 3. Relay the engine's output verbatim — the per-batch outcomes, the set-aside
    files with their reasons, and the before → after coverage table ARE the
    result. If files were set aside, tell the user each needs a human: they

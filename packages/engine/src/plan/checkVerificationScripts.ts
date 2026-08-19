@@ -3,6 +3,7 @@ import { basename, join } from 'node:path';
 import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
 import { StructuralCheck, type StructuralFinding } from '@/contracts';
 import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
+import { getManifestScriptKeys } from '@/plan/common/utils/getManifestScriptKeys';
 
 interface Params {
 	plan: ParsedPlan;
@@ -78,14 +79,8 @@ export const checkVerificationScripts = async ({ plan, cwd, planPath, packagesDi
 			continue;
 		}
 
-		try {
-			const parsed = JSON.parse(raw) as { scripts?: Record<string, unknown> };
-
-			for (const key of Object.keys(parsed.scripts ?? {})) {
-				availableScripts.add(key);
-			}
-		} catch {
-			// unreadable manifest contributes no scripts
+		for (const key of getManifestScriptKeys({ raw })) {
+			availableScripts.add(key);
 		}
 	}
 
