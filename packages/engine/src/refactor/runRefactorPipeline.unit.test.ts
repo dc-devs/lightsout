@@ -119,6 +119,24 @@ test('refactor: a dirty tree is a hard error before any run state exists', async
 	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) })).rejects.toThrow(/requires a clean tree/);
 });
 
+test('refactor: --allow-dirty records the standing dirt as baseline and never attributes it to a batch', async () => {
+	const dir = setupConsumerRepo();
+
+	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	commitAll(dir);
+	// the standing dirt: an uncommitted file no batch touches
+	writeFileSync(join(dir, 'src/uncommitted.ts'), 'export const later = 1;\n');
+
+	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }), allowDirty: true });
+
+	expect(result.ok).toBe(true);
+	expect(result.after['multi-export'] ?? 0).toBe(0);
+	// the dirt is frozen into the manifest as baseline...
+	expect(result.manifest.baselineDirtyFiles).toStrictEqual(['src/uncommitted.ts']);
+	// ...and the batch owns only its own edits, however git sees the union
+	expect(result.manifest.changedFiles.sort()).toStrictEqual(['src/beta.ts', 'src/multi.ts']);
+});
+
 test('refactor: a red pre-flight gate fails the run before any batch', async () => {
 	const dir = setupConsumerRepo({ scripts: { check: 'false' } });
 

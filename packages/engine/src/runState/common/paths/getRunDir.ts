@@ -7,6 +7,6 @@ interface Params {
 }
 
 /** Run state lives inside the target repo: `<repo>/.lightsout/runs/<runId>`. */
-export const getRunDir = ({ cwd, runId }: Params) => {
+export const getRunDir = ({ cwd, runId }: Params): string => {
 	return join(getRunsDir({ cwd }), runId);
 };

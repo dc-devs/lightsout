@@ -1,5 +1,5 @@
 /**
- * Directory holding workspace packages when `packagesDir` is not configured —
+ * Directory holding workspace packages when `packages-dir` is not configured —
  * the fallback every monorepo-aware path resolves against, from scoped gates to
  * coverage measurement.
  */

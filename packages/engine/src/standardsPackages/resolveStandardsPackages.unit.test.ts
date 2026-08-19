@@ -8,14 +8,16 @@ import { resolveStandardsPackages } from '@/standardsPackages';
 
 const baseConfig: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-/** A temp consumer repo — relative package roots resolve against it. */
-const setupRepo = () => ({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-resolve-packages-')) });
+interface PackageSpec {
+	/** Repo-relative folder the package is written under. */
+	at: string;
+	name: string;
+	/** The id the package claims, so two packages can be made to collide. */
+	ruleId: string;
+}
 
-/**
- * A one-rule standards package written under `at`, absolute or repo-relative.
- * `ruleId` is what the package claims, so two packages can be made to collide.
- */
-const setupPackage = ({ cwd, at, name, ruleId }: { cwd: string; at: string; name: string; ruleId: string }) => {
+/** A one-rule standards package written under `at`. */
+const writePackage = ({ cwd, at, name, ruleId }: PackageSpec & { cwd: string }) => {
 	const packagePath = join(cwd, at);
 	const rulePath = `code/demo/01-${ruleId}`;
 	const files: Record<string, string> = {
@@ -32,8 +34,17 @@ const setupPackage = ({ cwd, at, name, ruleId }: { cwd: string; at: string; name
 		mkdirSync(dirname(absolutePath), { recursive: true });
 		writeFileSync(absolutePath, content);
 	}
+};
 
-	return { packagePath };
+/** A temp consumer repo holding the given packages — relative package roots resolve against it. */
+const setupRepo = ({ packages = [] }: { packages?: PackageSpec[] } = {}) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-resolve-packages-'));
+
+	for (const spec of packages) {
+		writePackage({ cwd, ...spec });
+	}
+
+	return { cwd };
 };
 
 describe('resolveStandardsPackages', () => {
@@ -58,7 +69,7 @@ describe('resolveStandardsPackages', () => {
 	test('loads nothing at all when packages are turned off explicitly', async () => {
 		const { cwd } = setupRepo();
 
-		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, standardsPackages: false } });
+		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, 'standards-packages': false } });
 
 		expect(loaded).toStrictEqual([]);
 	});
@@ -66,35 +77,38 @@ describe('resolveStandardsPackages', () => {
 	test('an empty list of roots loads nothing rather than falling back to the defaults', async () => {
 		const { cwd } = setupRepo();
 
-		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, standardsPackages: [] } });
+		const loaded = await resolveStandardsPackages({ cwd, config: { ...baseConfig, 'standards-packages': [] } });
 
 		// a list is a list even when it is empty — only an absent key asks for the defaults
 		expect(loaded).toStrictEqual([]);
 	});
 
 	test('loads exactly the declared roots, in config order, resolving relative ones against the repo', async () => {
-		const { cwd } = setupRepo();
-
-		setupPackage({ cwd, at: 'standards/house', name: 'house', ruleId: 'house-rule' });
-
-		const { packagePath } = setupPackage({ cwd, at: 'standards/team', name: 'team', ruleId: 'team-rule' });
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', packagePath] };
+		const { cwd } = setupRepo({
+			packages: [
+				{ at: 'standards/house', name: 'house', ruleId: 'house-rule' },
+				{ at: 'standards/team', name: 'team', ruleId: 'team-rule' },
+			],
+		});
+		const teamPath = join(cwd, 'standards/team');
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', teamPath] };
 
 		const loaded = await resolveStandardsPackages({ cwd, config });
 
 		// the bundled default is replaced, not stacked under, what the config lists
 		expect(loaded.map((pkg) => pkg.name)).toStrictEqual(['house', 'team']);
 		// an absolute entry is taken as written
-		expect(loaded[1]?.rootPath).toBe(packagePath);
+		expect(loaded[1]?.rootPath).toBe(teamPath);
 	});
 
 	test('two packages claiming one rule id are refused, with both packages named', async () => {
-		const { cwd } = setupRepo();
-
-		setupPackage({ cwd, at: 'standards/house', name: 'house', ruleId: 'shared-rule' });
-		setupPackage({ cwd, at: 'standards/team', name: 'team', ruleId: 'shared-rule' });
-
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', 'standards/team'] };
+		const { cwd } = setupRepo({
+			packages: [
+				{ at: 'standards/house', name: 'house', ruleId: 'shared-rule' },
+				{ at: 'standards/team', name: 'team', ruleId: 'shared-rule' },
+			],
+		});
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', 'standards/team'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 
@@ -106,7 +120,7 @@ describe('resolveStandardsPackages', () => {
 
 	test('a declared root with no package in it is a hard error naming the file it looked for', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/ghost'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/ghost'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 
@@ -116,7 +130,7 @@ describe('resolveStandardsPackages', () => {
 
 	test('reports the first unloadable root, not a later one, when several are broken', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/ghost', 'standards/phantom'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/ghost', 'standards/phantom'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 
@@ -126,13 +140,12 @@ describe('resolveStandardsPackages', () => {
 	});
 
 	test('a package that fails its own load stops the run even when every other root is sound', async () => {
-		const { cwd } = setupRepo();
+		const { cwd } = setupRepo({ packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule' }] });
 
-		setupPackage({ cwd, at: 'standards/house', name: 'house', ruleId: 'house-rule' });
 		mkdirSync(join(cwd, 'standards/empty'), { recursive: true });
 		writeFileSync(join(cwd, 'standards/empty', 'lightsout-standards.json'), '{ "name": "empty", "formatVersion": 1 }\n');
 
-		const config: LightsoutConfig = { ...baseConfig, standardsPackages: ['standards/house', 'standards/empty'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', 'standards/empty'] };
 
 		const error = await getRejectionError({ promise: resolveStandardsPackages({ cwd, config }) });
 

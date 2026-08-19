@@ -13,8 +13,8 @@ interface Params {
 	packagesDir: string;
 	/** Directory name under packagesDir — also the group label in the evidence. */
 	packageDir: string;
-	/** The `{package}` command templates from config `packageGates`. */
-	scoped: NonNullable<LightsoutConfig['packageGates']>;
+	/** The `{package}` command templates from config `package-gates`. */
+	scoped: NonNullable<LightsoutConfig['package-gates']>;
 	/** Also run the scoped coverage gate, when the config defines one. */
 	coverage?: boolean;
 	gate: RunGate;

@@ -2,18 +2,39 @@ import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from 
 import type ts from 'typescript';
 import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
 
+/** Whether the token combines numbers arithmetically — the only joins a folded number may use. */
+const isArithmeticOperator = ({ kind, compiler }: { kind: ts.SyntaxKind; compiler: typeof ts }): boolean =>
+	kind === compiler.SyntaxKind.AsteriskToken ||
+	kind === compiler.SyntaxKind.PlusToken ||
+	kind === compiler.SyntaxKind.MinusToken ||
+	kind === compiler.SyntaxKind.SlashToken ||
+	kind === compiler.SyntaxKind.PercentToken;
+
+/**
+ * A numeric expression with no moving parts: literals combined by arithmetic
+ * (`10 * 60_000`) NAME a number rather than compute one, so hoisting one of
+ * these is the same debt as hoisting the literal it folds to.
+ */
+const isFoldedNumber = ({ node, compiler }: { node: ts.Expression; compiler: typeof ts }): boolean =>
+	compiler.isNumericLiteral(node) ||
+	(compiler.isPrefixUnaryExpression(node) && isFoldedNumber({ node: node.operand, compiler })) ||
+	(compiler.isParenthesizedExpression(node) && isFoldedNumber({ node: node.expression, compiler })) ||
+	(compiler.isBinaryExpression(node) &&
+		isArithmeticOperator({ kind: node.operatorToken.kind, compiler }) &&
+		isFoldedNumber({ node: node.left, compiler }) &&
+		isFoldedNumber({ node: node.right, compiler }));
+
 /**
  * A literal with no moving parts — the "scalar" the rule names. A lookup map, a
- * structured config object and anything computed are the carve-outs the rule
- * states, and they are all excluded by simply not being one of these.
+ * structured config object and anything genuinely computed are the carve-outs
+ * the rule states, and they are all excluded by simply not being one of these.
  */
 const isScalarLiteral = ({ node, compiler }: { node: ts.Expression; compiler: typeof ts }): boolean =>
 	compiler.isStringLiteral(node) ||
-	compiler.isNumericLiteral(node) ||
 	compiler.isNoSubstitutionTemplateLiteral(node) ||
 	node.kind === compiler.SyntaxKind.TrueKeyword ||
 	node.kind === compiler.SyntaxKind.FalseKeyword ||
-	(compiler.isPrefixUnaryExpression(node) && compiler.isNumericLiteral(node.operand));
+	isFoldedNumber({ node, compiler });
 
 /**
  * The scalar constant names one top-level statement declares, or none when it

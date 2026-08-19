@@ -1,22 +1,9 @@
 import type { CallBlock } from '../types/CallBlock.ts';
+import { blankStringsAndComments } from './blankStringsAndComments.ts';
 import { getLineNumber } from './getLineNumber.ts';
-
-// A string, a template literal or either comment form. Unterminated forms match
-// nothing and are simply left as code — failing open rather than swallowing the
-// rest of the file. A regex literal holding a quote (`/don't/`) reads as a
-// string opening; that is the one shape this masking gets wrong, and it does
-// not occur in the assertion-and-mock vocabulary these rules are written for.
-const inertSpan = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g;
 
 /** A title argument: the call's first argument when it is a string literal. */
 const titleSpan = /^\s*(['"`])((?:\\.|[^\\])*?)\1/;
-
-/**
- * The same text with every string, template and comment blanked to spaces and
- * every newline kept, so bracket matching never trips over a brace inside a
- * string yet still reports true line numbers.
- */
-const maskInert = (text: string) => text.replace(inertSpan, (span) => span.replace(/[^\n]/g, ' '));
 
 /** Index of the bracket closing the one at `open` — the mask's length when the source is unbalanced. */
 const closeIndexOf = ({ mask, open, closeChar }: { mask: string; open: number; closeChar: string }) => {
@@ -77,7 +64,10 @@ interface Params {
  * whole argument text.
  */
 export const readCallBlocks = ({ text, callees }: Params): CallBlock[] => {
-	const mask = maskInert(text);
+	// The shared masker rather than a local one: it is regex-aware, so an
+	// apostrophe inside a pattern (`/typo'd/`) cannot open a phantom string
+	// that merges every later block.
+	const mask = blankStringsAndComments({ text });
 	const found: Array<{ start: number; end: number; block: Omit<CallBlock, 'depth'> }> = [];
 
 	for (const callee of callees) {

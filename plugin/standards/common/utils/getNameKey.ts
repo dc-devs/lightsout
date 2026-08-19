@@ -35,6 +35,12 @@ interface Params {
  * Conversion names are the one place word order carries meaning — `hexToRgb`
  * and `rgbToHex` are deliberate opposites, not one concept — so a `to` or
  * `from` token pins the order instead of sorting it away.
+ *
+ * A deliberate mirror of the engine's `nameKey`, kept identical so this rule
+ * and the engine's plan-time prior-art detection never disagree about whether
+ * two names are one concept. The copy cannot be collapsed: this package ships
+ * as a bare directory with no manifest and no `node_modules`, so every value
+ * it imports has to resolve inside its own tree. Change one, change the other.
  */
 export const getNameKey = ({ name }: Params): string => {
 	const tokens = getTokens({ name });

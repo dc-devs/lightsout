@@ -86,7 +86,7 @@ const setupMixedRed = async () => {
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
 			gates: { check: 'true', test: 'true', 'test-coverage': 'true' },
-			packageGates: {
+			'package-gates': {
 				check: packageGateCommand({ pkg: '@acme/api', flag: 'check.flag' }),
 				test: 'node -e "process.exit(0)" {package}',
 				'test-coverage': packageGateCommand({ pkg: '@acme/web', flag: 'coverage.flag' }),

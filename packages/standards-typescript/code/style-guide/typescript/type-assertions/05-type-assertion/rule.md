@@ -1,7 +1,7 @@
 ---
 summary: "an `as` cast in source code, where narrowing would prove the type instead"
 checked: true
-severity: advisory
+severity: blocking
 ---
 
 Avoid `as` casts. They tell the compiler to trust you instead of proving the type is correct.

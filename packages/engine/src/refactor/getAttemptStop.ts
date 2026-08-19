@@ -44,9 +44,9 @@ export const getAttemptStop = async ({
 		if (attempt.rateLimited) {
 			stop = { kind: BatchStopKind.Parked };
 		} else if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !(await gates())) {
-			// Salvage check (live lesson: a laptop-sleep-killed agent had finished
-			// its edits but never reported): if the sites are verifiably gone
-			// AND gates are green, the work is done — classify it, don't discard it.
+			// Salvage check — an agent can die after finishing its edits but before
+			// reporting. If the sites are verifiably gone AND gates are green, the
+			// work is done — classify it, don't discard it.
 			rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but the sites are resolved and gates are green`);
 			onProgress(`${batchId}: invocation failed but work verified on disk — salvaged as resolved`);
 

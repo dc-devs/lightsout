@@ -242,7 +242,7 @@ test('config timeouts reach the driver; defaults are 60m agent / 15m supervisor'
 	// default agent ceiling is 60 minutes
 	expect(await run({ config: {} })).toBe(60 * 60_000);
 	// configured ceiling reaches the driver
-	expect(await run({ config: { timeouts: { agentMinutes: 33 } } })).toBe(33 * 60_000);
+	expect(await run({ config: { timeouts: { 'agent-minutes': 33 } } })).toBe(33 * 60_000);
 });
 
 test('missing plan file fails the run before any agent spawns', async () => {

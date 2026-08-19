@@ -37,8 +37,8 @@ const getEngineTypescript = () => {
 
 	try {
 		// Anchored on the running program, so this is the engine's own dependency.
-		// require() is typed `any`; there is nothing to narrow against.
-		compiler = createRequire(process.argv[1])('typescript') as typeof ts;
+		// require() is typed `any`; the declaration above is what states the shape.
+		compiler = createRequire(process.argv[1])('typescript');
 	} catch {
 		compiler = undefined;
 	}

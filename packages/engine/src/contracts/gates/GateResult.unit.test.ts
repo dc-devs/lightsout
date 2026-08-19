@@ -45,17 +45,16 @@ describe('GateResult', () => {
 	});
 
 	test('kind is an open string — an entry naming a gate outside the documented set still parses', () => {
-		const { result } = setupGateResult({ extra: { kind: 'generate' } });
-		const unlisted = setupGateResult({ extra: { kind: 'lint' } }).result;
+		// generate is one of the gate kinds runGates observes; lint is not
+		for (const kind of ['generate', 'lint']) {
+			const { result } = setupGateResult({ extra: { kind } });
 
-		const parsed = GateResult.parse(result);
-		const parsedUnlisted = GateResult.parse(unlisted);
+			const parsed = GateResult.parse(result);
 
-		// generate is one of the gate kinds runGates observes
-		expect(parsed.kind).toBe('generate');
-		// runGates records what it ran verbatim; the closed verdict set lives in its
-		// aggregate return, not in this evidence entry
-		expect(parsedUnlisted.kind).toBe('lint');
+			// runGates records what it ran verbatim; the closed verdict set lives in its
+			// aggregate return, not in this evidence entry
+			expect(parsed.kind).toBe(kind);
+		}
 	});
 
 	test('a fully populated failure entry carries the whole audit trail through parsing intact', () => {
@@ -107,15 +106,16 @@ describe('GateResult', () => {
 	});
 
 	test('exitCode keeps both a passing zero and the -1 spawn-failure sentinel', () => {
-		const passing = setupGateResult({ extra: { exitCode: 0 } }).result;
-		const spawnFailure = setupGateResult({ extra: { exitCode: -1 } }).result;
-
 		// zero is the recorded pass, not an absent code — the optional must survive a
-		// falsy value
-		expect(GateResult.parse(passing).exitCode).toBe(0);
-		// -1 is how a spawn failure or timeout is distinguished from a command that
-		// ran and returned red
-		expect(GateResult.parse(spawnFailure).exitCode).toBe(-1);
+		// falsy value — and -1 is how a spawn failure or timeout is distinguished from
+		// a command that ran and returned red
+		for (const exitCode of [0, -1]) {
+			const { result } = setupGateResult({ extra: { exitCode } });
+
+			const parsed = GateResult.parse(result);
+
+			expect(parsed.exitCode).toBe(exitCode);
+		}
 	});
 
 	test('exitCode and durationMs must be numbers — a numeric-looking string is rejected', () => {
@@ -128,13 +128,15 @@ describe('GateResult', () => {
 	});
 
 	test('rerun records both sides of the flake re-run pair', () => {
-		const first = setupGateResult({ extra: { rerun: false } }).result;
-		const second = setupGateResult({ extra: { rerun: true } }).result;
+		// a flake produces two entries: the first is explicitly not the re-run, and the
+		// second is what marks the pair as one gate observed twice
+		for (const rerun of [false, true]) {
+			const { result } = setupGateResult({ extra: { rerun } });
 
-		// a flake produces two entries, and the first is explicitly not the re-run
-		expect(GateResult.parse(first).rerun).toBe(false);
-		// the second entry is what marks the pair as one gate observed twice
-		expect(GateResult.parse(second).rerun).toBe(true);
+			const parsed = GateResult.parse(result);
+
+			expect(parsed.rerun).toBe(rerun);
+		}
 	});
 
 	test('reason and outputTail must be strings', () => {

@@ -6,7 +6,7 @@ import type { Driver } from '@/drivers/common/types/Driver';
 import { spawnCollect } from '@/drivers/common/utils/spawnCollect';
 
 /** Same error-path-only heuristic as the claude-code driver. */
-const rateLimitPattern = /usage limit|rate limit|limit reached|quota/i;
+const rateLimitPattern = /usage limit|rate limit|limit reached|quota|529|overloaded/i;
 
 /**
  * Driver for the Codex CLI in non-interactive mode (`codex exec`).
@@ -19,7 +19,7 @@ const rateLimitPattern = /usage limit|rate limit|limit reached|quota/i;
  * surface verified against codex-cli 0.146.0. The approval policy is pinned to
  * `never` by the driver, so it is never a setting.
  */
-export const createCodexDriver = () => {
+export const createCodexDriver = (): Driver => {
 	const driver: Driver = {
 		name: 'codex',
 		invoke: async (invocation) => {

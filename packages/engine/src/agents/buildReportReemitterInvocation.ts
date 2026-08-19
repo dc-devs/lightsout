@@ -14,7 +14,7 @@ interface Params {
  * role's system prompt (it carries the contract) — this builder supplies only
  * the user prompt.
  */
-export const buildReportReemitterInvocation = ({ rejectedText, validationError }: Params) => {
+export const buildReportReemitterInvocation = ({ rejectedText, validationError }: Params): { prompt: string } => {
 	const sections = [reportReemitterPrompt, `# Validation error\n\n${validationError}`, `# Your previous final message\n\n${rejectedText}`];
 
 	return {

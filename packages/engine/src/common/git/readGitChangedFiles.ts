@@ -1,7 +1,6 @@
+import { gitTimeoutMs } from '@/common/constants/gitTimeoutMs';
 import { readGitPrefix } from '@/common/git/readGitPrefix';
 import { runCommand } from '@/common/utils/runCommand';
-
-const gitTimeoutMs = 60_000;
 
 interface Params {
 	cwd: string;
@@ -15,7 +14,7 @@ interface Params {
  * `cwd` is not inside a git worktree; the engine then degrades to
  * agent-reported files only. Run state under `.lightsout/` is never reported.
  */
-export const readGitChangedFiles = async ({ cwd }: Params) => {
+export const readGitChangedFiles = async ({ cwd }: Params): Promise<string[] | undefined> => {
 	const prefix = await readGitPrefix({ cwd });
 
 	if (prefix === undefined) {

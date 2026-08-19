@@ -40,6 +40,77 @@ describe('single-use-scalar check', () => {
 		expect(findings[0]?.detail).toBe("'marker' is declared at module scope and read once");
 	});
 
+	test('reports a folded number, which names a value the same way a bare literal does', async () => {
+		const input = setupOneFile({
+			text: 'const retryWindowMs = 10 * 60_000;\n\nexport const chargeInvoice = ({ elapsedMs }: { elapsedMs: number }): boolean => elapsedMs < retryWindowMs;\n',
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'single-use-scalar:src/billing/chargeInvoice.ts',
+				files: [{ path: 'src/billing/chargeInvoice.ts' }],
+				detail: "'retryWindowMs' is declared at module scope and read once",
+				guidance: 'Declare it inside the function that reads it — module scope is for values read in 2+ places, lookup maps and structured config.',
+			},
+		]);
+	});
+
+	test.each([
+		{ operator: '*', join: 'multiplication' },
+		{ operator: '+', join: 'addition' },
+		{ operator: '-', join: 'subtraction' },
+		{ operator: '/', join: 'division' },
+		{ operator: '%', join: 'a remainder' },
+	])('folds numbers joined by $join', async ({ operator }) => {
+		const input = setupOneFile({ text: `const retryWindow = 10 ${operator} 5;\n\nexport const chargeInvoice = (): number => retryWindow;\n` });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.detail).toBe("'retryWindow' is declared at module scope and read once");
+	});
+
+	test('folds a parenthesised arithmetic group, since brackets add grouping rather than a moving part', async () => {
+		const input = setupOneFile({ text: 'const retryWindowMs = (60 * 1000) * 10;\n\nexport const chargeInvoice = (): number => retryWindowMs;\n' });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.detail).toBe("'retryWindowMs' is declared at module scope and read once");
+	});
+
+	test('leaves numbers joined by a non-arithmetic operator, which computes rather than names', async () => {
+		const input = setupOneFile({ text: 'const readMask = 1 << 8;\n\nexport const chargeInvoice = (): number => readMask;\n' });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('leaves arithmetic with a moving part on the right, which is a computed value', async () => {
+		const input = setupOneFile({
+			text: [
+				"import { defaultWindow } from './defaultWindow.ts';",
+				'',
+				'const retryWindowMs = 10 * defaultWindow;',
+				'',
+				'export const chargeInvoice = (): number => retryWindowMs;',
+			].join('\n'),
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('leaves a joined pair of strings, which the arithmetic carve-out never covered', async () => {
+		const input = setupOneFile({ text: "const chargeLabel = 'charge' + 'Invoice';\n\nexport const chargeInvoice = (): string => chargeLabel;\n" });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
 	test('gathers every hoisted scalar of one file into one job', async () => {
 		const input = setupOneFile({
 			text: ['const maxRetries = 10;', "const label = 'charge';", '', 'export const chargeInvoice = (): string => `${label}${maxRetries}`;'].join('\n'),

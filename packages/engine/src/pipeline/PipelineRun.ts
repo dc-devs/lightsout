@@ -1,28 +1,17 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { RunState } from '@/common/services/RunState';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
-import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type RunUsage, type StepRecord, WorkReport } from '@/contracts';
+import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type StepRecord, WorkReport } from '@/contracts';
 import type { Driver } from '@/drivers';
 import { invokeAgentWithContract } from '@/invoke';
 import type { PipelineResult } from '@/pipeline/PipelineResult';
-import { getRunDir, recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '@/runState';
-
-const defaultAgentTimeoutMinutes = 60;
+import { getRunDir } from '@/runState';
 
 const formatTokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
 
 const formatUsage = (usage: AgentUsage) =>
 	`in ${formatTokens(usage.inputTokens)} · out ${formatTokens(usage.outputTokens)} · cache-read ${formatTokens(usage.cacheReadTokens)} · $${usage.costUsd.toFixed(2)}`;
-
-const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord }) => {
-	const existing = steps.findIndex((step) => step.id === record.id);
-
-	if (existing === -1) {
-		return [...steps, record];
-	}
-
-	return steps.map((step, index) => (index === existing ? record : step));
-};
 
 interface ConstructorParams {
 	cwd: string;
@@ -34,24 +23,21 @@ interface ConstructorParams {
 }
 
 /**
- * The run's moving parts as one owned object: the manifest (rebound on every
- * persisted write), the usage aggregate, step timers, and the evidence
- * counters — plus the invocation plumbing every agent call shares. Steps
- * mutate run state ONLY through these methods, so the persist-before-next-
- * action ordering lives in exactly one place. Deliberately small: state +
+ * The implement run's moving parts as one owned object: the state and
+ * persistence every run shares, plus step timers, the evidence counters, and
+ * the invocation plumbing every agent call goes through. Steps mutate run
+ * state ONLY through these methods, so the persist-before-next-action
+ * ordering lives in exactly one place. Deliberately small: state +
  * persistence + invocation; derivations that merely read the run live in
  * their own files.
  */
 export class PipelineRun {
-	readonly cwd: string;
-	readonly config: LightsoutConfig;
-	/** Ceiling for working-role invocations, config-resolved once. */
-	readonly agentTimeoutMs: number;
 	/** Public: the supervisor consult invokes with its own contract/timeouts, outside invokeRole. */
 	readonly driver: Driver;
-	private readonly onProgress?: (message: string) => void;
-	private manifest: RunManifest;
-	private readonly usageTotals: RunUsage;
+	// The shared run state is held, not inherited: what this run adds — step
+	// timers, evidence counters, agent invocation — stays visible against a
+	// plain value it forwards to.
+	private readonly runState: RunState;
 	// Active time per step, accumulated across attempts and resumes: the
 	// timer starts when nextRecord picks the step up (seeded with any prior
 	// durationMs), and every manifest write re-stamps the running total — so
@@ -61,41 +47,49 @@ export class PipelineRun {
 	private rejectedCount = 0;
 
 	constructor({ cwd, config, driver, manifest, onProgress }: ConstructorParams) {
-		this.cwd = cwd;
-		this.config = config;
+		this.runState = new RunState({ cwd, config, manifest, onProgress });
 		this.driver = driver;
-		this.manifest = manifest;
-		this.onProgress = onProgress;
-		this.usageTotals = seedUsageTotals({ usage: manifest.usage });
-		this.agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
+	}
+
+	get cwd(): string {
+		return this.runState.cwd;
+	}
+
+	get config(): LightsoutConfig {
+		return this.runState.config;
+	}
+
+	/** Ceiling for a run's agent invocations, config-resolved once. */
+	get agentTimeoutMs(): number {
+		return this.runState.agentTimeoutMs;
 	}
 
 	/** The live manifest — reread after any update/setStep, never cached by callers. */
 	current(): RunManifest {
-		return this.manifest;
+		return this.runState.current();
 	}
 
 	progress(message: string): void {
-		this.onProgress?.(message);
+		this.runState.progress(message);
+	}
+
+	update(patch: Partial<RunManifest>): Promise<void> {
+		return this.runState.update(patch);
 	}
 
 	parkMessage(): string {
-		return `run parked: harness rate limit reached — resume with \`lightsout resume --run ${this.manifest.runId}\` when the window resets.`;
-	}
-
-	async update(patch: Partial<RunManifest>): Promise<void> {
-		this.manifest = await writeManifestWithUsage({ cwd: this.cwd, manifest: this.manifest, patch, usageTotals: this.usageTotals });
+		return `run parked: harness rate limited or overloaded — resume with \`lightsout resume --run ${this.current().runId}\` when the window resets.`;
 	}
 
 	async setStep({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }): Promise<void> {
 		const timer = this.stepTimers.get(record.id);
 		const timed = timer ? { ...record, durationMs: timer.baseMs + (Date.now() - timer.startedAt) } : record;
 
-		await this.update({ ...patch, currentStep: timed.id, steps: upsertStep({ steps: this.manifest.steps, record: timed }) });
+		await this.runState.setStep({ record: timed, patch });
 	}
 
 	nextRecord({ id }: { id: string }): StepRecord {
-		const prev = this.manifest.steps.find((step) => step.id === id);
+		const prev = this.current().steps.find((step) => step.id === id);
 
 		this.stepTimers.set(id, { startedAt: Date.now(), baseMs: prev?.durationMs ?? 0 });
 
@@ -106,19 +100,11 @@ export class PipelineRun {
 		await this.setStep({ record: { ...record, status, error }, patch: { status } });
 		this.progress(`run stopped at ${record.id} — ${status}`);
 
-		return { ok: false, manifest: this.manifest, error };
+		return { ok: false, manifest: this.current(), error };
 	}
 
 	async recordUsage({ step, usage }: { step: string; usage?: AgentUsage }): Promise<void> {
-		await recordAgentUsage({
-			cwd: this.cwd,
-			runId: this.manifest.runId,
-			step,
-			model: this.config.model,
-			effort: this.config.effort,
-			totals: this.usageTotals,
-			usage,
-		});
+		await this.runState.recordUsage({ step, usage });
 
 		if (usage) {
 			this.progress(`  ${step} · usage: ${formatUsage(usage)}`);
@@ -134,7 +120,7 @@ export class PipelineRun {
 	agentEventSink({ step }: { step: string }): (event: unknown) => void {
 		this.transcriptCount += 1;
 
-		const dir = join(getRunDir({ cwd: this.cwd, runId: this.manifest.runId }), 'agents');
+		const dir = join(getRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
 		const path = join(dir, `stream-${String(this.transcriptCount).padStart(2, '0')}-${step}.jsonl`);
 
 		return createEventFileSink({ path, ready: mkdir(dir, { recursive: true }) });
@@ -147,12 +133,12 @@ export class PipelineRun {
 		return async ({ text, attempt, validationError }) => {
 			this.rejectedCount += 1;
 
-			const dir = join(getRunDir({ cwd: this.cwd, runId: this.manifest.runId }), 'agents');
+			const dir = join(getRunDir({ cwd: this.cwd, runId: this.current().runId }), 'agents');
 			const name = `rejected-${String(this.rejectedCount).padStart(2, '0')}-${step}-attempt${attempt}.txt`;
 
 			await mkdir(dir, { recursive: true });
 			await writeFile(join(dir, name), `# step: ${step} · invocation attempt ${attempt}\n# validation: ${validationError}\n\n${text}`, 'utf8');
-			this.progress(`step ${step}: agent final message failed the report contract — raw text saved to .lightsout/runs/${this.manifest.runId}/agents/${name}`);
+			this.progress(`step ${step}: agent final message failed the report contract — raw text saved to .lightsout/runs/${this.current().runId}/agents/${name}`);
 		};
 	}
 
@@ -184,7 +170,7 @@ export class PipelineRun {
 			timeoutMs: this.agentTimeoutMs,
 			// Harness-level allowance for all working roles; the binding grant
 			// is the prompt section, which only the executor's builder emits.
-			allowedCommands: this.config.agentCommands,
+			allowedCommands: this.config['agent-commands'],
 			onEvent: (event) => {
 				if (!seenFirst) {
 					seenFirst = true;

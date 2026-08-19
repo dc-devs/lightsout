@@ -31,7 +31,7 @@ const setupScopedRepo = ({ withRunToken = true }: { withRunToken?: boolean } = {
 		join(dir, 'lightsout.config.json'),
 		JSON.stringify({
 			gates: { check: 'echo root-check', test: 'echo root-test', 'test-coverage': false },
-			packageGates: {
+			'package-gates': {
 				check: template({ kind: 'check', script: 'gate:check' }),
 				test: template({ kind: 'test', script: 'gate:test' }),
 				'test-coverage': template({ kind: 'coverage', script: 'gate:coverage' }),

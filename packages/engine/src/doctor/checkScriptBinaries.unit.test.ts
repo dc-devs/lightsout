@@ -30,7 +30,7 @@ describe('checkScriptBinaries', () => {
 		const cwd = setupConsumerRepo();
 		const config: LightsoutConfig = {
 			...configWith({}),
-			packageGates: { check: 'lightsout-absent-runner --filter {package}', test: 'true {package}' },
+			'package-gates': { check: 'lightsout-absent-runner --filter {package}', test: 'true {package}' },
 		};
 
 		const check = await checkScriptBinaries({ cwd, config });
@@ -42,7 +42,7 @@ describe('checkScriptBinaries', () => {
 		const cwd = setupConsumerRepo();
 		const config: LightsoutConfig = {
 			...configWith({}),
-			packageGates: { check: 'true --filter {package}', test: 'node --version {package}' },
+			'package-gates': { check: 'true --filter {package}', test: 'node --version {package}' },
 		};
 
 		const check = await checkScriptBinaries({ cwd, config });

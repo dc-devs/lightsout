@@ -1,6 +1,3 @@
-const narrowest = 60;
-const widest = 120;
-
 /**
  * Columns to lay text out in.
  *
@@ -9,4 +6,9 @@ const widest = 120;
  * for an eye to track back to the next. Piped output reports no width at all,
  * so it takes a readable fixed default.
  */
-export const terminalWidth = (): number => Math.min(Math.max(process.stdout.columns ?? 100, narrowest), widest);
+export const terminalWidth = (): number => {
+	const narrowest = 60;
+	const widest = 120;
+
+	return Math.min(Math.max(process.stdout.columns ?? 100, narrowest), widest);
+};

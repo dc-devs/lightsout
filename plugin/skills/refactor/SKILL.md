@@ -22,8 +22,9 @@ the engine as deterministic code. Do not add workflow steps to this file.
 
    Pass through when provided: `--path <subdir>`, `--all` (include baselined
    findings — burn-down mode), `--max-batches <n>`, `--code-checks` (skip each
-   batch's agent review — deterministic checks only), `--cwd <path>`. To
-   resume a parked run: `refactor --run <id>`.
+   batch's agent review — deterministic checks only), `--allow-dirty` (accept
+   uncommitted changes as baseline instead of demanding a clean tree),
+   `--cwd <path>`. To resume a parked run: `refactor --run <id>`.
 3. Relay the engine's output verbatim — the per-batch outcomes, declines with
    rationale, and the burn-down table ARE the result. If batches were
    declined, tell the user each needs a human ruling: fix by hand or accept

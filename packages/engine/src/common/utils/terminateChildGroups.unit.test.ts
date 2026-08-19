@@ -42,6 +42,9 @@ const cleanup = ({ child, grandchildPid }: { child: ChildProcess; grandchildPid:
 	}
 };
 
+/** Two detached shells at once — the arrangement for the every-child case. */
+const setupChildPair = async () => ({ first: await setupChild(), second: await setupChild() });
+
 /** A child that installs a no-op SIGTERM handler, so only SIGKILL can end it. */
 const setupStubbornChild = async () => {
 	const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); console.log('ready'); setInterval(() => {}, 1_000);"], {
@@ -67,8 +70,7 @@ describe('terminateChildGroups', () => {
 	});
 
 	test('stops every child it is given, not just the first', async () => {
-		const first = await setupChild();
-		const second = await setupChild();
+		const { first, second } = await setupChildPair();
 
 		await terminateChildGroups({ children: [first.child, second.child] });
 

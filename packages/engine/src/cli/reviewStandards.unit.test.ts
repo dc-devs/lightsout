@@ -79,7 +79,7 @@ describe('reviewStandards', () => {
 
 	test("the review is bounded and scoped by the repo's own config, over the files the path filter leaves", async () => {
 		const cwd = setupRepo({ sources: ['src/index.ts', 'scripts/build.ts'] });
-		const config: LightsoutConfig = { gates, harness: 'codex', standardsChannels: ['react'], timeouts: { agentMinutes: 5 } };
+		const config: LightsoutConfig = { gates, harness: 'codex', 'standards-channels': ['react'], timeouts: { 'agent-minutes': 5 } };
 
 		await reviewStandards({ cwd, config, path: 'src' });
 

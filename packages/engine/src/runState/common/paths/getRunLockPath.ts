@@ -5,6 +5,6 @@ interface Params {
 }
 
 /** One lock per consumer repo: `<repo>/.lightsout/lock.json`. */
-export const getRunLockPath = ({ cwd }: Params) => {
+export const getRunLockPath = ({ cwd }: Params): string => {
 	return join(cwd, '.lightsout', 'lock.json');
 };

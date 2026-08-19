@@ -59,8 +59,8 @@ test('doctor announces monorepo mode and the packages directory in the config ch
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packagesDir: 'apps',
-			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
+			'packages-dir': 'apps',
+			'package-gates': { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -76,7 +76,7 @@ test('doctor passes scoped-gates when every package defines every scoped gate sc
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
+			'package-gates': { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -93,7 +93,7 @@ test('doctor names a package that skips a scoped gate, so intent and typo stay d
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
+			'package-gates': { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -105,14 +105,14 @@ test('doctor names a package that skips a scoped gate, so intent and typo stay d
 	// skips are a decision to surface, not a defect to nag about
 	expect(checks.get('scoped-gates')?.status).toBe('note');
 	expect(checks.get('scoped-gates')?.detail ?? '').toMatch(/infra \(check, test:unit\)/);
-	expect(checks.get('scoped-gates')?.detail ?? '').toMatch(/typo'd script name looks identical/);
+	expect(checks.get('scoped-gates')?.detail ?? '').toContain("a typo'd script name looks identical");
 });
 
 test('doctor treats only manifest-bearing, non-dot directories as packages', async () => {
 	const dir = setupConsumerRepo({
 		git: false,
 		config: {
-			packageGates: { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
+			'package-gates': { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit' },
 		},
 	});
 
@@ -139,7 +139,7 @@ test('doctor treats only manifest-bearing, non-dot directories as packages', asy
 test('doctor orders checks positives-first: pass, then note, then warn/fail', async () => {
 	const dir = setupConsumerRepo({
 		config: {
-			packageGates: {
+			'package-gates': {
 				check: 'pnpm --filter {package} run check',
 				test: 'pnpm --filter {package} run test:unit',
 			},

@@ -38,12 +38,12 @@ The minimal configuration uses lightsout’s bundled JavaScript and TypeScript s
 
 ### Use your own standards
 
-Point `standardsPackages` at one or more standards packages. Each entry is the
+Point `standards-packages` at one or more standards packages. Each entry is the
 folder holding a `lightsout-standards.json` file:
 
 ```json
 {
-  "standardsPackages": ["standards/house-rules"],
+  "standards-packages": ["standards/house-rules"],
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
@@ -54,12 +54,12 @@ folder holding a `lightsout-standards.json` file:
 
 ### Configure a monorepo
 
-Use `packageGates` to run gates only for packages affected by the current change. The `{package}` placeholder is replaced with each package name.
+Use `package-gates` to run gates only for packages affected by the current change. The `{package}` placeholder is replaced with each package name.
 
 ```json
 {
-  "packagesDir": "packages",
-  "packageGates": {
+  "packages-dir": "packages",
+  "package-gates": {
     "check": "pnpm --filter {package} check",
     "test": "pnpm --filter {package} test:unit",
     "test-coverage": "pnpm --filter {package} test:unit:coverage",
@@ -73,7 +73,7 @@ Use `packageGates` to run gates only for packages affected by the current change
 }
 ```
 
-See [Monorepos](docs/monorepos.md) for package detection and gate-resolution details.
+See [Monorepos](monorepos.md) for package detection and gate-resolution details.
 
 ## How verification works
 
@@ -118,7 +118,7 @@ To use your own instead, list its root folder:
 
 ```json
 {
-  "standardsPackages": ["standards/house-rules"],
+  "standards-packages": ["standards/house-rules"],
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
@@ -133,7 +133,7 @@ documents; two packages that claim the same rule id fail the run rather than
 letting an override mean two things. A root with no `lightsout-standards.json`
 in it fails the run too.
 
-Set `standardsPackages` to `false` to run with no standards at all.
+Set `standards-packages` to `false` to run with no standards at all.
 
 ### Commands for working with a package
 
@@ -165,37 +165,38 @@ failure.
 
 ## Field reference
 
-| Field                        | Required | What it controls                                                                                                                                                                                                                                                                          |
-| ---------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gates.check`                |      yes | The type-check and lint gate. Provide the full shell command lightsout should run at every verification stage.                                                                                                                                                                            |
-| `gates.test`                 |      yes | The fast test gate — the unit suite. `test` and `test-coverage` are two spellings of the same suite (plain and instrumented), so lightsout runs one or the other, never both.                                                                                                                                                                                                                           |
-| `gates.test-coverage`        |      yes | The coverage gate. Provide a shell command, or set it to `false` to opt out. Skipping the strongest gate must be an explicit decision, not an accident. The command must run the same suite `test` runs, instrumented — lightsout substitutes it for `test`.
-| `gates.test-*`               |       no | Any other `test-` key is a custom suite of its own — `test-e2e`, `test-integration`, `test-browser`, whatever your repo calls it. Custom suites are never substituted by coverage and run in the order written here, after the unit suite and before `build`.                                                                                                                                   |
-| `gates.generate`             |       no | An opt-in code-generation command, such as `prisma generate`. Runs once before each set of gates.                                                                                                                                                                                         |
-| `gates.build`                |       no | An opt-in build gate. Runs last during every verification stage.                                                                                                                                                                                                                          |
-| `gates.format`               |       no | An opt-in formatting command. Runs once at the end of the pipeline.                                                                                                                                                                                                                       |
-| `harness`                    |       no | The default harness used to run agents. Supported values are `claude-code` and `codex`. Defaults to `claude-code`.                                                                                                                                                                        |
-| `model`                      |       no | A model override passed through to the selected harness.                                                                                                                                                                                                                                  |
-| `effort`                     |       no | The reasoning effort passed to the selected harness. One of `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, each harness uses its own default.                                                                                                                                   |
-| `commands`                   |       no | Per-command harness overrides for `plan`, `implement`, `refactor`, and `improve`. Each entry may define its own `harness`, `model`, `effort`, or any combination. A global `model` is not inherited by a command that selects a different harness; a global `effort` is, because the five levels mean the same thing everywhere. Unknown command keys are rejected rather than silently ignored. |
-| `permissions`                |       no | The capability level granted to agent invocations: `write` (agents may edit files and run commands inside the workspace) or `full-access` (the harness's sandbox is bypassed entirely). Defaults to `write`. The read-only level used by the supervisor is chosen by the engine and is not settable. |
-| `timeouts.agentMinutes`      |       no | The maximum runtime for a working agent, in minutes. Defaults to `60`. Reaching the limit creates a resumable step failure rather than crashing the run, and stops the harness together with every process it started — a terminate signal first, then a kill if that is ignored.                                                                                                                                  |
-| `timeouts.supervisorMinutes` |       no | The maximum runtime for the read-only supervisor, in minutes. Defaults to `15`.                                                                                                                                                                                                           |
-| `agentCommands`              |       no | Command prefixes that implementation agents are allowed to run when producing deliverables that cannot be created another way. These commands are never used for verification; lightsout runs all gates itself.                                                                           |
-| `generated`                  |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                   |
-| `packageGates`               |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](docs/monorepos.md).                                                                                                                    |
-| `packagesDir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                           |
-| `standardsPackages`          |       no | The standards packages a run works against. When omitted, the package lightsout ships is used. Set to `false` to run with no standards at all, or provide an array of package roots — each the folder holding a `lightsout-standards.json` file, relative to your repository root or absolute. One package carries both the code and the test documents, which is why there is a single key rather than two. |
-| `standardsChannels`          |       no | Controls which framework-specific documents of the loaded packages are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                        |
-| `standardsChecks`            |       no | Per-rule overrides for `lightsout standards-check`, keyed by rule id. A rule you do not name keeps its own default. See [Standards check rules](#standards-check-rules).                                                                                                                  |
+| Field                         | Required | What it controls                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------- | -------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gates.check`                 |      yes | The type-check and lint gate. Provide the full shell command lightsout should run at every verification stage.                                                                                                                                                                                                                                                                                   |
+| `gates.test`                  |      yes | The fast test gate — the unit suite. `test` and `test-coverage` are two spellings of the same suite (plain and instrumented), so lightsout runs one or the other, never both.                                                                                                                                                                                                                    |
+| `gates.test-coverage`         |      yes | The coverage gate. Provide a shell command, or set it to `false` to opt out. Skipping the strongest gate must be an explicit decision, not an accident. The command must run the same suite `test` runs, instrumented — lightsout substitutes it for `test`.                                                                                                                                     |
+| `gates.test-*`                |       no | Any other `test-` key is a custom suite of its own — `test-e2e`, `test-integration`, `test-browser`, whatever your repo calls it. Custom suites are never substituted by coverage and run in the order written here, after the unit suite and before `build`.                                                                                                                                    |
+| `gates.generate`              |       no | An opt-in code-generation command, such as `prisma generate`. Runs once before each set of gates.                                                                                                                                                                                                                                                                                                |
+| `gates.build`                 |       no | An opt-in build gate. Runs last during every verification stage.                                                                                                                                                                                                                                                                                                                                 |
+| `gates.format`                |       no | An opt-in formatting command. Runs once at the end of the pipeline.                                                                                                                                                                                                                                                                                                                              |
+| `harness`                     |       no | The default harness used to run agents. Supported values are `claude-code` and `codex`. Defaults to `claude-code`.                                                                                                                                                                                                                                                                               |
+| `model`                       |       no | A model override passed through to the selected harness.                                                                                                                                                                                                                                                                                                                                         |
+| `effort`                      |       no | The reasoning effort passed to the selected harness. One of `low`, `medium`, `high`, `xhigh`, or `max`. When omitted, each harness uses its own default.                                                                                                                                                                                                                                         |
+| `commands`                    |       no | Per-command harness overrides for `plan`, `implement`, `refactor`, `test-coverage-to-threshold`, and `improve`. Each entry may define its own `harness`, `model`, `effort`, or any combination. A global `model` is not inherited by a command that selects a different harness; a global `effort` is, because the five levels mean the same thing everywhere. Unknown command keys are rejected rather than silently ignored. |
+| `permissions`                 |       no | The capability level granted to agent invocations: `write` (agents may edit files and run commands inside the workspace) or `full-access` (the harness's sandbox is bypassed entirely). Defaults to `write`. The read-only level used by the supervisor is chosen by the engine and is not settable.                                                                                             |
+| `timeouts.agent-minutes`      |       no | The maximum runtime for a working agent, in minutes. Defaults to `60`. Reaching the limit creates a resumable step failure rather than crashing the run, and stops the harness together with every process it started — a terminate signal first, then a kill if that is ignored.                                                                                                                |
+| `timeouts.supervisor-minutes` |       no | The maximum runtime for the read-only supervisor, in minutes. Defaults to `15`.                                                                                                                                                                                                                                                                                                                  |
+| `agent-commands`              |       no | Command prefixes that implementation agents are allowed to run when producing deliverables that cannot be created another way. These commands are never used for verification; lightsout runs all gates itself.                                                                                                                                                                                  |
+| `generated`                   |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                                                                                                                          |
+| `coverage-summary-path`       |       no | Where your coverage tooling writes its JSON summary (`coverage-summary.json`, the `json-summary` reporter's output), which `lightsout test-coverage-to-threshold` reads for per-file percentages. Defaults to `coverage/coverage-summary.json` — relative to the repository root, or to each package in monorepo mode.                                                                           |
+| `package-gates`               |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](monorepos.md).                                                                                                                                                                                                                                |
+| `packages-dir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                                                                                                                                  |
+| `standards-packages`          |       no | The standards packages a run works against. When omitted, the package lightsout ships is used. Set to `false` to run with no standards at all, or provide an array of package roots — each the folder holding a `lightsout-standards.json` file, relative to your repository root or absolute. One package carries both the code and the test documents, which is why there is a single key rather than two. |
+| `standards-channels`          |       no | Controls which framework-specific documents of the loaded packages are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                                                                                                                              |
+| `standards-checks`            |       no | Per-rule overrides for `lightsout standards-check`, keyed by rule id. A rule you do not name keeps its own default. See [Standards check rules](#standards-check-rules).                                                                                                                                                                                                                         |
 
 ### Standards check rules
 
-Every rule the standards check enforces ships with a default severity and, where it has numbers to measure against, its own settings. `standardsChecks` overrides them one rule at a time:
+Every rule the standards check enforces ships with a default severity and, where it has numbers to measure against, its own settings. `standards-checks` overrides them one rule at a time:
 
 ```jsonc
 {
-  "standardsChecks": {
+  "standards-checks": {
     // A severity on its own.
     "filename-mismatch": "off",
     "clone": "blocking",
@@ -221,7 +222,7 @@ Run `lightsout standards-check --list` to print every rule with the standards do
 Two rules govern the keys above, and this surface depends on both:
 
 - A key with a neutral name must mean the same thing on every harness. A capability only one harness has never gets a neutral key, because a key that reads as portable but silently does nothing is a failure you cannot see. If such a capability is ever needed, it goes under an explicitly harness-scoped block.
-- `permissions` expresses intent, not identical enforcement. On Claude Code the commands granted through `agentCommands` are enforced by the harness itself. On Codex the workspace-write sandbox already permits commands, so the grant list the engine injects into the agent's prompt is what binds.
+- `permissions` expresses intent, not identical enforcement. On Claude Code the commands granted through `agent-commands` are enforced by the harness itself. On Codex the workspace-write sandbox already permits commands, so the grant list the engine injects into the agent's prompt is what binds.
 
 ## Complete example
 
@@ -249,8 +250,8 @@ The following example shows how the optional configuration fields fit together:
   },
 
   // Standards packages, and which framework documents apply
-  "standardsPackages": ["standards/house-rules"],
-  "standardsChannels": [],
+  "standards-packages": ["standards/house-rules"],
+  "standards-channels": [],
 
   // Repository-wide gates
   "gates": {
@@ -263,8 +264,8 @@ The following example shows how the optional configuration fields fit together:
   },
 
   // Per-package gates for monorepos
-  "packagesDir": "packages",
-  "packageGates": {
+  "packages-dir": "packages",
+  "package-gates": {
     "check": "pnpm --filter {package} check",
     "test": "pnpm --filter {package} test:unit",
     "test-coverage": "pnpm --filter {package} test:unit:coverage",
@@ -272,19 +273,19 @@ The following example shows how the optional configuration fields fit together:
   },
 
   // Commands implementation agents may run
-  "agentCommands": ["pnpm --filter api run prisma:migrate:dev:name"],
+  "agent-commands": ["pnpm --filter api run prisma:migrate:dev:name"],
 
   // Generated files excluded from changed-file attribution
   "generated": ["src/generated/", "src/schema.gql"],
 
   // Agent and supervisor limits
   "timeouts": {
-    "agentMinutes": 60,
-    "supervisorMinutes": 15,
+    "agent-minutes": 60,
+    "supervisor-minutes": 15,
   },
 
   // Per-rule standards-check overrides
-  "standardsChecks": {
+  "standards-checks": {
     // Our linter already enforces this one.
     "filename-mismatch": "off",
     // Raise the clone floor without changing what a clone means for the run.

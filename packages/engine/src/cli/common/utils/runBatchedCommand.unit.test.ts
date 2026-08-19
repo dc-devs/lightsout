@@ -1,0 +1,82 @@
+import { describe, expect, test } from '@jest/globals';
+import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
+import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
+import { parseFlags } from '@/cli/common/args/parseFlags';
+import { runBatchedCommand } from '@/cli/common/utils/runBatchedCommand';
+import type { LightsoutConfig } from '@/contracts';
+import { RunLockError } from '@/runState';
+
+interface SeenStart {
+	config?: LightsoutConfig;
+	maxBatches?: number;
+	existing?: unknown;
+}
+
+const setupShell = ({ args = [], result = { ok: true }, failWith }: { args?: string[]; result?: { ok: boolean }; failWith?: Error } = {}) => {
+	const captured = captureCommandOutput();
+	const cwd = setupConsumerRepo();
+	const seen: SeenStart = {};
+	const printed: unknown[] = [];
+
+	const command = runBatchedCommand({
+		flags: parseFlags({ args }),
+		cwd,
+		command: 'refactor',
+		run: async (start) => {
+			seen.config = start.config;
+			seen.maxBatches = start.maxBatches;
+			seen.existing = start.existing;
+
+			if (failWith) {
+				throw failWith;
+			}
+
+			return result;
+		},
+		print: ({ result: finished }) => printed.push(finished),
+	});
+
+	return { command, seen, printed, ...captured };
+};
+
+describe('runBatchedCommand', () => {
+	test('resolves the effective config, announces the run, hands off, prints the result, and exits 0 on ok', async () => {
+		const { command, seen, printed, logged, exitCodes } = setupShell({ args: ['--max-batches', '2'] });
+
+		await expect(command).rejects.toThrow(/process\.exit/);
+
+		expect(seen.config?.harness).toBe('claude-code');
+		expect(seen.maxBatches).toBe(2);
+		expect(seen.existing).toBeUndefined();
+		expect(logged[0]).toBe('lightsout: refactor starting run');
+		expect(printed).toStrictEqual([{ ok: true }]);
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('an unfinished run exits 1, whatever it managed along the way', async () => {
+		const { command, exitCodes } = setupShell({ result: { ok: false } });
+
+		await expect(command).rejects.toThrow(/process\.exit/);
+
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a --max-batches below one is rejected before the pipeline is asked to do anything', async () => {
+		const { command, seen, errors, exitCodes } = setupShell({ args: ['--max-batches', '0'] });
+
+		await expect(command).rejects.toThrow(/process\.exit/);
+
+		expect(errors.join('\n')).toContain(`--max-batches must be a positive integer, got '0'`);
+		expect(seen.config).toBeUndefined();
+		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a lock collision is reported in the lock’s own words, not as a crash', async () => {
+		const { command, errors, exitCodes } = setupShell({ failWith: new RunLockError('run 9f2 is already running in this repo (pid 4242)') });
+
+		await expect(command).rejects.toThrow(/process\.exit/);
+
+		expect(errors.join('\n')).toContain('run 9f2 is already running in this repo (pid 4242)');
+		expect(exitCodes).toStrictEqual([1]);
+	});
+});

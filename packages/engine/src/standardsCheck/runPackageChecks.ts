@@ -63,7 +63,7 @@ interface Params {
 	states: Map<string, ResolvedRuleState>;
 	/** Active framework channels — rules on inactive channels do not run (base always runs). */
 	channels: string[];
-	/** Monorepo package parent dir (config `packagesDir`), default 'packages'. */
+	/** Monorepo package parent dir (config `packages-dir`), default 'packages'. */
 	packagesDir?: string;
 	/** Repo-relative subpath to check (default: the whole repo). */
 	path?: string;

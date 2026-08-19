@@ -53,7 +53,7 @@ interface SetupParams {
  * numbers each case is about. TypeScript is linked because without a consumer
  * compiler the check stands down entirely.
  */
-const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const feature = () => 1;\n' }, statements, onFix }: SetupParams) => {
+const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const feature = (): number => 1;\n' }, statements, onFix }: SetupParams) => {
 	const dir = setupConsumerRepo({ scripts: { 'test-coverage': 'true' } });
 
 	linkTypescript({ dir });
@@ -136,8 +136,8 @@ describe('runImplementPipeline', () => {
 		const { dir, driver, config } = await setupExecutionRun({
 			sources: {
 				'src/feature/index.ts': "export { feature } from './feature';\n",
-				'src/feature/feature.ts': 'export const feature = () => 1;\n',
-				'src/feature/orphan.ts': 'export const orphan = () => 2;\n',
+				'src/feature/feature.ts': 'export const feature = (): number => 1;\n',
+				'src/feature/orphan.ts': 'export const orphan = (): number => 2;\n',
 			},
 			// the orphan is absent from the summary entirely — a violation if the check saw it
 			statements: { 'src/feature/feature.ts': { covered: 3, total: 3 } },

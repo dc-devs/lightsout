@@ -8,8 +8,6 @@ import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
 import { matchDedupVerdicts } from '@/plan/common/utils/matchDedupVerdicts';
 import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 
-const defaultDedupTimeoutMs = 30 * 60 * 1000;
-
 interface Params {
 	cwd: string;
 	driver: Driver;
@@ -48,7 +46,7 @@ export const runPlanDedup = async ({
 	model,
 	effort,
 	permissions,
-	timeoutMs = defaultDedupTimeoutMs,
+	timeoutMs = 30 * 60 * 1000,
 	onProgress,
 }: Params): Promise<RunPlanDedupResult> => {
 	const progress = onProgress ?? (() => undefined);
@@ -89,7 +87,7 @@ export const runPlanDedup = async ({
 
 	if (!outcome.ok) {
 		return outcome.rateLimited
-			? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limit reached — re-run: lightsout plan dedup --name ${name}` }
+			? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan dedup --name ${name}` }
 			: { status: 'failed' as const, workspaceDir, error: `dedup judge failed: ${outcome.failure}` };
 	}
 

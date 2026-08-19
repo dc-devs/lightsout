@@ -1,6 +1,6 @@
-import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
+import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildClassFindings } from '../../../../../common/utils/buildClassFindings.ts';
 
 /** Whether a class member carries one of the keywords the two banned shapes turn on. */
 const hasModifier = ({ member, kind, compiler }: { member: ts.ClassElement; kind: ts.SyntaxKind; compiler: typeof ts }) => {
@@ -49,43 +49,17 @@ const getBannedShape = ({ node, compiler }: { node: ts.ClassDeclaration; compile
 	return banned;
 };
 
-/** One finding per file: the remedy is "replace these classes with module functions", which is one pass over the file. */
-const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
-	const findings: RawStandardsFinding[] = [];
-
-	for (const [path, tree] of input.trees) {
-		const banned: string[] = [];
-
-		const visit = (node: ts.Node) => {
-			const shape = input.compiler.isClassDeclaration(node) ? getBannedShape({ node, compiler: input.compiler }) : undefined;
-
-			if (shape !== undefined) {
-				banned.push(shape);
-			}
-
-			node.forEachChild(visit);
-		};
-
-		visit(tree);
-
-		if (banned.length > 0) {
-			findings.push(
-				buildRawFinding({
-					rule: 'banned-class-shape',
-					files: [{ path }],
-					detail: banned.join('; '),
-					guidance: 'Write module functions instead — one exported function per file — and delete the class.',
-				}),
-			);
-		}
-	}
-
-	return findings;
-};
-
 export const check: StandardsCheckModule = {
 	inputKind: 'syntax-tree',
 	// Both banned shapes are facts of the declaration itself — what its members
 	// are and which of them bind state — so the tree answers the whole question.
-	run: ({ input }): RawStandardsFinding[] => (input.kind === 'syntax-tree' ? buildFileFindings({ input }) : []),
+	run: ({ input }): RawStandardsFinding[] =>
+		input.kind === 'syntax-tree'
+			? buildClassFindings({
+					input,
+					rule: 'banned-class-shape',
+					guidance: 'Write module functions instead — one exported function per file — and delete the class.',
+					getViolation: getBannedShape,
+				})
+			: [],
 };

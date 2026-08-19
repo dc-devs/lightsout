@@ -11,8 +11,8 @@ import { createRun } from '@/runState';
 const plainRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const monorepo: LightsoutConfig = {
 	...plainRepo,
-	packageGates: { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' },
-	standardsPackages: false,
+	'package-gates': { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' },
+	'standards-packages': false,
 };
 
 const idleDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
@@ -33,7 +33,7 @@ const write = ({ cwd, path, content }: { cwd: string; path: string; content: str
 
 describe('prepareRun', () => {
 	test('returns the plan text the steps are built from', async () => {
-		const { run, cwd } = await setupRun({ config: { ...monorepo, packageGates: undefined } });
+		const { run, cwd } = await setupRun({ config: { ...monorepo, 'package-gates': undefined } });
 
 		write({ cwd, path: 'plan.md', content: '# Plan\nbody\n' });
 
@@ -74,7 +74,7 @@ describe('prepareRun', () => {
 	});
 
 	test('a declared standards package that is missing is reported the same way', async () => {
-		const config: LightsoutConfig = { ...plainRepo, standardsPackages: ['standards/ghost'] };
+		const config: LightsoutConfig = { ...plainRepo, 'standards-packages': ['standards/ghost'] };
 		const { run, cwd } = await setupRun({ config });
 
 		write({ cwd, path: 'plan.md', content: '# Plan\n' });

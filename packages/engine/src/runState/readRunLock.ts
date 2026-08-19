@@ -7,7 +7,7 @@ interface Params {
 }
 
 /** The current run lock, or undefined when absent or unparseable (the acquirer treats a corrupt lock as stale). */
-export const readRunLock = async ({ cwd }: Params) => {
+export const readRunLock = async ({ cwd }: Params): Promise<RunLock | undefined> => {
 	const raw = await readFile(getRunLockPath({ cwd }), 'utf8').catch(() => undefined);
 
 	if (raw === undefined) {

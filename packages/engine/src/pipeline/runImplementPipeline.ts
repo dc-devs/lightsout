@@ -25,7 +25,7 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 		return;
 	}
 
-	const packagesDir = run.config.packagesDir ?? defaultPackagesDir;
+	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
 	const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
 	const targets = recorded.filter((file) => universe.includes(file));

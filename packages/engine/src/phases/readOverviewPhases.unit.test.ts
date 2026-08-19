@@ -29,3 +29,11 @@ test('readOverviewPhases: rows under the next ## heading are not phases', () => 
 
 	expect(readOverviewPhases({ overviewContent })).toStrictEqual(['phase1.md']);
 });
+
+test('readOverviewPhases: a ragged row with no File column is skipped, not read as a phase', () => {
+	// a hand-edited table can lose a cell; the reader must not treat the row's
+	// only cell as the File column, nor stop reading the rows after it
+	const overviewContent = '## Phases\n\n| # | File | Scope |\n|---|------|-------|\n| `phase-with-no-second-cell.md`\n| 2 | `phase2.md` | real |\n';
+
+	expect(readOverviewPhases({ overviewContent })).toStrictEqual(['phase2.md']);
+});

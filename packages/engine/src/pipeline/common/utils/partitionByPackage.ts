@@ -3,7 +3,7 @@ import { packageOf } from '@/common/utils/packageOf';
 interface Params {
 	/** Repo-relative files to bucket. */
 	files: string[];
-	/** Monorepo package parent dir (config.packagesDir ?? defaultPackagesDir). */
+	/** Monorepo package parent dir (config['packages-dir'] ?? defaultPackagesDir). */
 	packagesDir: string;
 }
 

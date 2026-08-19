@@ -4,9 +4,6 @@ interface Params {
 	facts: PlanFacts;
 }
 
-/** Buffer under the 50-file executor guardrail — above this the plan goes phased. */
-const phasedThreshold = 40;
-
 /**
  * Deterministically estimate whether a plan should be single-file or phased,
  * from the distinct touched paths in the verified facts (`filesToModify` +
@@ -16,6 +13,8 @@ const phasedThreshold = 40;
  * CLI `--scope` flag.
  */
 export const estimatePlanScope = ({ facts }: Params): PlanVariant => {
+	// Buffer under the 50-file executor guardrail — above this the plan goes phased.
+	const phasedThreshold = 40;
 	const paths = new Set<string>();
 
 	for (const area of facts.areas) {

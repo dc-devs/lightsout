@@ -57,14 +57,14 @@ describe('RunLock', () => {
 	});
 
 	test('a non-string runId or startedAt is refused', () => {
-		const { lock: numericRunId } = setupLock({ extra: { runId: 1 } });
-		const { lock: numericStartedAt } = setupLock({ extra: { startedAt: 1767225600000 } });
+		for (const extra of [{ runId: 1 }, { startedAt: 1767225600000 }]) {
+			const { lock } = setupLock({ extra });
 
-		// the run id is an identifier the conflict message quotes back, not a number
-		expect(RunLock.safeParse(numericRunId).success).toBe(false);
-		// the start time is recorded as a string timestamp — an epoch number is a
-		// different shape, not a coercion
-		expect(RunLock.safeParse(numericStartedAt).success).toBe(false);
+			// the run id is an identifier the conflict message quotes back, and the start
+			// time is recorded as a string timestamp — a number in either is a different
+			// shape, not a coercion
+			expect(RunLock.safeParse(lock).success).toBe(false);
+		}
 	});
 
 	test('a zero pid and an empty runId parse — the schema pins shape, not liveness', () => {

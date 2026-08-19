@@ -22,7 +22,7 @@ interface Params {
  * A missing or nameless package.json is a hard error: the engine never
  * guesses a filter.
  */
-export const resolvePackageManifest = async ({ cwd, packagesDir, packageDir }: Params) => {
+export const resolvePackageManifest = async ({ cwd, packagesDir, packageDir }: Params): Promise<{ name: string; scripts: Record<string, string> }> => {
 	const manifestPath = join(cwd, packagesDir, packageDir, 'package.json');
 	const raw = await readFile(manifestPath, 'utf8').catch(() => {
 		throw new Error(`declared package '${packageDir}' has no package.json at ${manifestPath}`);

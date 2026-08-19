@@ -95,8 +95,7 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 
 	// A finding spanning areas (a cross-package clone, say) can never be
 	// resolved by an agent scoped to one side — it gets a dedicated cross
-	// batch whose file set covers every side (live lesson: run 50d4ab35's
-	// batch-03 correctly refused exactly this and escalated).
+	// batch whose file set covers every side.
 	const folderOf = (finding: StandardsFinding) => {
 		const areas = new Set(finding.files.map((file) => areaOf(file.path)));
 

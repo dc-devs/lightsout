@@ -43,6 +43,15 @@ const batch = ({ id, blocking }: { id: string; blocking: StandardsFinding[] }): 
 	advisories: [],
 });
 
+interface RunSpec {
+	runId?: string;
+	/** `null` writes a manifest with no `pipeline` field at all — how runs from before the discriminator existed are stored. */
+	pipeline?: string | null;
+	batches: RefactorBatch[];
+	reports?: Record<string, unknown>;
+	worklistJson?: string;
+}
+
 /**
  * A repo with one persisted run: a frozen work-list plus the manifest step
  * records that answered it. `pipeline` and `plan` are what decide whether the
@@ -55,15 +64,7 @@ const setupRun = ({
 	batches,
 	reports = {},
 	worklistJson,
-}: {
-	cwd?: string;
-	runId?: string;
-	/** `null` writes a manifest with no `pipeline` field at all — how runs from before the discriminator existed are stored. */
-	pipeline?: string | null;
-	batches: RefactorBatch[];
-	reports?: Record<string, unknown>;
-	worklistJson?: string;
-}) => {
+}: RunSpec & { cwd?: string }) => {
 	const runDir = join(cwd, '.lightsout', 'runs', runId);
 
 	mkdirSync(runDir, { recursive: true });
@@ -91,6 +92,9 @@ const setupRun = ({
 
 	return cwd;
 };
+
+/** A repo holding several persisted runs, written in the order given. */
+const setupRuns = ({ runs }: { runs: RunSpec[] }) => runs.reduce((cwd, run) => setupRun({ ...run, cwd }), mkdtempSync(join(tmpdir(), 'lightsout-health-')));
 
 const report = (overrides: Partial<BatchReport> = {}): BatchReport => ({
 	outcome: 'declined',
@@ -272,17 +276,19 @@ describe('buildStandardsHealth', () => {
 	});
 
 	test('a run whose work-list will not parse is skipped, and the readable runs still count', async () => {
-		const cwd = setupRun({
-			runId: 'run-broken',
-			batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' })] })],
-			worklistJson: '{ not json at all',
-		});
-
-		setupRun({
-			cwd,
-			runId: 'run-good',
-			batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/b.ts' })] })],
-			reports: { 'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/b.ts'], rationale: ['[other] deliberate'] }) },
+		const cwd = setupRuns({
+			runs: [
+				{
+					runId: 'run-broken',
+					batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' })] })],
+					worklistJson: '{ not json at all',
+				},
+				{
+					runId: 'run-good',
+					batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/b.ts' })] })],
+					reports: { 'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/b.ts'], rationale: ['[other] deliberate'] }) },
+				},
+			],
 		});
 
 		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });

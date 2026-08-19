@@ -1,5 +1,5 @@
 /**
- * Where coverage tooling writes its JSON summary when `coverageSummaryPath` is
+ * Where coverage tooling writes its JSON summary when `coverage-summary-path` is
  * not configured — repo-relative in single-package repos, package-relative in
  * monorepo mode.
  *

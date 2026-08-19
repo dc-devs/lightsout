@@ -47,12 +47,12 @@ export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCh
 		];
 	}
 
-	const packagesDir = config.packagesDir ?? defaultPackagesDir;
+	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 
 	checks.push({
 		id: 'config',
 		status: 'pass',
-		detail: `lightsout.config.json valid · harness ${config.harness ?? 'claude-code'}${config.packageGates ? ` · monorepo (${packagesDir}/)` : ''}`,
+		detail: `lightsout.config.json valid · harness ${config.harness ?? 'claude-code'}${config['package-gates'] ? ` · monorepo (${packagesDir}/)` : ''}`,
 	});
 
 	checks.push(await checkHarness({ cwd, config, probeHarness }));

@@ -5,9 +5,6 @@ import type { GateResult } from '@/contracts';
 import type { RunGate } from '@/pipeline/common/types/RunGate';
 import { appendCommandLog } from '@/runState';
 
-const gateTimeoutMs = 10 * 60_000;
-const outputTailChars = 2000;
-
 interface Params {
 	cwd: string;
 	/** When set, every command execution is appended to the run's commands.jsonl. */
@@ -33,6 +30,8 @@ interface Params {
  */
 export const createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }: Params): RunGate => {
 	const executeOnce = async ({ kind, command, group, rerun }: { kind: string; command: string; group: string; rerun?: boolean }) => {
+		const gateTimeoutMs = 10 * 60_000;
+		const outputTailChars = 2000;
 		const startedAt = Date.now();
 		let result: CommandResult;
 

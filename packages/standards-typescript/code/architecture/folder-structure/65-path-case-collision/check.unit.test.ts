@@ -41,6 +41,53 @@ describe('path-case-collision check', () => {
 		expect(findings[0]?.detail).toBe("'Plan/', 'plan/' differ only by casing in src");
 	});
 
+	test('names the repo root as the folder when the collision sits at the top of the tree', async () => {
+		const input = setupFileListInput({ files: ['README.md', 'readme.md'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'path-case-collision:README.md|readme.md',
+				files: [{ path: 'README.md' }, { path: 'readme.md' }],
+				detail: "'README.md', 'readme.md' differ only by casing in the repo root",
+				guidance:
+					'A case-insensitive filesystem resolves these to one entry, a case-sensitive one to two — rename one side so every machine sees the same tree.',
+			},
+		]);
+	});
+
+	test('names the two casings in name order, whichever order the file list gave them', async () => {
+		const input = setupFileListInput({ files: ['docs/readme.md', 'docs/README.md'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.detail).toBe("'README.md', 'readme.md' differ only by casing in docs");
+	});
+
+	test('reports each colliding name of one folder as its own job, in name order', async () => {
+		const input = setupFileListInput({ files: ['src/Gates.ts', 'src/gates/index.ts', 'src/Plan/draft.ts', 'src/plan/grade.ts'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'path-case-collision:src/Gates.ts|src/gates/index.ts',
+				files: [{ path: 'src/Gates.ts' }, { path: 'src/gates/index.ts' }],
+				detail: "'Gates.ts', 'gates/' differ only by casing in src",
+				guidance:
+					'A case-insensitive filesystem resolves these to one entry, a case-sensitive one to two — rename one side so every machine sees the same tree.',
+			},
+			{
+				siteKey: 'path-case-collision:src/Plan/draft.ts|src/plan/grade.ts',
+				files: [{ path: 'src/Plan/draft.ts' }, { path: 'src/plan/grade.ts' }],
+				detail: "'Plan/', 'plan/' differ only by casing in src",
+				guidance:
+					'A case-insensitive filesystem resolves these to one entry, a case-sensitive one to two — rename one side so every machine sees the same tree.',
+			},
+		]);
+	});
+
 	test('leaves a same-cased file and folder pair alone — resolution is ambiguous but identical on every machine', async () => {
 		const input = setupFileListInput({ files: ['src/plan.ts', 'src/plan/draft.ts'] });
 

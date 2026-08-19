@@ -88,7 +88,7 @@ export const repairPlanStructure = async ({
 
 		if (!outcome.ok) {
 			return outcome.rateLimited
-				? { status: 'paused-rate-limit' as const, error: `rate limit reached — re-run: lightsout plan draft --name ${name}` }
+				? { status: 'paused-rate-limit' as const, error: `rate limited or overloaded — re-run: lightsout plan draft --name ${name}` }
 				: { status: 'failed' as const, error: outcome.failure };
 		}
 

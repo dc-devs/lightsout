@@ -158,7 +158,7 @@ describe('runStandardsReview', () => {
 			files: ['src/a.ts'],
 		});
 
-		expect(notes).toStrictEqual(['agent review skipped — harness rate limit reached']);
+		expect(notes).toStrictEqual(['agent review skipped — harness rate limited or overloaded']);
 	});
 
 	test('no judgment rules means no agent is spent saying so', async () => {

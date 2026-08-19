@@ -65,7 +65,9 @@ test('buildRefactorExecutorInvocation: findings and advisories render as rule bu
 
 	expect(prompt.includes('# Standards findings (deterministic checks)')).toBeTruthy();
 	expect(prompt.includes('- [multi-export] src/widget.ts — file exceeds the size cap')).toBeTruthy();
-	expect(prompt.includes('- [size-function] src/widget.ts — function exceeds 50 lines')).toBeTruthy();
+	// an advisory carries its siteKey verbatim — the report demands it "copied
+	// exactly as given", so the prompt has to actually give it
+	expect(prompt.includes('- [size-function] src/widget.ts — function exceeds 50 lines (siteKey: `widget`)')).toBeTruthy();
 	// advisories keep their non-blocking framing
 	expect(prompt.includes('Advisory — judge each against')).toBeTruthy();
 });

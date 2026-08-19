@@ -13,6 +13,8 @@ interface Params {
 	config: LightsoutConfig;
 	path?: string;
 	all?: boolean;
+	/** Accept a dirty tree: the standing dirt is recorded as baseline, never attributed to a batch. */
+	allowDirty?: boolean;
 	existing?: RunManifest;
 }
 
@@ -22,6 +24,12 @@ interface Params {
  * by the implement pipeline). A fresh run enforces the hard requirements — a
  * git worktree and a CLEAN tree, so the ending diff is entirely the run's —
  * then computes the worklist from the tree and freezes it into the run dir.
+ *
+ * `allowDirty` trades the clean-tree guarantee for a recorded baseline: the
+ * files dirty at start are frozen into the manifest and excluded from batch
+ * attribution, so successive runs can stack while commits are frozen. The
+ * pre-flight gates still stand — a dirty tree that cannot pass them cannot
+ * be refactored either way.
  */
 export const initializeRun = async ({
 	cwd,
@@ -30,6 +38,7 @@ export const initializeRun = async ({
 	config,
 	path,
 	all,
+	allowDirty = false,
 	existing,
 }: Params): Promise<{ manifest: RunManifest; worklist: RefactorWorklist }> => {
 	if (existing) {
@@ -46,13 +55,15 @@ export const initializeRun = async ({
 		throw new Error('refactor requires a git worktree — without git, changes cannot be attributed or reviewed as one diff.');
 	}
 
-	if (dirty.length > 0) {
-		throw new Error(`refactor requires a clean tree — commit or stash first. Dirty:\n${dirty.map((file) => `  ${file}`).join('\n')}`);
+	if (dirty.length > 0 && !allowDirty) {
+		throw new Error(
+			`refactor requires a clean tree — commit or stash first, or accept the standing changes as baseline with --allow-dirty. Dirty:\n${dirty.map((file) => `  ${file}`).join('\n')}`,
+		);
 	}
 
 	const worklist = await buildWorklist({ cwd, config, path, all });
 	const worklistPath = join('.lightsout', 'runs', runId, 'worklist.json');
-	const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: 'refactor', driver: driver.name, config });
+	const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: 'refactor', driver: driver.name, config, baselineDirtyFiles: dirty });
 
 	await writeFile(join(cwd, worklistPath), `${JSON.stringify(worklist, undefined, '\t')}\n`, 'utf8');
 

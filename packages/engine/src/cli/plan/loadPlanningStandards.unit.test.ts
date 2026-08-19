@@ -6,32 +6,16 @@ import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
 import { loadPlanningStandards } from '@/cli/plan';
 import type { LightsoutConfig } from '@/contracts';
 
-/** A consumer repo whose manifest carries the given dependencies — the signal framework channels are detected from. */
-const setupStandards = ({ dependencies }: { dependencies?: Record<string, string> } = {}) => {
-	const captured = captureCommandOutput();
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-planning-standards-'));
-
-	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', dependencies: dependencies ?? {} }));
-
-	return { cwd, ...captured };
-};
-
-/** A one-rule standards package written inside the repo at `at`, in the code tree unless told otherwise. */
-const setupStandardsPackage = ({
-	cwd,
-	at,
-	name,
-	ruleId,
-	prose,
-	set = 'code',
-}: {
-	cwd: string;
+/** A one-rule standards package to write inside the repo, in the code tree unless told otherwise. */
+interface StandardsPackage {
 	at: string;
 	name: string;
 	ruleId: string;
 	prose: string;
 	set?: 'code' | 'tests';
-}) => {
+}
+
+const writeStandardsPackage = ({ cwd, at, name, ruleId, prose, set = 'code' }: StandardsPackage & { cwd: string }) => {
 	const packagePath = join(cwd, at);
 	const rulePath = `${set}/demo/01-${ruleId}`;
 	const files: Record<string, string> = {
@@ -48,6 +32,24 @@ const setupStandardsPackage = ({
 		mkdirSync(dirname(absolutePath), { recursive: true });
 		writeFileSync(absolutePath, content);
 	}
+};
+
+/**
+ * A consumer repo whose manifest carries the given dependencies — the signal
+ * framework channels are detected from — holding the declared standards
+ * packages.
+ */
+const setupStandards = ({ dependencies, packages = [] }: { dependencies?: Record<string, string>; packages?: StandardsPackage[] } = {}) => {
+	const captured = captureCommandOutput();
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-planning-standards-'));
+
+	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', dependencies: dependencies ?? {} }));
+
+	for (const declared of packages) {
+		writeStandardsPackage({ cwd, ...declared });
+	}
+
+	return { cwd, ...captured };
 };
 
 /** The gate config every LightsoutConfig needs, so each case only states the standards keys it is about. */
@@ -67,7 +69,7 @@ test('loadPlanningStandards: with no config it loads the shipped default package
 test('loadPlanningStandards: standards turned off explicitly loads nothing at all', async () => {
 	const { cwd, logged } = setupStandards();
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: false }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': false }) });
 
 	expect(standards).toBe(undefined);
 	expect(logged).toStrictEqual([]);
@@ -92,18 +94,20 @@ test('loadPlanningStandards: a react dependency in the consumer manifest activat
 test('loadPlanningStandards: configured channels override detection — react docs load with no react dependency present', async () => {
 	const { cwd } = setupStandards();
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsChannels: ['react'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-channels': ['react'] }) });
 
 	expect(standards ?? '').toMatch(/<!-- lightsout-defaults: code\/architecture\/react -->/);
 });
 
 test('loadPlanningStandards: several declared packages all reach the plan, in config order, one blank line apart', async () => {
-	const { cwd, logged } = setupStandards();
+	const { cwd, logged } = setupStandards({
+		packages: [
+			{ at: 'standards/house', name: 'house', ruleId: 'house-rule', prose: 'House prose.' },
+			{ at: 'standards/team', name: 'team', ruleId: 'team-rule', prose: 'Team prose.' },
+		],
+	});
 
-	setupStandardsPackage({ cwd, at: 'standards/house', name: 'house', ruleId: 'house-rule', prose: 'House prose.' });
-	setupStandardsPackage({ cwd, at: 'standards/team', name: 'team', ruleId: 'team-rule', prose: 'Team prose.' });
-
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: ['standards/house', 'standards/team'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['standards/house', 'standards/team'] }) });
 
 	// the second package's text picks up where the first one ends, a blank line on
 	expect(standards ?? '').toContain('<!-- house: code/demo -->');
@@ -113,18 +117,11 @@ test('loadPlanningStandards: several declared packages all reach the plan, in co
 });
 
 test('loadPlanningStandards: a package carrying only a test tree contributes nothing, and that is not a failure', async () => {
-	const { cwd, logged } = setupStandards();
-
-	setupStandardsPackage({
-		cwd,
-		at: 'standards/tests-only',
-		name: 'tests-only',
-		ruleId: 'mock-prefix',
-		prose: 'Name mocks so they read as mocks.',
-		set: 'tests',
+	const { cwd, logged } = setupStandards({
+		packages: [{ at: 'standards/tests-only', name: 'tests-only', ruleId: 'mock-prefix', prose: 'Name mocks so they read as mocks.', set: 'tests' }],
 	});
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: ['standards/tests-only'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['standards/tests-only'] }) });
 
 	// the package loaded fine — it simply has no code set, so planning gets nothing and nothing is narrated
 	expect(standards).toBe(undefined);
@@ -134,7 +131,7 @@ test('loadPlanningStandards: a package carrying only a test tree contributes not
 test('loadPlanningStandards: a declared standards package that does not exist is non-fatal — it narrates and returns nothing', async () => {
 	const { cwd, logged, errors } = setupStandards();
 
-	const standards = await loadPlanningStandards({ cwd, config: configWith({ standardsPackages: ['missing-standards'] }) });
+	const standards = await loadPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['missing-standards'] }) });
 
 	// planning continues without standards rather than dying on them
 	expect(standards).toBe(undefined);

@@ -122,7 +122,7 @@ test('standards gate: two identical declined passes escalate early — the third
 	// The escalation carries the evidence a human needs: the finding's detail
 	// with its location, and the agent's own account of why it was left.
 	expect(result.error ?? '').toMatch(/at src\/messy\.js/);
-	expect(result.error ?? '').toMatch(/the refactor agent's account of its final pass:/);
+	expect(result.error ?? '').toMatch("the refactor agent's account of its final pass:");
 	expect(result.error ?? '').toMatch(/finding kept: the split would break the public API/);
 });
 
@@ -220,7 +220,7 @@ test('standards default on when unspecified; false switches them off explicitly'
 	// bundled defaults inlined
 	expect(defaulted.includes('One Export Per File')).toBeTruthy();
 
-	const disabled = await run({ config: { standardsPackages: false } });
+	const disabled = await run({ config: { 'standards-packages': false } });
 
 	// false → no standards section
 	expect(disabled.includes('# Standards\n\nThese rules are binding')).toBeFalsy();

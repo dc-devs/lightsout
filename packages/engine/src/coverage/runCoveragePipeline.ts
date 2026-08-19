@@ -1,6 +1,7 @@
 import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
 import { collectImportEdges } from '@/common/utils/collectImportEdges';
 import { isTestFile } from '@/common/utils/isTestFile';
+import { listSourceFiles } from '@/common/utils/listSourceFiles';
 import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
 import { type AgentUsage, BatchOutcome, CoverageBatchReport, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
 import { buildCoverageBatch } from '@/coverage/buildCoverageBatch';
@@ -26,6 +27,8 @@ interface Params {
 	config: LightsoutConfig;
 	/** Stop (parked, resumable) after this many batches — budget control. */
 	maxBatches?: number;
+	/** Accept a dirty tree: the standing dirt is recorded as baseline, never attributed to a batch. */
+	allowDirty?: boolean;
 	/** Resume: an existing manifest — set-aside files, streak, and numbering reseed from its steps. */
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
@@ -43,10 +46,19 @@ interface Params {
  * declines stop the run as systemic. The engine never commits — the run ends
  * with tests in the working tree and set-aside files recommended for review.
  */
-const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existing, onProgress }: Params & { runId: string }): Promise<CoverageResult> => {
+const executeCoverage = async ({
+	cwd,
+	runId,
+	driver,
+	config,
+	maxBatches,
+	allowDirty,
+	existing,
+	onProgress,
+}: Params & { runId: string }): Promise<CoverageResult> => {
 	const progress = onProgress ?? (() => undefined);
 
-	const initialized = await initializeCoverageRun({ cwd, runId, driver, config, existing });
+	const initialized = await initializeCoverageRun({ cwd, runId, driver, config, allowDirty, existing });
 	const { worklist } = initialized;
 	let { manifest } = initialized;
 
@@ -106,10 +118,14 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 	}
 
 	const { testStandards } = await resolveStandards({ cwd, config, packages: [] });
-	const agentTimeoutMs = (config.timeouts?.agentMinutes ?? defaultAgentTimeoutMinutes) * 60_000;
+	const agentTimeoutMs = (config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000;
 	// Resolved once for the run: without a consumer TypeScript, grouping degrades
 	// to one file per batch component, exactly like the implement fan-out.
-	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir });
+	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config['packages-dir'] ?? defaultPackagesDir });
+	// Also once for the run: standards-package roots make the test-file question
+	// answerable — a rule check under a package's `tests/` document set is
+	// source, and filtering without them excludes it everywhere.
+	const { standardsPackages } = await listSourceFiles({ cwd });
 
 	let declineStreak = seeded.declineStreak;
 	let batchCount = seeded.batchCount;
@@ -142,7 +158,7 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 		}
 
 		const setAsidePaths = new Set(setAside.flatMap((entry) => entry.files));
-		const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, compiler });
+		const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPackages, compiler });
 
 		if (candidates.length === 0) {
 			const error =
@@ -158,7 +174,7 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 		// already green never appears among the candidates at all.
 		const scope = candidates[0].scope;
 		const memberPool = measured.files
-			.filter((file) => file.scope === scope && !setAsidePaths.has(file.path) && !isTestFile({ path: file.path }))
+			.filter((file) => file.scope === scope && !setAsidePaths.has(file.path) && !isTestFile({ path: file.path, standardsPackages }))
 			.map((file) => file.path);
 		const components = compiler
 			? groupConnectedFiles({ files: memberPool, edges: await collectImportEdges({ cwd, files: memberPool, compiler }) })
@@ -167,6 +183,18 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 		batchCount += 1;
 
 		const batch = buildCoverageBatch({ files: candidates.filter((file) => file.scope === scope), components, batchNumber: batchCount });
+
+		if (batch.members.length === 0) {
+			// A candidate the member pool refuses is a filtering disagreement — an
+			// engine bug to surface, never an empty assignment to spend a writer on.
+			const error = `scope '${scope}' has candidates but the member pool excludes them all — candidate selection and member filtering disagree; human required`;
+
+			await update({ status: RunStatus.Escalated, currentStep: null });
+			progress(`coverage run escalated — ${error}`);
+
+			return { ok: false, manifest, error, setAside, before, after: before };
+		}
+
 		const record: StepRecord = { id: batch.id, status: RunStatus.Running, attempts: (manifest.steps.find((step) => step.id === batch.id)?.attempts ?? 0) + 1 };
 
 		await setStep({ record });
@@ -180,7 +208,9 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 			batch,
 			testStandards,
 			agentTimeoutMs,
-			attributedFiles: manifest.changedFiles,
+			// The baseline dirt rides along: files dirty before the run started are
+			// no batch's doing, however git sees the union.
+			attributedFiles: [...manifest.changedFiles, ...manifest.baselineDirtyFiles],
 			onProgress: progress,
 			recordUsage,
 		});
@@ -191,7 +221,7 @@ const executeCoverage = async ({ cwd, runId, driver, config, maxBatches, existin
 			return stop({
 				record,
 				status: RunStatus.PausedRateLimit,
-				error: `run parked: harness rate limit reached — resume with \`lightsout test-coverage-to-threshold --run ${manifest.runId}\` when the window resets.`,
+				error: `run parked: harness rate limited or overloaded — resume with \`lightsout test-coverage-to-threshold --run ${manifest.runId}\` when the window resets.`,
 			});
 		}
 

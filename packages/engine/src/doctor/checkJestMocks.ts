@@ -10,11 +10,11 @@ import type { PackageDir } from '@/doctor/common/types/PackageDir';
  * using the plural would otherwise sit in a blind spot.
  */
 const findJestConfigs = async ({ packageDir }: { packageDir: string }) => {
-	const rootEntries = await readdir(packageDir).catch(() => [] as string[]);
+	const rootEntries: string[] = await readdir(packageDir).catch(() => []);
 	const found = rootEntries.filter((name) => /^jest(\..+)?\.config\.(js|cjs|mjs|ts)$/.test(name)).map((name) => join(packageDir, name));
 
 	for (const testDir of ['test', 'tests']) {
-		const testEntries = await readdir(join(packageDir, testDir), { recursive: true }).catch(() => [] as string[]);
+		const testEntries: string[] = await readdir(join(packageDir, testDir), { recursive: true }).catch(() => []);
 
 		found.push(
 			...testEntries

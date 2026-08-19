@@ -11,6 +11,8 @@ interface Params {
 	runId: string;
 	driver: Driver;
 	config: LightsoutConfig;
+	/** Accept a dirty tree: the standing dirt is recorded as baseline, never attributed to a batch. */
+	allowDirty?: boolean;
 	existing?: RunManifest;
 }
 
@@ -22,13 +24,19 @@ interface Params {
  * ending diff is entirely the run's — then measures once and freezes the
  * result as the `before` side of the final report.
  *
- * @throws {Error} When coverage is opted out, the tree is dirty or ungitted, or the run belongs to another pipeline.
+ * `allowDirty` trades the clean-tree guarantee for a recorded baseline, the
+ * same bargain the refactor pipeline offers: the files dirty at start are
+ * frozen into the manifest and excluded from batch attribution, so runs can
+ * stack while commits are frozen.
+ *
+ * @throws {Error} When coverage is opted out, the tree is dirty (and not accepted) or ungitted, or the run belongs to another pipeline.
  */
 export const initializeCoverageRun = async ({
 	cwd,
 	runId,
 	driver,
 	config,
+	allowDirty = false,
 	existing,
 }: Params): Promise<{ manifest: RunManifest; worklist: CoverageWorklist }> => {
 	if (existing) {
@@ -43,7 +51,7 @@ export const initializeCoverageRun = async ({
 		return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile(join(cwd, existing.plan), 'utf8'))) };
 	}
 
-	if (typeof config.gates['test-coverage'] !== 'string' && config.packageGates?.['test-coverage'] === undefined) {
+	if (typeof config.gates['test-coverage'] !== 'string' && config['package-gates']?.['test-coverage'] === undefined) {
 		throw new Error('the coverage gate is opted out ("test-coverage": false) — test-coverage-to-threshold has nothing to run');
 	}
 
@@ -53,14 +61,16 @@ export const initializeCoverageRun = async ({
 		throw new Error('test-coverage-to-threshold requires a git worktree — without git, changes cannot be attributed or reviewed as one diff.');
 	}
 
-	if (dirty.length > 0) {
-		throw new Error(`test-coverage-to-threshold requires a clean tree — commit or stash first. Dirty:\n${dirty.map((file) => `  ${file}`).join('\n')}`);
+	if (dirty.length > 0 && !allowDirty) {
+		throw new Error(
+			`test-coverage-to-threshold requires a clean tree — commit or stash first, or accept the standing changes as baseline with --allow-dirty. Dirty:\n${dirty.map((file) => `  ${file}`).join('\n')}`,
+		);
 	}
 
 	const measured = await runCoverageCheck({ cwd, config });
 	const worklist: CoverageWorklist = { at: new Date().toISOString(), totals: measured.totals, files: measured.files };
 	const worklistPath = join('.lightsout', 'runs', runId, 'worklist.json');
-	const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: 'coverage', driver: driver.name, config });
+	const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: 'coverage', driver: driver.name, config, baselineDirtyFiles: dirty });
 
 	await writeFile(join(cwd, worklistPath), `${JSON.stringify(worklist, undefined, '\t')}\n`, 'utf8');
 

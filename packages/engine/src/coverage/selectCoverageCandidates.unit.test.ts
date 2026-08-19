@@ -32,16 +32,36 @@ const select = async ({
 	files,
 	totals,
 	setAside = [],
+	standardsPackages = [],
 	compiler,
 }: {
 	cwd: string;
 	files: CoverageFile[];
 	totals: CoverageTotal[];
 	setAside?: string[];
+	standardsPackages?: string[];
 	compiler?: ReturnType<typeof resolveConsumerTypescript>;
-}) => (await selectCoverageCandidates({ cwd, measured: { files, totals }, setAsidePaths: new Set(setAside), compiler })).map((entry) => entry.path);
+}) =>
+	(await selectCoverageCandidates({ cwd, measured: { files, totals }, setAsidePaths: new Set(setAside), standardsPackages, compiler })).map(
+		(entry) => entry.path,
+	);
 
 describe('selectCoverageCandidates', () => {
+	test('a check under a standards package’s tests/ set is source, not a test — the set name buys no exemption', async () => {
+		const cwd = setupRepo();
+		const files = [
+			// under a standards package, tests/ is a document set — the checks in it
+			// are source files a run must be able to target
+			file({ path: 'packages/acme/tests/unit-testing/05-rule/check.ts', statementsPct: 0 }),
+			// the package's own tests still say so in their filenames
+			file({ path: 'packages/acme/common/utils/helper.unit.test.ts', statementsPct: 0 }),
+		];
+
+		expect(await select({ cwd, files, totals: [total()], standardsPackages: ['packages/acme'] })).toStrictEqual([
+			'packages/acme/tests/unit-testing/05-rule/check.ts',
+		]);
+	});
+
 	test('keeps the measurement’s worst-first order, so the round works the worst file first', async () => {
 		const cwd = setupRepo();
 		const files = [file({ path: 'src/a.ts', statementsPct: 4 }), file({ path: 'src/b.ts', statementsPct: 30 })];

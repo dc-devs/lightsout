@@ -23,6 +23,10 @@ module.exports = ({ rootDir, ...rest }) => ({
 	clearMocks: true,
 	restoreMocks: true,
 	testTimeout: 30_000,
+	// json-summary is what `lightsout test-coverage-to-threshold` (and doctor)
+	// read to pick the worst files — every package emits it, not just the one
+	// that happened to declare it first.
+	coverageReporters: ['text', 'lcov', 'json-summary'],
 	// A rule's fixtures are deliberately shaped test files a check reads as TEXT —
 	// the failing side is meant to violate the very rule it proves. Running them
 	// would report a package's counter-examples as this repo's own test failures.

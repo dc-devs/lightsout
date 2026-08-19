@@ -122,6 +122,6 @@ test('planDedupCommand: a rate-limited harness prints the exact re-run command a
 	await expect(planDedupCommand({ cwd, driver: rateLimitedDriver(), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
 	expect(printedLines({ logged })).toStrictEqual([]);
-	expect(errors[0] ?? '').toMatch(/rate limit reached — re-run: lightsout plan dedup --name demo$/);
+	expect(errors[0] ?? '').toMatch(/rate limited or overloaded — re-run: lightsout plan dedup --name demo$/);
 	expect(exitCodes).toStrictEqual([1]);
 });

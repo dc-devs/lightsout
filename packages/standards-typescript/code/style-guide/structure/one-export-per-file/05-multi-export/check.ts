@@ -1,10 +1,6 @@
-import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
+import type { StandardsCheckModule } from '@lightsout/standards-contracts';
 import type { FileExport } from '../../../../../common/types/FileExport.ts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { getBaseName } from '../../../../../common/utils/getBaseName.ts';
-import { isTestFile } from '../../../../../common/utils/isTestFile.ts';
-import { readFileExports } from '../../../../../common/utils/readFileExports.ts';
-import { readFileTexts } from '../../../../../common/utils/readFileTexts.ts';
+import { buildFileExportCheck } from '../../../../../common/utils/buildFileExportCheck.ts';
 
 /**
  * Exception 4: a `const` object and the union derived from it share one name,
@@ -28,28 +24,11 @@ const isUnionFamily = ({ exports }: { exports: FileExport[] }) => {
 	return interfaces > 0 && aliases === 1 && interfaces + 1 === exports.length;
 };
 
-export const check: StandardsCheckModule = {
-	inputKind: 'file-text',
-	// Barrels are exempt by their nature — a barrel is a list of re-exports, and
-	// listing them is the job. Tests are exempt for the same reason the rest of
-	// the code standards leave them to the test standards.
-	run: ({ input }): RawStandardsFinding[] => {
-		const { files, contents, standardsPackages } = readFileTexts({ input });
-
-		return files
-			.filter((file) => !isTestFile({ path: file, standardsPackages }) && !getBaseName({ path: file }).startsWith('index.'))
-			.map((file) => {
-				const exports = readFileExports({ text: contents.get(file) ?? '' });
-
-				return exports.length < 2 || isNamedConstantFamily({ exports }) || isUnionFamily({ exports })
-					? undefined
-					: buildRawFinding({
-							rule: 'multi-export',
-							files: [{ path: file }],
-							detail: `${exports.length} exports (${exports.map(({ name }) => name).join(', ')})`,
-							guidance: 'One export per file, outside the closed exception list.',
-						});
-			})
-			.filter((finding): finding is RawStandardsFinding => finding !== undefined);
-	},
-};
+export const check: StandardsCheckModule = buildFileExportCheck({
+	rule: 'multi-export',
+	detail: ({ exports }) =>
+		exports.length < 2 || isNamedConstantFamily({ exports }) || isUnionFamily({ exports })
+			? undefined
+			: `${exports.length} exports (${exports.map(({ name }) => name).join(', ')})`,
+	guidance: 'One export per file, outside the closed exception list.',
+});

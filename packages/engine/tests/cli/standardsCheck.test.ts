@@ -111,7 +111,7 @@ test('cli: standards-check --list prints the enforcement ledger and runs no chec
 	// a rule's live numbers ride its summary line
 	expect(stdout).toContain('minTokens 50');
 	// the totals close it off, counting both kinds of rule
-	expect(stdout).toMatch(/│ 133 rule\(s\)\s+│\s+25 blocking\s+│\s+108 advisory, 0 off\s+│\s+50 by code, 83 by judgment\s+│/);
+	expect(stdout).toMatch(/│ 134 rule\(s\)\s+│\s+30 blocking\s+│\s+104 advisory, 0 off\s+│\s+51 by code, 83 by judgment\s+│/);
 	// the test-shape rules name the document they enforce
 	expect(stdout).toMatch(/│ test-nested-describe\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: tests\/unit-testing\s+│/);
 	// and so do the file-placement rules, across the three docs they come from
@@ -125,13 +125,13 @@ test('cli: standards-check --list prints the enforcement ledger and runs no chec
 });
 
 test('cli: standards-check --list marks the rules this repo configured', async () => {
-	const { cwd } = await seedStandardsFixture({ config: { standardsChecks: { 'name-synonym': 'off' } } });
+	const { cwd } = await seedStandardsFixture({ config: { 'standards-checks': { 'name-synonym': 'off' } } });
 
 	const { stdout, code } = await runCli({ args: ['standards-check', '--list', '--cwd', cwd] });
 
 	// "this is our policy" reads apart from "this is the default"
 	expect(stdout).toMatch(/│ name-synonym\s+│\s+off \(config\)\s+│/);
-	expect(stdout).toMatch(/│ 133 rule\(s\)\s+│\s+25 blocking\s+│\s+107 advisory, 1 off\s+│\s+50 by code, 83 by judgment\s+│/);
+	expect(stdout).toMatch(/│ 134 rule\(s\)\s+│\s+30 blocking\s+│\s+103 advisory, 1 off\s+│\s+51 by code, 83 by judgment\s+│/);
 	expect(code).toBe(0);
 });
 

@@ -4,7 +4,7 @@ import type { z } from 'zod';
 import { createEventFileSink } from '@/common/utils/createEventFileSink';
 import type { Effort, Permissions } from '@/contracts';
 import type { Driver } from '@/drivers';
-import { invokeAgentWithContract } from '@/invoke';
+import { type AgentOutcome, invokeAgentWithContract } from '@/invoke';
 
 interface Params {
 	cwd: string;
@@ -42,7 +42,16 @@ interface CallParams<Contract extends z.ZodType> {
  * mean different things per step, down to the exact re-run command a human is
  * told to type.
  */
-export const createPlanAgentRunner = ({ cwd, driver, workspaceDir, step, model, effort, permissions, timeoutMs }: Params) => {
+export const createPlanAgentRunner = ({
+	cwd,
+	driver,
+	workspaceDir,
+	step,
+	model,
+	effort,
+	permissions,
+	timeoutMs,
+}: Params): (<Contract extends z.ZodType>(params: CallParams<Contract>) => Promise<AgentOutcome<z.infer<Contract>>>) => {
 	const onEvent = createEventFileSink({ path: join(workspaceDir, `${step}-stream.jsonl`) });
 
 	return <Contract extends z.ZodType>({ invocation, contract, label, allowedCommands }: CallParams<Contract>) =>

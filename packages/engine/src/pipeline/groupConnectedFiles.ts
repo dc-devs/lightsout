@@ -10,7 +10,7 @@ interface Params {
  * construction). Deterministic: members sorted within a component,
  * components ordered by their first member, independent of edge order.
  */
-export const groupConnectedFiles = ({ files, edges }: Params) => {
+export const groupConnectedFiles = ({ files, edges }: Params): string[][] => {
 	const parent = new Map<string, string>(files.map((file) => [file, file]));
 
 	const find = (file: string): string => {

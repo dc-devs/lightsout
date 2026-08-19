@@ -61,7 +61,7 @@ const findCrossPackageDuplicates = ({ packages }: { packages: LoadedStandardsPac
  * @throws {Error} When a declared package cannot be loaded, or two loaded packages claim one rule id.
  */
 export const resolveStandardsPackages = async ({ cwd, config }: Params): Promise<LoadedStandardsPackage[]> => {
-	const roots = resolveRoots({ cwd, standardsPackages: config?.standardsPackages });
+	const roots = resolveRoots({ cwd, standardsPackages: config?.['standards-packages'] });
 	const packages: LoadedStandardsPackage[] = [];
 
 	for (const packagePath of roots) {

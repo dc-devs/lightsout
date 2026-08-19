@@ -56,7 +56,7 @@ const listPackageScopes = async ({
 interface Params {
 	cwd: string;
 	config: LightsoutConfig;
-	/** Repo- or package-relative summary path (config.coverageSummaryPath ?? defaultCoverageSummaryPath). */
+	/** Repo- or package-relative summary path (config['coverage-summary-path'] ?? defaultCoverageSummaryPath). */
 	summaryPath: string;
 	/** Restrict to one package dir. Undefined = every configured scope. */
 	scope?: string;
@@ -69,10 +69,10 @@ interface Params {
  * count every package file a second time under a scope no batch belongs to.
  */
 export const resolveCoverageScopes = async ({ cwd, config, summaryPath, scope }: Params): Promise<CoverageScope[]> => {
-	const template = config.packageGates?.['test-coverage'];
+	const template = config['package-gates']?.['test-coverage'];
 
 	if (template) {
-		return listPackageScopes({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir, template, summaryPath, scope });
+		return listPackageScopes({ cwd, packagesDir: config['packages-dir'] ?? defaultPackagesDir, template, summaryPath, scope });
 	}
 
 	const command = config.gates['test-coverage'];

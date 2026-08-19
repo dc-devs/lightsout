@@ -1,7 +1,7 @@
 ---
 summary: "an exported function with no declared return type"
 checked: true
-severity: advisory
+severity: blocking
 ---
 
 The bright line is the `export` keyword — the same trigger as "own file" and the `Params` interface:

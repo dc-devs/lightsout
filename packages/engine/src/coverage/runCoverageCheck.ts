@@ -92,7 +92,7 @@ export const runCoverageCheck = async ({
 	step,
 	onProgress,
 }: Params): Promise<{ passed: boolean; files: CoverageFile[]; totals: CoverageTotal[] }> => {
-	const summaryPath = config.coverageSummaryPath ?? defaultCoverageSummaryPath;
+	const summaryPath = config['coverage-summary-path'] ?? defaultCoverageSummaryPath;
 	const scopes = await resolveCoverageScopes({ cwd, config, summaryPath, scope });
 	const files: CoverageFile[] = [];
 	const totals: CoverageTotal[] = [];

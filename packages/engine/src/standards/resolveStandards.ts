@@ -30,7 +30,7 @@ interface Params {
  */
 export const resolveStandards = async ({ cwd, config, packages }: Params): Promise<ResolvedStandards> => {
 	const loaded = await resolveStandardsPackages({ cwd, config });
-	const channels = config.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config.packagesDir ?? 'packages', packages }));
+	const channels = config['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir: config['packages-dir'] ?? 'packages', packages }));
 	const assembled = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }));
 
 	const stack = ({ set }: { set: StandardsSet }) => {
@@ -43,7 +43,7 @@ export const resolveStandards = async ({ cwd, config, packages }: Params): Promi
 		standards: stack({ set: StandardsSet.Code }),
 		testStandards: stack({ set: StandardsSet.Tests }),
 		channels,
-		configured: config.standardsChannels !== undefined,
+		configured: config['standards-channels'] !== undefined,
 		requested: loaded.length > 0,
 	};
 };

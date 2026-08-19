@@ -1,8 +1,8 @@
+import { printBatchLine } from '@/cli/common/render/printBatchLine';
+import { printBatchOptOut } from '@/cli/common/render/printBatchOptOut';
+import { printRunFooter } from '@/cli/common/render/printRunFooter';
 import { bold } from '@/cli/common/terminal/bold';
 import { dim } from '@/cli/common/terminal/dim';
-import { green } from '@/cli/common/terminal/green';
-import { red } from '@/cli/common/terminal/red';
-import { yellow } from '@/cli/common/terminal/yellow';
 import { RunStatus } from '@/contracts';
 import type { CoverageResult } from '@/coverage';
 
@@ -25,24 +25,21 @@ export const printCoverageResult = ({ result }: Params): void => {
 
 	for (const step of batchSteps) {
 		const aside = setAside.find((entry) => entry.batchId === step.id);
-		const icon = step.status !== RunStatus.Passed ? red('✗') : aside ? yellow('⤫') : green('✓');
-		const label = aside ? `declined (${aside.files.length} file(s) set aside)` : step.status === RunStatus.Passed ? 'resolved' : step.status;
 
-		console.log(`${icon} ${step.id.padEnd(48)}${label}${step.changedFiles?.length ? dim(` · ${step.changedFiles.length} file(s)`) : ''}`);
+		printBatchLine({
+			step,
+			optedOut: aside !== undefined,
+			label: aside ? `declined (${aside.files.length} file(s) set aside)` : step.status === RunStatus.Passed ? 'resolved' : step.status,
+		});
 	}
 
 	for (const entry of setAside) {
-		console.log(`\n${yellow('set aside')} ${entry.batchId}`);
-
-		for (const file of entry.files) {
-			console.log(dim(`  ${file}`));
-		}
-
-		for (const line of entry.rationale) {
-			console.log(dim(`  ${line}`));
-		}
-
-		console.log(dim('  these files likely need source changes — raise coverage by hand or adjust the threshold'));
+		printBatchOptOut({
+			heading: 'set aside',
+			batchId: entry.batchId,
+			lines: [...entry.files, ...entry.rationale],
+			hint: 'these files likely need source changes — raise coverage by hand or adjust the threshold',
+		});
 	}
 
 	const scopes = [...new Set([...before.map((total) => total.scope), ...after.map((total) => total.scope)])].sort();
@@ -62,13 +59,5 @@ export const printCoverageResult = ({ result }: Params): void => {
 		}
 	}
 
-	if (manifest.changedFiles.length > 0) {
-		console.log(`\n${manifest.changedFiles.length} file(s) changed in the working tree — review and commit; the engine never commits.`);
-	}
-
-	console.log(`evidence: .lightsout/runs/${manifest.runId}/`);
-
-	if (!result.ok && result.error) {
-		console.error(`\n${result.error}`);
-	}
+	printRunFooter({ manifest, error: result.ok ? undefined : result.error });
 };

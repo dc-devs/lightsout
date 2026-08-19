@@ -87,7 +87,7 @@ test('printCoverageResult: a set-aside batch names its files, its reason and wha
 test('printCoverageResult: a parked run prints no table, because its after merely echoes before', () => {
 	const { result, output, errors } = setupResult({
 		ok: false,
-		error: 'run parked: harness rate limit reached',
+		error: 'run parked: harness rate limited or overloaded',
 		before: [{ scope: 'root', statementsPct: 61, passed: false }],
 		after: [{ scope: 'root', statementsPct: 61, passed: false }],
 		manifest: { status: RunStatus.PausedRateLimit, steps: [{ id: 'batch-01:root', status: RunStatus.PausedRateLimit, attempts: 1 }] },
@@ -101,7 +101,7 @@ test('printCoverageResult: a parked run prints no table, because its after merel
 	// the batch that stopped the run says what it stopped as — neither resolved nor declined
 	expect(output()).toContain('✗ batch-01:root');
 	expect(output()).toMatch(/batch-01:root\s+paused-rate-limit/);
-	expect(errors.join('\n')).toContain('run parked: harness rate limit reached');
+	expect(errors.join('\n')).toContain('run parked: harness rate limited or overloaded');
 });
 
 test('printCoverageResult: the table lists every scope either measurement saw, alphabetically', () => {

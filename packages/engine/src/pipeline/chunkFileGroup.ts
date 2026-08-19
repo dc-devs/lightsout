@@ -9,7 +9,7 @@ interface Params {
  * keeps sibling directories adjacent, so an oversized component splits
  * approximately along subtree lines.
  */
-export const chunkFileGroup = ({ files, max }: Params) => {
+export const chunkFileGroup = ({ files, max }: Params): string[][] => {
 	const sorted = [...files].sort();
 	const chunks: string[][] = [];
 

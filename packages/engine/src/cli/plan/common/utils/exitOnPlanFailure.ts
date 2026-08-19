@@ -7,6 +7,26 @@ interface PlanRunFailure {
 }
 
 /**
+ * Whether a result is one of the variants that outlive this function.
+ *
+ * Written as a type predicate because TypeScript subtracts nothing from a type
+ * parameter on a false branch: asking the positive question is what lets the
+ * caller below return the narrowed value without asserting it.
+ */
+const survivesPlanFailure = <Result extends { status: string }>(result: Result): result is Exclude<Result, PlanRunFailure> =>
+	result.status !== 'failed' && result.status !== 'paused-rate-limit';
+
+/**
+ * A failure's own message, or a statement of its status when it carries none.
+ *
+ * The signature accepts any `{ status }` shape, so a result whose failure
+ * variant has no `error` is well-typed here; the fallback is what that case
+ * prints instead of the word `undefined`.
+ */
+const planFailureMessageOf = ({ result }: { result: { status: string } }) =>
+	'error' in result && typeof result.error === 'string' ? result.error : `plan run ${result.status}`;
+
+/**
  * Print a plan runner's failure and exit, or hand back the result narrowed to
  * its remaining variants for the caller.
  *
@@ -25,10 +45,11 @@ interface PlanRunFailure {
  * replaced.
  */
 export const exitOnPlanFailure = async <Result extends { status: string }>(result: Result): Promise<Exclude<Result, PlanRunFailure>> => {
-	if (result.status === 'paused-rate-limit' || result.status === 'failed') {
-		console.error(`\n${(result as unknown as PlanRunFailure).error}`);
-		return exitCli({ code: 1 });
+	if (survivesPlanFailure(result)) {
+		return result;
 	}
 
-	return result as Exclude<Result, PlanRunFailure>;
+	console.error(`\n${planFailureMessageOf({ result })}`);
+
+	return exitCli({ code: 1 });
 };

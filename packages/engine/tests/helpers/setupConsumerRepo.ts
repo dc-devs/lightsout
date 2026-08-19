@@ -8,7 +8,7 @@ interface Params {
 	plan?: string;
 	/** Merged over the default gate commands (check/test 'true', testCoverage false). */
 	scripts?: Record<string, string | false>;
-	/** Extra top-level config fields (standards, packageGates, ...). */
+	/** Extra top-level config fields (standards, package-gates, ...). */
 	config?: Record<string, unknown>;
 }
 

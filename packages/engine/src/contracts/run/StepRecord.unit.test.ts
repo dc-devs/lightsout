@@ -51,17 +51,24 @@ describe('StepRecord', () => {
 		expect(StepRecord.safeParse(step).success).toBe(false);
 	});
 
-	test('attempts must be a non-negative integer', () => {
-		const zero = setupStep({ extra: { attempts: 0 } }).step;
-		const negative = setupStep({ extra: { attempts: -1 } }).step;
-		const fractional = setupStep({ extra: { attempts: 1.5 } }).step;
+	test('zero attempts parses — the count survives its own falsy value', () => {
+		const { step } = setupStep({ extra: { attempts: 0 } });
 
-		// a step that has not run yet has zero attempts
-		expect(StepRecord.parse(zero).attempts).toBe(0);
-		// a negative count would let a step exceed its retry ceiling
-		expect(StepRecord.safeParse(negative).success).toBe(false);
-		// attempts counts whole invocations
-		expect(StepRecord.safeParse(fractional).success).toBe(false);
+		const parsed = StepRecord.parse(step);
+
+		// a step that has not run yet has zero attempts, which is a recorded count
+		// rather than an absent one
+		expect(parsed.attempts).toBe(0);
+	});
+
+	test('a negative or fractional attempts count is refused', () => {
+		for (const attempts of [-1, 1.5]) {
+			const { step } = setupStep({ extra: { attempts } });
+
+			// a negative count would let a step exceed its retry ceiling, and attempts
+			// counts whole invocations
+			expect(StepRecord.safeParse(step).success).toBe(false);
+		}
 	});
 
 	test('the optional fields carry the step audit trail through parsing intact', () => {

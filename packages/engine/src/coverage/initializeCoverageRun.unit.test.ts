@@ -50,7 +50,7 @@ const setupMeasurable = ({ git = true }: { git?: boolean } = {}) => {
 const setupScopedMeasurable = () => {
 	const dir = setupConsumerRepo({
 		git: false,
-		config: { packageGates: { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package}' } },
+		config: { 'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'true {package}' } },
 	});
 
 	mkdirSync(join(dir, 'packages/api/coverage'), { recursive: true });
@@ -101,6 +101,17 @@ describe('initializeCoverageRun', () => {
 
 		expect(error.message).toMatch(/requires a clean tree/);
 		expect(error.message).toContain('src/uncommitted.js');
+	});
+
+	test('allowDirty records the standing dirt as baseline instead of refusing the run', async () => {
+		const cwd = setupMeasurable();
+
+		writeFileSync(join(cwd, 'src/uncommitted.js'), 'export const later = 1;\n');
+
+		const { manifest } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }), allowDirty: true });
+
+		// frozen into the manifest, so batch attribution can never claim it
+		expect(manifest.baselineDirtyFiles).toStrictEqual(['src/uncommitted.js']);
 	});
 
 	test('a fresh run freezes the initial measurement and stamps the manifest as this pipeline', async () => {

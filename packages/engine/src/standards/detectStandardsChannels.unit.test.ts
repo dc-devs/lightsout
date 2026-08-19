@@ -185,7 +185,7 @@ test('standardsChannels config replaces detection', async () => {
 	// api has no react dep — but config forces the channel on.
 	const raw = JSON.parse((await import('node:fs')).readFileSync(join(dir, 'lightsout.config.json'), 'utf8'));
 
-	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ ...raw, standardsChannels: ['react'] }));
+	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ ...raw, 'standards-channels': ['react'] }));
 
 	const prompts: Record<string, string> = {};
 	const driver: Driver = {

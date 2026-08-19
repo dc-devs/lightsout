@@ -31,8 +31,8 @@ const setupConfiguredPackagesDir = async ({ packagesDir, packageCheck }: { packa
 	const dir = setupConsumerRepo({
 		scripts: { check: `${gateLogCommand({ kind: 'check' })} root`, test: `${gateLogCommand({ kind: 'test' })} root` },
 		config: {
-			packagesDir,
-			packageGates: {
+			'packages-dir': packagesDir,
+			'package-gates': {
 				check: packageCheck ?? `${gateLogCommand({ kind: 'check' })} {package}`,
 				test: `${gateLogCommand({ kind: 'test' })} {package}`,
 			},
@@ -70,33 +70,24 @@ describe('runBatchGates', () => {
 		expect(gates().includes('@acme/api check')).toBeTruthy();
 	});
 
-	test('the coverage flag decides whether the coverage gate runs at all', async () => {
-		const withCoverage = await setupTouched({ files: ['packages/api/src/added.js'] });
-		const withoutCoverage = await setupTouched({ files: ['packages/api/src/added.js'] });
+	test('the coverage flag on runs the coverage gate', async () => {
+		const { dir, config, gates } = await setupTouched({ files: ['packages/api/src/added.js'] });
 
-		await runBatchGates({
-			cwd: withCoverage.dir,
-			config: withCoverage.config,
-			coverage: true,
-			runId: 'run-1',
-			step: 'batch-01:api',
-			onProgress: () => undefined,
-		});
-		await runBatchGates({
-			cwd: withoutCoverage.dir,
-			config: withoutCoverage.config,
-			coverage: false,
-			runId: 'run-1',
-			step: 'batch-01:api',
-			onProgress: () => undefined,
-		});
+		await runBatchGates({ cwd: dir, config, coverage: true, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
 
 		// a refactor batch must not drop coverage
-		expect(withCoverage.gates().includes('@acme/api coverage')).toBeTruthy();
+		expect(gates().includes('@acme/api coverage')).toBeTruthy();
+	});
+
+	test('the coverage flag off runs the plain suite instead of the coverage gate', async () => {
+		const { dir, config, gates } = await setupTouched({ files: ['packages/api/src/added.js'] });
+
+		await runBatchGates({ cwd: dir, config, coverage: false, runId: 'run-1', step: 'batch-01:api', onProgress: () => undefined });
+
 		// a coverage batch's own gate is red by definition mid-run — it runs the
 		// plain suite instead, or every batch would fail on the thing it is fixing
-		expect(withoutCoverage.gates().includes('@acme/api coverage')).toBeFalsy();
-		expect(withoutCoverage.gates().includes('@acme/api test')).toBeTruthy();
+		expect(gates().includes('@acme/api coverage')).toBeFalsy();
+		expect(gates().includes('@acme/api test')).toBeTruthy();
 	});
 
 	test('the run id and step ride into the command log, so a batch gate leaves evidence', async () => {

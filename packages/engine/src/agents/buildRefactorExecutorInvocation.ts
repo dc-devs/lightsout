@@ -39,6 +39,13 @@ const findingLine = (finding: StandardsFinding) => {
 };
 
 /**
+ * An advisory line additionally carries its siteKey verbatim: the report asks
+ * for that key "copied exactly as given", so the prompt has to actually give
+ * it — an agent left to reconstruct the key builds one the engine may not match.
+ */
+const advisoryLine = (finding: StandardsFinding) => `${findingLine(finding)} (siteKey: \`${finding.siteKey}\`)`;
+
+/**
  * Assemble the refactor-executor invocation deterministically. The plan and
  * standards are identical on every pass, so they ride the system prompt the
  * harness caches through; the review list, standards findings, and any gate
@@ -72,7 +79,7 @@ export const buildRefactorExecutorInvocation = ({
 
 		if (advisories && advisories.length > 0) {
 			parts.push(
-				`Advisory — judge each against the standards' documented exemptions (e.g. orchestration functions that only sequence step calls); fix it unless an exemption genuinely applies, and these never block the run:\n\n${advisories.map(findingLine).join('\n')}`,
+				`Advisory — judge each against the standards' documented exemptions (e.g. orchestration functions that only sequence step calls); fix it unless an exemption genuinely applies, and these never block the run:\n\n${advisories.map(advisoryLine).join('\n')}`,
 			);
 		}
 

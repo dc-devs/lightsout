@@ -36,6 +36,13 @@ export const spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdou
 		onStdoutLine,
 	});
 
+	// A harness that exits before draining stdin (bad flag, unsupported
+	// version) raises EPIPE on the stream. The exit code and stderr already
+	// carry that story to the caller, so the write error is not a second one —
+	// left unhandled it would escape as an uncaught exception and take the
+	// engine down with the run manifest still marked running.
+	child.stdin?.on('error', () => {});
+
 	if (stdinText !== undefined) {
 		child.stdin?.write(stdinText);
 	}

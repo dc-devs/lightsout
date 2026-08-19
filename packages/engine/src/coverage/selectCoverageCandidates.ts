@@ -12,6 +12,8 @@ interface Params {
 	measured: { files: CoverageFile[]; totals: CoverageTotal[] };
 	/** Paths already routed to a human — never handed to another writer. */
 	setAsidePaths: Set<string>;
+	/** Repo-relative standards-package roots, resolved once by the pipeline — a rule check under a package's `tests/` document set is source, not a test. */
+	standardsPackages: string[];
 	/** The consumer's TypeScript module, or undefined — nothing is classified inert without one. */
 	compiler: typeof ts | undefined;
 }
@@ -32,7 +34,7 @@ interface Params {
  * stop. Classification borrows the consumer's TypeScript; without one, nothing
  * is inert, the same honest degradation grouping makes.
  */
-export const selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, compiler }: Params): Promise<CoverageFile[]> => {
+export const selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPackages, compiler }: Params): Promise<CoverageFile[]> => {
 	const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
 	const candidates: CoverageFile[] = [];
 
@@ -41,7 +43,7 @@ export const selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, c
 			!failingScopes.has(file.scope) ||
 			setAsidePaths.has(file.path) ||
 			file.statementsPct >= 100 ||
-			isTestFile({ path: file.path }) ||
+			isTestFile({ path: file.path, standardsPackages }) ||
 			!isTestableSourceFile(file.path)
 		) {
 			continue;

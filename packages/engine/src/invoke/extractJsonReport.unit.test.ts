@@ -19,9 +19,8 @@ test('extractJsonReport rejects garbage', () => {
 	expect(extractJsonReport({ text: 'an unbalanced { brace and {broken json}' })).toBe(undefined);
 });
 
-// The shape that failed FeedbackDrop run 91dbc0a5 twice: a valid report
-// behind one sentence of preamble. Strictness belongs to the zod contract,
-// not to finding the payload.
+// A valid report behind one sentence of preamble. Strictness belongs to the
+// zod contract, not to finding the payload.
 test('extractJsonReport accepts prose-wrapped JSON without fences', () => {
 	expect(extractJsonReport({ text: 'Here is the report: {"a":1}' })).toStrictEqual({ a: 1 });
 	expect(
@@ -41,10 +40,9 @@ test('extractJsonReport prefers the LAST embedded object (the report is the clos
 	});
 });
 
-// The shape that failed FeedbackDrop run d91f2f74 at attempt 2: the re-emit
-// retry reproduced the rejected report, caught its own invalid friction area
-// mid-message, and emitted a corrected second fenced block — which the old
-// first-fence match threw away.
+// A re-emit retry can reproduce the rejected report, catch its own mistake
+// mid-message, and emit a corrected second fenced block — the correction is
+// the one that counts.
 test('extractJsonReport prefers the LAST parseable fenced block (a re-emitter self-corrects mid-message)', () => {
 	const text = [
 		'```json',

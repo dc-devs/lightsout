@@ -12,4 +12,4 @@ interface Params {
  * can never drift between them.
  */
 export const buildMissingSummaryMessage = ({ summaryPath, scope }: Params): string =>
-	`no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran — configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverageSummaryPath in lightsout.config.json. \`lightsout doctor\` checks this.`;
+	`no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran — configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverage-summary-path in lightsout.config.json. \`lightsout doctor\` checks this.`;

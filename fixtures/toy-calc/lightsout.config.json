@@ -2,6 +2,6 @@
 	"gates": {
 		"check": "node --check src/index.js",
 		"test": "node --test",
-		"testCoverage": false
+		"test-coverage": false
 	}
 }

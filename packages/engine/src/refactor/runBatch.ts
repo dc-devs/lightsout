@@ -119,8 +119,7 @@ export const runBatch = async ({
 
 	// One live check up front serves two purposes: the staleness check (earlier
 	// batches may have already eliminated these sites — no agent spent) and
-	// FRESH advisories (frozen worklist advisories cite pre-run line numbers;
-	// live lesson from run 50d4ab35, where the agent flagged the drift).
+	// FRESH advisories (frozen worklist advisories cite pre-run line numbers).
 	const preCheck = await checkLive();
 
 	if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {

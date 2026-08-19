@@ -21,6 +21,7 @@ interface RunCoveragePipelineParams {
 	driver: unknown;
 	config: { harness?: string };
 	maxBatches?: number;
+	allowDirty?: boolean;
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
 }
@@ -91,8 +92,16 @@ describe('testCoverageToThresholdCommand', () => {
 
 		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(pipelineParams()).toEqual(expect.objectContaining({ cwd, maxBatches: 3, existing: undefined }));
+		expect(pipelineParams()).toEqual(expect.objectContaining({ cwd, maxBatches: 3, allowDirty: false, existing: undefined }));
 		expect(logged[0]).toBe('lightsout: test-coverage-to-threshold starting run');
+	});
+
+	test('--allow-dirty accepts the standing tree as baseline; without it a run demands a clean tree', async () => {
+		const { context } = setupCommand({ args: ['--allow-dirty'] });
+
+		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(pipelineParams()).toEqual(expect.objectContaining({ allowDirty: true }));
 	});
 
 	test('the resolved harness rides into the config the pipeline runs with', async () => {
@@ -133,7 +142,7 @@ describe('testCoverageToThresholdCommand', () => {
 	});
 
 	test('a parked run exits 1 — the gate is still red, whatever it managed along the way', async () => {
-		const { context, exitCodes } = setupCommand({ result: { ok: false, error: 'run parked: harness rate limit reached' } });
+		const { context, exitCodes } = setupCommand({ result: { ok: false, error: 'run parked: harness rate limited or overloaded' } });
 
 		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
 

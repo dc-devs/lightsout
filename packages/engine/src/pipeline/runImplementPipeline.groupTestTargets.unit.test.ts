@@ -44,9 +44,9 @@ test('write-tests fan-out: files that import each other share ONE writer; unrela
 			}
 
 			// Implement: a boundary importing an internal, plus one unrelated file.
-			writeFileSync(join(dir, 'src/helper.ts'), 'export const helper = (n: number) => n + 1;\n');
-			writeFileSync(join(dir, 'src/feature.ts'), `import { helper } from './helper';\n\nexport const feature = (n: number) => helper(n) * 2;\n`);
-			writeFileSync(join(dir, 'src/other.ts'), 'export const other = () => 3;\n');
+			writeFileSync(join(dir, 'src/helper.ts'), 'export const helper = (n: number): number => n + 1;\n');
+			writeFileSync(join(dir, 'src/feature.ts'), `import { helper } from './helper';\n\nexport const feature = (n: number): number => helper(n) * 2;\n`);
+			writeFileSync(join(dir, 'src/other.ts'), 'export const other = (): number => 3;\n');
 
 			return {
 				text: report({
@@ -101,9 +101,9 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 	// imports both internals — the run will change ONLY the internals.
 	mkdirSync(join(dir, 'src/mod'), { recursive: true });
 	writeFileSync(join(dir, 'src/mod/index.ts'), "export { pub } from './pub';\n");
-	writeFileSync(join(dir, 'src/mod/pub.ts'), "import { a } from './a';\nimport { b } from './b';\n\nexport const pub = () => a() + b();\n");
-	writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = () => 1;\n');
-	writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = () => 2;\n');
+	writeFileSync(join(dir, 'src/mod/pub.ts'), "import { a } from './a';\nimport { b } from './b';\n\nexport const pub = (): number => a() + b();\n");
+	writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = (): number => 1;\n');
+	writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = (): number => 2;\n');
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm module', { cwd: dir });
 
 	const writerPrompts: string[] = [];
@@ -133,8 +133,8 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 			}
 
 			// Implement: both internals change; pub.ts and the barrel do not.
-			writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = () => 10;\n');
-			writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = () => 20;\n');
+			writeFileSync(join(dir, 'src/mod/a.ts'), 'export const a = (): number => 10;\n');
+			writeFileSync(join(dir, 'src/mod/b.ts'), 'export const b = (): number => 20;\n');
 
 			return {
 				text: report({
@@ -213,7 +213,7 @@ test('write-tests fan-out: an import component above the writer cap splits into 
 
 			for (let index = 0; index < chainLength; index += 1) {
 				const next = index + 1 < chainLength ? `import { link${index + 1} } from './link${index + 1}';\n` : '';
-				const body = `export const link${index} = () => ${index + 1 < chainLength ? `link${index + 1}()` : index};\n`;
+				const body = `export const link${index} = (): number => ${index + 1 < chainLength ? `link${index + 1}()` : index};\n`;
 
 				writeFileSync(join(dir, `src/link${index}.ts`), `${next}\n${body}`);
 				changedFiles.push({ path: `src/link${index}.ts`, summary: 'chain' });

@@ -135,20 +135,30 @@ describe('loadStandardsPackage', () => {
 		expect(error.message).toContain('package declares no documents');
 	});
 
-	test('refuses a package whose root file is missing, unparseable, or written against another format', async () => {
-		const { packagePath: missing } = setupPackage({ files: { 'code/style/document.md': '# Style\n' } });
-		const { packagePath: malformed } = setupPackage({ files: { 'lightsout-standards.json': '{ "name": ' } });
-		const { packagePath: wrongVersion } = setupPackage({ files: { 'lightsout-standards.json': '{ "name": "acme", "formatVersion": 2 }' } });
+	test('refuses a package whose root file is missing', async () => {
+		const { packagePath } = setupPackage({ files: { 'code/style/document.md': '# Style\n' } });
 
-		const missingError = await getRejectionError({ promise: loadStandardsPackage({ packagePath: missing }) });
-		const malformedError = await getRejectionError({ promise: loadStandardsPackage({ packagePath: malformed }) });
-		const versionError = await getRejectionError({ promise: loadStandardsPackage({ packagePath: wrongVersion }) });
+		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
 
-		// each message names the file a reader has to open
-		expect(missingError.message).toBe(`standards package root file not found: ${join(missing, 'lightsout-standards.json')}`);
-		expect(malformedError.message).toContain(`standards package root file is not valid JSON (${join(malformed, 'lightsout-standards.json')})`);
-		expect(versionError.message).toContain(`standards package root file is invalid (${join(wrongVersion, 'lightsout-standards.json')})`);
-		expect(versionError.message).toContain('formatVersion');
+		// the message names the file a reader has to open
+		expect(error.message).toBe(`standards package root file not found: ${join(packagePath, 'lightsout-standards.json')}`);
+	});
+
+	test('refuses a package whose root file will not parse', async () => {
+		const { packagePath } = setupPackage({ files: { 'lightsout-standards.json': '{ "name": ' } });
+
+		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+
+		expect(error.message).toContain(`standards package root file is not valid JSON (${join(packagePath, 'lightsout-standards.json')})`);
+	});
+
+	test('refuses a package written against another format version', async () => {
+		const { packagePath } = setupPackage({ files: { 'lightsout-standards.json': '{ "name": "acme", "formatVersion": 2 }' } });
+
+		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+
+		expect(error.message).toContain(`standards package root file is invalid (${join(packagePath, 'lightsout-standards.json')})`);
+		expect(error.message).toContain('formatVersion');
 	});
 
 	test('reports an unreadable document and a rule whose front matter is not YAML', async () => {

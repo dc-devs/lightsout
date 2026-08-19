@@ -1,8 +1,7 @@
-import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
+import type { StandardsCheckModule } from '@lightsout/standards-contracts';
 import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
+import { buildTestLimitCheck } from '../../../common/utils/buildTestLimitCheck.ts';
 import { getLineNumber } from '../../../common/utils/getLineNumber.ts';
-import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
 
 // Only a FLAT destructured parameter list is measured: a nested object in a
 // default value takes the pattern past `[^{}]*` and the factory goes unjudged.
@@ -33,36 +32,31 @@ const declaredProperties = ({ inner }: { inner: string }) => {
 
 // The cap is the prose's judgment made countable, and a repo may retune it
 // through the rule's settings.
-const megaFactoryFindings = ({ file, text, maxParams }: { file: string; text: string; maxParams: number }) => {
-	const sprawling: Array<{ name: string; count: number; startLine: number; endLine: number }> = [];
+export const check: StandardsCheckModule = buildTestLimitCheck({
+	rule: 'test-mega-factory',
+	setting: 'maxParams',
+	report: ({ file, text, limit }) => {
+		const sprawling: Array<{ name: string; count: number; startLine: number; endLine: number }> = [];
 
-	for (const match of text.matchAll(setupFactory)) {
-		const properties = declaredProperties({ inner: match[2] });
+		for (const match of text.matchAll(setupFactory)) {
+			const properties = declaredProperties({ inner: match[2] });
 
-		if (properties.length > maxParams) {
-			sprawling.push({
-				name: match[1],
-				count: properties.length,
-				startLine: getLineNumber({ text, index: match.index }),
-				endLine: getLineNumber({ text, index: match.index + match[0].length }),
-			});
+			if (properties.length > limit) {
+				sprawling.push({
+					name: match[1],
+					count: properties.length,
+					startLine: getLineNumber({ text, index: match.index }),
+					endLine: getLineNumber({ text, index: match.index + match[0].length }),
+				});
+			}
 		}
-	}
 
-	return sprawling.length === 0
-		? []
-		: [
-				buildRawFinding({
-					rule: 'test-mega-factory',
+		return sprawling.length === 0
+			? undefined
+			: {
 					files: buildLineSites({ file, spans: sprawling }),
-					detail: `${sprawling.map((factory) => `'${factory.name}' takes ${factory.count} parameters (line ${factory.startLine})`).join(', ')}, over the cap of ${maxParams}`,
-					guidance: 'A substantially different arrangement gets a second named factory. Heuristic — judge before acting.',
-				}),
-			];
-};
-
-export const check: StandardsCheckModule = {
-	inputKind: 'test-file',
-	run: ({ input, settings }): RawStandardsFinding[] =>
-		readTestFiles({ input }).flatMap(({ file, text }) => megaFactoryFindings({ file, text, maxParams: settings.maxParams })),
-};
+					detail: `${sprawling.map((factory) => `'${factory.name}' takes ${factory.count} parameters (line ${factory.startLine})`).join(', ')}, over the cap of ${limit}`,
+				};
+	},
+	guidance: 'A substantially different arrangement gets a second named factory. Heuristic — judge before acting.',
+});

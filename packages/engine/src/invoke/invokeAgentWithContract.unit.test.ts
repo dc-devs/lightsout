@@ -238,7 +238,7 @@ test('a rate-limited harness is reported as such so the engine can park the run'
 
 	const outcome = await invokeAgentWithContract({ driver, cwd: '.', invocation: roleInvocation, contract: WorkReport });
 
-	expect(outcome).toStrictEqual({ ok: false, failure: 'harness rate limit reached', rateLimited: true, usage: undefined });
+	expect(outcome).toStrictEqual({ ok: false, failure: 'harness rate limited or overloaded', rateLimited: true, usage: undefined });
 	// a rate limit ends the attempt loop — a re-emit retry would hit the same wall
 	expect(invocations.length).toBe(1);
 });
@@ -270,7 +270,7 @@ test('a rate limit on the re-emit retry is reported over the earlier contract fa
 
 	expect(parsed).toBe(undefined);
 	expect(rateLimited).toBe(true);
-	expect(failure).toBe('harness rate limit reached');
+	expect(failure).toBe('harness rate limited or overloaded');
 	expect(invocations.length).toBe(2);
 });
 

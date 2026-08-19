@@ -1,10 +1,9 @@
 import { z } from 'zod';
+import { baseGateShape } from '@/contracts/common/constants/baseGateShape';
+import { validateCustomTestGates } from '@/contracts/common/utils/validateCustomTestGates';
 
 /** The fixed gate keys — everything else in the block must be a custom `test-*` suite. */
 const knownGateKeys = new Set(['check', 'test', 'test-coverage', 'testCoverage', 'testUnit', 'generate', 'build', 'format']);
-
-/** A custom test suite's key: `test-` plus a kebab name, e.g. `test-e2e`, `test-integration`, `test-browser`. */
-const customTestKey = /^test-[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /**
  * Verification commands — the mechanical gates. Full shell commands, run by
@@ -24,12 +23,7 @@ const customTestKey = /^test-[a-z0-9]+(-[a-z0-9]+)*$/;
  */
 export const ConfigGates = z
 	.object({
-		check: z.string(),
-		test: z.string(),
-		/** Removed — renamed to `test`. Declared only so a stale key fails loudly instead of being silently stripped. */
-		testUnit: z.never('`testUnit` was renamed to `test`').optional(),
-		/** Removed — renamed to `test-coverage`. Same reason. */
-		testCoverage: z.never('`testCoverage` was renamed to `test-coverage`').optional(),
+		...baseGateShape,
 		/**
 		 * Coverage gate — on by default. Required: either a full shell command
 		 * (run at clean-slate and every post-test verify) or the literal
@@ -51,20 +45,12 @@ export const ConfigGates = z
 	})
 	.catchall(z.unknown())
 	.superRefine((gates, ctx) => {
-		for (const [key, value] of Object.entries(gates)) {
-			if (knownGateKeys.has(key)) {
-				continue;
-			}
-
-			if (!customTestKey.test(key)) {
-				ctx.addIssue({
-					code: 'custom',
-					message: `unknown gate '${key}' — gates are check, test, test-coverage, generate, build, format, or a custom \`test-*\` suite`,
-				});
-			} else if (typeof value !== 'string') {
-				ctx.addIssue({ code: 'custom', message: `custom test gate '${key}' must be a full shell command string` });
-			}
-		}
+		validateCustomTestGates({
+			gates,
+			knownGateKeys,
+			ctx,
+			unknownKeyMessage: ({ key }) => `unknown gate '${key}' — gates are check, test, test-coverage, generate, build, format, or a custom \`test-*\` suite`,
+		});
 	});
 
 export type ConfigGates = z.infer<typeof ConfigGates>;

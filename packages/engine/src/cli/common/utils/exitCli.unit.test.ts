@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { exitCli } from '@/cli/common/utils/exitCli';
 
 /**
@@ -30,10 +30,6 @@ const setupStreams = () => {
 };
 
 describe('exitCli', () => {
-	afterEach(() => {
-		jest.restoreAllMocks();
-	});
-
 	test('the process ends only after both pipes have accepted everything queued before the exit', async () => {
 		const { pending, exits } = setupStreams();
 

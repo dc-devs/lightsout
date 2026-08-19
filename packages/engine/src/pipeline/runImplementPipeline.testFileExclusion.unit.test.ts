@@ -37,9 +37,9 @@ test('write-tests fan-out: files under __tests__/ are test files, never writer t
 			// Implement: one behavioral module plus a helper inside __tests__/ —
 			// the divergence case: the old pipeline predicate missed dunder dirs
 			// and spawned a writer to write tests for a test helper.
-			writeFileSync(join(dir, 'src/feature.ts'), 'export const feature = (n: number) => n * 2;\n');
+			writeFileSync(join(dir, 'src/feature.ts'), 'export const feature = (n: number): number => n * 2;\n');
 			mkdirSync(join(dir, 'src/__tests__'), { recursive: true });
-			writeFileSync(join(dir, 'src/__tests__/feature.helper.ts'), 'export const stubFeature = () => 4;\n');
+			writeFileSync(join(dir, 'src/__tests__/feature.helper.ts'), 'export const stubFeature = (): number => 4;\n');
 
 			return {
 				text: report({

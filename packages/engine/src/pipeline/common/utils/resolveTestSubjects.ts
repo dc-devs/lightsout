@@ -98,7 +98,7 @@ interface Params {
 	targets: string[];
 	/** Repo-relative source universe (listSourceFiles output, generated paths excluded). */
 	universe: string[];
-	/** Monorepo package parent dir (config.packagesDir ?? defaultPackagesDir). */
+	/** Monorepo package parent dir (config['packages-dir'] ?? defaultPackagesDir). */
 	packagesDir: string;
 	/** The consumer's TypeScript, or undefined — without one, every target is its own subject. */
 	compiler: typeof ts | undefined;

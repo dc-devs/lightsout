@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { plantSequence } from '@tests/helpers/plantSequence';
 import { RunStatus } from '@/contracts';
-import { findUnfinishedSequence } from '@/phases/findUnfinishedSequence';
+import { findUnfinishedSequence } from '@/phases';
 
 const overviewPath = join('plans', 'demo', 'overview.md');
 

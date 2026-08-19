@@ -38,6 +38,13 @@ interface Params {
  * is not in it, that a published name is unused — and a partial set makes all
  * of those arguments wrong in the direction that invents findings. Silence for
  * one folder is the cheap failure; a package-wide flood of them is not.
+ *
+ * The engine keeps a mirror of this, `collectFolderModules`, which answers the
+ * same question over disk and the consumer's compiler instead of supplied file
+ * text — so the modules it picks test subjects from are the ones these rules
+ * judge. The copy cannot be collapsed: this package ships as a bare directory
+ * with no manifest and no `node_modules`, so every value it imports has to
+ * resolve inside its own tree. Change one, change the other.
  */
 export const mapFolderModules = ({ files, getSurface, standardsPackages }: Params): Map<string, FolderModule> => {
 	const barrelDirs = new Map<string, string>();

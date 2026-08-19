@@ -106,7 +106,7 @@ test('consult supervisor: an unset supervisor timeout falls back to fifteen minu
 });
 
 test('consult supervisor: a configured supervisorMinutes sets the invocation ceiling', async () => {
-	const { invocations, args } = setupSupervisor({ overrides: { timeouts: { agentMinutes: 90, supervisorMinutes: 5 } } });
+	const { invocations, args } = setupSupervisor({ overrides: { timeouts: { 'agent-minutes': 90, 'supervisor-minutes': 5 } } });
 
 	await consultSupervisor(args);
 

@@ -11,7 +11,7 @@ interface Params {
 	errorContext?: string;
 	/** Files already changed earlier in the run — orients fix re-invocations. */
 	changedFiles?: string[];
-	/** Consumer-granted command prefixes (config `agentCommands`) — the executor may run these, and only these. */
+	/** Consumer-granted command prefixes (config `agent-commands`) — the executor may run these, and only these. */
 	allowedCommands?: string[];
 }
 

@@ -8,8 +8,6 @@ import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
 import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
 import { lintPlanStructure } from '@/plan/lintPlanStructure';
 
-const defaultGradeTimeoutMs = 30 * 60 * 1000;
-
 interface Params {
 	cwd: string;
 	driver: Driver;
@@ -47,7 +45,7 @@ export const runPlanGrade = async ({
 	model,
 	effort,
 	permissions,
-	timeoutMs = defaultGradeTimeoutMs,
+	timeoutMs = 30 * 60 * 1000,
 	onProgress,
 }: Params): Promise<RunPlanGradeResult> => {
 	const progress = onProgress ?? (() => undefined);
@@ -86,7 +84,7 @@ export const runPlanGrade = async ({
 
 		if (!outcome.ok) {
 			return outcome.rateLimited
-				? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limit reached — re-run: lightsout plan grade --name ${name}` }
+				? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan grade --name ${name}` }
 				: { status: 'failed' as const, workspaceDir, error: `gap-check failed for ${basename(phase.path)}: ${outcome.failure}` };
 		}
 

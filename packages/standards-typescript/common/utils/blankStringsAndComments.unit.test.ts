@@ -73,7 +73,60 @@ describe('blankStringsAndComments', () => {
 		expect(blankStringsAndComments({ text })).toBe(text);
 	});
 
+	test('empties a regex literal, so an apostrophe inside one cannot open a phantom string', () => {
+		// the live bug: /typo'd name/ read as code let the apostrophe swallow the
+		// rest of the file, merging every later test block into one
+		const text = "expect(a).toMatch(/typo'd name/);\nsetupThing();";
+
+		expect(blankStringsAndComments({ text })).toBe('expect(a).toMatch(/           /);\nsetupThing();');
+	});
+
+	test('a slash after an identifier, call or index is division and stays', () => {
+		for (const text of ['const x = a / b / c;', 'const y = f() / 2;', 'const z = arr[0] / n;']) {
+			expect(blankStringsAndComments({ text })).toBe(text);
+		}
+	});
+
+	test('a regex after return or an opening bracket is a regex, wherever a value is expected', () => {
+		expect(blankStringsAndComments({ text: "return /it's/;" })).toBe('return /    /;');
+		expect(blankStringsAndComments({ text: "f(/it's/)" })).toBe('f(/    /)');
+	});
+
+	test('an escaped slash or a character class does not end the regex early', () => {
+		expect(blankStringsAndComments({ text: "const r = /a\\/b'c/; g();" })).toBe('const r = /      /; g();');
+		expect(blankStringsAndComments({ text: "const r = /a[/]b'c/; g();" })).toBe('const r = /       /; g();');
+	});
+
+	test('a lone slash with no closing partner on its line is division, never a runaway blank', () => {
+		const text = "const half = total / 2;\nconst s = 'kept';";
+
+		expect(blankStringsAndComments({ text })).toBe("const half = total / 2;\nconst s = '    ';");
+	});
+
 	test('empty text stays empty', () => {
 		expect(blankStringsAndComments({ text: '' })).toBe('');
+	});
+
+	test('a regex opening the very file is still a regex, with nothing before it to divide', () => {
+		// nothing precedes the slash, so a value is expected and the apostrophe inside cannot open a string
+		expect(blankStringsAndComments({ text: "/it's a regex/.test(name);" })).toBe('/            /.test(name);');
+	});
+
+	test('a slash where a value is expected but never closes is division, so the rest of the file survives', () => {
+		const text = "return / 2;\nconst s = 'kept';";
+
+		expect(blankStringsAndComments({ text })).toBe("return / 2;\nconst s = '    ';");
+	});
+
+	test('an escaped backtick does not end a template early, and the interpolation after it still holds code', () => {
+		const text = 'const a = `a\\`b ${ fn() } c`;';
+
+		expect(blankStringsAndComments({ text })).toBe('const a = `     ${ fn() }  `;');
+	});
+
+	test('an unterminated block comment is emptied to the end of the file rather than left as code', () => {
+		const text = 'const a = 1;\n/* unclosed jest.fn()';
+
+		expect(blankStringsAndComments({ text })).toBe('const a = 1;\n                     ');
 	});
 });

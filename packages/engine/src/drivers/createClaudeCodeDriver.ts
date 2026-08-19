@@ -38,11 +38,13 @@ const parseEnvelope = ({ stdout }: { stdout: string }) => {
 };
 
 /**
- * Best-effort rate-limit detection: only consulted on error paths (is_error
- * or non-zero exit), so legitimate agent text about "rate limits" can never
- * trip it. A false negative degrades to a normal step failure.
+ * Best-effort detection of a transient harness failure — a rate limit, or the
+ * API overloaded (529): both mean "park the run and resume later", never a
+ * failed batch. Only consulted on error paths (is_error or non-zero exit), so
+ * legitimate agent text about "rate limits" can never trip it. A false
+ * negative degrades to a normal step failure.
  */
-const rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset/i;
+const transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|\b(?:status|error|code)\D{0,6}529\b|overloaded/i;
 
 /**
  * Driver for the Claude Code CLI in headless mode (`claude -p`).
@@ -54,7 +56,7 @@ const rateLimitPattern = /usage limit|rate limit|limit reached|limit will reset/
  * `--exclude-dynamic-system-prompt-sections` verified against claude CLI
  * 2.1.218; `--effort` verified against claude CLI 2.1.221.
  */
-export const createClaudeCodeDriver = () => {
+export const createClaudeCodeDriver = (): Driver => {
 	const driver: Driver = {
 		name: 'claude-code',
 		invoke: async (invocation) => {
@@ -108,7 +110,7 @@ export const createClaudeCodeDriver = () => {
 			return {
 				text: text || stderr,
 				exitCode,
-				rateLimited: errored && rateLimitPattern.test(`${text}\n${stderr}`),
+				rateLimited: errored && transientHarnessPattern.test(`${text}\n${stderr}`),
 				usage,
 			};
 		},

@@ -39,8 +39,7 @@ const notPublicFinding = ({ test, files, moduleFolders }: { test: string; files:
 				rule: 'path-test-untested-subject-not-public',
 				// The barrel is a reported file, not just prose in the detail: a
 				// refactor batch's writable set is the finding's files, and the
-				// promotion remedy is an edit to exactly this barrel (live lesson:
-				// run 59afe535, where every batch declined the fix as unreachable).
+				// promotion remedy is an edit to exactly this barrel.
 				files: [{ path: test }, { path: nearest[1].barrelPath }],
 				detail: `'${getBaseName({ path: subject })}' is not re-exported from ${nearest[1].barrelPath}`,
 				guidance:

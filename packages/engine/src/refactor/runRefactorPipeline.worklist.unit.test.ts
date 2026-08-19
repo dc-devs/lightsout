@@ -16,7 +16,7 @@ import { runRefactorPipeline } from '@/refactor';
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
 
 /** An over-cap function body — the size rule's advisory, which needs the AST tier. */
-const bigFunction = `export const bigThing = () => {\n${Array.from({ length: 85 }, (_, index) => `\tconst v${index} = ${index};`).join('\n')}\n\treturn v0;\n};\n`;
+const bigFunction = `export const bigThing = (): number => {\n${Array.from({ length: 85 }, (_, index) => `\tconst v${index} = ${index};`).join('\n')}\n\treturn v0;\n};\n`;
 
 const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
@@ -232,13 +232,13 @@ describe('runRefactorPipeline work-list', () => {
 		expect(advisories.length > 0).toBeTruthy();
 		// EVERY advisory rides along, not just the size ones — each carries its own
 		// guidance, and one the agent never sees is one it can never judge
-		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['dead-export', 'explicit-return-type', 'size-function']);
+		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['dead-export', 'size-function']);
 		// advisories are never batched as work
 		expect([...new Set(worklist.batches.flatMap((batch) => batch.blocking.map((finding) => finding.severity)))]).toStrictEqual(['blocking']);
 	});
 
 	test('a configured packagesDir batches by package rather than by the shared parent folder', async () => {
-		const dir = setupConsumerRepo({ config: { packagesDir: 'modules' } });
+		const dir = setupConsumerRepo({ config: { 'packages-dir': 'modules' } });
 
 		mkdirSync(join(dir, 'modules/api'), { recursive: true });
 		mkdirSync(join(dir, 'modules/web'), { recursive: true });

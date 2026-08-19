@@ -7,7 +7,7 @@ interface Params {
 	packageGates: PackageGates;
 }
 
-/** The scoped `packageGates` block, read into the engine's own spelling. */
+/** The scoped `package-gates` block, read into the engine's own spelling. */
 interface ResolvedPackageGates {
 	check: string;
 	test: string;
@@ -18,7 +18,7 @@ interface ResolvedPackageGates {
 }
 
 /**
- * Read a parsed `packageGates` block. The schema validates and keeps the
+ * Read a parsed `package-gates` block. The schema validates and keeps the
  * config's own kebab spelling (so manifests round-trip); this is the one
  * place that spelling is translated for the engine.
  */

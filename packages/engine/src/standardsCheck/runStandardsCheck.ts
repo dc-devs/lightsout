@@ -57,13 +57,14 @@ export const runStandardsCheck = async ({
 	// An empty package scope means the root package.json decides — the same call
 	// the prompt side makes, so prose and checks never disagree about which
 	// frameworks this repo is in.
-	const channels = config?.standardsChannels ?? (await detectStandardsChannels({ cwd, packagesDir: config?.packagesDir ?? 'packages', packages: [] }));
+	const channels =
+		config?.['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir: config?.['packages-dir'] ?? 'packages', packages: [] }));
 	const checked = await runPackageChecks({
 		cwd,
 		packages,
 		states,
 		channels,
-		packagesDir: config?.packagesDir,
+		packagesDir: config?.['packages-dir'],
 		path,
 		exclude: config?.generated,
 		onProgress,

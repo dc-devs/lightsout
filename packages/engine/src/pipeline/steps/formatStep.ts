@@ -7,8 +7,6 @@ import type { PipelineRun } from '@/pipeline/PipelineRun';
 import type { PipelineStep } from '@/pipeline/PipelineStep';
 import { appendCommandLog } from '@/runState';
 
-const formatTimeoutMs = 10 * 60_000;
-
 interface Params {
 	run: PipelineRun;
 }
@@ -29,6 +27,7 @@ export const formatStep = ({ run }: Params): PipelineStep => ({
 		await run.setStep({ record });
 		run.progress('step format — running formatter');
 
+		const formatTimeoutMs = 10 * 60_000;
 		const startedAt = Date.now();
 		let result: CommandResult;
 

@@ -24,7 +24,7 @@ export const doctorCommand = async ({ cwd }: CommandContext): Promise<void> => {
 		}
 	}
 
-	const tally = (Object.entries(counts) as Array<[string, number]>)
+	const tally = Object.entries(counts)
 		.filter(([, count]) => count > 0)
 		.map(([status, count]) => `${count} ${status}`)
 		.join(' · ');
