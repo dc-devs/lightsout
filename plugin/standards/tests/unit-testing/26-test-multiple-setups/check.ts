@@ -13,8 +13,7 @@ const setupCall = /\bsetup[A-Za-z0-9_$]*\s*\(/g;
 // the rule is advisory and says so in its guidance.
 const multipleSetupsFindings = ({ file, text }: { file: string; text: string }) => {
 	// In a setup factory's own test file, calling the subject is the ACT, not
-	// arrangement — counting it forced honest tests of setupX into contortions
-	// (live lesson: run 6b0b3e0f's batch rationale).
+	// arrangement — so it never counts toward the limit.
 	const subject = getTestSubjectName({ test: file });
 	const arrangementCalls = (body: string) =>
 		[...body.matchAll(setupCall)].filter((match) => !match[0].startsWith(`${subject}(`) && !match[0].startsWith(`${subject} (`));

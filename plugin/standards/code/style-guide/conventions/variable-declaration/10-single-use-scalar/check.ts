@@ -13,9 +13,7 @@ const isArithmeticOperator = ({ kind, compiler }: { kind: ts.SyntaxKind; compile
 /**
  * A numeric expression with no moving parts: literals combined by arithmetic
  * (`10 * 60_000`) NAME a number rather than compute one, so hoisting one of
- * these is the same debt as hoisting the literal it folds to (live lesson:
- * run 191271ed, where the agent spotted `10 * 60_000` sitting beside a
- * flagged bare literal).
+ * these is the same debt as hoisting the literal it folds to.
  */
 const isFoldedNumber = ({ node, compiler }: { node: ts.Expression; compiler: typeof ts }): boolean =>
 	compiler.isNumericLiteral(node) ||

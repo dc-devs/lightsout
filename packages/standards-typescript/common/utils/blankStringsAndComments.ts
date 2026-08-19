@@ -119,11 +119,10 @@ const findRegexEnd = ({ text, start }: { text: string; start: number }) => {
  *
  * An expression inside `${}` is code and stays, since a template can carry a
  * real call. Regular expression literals are emptied like strings: a pattern
- * is not code, and an apostrophe inside one (`/typo'd/`) once opened a
- * phantom string that swallowed the rest of the file (live lesson: refactor
- * run 6b0b3e0f, where merged test blocks produced blocking false positives).
- * Telling a regex from a division uses the standard lexer heuristic — see
- * `startsRegex` — with an unterminated candidate treated as division.
+ * is not code, and an apostrophe inside one (`/typo'd/`) read as a string
+ * opening would swallow everything to the end of the file. Telling a regex
+ * from a division uses the standard lexer heuristic — see `startsRegex` —
+ * with an unterminated candidate treated as division.
  */
 export const blankStringsAndComments = ({ text }: Params): string => {
 	const chars = text.split('');

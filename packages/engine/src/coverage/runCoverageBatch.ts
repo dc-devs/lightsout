@@ -151,9 +151,9 @@ export const runCoverageBatch = async ({
 			return { kind: 'failed', error: violated.error };
 		}
 
-		// Salvage check (live lesson from refactor: a sleep-killed agent had
-		// finished its edits but never reported) — if coverage verifiably moved
-		// and gates are green, the work is done; classify it, don't discard it.
+		// Salvage check — an agent can die after finishing its edits but before
+		// reporting. If coverage verifiably moved and gates are green, the work
+		// is done; classify it, don't discard it.
 		const salvaged = await measure();
 
 		if (salvaged.improved && !(await gates())) {

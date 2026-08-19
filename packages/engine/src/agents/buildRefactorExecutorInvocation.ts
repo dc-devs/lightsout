@@ -40,9 +40,8 @@ const findingLine = (finding: StandardsFinding) => {
 
 /**
  * An advisory line additionally carries its siteKey verbatim: the report asks
- * for that key "copied exactly as given", and three runs of agents flagged
- * that without it they were left reconstructing keys the engine might not
- * match (live lesson: runs f4d7cb1b, 9a6348d2, ab2d3943).
+ * for that key "copied exactly as given", so the prompt has to actually give
+ * it — an agent left to reconstruct the key builds one the engine may not match.
  */
 const advisoryLine = (finding: StandardsFinding) => `${findingLine(finding)} (siteKey: \`${finding.siteKey}\`)`;
 

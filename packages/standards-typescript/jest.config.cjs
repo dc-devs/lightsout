@@ -8,11 +8,6 @@ const createJestConfig = require('../../tooling/jest/createJestConfig.cjs');
 // It also puts the committed build copy at plugin/standards/ outside the project
 // entirely, so the duplicate-collection hazard the single root config had to warn
 // about cannot arise here.
-//
-// The 95% threshold arrived as its own piece of work, exactly as the note that
-// used to live here promised: the package started at ~84% with a third of its
-// checks untested, and `lightsout test-coverage-to-threshold` was pointed at
-// the gap rather than a human writing the tests by hand.
 module.exports = createJestConfig({
 	rootDir: __dirname,
 	testMatch: ['<rootDir>/**/*.unit.test.ts'],

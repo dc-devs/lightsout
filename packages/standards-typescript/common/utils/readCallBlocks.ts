@@ -66,7 +66,7 @@ interface Params {
 export const readCallBlocks = ({ text, callees }: Params): CallBlock[] => {
 	// The shared masker rather than a local one: it is regex-aware, so an
 	// apostrophe inside a pattern (`/typo'd/`) cannot open a phantom string
-	// that merges every later block (live lesson: refactor run 6b0b3e0f).
+	// that merges every later block.
 	const mask = blankStringsAndComments({ text });
 	const found: Array<{ start: number; end: number; block: Omit<CallBlock, 'depth'> }> = [];
 

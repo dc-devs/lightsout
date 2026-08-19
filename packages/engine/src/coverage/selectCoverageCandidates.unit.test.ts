@@ -50,8 +50,8 @@ describe('selectCoverageCandidates', () => {
 	test('a check under a standards package’s tests/ set is source, not a test — the set name buys no exemption', async () => {
 		const cwd = setupRepo();
 		const files = [
-			// the live lesson: 16 rule checks at 0% were never offered as candidates,
-			// so the run escalated with the debt untouched (run 3523f57a)
+			// under a standards package, tests/ is a document set — the checks in it
+			// are source files a run must be able to target
 			file({ path: 'packages/acme/tests/unit-testing/05-rule/check.ts', statementsPct: 0 }),
 			// the package's own tests still say so in their filenames
 			file({ path: 'packages/acme/common/utils/helper.unit.test.ts', statementsPct: 0 }),

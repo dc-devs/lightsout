@@ -23820,7 +23820,7 @@ var WorkReport = external_exports.object({
   ),
   /** One-line description of what was done (or why it wasn't). */
   summary: external_exports.string(),
-  /** Discrepancies, ambiguities, or errors — expected non-empty for any non-complete status. Defaulted: a complete report that omits it means "none" (observed in the wild), and the re-emit retry is too expensive for that ambiguity-free case. */
+  /** Discrepancies, ambiguities, or errors — expected non-empty for any non-complete status. Defaulted: a complete report that omits it means "none", and the re-emit retry is too expensive for that ambiguity-free case. */
   failures: external_exports.array(external_exports.string()).default([]),
   /** Moments where the system fought the agent — fuel for the self-improvement loop. Omitted when clean. */
   friction: external_exports.array(FrictionEntry).optional(),

@@ -40,10 +40,9 @@ const parseEnvelope = ({ stdout }: { stdout: string }) => {
 /**
  * Best-effort detection of a transient harness failure — a rate limit, or the
  * API overloaded (529): both mean "park the run and resume later", never a
- * failed batch (live lesson: run 9a6348d2, where a 529 burned a re-emit retry
- * and failed the batch as a contract mismatch). Only consulted on error paths
- * (is_error or non-zero exit), so legitimate agent text about "rate limits"
- * can never trip it. A false negative degrades to a normal step failure.
+ * failed batch. Only consulted on error paths (is_error or non-zero exit), so
+ * legitimate agent text about "rate limits" can never trip it. A false
+ * negative degrades to a normal step failure.
  */
 const transientHarnessPattern = /usage limit|rate limit|limit reached|limit will reset|529|overloaded/i;
 

@@ -123,9 +123,8 @@ const executeCoverage = async ({
 	// to one file per batch component, exactly like the implement fan-out.
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config.packagesDir ?? defaultPackagesDir });
 	// Also once for the run: standards-package roots make the test-file question
-	// answerable. A rule check under a package's `tests/` document set is source
-	// — filtering without this excluded 16 zero-coverage checks from candidates
-	// AND from the member pool, handing writers empty assignments (run 3523f57a).
+	// answerable — a rule check under a package's `tests/` document set is
+	// source, and filtering without them excludes it everywhere.
 	const { standardsPackages } = await listSourceFiles({ cwd });
 
 	let declineStreak = seeded.declineStreak;
@@ -187,8 +186,7 @@ const executeCoverage = async ({
 
 		if (batch.members.length === 0) {
 			// A candidate the member pool refuses is a filtering disagreement — an
-			// engine bug to surface, never an empty assignment to spend a writer on
-			// (live lesson: run 3523f57a's batches 07 and 08).
+			// engine bug to surface, never an empty assignment to spend a writer on.
 			const error = `scope '${scope}' has candidates but the member pool excludes them all — candidate selection and member filtering disagree; human required`;
 
 			await update({ status: RunStatus.Escalated, currentStep: null });
