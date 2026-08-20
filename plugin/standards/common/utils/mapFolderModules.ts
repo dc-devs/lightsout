@@ -19,6 +19,14 @@ interface Params {
 	getSurface: ({ barrelPath }: { barrelPath: string }) => BarrelSurface;
 	/** Repo-relative standards package roots, so a package's `tests/` document set is not read as test code. */
 	standardsPackages: string[];
+	/**
+	 * Whether a framework mandates this folder as a module, answered by the
+	 * caller for the same reason `getSurface` is: only it knows what its input
+	 * carries, and the dependency facts a mandate turns on reach different rules
+	 * by different routes. Omitted, nothing is mandated and the omission test
+	 * decides alone.
+	 */
+	isMandatedModule?: ({ folder }: { folder: string }) => boolean;
 }
 
 /**
@@ -26,6 +34,13 @@ interface Params {
  * barrel-omission test: a barrel that hides something is a module, and a barrel
  * that re-exports every file in its folder hides nothing, so that folder is a
  * domain folder and never appears here.
+ *
+ * A folder the package's framework mandates as a module is a boundary whatever
+ * the omission test says. The test infers a boundary from concealment, which is
+ * sound for a folder someone chose and wrong for one a framework requires: a
+ * screen folder holds a single component the day it is made and grows its own
+ * `components/` and `hooks/` as the screen does, and it is the same boundary
+ * throughout.
  *
  * Package and repo `src` roots are excluded — a root barrel is a package's API,
  * not an internal module — and so is anything under a `common/` segment, whose
@@ -46,7 +61,7 @@ interface Params {
  * with no manifest and no `node_modules`, so every value it imports has to
  * resolve inside its own tree. Change one, change the other.
  */
-export const mapFolderModules = ({ files, getSurface, standardsPackages }: Params): Map<string, FolderModule> => {
+export const mapFolderModules = ({ files, getSurface, standardsPackages, isMandatedModule }: Params): Map<string, FolderModule> => {
 	const barrelDirs = new Map<string, string>();
 
 	for (const file of files) {
@@ -73,7 +88,7 @@ export const mapFolderModules = ({ files, getSurface, standardsPackages }: Param
 				!nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file.startsWith(`${other}/`)),
 		);
 
-		if (complete && (hasOwnCommon || ownFiles.some((file) => !exportedTargets.has(file)))) {
+		if (complete && (isMandatedModule?.({ folder }) === true || hasOwnCommon || ownFiles.some((file) => !exportedTargets.has(file)))) {
 			modules.set(folder, { barrelPath, exportedTargets });
 		}
 	}

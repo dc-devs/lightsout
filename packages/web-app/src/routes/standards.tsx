@@ -1,5 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { StandardsPage, standardsQueryOptions } from '#src/features/standards/index.ts';
 
-const StandardsPlaceholder = () => <p className="p-10 text-muted-foreground text-sm">The standards tab arrives in a later phase.</p>;
-
-export const Route = createFileRoute('/standards')({ component: StandardsPlaceholder });
+export const Route = createFileRoute('/standards')({
+	// Warmed before the first render, so the tab is server-rendered with its
+	// findings rather than arriving as a shell the client has to fill.
+	loader: async ({ context }) => {
+		await context.queryClient.ensureQueryData(standardsQueryOptions());
+	},
+	component: StandardsPage,
+});

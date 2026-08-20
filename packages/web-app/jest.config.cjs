@@ -26,8 +26,9 @@ module.exports = createJestConfig({
 	// exclude nothing but the tests themselves. A file left out of the report is
 	// indistinguishable from a file no test ever loaded — the entries and the
 	// route modules each have a test reaching them, and the report is where that
-	// is visible. `src/markdown.d.ts` is in here too: a declaration file compiles
-	// to nothing, so it lands at zero statements rather than going missing.
+	// is visible. `src/markdownAsText.d.ts` is in here too: a declaration
+	// file compiles to nothing, so it lands at zero statements rather than
+	// going missing.
 	collectCoverageFrom: ['src/**/*.ts', 'src/**/*.tsx', '!src/**/*.unit.test.ts', '!src/**/*.unit.test.tsx'],
 	coverageReporters: ['text', 'lcov', 'json-summary'],
 	coverageThreshold: { global: { statements: 95, branches: 95, functions: 95, lines: 95 } },
@@ -44,5 +45,12 @@ module.exports = createJestConfig({
 		// reference, so nothing matching that specifier exists on disk and the root
 		// route cannot be required without a stand-in.
 		'\\.css(\\?.*)?$': join(__dirname, 'tests', 'stubs', 'styleUrl.ts'),
+		// `react-markdown` and `remark-gfm` are ESM-only, as is everything they
+		// depend on, and the shared transform compiles only `.ts`, `.tsx` and
+		// `.md`. Parsing is the library's contract; what this app owns is the
+		// `components` map, and the stubs call through it. Real rendering is proved
+		// by `nx build web-app` and the dev run.
+		'^react-markdown$': join(__dirname, 'tests', 'stubs', 'reactMarkdown.tsx'),
+		'^remark-gfm$': join(__dirname, 'tests', 'stubs', 'remarkGfm.ts'),
 	},
 });

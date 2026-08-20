@@ -18,4 +18,16 @@ export interface FrameworkCarveOut {
 	kebabCase: boolean;
 	/** Route directory names whose segments are URL-mapped and therefore kebab-case by mandate. */
 	routerRoots: string[];
+	/**
+	 * Folder shapes the framework mandates as modules, written relative to the
+	 * package's `src/` with `*` standing for one segment — e.g.
+	 * a TanStack Start screen is `features`, any name, `screens`, any name.
+	 *
+	 * A module here is declared, not inferred. The barrel-omission test asks
+	 * whether a barrel hides anything, which reads a one-file folder as a
+	 * convenience rather than a boundary — true of a folder someone made up, and
+	 * false of one the framework requires and which grows its own `components/`
+	 * and `hooks/` as the screen does.
+	 */
+	moduleFolders: string[];
 }

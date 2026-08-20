@@ -14,6 +14,7 @@ const inputOf = (files: Record<string, string>): SyntaxTreeInput => ({
 	files: Object.keys(files),
 	referenceFiles: [],
 	compiler: ts,
+	dependencies: new Map(),
 	trees: new Map(Object.entries(files).map(([path, text]) => [path, treeOf({ path, text })])),
 });
 

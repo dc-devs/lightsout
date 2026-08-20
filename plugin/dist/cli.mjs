@@ -25947,7 +25947,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve8 }) =
 
 // src/common/utils/collectFolderModules.ts
 var isBarrel = ({ path }) => /^index\.tsx?$/.test(posix2.basename(path));
-var collectFolderModules = async ({ cwd, files, compiler }) => {
+var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }) => {
   const resolve8 = createSpecifierResolver({ files });
   const barrelDirs = /* @__PURE__ */ new Map();
   for (const file2 of files) {
@@ -25966,7 +25966,7 @@ var collectFolderModules = async ({ cwd, files, compiler }) => {
     const ownFiles = files.filter(
       (file2) => file2.startsWith(prefix) && !isBarrel({ path: file2 }) && /\.tsx?$/.test(file2) && !nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file2.startsWith(`${other}/`))
     );
-    if (surface.complete && (hasOwnCommon || ownFiles.some((file2) => !surface.targets.has(file2)))) {
+    if (surface.complete && (isMandatedModule?.({ folder }) === true || hasOwnCommon || ownFiles.some((file2) => !surface.targets.has(file2)))) {
       modules.set(folder, { barrelPath, exportedTargets: surface.targets });
     }
   }

@@ -12,6 +12,11 @@ interface Params {
 	/** Repo-relative source files in scope (test files already excluded by the caller). */
 	files: string[];
 	compiler: typeof ts;
+	/**
+	 * Whether a framework mandates this folder as a module, answered by the
+	 * caller. Omitted, nothing is mandated and the omission test decides alone.
+	 */
+	isMandatedModule?: ({ folder }: { folder: string }) => boolean;
 }
 
 /**
@@ -25,6 +30,10 @@ interface Params {
  * whose surface could not be fully read is left out entirely — silence, not
  * invented boundaries.
  *
+ * A folder a framework mandates as a module is a boundary whatever the
+ * omission test says: that test infers a boundary from concealment, which is
+ * sound for a folder someone chose and wrong for one a framework requires.
+ *
  * The mirror is deliberate and the two must stay in step, so that the modules
  * the engine picks test subjects from are the same ones the rules judge.
  * Neither copy can import the other: a standards package ships as a bare
@@ -33,7 +42,7 @@ interface Params {
  * runs against whatever package `standards-packages` names rather than the
  * default one. Change one, change the other.
  */
-export const collectFolderModules = async ({ cwd, files, compiler }: Params): Promise<Map<string, FolderModule>> => {
+export const collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }: Params): Promise<Map<string, FolderModule>> => {
 	const resolve = createSpecifierResolver({ files });
 	const barrelDirs = new Map<string, string>();
 
@@ -62,7 +71,7 @@ export const collectFolderModules = async ({ cwd, files, compiler }: Params): Pr
 				!nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file.startsWith(`${other}/`)),
 		);
 
-		if (surface.complete && (hasOwnCommon || ownFiles.some((file) => !surface.targets.has(file)))) {
+		if (surface.complete && (isMandatedModule?.({ folder }) === true || hasOwnCommon || ownFiles.some((file) => !surface.targets.has(file)))) {
 			modules.set(folder, { barrelPath, exportedTargets: surface.targets });
 		}
 	}

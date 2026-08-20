@@ -2,11 +2,15 @@ import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/stand
 import type { FolderModule } from '../../../common/types/FolderModule.ts';
 import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
 import { getBaseName } from '../../../common/utils/getBaseName.ts';
+import { getFrameworkCarveOuts } from '../../../common/utils/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../common/utils/getPathCarveOut.ts';
 import { getTestSubject } from '../../../common/utils/getTestSubject.ts';
+import { isMandatedModuleFolder } from '../../../common/utils/isMandatedModuleFolder.ts';
 import { isUnderSrc } from '../../../common/utils/isUnderSrc.ts';
 import { mapFolderModules } from '../../../common/utils/mapFolderModules.ts';
 import { readBarrelSurface } from '../../../common/utils/readBarrelSurface.ts';
 import { readFileTexts } from '../../../common/utils/readFileTexts.ts';
+import { readManifestDependencies } from '../../../common/utils/readManifestDependencies.ts';
 
 /**
  * A root-layer `common/` — one sitting directly under `src`, or under a layer
@@ -54,11 +58,13 @@ export const check: StandardsCheckModule = {
 		const fileSet = new Set(files);
 		// Longest folder first, so a subject's FIRST ancestor here is its nearest
 		// owning module — the one whose barrel it would be promoted into.
+		const carveOuts = getFrameworkCarveOuts({ dependencies: readManifestDependencies({ contents }) });
 		const moduleFolders = [
 			...mapFolderModules({
 				files,
 				getSurface: ({ barrelPath }) => readBarrelSurface({ barrelPath, contents, files: fileSet }),
 				standardsPackages,
+				isMandatedModule: ({ folder }) => isMandatedModuleFolder({ folder, carveOut: getPathCarveOut({ carveOuts, path: folder }) }),
 			}),
 		].sort(([first], [second]) => second.length - first.length);
 
