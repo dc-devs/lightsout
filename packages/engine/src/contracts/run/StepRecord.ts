@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RunStatus } from '@/contracts/run/RunStatus';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
 
 /**
  * One pipeline step's durable state. `report` holds the agent's validated

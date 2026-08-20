@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import { resolveCoverageScopes } from '@/coverage/resolveCoverageScopes';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';
 
 const summaryPath = 'coverage/coverage-summary.json';
 

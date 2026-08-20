@@ -1,7 +1,5 @@
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { getDependencyNames } from '@/common/utils/getDependencyNames';
-import { type FileListInput, StandardsInputKind } from '@/contracts';
+import { type FileListInput, StandardsInputKind } from '#src/contracts/index.ts';
+import { readPackageDependencies } from '#src/standardsCheck/common/checkInputs/readPackageDependencies.ts';
 
 interface Params {
 	cwd: string;
@@ -24,19 +22,7 @@ interface Params {
  * @param packagesDir - monorepo package parent dir; each child holding a package.json becomes an entry
  */
 export const buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir }: Params): Promise<FileListInput> => {
-	const dependencies = new Map<string, string[]>();
-
-	dependencies.set('.', (await getDependencyNames({ manifestPath: join(cwd, 'package.json') })) ?? []);
-
-	const children = await readdir(join(cwd, packagesDir)).catch(() => []);
-
-	for (const name of children.sort()) {
-		const names = await getDependencyNames({ manifestPath: join(cwd, packagesDir, name, 'package.json') });
-
-		if (names !== undefined) {
-			dependencies.set(`${packagesDir}/${name}`, names);
-		}
-	}
+	const dependencies = await readPackageDependencies({ cwd, packagesDir });
 
 	return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies, standardsPackages };
 };

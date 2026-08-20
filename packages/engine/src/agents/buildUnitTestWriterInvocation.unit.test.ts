@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildUnitTestWriterInvocation } from '@/agents';
+import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
 
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';

@@ -2,15 +2,15 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { createDraftDriver } from '@tests/helpers/createDraftDriver';
-import { expectDefined } from '@tests/helpers/expectDefined';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { seedPlanWorkspace } from '@tests/helpers/seedPlanWorkspace';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { Effort, Permissions, PlanDraftReport, PlanVariant } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
-import { runPlanDraft } from '@/plan';
+import { Effort, Permissions, PlanDraftReport, PlanVariant } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { runPlanDraft } from '#src/plan/index.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
+import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** One explorer area whose facts touch the given modify and mirror paths. */
 const areaTouching = ({ modify = [], mirror = [] }: { modify?: string[]; mirror?: string[] }) => ({
@@ -45,7 +45,15 @@ test('plan draft: writes plan.md and returns a valid PlanDraftReport — with no
 	// plan.md written into the plan's own folder, beside its workspace files
 	expect(existsSync(join(planDir, 'plan.md'))).toBeTruthy();
 	expect('report' in result && result.report).toBeTruthy();
-	expect(() => PlanDraftReport.parse(result.report)).not.toThrow();
+	// the writer's report comes back whole — parse throws on a shape violation,
+	// and the values pin what the caller actually reads off it
+	expect(PlanDraftReport.parse(result.report)).toStrictEqual({
+		status: 'drafted',
+		filesWritten: [{ path: join(planDir, 'plan.md'), variant: 'single', scope: 'single' }],
+		decisionsApplied: 0,
+		assumptions: [],
+		discrepancies: [],
+	});
 	expect('planPaths' in result).toBeTruthy();
 	// the verified deliverable path comes back for the session to grade
 	expect(result.planPaths).toStrictEqual([join(planDir, 'plan.md')]);

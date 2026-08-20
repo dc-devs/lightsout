@@ -1,6 +1,6 @@
-import { type LightsoutConfig, PackagesSource } from '@/contracts';
-import { readPlanPackages } from '@/pipeline/readPlanPackages';
-import { scanPlanPackagePaths } from '@/pipeline/scanPlanPackagePaths';
+import { type LightsoutConfig, PackagesSource } from '#src/contracts/index.ts';
+import { readPlanPackages } from '#src/pipeline/readPlanPackages.ts';
+import { scanPlanPackagePaths } from '#src/pipeline/scanPlanPackagePaths.ts';
 
 interface Params {
 	config: LightsoutConfig;

@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import type { FolderModule } from '@/common/types/FolderModule';
-import { collectFolderModules } from '@/common/utils/collectFolderModules';
-import { collectImportEdges } from '@/common/utils/collectImportEdges';
-import { isInertSourceFile } from '@/common/utils/isInertSourceFile';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { partitionByPackage } from '@/pipeline/common/utils/partitionByPackage';
+import type { FolderModule } from '#src/common/types/FolderModule.ts';
+import { collectFolderModules } from '#src/common/utils/collectFolderModules.ts';
+import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
+import { isInertSourceFile } from '#src/common/utils/isInertSourceFile.ts';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { partitionByPackage } from '#src/pipeline/common/utils/partitionByPackage.ts';
 
 // The rule's own definition of public, restated engine-side: a root-layer
 // `common/` file is a boundary outright, a file no ancestor module owns has

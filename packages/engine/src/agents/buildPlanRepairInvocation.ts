@@ -1,5 +1,5 @@
-import planRepairPrompt from '@/agents/prompts/planRepair.md';
-import type { StructuralFinding } from '@/contracts';
+import planRepairPrompt from '#src/agents/prompts/planRepair.md';
+import type { StructuralFinding } from '#src/contracts/index.ts';
 
 interface Params {
 	/** The typed structural findings to resolve, each with its exact fix. */

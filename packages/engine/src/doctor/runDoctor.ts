@@ -1,17 +1,17 @@
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { messageOf } from '@/common/utils/messageOf';
-import type { LightsoutConfig } from '@/contracts';
-import { checkCoverageSummary } from '@/doctor/checkCoverageSummary';
-import { checkGenerated } from '@/doctor/checkGenerated';
-import { checkGitignore } from '@/doctor/checkGitignore';
-import { checkHarness } from '@/doctor/checkHarness';
-import { checkJestMocks } from '@/doctor/checkJestMocks';
-import { checkLintRules } from '@/doctor/checkLintRules';
-import { checkScriptBinaries } from '@/doctor/checkScriptBinaries';
-import { checkUserEvent } from '@/doctor/checkUserEvent';
-import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
-import { resolvePackageDirs } from '@/doctor/resolvePackageDirs';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
+import { checkGenerated } from '#src/doctor/checkGenerated.ts';
+import { checkGitignore } from '#src/doctor/checkGitignore.ts';
+import { checkHarness } from '#src/doctor/checkHarness.ts';
+import { checkJestMocks } from '#src/doctor/checkJestMocks.ts';
+import { checkLintRules } from '#src/doctor/checkLintRules.ts';
+import { checkScriptBinaries } from '#src/doctor/checkScriptBinaries.ts';
+import { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
+import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
+import { resolvePackageDirs } from '#src/doctor/resolvePackageDirs.ts';
 
 const severityRank: Record<DoctorCheck['status'], number> = { pass: 0, note: 1, warn: 2, fail: 3 };
 

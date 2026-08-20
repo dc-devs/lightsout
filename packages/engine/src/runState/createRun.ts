@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
-import { getRunDir } from '@/runState/common/paths/getRunDir';
-import { writeRunManifest } from '@/runState/writeRunManifest';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {
 	cwd: string;

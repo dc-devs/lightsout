@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
-import { printResult } from '@/cli/common/render/printResult';
-import type { FrictionRecord, RunManifest } from '@/contracts';
-import { FrictionArea, PackagesSource, RunStatus } from '@/contracts';
+import { printResult } from '#src/cli/common/render/printResult.ts';
+import type { FrictionRecord, RunManifest } from '#src/contracts/index.ts';
+import { FrictionArea, PackagesSource, RunStatus } from '#src/contracts/index.ts';
 
 // printResult summarizes a run from the evidence the run left on disk, so the
 // arrangement is a real run directory in a temp repo — the summary is driven

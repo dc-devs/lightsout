@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { printRunFooter } from '@/cli/common/render/printRunFooter';
-import { type RunManifest, RunStatus } from '@/contracts';
+import { printRunFooter } from '#src/cli/common/render/printRunFooter.ts';
+import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
 	runId: 'run-42',

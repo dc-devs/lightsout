@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { chunkFileGroup } from '@/pipeline';
+import { chunkFileGroup } from '#src/pipeline/index.ts';
 
 test('chunkFileGroup: splits above max into sorted slices', () => {
 	const files = Array.from({ length: 13 }, (_, index) => `src/${String(index).padStart(2, '0')}.ts`);

@@ -1,9 +1,9 @@
-import { printStandardsHealth } from '@/cli/common/render/printStandardsHealth';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { buildStandardsHealth } from '@/standardsCheck';
-import { resolveStandardsPackages } from '@/standardsPackages';
+import { printStandardsHealth } from '#src/cli/common/render/printStandardsHealth.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { buildStandardsHealth } from '#src/standardsCheck/index.ts';
+import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
 
 /**
  * `lightsout standards-health` — which rules are machine-checked, which are

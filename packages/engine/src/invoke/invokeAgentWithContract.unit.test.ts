@@ -1,14 +1,14 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { outcomeFields } from '@tests/helpers/outcomeFields';
-import { report } from '@tests/helpers/report';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { Effort, Permissions, WorkReport } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
-import { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
-import { runImplementPipeline } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { Effort, Permissions, WorkReport } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
+import { report } from '#tests/helpers/report.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const roleInvocation = { systemPrompt: 'ROLE-SYSTEM-PROMPT', prompt: 'ROLE-PROMPT' };
 

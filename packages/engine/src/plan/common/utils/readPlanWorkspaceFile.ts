@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { z } from 'zod';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params<Shape> {
 	cwd: string;

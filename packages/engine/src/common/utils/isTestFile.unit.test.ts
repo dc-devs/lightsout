@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { isTestFile } from '@/common/utils/isTestFile';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
 
 test('isTestFile: a whole path segment named test(s), __tests__, __mocks__, or e2e marks the file as test code', () => {
 	expect(isTestFile({ path: 'tests/helpers/report.ts' })).toBe(true);

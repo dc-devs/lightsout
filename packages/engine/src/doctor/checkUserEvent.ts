@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
-import type { PackageDir } from '@/doctor/common/types/PackageDir';
+import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
+import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
 
 const packageDependencies = z.object({
 	dependencies: z.record(z.string(), z.string()).optional(),

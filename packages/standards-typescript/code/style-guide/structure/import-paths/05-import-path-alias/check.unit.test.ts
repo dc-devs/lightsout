@@ -51,7 +51,8 @@ describe('import-path-alias check', () => {
 				siteKey: 'import-path-alias:src/billing/getChargeLabel.ts',
 				files: [{ path: 'src/billing/getChargeLabel.ts' }],
 				detail: "'../common/utils/formatRate' is imported by relative path",
-				guidance: "Import through the package's configured alias — read `tsconfig.json` → `compilerOptions.paths` for the right one.",
+				guidance:
+					"Import through the package's configured alias — read the package's `package.json` → `imports` or `tsconfig.json` → `compilerOptions.paths` for the right one.",
 			},
 		]);
 	});
@@ -75,7 +76,8 @@ describe('import-path-alias check', () => {
 				siteKey: 'import-path-alias:src/billing/getChargeLabel.ts',
 				files: [{ path: 'src/billing/getChargeLabel.ts' }],
 				detail: "'../common/utils/formatRate', './roundAmount' are imported by relative path",
-				guidance: "Import through the package's configured alias — read `tsconfig.json` → `compilerOptions.paths` for the right one.",
+				guidance:
+					"Import through the package's configured alias — read the package's `package.json` → `imports` or `tsconfig.json` → `compilerOptions.paths` for the right one.",
 			},
 		]);
 	});
@@ -95,7 +97,8 @@ describe('import-path-alias check', () => {
 				siteKey: 'import-path-alias:src/app/main.ts',
 				files: [{ path: 'src/app/main.ts' }],
 				detail: "'./registerHandlers' is imported by relative path",
-				guidance: "Import through the package's configured alias — read `tsconfig.json` → `compilerOptions.paths` for the right one.",
+				guidance:
+					"Import through the package's configured alias — read the package's `package.json` → `imports` or `tsconfig.json` → `compilerOptions.paths` for the right one.",
 			},
 		]);
 	});
@@ -111,6 +114,29 @@ describe('import-path-alias check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([]);
+	});
+
+	test('judges a package by the aliases its manifest declares, which is where the engine now declares them', async () => {
+		const input = setupFileTextInput({
+			contents: [
+				['packages/engine/package.json', '{ "imports": { "#src/*": "./src/*" } }'],
+				['packages/engine/src/billing/getChargeLabel.ts', "import { formatRate } from '../common/utils/formatRate.ts';"],
+				['packages/engine/src/common/utils/formatRate.ts', "export const formatRate = (): string => '1';"],
+			],
+			tsconfig: null,
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'import-path-alias:packages/engine/src/billing/getChargeLabel.ts',
+				files: [{ path: 'packages/engine/src/billing/getChargeLabel.ts' }],
+				detail: "'../common/utils/formatRate.ts' is imported by relative path",
+				guidance:
+					"Import through the package's configured alias — read the package's `package.json` → `imports` or `tsconfig.json` → `compilerOptions.paths` for the right one.",
+			},
+		]);
 	});
 
 	test.each([

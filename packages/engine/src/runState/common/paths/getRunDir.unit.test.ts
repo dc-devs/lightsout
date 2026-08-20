@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getRunDir } from '@/runState';
+import { getRunDir } from '#src/runState/index.ts';
 
 describe('getRunDir', () => {
 	test('places a run inside the target repo under .lightsout/runs', () => {

@@ -2,10 +2,10 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { outcomeFields } from '@tests/helpers/outcomeFields';
 import { z } from 'zod';
-import type { Driver } from '@/drivers';
-import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
+import type { Driver } from '#src/drivers/index.ts';
+import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
 
 const Contract = z.object({ ok: z.boolean() });
 

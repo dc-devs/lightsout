@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
-import { getVoicePidPath } from '@/voice/common/paths/getVoicePidPath';
-import { stopSpeech } from '@/voice/stopSpeech';
+import { getVoicePidPath } from '#src/voice/common/paths/getVoicePidPath.ts';
+import { stopSpeech } from '#src/voice/stopSpeech.ts';
 
 interface Params {
 	cwd: string;

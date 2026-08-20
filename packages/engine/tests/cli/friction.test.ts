@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
 
 test('cli: friction in a fresh dir reports nothing recorded and exits 0', async () => {
 	const cwd = await freshCwd();

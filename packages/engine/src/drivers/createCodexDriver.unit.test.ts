@@ -3,8 +3,8 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
-import { Effort, Permissions } from '@/contracts';
-import { createCodexDriver } from '@/drivers';
+import { Effort, Permissions } from '#src/contracts/index.ts';
+import { createCodexDriver } from '#src/drivers/index.ts';
 
 // The `codex` binary is the one unowned boundary here, so each setup writes a
 // fake one onto PATH: it records the argv and stdin it was handed, writes the

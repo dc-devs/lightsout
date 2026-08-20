@@ -1,10 +1,10 @@
-import { dim } from '@/cli/common/terminal/dim';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import type { LightsoutConfig, StandardsFinding } from '@/contracts';
-import { getDriver } from '@/drivers';
-import { detectStandardsChannels } from '@/standards';
-import { runStandardsReview } from '@/standardsCheck';
-import { resolveStandardsPackages } from '@/standardsPackages';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
+import { getDriver } from '#src/drivers/index.ts';
+import { detectStandardsChannels } from '#src/standards/index.ts';
+import { runStandardsReview } from '#src/standardsCheck/index.ts';
+import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
 
 interface Params {
 	cwd: string;

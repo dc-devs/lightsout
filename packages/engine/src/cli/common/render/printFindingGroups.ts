@@ -1,25 +1,16 @@
-import { wrapText } from '@/cli/common/formatting/wrapText';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import { terminalWidth } from '@/cli/common/terminal/terminalWidth';
-import { yellow } from '@/cli/common/terminal/yellow';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { formatFindingSite } from '#src/agents/index.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { terminalWidth } from '#src/cli/common/terminal/terminalWidth.ts';
+import { yellow } from '#src/cli/common/terminal/yellow.ts';
+import { wrapText } from '#src/cli/common/utils/wrapText.ts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 interface Params {
 	findings: StandardsFinding[];
 }
 
 const rowIndent = '    ';
-
-const locationOf = ({ file }: { file: StandardsFinding['files'][number] }) => {
-	if (file.startLine === undefined) {
-		return file.path;
-	}
-
-	const span = file.endLine !== undefined && file.endLine !== file.startLine ? `-${file.endLine}` : '';
-
-	return `${file.path}:${file.startLine}${span}`;
-};
 
 const headingOf = ({ rule, severity, count }: { rule: string; severity: StandardsSeverity; count: number }) => {
 	const blocking = severity === StandardsSeverity.Blocking;
@@ -68,7 +59,7 @@ export const printFindingGroups = ({ findings }: Params): void => {
 		console.log(headingOf({ rule, severity, count: group.length }));
 
 		// Only single-site findings occupy the aligned column, so only they set its width.
-		const singleWidths = group.flatMap((finding) => (finding.files.length === 1 ? finding.files.map((file) => locationOf({ file }).length) : []));
+		const singleWidths = group.flatMap((finding) => (finding.files.length === 1 ? finding.files.map((file) => formatFindingSite({ file }).length) : []));
 		const column = Math.min(Math.max(0, ...singleWidths), locationColumnCap);
 		const byGuidance = new Map<string, StandardsFinding[]>();
 
@@ -80,7 +71,7 @@ export const printFindingGroups = ({ findings }: Params): void => {
 			console.log('');
 
 			for (const finding of partition) {
-				const locations = finding.files.map((file) => locationOf({ file }));
+				const locations = finding.files.map((file) => formatFindingSite({ file }));
 				// Only a single-site finding has one location to align a row on; a
 				// multi-site one has none, which is what `undefined` says here.
 				const inline = locations.length === 1 ? locations[0] : undefined;

@@ -1,6 +1,6 @@
 import { join } from 'node:path';
-import { PlanVariant } from '@/contracts';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
+import { PlanVariant } from '#src/contracts/index.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {
 	cwd: string;

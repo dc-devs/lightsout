@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
+import { printStandardsSummary } from '#src/cli/common/render/printStandardsSummary.ts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
 	rule: 'size-function',

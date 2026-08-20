@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { CoverageBatchReport } from '@/contracts';
+import { CoverageBatchReport } from '#src/contracts/index.ts';
 
 describe('CoverageBatchReport', () => {
 	test('a resolved report carries the before and after percentage of every file the batch tracked', () => {

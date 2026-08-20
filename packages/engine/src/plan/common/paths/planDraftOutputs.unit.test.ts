@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanVariant } from '@/contracts';
-import { planDraftOutputs } from '@/plan/common/paths/planDraftOutputs';
+import { PlanVariant } from '#src/contracts/index.ts';
+import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
 
 describe('planDraftOutputs', () => {
 	test("a single plan is one plan.md inside the plan's own folder", () => {

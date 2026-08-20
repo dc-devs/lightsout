@@ -1,4 +1,4 @@
-import type { StandardsSet } from '@/contracts';
+import type { StandardsSet } from '#src/contracts/index.ts';
 
 /**
  * One rule's health: whether code checks it, and how the agents that met its

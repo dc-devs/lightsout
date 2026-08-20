@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { Effort, GradeReport, Permissions } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
-import { runPlanGrade } from '@/plan';
+import { Effort, GradeReport, Permissions } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { runPlanGrade } from '#src/plan/index.ts';
+import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Write a single-file plan deliverable at `.lightsout/plans/<name>/plan.md`. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {
@@ -93,7 +93,11 @@ test('plan grade: a clean plan with no gaps passes as grade A', async () => {
 
 	// grade.json written
 	expect(existsSync(gradePath)).toBeTruthy();
-	expect(() => GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')))).not.toThrow();
+
+	const persisted = GradeReport.parse(JSON.parse(readFileSync(gradePath, 'utf8')));
+
+	// the verdict on disk is the verdict returned, not merely a well-shaped file
+	expect(persisted).toEqual(expect.objectContaining({ planName: 'clean', grade: 'A', passed: true, structural: [], gaps: [] }));
 });
 
 test('plan grade: a gap-returning stub fails the plan with the gaps recorded', async () => {
@@ -258,6 +262,24 @@ test('plan grade: no deliverable on disk fails before any agent is spawned', asy
 	expect('error' in result && /no plan found for 'ghost'/.test(result.error ?? '')).toBeTruthy();
 });
 
+test('plan grade: a failed resolve still hands back a plan workspace that exists on disk', async () => {
+	const cwd = setupConsumerRepo();
+	const failIfCalled: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			throw new Error('the gap-check must not be invoked when the plan cannot be resolved');
+		},
+	};
+
+	const result = await runPlanGrade({ cwd, driver: failIfCalled, name: 'ghost-workspace' });
+
+	expectStatus(result, 'failed');
+	// the workspace is created before the deliverable is resolved, so a failure
+	// names a folder a human can really go and look in
+	expect(result.workspaceDir).toBe(join(cwd, '.lightsout', 'plans', 'ghost-workspace'));
+	expect(existsSync(result.workspaceDir)).toBe(true);
+});
+
 test('plan grade: a rate-limited gap-check parks the run and writes no verdict', async () => {
 	const cwd = setupConsumerRepo();
 	writePlan({ cwd, name: 'parked', body: cleanPlan() });
@@ -323,4 +345,24 @@ test('plan grade: a planned symbol still colliding with an existing export is na
 	expect(result.grade.grade).toBe('A');
 	// the advisory points at the dedup command, got: ${messages.join(' | ')}
 	expect(messages.some((message) => message.includes('lightsout plan dedup --name colliding'))).toBeTruthy();
+	// the run also narrates what it gap-checked and the verdict it reached, so a
+	// clean pass is legible without opening grade.json
+	expect(messages).toEqual(
+		expect.arrayContaining([
+			expect.stringMatching(/0 structural finding\(s\), gap-checking 1 plan file\(s\)/),
+			expect.stringMatching(/A \(0 structural, 0 gap\(s\)\)/),
+		]),
+	);
+});
+
+test('plan grade: an explicit timeoutMs reaches the gap-check driver', async () => {
+	const cwd = setupConsumerRepo();
+	writePlan({ cwd, name: 'bounded', body: cleanPlan() });
+	const invocations: DriverInvocation[] = [];
+	const driver = gapDriver([], (invocation) => invocations.push(invocation));
+	const result = await runPlanGrade({ cwd, driver, name: 'bounded', timeoutMs: 90_000 });
+
+	expectStatus(result, 'complete');
+	// the caller's ceiling is what kills a hung gap-check, not this role's own
+	expect(invocations.map(({ timeoutMs }) => timeoutMs)).toStrictEqual([90_000]);
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupCloneSpansInput } from './index.ts';
+import { setupCloneSpansInput } from '#src/index.ts';
 
 describe('setupCloneSpansInput', () => {
 	test('builds the arm a clone-spans check narrows to', () => {

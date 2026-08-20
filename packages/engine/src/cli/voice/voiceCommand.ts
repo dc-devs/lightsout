@@ -1,11 +1,11 @@
-import { getPositionals } from '@/cli/common/args/getPositionals';
-import { usage } from '@/cli/common/constants/usage';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { getStreamText } from '@/cli/voice/common/utils/getStreamText';
-import { voiceHookCommand } from '@/cli/voice/voiceHookCommand';
-import { voiceOffCommand } from '@/cli/voice/voiceOffCommand';
-import { voiceOnCommand } from '@/cli/voice/voiceOnCommand';
+import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
+import { usage } from '#src/cli/common/constants/usage.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { getStreamText } from '#src/cli/voice/common/utils/getStreamText.ts';
+import { voiceHookCommand } from '#src/cli/voice/voiceHookCommand.ts';
+import { voiceOffCommand } from '#src/cli/voice/voiceOffCommand.ts';
+import { voiceOnCommand } from '#src/cli/voice/voiceOnCommand.ts';
 
 export const voiceCommand = async ({ rest, cwd }: CommandContext): Promise<void> => {
 	const subcommand = getPositionals({ args: rest })[0];

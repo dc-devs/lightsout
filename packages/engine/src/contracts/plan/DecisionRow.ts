@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DecisionSource } from '@/contracts/plan/DecisionSource';
+import { DecisionSource } from '#src/contracts/plan/DecisionSource.ts';
 
 /**
  * One Decision-Log row the session authors during the planning dialogue: where

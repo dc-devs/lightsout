@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { readPlanSources } from '@/pipeline/common/utils/readPlanSources';
+import { readPlanSources } from '#src/pipeline/common/utils/readPlanSources.ts';
 
 /** A temp repo holding the given repo-relative files. */
 const setupRepo = ({ files = {} }: { files?: Record<string, string> } = {}) => {

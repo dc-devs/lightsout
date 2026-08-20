@@ -14,6 +14,14 @@
 	// takes seconds. Cross-package imports resolve through the package manager's
 	// links and each package's `exports` field instead, which is also how esbuild
 	// resolves them.
+	//
+	// Package-private imports resolve the matching way: through each package's
+	// `imports` field (`#src/*` -> `./src/*`), which Node, TypeScript, esbuild,
+	// Vite and Jest all read from the manifest owning the importing file — so a
+	// consumer needs no configuration of its own to load this repo's source. That
+	// is what makes `allowImportingTsExtensions` below load-bearing rather than a
+	// convenience: an `imports` target gets no extension probing from any of
+	// them, so every aliased specifier has to carry the extension it resolves to.
 	"compilerOptions": {
 		"target": "ES2022",
 		"module": "ESNext",

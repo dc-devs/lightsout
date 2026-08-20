@@ -1,16 +1,16 @@
 import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { afterEach, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { PhaseReport, type RunManifest, RunStatus } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { runPhasesPipeline } from '@/phases';
-import { RunLockError, readRunManifest, writeRunManifest } from '@/runState';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { PhaseReport, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runPhasesPipeline } from '#src/phases/index.ts';
+import { RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
  * A consumer repo holding a plan folder: an overview whose Phases table names

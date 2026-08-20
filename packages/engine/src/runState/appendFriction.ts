@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { type FrictionEntry, FrictionRecord } from '@/contracts';
-import { getFrictionPath } from '@/runState/common/paths/getFrictionPath';
+import { type FrictionEntry, FrictionRecord } from '#src/contracts/index.ts';
+import { getFrictionPath } from '#src/runState/common/paths/getFrictionPath.ts';
 
 interface Params {
 	cwd: string;

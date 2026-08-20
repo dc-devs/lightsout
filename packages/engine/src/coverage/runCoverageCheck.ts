@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { z } from 'zod';
-import { defaultCoverageSummaryPath } from '@/common/constants/defaultCoverageSummaryPath';
-import { runCommand } from '@/common/utils/runCommand';
-import type { CoverageFile, CoverageTotal, LightsoutConfig } from '@/contracts';
-import { buildMissingSummaryMessage } from '@/coverage/common/utils/buildMissingSummaryMessage';
-import { resolveCoverageScopes } from '@/coverage/resolveCoverageScopes';
-import { appendCommandLog } from '@/runState';
+import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
+import { runCommand } from '#src/common/utils/runCommand.ts';
+import type { CoverageFile, CoverageTotal, LightsoutConfig } from '#src/contracts/index.ts';
+import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
+import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';
+import { appendCommandLog } from '#src/runState/index.ts';
 
 /**
  * The Istanbul json-summary shape, parsed at the boundary: one entry per file

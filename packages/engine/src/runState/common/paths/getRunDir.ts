@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { getRunsDir } from '@/runState/common/paths/getRunsDir';
+import { getRunsDir } from '#src/runState/common/paths/getRunsDir.ts';
 
 interface Params {
 	cwd: string;

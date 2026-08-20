@@ -1,10 +1,10 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
-import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
-import type { LightsoutConfig } from '@/contracts';
-import type { CoverageScope } from '@/coverage/common/types/CoverageScope';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
+import { resolvePackageManifest } from '#src/common/utils/resolvePackageManifest.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { CoverageScope } from '#src/coverage/common/types/CoverageScope.ts';
 
 const rootScope = 'root';
 

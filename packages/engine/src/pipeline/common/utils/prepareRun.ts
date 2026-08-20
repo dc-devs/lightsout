@@ -1,9 +1,9 @@
-import { messageOf } from '@/common/utils/messageOf';
-import type { LightsoutConfig } from '@/contracts';
-import { readPlanSources } from '@/pipeline/common/utils/readPlanSources';
-import { resolvePackageScope } from '@/pipeline/common/utils/resolvePackageScope';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import { type ResolvedStandards, resolveStandards } from '@/standards';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { readPlanSources } from '#src/pipeline/common/utils/readPlanSources.ts';
+import { resolvePackageScope } from '#src/pipeline/common/utils/resolvePackageScope.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { type ResolvedStandards, resolveStandards } from '#src/standards/index.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -54,7 +54,7 @@ export const prepareRun = async ({ run, cwd, config, packages }: Params): Promis
 	}
 
 	if (scope.scope) {
-		await run.update(scope.scope);
+		await run.update({ patch: scope.scope });
 	}
 
 	if (run.current().packages.length > 0) {

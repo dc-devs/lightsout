@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AgentUsage } from '@/contracts/run/AgentUsage';
+import { AgentUsage } from '#src/contracts/run/AgentUsage.ts';
 
 /** Run-wide agent usage aggregate, summed across every invocation (fixes, re-emits, and the supervisor included). */
 export const RunUsage = AgentUsage.extend({

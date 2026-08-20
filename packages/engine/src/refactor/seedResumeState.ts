@@ -1,4 +1,4 @@
-import { BatchOutcome, BatchReport, type RefactorBatch, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
+import { BatchOutcome, BatchReport, type RefactorBatch, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 
 interface Params {
 	manifest: RunManifest;

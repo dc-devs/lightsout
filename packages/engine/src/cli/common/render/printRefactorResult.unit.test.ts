@@ -1,7 +1,7 @@
 import { expect, jest, test } from '@jest/globals';
-import { printRefactorResult } from '@/cli/common/render/printRefactorResult';
-import { type RunManifest, RunStatus } from '@/contracts';
-import type { RefactorResult } from '@/refactor';
+import { printRefactorResult } from '#src/cli/common/render/printRefactorResult.ts';
+import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { RefactorResult } from '#src/refactor/index.ts';
 
 // isTTY is pinned off so the ANSI paint helpers stay no-ops and the assertions
 // read the plain text a piped consumer sees.

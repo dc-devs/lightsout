@@ -1,4 +1,4 @@
-import type { RefactorBatch, StandardsFinding } from '@/contracts';
+import type { RefactorBatch, StandardsFinding } from '#src/contracts/index.ts';
 
 /**
  * Mechanical-first rule order: rules an agent can fix in place come
@@ -58,7 +58,7 @@ const rulePriority: string[] = [
 /** A batch above this many findings splits into sorted chunks — one agent job stays readable. */
 const maxBatchFindings = 12;
 
-const priorityOf = (rule: string) => {
+const priorityOf = ({ rule }: { rule: string }) => {
 	const index = rulePriority.indexOf(rule);
 
 	return index === -1 ? rulePriority.length : index;
@@ -83,7 +83,7 @@ interface Params {
  * — the test standards' promotion signal — so it carries direct tests.
  */
 export const batchFindings = ({ blocking, advisories, packagesDir }: Params): RefactorBatch[] => {
-	const areaOf = (path: string) => {
+	const areaOf = ({ path }: { path: string }) => {
 		const segments = path.split('/');
 
 		if (segments[0] === packagesDir && segments.length > 2 && segments[1]) {
@@ -96,8 +96,8 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 	// A finding spanning areas (a cross-package clone, say) can never be
 	// resolved by an agent scoped to one side — it gets a dedicated cross
 	// batch whose file set covers every side.
-	const folderOf = (finding: StandardsFinding) => {
-		const areas = new Set(finding.files.map((file) => areaOf(file.path)));
+	const folderOf = ({ finding }: { finding: StandardsFinding }) => {
+		const areas = new Set(finding.files.map((file) => areaOf({ path: file.path })));
 
 		return areas.size > 1 ? '(cross)' : ([...areas][0] ?? '(root)');
 	};
@@ -105,7 +105,7 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 	const groups = new Map<string, { rule: string; folder: string; findings: StandardsFinding[] }>();
 
 	for (const finding of blocking) {
-		const folder = folderOf(finding);
+		const folder = folderOf({ finding });
 		const key = `${finding.rule}\0${folder}`;
 		const group = groups.get(key) ?? { rule: finding.rule, folder, findings: [] };
 
@@ -113,10 +113,13 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 		groups.set(key, group);
 	}
 
-	const crossLast = (folder: string) => (folder === '(cross)' ? 1 : 0);
+	const crossLast = ({ folder }: { folder: string }) => (folder === '(cross)' ? 1 : 0);
 	const ordered = [...groups.values()].sort(
 		(a, b) =>
-			priorityOf(a.rule) - priorityOf(b.rule) || a.rule.localeCompare(b.rule) || crossLast(a.folder) - crossLast(b.folder) || a.folder.localeCompare(b.folder),
+			priorityOf({ rule: a.rule }) - priorityOf({ rule: b.rule }) ||
+			a.rule.localeCompare(b.rule) ||
+			crossLast({ folder: a.folder }) - crossLast({ folder: b.folder }) ||
+			a.folder.localeCompare(b.folder),
 	);
 
 	const batches: RefactorBatch[] = [];

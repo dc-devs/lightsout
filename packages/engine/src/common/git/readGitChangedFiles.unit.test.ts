@@ -2,8 +2,8 @@ import { execFileSync, execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
+import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
  * A committed consumer repo plus working-tree edits. `write` plants files by

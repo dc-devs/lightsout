@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { writeJsonFile } from '@/common/utils/writeJsonFile';
+import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 
 const setupTarget = ({ existing }: { existing?: string } = {}) => {
 	const path = join(mkdtempSync(join(tmpdir(), 'lightsout-writejson-')), 'manifest.json');

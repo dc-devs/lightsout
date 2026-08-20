@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { LightsoutConfig } from '@/contracts';
-import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 
 interface Params {
 	cwd: string;

@@ -1,9 +1,9 @@
 import { expect, test } from '@jest/globals';
-import { outcomeFields } from '@tests/helpers/outcomeFields';
-import { verdict } from '@tests/helpers/verdict';
-import { consultSupervisor } from '@/common/utils/consultSupervisor';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
+import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
+import { verdict } from '#tests/helpers/verdict.ts';
 
 /**
  * A stub harness recording every invocation it receives, plus the minimum

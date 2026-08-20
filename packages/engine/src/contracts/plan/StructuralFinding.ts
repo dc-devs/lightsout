@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { StructuralCheck } from '@/contracts/plan/StructuralCheck';
+import { StructuralCheck } from '#src/contracts/plan/StructuralCheck.ts';
 
 /**
  * One deterministic structural defect found linting a plan: which check

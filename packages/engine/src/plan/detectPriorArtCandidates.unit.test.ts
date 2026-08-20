@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { LightsoutConfig } from '@/contracts';
-import { detectPriorArtCandidates } from '@/plan';
+import { LightsoutConfig } from '#src/contracts/index.ts';
+import { detectPriorArtCandidates } from '#src/plan/index.ts';
 
 /** A temp repo with the given existing source files and a plan whose Files-to-Create lists the given paths. */
 const setup = ({ existing, creates }: { existing: string[]; creates: string[] }) => {

@@ -1,12 +1,12 @@
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { messageOf } from '@/common/utils/messageOf';
-import type { LightsoutConfig, RunManifest } from '@/contracts';
-import { type Driver, getDriver } from '@/drivers';
-import { RunLockError, readRunManifest } from '@/runState';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
+import { type Driver, getDriver } from '#src/drivers/index.ts';
+import { RunLockError, readRunManifest } from '#src/runState/index.ts';
 
 /** Everything the shared prelude resolved, handed to the pipeline the command actually runs. */
 interface BatchedRunStart {

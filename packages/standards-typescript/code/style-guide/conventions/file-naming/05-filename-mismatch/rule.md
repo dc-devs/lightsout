@@ -15,3 +15,5 @@ The file name always matches the **exported item's name, including its casing** 
 | camelCase matching the export name  | functions, value constants                  | `buildVersionedLabel.ts`, `maxRetries.ts` |
 | PascalCase matching the export name | classes, interfaces, types, named constants | `UserProfile.ts`, `Action.ts`          |
 | kebab-case (framework-mandated)     | per framework doc                           | `get-frontend-domain.ts`               |
+
+**Framework mandates override the name entirely.** A file router owns every name inside its route directory — `__root.tsx`, `runs.$runId.tsx`, `standards.tsx` — even though each of those files exports one `Route` const. Files under a package's declared router directory (`routes/` for TanStack Router and Remix, `app/` and `pages/` for Next, `app/` for Expo Router) are exempt from this rule for the same reason NestJS's `events.service.ts` is.

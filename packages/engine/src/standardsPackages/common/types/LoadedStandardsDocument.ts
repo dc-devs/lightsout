@@ -1,4 +1,4 @@
-import type { StandardsSet } from '@/contracts';
+import type { StandardsSet } from '#src/contracts/index.ts';
 
 /** One document folder, read: its intro prose and the rules it owns, in assembly order. */
 export interface LoadedStandardsDocument {

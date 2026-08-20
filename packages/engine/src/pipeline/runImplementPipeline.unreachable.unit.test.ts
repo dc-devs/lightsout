@@ -1,15 +1,15 @@
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { expectDefined } from '@tests/helpers/expectDefined';
-import { linkTypescript } from '@tests/helpers/linkTypescript';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { Driver } from '@/drivers';
-import { runImplementPipeline } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
+import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 interface SetupParams {
 	/** Merged over the consumer repo's default gate commands. */
@@ -190,4 +190,84 @@ test('verify-tests failure: the fix re-invocation is rebuilt from the manifest �
 	expect(fixPrompt.includes('src/feature/orphan.ts')).toBeFalsy();
 	// one cheap retry healed the gate
 	expect(result.manifest.steps.find((step) => step.id === 'verify-tests')?.attempts).toBe(2);
+});
+
+/**
+ * A consumer repo whose implement step lands a chain of hidden files:
+ * `src/chain/index.ts` exports entry.ts alone, `hidden.ts` is imported only by
+ * `deeper.ts`, and `deeper.ts` is imported by nothing — so the walk up from
+ * hidden.ts runs out of importers before it ever reaches a public file.
+ */
+const setupHiddenChainRun = async () => {
+	const dir = setupConsumerRepo();
+
+	linkTypescript({ dir });
+
+	const writerPrompts: string[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
+			if (role === 'write-tests') {
+				writerPrompts.push(prompt);
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, 'test/entry.test.js'), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: 'test/entry.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report(), exitCode: 0 };
+			}
+
+			mkdirSync(join(dir, 'src/chain'), { recursive: true });
+			writeFileSync(join(dir, 'src/chain/index.ts'), "export { entry } from './entry';\n");
+			writeFileSync(join(dir, 'src/chain/entry.ts'), 'export const entry = (): number => 1;\n');
+			writeFileSync(join(dir, 'src/chain/deeper.ts'), "import { hidden } from './hidden';\n\nexport const deeper = (): number => hidden();\n");
+			writeFileSync(join(dir, 'src/chain/hidden.ts'), 'export const hidden = (): number => 2;\n');
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: 'src/chain/index.ts', summary: 'barrel' },
+						{ path: 'src/chain/entry.ts', summary: 'public' },
+						{ path: 'src/chain/deeper.ts', summary: 'hidden middle' },
+						{ path: 'src/chain/hidden.ts', summary: 'hidden leaf' },
+					],
+				}),
+				exitCode: 0,
+			};
+		},
+	};
+
+	return { dir, driver, config: await loadConfig({ cwd: dir }), writerPrompts };
+};
+
+test('a chain of hidden files is unreachable end to end — an importer that is itself unreachable makes no file public', async () => {
+	const { dir, driver, config, writerPrompts } = await setupHiddenChainRun();
+
+	const progress: string[] = [];
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md', onProgress: (message) => progress.push(message) });
+
+	expect(result.ok).toBe(true);
+	// only the barrel-exported file is a subject
+	expect(result.manifest.testSubjects).toStrictEqual(['src/chain/entry.ts']);
+	// the leaf has an importer, but that importer is hidden too and has none of
+	// its own — a walk that runs out of edges is not a walk that found a surface
+	expect(result.manifest.unreachableChangedFiles).toStrictEqual(['src/chain/deeper.ts', 'src/chain/hidden.ts']);
+	// one writer, for the one reachable file
+	expect(writerPrompts.length).toBe(1);
+	expect(writerPrompts[0]?.includes('src/chain/entry.ts')).toBeTruthy();
+	// the end-of-run warning names every link, not just the leaf
+	expect(
+		progress.some(
+			(line) =>
+				line.startsWith('warning unreachable-changed-files: 2 changed file(s)') && line.includes('src/chain/deeper.ts') && line.includes('src/chain/hidden.ts'),
+		),
+	).toBeTruthy();
 });

@@ -2,8 +2,9 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { createRun, getRunDir, RunNotFoundError, readRunManifest, writeRunManifest } from '@/runState';
+import { RunStatus } from '#src/contracts/index.ts';
+import { createRun, getRunDir, RunNotFoundError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 test('manifest write → read round trip', async () => {
 	const cwd = setupConsumerRepo({ git: false });
@@ -29,6 +30,24 @@ test('writeRunManifest stamps updatedAt on every write', async () => {
 	// ${rewritten.updatedAt} should be after ${created.updatedAt}
 	expect(rewritten.updatedAt > created.updatedAt).toBeTruthy();
 	expect(rewritten.createdAt).toBe(created.createdAt);
+});
+
+test('writeRunManifest persists the manifest it is handed, and returns exactly what a reader gets back', async () => {
+	const cwd = setupConsumerRepo({ git: false });
+	const created = await createRun({ cwd, plan: 'plan.md', driver: 'stub' });
+
+	const written = await writeRunManifest({
+		cwd,
+		manifest: { ...created, status: RunStatus.Passed, currentStep: 'write-tests', changedFiles: ['src/index.js'] },
+	});
+
+	const read = await readRunManifest({ cwd, runId: created.runId });
+
+	expect(read.status).toBe('passed');
+	expect(read.currentStep).toBe('write-tests');
+	expect(read.changedFiles).toStrictEqual(['src/index.js']);
+	// JSON round-trip drops explicitly-undefined optional keys (overview).
+	expect(read).toStrictEqual(JSON.parse(JSON.stringify(written)));
 });
 
 test('writeRunManifest leaves no temporary file beside the manifest it swapped in', async () => {

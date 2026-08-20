@@ -1,10 +1,10 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { z } from 'zod';
-import { createEventFileSink } from '@/common/utils/createEventFileSink';
-import type { Effort, Permissions } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { type AgentOutcome, invokeAgentWithContract } from '@/invoke';
+import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
+import type { Effort, Permissions } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
 
 interface Params {
 	cwd: string;

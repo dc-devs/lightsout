@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
-import { type RunManifest, RunStatus } from '@/contracts';
-import { getRunsDir, readRunManifest } from '@/runState';
+import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { getRunsDir, readRunManifest } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;

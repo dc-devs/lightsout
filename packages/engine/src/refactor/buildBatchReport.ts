@@ -1,4 +1,4 @@
-import type { AdvisoryOutcome, BatchOutcome, BatchReport } from '@/contracts';
+import type { AdvisoryOutcome, BatchOutcome, BatchReport } from '#src/contracts/index.ts';
 
 interface Params {
 	outcome: BatchOutcome;

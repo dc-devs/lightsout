@@ -1,5 +1,5 @@
-import type { GateCommands } from '@/pipeline/common/types/GateCommands';
-import type { RunGate } from '@/pipeline/common/types/RunGate';
+import type { GateCommands } from '#src/pipeline/common/types/GateCommands.ts';
+import type { RunGate } from '#src/pipeline/common/types/RunGate.ts';
 
 interface Params {
 	commands: GateCommands;

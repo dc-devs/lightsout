@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GapCheckReport } from '@/contracts';
+import { GapCheckReport } from '#src/contracts/index.ts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const gap = {

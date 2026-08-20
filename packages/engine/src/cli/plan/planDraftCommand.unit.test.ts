@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planDraftCommand } from '@/cli/plan';
-import { PlanDraftStatus, PlanFixStatus, PlanVariant } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { planDraftCommand } from '#src/cli/plan/index.ts';
+import { PlanDraftStatus, PlanFixStatus, PlanVariant } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
 const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));

@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { PlanFixReport } from '@/contracts';
+import { PlanFixReport } from '#src/contracts/index.ts';
 
 test('PlanFixReport: a full repair report parses with every field preserved', () => {
 	const parsed = PlanFixReport.parse({

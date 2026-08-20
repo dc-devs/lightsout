@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getSpokenQuestion } from '@/voice';
+import { getSpokenQuestion } from '#src/voice/index.ts';
 
 // The transcript is a real JSONL file in a temp folder: the shape the harness
 // writes is the whole contract here, so reading a stub of it would prove
@@ -31,6 +31,9 @@ const userSaying = ({ text }: { text: string }) => JSON.stringify({ type: 'user'
 const userTyping = ({ text }: { text: string }) => JSON.stringify({ type: 'user', message: { content: text } });
 
 const userToolResult = () => JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'ok' }] } });
+
+/** The harness's own bookkeeping, which is neither the model speaking nor the person typing. */
+const systemNote = () => JSON.stringify({ type: 'system', subtype: 'post_tool_use_hook', content: 'ran a hook' });
 
 const placementQuestion = [
 	'## Placement',
@@ -127,6 +130,16 @@ describe('getSpokenQuestion', () => {
 				userToolResult(),
 				assistantSaying({ text: 'Checked the folder.' }),
 			],
+		});
+
+		const spoken = await getSpokenQuestion({ transcriptPath });
+
+		expect(spoken).toBe(spokenPlacementQuestion);
+	});
+
+	test('a harness bookkeeping line mid-turn is neither read aloud nor treated as the end of the turn', async () => {
+		const { transcriptPath } = setupTranscript({
+			lines: [userSaying({ text: 'plan it' }), assistantSaying({ text: placementQuestion }), systemNote(), assistantSaying({ text: 'Checked the folder.' })],
 		});
 
 		const spoken = await getSpokenQuestion({ transcriptPath });

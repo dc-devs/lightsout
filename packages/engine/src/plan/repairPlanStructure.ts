@@ -1,9 +1,9 @@
 import { join } from 'node:path';
-import { buildPlanRepairInvocation } from '@/agents';
-import { type Effort, type LightsoutConfig, type Permissions, PlanFixReport, PlanFixStatus, type StructuralFinding } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
-import { lintPlanStructure } from '@/plan/lintPlanStructure';
+import { buildPlanRepairInvocation } from '#src/agents/index.ts';
+import { type Effort, type LightsoutConfig, type Permissions, PlanFixReport, PlanFixStatus, type StructuralFinding } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { lintPlanStructure } from '#src/plan/lintPlanStructure.ts';
 
 const maxRepairAttempts = 3;
 

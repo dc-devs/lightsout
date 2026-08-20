@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { implementCommand } from '@/cli/implementCommand';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { implementCommand } from '#src/cli/implementCommand.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** The plan folder every folder-routing case points `--plan` at. */
 const planFolder = 'plans/demo';
@@ -30,9 +30,25 @@ const writePhasedPlanFolder = ({ cwd, phases }: { cwd: string; phases: number })
 // `folderFiles` seeds plans/demo for the folder cases and `phases` seeds it with
 // a real overview; `locked` plants a live run lock, which is how a folder
 // holding a REAL plan — one plan.md or a whole table of phases — fails fast too.
-const setupImplement = ({ args, folderFiles, phases, locked }: { args: string[]; folderFiles?: string[]; phases?: number; locked?: boolean }) => {
+const setupImplement = ({
+	args,
+	folderFiles,
+	phases,
+	locked,
+	scripts,
+	config,
+}: {
+	args: string[];
+	folderFiles?: string[];
+	phases?: number;
+	locked?: boolean;
+	/** Gate commands merged over the defaults, so the banner's opt-in gate lines have something to name. */
+	scripts?: Record<string, string | false>;
+	/** Extra top-level config fields the banner reads. */
+	config?: Record<string, unknown>;
+}) => {
 	const captured = captureCommandOutput();
-	const cwd = setupConsumerRepo();
+	const cwd = setupConsumerRepo({ scripts, config });
 
 	if (folderFiles || phases !== undefined) {
 		mkdirSync(join(cwd, planFolder), { recursive: true });
@@ -189,5 +205,102 @@ test('implementCommand: an overview the coordinator refuses reports the reason a
 
 	expect(errors.join('\n')).toContain(`overview has no Phases table rows: ${join(planFolder, 'overview.md')}`);
 	expect(errors.join('\n')).not.toMatch(/ {4}at /);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('implementCommand: the run banner names every opt-in the repo config declares, so a reader sees the run’s real gate set', async () => {
+	const { context, logged, exitCodes } = setupImplement({
+		args: ['--plan', 'ghost.md'],
+		scripts: { 'test-coverage': 'pnpm test:coverage', generate: 'pnpm codegen', build: 'pnpm build', format: 'pnpm format' },
+		config: {
+			permissions: 'full-access',
+			timeouts: { 'agent-minutes': 90, 'supervisor-minutes': 20 },
+			'agent-commands': ['pnpm prisma migrate'],
+			generated: ['src/generated/'],
+			'package-gates': { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test', 'test-coverage': 'pnpm --filter {package} cov' },
+		},
+	});
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(logged).toEqual(
+		expect.arrayContaining([
+			'  harness: claude-code · model: harness default · effort: harness default · permissions: full-access',
+			'  timeouts: agent 90m · supervisor 20m',
+			'  gates (root): check=[true] test=[true] coverage=[pnpm test:coverage]',
+			'  generate (before every gate set): [pnpm codegen]',
+			'  agent commands (granted, prefix match): [pnpm prisma migrate]',
+			'  generated (never attributed): src/generated/',
+			'  gates (root, opt-in): build=[pnpm build]',
+			'  format: [pnpm format]',
+			'  gates (per package): check=[pnpm --filter {package} check] test=[pnpm --filter {package} test] coverage=[pnpm --filter {package} cov]',
+		]),
+	);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('implementCommand: a repo that declared no opt-ins gets no lines for them — the banner never invents a gate', async () => {
+	const { context, logged, exitCodes } = setupImplement({ args: ['--plan', 'ghost.md'] });
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	// an unset coverage gate and an unset standards list read as two different
+	// silences, and the banner says which is which
+	expect(logged).toContain('  gates (root): check=[true] test=[true] coverage=[off (explicit)]');
+	expect(logged).toContain('  standards packages: lightsout-defaults (none configured — set to false to disable, or list package roots)');
+	expect(logged).toContain('  timeouts: agent 60m · supervisor 15m');
+	expect(logged.some((line) => /^ {2}(generate|agent commands|generated|format|gates \((root, opt-in|per package)\))/.test(line))).toBe(false);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('implementCommand: the banner names the harness this command asked for, and drops a global model that belonged to the harness it replaced', async () => {
+	const { context, logged, exitCodes } = setupImplement({
+		args: ['--plan', 'ghost.md'],
+		config: { harness: 'codex', model: 'gpt-5-codex', effort: 'high', commands: { implement: { harness: 'claude-code' } } },
+	});
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	// a model name means something only to its own harness, so replacing the
+	// harness for this command drops the global model — while effort, which
+	// means the same thing everywhere, still falls through
+	expect(logged).toContain('  harness: claude-code · model: harness default · effort: high · permissions: write');
+	expect(logged.some((line) => line.includes('gpt-5-codex'))).toBe(false);
+	expect(exitCodes).toStrictEqual([1]);
+});
+
+test('implementCommand: a command entry that only names a model keeps the global harness and rides its own model', async () => {
+	const { context, logged } = setupImplement({
+		args: ['--plan', 'ghost.md'],
+		config: { model: 'global-model', commands: { implement: { model: 'implement-model' } } },
+	});
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(logged).toContain('  harness: claude-code · model: implement-model · effort: harness default · permissions: write');
+});
+
+test('implementCommand: standards packages turned off explicitly say so, rather than reading as the unconfigured default', async () => {
+	const { context, logged } = setupImplement({ args: ['--plan', 'ghost.md'], config: { 'standards-packages': false } });
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(logged).toContain('  standards packages: none (explicit)');
+});
+
+test('implementCommand: a finished run ends on its report card — the plan it ran, its timings, and where the evidence landed', async () => {
+	const { context, logged, exitCodes } = setupImplement({ args: ['--plan', 'ghost.md'] });
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	// the run id is cut to its first 8 characters — long enough to name a run, short enough to read
+	expect(logged.some((line) => /^run {7}[0-9a-f]{8} · FAILED$/.test(line))).toBeTruthy();
+	expect(logged).toContain('plan      ghost.md');
+	// under a minute, a duration reads as whole seconds
+	expect(logged.some((line) => /^wall {6}\d+s$/.test(line))).toBeTruthy();
+	expect(logged).toContain('gates     0s');
+	// no gate ever ran, and the tally says zero rather than going silent
+	expect(logged).toContain('gates     0 commands');
+	expect(logged.some((line) => /^evidence {2}\.lightsout\/runs\/[0-9a-f-]{36}\/$/.test(line))).toBeTruthy();
 	expect(exitCodes).toStrictEqual([1]);
 });

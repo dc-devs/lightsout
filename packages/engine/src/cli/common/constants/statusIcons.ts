@@ -1,4 +1,4 @@
-import { RunStatus } from '@/contracts';
+import { RunStatus } from '#src/contracts/index.ts';
 
 export const statusIcons: Record<string, string> = {
 	[RunStatus.Passed]: '✓',

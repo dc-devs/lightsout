@@ -6,6 +6,17 @@ severity: advisory
 
 ✅ GOOD: Path alias for everything
 
+A package that declares `imports` in `package.json` — the specifier carries its extension:
+
+```typescript
+import { ClassName } from '#src/path/to/ClassName.ts';
+import { methodName } from '#src/common/utils/methodName.ts';
+import { features } from '#src/features/home/components/HomeIssueDetails/common/constants/features.ts';
+import { MockIssuePanel } from '#src/features/home/components/HomeIssueDetails/components/MockIssuePanel.tsx';
+```
+
+A package that declares `paths` in `tsconfig.json`:
+
 ```typescript
 import { ClassName } from '@/path/to/ClassName';
 import { methodName } from '@/common/utils/methodName';

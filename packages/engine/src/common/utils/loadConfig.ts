@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { LightsoutConfig } from '@/contracts';
+import { LightsoutConfig } from '#src/contracts/index.ts';
 
 interface Params {
 	cwd: string;

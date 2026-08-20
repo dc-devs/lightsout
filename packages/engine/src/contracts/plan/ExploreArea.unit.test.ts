@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { ExploreArea } from '@/contracts';
+import { ExploreArea } from '#src/contracts/index.ts';
 
 const setupArea = (overrides: Record<string, unknown> = {}) => {
 	const area = {

@@ -1,7 +1,7 @@
-export { loadPlanningStandards } from '@/cli/plan/loadPlanningStandards';
-export { planCommand } from '@/cli/plan/planCommand';
-export { planDedupCommand } from '@/cli/plan/planDedupCommand';
-export { planDraftCommand } from '@/cli/plan/planDraftCommand';
-export { planGradeCommand } from '@/cli/plan/planGradeCommand';
-export { planLintCommand } from '@/cli/plan/planLintCommand';
-export { planVerifyFactsCommand } from '@/cli/plan/planVerifyFactsCommand';
+export { loadPlanningStandards } from '#src/cli/plan/loadPlanningStandards.ts';
+export { planCommand } from '#src/cli/plan/planCommand.ts';
+export { planDedupCommand } from '#src/cli/plan/planDedupCommand.ts';
+export { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
+export { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
+export { planLintCommand } from '#src/cli/plan/planLintCommand.ts';
+export { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';

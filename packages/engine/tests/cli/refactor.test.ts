@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { runCli } from '@tests/helpers/runCli';
-import { seedConfiguredCwd } from '@tests/helpers/seedConfiguredCwd';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 test('cli: refactor rejects a --max-batches below one and exits 1', async () => {
 	const cwd = await seedConfiguredCwd();

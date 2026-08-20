@@ -2,11 +2,11 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { plantSequence } from '@tests/helpers/plantSequence';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { initializeSequence } from '@/phases';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { initializeSequence } from '#src/phases/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { plantSequence } from '#tests/helpers/plantSequence.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };

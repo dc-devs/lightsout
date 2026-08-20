@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 const StandardsBaseline = z.object({
 	at: z.string(),

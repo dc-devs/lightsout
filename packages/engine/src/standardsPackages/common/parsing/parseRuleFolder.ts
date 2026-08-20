@@ -1,13 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import { messageOf } from '@/common/utils/messageOf';
-import type { StandardsCheckModule, StandardsSet } from '@/contracts';
-import { StandardsSeverity } from '@/contracts';
-import { parseDeclaration } from '@/standardsPackages/common/parsing/parseDeclaration';
-import type { LoadedStandardsRule } from '@/standardsPackages/common/types/LoadedStandardsRule';
-import { hasFile } from '@/standardsPackages/common/utils/hasFile';
-import { loadCheckModule } from '@/standardsPackages/common/utils/loadCheckModule';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { StandardsCheckModule, StandardsSet } from '#src/contracts/index.ts';
+import { StandardsSeverity } from '#src/contracts/index.ts';
+import { parseDeclaration } from '#src/standardsPackages/common/parsing/parseDeclaration.ts';
+import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
+import { hasFile } from '#src/standardsPackages/common/utils/hasFile.ts';
+import { loadCheckModule } from '#src/standardsPackages/common/utils/loadCheckModule.ts';
 
 interface Params {
 	/** Absolute rule folder path. */

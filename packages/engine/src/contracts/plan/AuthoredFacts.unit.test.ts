@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { AuthoredFacts } from '@/contracts';
+import { AuthoredFacts } from '#src/contracts/index.ts';
 
 const area = {
 	area: 'engine plan pipeline',

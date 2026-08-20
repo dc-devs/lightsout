@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { StandardsCheckRun } from './StandardsCheckRun.ts';
-import { StandardsInputKind } from './StandardsInputKind.ts';
+import type { StandardsCheckRun } from '#src/StandardsCheckRun.ts';
+import { StandardsInputKind } from '#src/StandardsInputKind.ts';
 
 /**
  * The `check` export a rule folder's `check.ts` must provide. Validated at load

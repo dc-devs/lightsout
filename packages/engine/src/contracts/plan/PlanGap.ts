@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GapArea } from '@/contracts/plan/GapArea';
+import { GapArea } from '#src/contracts/plan/GapArea.ts';
 
 /**
  * One decision-level gap the gap-check agent found — a place the plan would

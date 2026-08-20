@@ -1,10 +1,10 @@
-import { printBatchLine } from '@/cli/common/render/printBatchLine';
-import { printBatchOptOut } from '@/cli/common/render/printBatchOptOut';
-import { printRunFooter } from '@/cli/common/render/printRunFooter';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import { RunStatus } from '@/contracts';
-import type { CoverageResult } from '@/coverage';
+import { printBatchLine } from '#src/cli/common/render/printBatchLine.ts';
+import { printBatchOptOut } from '#src/cli/common/render/printBatchOptOut.ts';
+import { printRunFooter } from '#src/cli/common/render/printRunFooter.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { RunStatus } from '#src/contracts/index.ts';
+import type { CoverageResult } from '#src/coverage/index.ts';
 
 interface Params {
 	result: CoverageResult;

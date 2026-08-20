@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RawStandardsFinding } from './index.ts';
+import { RawStandardsFinding } from '#src/index.ts';
 
 const setupRawFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {

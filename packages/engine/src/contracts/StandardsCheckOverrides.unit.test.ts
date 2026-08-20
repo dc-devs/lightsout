@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { StandardsCheckOverrides } from '@/contracts';
+import { StandardsCheckOverrides } from '#src/contracts/index.ts';
 
 test('StandardsCheckOverrides: the renamed finding severity is refused with a message naming blocking', () => {
 	const bare = StandardsCheckOverrides.safeParse({ clone: 'finding' });

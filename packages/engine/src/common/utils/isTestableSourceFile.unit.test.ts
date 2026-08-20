@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { isTestableSourceFile } from '@/common/utils/isTestableSourceFile';
+import { isTestableSourceFile } from '#src/common/utils/isTestableSourceFile.ts';
 
 test('isTestableSourceFile: the JS/TS family (including m/c module variants and mixed case) is testable', () => {
 	expect(isTestableSourceFile('src/add.ts')).toBe(true);

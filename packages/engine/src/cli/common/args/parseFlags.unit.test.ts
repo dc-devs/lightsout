@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { parseFlags } from '@/cli/common/args/parseFlags';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 
 test('parseFlags: pairs a flag with its value, and treats a flag with no value (or one followed by another flag) as boolean true', () => {
 	const flags = parseFlags({ args: ['--plan', 'p.md', '--skip-refactor', '--cwd', '/x'] });

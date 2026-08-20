@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { testCoverageToThresholdCommand } from '@/cli/testCoverageToThresholdCommand';
-import { type RunManifest, RunStatus } from '@/contracts';
-import type { CoverageResult } from '@/coverage';
-import { RunLockError } from '@/runState';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { testCoverageToThresholdCommand } from '#src/cli/testCoverageToThresholdCommand.ts';
+import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { CoverageResult } from '#src/coverage/index.ts';
+import { RunLockError } from '#src/runState/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -28,7 +28,7 @@ interface RunCoveragePipelineParams {
 
 const mockRunCoveragePipeline = jest.fn<(params: RunCoveragePipelineParams) => Promise<CoverageResult>>();
 
-jest.mock('@/coverage', () => ({ runCoveragePipeline: (params: RunCoveragePipelineParams) => mockRunCoveragePipeline(params) }));
+jest.mock('#src/coverage/index.ts', () => ({ runCoveragePipeline: (params: RunCoveragePipelineParams) => mockRunCoveragePipeline(params) }));
 // -------------------------
 
 const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
@@ -208,5 +208,82 @@ describe('testCoverageToThresholdCommand', () => {
 
 		expect(errors.join('\n')).toContain('harness binary not found');
 		expect(exitCodes).toStrictEqual([1]);
+	});
+	test('every batch earns a line — its outcome icon, its id in a fixed column, what became of it, and the files it touched', async () => {
+		const { context, logged } = setupCommand({
+			result: {
+				manifest: manifestOf({
+					steps: [
+						{ id: 'worklist', status: RunStatus.Passed, attempts: 1 },
+						{ id: 'batch-1', status: RunStatus.Passed, attempts: 1, changedFiles: ['src/a.unit.test.ts'] },
+						{ id: 'batch-2', status: RunStatus.Failed, attempts: 2 },
+					],
+				}),
+			},
+		});
+
+		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain(`✓ ${'batch-1'.padEnd(48)}resolved · 1 file(s)`);
+		expect(logged).toContain(`✗ ${'batch-2'.padEnd(48)}failed`);
+		// only batches are batches — the worklist step earns no line
+		expect(logged.some((line) => line.includes('worklist'))).toBe(false);
+	});
+
+	test('a set-aside batch is a decline rather than a failure, and the files it gave up on are named with the agent’s own reason', async () => {
+		const { context, logged, exitCodes } = setupCommand({
+			result: {
+				setAside: [{ batchId: 'batch-1', files: ['src/x.ts'], rationale: ['x.ts reads the clock at import — it needs a seam before it can be tested'] }],
+				manifest: manifestOf({ steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1 }] }),
+			},
+		});
+
+		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged[1]).toBe('\ntest-coverage-to-threshold run-1234 — PASSED · 1 set aside');
+		expect(logged).toContain(`⤫ ${'batch-1'.padEnd(48)}declined (1 file(s) set aside)`);
+		expect(logged).toContain('\nset aside batch-1');
+		expect(logged).toContain('  src/x.ts');
+		// the agent's own words: a set-aside a reader cannot read is indistinguishable from skipped work
+		expect(logged).toContain('  x.ts reads the clock at import — it needs a seam before it can be tested');
+		expect(logged).toContain('  these files likely need source changes — raise coverage by hand or adjust the threshold');
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('a parked run takes no final measurement, so it says so instead of printing an unmoved before → after', async () => {
+		const { context, logged } = setupCommand({
+			result: {
+				ok: false,
+				error: 'run parked: harness rate limited or overloaded',
+				before: [{ scope: 'root', statementsPct: 61, passed: false }],
+				after: [{ scope: 'root', statementsPct: 61, passed: false }],
+			},
+		});
+
+		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain('\nno final measure until the run completes — resume to finish and measure');
+		expect(logged.join('\n')).not.toMatch(/61 → 61/);
+	});
+
+	test('a parked run names where the evidence landed, then what stopped it — on stderr, last', async () => {
+		const { context, logged, errors } = setupCommand({ result: { ok: false, error: 'run parked: harness rate limited or overloaded' } });
+
+		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain('evidence: .lightsout/runs/run-1234-abcd/');
+		expect(errors).toStrictEqual(['\nrun parked: harness rate limited or overloaded']);
+	});
+
+	test('a scope measured on only one side still gets a row, its missing half read as zero rather than dropped', async () => {
+		const { context, logged } = setupCommand({
+			result: { before: [{ scope: 'root', statementsPct: 61, passed: false }], after: [{ scope: 'engine', statementsPct: 96, passed: true }] },
+		});
+
+		await expect(testCoverageToThresholdCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// a scope that appeared only at the final measure, and one that vanished before it
+		expect(logged.join('\n')).toMatch(/engine\s+0 → 96/);
+		expect(logged.join('\n')).toMatch(/root\s+61 → 0/);
 	});
 });

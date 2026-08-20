@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanDedupInvocation } from '@/agents';
+import { buildPlanDedupInvocation } from '#src/agents/index.ts';
 
 const planText = '# Phase 1\n\nPLAN-SENTINEL';
 const overviewText = '# Overview\n\nOVERVIEW-SENTINEL';

@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { freshCwd } from '@tests/helpers/freshCwd';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 interface Params {
 	/** Extra top-level config fields merged beside `gates` (commands, standards-checks, ...). */

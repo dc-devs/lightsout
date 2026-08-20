@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import { checkHarness } from '@/doctor/checkHarness';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { checkHarness } from '#src/doctor/checkHarness.ts';
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 

@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { printFindingGroups } from '#src/cli/common/render/printFindingGroups.ts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
 	rule: 'size-function',

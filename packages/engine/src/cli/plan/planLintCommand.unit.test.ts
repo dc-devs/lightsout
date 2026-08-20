@@ -1,10 +1,10 @@
 import { expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { writePlanDeliverable } from '@tests/helpers/writePlanDeliverable';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planLintCommand } from '@/cli/plan';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { planLintCommand } from '#src/cli/plan/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 
 // plan lint is deterministic — no agent, no driver — so the arrangement is a
 // real consumer repo with a real committed deliverable, linted through the same

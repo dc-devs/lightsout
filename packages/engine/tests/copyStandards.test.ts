@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 // The build step that produces the shipped standards package, run as the real
 // subprocess `pnpm bundle` runs. What it leaves out is a contract: the engine

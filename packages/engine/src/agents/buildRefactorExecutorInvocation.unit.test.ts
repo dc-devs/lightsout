@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { buildRefactorExecutorInvocation } from '@/agents';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 const planContent = '# Plan: add the widget flag\n\nPLAN-SENTINEL';
 const standards = '## Tabs only\n\nSTANDARDS-SENTINEL';

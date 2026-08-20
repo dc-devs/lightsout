@@ -9,6 +9,7 @@ const setupCarveOuts = ({ directories }: { directories: string[] }): FrameworkCa
 		exemptFolderNames: ['components'],
 		kebabCase: false,
 		routerRoots: [],
+		moduleFolders: [],
 	}));
 
 describe('getPathCarveOut', () => {
@@ -22,6 +23,7 @@ describe('getPathCarveOut', () => {
 			exemptFolderNames: ['components'],
 			kebabCase: false,
 			routerRoots: [],
+			moduleFolders: [],
 		});
 	});
 
@@ -46,6 +48,6 @@ describe('getPathCarveOut', () => {
 
 		const carveOut = getPathCarveOut({ carveOuts, path: 'src/billing/invoices' });
 
-		expect(carveOut).toStrictEqual({ directory: '.', exemptFolderNames: [], kebabCase: false, routerRoots: [] });
+		expect(carveOut).toStrictEqual({ directory: '.', exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] });
 	});
 });

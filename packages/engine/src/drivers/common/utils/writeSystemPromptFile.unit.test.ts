@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { writeSystemPromptFile } from '@/drivers/common/utils/writeSystemPromptFile';
+import { writeSystemPromptFile } from '#src/drivers/common/utils/writeSystemPromptFile.ts';
 
 test('writeSystemPromptFile: the file round-trips the system prompt byte-for-byte', async () => {
 	const systemPrompt = '# Role\n\nTabs\tand — unicode — plus a trailing newline\n';

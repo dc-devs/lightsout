@@ -2,12 +2,12 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { report } from '@tests/helpers/report';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { CoverageBatch } from '@/coverage/common/types/CoverageBatch';
-import { runCoverageBatch } from '@/coverage/runCoverageBatch';
-import type { Driver, DriverResult } from '@/drivers';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
+import { runCoverageBatch } from '#src/coverage/runCoverageBatch.ts';
+import type { Driver, DriverResult } from '#src/drivers/index.ts';
+import { report } from '#tests/helpers/report.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const target = 'src/target.ts';
 const scopedTarget = 'packages/api/src/target.ts';

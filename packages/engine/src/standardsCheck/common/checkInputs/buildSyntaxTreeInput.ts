@@ -1,6 +1,7 @@
 import type ts from 'typescript';
-import { StandardsInputKind, type SyntaxTreeInput } from '@/contracts';
-import { readIntoCache } from '@/standardsCheck/common/checkInputs/readIntoCache';
+import { StandardsInputKind, type SyntaxTreeInput } from '#src/contracts/index.ts';
+import { readIntoCache } from '#src/standardsCheck/common/checkInputs/readIntoCache.ts';
+import { readPackageDependencies } from '#src/standardsCheck/common/checkInputs/readPackageDependencies.ts';
 
 interface Params {
 	cwd: string;
@@ -13,6 +14,8 @@ interface Params {
 	/** The consumer's TypeScript — the engine never bundles a compiler of its own. */
 	compiler: typeof ts;
 	cache: Map<string, string>;
+	/** Monorepo package parent dir (config `packages-dir`, default 'packages'). */
+	packagesDir: string;
 }
 
 /**
@@ -32,13 +35,15 @@ export const buildSyntaxTreeInput = async ({
 	standardsPackages,
 	compiler,
 	cache,
+	packagesDir,
 }: Params): Promise<SyntaxTreeInput> => {
 	const texts = await readIntoCache({ cwd, paths: source, cache });
+	const dependencies = await readPackageDependencies({ cwd, packagesDir });
 	const trees = new Map<string, ts.SourceFile>();
 
 	for (const [path, text] of texts) {
 		trees.set(path, compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true));
 	}
 
-	return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPackages, compiler, trees };
+	return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPackages, compiler, trees, dependencies };
 };

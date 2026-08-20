@@ -1,4 +1,4 @@
-export { CoverageBatchReport } from '@/contracts/coverage/CoverageBatchReport';
-export { CoverageFile } from '@/contracts/coverage/CoverageFile';
-export { CoverageTotal } from '@/contracts/coverage/CoverageTotal';
-export { CoverageWorklist } from '@/contracts/coverage/CoverageWorklist';
+export { CoverageBatchReport } from '#src/contracts/coverage/CoverageBatchReport.ts';
+export { CoverageFile } from '#src/contracts/coverage/CoverageFile.ts';
+export { CoverageTotal } from '#src/contracts/coverage/CoverageTotal.ts';
+export { CoverageWorklist } from '#src/contracts/coverage/CoverageWorklist.ts';

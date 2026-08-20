@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import type { RunUsage } from '@/contracts';
-import { recordAgentUsage } from '@/runState';
+import type { RunUsage } from '#src/contracts/index.ts';
+import { recordAgentUsage } from '#src/runState/index.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** One invocation's spend, every field a different number so a mix-up shows. */
 const usage = { inputTokens: 10, outputTokens: 100, cacheReadTokens: 880, cacheCreationTokens: 110, costUsd: 0.5 };

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupImportGraphInput } from './index.ts';
+import { setupImportGraphInput } from '#src/index.ts';
 
 describe('setupImportGraphInput', () => {
 	test('builds the arm an import-graph check narrows to', () => {

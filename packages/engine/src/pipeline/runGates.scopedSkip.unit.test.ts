@@ -2,10 +2,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { gateLogCommand } from '@tests/helpers/gateLogCommand';
-import { readGateLog } from '@tests/helpers/readGateLog';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runGates } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { runGates } from '#src/pipeline/index.ts';
+import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
+import { readGateLog } from '#tests/helpers/readGateLog.ts';
 
 /**
  * A consumer dir with packages whose gate scripts vary, and scoped templates
@@ -35,6 +35,36 @@ const setupScopedRepo = ({ withRunToken = true }: { withRunToken?: boolean } = {
 				check: template({ kind: 'check', script: 'gate:check' }),
 				test: template({ kind: 'test', script: 'gate:test' }),
 				'test-coverage': template({ kind: 'coverage', script: 'gate:coverage' }),
+			},
+		}),
+	);
+
+	return dir;
+};
+
+/**
+ * A consumer whose scoped block adds a custom `test-e2e` suite: `full` defines
+ * every gate script, `partial` defines all but the custom suite's.
+ */
+const setupCustomSuiteRepo = () => {
+	const dir = mkdtempSync(join(tmpdir(), 'lightsout-skip-custom-'));
+
+	for (const [pkgDir, scripts] of [
+		['full', { 'gate:check': 'unused', 'gate:test': 'unused', 'gate:e2e': 'unused' }],
+		['partial', { 'gate:check': 'unused', 'gate:test': 'unused' }],
+	] as const) {
+		mkdirSync(join(dir, 'packages', pkgDir), { recursive: true });
+		writeFileSync(join(dir, 'packages', pkgDir, 'package.json'), JSON.stringify({ name: `@acme/${pkgDir}`, scripts }));
+	}
+
+	writeFileSync(
+		join(dir, 'lightsout.config.json'),
+		JSON.stringify({
+			gates: { check: 'echo root-check', test: 'echo root-test', 'test-coverage': false },
+			'package-gates': {
+				check: `${gateLogCommand({ kind: 'check' })} {package} run gate:check`,
+				test: `${gateLogCommand({ kind: 'test' })} {package} run gate:test`,
+				'test-e2e': `${gateLogCommand({ kind: 'e2e' })} {package} run gate:e2e`,
 			},
 		}),
 	);
@@ -117,4 +147,28 @@ test('a template with no run token always executes — unknown script is not mis
 	expect(error).toBe(undefined);
 	// unparseable template ran as-is
 	expect(readGateLog({ dir }).includes('@acme/bare check')).toBeTruthy();
+});
+
+test('a package missing only the custom suite script skips that suite alone — the rest of its group still runs', async () => {
+	const dir = setupCustomSuiteRepo();
+	const progress: string[] = [];
+	const error = await runGates({
+		cwd: dir,
+		config: await loadConfig({ cwd: dir }),
+		packages: ['full', 'partial'],
+		onProgress: (message) => progress.push(message),
+	});
+
+	expect(error).toBe(undefined);
+
+	const gates = readGateLog({ dir });
+
+	// the package that defines the suite runs it
+	expect(gates.includes('@acme/full e2e')).toBeTruthy();
+	// the one that does not is skipped there and nowhere else — a missing custom
+	// suite must not cost the package its check and unit run
+	expect(gates.includes('@acme/partial e2e')).toBeFalsy();
+	expect(gates.includes('@acme/partial check')).toBeTruthy();
+	expect(gates.includes('@acme/partial test')).toBeTruthy();
+	expect(progress.includes('gate [partial] test-e2e: skipped (no "gate:e2e" script)')).toBeTruthy();
 });

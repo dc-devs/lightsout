@@ -1,5 +1,5 @@
 import type ts from 'typescript';
-import type { SpecifierResolver } from '@/common/types/SpecifierResolver';
+import type { SpecifierResolver } from '#src/common/types/SpecifierResolver.ts';
 
 interface Params {
 	/** Repo-relative path of the barrel. */

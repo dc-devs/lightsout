@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { runCli } from '@tests/helpers/runCli';
+import { runCli } from '#tests/helpers/runCli.ts';
 
 // A whole standards package, loaded and executed by the built CLI as a real
 // subprocess. This is the only place the engine's import of a package's own

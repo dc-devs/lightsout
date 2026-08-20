@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StepRecord } from '@/contracts';
+import { StepRecord } from '#src/contracts/index.ts';
 
 const setupStep = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const step: Record<string, unknown> = {

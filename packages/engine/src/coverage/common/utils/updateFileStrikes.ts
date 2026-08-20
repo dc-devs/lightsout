@@ -1,6 +1,6 @@
-import type { CoverageBatchReport } from '@/contracts';
-import { maxFileStrikes } from '@/coverage/common/constants/maxFileStrikes';
-import type { CoverageSetAside } from '@/coverage/common/types/CoverageSetAside';
+import type { CoverageBatchReport } from '#src/contracts/index.ts';
+import { maxFileStrikes } from '#src/coverage/common/constants/maxFileStrikes.ts';
+import type { CoverageSetAside } from '#src/coverage/common/types/CoverageSetAside.ts';
 
 interface Params {
 	/** The batch whose report is being folded in — the id a new set-aside entry cites. */

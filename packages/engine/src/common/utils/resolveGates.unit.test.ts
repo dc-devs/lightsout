@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { resolveGates } from '@/common/utils/resolveGates';
+import { resolveGates } from '#src/common/utils/resolveGates.ts';
+import type { ConfigGates } from '#src/contracts/index.ts';
 
 describe('resolveGates', () => {
 	test('reads the kebab block into the engine spelling, custom suites in written order', () => {
@@ -27,9 +28,33 @@ describe('resolveGates', () => {
 		});
 	});
 
+	test('the optional gates are carried through only when the config wrote them', () => {
+		const resolved = resolveGates({
+			gates: { check: 'c', test: 't', 'test-coverage': 'cov', generate: 'pnpm codegen', build: 'pnpm bundle', format: 'pnpm format' },
+		});
+
+		expect(resolved).toStrictEqual({
+			check: 'c',
+			test: 't',
+			testCoverage: 'cov',
+			generate: 'pnpm codegen',
+			build: 'pnpm bundle',
+			format: 'pnpm format',
+			extraTests: [],
+		});
+	});
+
 	test('a minimal block resolves with no custom suites and the coverage opt-out intact', () => {
 		const resolved = resolveGates({ gates: { check: 'c', test: 't', 'test-coverage': false } });
 
 		expect(resolved).toStrictEqual({ check: 'c', test: 't', testCoverage: false, extraTests: [] });
+	});
+
+	test('a custom key carrying something other than a command is not read as a suite to run', () => {
+		const resolved = resolveGates({ gates: { check: 'c', test: 't', 'test-coverage': 'cov', 'test-e2e': 7 } as unknown as ConfigGates });
+
+		// the block's catch-all lets any key through, and a suite the engine cannot
+		// spawn must not reach the gate runner as one
+		expect(resolved).toStrictEqual({ check: 'c', test: 't', testCoverage: 'cov', extraTests: [] });
 	});
 });

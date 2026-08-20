@@ -2,11 +2,11 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planCommand } from '@/cli/plan/planCommand';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { planCommand } from '#src/cli/plan/planCommand.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
 // -------------------------
@@ -25,13 +25,13 @@ const mockLoadPlanningStandards = jest.fn<(params: unknown) => Promise<string | 
 
 // -------------------------
 
-jest.mock('@/cli/plan/planVerifyFactsCommand', () => ({ planVerifyFactsCommand: (params: unknown) => mockPlanVerifyFactsCommand(params) }));
-jest.mock('@/cli/plan/planLintCommand', () => ({ planLintCommand: (params: unknown) => mockPlanLintCommand(params) }));
-jest.mock('@/cli/plan/planDraftCommand', () => ({ planDraftCommand: (params: unknown) => mockPlanDraftCommand(params) }));
-jest.mock('@/cli/plan/planDedupCommand', () => ({ planDedupCommand: (params: unknown) => mockPlanDedupCommand(params) }));
-jest.mock('@/cli/plan/planGradeCommand', () => ({ planGradeCommand: (params: unknown) => mockPlanGradeCommand(params) }));
-jest.mock('@/cli/common/utils/resolveConfigAndDriver', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
-jest.mock('@/cli/plan/loadPlanningStandards', () => ({ loadPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
+jest.mock('#src/cli/plan/planVerifyFactsCommand.ts', () => ({ planVerifyFactsCommand: (params: unknown) => mockPlanVerifyFactsCommand(params) }));
+jest.mock('#src/cli/plan/planLintCommand.ts', () => ({ planLintCommand: (params: unknown) => mockPlanLintCommand(params) }));
+jest.mock('#src/cli/plan/planDraftCommand.ts', () => ({ planDraftCommand: (params: unknown) => mockPlanDraftCommand(params) }));
+jest.mock('#src/cli/plan/planDedupCommand.ts', () => ({ planDedupCommand: (params: unknown) => mockPlanDedupCommand(params) }));
+jest.mock('#src/cli/plan/planGradeCommand.ts', () => ({ planGradeCommand: (params: unknown) => mockPlanGradeCommand(params) }));
+jest.mock('#src/cli/common/utils/resolveConfigAndDriver.ts', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
+jest.mock('#src/cli/plan/loadPlanningStandards.ts', () => ({ loadPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
 
 const stubDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 

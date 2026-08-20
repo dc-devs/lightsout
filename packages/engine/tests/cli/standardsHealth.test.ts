@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { runCli } from '@tests/helpers/runCli';
-import { seedStandardsFixture } from '@tests/helpers/seedStandardsFixture';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { seedStandardsFixture } from '#tests/helpers/seedStandardsFixture.ts';
 
 test('cli: standards-health reports every rule as machine-checked or judgment, and exits 0', async () => {
 	const { cwd } = await seedStandardsFixture();

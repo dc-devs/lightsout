@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getSpokenPickerText } from '@/voice';
+import { getSpokenPickerText } from '#src/voice/index.ts';
 
 describe('getSpokenPickerText', () => {
 	test('speaks the question, then every choice with the line that explains it', () => {
@@ -54,6 +54,14 @@ describe('getSpokenPickerText', () => {
 	test('a choice with nothing to add speaks its label alone, and a nameless one is dropped', () => {
 		const spoken = getSpokenPickerText({
 			toolInput: { questions: [{ question: 'Ready?', options: [{ label: 'yes' }, { label: '', description: 'unnamed' }] }] },
+		});
+
+		expect(spoken).toBe('Ready?\nOptions: yes');
+	});
+
+	test('a choice whose explaining line is empty speaks its label alone', () => {
+		const spoken = getSpokenPickerText({
+			toolInput: { questions: [{ question: 'Ready?', options: [{ label: 'yes', description: '' }] }] },
 		});
 
 		expect(spoken).toBe('Ready?\nOptions: yes');

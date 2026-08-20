@@ -1,7 +1,7 @@
-import { RunStatus, type StepRecord } from '@/contracts';
-import { runGates } from '@/pipeline';
-import type { RefactorResult } from '@/refactor/RefactorResult';
-import type { RefactorRun } from '@/refactor/RefactorRun';
+import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { runGates } from '#src/pipeline/index.ts';
+import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
+import type { RefactorRun } from '#src/refactor/RefactorRun.ts';
 
 interface Params {
 	run: RefactorRun;

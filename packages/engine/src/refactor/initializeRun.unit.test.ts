@@ -1,9 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { initializeRun } from '@/refactor';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { initializeRun } from '#src/refactor/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };

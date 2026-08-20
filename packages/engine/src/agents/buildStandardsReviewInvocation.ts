@@ -1,4 +1,4 @@
-import standardsReviewerPrompt from '@/agents/prompts/standardsReviewer.md';
+import standardsReviewerPrompt from '#src/agents/prompts/standardsReviewer.md';
 
 interface Params {
 	/** Judgment-only rules in scope: id, document path, and full prose. */

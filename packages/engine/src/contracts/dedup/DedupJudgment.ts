@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DedupVerdict } from '@/contracts/dedup/DedupVerdict';
+import { DedupVerdict } from '#src/contracts/dedup/DedupVerdict.ts';
 
 /**
  * The dedup judge agent's contract — one verdict per detected candidate (plus

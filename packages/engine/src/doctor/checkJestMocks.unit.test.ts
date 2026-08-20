@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { checkJestMocks } from '@/doctor/checkJestMocks';
+import { checkJestMocks } from '#src/doctor/checkJestMocks.ts';
 
 /** A package directory holding the given files, keyed by path relative to it. */
 const setupPackage = ({ files = {} }: { files?: Record<string, string> } = {}) => {

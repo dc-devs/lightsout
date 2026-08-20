@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { WorkReport } from '@/contracts';
-import { extractJsonReport } from '@/invoke';
+import { WorkReport } from '#src/contracts/index.ts';
+import { extractJsonReport } from '#src/invoke/index.ts';
 
 test('extractJsonReport accepts bare JSON', () => {
 	expect(extractJsonReport({ text: ' {"status":"complete"} ' })).toStrictEqual({ status: 'complete' });

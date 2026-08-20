@@ -1,10 +1,10 @@
 import { dirname, join } from 'node:path';
-import { messageOf } from '@/common/utils/messageOf';
-import { type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { initializeSequence } from '@/phases/initializeSequence';
-import { type PipelineResult, runImplementPipeline } from '@/pipeline';
-import { RunLockError, readRunManifest, writeRunManifest } from '@/runState';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { initializeSequence } from '#src/phases/initializeSequence.ts';
+import { type PipelineResult, runImplementPipeline } from '#src/pipeline/index.ts';
+import { RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;

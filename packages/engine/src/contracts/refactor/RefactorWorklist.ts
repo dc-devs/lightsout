@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RefactorBatch } from '@/contracts/refactor/RefactorBatch';
+import { RefactorBatch } from '#src/contracts/refactor/RefactorBatch.ts';
 
 /**
  * A refactor run's frozen work-list: computed from the tree once at run

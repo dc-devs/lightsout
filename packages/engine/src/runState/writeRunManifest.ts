@@ -1,6 +1,6 @@
 import { rename, writeFile } from 'node:fs/promises';
-import type { RunManifest } from '@/contracts';
-import { getRunManifestPath } from '@/runState/common/paths/getRunManifestPath';
+import type { RunManifest } from '#src/contracts/index.ts';
+import { getRunManifestPath } from '#src/runState/common/paths/getRunManifestPath.ts';
 
 interface Params {
 	cwd: string;

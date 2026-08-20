@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { collapseCasing } from '@/common/naming/collapseCasing';
+import { collapseCasing } from '#src/common/naming/collapseCasing.ts';
 
 test('collapseCasing: casing/separator variants collapse to one key', () => {
 	expect(collapseCasing('GetStarted')).toBe(collapseCasing('get-started'));

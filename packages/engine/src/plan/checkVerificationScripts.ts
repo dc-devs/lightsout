@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
-import { StructuralCheck, type StructuralFinding } from '@/contracts';
-import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
-import { getManifestScriptKeys } from '@/plan/common/utils/getManifestScriptKeys';
+import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
+import { StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
+import { getManifestScriptKeys } from '#src/plan/common/utils/getManifestScriptKeys.ts';
 
 interface Params {
 	plan: ParsedPlan;
@@ -17,7 +17,7 @@ interface Params {
 }
 
 /** The package-script name a verification command invokes, or undefined for a raw command with no package-manager prefix. */
-const scriptNameOf = (command: string): string | undefined => {
+const scriptNameOf = ({ command }: { command: string }): string | undefined => {
 	// Any `… run <script>` form (pnpm/npm/yarn/turbo, with or without filter
 	// flags) resolves through the same parser the doctor and scoped gates use,
 	// so the three can never disagree about which script a command invokes.
@@ -89,7 +89,7 @@ export const checkVerificationScripts = async ({ plan, cwd, planPath, packagesDi
 			continue;
 		}
 
-		const scriptName = scriptNameOf(command);
+		const scriptName = scriptNameOf({ command });
 
 		// A raw command with no package-manager prefix (e.g. `tsc --noEmit`) is
 		// not a package script — do not guess it into a finding.

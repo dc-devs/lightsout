@@ -23057,9 +23057,9 @@ var baseGateShape = {
 
 // src/contracts/common/utils/validateCustomTestGates.ts
 var customTestKey = /^test-[a-z0-9]+(-[a-z0-9]+)*$/;
-var validateCustomTestGates = ({ gates: gates2, knownGateKeys: knownGateKeys3, unknownKeyMessage, ctx }) => {
+var validateCustomTestGates = ({ gates, knownGateKeys: knownGateKeys3, unknownKeyMessage, ctx }) => {
   const commands2 = [];
-  for (const [key, value] of Object.entries(gates2)) {
+  for (const [key, value] of Object.entries(gates)) {
     if (knownGateKeys3.has(key)) {
       continue;
     }
@@ -23096,9 +23096,9 @@ var ConfigGates = external_exports.object({
   build: external_exports.string().optional(),
   /** Opt-in formatter, run once at the very end of the pipeline (gates re-verify after). */
   format: external_exports.string().optional()
-}).catchall(external_exports.unknown()).superRefine((gates2, ctx) => {
+}).catchall(external_exports.unknown()).superRefine((gates, ctx) => {
   validateCustomTestGates({
-    gates: gates2,
+    gates,
     knownGateKeys,
     ctx,
     unknownKeyMessage: ({ key }) => `unknown gate '${key}' \u2014 gates are check, test, test-coverage, generate, build, format, or a custom \`test-*\` suite`
@@ -23251,14 +23251,14 @@ var PackageGates = external_exports.object({
   "test-coverage": external_exports.string().optional(),
   /** Opt-in scoped build gate. */
   build: external_exports.string().optional()
-}).catchall(external_exports.unknown()).superRefine((gates2, ctx) => {
+}).catchall(external_exports.unknown()).superRefine((gates, ctx) => {
   const customCommands = validateCustomTestGates({
-    gates: gates2,
+    gates,
     knownGateKeys: knownGateKeys2,
     ctx,
     unknownKeyMessage: ({ key }) => `unknown scoped gate '${key}' \u2014 package-gates are check, test, test-coverage, build, or a custom \`test-*\` suite`
   });
-  const commands2 = [gates2.check, gates2.test, gates2["test-coverage"], gates2.build, ...customCommands];
+  const commands2 = [gates.check, gates.test, gates["test-coverage"], gates.build, ...customCommands];
   if (!commands2.every((command) => command === void 0 || typeof command === "string" && command.includes("{package}"))) {
     ctx.addIssue({
       code: "custom",
@@ -23330,6 +23330,15 @@ var StandardsReviewReport = external_exports.object({
       guidance: external_exports.string().optional()
     })
   )
+});
+
+// src/contracts/standardsCheck/StandardsSnapshot.ts
+var StandardsSnapshot = external_exports.object({
+  at: external_exports.string(),
+  /** Repo-relative subpath the check covered ('.' for the whole repo). */
+  path: external_exports.string(),
+  findings: external_exports.array(StandardsFinding),
+  notes: external_exports.array(external_exports.string())
 });
 
 // src/contracts/StandardsCheckOverrides.ts
@@ -23710,6 +23719,18 @@ var PhaseReport = external_exports.object({
   runId: external_exports.string()
 });
 
+// src/contracts/run/PipelineKind.ts
+var PipelineKind = {
+  /** A plan implemented step by step. What a manifest predating the discriminator is read as. */
+  Implement: "implement",
+  /** A standards-check work-list burned down batch by batch. */
+  Refactor: "refactor",
+  /** A coordinator that runs one child run per phase of an overview. */
+  Phases: "phases",
+  /** A coverage measurement raised to its threshold batch by batch. */
+  Coverage: "coverage"
+};
+
 // src/contracts/run/RunLock.ts
 var RunLock = external_exports.object({
   pid: external_exports.number().int(),
@@ -23800,6 +23821,187 @@ var RunManifest = external_exports.object({
   unreachableChangedFiles: external_exports.array(external_exports.string()).default([])
 });
 
+// src/contracts/views/AgentInvocation.ts
+var AgentInvocation = AgentUsage.extend({
+  at: external_exports.string(),
+  /** Pipeline step the invocation served; supervisor consultations are suffixed '-supervisor'. */
+  step: external_exports.string(),
+  model: external_exports.string().optional(),
+  effort: external_exports.enum(Effort).optional()
+});
+
+// src/contracts/views/GateEvidence.ts
+var GateEvidence = GateResult.extend({
+  at: external_exports.string(),
+  /** Pipeline step in flight when the command ran; absent on records written outside a step. */
+  step: external_exports.string().optional()
+});
+
+// src/contracts/views/PlanDocumentKind.ts
+var PlanDocumentKind = {
+  Markdown: "markdown",
+  Worklist: "worklist",
+  CoverageWorklist: "coverageWorklist",
+  /** The path names nothing readable — a plan deleted after its run is a normal state, not an error. */
+  Missing: "missing"
+};
+
+// src/contracts/views/PlanDocument.ts
+var PlanDocument = external_exports.object({
+  /** Repo-relative path as asked for. */
+  path: external_exports.string(),
+  kind: external_exports.enum(PlanDocumentKind),
+  /** Present iff kind is 'markdown'. */
+  text: external_exports.string().optional(),
+  /** Present iff kind is 'worklist' — a refactor run's frozen work-list. */
+  worklist: RefactorWorklist.optional(),
+  /** Present iff kind is 'coverageWorklist' — a coverage run's frozen initial measurement. */
+  coverageWorklist: CoverageWorklist.optional()
+});
+
+// src/contracts/views/RunListing.ts
+var RunListing = external_exports.object({
+  runId: external_exports.string(),
+  /** First eight characters — the form every lightsout report prints and `resume --run` accepts. */
+  shortId: external_exports.string(),
+  /** One of `PipelineKind`; a manifest predating the discriminator reads as `PipelineKind.Implement`. Kept a string so a row survives a value this engine does not know. */
+  pipeline: external_exports.string(),
+  status: external_exports.enum(RunStatus),
+  /** Human label derived from the plan path — see getRunTitle. */
+  title: external_exports.string(),
+  /** Repo-relative plan path, exactly as the manifest records it. */
+  plan: external_exports.string(),
+  createdAt: external_exports.string(),
+  updatedAt: external_exports.string(),
+  /** A live process stands behind this run right now. */
+  live: external_exports.boolean(),
+  packages: external_exports.array(external_exports.string()),
+  stepsPassed: external_exports.number(),
+  stepCount: external_exports.number(),
+  changedFileCount: external_exports.number(),
+  /** Run-wide API-equivalent cost; absent for drivers that report no usage. */
+  costUsd: external_exports.number().optional(),
+  /** A `resume --run` would do something: failed, either paused state, or running with no live process. */
+  resumable: external_exports.boolean()
+});
+
+// src/contracts/views/RunStepView.ts
+var RunStepView = external_exports.object({
+  id: external_exports.string(),
+  status: external_exports.enum(RunStatus),
+  attempts: external_exports.number(),
+  durationMs: external_exports.number().optional(),
+  changedFiles: external_exports.array(external_exports.string()),
+  error: external_exports.string().optional(),
+  /** Agent invocations attributed to this step, supervisor consultations folded in. */
+  invocations: external_exports.number(),
+  outputTokens: external_exports.number(),
+  costUsd: external_exports.number(),
+  /** The step's validated agent report, opaque here exactly as the manifest stores it. */
+  report: external_exports.unknown().optional(),
+  /** Phased runs only: the phase file this step implemented, repo-relative. */
+  planPath: external_exports.string().optional(),
+  /** Phased runs only: the child run id the step's PhaseReport names. */
+  childRunId: external_exports.string().optional()
+});
+
+// src/contracts/views/RunView.ts
+var RunView = external_exports.object({
+  listing: RunListing,
+  harness: external_exports.string(),
+  /**
+   * Overview plan path, repo-relative: `manifest.overview` on a phase's child
+   * run; on the coordinator itself (`pipeline: 'phases'`), whose manifest
+   * carries no `overview` field, this is `manifest.plan` — initializeSequence
+   * records the overview as the coordinator's plan.
+   */
+  overview: external_exports.string().optional(),
+  currentStep: external_exports.string().nullable(),
+  /** Wall clock across the run, including idle gaps between a failure and its resume. */
+  wallMs: external_exports.number(),
+  /** Sum of step durations — actual working time. */
+  activeMs: external_exports.number(),
+  gateMs: external_exports.number(),
+  usage: RunUsage.optional(),
+  /** Share of all input the model read from cache. */
+  cacheReadShare: external_exports.number().optional(),
+  steps: external_exports.array(RunStepView),
+  gates: external_exports.array(GateEvidence),
+  gateTotals: external_exports.object({ commands: external_exports.number(), reruns: external_exports.number(), skipped: external_exports.number() }),
+  agents: external_exports.array(AgentInvocation),
+  /** Final messages that failed their contract and cost a re-emit retry. */
+  rejectedReports: external_exports.number(),
+  friction: external_exports.array(FrictionRecord),
+  changedFiles: external_exports.array(external_exports.string()),
+  unreachableChangedFiles: external_exports.array(external_exports.string()),
+  /** Set on a phase's child run: the coordinator that spawned it. */
+  parent: external_exports.object({ runId: external_exports.string(), step: external_exports.string(), title: external_exports.string() }).optional()
+});
+
+// src/contracts/views/StandardsRuleView.ts
+var StandardsRuleView = external_exports.object({
+  rule: external_exports.string(),
+  /** '<package name>: <document folder>' — which package states the rule, and where. */
+  doc: external_exports.string(),
+  /** Package-relative document folder, for linking. */
+  documentPath: external_exports.string(),
+  set: external_exports.enum(StandardsSet),
+  summary: external_exports.string(),
+  /** The rule.md body — its full prose argument. */
+  prose: external_exports.string(),
+  checked: external_exports.boolean(),
+  severity: external_exports.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory, StandardsSeverity.Off]),
+  /** True when this repo's config set the severity or the settings. */
+  fromConfig: external_exports.boolean(),
+  settings: external_exports.record(external_exports.string(), external_exports.number()),
+  /** Open findings for this rule in the latest snapshot. */
+  findingCount: external_exports.number(),
+  history: external_exports.object({
+    attempted: external_exports.number(),
+    resolved: external_exports.number(),
+    declined: external_exports.number(),
+    untracked: external_exports.number(),
+    adviceApplied: external_exports.number(),
+    adviceDeclined: external_exports.number(),
+    reasons: external_exports.array(external_exports.string())
+  })
+});
+
+// src/contracts/views/StandardsTrendPoint.ts
+var StandardsTrendPoint = external_exports.object({
+  at: external_exports.string(),
+  /** The subpath that run checked ('.' for the whole repo). */
+  path: external_exports.string(),
+  total: external_exports.number(),
+  blocking: external_exports.number(),
+  advisory: external_exports.number(),
+  byRule: external_exports.array(external_exports.object({ rule: external_exports.string(), count: external_exports.number() }))
+});
+
+// src/contracts/views/StandardsView.ts
+var StandardsView = external_exports.object({
+  /** When the latest snapshot was taken; absent when the repo has never run a check. */
+  at: external_exports.string().optional(),
+  /** Subpath the latest snapshot covered. */
+  path: external_exports.string(),
+  notes: external_exports.array(external_exports.string()),
+  findings: external_exports.array(StandardsFinding),
+  /** Every loaded rule, sorted by id — including rules with no open findings. */
+  rules: external_exports.array(StandardsRuleView),
+  /** Oldest first, so a chart plots it without re-sorting. */
+  trend: external_exports.array(StandardsTrendPoint),
+  /** Rule counts from the health report, plus the latest snapshot's finding counts — so no consumer ever counts for itself. */
+  totals: external_exports.object({
+    rules: external_exports.number(),
+    checked: external_exports.number(),
+    judgment: external_exports.number(),
+    blocking: external_exports.number(),
+    advisory: external_exports.number(),
+    /** Findings in the latest snapshot whose `rule` matches no loaded rule — a package removed or renamed since the scan, or a rule since switched off. */
+    orphans: external_exports.number()
+  })
+});
+
 // src/contracts/work/SupervisorDecision.ts
 var SupervisorDecision = {
   /** The failure is mechanically fixable — re-invoke the working role with the supervisor's guidance. */
@@ -23858,6 +24060,11 @@ var WorkReport = external_exports.object({
       matches: external_exports.array(external_exports.string()).default([])
     })
   ).optional()
+});
+
+// src/contracts/work/WritersReport.ts
+var WritersReport = external_exports.object({
+  reports: external_exports.array(WorkReport)
 });
 
 // src/common/utils/loadConfig.ts
@@ -24150,6 +24357,20 @@ var resolveRunId = async ({ cwd, runId }) => {
   throw new RunNotFoundError(`run id '${runId}' matches ${matches.length} runs (${matches.join(", ")}) \u2014 pass more of the id`);
 };
 
+// src/runState/common/utils/readJsonlRecords.ts
+import { readFile as readFile7 } from "node:fs/promises";
+var readJsonlRecords = async ({ path, schema }) => {
+  const raw = await readFile7(path, "utf8").catch(() => "");
+  return raw.split("\n").filter(Boolean).flatMap((line) => {
+    try {
+      const parsed = schema.safeParse(JSON.parse(line));
+      return parsed.success ? [parsed.data] : [];
+    } catch {
+      return [];
+    }
+  });
+};
+
 // src/runState/createRun.ts
 import { randomUUID } from "node:crypto";
 import { mkdir as mkdir4 } from "node:fs/promises";
@@ -24199,25 +24420,27 @@ var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: c
   return writeRunManifest({ cwd, manifest });
 };
 
+// src/runState/isRunLive.ts
+var isRunLive = ({ manifest, lock }) => {
+  if (!lock || !isPidAlive({ pid: lock.pid })) {
+    return false;
+  }
+  if (lock.runId === manifest.runId) {
+    return true;
+  }
+  const running = manifest.steps.find((step) => step.status === RunStatus.Running);
+  if (manifest.pipeline !== PipelineKind.Phases || running === void 0) {
+    return false;
+  }
+  const child = PhaseReport.safeParse(running.report);
+  return child.success && child.data.runId === lock.runId;
+};
+
 // src/runState/listRunIds.ts
 import { readdir as readdir5 } from "node:fs/promises";
 var listRunIds = async ({ cwd }) => {
   const entries = await readdir5(getRunsDir({ cwd }), { withFileTypes: true }).catch(() => []);
   return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
-};
-
-// src/runState/common/utils/readJsonlRecords.ts
-import { readFile as readFile7 } from "node:fs/promises";
-var readJsonlRecords = async ({ path, schema }) => {
-  const raw = await readFile7(path, "utf8").catch(() => "");
-  return raw.split("\n").filter(Boolean).flatMap((line) => {
-    try {
-      const parsed = schema.safeParse(JSON.parse(line));
-      return parsed.success ? [parsed.data] : [];
-    } catch {
-      return [];
-    }
-  });
 };
 
 // src/runState/readFriction.ts
@@ -24366,7 +24589,7 @@ var frictionCommand = async ({ cwd }) => {
 // src/cli/common/render/printResult.ts
 import { basename } from "node:path";
 
-// src/cli/common/formatting/formatDuration.ts
+// ../shared/src/formatting/formatDuration.ts
 var formatDuration = ({ ms }) => {
   if (ms === void 0) {
     return "\u2014";
@@ -24375,7 +24598,7 @@ var formatDuration = ({ ms }) => {
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s` : `${seconds}s`;
 };
 
-// src/cli/common/formatting/formatTokenCount.ts
+// ../shared/src/formatting/formatTokenCount.ts
 var formatTokenCount = ({ count: count2 }) => {
   if (count2 >= 1e6) {
     return `${(count2 / 1e6).toFixed(1)}M`;
@@ -24726,7 +24949,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 };
 
 // src/phases/runPhasesPipeline.ts
-import { dirname as dirname7, join as join43 } from "node:path";
+import { dirname as dirname7, join as join45 } from "node:path";
 
 // src/pipeline/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
@@ -24838,14 +25061,14 @@ var packageOf = ({ file: file2, packagesDir }) => {
 
 // src/common/utils/resolveGates.ts
 var fixedKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "generate", "build", "format"]);
-var resolveGates = ({ gates: gates2 }) => ({
-  check: gates2.check,
-  test: gates2.test,
-  testCoverage: gates2["test-coverage"],
-  ...gates2.generate === void 0 ? {} : { generate: gates2.generate },
-  ...gates2.build === void 0 ? {} : { build: gates2.build },
-  ...gates2.format === void 0 ? {} : { format: gates2.format },
-  extraTests: Object.entries(gates2).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
+var resolveGates = ({ gates }) => ({
+  check: gates.check,
+  test: gates.test,
+  testCoverage: gates["test-coverage"],
+  ...gates.generate === void 0 ? {} : { generate: gates.generate },
+  ...gates.build === void 0 ? {} : { build: gates.build },
+  ...gates.format === void 0 ? {} : { format: gates.format },
+  extraTests: Object.entries(gates).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
 });
 
 // src/pipeline/createGateRunner.ts
@@ -25029,9 +25252,9 @@ var runGates = async ({
   onProgress
 }) => {
   const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
-  const gates2 = resolveGates({ gates: config2.gates });
-  if (gates2.generate) {
-    const generated = await gate({ kind: "generate", command: gates2.generate, group: "root" });
+  const gates = resolveGates({ gates: config2.gates });
+  if (gates.generate) {
+    const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
     if (generated.exitCode !== 0) {
       return `generate failed (exit ${generated.exitCode}):
 ${generated.stdout}
@@ -25039,11 +25262,11 @@ ${generated.stderr}`;
     }
   }
   const rootCommands = {
-    check: gates2.check,
-    test: gates2.test,
-    testCoverage: coverage && typeof gates2.testCoverage === "string" ? gates2.testCoverage : void 0,
-    extraTests: gates2.extraTests,
-    build: gates2.build
+    check: gates.check,
+    test: gates.test,
+    testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
+    extraTests: gates.extraTests,
+    build: gates.build
   };
   const scoped = config2["package-gates"];
   if (!scoped || !packages || packages.length === 0) {
@@ -25343,7 +25566,10 @@ var hasFile = async ({ path }) => stat4(path).then(
 // src/standardsPackages/common/utils/loadCheckModule.ts
 import { pathToFileURL } from "node:url";
 var loadCheckModule = async ({ checkPath }) => {
-  const imported = await import(pathToFileURL(checkPath).href);
+  const imported = await import(
+    /* @vite-ignore */
+    pathToFileURL(checkPath).href
+  );
   const parsed = StandardsCheckModule.safeParse(imported.check);
   if (!parsed.success) {
     throw new Error(
@@ -25641,7 +25867,7 @@ var prepareRun = async ({ run, cwd, config: config2, packages }) => {
     return scope;
   }
   if (scope.scope) {
-    await run.update(scope.scope);
+    await run.update({ patch: scope.scope });
   }
   if (run.current().packages.length > 0) {
     run.progress(`package scope: ${run.current().packages.join(", ")} (from ${run.current().packagesSource ?? "manifest"})`);
@@ -25724,7 +25950,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve8 }) =
 
 // src/common/utils/collectFolderModules.ts
 var isBarrel = ({ path }) => /^index\.tsx?$/.test(posix2.basename(path));
-var collectFolderModules = async ({ cwd, files, compiler }) => {
+var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }) => {
   const resolve8 = createSpecifierResolver({ files });
   const barrelDirs = /* @__PURE__ */ new Map();
   for (const file2 of files) {
@@ -25743,7 +25969,7 @@ var collectFolderModules = async ({ cwd, files, compiler }) => {
     const ownFiles = files.filter(
       (file2) => file2.startsWith(prefix) && !isBarrel({ path: file2 }) && /\.tsx?$/.test(file2) && !nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file2.startsWith(`${other}/`))
     );
-    if (surface.complete && (hasOwnCommon || ownFiles.some((file2) => !surface.targets.has(file2)))) {
+    if (surface.complete && (isMandatedModule?.({ folder }) === true || hasOwnCommon || ownFiles.some((file2) => !surface.targets.has(file2)))) {
       modules.set(folder, { barrelPath, exportedTargets: surface.targets });
     }
   }
@@ -25940,11 +26166,11 @@ var RunState = class {
   progress(message) {
     this.onProgress?.(message);
   }
-  async update(patch) {
+  async update({ patch }) {
     this.manifest = await writeManifestWithUsage({ cwd: this.cwd, manifest: this.manifest, patch, usageTotals: this.usageTotals });
   }
   async setStep({ record: record2, patch }) {
-    await this.update({ ...patch, currentStep: record2.id, steps: upsertStep({ steps: this.manifest.steps, record: record2 }) });
+    await this.update({ patch: { ...patch, currentStep: record2.id, steps: upsertStep({ steps: this.manifest.steps, record: record2 }) } });
   }
   recordUsage({ step, usage: usage2 }) {
     return recordAgentUsage({
@@ -26556,8 +26782,7 @@ var invokeAgentWithContract = async ({
 };
 
 // src/pipeline/PipelineRun.ts
-var formatTokens = (count2) => count2 >= 1e3 ? `${(count2 / 1e3).toFixed(1)}k` : `${count2}`;
-var formatUsage = (usage2) => `in ${formatTokens(usage2.inputTokens)} \xB7 out ${formatTokens(usage2.outputTokens)} \xB7 cache-read ${formatTokens(usage2.cacheReadTokens)} \xB7 $${usage2.costUsd.toFixed(2)}`;
+var formatUsage = ({ usage: usage2 }) => `in ${formatTokenCount({ count: usage2.inputTokens })} \xB7 out ${formatTokenCount({ count: usage2.outputTokens })} \xB7 cache-read ${formatTokenCount({ count: usage2.cacheReadTokens })} \xB7 $${usage2.costUsd.toFixed(2)}`;
 var PipelineRun = class {
   /** Public: the supervisor consult invokes with its own contract/timeouts, outside invokeRole. */
   driver;
@@ -26593,8 +26818,8 @@ var PipelineRun = class {
   progress(message) {
     this.runState.progress(message);
   }
-  update(patch) {
-    return this.runState.update(patch);
+  update({ patch }) {
+    return this.runState.update({ patch });
   }
   parkMessage() {
     return `run parked: harness rate limited or overloaded \u2014 resume with \`lightsout resume --run ${this.current().runId}\` when the window resets.`;
@@ -26617,7 +26842,7 @@ var PipelineRun = class {
   async recordUsage({ step, usage: usage2 }) {
     await this.runState.recordUsage({ step, usage: usage2 });
     if (usage2) {
-      this.progress(`  ${step} \xB7 usage: ${formatUsage(usage2)}`);
+      this.progress(`  ${step} \xB7 usage: ${formatUsage({ usage: usage2 })}`);
     }
   }
   // Every agent invocation's full event stream (tool calls, chat text, the
@@ -26696,6 +26921,33 @@ var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isT
 import { readFile as readFile18 } from "node:fs/promises";
 import { join as join31, relative as relative3 } from "node:path";
 
+// src/common/utils/isToolingConfigFile.ts
+var isToolingConfigFile = ({ path, packagesDir }) => {
+  const segments = path.split("/");
+  const name = segments.at(-1) ?? "";
+  const folder = segments.slice(0, -1);
+  if (!/\.config\.(c|m)?[jt]s$/i.test(name)) {
+    return false;
+  }
+  return folder.length === 0 || folder.length === 2 && folder[0] === packagesDir;
+};
+
+// src/common/utils/isUnloadableSourceFile.ts
+var hasModuleScopeAwait = ({ node, compiler }) => {
+  if (compiler.isFunctionLike(node) || compiler.isClassLike(node)) {
+    return false;
+  }
+  if (compiler.isAwaitExpression(node) || compiler.isForOfStatement(node) && node.awaitModifier !== void 0) {
+    return true;
+  }
+  return node.forEachChild((child) => hasModuleScopeAwait({ node: child, compiler })) === true;
+};
+var isUnloadableSourceFile = ({ path, content, compiler }) => {
+  const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
+  const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
+  return source.statements.some((statement) => hasModuleScopeAwait({ node: statement, compiler }));
+};
+
 // src/coverage/common/utils/buildMissingSummaryMessage.ts
 var buildMissingSummaryMessage = ({ summaryPath, scope }) => `no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran \u2014 configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverage-summary-path in lightsout.config.json. \`lightsout doctor\` checks this.`;
 
@@ -26753,10 +27005,13 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   if (changedFiles.length === 0 || compiler === void 0) {
     return void 0;
   }
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const candidates = [];
-  for (const file2 of changedFiles.filter((changed) => isTestableSourceFile(changed) && !isTestFile({ path: changed }))) {
+  for (const file2 of changedFiles.filter(
+    (changed) => isTestableSourceFile(changed) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
+  )) {
     const content = await readFile18(join31(cwd, file2), "utf8").catch(() => void 0);
-    if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler })) {
+    if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler }) && !isUnloadableSourceFile({ path: file2, content, compiler })) {
       candidates.push(file2);
     }
   }
@@ -26765,7 +27020,6 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   }
   const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath });
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   const monorepo = config2["package-gates"]?.["test-coverage"] !== void 0;
   const scopeOf = ({ file: file2 }) => {
     const packageDir = packageOf({ file: file2, packagesDir });
@@ -26805,18 +27059,20 @@ var maxWriterGroupFiles = 12;
 var buildCoverageBatch = ({ files, components, batchNumber, batchSize = defaultBatchSize }) => {
   const scope = files[0].scope;
   const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
-  const candidatesOf = (members2) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
-  const worstOf = (candidates) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
-  const groupOf = (component) => {
-    const candidates = candidatesOf(component);
+  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
+  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
+  const groupOf = ({ component }) => {
+    const candidates = candidatesOf({ members: component });
     if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
       return { members: component, candidates };
     }
     const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
     const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
-    return { members: members2, candidates: candidatesOf(members2) };
+    return { members: members2, candidates: candidatesOf({ members: members2 }) };
   };
-  const ranked = components.map((component) => groupOf(component)).filter((group) => group.candidates.length > 0).sort((left, right) => worstOf(left.candidates) - worstOf(right.candidates) || left.members[0].localeCompare(right.members[0]));
+  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
+    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
+  );
   const members = [];
   const tracked = [];
   for (const group of ranked) {
@@ -26970,8 +27226,8 @@ import { dirname as dirname6 } from "node:path";
 // src/common/utils/collectBatchChanges.ts
 var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
   const attributed = new Set(attributedFiles);
-  const isGenerated = (file2) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated(file2));
+  const isGenerated = ({ file: file2 }) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated({ file: file2 }));
   return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
 };
 
@@ -27047,6 +27303,7 @@ var runCoverageBatch = async ({
 }) => {
   const rationale = [];
   const reportedFiles = /* @__PURE__ */ new Set();
+  let changedFiles = [];
   const coverageDir = dirname6(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
   const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
   let invocationCount = 0;
@@ -27067,20 +27324,23 @@ var runCoverageBatch = async ({
       recordUsage
     });
   };
-  const gates2 = () => runBatchGates({ cwd, config: config2, coverage: false, runId, step: batch.id, onProgress });
+  const gates = () => runBatchGates({ cwd, config: config2, coverage: false, runId, step: batch.id, onProgress });
   const testsOnly = async () => {
-    const changed2 = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
+    changedFiles = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
       (path) => !isMeasurementOutput({ path, coverageDir, packagesDir })
     );
-    const offenders = changed2.filter((path) => !isTestFile({ path }));
+    const offenders = changedFiles.filter((path) => !isTestFile({ path }));
     return {
-      changed: changed2,
       error: offenders.length === 0 ? void 0 : `${batch.id}: this run may change no source file, but these are modified:
 ${offenders.map((path) => `  ${path}`).join("\n")}
 The tree is left as it stands \u2014 revert these changes by hand before resuming, since the engine never reverts and a resumed run would measure the contaminated tree.`
     };
   };
-  const reportOf = ({ outcome: outcome2, files }) => ({ outcome: outcome2, files, rationale });
+  const finish = ({ outcome, files }) => ({
+    kind: "done",
+    report: { outcome, files, rationale },
+    changedFiles
+  });
   const unmeasured = () => batch.files.map((file2) => ({ path: file2.path, beforePct: file2.statementsPct, afterPct: file2.statementsPct }));
   const measure = async () => {
     const measured2 = await runCoverageCheck({ cwd, config: config2, scope: batch.scope, runId, step: batch.id });
@@ -27101,10 +27361,10 @@ The tree is left as it stands \u2014 revert these changes by hand before resumin
       return { kind: "failed", error: violated.error };
     }
     const salvaged = await measure();
-    if (salvaged.improved && !await gates2()) {
+    if (salvaged.improved && !await gates()) {
       rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but coverage improved and gates are green`);
       onProgress(`${batch.id}: invocation failed but coverage moved on disk \u2014 salvaged as resolved`);
-      return { kind: "done", report: reportOf({ outcome: BatchOutcome.Resolved, files: salvaged.files }), changedFiles: violated.changed };
+      return finish({ outcome: BatchOutcome.Resolved, files: salvaged.files });
     }
     return { kind: "failed", error: `${batch.id}: ${attempt.failure}` };
   }
@@ -27116,13 +27376,12 @@ The tree is left as it stands \u2014 revert these changes by hand before resumin
   if (report.status === WorkReportStatus.TerminatedScope || report.status === WorkReportStatus.Failed) {
     const marker = report.status === WorkReportStatus.TerminatedScope ? "scope" : "failed";
     rationale.push(...report.failures.map((entry) => `[${marker}] ${entry}`));
-    return { kind: "done", report: reportOf({ outcome: BatchOutcome.Declined, files: unmeasured() }), changedFiles: checked.changed };
+    return finish({ outcome: BatchOutcome.Declined, files: unmeasured() });
   }
   if (report.status !== WorkReportStatus.Complete) {
     return { kind: "escalated", error: `${batch.id}: ${report.status} \u2014 ${report.failures.join("; ")}` };
   }
-  let changed = checked.changed;
-  let gateError = await gates2();
+  let gateError = await gates();
   for (let retry = 1; gateError && retry <= maxCheapFixRetries; retry += 1) {
     onProgress(`${batch.id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
     const fix = await invoke({
@@ -27142,16 +27401,14 @@ The tree is left as it stands \u2014 revert these changes by hand before resumin
     if (refixed.error) {
       return { kind: "failed", error: refixed.error };
     }
-    changed = refixed.changed;
-    gateError = await gates2();
+    gateError = await gates();
   }
   if (gateError) {
     return { kind: "failed", error: `${batch.id}: gates still red after ${maxCheapFixRetries} fix attempt(s)
 ${gateError}` };
   }
   const measured = await measure();
-  const outcome = measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined;
-  return { kind: "done", report: reportOf({ outcome, files: measured.files }), changedFiles: changed };
+  return finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
 };
 
 // src/coverage/seedCoverageResumeState.ts
@@ -27348,8 +27605,8 @@ ${gateError}` });
 };
 var runCoveragePipeline = (params) => withRunLock({ params, run: executeCoverage });
 
-// src/pipeline/common/utils/gates.ts
-var gates = async ({ run, coverage }) => {
+// src/pipeline/common/utils/runVerificationGates.ts
+var runVerificationGates = async ({ run, coverage }) => {
   const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const hasRootChanges = run.current().changedFiles.some((file2) => packageOf({ file: file2, packagesDir }) === void 0);
   const error51 = await runGates({
@@ -27381,7 +27638,7 @@ var cleanSlateStep = ({ run }) => {
     const record2 = run.nextRecord({ id: "clean-slate" });
     await run.setStep({ record: record2 });
     run.progress(`step clean-slate \u2014 attempt ${record2.attempts}`);
-    const error51 = await gates({ run, coverage: true });
+    const error51 = await runVerificationGates({ run, coverage: true });
     if (error51) {
       return run.stop({
         record: record2,
@@ -27444,7 +27701,7 @@ ${result.stdout}
 ${result.stderr}`
       });
     }
-    const error51 = await gates({ run, coverage: true });
+    const error51 = await runVerificationGates({ run, coverage: true });
     if (error51) {
       return run.stop({
         record: record2,
@@ -27464,12 +27721,12 @@ var consumerRelative = ({ gitPrefix, file: file2 }) => gitPrefix && file2.starts
 
 // src/pipeline/common/utils/collectChanged.ts
 var collectChanged = async ({ run, gitPrefix, reports }) => {
-  const isGeneratedFile = (file2) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const isGeneratedFile = ({ file: file2 }) => (run.config.generated ?? []).some((prefix) => file2.startsWith(prefix));
   const packagesDir = run.config["packages-dir"] ?? "packages";
   const fromGit = (await readGitChangedFiles({ cwd: run.cwd }) ?? []).filter(
-    (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile(file2)
+    (file2) => !run.current().baselineDirtyFiles.includes(file2) && !isGeneratedFile({ file: file2 })
   );
-  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile(file2));
+  const fromReports = reports.flatMap((report) => report.changedFiles.map((file2) => consumerRelative({ gitPrefix, file: file2.path }))).filter((file2) => !isGeneratedFile({ file: file2 }));
   const changedFiles = [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
   const fromFiles = changedFiles.flatMap((file2) => {
     const packageDir = packageOf({ file: file2, packagesDir });
@@ -27739,6 +27996,18 @@ var listStandardsRules = async ({ cwd, config: config2 }) => {
     }
   }
   return listings.sort((first, second) => first.rule.localeCompare(second.rule));
+};
+
+// src/standardsCheck/common/paths/getStandardsSnapshotsDir.ts
+import { join as join38 } from "node:path";
+var getStandardsSnapshotsDir = ({ cwd }) => {
+  return join38(cwd, ".lightsout", "standards-check");
+};
+
+// src/standardsCheck/common/paths/getStandardsCheckPath.ts
+import { join as join39 } from "node:path";
+var getStandardsCheckPath = ({ cwd }) => {
+  return join39(cwd, ".lightsout", "standards-check.json");
 };
 
 // ../../node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
@@ -38766,7 +39035,7 @@ var TokensMap = class {
   }
 };
 function generateMapsForFormats(id, data, tokens, options) {
-  return Object.values(groupByFormat(tokens)).map((formatTokens2) => new TokensMap(id, data, formatTokens2, formatTokens2[0].format, options));
+  return Object.values(groupByFormat(tokens)).map((formatTokens) => new TokensMap(id, data, formatTokens, formatTokens[0].format, options));
 }
 function createTokensMaps(id, data, tokens, options) {
   return generateMapsForFormats(id, data, tokens, options);
@@ -39458,12 +39727,12 @@ var Tokenizer = class {
 
 // src/standardsCheck/common/checkInputs/readIntoCache.ts
 import { readFile as readFile24 } from "node:fs/promises";
-import { join as join38 } from "node:path";
+import { join as join40 } from "node:path";
 var readIntoCache = async ({ cwd, paths, cache }) => {
   const texts = /* @__PURE__ */ new Map();
   for (const path of paths) {
     if (!cache.has(path)) {
-      const text = await readFile24(join38(cwd, path), "utf8").catch(() => void 0);
+      const text = await readFile24(join40(cwd, path), "utf8").catch(() => void 0);
       if (text !== void 0) {
         cache.set(path, text);
       }
@@ -39508,24 +39777,30 @@ var buildCloneSpansInput = async ({ cwd, source, settings, cache }) => {
   return { kind: StandardsInputKind.CloneSpans, cwd, source, spans };
 };
 
-// src/standardsCheck/common/checkInputs/buildFileListInput.ts
+// src/standardsCheck/common/checkInputs/readPackageDependencies.ts
 import { readdir as readdir12 } from "node:fs/promises";
-import { join as join39 } from "node:path";
-var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir }) => {
+import { join as join41 } from "node:path";
+var readPackageDependencies = async ({ cwd, packagesDir }) => {
   const dependencies = /* @__PURE__ */ new Map();
-  dependencies.set(".", await getDependencyNames({ manifestPath: join39(cwd, "package.json") }) ?? []);
-  const children = await readdir12(join39(cwd, packagesDir)).catch(() => []);
+  dependencies.set(".", await getDependencyNames({ manifestPath: join41(cwd, "package.json") }) ?? []);
+  const children = await readdir12(join41(cwd, packagesDir)).catch(() => []);
   for (const name of children.sort()) {
-    const names = await getDependencyNames({ manifestPath: join39(cwd, packagesDir, name, "package.json") });
+    const names = await getDependencyNames({ manifestPath: join41(cwd, packagesDir, name, "package.json") });
     if (names !== void 0) {
       dependencies.set(`${packagesDir}/${name}`, names);
     }
   }
+  return dependencies;
+};
+
+// src/standardsCheck/common/checkInputs/buildFileListInput.ts
+var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir }) => {
+  const dependencies = await readPackageDependencies({ cwd, packagesDir });
   return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies, standardsPackages };
 };
 
 // src/standardsCheck/common/checkInputs/buildFileTextInput.ts
-var tsconfigCandidates = ({ files }) => {
+var aliasSourceCandidates = ({ files }) => {
   const folders = /* @__PURE__ */ new Set();
   for (const file2 of files) {
     let cut = file2.lastIndexOf("/");
@@ -39538,12 +39813,12 @@ var tsconfigCandidates = ({ files }) => {
       cut = folder.lastIndexOf("/");
     }
   }
-  return ["tsconfig.json", ...[...folders].map((folder) => `${folder}/tsconfig.json`)];
+  return ["tsconfig.json", "package.json", ...[...folders].flatMap((folder) => [`${folder}/tsconfig.json`, `${folder}/package.json`])];
 };
 var buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, cache }) => {
   const inScope = [.../* @__PURE__ */ new Set([...files, ...referenceFiles])];
   await readIntoCache({ cwd, paths: inScope, cache });
-  await readIntoCache({ cwd, paths: tsconfigCandidates({ files: inScope }), cache });
+  await readIntoCache({ cwd, paths: aliasSourceCandidates({ files: inScope }), cache });
   return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache, standardsPackages };
 };
 
@@ -39562,14 +39837,16 @@ var buildSyntaxTreeInput = async ({
   referenceFiles,
   standardsPackages,
   compiler,
-  cache
+  cache,
+  packagesDir
 }) => {
   const texts = await readIntoCache({ cwd, paths: source, cache });
+  const dependencies = await readPackageDependencies({ cwd, packagesDir });
   const trees = /* @__PURE__ */ new Map();
   for (const [path, text] of texts) {
     trees.set(path, compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true));
   }
-  return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPackages, compiler, trees };
+  return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPackages, compiler, trees, dependencies };
 };
 
 // src/standardsCheck/common/checkInputs/buildTestFileInput.ts
@@ -39609,7 +39886,7 @@ var buildCheckInput = async ({
       if (kind === StandardsInputKind.ImportGraph) {
         return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler });
       }
-      return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, cache });
+      return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, cache, packagesDir });
     }
   }
 };
@@ -39617,26 +39894,39 @@ var buildCheckInput = async ({
 // src/standardsCheck/common/constants/typescriptInputKinds.ts
 var typescriptInputKinds = /* @__PURE__ */ new Set([StandardsInputKind.SyntaxTree, StandardsInputKind.ImportGraph]);
 
-// src/standardsCheck/common/utils/findFoldersWithoutTsconfig.ts
-var findFoldersWithoutTsconfig = ({ files, contents }) => {
+// src/standardsCheck/common/utils/findFoldersWithoutAliasSource.ts
+var declaresImports = ({ text }) => {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  if (typeof data !== "object" || data === null || !("imports" in data)) {
+    return false;
+  }
+  return typeof data.imports === "object" && data.imports !== null && !Array.isArray(data.imports);
+};
+var findFoldersWithoutAliasSource = ({ files, contents }) => {
   const answered = /* @__PURE__ */ new Map();
-  const parentOf = (folder) => {
+  const parentOf = ({ folder }) => {
     const cut = folder.lastIndexOf("/");
     return cut === -1 ? "." : folder.slice(0, cut);
   };
-  const hasTsconfig = (folder) => {
+  const hasAliasSource = ({ folder }) => {
     const cached2 = answered.get(folder);
     if (cached2 !== void 0) {
       return cached2;
     }
-    const found = contents.has(folder === "." ? "tsconfig.json" : `${folder}/tsconfig.json`) || folder !== "." && hasTsconfig(parentOf(folder));
+    const manifest = contents.get(folder === "." ? "package.json" : `${folder}/package.json`);
+    const found = contents.has(folder === "." ? "tsconfig.json" : `${folder}/tsconfig.json`) || manifest !== void 0 && declaresImports({ text: manifest }) || folder !== "." && hasAliasSource({ folder: parentOf({ folder }) });
     answered.set(folder, found);
     return found;
   };
   const uncovered = /* @__PURE__ */ new Set();
   for (const file2 of files) {
-    const folder = parentOf(file2);
-    if (!hasTsconfig(folder)) {
+    const folder = parentOf({ folder: file2 });
+    if (!hasAliasSource({ folder })) {
       uncovered.add(folder);
     }
   }
@@ -39731,18 +40021,29 @@ var runPackageChecks = async ({
   if (skipped.length > 0) {
     notes.push(`${skipped.join(", ")} skipped \u2014 no typescript resolvable from the target repo`);
   }
-  const uncovered = live2.some((rule) => rule.inputKind === StandardsInputKind.FileText) ? findFoldersWithoutTsconfig({ files: allFiles, contents: cache }) : [];
+  const uncovered = live2.some((rule) => rule.inputKind === StandardsInputKind.FileText) ? findFoldersWithoutAliasSource({ files: allFiles, contents: cache }) : [];
   if (uncovered.length > 0) {
     notes.push(
-      `no tsconfig above ${uncovered.length} folder(s) \u2014 path aliases are unknown there, so the barrel and import rules stayed silent rather than guess: ${uncovered.slice(0, 5).join(", ")}${uncovered.length > 5 ? ", \u2026" : ""}`
+      `no package.json with imports and no tsconfig above ${uncovered.length} folder(s) \u2014 path aliases are unknown there, so the barrel and import rules stayed silent rather than guess: ${uncovered.slice(0, 5).join(", ")}${uncovered.length > 5 ? ", \u2026" : ""}`
     );
   }
   return { findings, notes };
 };
 
-// src/standardsCheck/runStandardsCheck.ts
+// src/standardsCheck/writeStandardsSnapshot.ts
 import { mkdir as mkdir7, writeFile as writeFile7 } from "node:fs/promises";
-import { join as join40 } from "node:path";
+import { join as join42 } from "node:path";
+var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
+  const body = `${JSON.stringify(snapshot, void 0, "	")}
+`;
+  const snapshotsDir = getStandardsSnapshotsDir({ cwd });
+  const fileName = `${snapshot.at.replaceAll(":", "-").replaceAll(".", "-")}.json`;
+  await mkdir7(snapshotsDir, { recursive: true });
+  await writeFile7(getStandardsCheckPath({ cwd }), body, "utf8");
+  await writeFile7(join42(snapshotsDir, fileName), body, "utf8");
+};
+
+// src/standardsCheck/runStandardsCheck.ts
 var runStandardsCheck = async ({
   cwd,
   path,
@@ -39771,17 +40072,10 @@ var runStandardsCheck = async ({
   if (dominantNote !== void 0) {
     notes.push(dominantNote);
   }
-  const dir = join40(cwd, ".lightsout");
-  await mkdir7(dir, { recursive: true });
   const baseline = await applyStandardsBaseline({ cwd, path, findings, all, writeBaseline });
   notes.push(...baseline.notes);
   if (persist) {
-    await writeFile7(
-      join40(dir, "standards-check.json"),
-      `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
-`,
-      "utf8"
-    );
+    await writeStandardsSnapshot({ cwd, snapshot: { at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes } });
   }
   return { findings: baseline.reported, notes };
 };
@@ -39861,7 +40155,7 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 // src/standardsCheck/validateStandardsPackage.ts
 import { readdir as readdir13 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
-import { join as join41 } from "node:path";
+import { join as join43 } from "node:path";
 var fixtureSides = ["fail", "pass"];
 var getEngineTypescript = () => {
   let compiler;
@@ -39875,7 +40169,7 @@ var getEngineTypescript = () => {
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
   for (const side of fixtureSides) {
-    const entries = await readdir13(join41(fixturesPath, side)).catch(() => void 0);
+    const entries = await readdir13(join43(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
     }
@@ -39889,7 +40183,7 @@ var checkFixture = async ({
   side,
   compiler
 }) => {
-  const cwd = join41(rule.fixturesPath, side);
+  const cwd = join43(rule.fixturesPath, side);
   const { files } = await listSourceFiles({ cwd });
   const input = await buildCheckInput({
     kind: inputKind,
@@ -40093,7 +40387,7 @@ var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
         await run.setStep({ record: { ...next, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
       }
     }
-    const error51 = await gates({ run, coverage });
+    const error51 = await runVerificationGates({ run, coverage });
     return { rateLimited: false, record: next, error: error51 };
   };
   const runFix = async ({
@@ -40111,7 +40405,7 @@ var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
     let record2 = run.nextRecord({ id });
     await run.setStep({ record: record2 });
     run.progress(`step ${id} \u2014 attempt ${record2.attempts}`);
-    let error51 = await gates({ run, coverage });
+    let error51 = await runVerificationGates({ run, coverage });
     for (let retry = 1; error51 && retry <= maxCheapFixRetries2; retry += 1) {
       record2 = { ...record2, attempts: record2.attempts + 1 };
       await run.setStep({ record: record2 });
@@ -40216,7 +40510,7 @@ var workStep = ({ run, gitPrefix, id, build, requireChanges }) => {
 };
 
 // src/pipeline/common/constants/testWriterConcurrency.ts
-var testWriterConcurrency = 5;
+var testWriterConcurrency = 10;
 
 // src/pipeline/steps/groupTestTargets.ts
 var maxWriterGroupFiles2 = 12;
@@ -40371,46 +40665,63 @@ var runWriterBatches = async ({
   for (const chain of warmed ? chains.slice(1) : chains) {
     restChains.push(() => runChain({ chain, spawnWriter }));
   }
-  for (let start = 0; start < restChains.length && !aggregate.isParked(); start += testWriterConcurrency) {
-    if (isSettled()) {
-      await collectWarm();
-    }
-    if (aggregate.isParked()) {
-      break;
-    }
-    const chainResults = await Promise.all(restChains.slice(start, start + testWriterConcurrency).map((chain) => chain()));
-    for (const result of chainResults.flat()) {
-      await aggregate.collect({ result });
-    }
+  if (isSettled()) {
+    await collectWarm();
   }
+  let next = 0;
+  const runSlot = async () => {
+    while (next < restChains.length && !aggregate.isParked()) {
+      const chain = restChains[next];
+      next += 1;
+      if (chain === void 0) {
+        return;
+      }
+      const results = await chain();
+      if (isSettled()) {
+        await collectWarm();
+      }
+      for (const result of results) {
+        await aggregate.collect({ result });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(testWriterConcurrency, restChains.length) }, () => runSlot()));
   await collectWarm();
   return aggregate.result();
 };
 
 // src/pipeline/steps/selectTestTargets.ts
 import { readFile as readFile25, stat as stat5 } from "node:fs/promises";
-import { join as join42 } from "node:path";
-var selectTestTargets = async ({ run, candidates, compiler }) => {
+import { join as join44 } from "node:path";
+var selectTestTargets = async ({
+  run,
+  candidates,
+  compiler,
+  packagesDir
+}) => {
   const targets = [];
   const inert = [];
+  const unreachable = [];
   const deleted = [];
   for (const file2 of candidates) {
-    const content = await readFile25(join42(run.cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile25(join44(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists = await stat5(join42(run.cwd, file2)).then(
+      const exists = await stat5(join44(run.cwd, file2)).then(
         () => true,
         () => false
       );
       (exists ? targets : deleted).push(file2);
       continue;
     }
-    if (compiler && isInertSourceFile({ path: file2, content, compiler })) {
+    if (isToolingConfigFile({ path: file2, packagesDir }) || compiler && isUnloadableSourceFile({ path: file2, content, compiler })) {
+      unreachable.push(file2);
+    } else if (compiler && isInertSourceFile({ path: file2, content, compiler })) {
       inert.push(file2);
     } else {
       targets.push(file2);
     }
   }
-  return { targets, inert, deleted };
+  return { targets, inert, unreachable, deleted };
 };
 
 // src/pipeline/steps/writeTestsStep.ts
@@ -40420,12 +40731,17 @@ var writeTestsStep = ({ run, gitPrefix, planContent, testStandards }) => {
     await run.setStep({ record: record2 });
     const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
     const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-    const { targets, inert, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler });
+    const { targets, inert, unreachable, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler, packagesDir });
     if (deleted.length > 0) {
       run.progress(`write-tests: ${deleted.length} deleted file(s) skipped (removed by the plan, nothing to cover): ${deleted.join(", ")}`);
     }
     if (inert.length > 0) {
       run.progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(", ")}`);
+    }
+    if (unreachable.length > 0) {
+      run.progress(
+        `write-tests: ${unreachable.length} file(s) skipped \u2014 real code no unit test can run (a tool's own settings file, or a module-scope await the runner cannot load): ${unreachable.join(", ")}`
+      );
     }
     const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
     const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
@@ -40550,7 +40866,7 @@ var recheckUnreachable = async ({ run }) => {
   const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
   const targets = recorded.filter((file2) => universe.includes(file2));
   const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
-  await run.update({ unreachableChangedFiles: orphans });
+  await run.update({ patch: { unreachableChangedFiles: orphans } });
   if (orphans.length > 0) {
     run.progress(
       `warning unreachable-changed-files: ${orphans.length} changed file(s) finished the run with no public surface reaching them: ${orphans.join(", ")} \u2014 wire them into a barrel-exported surface (or delete them) in follow-up work; no tests cover them.`
@@ -40596,13 +40912,13 @@ var executePipeline = async ({
   const { planContent, overviewContent, standards, testStandards } = prepared;
   const gitPrefix = await readGitPrefix({ cwd });
   const steps = buildSteps({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor });
-  await run.update({ status: RunStatus.Running });
+  await run.update({ patch: { status: RunStatus.Running } });
   const stopped = await runSteps({ run, steps });
   if (stopped) {
     return stopped;
   }
   await recheckUnreachable({ run });
-  await run.update({ status: RunStatus.Passed, currentStep: null });
+  await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
   const passed = { ok: true, manifest: run.current() };
   return passed;
 };
@@ -40660,7 +40976,7 @@ var runPhasesPipeline = async ({
     if (step.status === RunStatus.Passed) {
       continue;
     }
-    const planPath = join43(dirname7(manifest.plan), step.id);
+    const planPath = join45(dirname7(manifest.plan), step.id);
     onProgress?.(`phase ${index + 1}/${total}: ${step.id}`);
     const recorded = PhaseReport.safeParse(step.report);
     const childManifest = recorded.success ? await readRunManifest({ cwd, runId: recorded.data.runId }).catch(() => void 0) : void 0;
@@ -40813,10 +41129,10 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
 // src/drivers/common/utils/writeSystemPromptFile.ts
 import { mkdtemp, rm, writeFile as writeFile8 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join44 } from "node:path";
+import { join as join46 } from "node:path";
 var writeSystemPromptFile = async ({ systemPrompt }) => {
-  const dir = await mkdtemp(join44(tmpdir(), "lightsout-system-prompt-"));
-  const path = join44(dir, "system-prompt.md");
+  const dir = await mkdtemp(join46(tmpdir(), "lightsout-system-prompt-"));
+  const path = join46(dir, "system-prompt.md");
   await writeFile8(path, systemPrompt, "utf8");
   return { path, cleanup: () => rm(dir, { recursive: true, force: true }).catch(() => void 0) };
 };
@@ -40896,15 +41212,15 @@ ${stderr}`),
 // src/drivers/createCodexDriver.ts
 import { mkdtemp as mkdtemp2, readFile as readFile26, rm as rm2 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join45 } from "node:path";
+import { join as join47 } from "node:path";
 var rateLimitPattern = /usage limit|rate limit|limit reached|quota|529|overloaded/i;
 var createCodexDriver = () => {
   const driver = {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp2(join45(tmpdir2(), "lightsout-codex-"));
-      const outFile = join45(outDir, "last-message.txt");
+      const outDir = await mkdtemp2(join47(tmpdir2(), "lightsout-codex-"));
+      const outFile = join47(outDir, "last-message.txt");
       const args = buildCodexArgs({ outFile, model, effort, permissions });
       const fullPrompt = systemPrompt ? `# Role instructions
 
@@ -41011,9 +41327,9 @@ var implementCommand = async ({ flags, cwd }) => {
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat6 } from "node:fs/promises";
-import { join as join46 } from "node:path";
+import { join as join48 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join46(cwd, "lightsout.config.json");
+  const configPath = join48(cwd, "lightsout.config.json");
   const present = await stat6(configPath).then(
     () => true,
     () => false
@@ -41027,15 +41343,15 @@ var resolveConfigAndDriver = async ({ cwd, command }) => {
 
 // src/runPromptImprovement.ts
 import { readdir as readdir14 } from "node:fs/promises";
-import { join as join47 } from "node:path";
+import { join as join49 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: "no-friction", friction };
   }
-  const files = await readdir14(join47(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join47(promptsDir, file2));
+  const files = await readdir14(join49(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join49(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -41135,7 +41451,7 @@ var getRequiredFlag = async ({ flags, name }) => {
 // src/cli/plan/common/utils/exitOnPlanFailure.ts
 var survivesPlanFailure = (result) => result.status !== "failed" && result.status !== "paused-rate-limit";
 var planFailureMessageOf = ({ result }) => "error" in result && typeof result.error === "string" ? result.error : `plan run ${result.status}`;
-var exitOnPlanFailure = async (result) => {
+var exitOnPlanFailure = async ({ result }) => {
   if (survivesPlanFailure(result)) {
     return result;
   }
@@ -41157,7 +41473,7 @@ var planRunOptions = ({ cwd, driver, name, standards, config: config2 }) => ({
 });
 
 // src/plan/checkPlanPaths.ts
-import { basename as basename3, join as join48 } from "node:path";
+import { basename as basename3, join as join50 } from "node:path";
 
 // src/plan/common/paths/pathExists.ts
 import { stat as stat7 } from "node:fs/promises";
@@ -41170,7 +41486,7 @@ var pathExists = ({ path }) => stat7(path).then(
 var checkPlanPaths = async ({ plan, cwd, planPath }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join48(cwd, path) })) {
+    if (!await pathExists({ path: join50(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `referenced path does not exist: ${path}`,
@@ -41180,7 +41496,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
     }
   }
   for (const path of plan.createPaths) {
-    if (await pathExists({ path: join48(cwd, path) })) {
+    if (await pathExists({ path: join50(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `Files to Create path already exists: ${path}`,
@@ -41194,7 +41510,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
 
 // src/plan/checkVerificationScripts.ts
 import { readFile as readFile27 } from "node:fs/promises";
-import { basename as basename4, join as join49 } from "node:path";
+import { basename as basename4, join as join51 } from "node:path";
 
 // src/plan/common/utils/getManifestScriptKeys.ts
 var Manifest2 = external_exports.object({ scripts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() });
@@ -41208,7 +41524,7 @@ var getManifestScriptKeys = ({ raw }) => {
 };
 
 // src/plan/checkVerificationScripts.ts
-var scriptNameOf = (command) => {
+var scriptNameOf = ({ command }) => {
   const runScript = extractRunScriptName({ command });
   if (runScript !== void 0) {
     return runScript;
@@ -41237,7 +41553,7 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       }
     }
   }
-  const manifestPaths = [join49(cwd, "package.json"), ...[...packageDirs].map((dir) => join49(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join51(cwd, "package.json"), ...[...packageDirs].map((dir) => join51(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     const raw = await readFile27(manifestPath, "utf8").catch(() => void 0);
@@ -41252,7 +41568,7 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
     if (configCommands.has(command)) {
       continue;
     }
-    const scriptName = scriptNameOf(command);
+    const scriptName = scriptNameOf({ command });
     if (scriptName === void 0) {
       continue;
     }
@@ -41388,7 +41704,7 @@ import { readFile as readFile29 } from "node:fs/promises";
 import { basename as basename6 } from "node:path";
 
 // src/plan/parsePlan.ts
-var parseSections = (lines) => {
+var parseSections = ({ lines }) => {
   const sections = /* @__PURE__ */ new Map();
   let current;
   for (const line of lines) {
@@ -41419,7 +41735,7 @@ var pathsFromLines = ({ sectionLines, lineMatches }) => {
   }
   return paths;
 };
-var commandsFromVerification = (sectionLines) => {
+var commandsFromVerification = ({ sectionLines }) => {
   if (!sectionLines) {
     return [];
   }
@@ -41437,7 +41753,7 @@ var commandsFromVerification = (sectionLines) => {
 };
 var parsePlan = ({ content, base }) => {
   const lines = content.split("\n");
-  const sections = parseSections(lines);
+  const sections = parseSections({ lines });
   const title = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, "").trim() ?? "";
   const variant = base === "overview.md" || sections.has("Phases") && sections.has("Cross-Phase Dependencies") || /—\s*Overview\s*$/.test(title) ? "overview" : "implementable";
   return {
@@ -41448,7 +41764,7 @@ var parsePlan = ({ content, base }) => {
     createPaths: planCreatePaths({ planText: content }),
     modifyPaths: pathsFromLines({ sectionLines: sections.get("Files to Modify"), lineMatches: (line) => /^###\s+/.test(line) }),
     mirrorPaths: pathsFromLines({ sectionLines: sections.get("Patterns to Mirror"), lineMatches: (line) => /^\s*-\s+/.test(line) }),
-    verificationCommands: commandsFromVerification(sections.get("Verification")),
+    verificationCommands: commandsFromVerification({ sectionLines: sections.get("Verification") }),
     lines
   };
 };
@@ -41550,19 +41866,19 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
 
 // src/plan/readBrainstormDecisions.ts
 import { access as access2 } from "node:fs/promises";
-import { join as join52 } from "node:path";
+import { join as join54 } from "node:path";
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
 import { readFile as readFile30 } from "node:fs/promises";
-import { join as join51 } from "node:path";
+import { join as join53 } from "node:path";
 
 // src/plan/planWorkspaceDir.ts
-import { join as join50 } from "node:path";
-var planWorkspaceDir = ({ cwd, name }) => join50(cwd, ".lightsout", "plans", name);
+import { join as join52 } from "node:path";
+var planWorkspaceDir = ({ cwd, name }) => join52(cwd, ".lightsout", "plans", name);
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
 var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join51(planWorkspaceDir({ cwd, name }), fileName);
+  const filePath = join53(planWorkspaceDir({ cwd, name }), fileName);
   const raw = await readFile30(filePath, "utf8").catch(() => {
     throw new Error(notFound(filePath));
   });
@@ -41572,7 +41888,7 @@ var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) =>
 // src/plan/readBrainstormDecisions.ts
 var brainstormDecisionsFile = "brainstorm-decisions.json";
 var readBrainstormDecisions = async ({ cwd, name }) => {
-  const filePath = join52(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
+  const filePath = join54(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
   const present = await access2(filePath).then(
     () => true,
     () => false
@@ -41612,11 +41928,11 @@ var readPlanFacts = async ({ cwd, name }) => {
 };
 
 // src/plan/repairPlanStructure.ts
-import { join as join54 } from "node:path";
+import { join as join56 } from "node:path";
 
 // src/plan/common/utils/createPlanAgentRunner.ts
 import { writeFile as writeFile9 } from "node:fs/promises";
-import { join as join53 } from "node:path";
+import { join as join55 } from "node:path";
 var createPlanAgentRunner = ({
   cwd,
   driver,
@@ -41627,7 +41943,7 @@ var createPlanAgentRunner = ({
   permissions,
   timeoutMs
 }) => {
-  const onEvent = createEventFileSink({ path: join53(workspaceDir, `${step}-stream.jsonl`) });
+  const onEvent = createEventFileSink({ path: join55(workspaceDir, `${step}-stream.jsonl`) });
   return ({ invocation, contract, label, allowedCommands }) => invokeAgentWithContract({
     driver,
     cwd,
@@ -41641,7 +41957,7 @@ var createPlanAgentRunner = ({
     onEvent,
     onRejectedOutput: async ({ text, attempt }) => {
       const name = `${step}-rejected-${label === void 0 ? "" : `${label}-`}${attempt}.txt`;
-      await writeFile9(join53(workspaceDir, name), text, "utf8").catch(() => void 0);
+      await writeFile9(join55(workspaceDir, name), text, "utf8").catch(() => void 0);
     }
   });
 };
@@ -41672,9 +41988,9 @@ var repairPlanStructure = async ({
       invocation: buildPlanRepairInvocation({
         findings,
         planPaths,
-        decisionsPath: join54(workspaceDir, "decisions.json"),
+        decisionsPath: join56(workspaceDir, "decisions.json"),
         brainstormDecisionsPath,
-        factsPath: join54(workspaceDir, "facts.json")
+        factsPath: join56(workspaceDir, "facts.json")
       }),
       contract: PlanFixReport
     });
@@ -41701,7 +42017,7 @@ var repairPlanStructure = async ({
 };
 
 // src/plan/runPlanDedup.ts
-import { join as join56 } from "node:path";
+import { join as join58 } from "node:path";
 
 // src/common/utils/writeJsonFile.ts
 import { writeFile as writeFile10 } from "node:fs/promises";
@@ -41715,10 +42031,10 @@ import { mkdir as mkdir8 } from "node:fs/promises";
 
 // src/plan/common/utils/resolvePlanDeliverable.ts
 import { readdir as readdir15, readFile as readFile31 } from "node:fs/promises";
-import { join as join55 } from "node:path";
+import { join as join57 } from "node:path";
 var resolvePlanDeliverable = async ({ cwd, name }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  const singlePath = join55(dir, "plan.md");
+  const singlePath = join57(dir, "plan.md");
   let overviewPath;
   let overviewText;
   const files = [];
@@ -41728,7 +42044,7 @@ var resolvePlanDeliverable = async ({ cwd, name }) => {
     const dirEntries = await readdir15(dir).catch(() => []);
     const entries = dirEntries.filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
     for (const entry of entries) {
-      const path = join55(dir, entry);
+      const path = join57(dir, entry);
       const text = await readFile31(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -41806,7 +42122,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join56(workspaceDir, "dedup.json");
+    const dedupPath2 = join58(workspaceDir, "dedup.json");
     await writeJsonFile({ path: dedupPath2, value: dedup2 });
     return { dedup: dedup2, dedupPath: dedupPath2 };
   };
@@ -41834,19 +42150,19 @@ var runPlanDedup = async ({
 
 // src/plan/runPlanDraft.ts
 import { mkdir as mkdir9 } from "node:fs/promises";
-import { join as join59 } from "node:path";
+import { join as join61 } from "node:path";
 
 // src/plan/common/paths/planDraftOutputs.ts
-import { join as join57 } from "node:path";
+import { join as join59 } from "node:path";
 var planDraftOutputs = ({ cwd, name, variant }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  return variant === PlanVariant.Single ? [{ path: join57(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join57(dir, "overview.md"), variant: PlanVariant.Overview }];
+  return variant === PlanVariant.Single ? [{ path: join59(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join59(dir, "overview.md"), variant: PlanVariant.Overview }];
 };
 
 // src/plan/common/paths/verifyDraftedFiles.ts
-import { isAbsolute as isAbsolute2, join as join58 } from "node:path";
+import { isAbsolute as isAbsolute2, join as join60 } from "node:path";
 var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
-  const planPaths = filesWritten.map((file2) => isAbsolute2(file2.path) ? file2.path : join58(cwd, file2.path));
+  const planPaths = filesWritten.map((file2) => isAbsolute2(file2.path) ? file2.path : join60(cwd, file2.path));
   if (planPaths.length === 0) {
     return { error: "plan-writer reported drafted but listed no files written" };
   }
@@ -41920,7 +42236,7 @@ var runPlanDraft = async ({
     name,
     planPaths,
     workspaceDir,
-    brainstormDecisionsPath: brainstorm ? join59(workspaceDir, "brainstorm-decisions.json") : void 0,
+    brainstormDecisionsPath: brainstorm ? join61(workspaceDir, "brainstorm-decisions.json") : void 0,
     config: config2,
     model,
     effort,
@@ -41942,7 +42258,7 @@ var runPlanDraft = async ({
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename7, join as join60 } from "node:path";
+import { basename as basename7, join as join62 } from "node:path";
 var runPlanGrade = async ({
   cwd,
   driver,
@@ -41989,7 +42305,7 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join60(workspaceDir, "grade.json");
+  const gradePath = join62(workspaceDir, "grade.json");
   await writeJsonFile({ path: gradePath, value: report });
   progress(`plan grade ${name}: ${grade} (${structural.length} structural, ${gaps.length} gap(s))`);
   return { status: "complete", workspaceDir, grade: report, gradePath };
@@ -42009,16 +42325,16 @@ var runPlanLint = async ({ cwd, name, onProgress }) => {
 
 // src/plan/runPlanVerifyFacts.ts
 import { access as access3, copyFile, mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join62, resolve as resolve6 } from "node:path";
+import { join as join64, resolve as resolve6 } from "node:path";
 
 // src/plan/verifyFacts.ts
 import { readFile as readFile32 } from "node:fs/promises";
-import { join as join61 } from "node:path";
+import { join as join63 } from "node:path";
 var verifyFacts = async ({ cwd, facts }) => {
   const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join61(cwd, path) });
+    const exists = await pathExists({ path: join63(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
@@ -42029,7 +42345,7 @@ var verifyFacts = async ({ cwd, facts }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join61(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join61(cwd, pkg, "package.json"))];
+    const manifestPaths = [join63(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join63(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
       const raw = await readFile32(manifestPath, "utf8").catch(() => void 0);
@@ -42065,7 +42381,7 @@ var snapshotNotes = async ({
   progress
 }) => {
   const source = resolve6(cwd, notesFile);
-  const destination = join62(workspaceDir, "notes.md");
+  const destination = join64(workspaceDir, "notes.md");
   const alreadyFrozen = await access3(destination).then(
     () => true,
     () => false
@@ -42086,7 +42402,7 @@ var snapshotNotes = async ({
 var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  const factsPath = join62(workspaceDir, "facts.json");
+  const factsPath = join64(workspaceDir, "facts.json");
   if (notesFile !== void 0) {
     const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
     if (snapshot.error !== void 0) {
@@ -42123,7 +42439,7 @@ var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
 
 // src/cli/plan/planDedupCommand.ts
 var planDedupCommand = async ({ cwd, driver, name, standards, config: config2 }) => {
-  const result = await exitOnPlanFailure(await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config: config2 })));
+  const result = await exitOnPlanFailure({ result: await runPlanDedup(planRunOptions({ cwd, driver, name, standards, config: config2 })) });
   const { dedup } = result;
   const count2 = dedup.findings.length;
   console.log(
@@ -42145,7 +42461,7 @@ dedup: ${result.dedupPath}`);
 var planDraftCommand = async ({ cwd, driver, name, standards, config: config2, flags }) => {
   const scopeFlag = getStringFlag({ flags, name: "scope" });
   const scope = scopeFlag === "phased" ? PlanVariant.Overview : scopeFlag === "single" ? PlanVariant.Single : void 0;
-  const result = await exitOnPlanFailure(await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config: config2 }), scope }));
+  const result = await exitOnPlanFailure({ result: await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config: config2 }), scope }) });
   if (result.status === "facts-error") {
     console.error(`
 ${red("facts error")} \u2014 the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
@@ -42179,7 +42495,7 @@ var printStructuralFinding = ({ finding }) => {
 
 // src/cli/plan/planGradeCommand.ts
 var planGradeCommand = async ({ cwd, driver, name, standards, config: config2 }) => {
-  const result = await exitOnPlanFailure(await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config: config2 })));
+  const result = await exitOnPlanFailure({ result: await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config: config2 })) });
   const { grade } = result;
   console.log(`
 ${bold(`plan grade ${name}`)} \u2014 ${grade.passed ? green(grade.grade) : red(grade.grade)} (graded ${grade.gradedAt})`);
@@ -42416,33 +42732,33 @@ var rulePriority = [
   "name-synonym"
 ];
 var maxBatchFindings = 12;
-var priorityOf = (rule) => {
+var priorityOf = ({ rule }) => {
   const index = rulePriority.indexOf(rule);
   return index === -1 ? rulePriority.length : index;
 };
 var batchFindings = ({ blocking, advisories, packagesDir }) => {
-  const areaOf = (path) => {
+  const areaOf = ({ path }) => {
     const segments = path.split("/");
     if (segments[0] === packagesDir && segments.length > 2 && segments[1]) {
       return `${packagesDir}/${segments[1]}`;
     }
     return segments.length > 1 && segments[0] ? segments[0] : "(root)";
   };
-  const folderOf = (finding) => {
-    const areas = new Set(finding.files.map((file2) => areaOf(file2.path)));
+  const folderOf = ({ finding }) => {
+    const areas = new Set(finding.files.map((file2) => areaOf({ path: file2.path })));
     return areas.size > 1 ? "(cross)" : [...areas][0] ?? "(root)";
   };
   const groups = /* @__PURE__ */ new Map();
   for (const finding of blocking) {
-    const folder = folderOf(finding);
+    const folder = folderOf({ finding });
     const key = `${finding.rule}\0${folder}`;
     const group = groups.get(key) ?? { rule: finding.rule, folder, findings: [] };
     group.findings.push(finding);
     groups.set(key, group);
   }
-  const crossLast = (folder) => folder === "(cross)" ? 1 : 0;
+  const crossLast = ({ folder }) => folder === "(cross)" ? 1 : 0;
   const ordered = [...groups.values()].sort(
-    (a, b) => priorityOf(a.rule) - priorityOf(b.rule) || a.rule.localeCompare(b.rule) || crossLast(a.folder) - crossLast(b.folder) || a.folder.localeCompare(b.folder)
+    (a, b) => priorityOf({ rule: a.rule }) - priorityOf({ rule: b.rule }) || a.rule.localeCompare(b.rule) || crossLast({ folder: a.folder }) - crossLast({ folder: b.folder }) || a.folder.localeCompare(b.folder)
   );
   const batches = [];
   for (const group of ordered) {
@@ -42508,14 +42824,14 @@ var getAttemptStop = async ({
   rationale,
   onProgress,
   remainingSiteKeys,
-  gates: gates2,
+  gates,
   finish
 }) => {
   let stop;
   if (!attempt.ok) {
     if (attempt.rateLimited) {
       stop = { kind: BatchStopKind.Parked };
-    } else if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates2()) {
+    } else if ((await remainingSiteKeys({ frozen: workFindings })).length === 0 && !await gates()) {
       rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but the sites are resolved and gates are green`);
       onProgress(`${batchId}: invocation failed but work verified on disk \u2014 salvaged as resolved`);
       stop = await finish({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] });
@@ -42536,7 +42852,7 @@ var getAttemptStop = async ({
 
 // src/refactor/initializeRun.ts
 import { readFile as readFile33, writeFile as writeFile12 } from "node:fs/promises";
-import { join as join63 } from "node:path";
+import { join as join65 } from "node:path";
 
 // src/refactor/buildWorklist.ts
 var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
@@ -42573,7 +42889,7 @@ var initializeRun = async ({
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile33(join63(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile33(join65(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -42586,9 +42902,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
     );
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join63(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join65(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile12(join63(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile12(join65(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -42638,8 +42954,8 @@ var RefactorRun = class {
   progress(message) {
     this.runState.progress(message);
   }
-  update(patch) {
-    return this.runState.update(patch);
+  update({ patch }) {
+    return this.runState.update({ patch });
   }
   setStep({ record: record2, patch }) {
     return this.runState.setStep({ record: record2, patch });
@@ -42714,7 +43030,7 @@ ${guidance}` : gateError;
 
 // src/refactor/invokeBatchAgent.ts
 import { mkdir as mkdir11, writeFile as writeFile13 } from "node:fs/promises";
-import { join as join64 } from "node:path";
+import { join as join66 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -42730,9 +43046,9 @@ var invokeBatchAgent = async ({
   advisoryOutcomes,
   recordUsage
 }) => {
-  const agentsDir = join64(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join66(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join64(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join66(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir11(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -42746,7 +43062,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile13(join64(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile13(join66(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
@@ -42771,7 +43087,7 @@ var maxCheapFixRetries3 = 2;
 
 // src/refactor/superviseBatch.ts
 import { mkdir as mkdir12, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join65 } from "node:path";
+import { join as join67 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -42785,10 +43101,10 @@ var superviseBatch = async ({
   onProgress,
   recordUsage,
   invokeGuidedFix,
-  gates: gates2
+  gates
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries4} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join65(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join67(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir12(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -42799,9 +43115,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join65(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join67(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile14(join65(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile14(join67(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
@@ -42824,7 +43140,7 @@ ${ruling.guidance}`
     if (!fix.ok && fix.rateLimited) {
       return { kind: "parked" };
     }
-    remainingError = await gates2();
+    remainingError = await gates();
   }
   if (remainingError) {
     const diagnosis = ruling ? `
@@ -42851,16 +43167,16 @@ var settleBatchGates = async ({
   onProgress,
   recordUsage,
   invokeFix,
-  gates: gates2
+  gates
 }) => {
-  let gateError = await gates2();
+  let gateError = await gates();
   for (let retry = 1; gateError && retry <= maxCheapFixRetries3; retry += 1) {
     onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries3}`);
     const fix = await invokeFix({ label: `fix-${retry}`, gateError });
     if (!fix.ok && fix.rateLimited) {
       return { kind: "parked" };
     }
-    gateError = await gates2();
+    gateError = await gates();
   }
   if (!gateError) {
     return { kind: "green" };
@@ -42878,7 +43194,7 @@ var settleBatchGates = async ({
     onProgress,
     recordUsage,
     invokeGuidedFix: ({ guidance }) => invokeFix({ label: "supervised-fix", gateError, guidance }),
-    gates: gates2
+    gates
   });
 };
 
@@ -42930,7 +43246,7 @@ var runBatch = async ({
     report: reportOf({ outcome, remainingSiteKeys: remainingSiteKeys2 }),
     changedFiles: await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })
   });
-  const gates2 = () => runBatchGates({ cwd, config: config2, coverage: true, runId, step: batch.id, onProgress });
+  const gates = () => runBatchGates({ cwd, config: config2, coverage: true, runId, step: batch.id, onProgress });
   const checkLive = () => runStandardsCheck({ cwd, path: checkPath, all: checkAll, persist: false });
   const remainingSiteKeys = async ({ frozen }) => {
     const { findings } = await checkLive();
@@ -42969,7 +43285,7 @@ var runBatch = async ({
       })
     });
     const changedNothing = attempt.ok && attempt.report.changedFiles.length === 0;
-    stop = await getAttemptStop({ batchId: batch.id, attempt, workFindings, rationale, onProgress, remainingSiteKeys, gates: gates2, finish });
+    stop = await getAttemptStop({ batchId: batch.id, attempt, workFindings, rationale, onProgress, remainingSiteKeys, gates, finish });
     if (stop) {
       break;
     }
@@ -42984,7 +43300,7 @@ var runBatch = async ({
       onProgress,
       recordUsage,
       invokeFix: ({ label, gateError, guidance }) => invoke({ label, invocation: buildFixInvocation({ gateError, guidance }) }),
-      gates: gates2
+      gates
     });
     if (settled2.kind === "parked") {
       stop = { kind: BatchStopKind.Parked };
@@ -43035,7 +43351,7 @@ var settleBatchOutcome = async ({ run, batch, record: record2, outcome, declineS
   run.progress(`${batch.id}: declined (${report.remainingSiteKeys.length} site(s) persist)`);
   if (streak >= maxConsecutiveDeclines2) {
     const error51 = `${maxConsecutiveDeclines2} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or a rule bug), not worth further agent spend.`;
-    await run.update({ status: RunStatus.Escalated, currentStep: null });
+    await run.update({ patch: { status: RunStatus.Escalated, currentStep: null } });
     run.progress(`refactor run stopped after ${batch.id} \u2014 ${RunStatus.Escalated}`);
     settlement.result = run.buildHaltedResult({ error: error51 });
   }
@@ -43053,7 +43369,7 @@ var runWorklistBatches = async ({ run, driver, worklist, batchInputs, maxBatches
       continue;
     }
     if (maxBatches !== void 0 && processed >= maxBatches) {
-      await run.update({ status: RunStatus.PausedBudget, currentStep: null });
+      await run.update({ patch: { status: RunStatus.PausedBudget, currentStep: null } });
       run.progress(`budget ceiling (${maxBatches} batch(es)) reached \u2014 resume with: lightsout refactor --run ${run.current().runId}`);
       result = run.buildHaltedResult({ error: `paused at --max-batches ${maxBatches} \u2014 resume with: lightsout refactor --run ${run.current().runId}` });
       break;
@@ -43127,9 +43443,9 @@ var executeRefactor = async ({
   const seeded = seedResumeState({ manifest, batches: worklist.batches });
   const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.blocking) });
   const run = new RefactorRun({ cwd, config: config2, manifest, onProgress, declined: seeded.declined, before });
-  await run.update({ status: RunStatus.Running });
+  await run.update({ patch: { status: RunStatus.Running } });
   if (worklist.batches.length === 0) {
-    await run.update({ status: RunStatus.Passed, currentStep: null });
+    await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
     run.progress("refactor: no findings in scope \u2014 nothing to do");
     return { ok: true, manifest: run.current(), declined: run.declined, before: run.before, after: run.before };
   }
@@ -43154,7 +43470,7 @@ var executeRefactor = async ({
     return halted;
   }
   const finalCheck = await runStandardsCheck({ cwd, path: worklist.path === "." ? void 0 : worklist.path, all: worklist.all, persist: false });
-  await run.update({ status: RunStatus.Passed, currentStep: null });
+  await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
   return {
     ok: true,
     manifest: run.current(),
@@ -43254,11 +43570,14 @@ var reviewStandards = async ({ cwd, config: config2, path }) => {
   });
 };
 
-// src/cli/standardsCheckCommand.ts
-import { mkdir as mkdir13, writeFile as writeFile15 } from "node:fs/promises";
-import { join as join66 } from "node:path";
+// src/cli/common/terminal/terminalWidth.ts
+var terminalWidth = () => {
+  const narrowest = 60;
+  const widest = 120;
+  return Math.min(Math.max(process.stdout.columns ?? 100, narrowest), widest);
+};
 
-// src/cli/common/formatting/wrapText.ts
+// src/cli/common/utils/wrapText.ts
 var wrapText = ({ text, width, indent }) => {
   const available = Math.max(width - indent.length, 1);
   const lines = [];
@@ -43281,22 +43600,8 @@ var wrapText = ({ text, width, indent }) => {
   return lines;
 };
 
-// src/cli/common/terminal/terminalWidth.ts
-var terminalWidth = () => {
-  const narrowest = 60;
-  const widest = 120;
-  return Math.min(Math.max(process.stdout.columns ?? 100, narrowest), widest);
-};
-
 // src/cli/common/render/printFindingGroups.ts
 var rowIndent = "    ";
-var locationOf = ({ file: file2 }) => {
-  if (file2.startLine === void 0) {
-    return file2.path;
-  }
-  const span = file2.endLine !== void 0 && file2.endLine !== file2.startLine ? `-${file2.endLine}` : "";
-  return `${file2.path}:${file2.startLine}${span}`;
-};
 var headingOf = ({ rule, severity, count: count2 }) => {
   const blocking = severity === StandardsSeverity.Blocking;
   const icon = blocking ? yellow("\u26A0") : dim("\u2139");
@@ -43317,7 +43622,7 @@ var printFindingGroups = ({ findings }) => {
   for (const { rule, severity, findings: group } of groups.values()) {
     console.log("");
     console.log(headingOf({ rule, severity, count: group.length }));
-    const singleWidths = group.flatMap((finding) => finding.files.length === 1 ? finding.files.map((file2) => locationOf({ file: file2 }).length) : []);
+    const singleWidths = group.flatMap((finding) => finding.files.length === 1 ? finding.files.map((file2) => formatFindingSite({ file: file2 }).length) : []);
     const column = Math.min(Math.max(0, ...singleWidths), locationColumnCap);
     const byGuidance = /* @__PURE__ */ new Map();
     for (const finding of group) {
@@ -43326,7 +43631,7 @@ var printFindingGroups = ({ findings }) => {
     for (const [guidance, partition] of byGuidance) {
       console.log("");
       for (const finding of partition) {
-        const locations = finding.files.map((file2) => locationOf({ file: file2 }));
+        const locations = finding.files.map((file2) => formatFindingSite({ file: file2 }));
         const inline = locations.length === 1 ? locations[0] : void 0;
         if (inline !== void 0 && inline.length <= column) {
           console.log(`${rowIndent}${inline.padEnd(column + 2)}${dim(finding.detail)}`);
@@ -43385,12 +43690,12 @@ var printStandardsRuleList = ({ rules }) => {
 // src/cli/common/render/printStandardsSummary.ts
 var countOf2 = ({ findings, rule, severity }) => findings.filter((finding) => finding.rule === rule && finding.severity === severity).length;
 var cell = ({ count: count2 }) => count2 === 0 ? "\u2014" : `${count2}`;
-var printStandardsSummary = ({ findings, rules, reportPath: reportPath2 }) => {
+var printStandardsSummary = ({ findings, rules, reportPath }) => {
   console.log("");
   if (findings.length === 0) {
     console.log(green("clean \u2014 nothing blocking, no advisories"));
-    if (reportPath2 !== void 0) {
-      console.log(dim(`report: ${reportPath2}`));
+    if (reportPath !== void 0) {
+      console.log(dim(`report: ${reportPath}`));
     }
     return;
   }
@@ -43421,23 +43726,13 @@ var printStandardsSummary = ({ findings, rules, reportPath: reportPath2 }) => {
   for (const line of renderTable({ headers: ["rule", "blocking", "advisories"], rows: [...rows, totals] })) {
     console.log(line);
   }
-  if (reportPath2 !== void 0) {
+  if (reportPath !== void 0) {
     console.log("");
-    console.log(dim(`report: ${reportPath2}`));
+    console.log(dim(`report: ${reportPath}`));
   }
 };
 
 // src/cli/standardsCheckCommand.ts
-var reportPath = ".lightsout/standards-check.json";
-var writeCheckReport = async ({ cwd, path, findings, notes }) => {
-  await mkdir13(join66(cwd, ".lightsout"), { recursive: true });
-  await writeFile15(
-    join66(cwd, ".lightsout", "standards-check.json"),
-    `${JSON.stringify({ at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes }, void 0, "	")}
-`,
-    "utf8"
-  );
-};
 var standardsCheckCommand = async ({ flags, cwd }) => {
   const { config: config2, rules } = await loadStandardsLedger({ cwd });
   if (flags.get("list") === true) {
@@ -43480,9 +43775,9 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
     console.log(`${dim("\u2139")} ${dim(note)}`);
   }
   if (runCodeChecks) {
-    await writeCheckReport({ cwd, path: checkPath, findings: ordered, notes });
+    await writeStandardsSnapshot({ cwd, snapshot: { at: (/* @__PURE__ */ new Date()).toISOString(), path: checkPath ?? ".", findings: ordered, notes } });
   }
-  printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? reportPath : void 0 });
+  printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? ".lightsout/standards-check.json" : void 0 });
   return exitCli({ code: 0 });
 };
 
@@ -43586,20 +43881,6 @@ var standardsValidateCommand = async ({ flags, cwd }) => {
 
 // src/cli/statusCommand.ts
 import { readdir as readdir16 } from "node:fs/promises";
-var hasLiveProcess = ({ manifest, lock }) => {
-  if (!lock || !isPidAlive({ pid: lock.pid })) {
-    return false;
-  }
-  if (lock.runId === manifest.runId) {
-    return true;
-  }
-  const running = manifest.steps.find((step) => step.status === RunStatus.Running);
-  if (manifest.pipeline !== "phases" || running === void 0) {
-    return false;
-  }
-  const child = PhaseReport.safeParse(running.report);
-  return child.success && child.data.runId === lock.runId;
-};
 var statusCommand = async ({ cwd }) => {
   const runIds = await readdir16(getRunsDir({ cwd })).catch(() => []);
   if (runIds.length === 0) {
@@ -43610,9 +43891,9 @@ var statusCommand = async ({ cwd }) => {
   for (const runId of runIds) {
     const manifest = await readRunManifest({ cwd, runId }).catch(() => void 0);
     if (manifest) {
-      const zombie = manifest.status === RunStatus.Running && !hasLiveProcess({ manifest, lock });
+      const zombie = manifest.status === RunStatus.Running && !isRunLive({ manifest, lock });
       const status = zombie ? `${manifest.status} (no live process \u2014 crashed? resume with --run ${manifest.runId})` : manifest.status;
-      const phases = manifest.pipeline === "phases" ? `  phases: ${manifest.steps.filter((step) => step.status === RunStatus.Passed).length}/${manifest.steps.length}` : "";
+      const phases = manifest.pipeline === PipelineKind.Phases ? `  phases: ${manifest.steps.filter((step) => step.status === RunStatus.Passed).length}/${manifest.steps.length}` : "";
       console.log(`${manifest.runId}  ${status}  plan: ${manifest.plan}${phases}  updated: ${manifest.updatedAt}`);
     }
   }
@@ -43675,20 +43956,20 @@ var getStreamText = async ({ stream }) => {
 };
 
 // src/voice/createVoiceMarker.ts
-import { mkdir as mkdir14, writeFile as writeFile16 } from "node:fs/promises";
+import { mkdir as mkdir13, writeFile as writeFile15 } from "node:fs/promises";
 import { dirname as dirname8 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
-import { join as join67 } from "node:path";
+import { join as join68 } from "node:path";
 var getVoiceMarkerPath = ({ cwd }) => {
-  return join67(cwd, ".lightsout", "voice-on");
+  return join68(cwd, ".lightsout", "voice-on");
 };
 
 // src/voice/createVoiceMarker.ts
 var createVoiceMarker = async ({ cwd }) => {
   const markerPath = getVoiceMarkerPath({ cwd });
-  await mkdir14(dirname8(markerPath), { recursive: true });
-  await writeFile16(markerPath, "", "utf8");
+  await mkdir13(dirname8(markerPath), { recursive: true });
+  await writeFile15(markerPath, "", "utf8");
 };
 
 // src/voice/deleteVoiceMarker.ts
@@ -43812,12 +44093,12 @@ var isVoiceOn = async ({ cwd }) => {
 
 // src/voice/speakText.ts
 import { spawn as spawn3 } from "node:child_process";
-import { writeFile as writeFile17 } from "node:fs/promises";
+import { writeFile as writeFile16 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
-import { join as join68 } from "node:path";
+import { join as join69 } from "node:path";
 var getVoicePidPath = ({ cwd }) => {
-  return join68(cwd, ".lightsout", "voice-pid");
+  return join69(cwd, ".lightsout", "voice-pid");
 };
 
 // src/voice/stopSpeech.ts
@@ -43847,7 +44128,7 @@ var speakText = async ({ cwd, text }) => {
   child.stdin?.write(text);
   child.stdin?.end();
   if (child.pid !== void 0) {
-    await writeFile17(getVoicePidPath({ cwd }), String(child.pid), "utf8");
+    await writeFile16(getVoicePidPath({ cwd }), String(child.pid), "utf8");
   }
   child.unref();
 };

@@ -1,14 +1,14 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { verdict } from '@tests/helpers/verdict';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { Driver, DriverResult } from '@/drivers';
-import { runImplementPipeline } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { Driver, DriverResult } from '#src/drivers/index.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { verdict } from '#tests/helpers/verdict.ts';
 
 /**
  * A consumer repo whose unit gate goes red the moment implement lands (it
@@ -20,10 +20,16 @@ import { runImplementPipeline } from '@/pipeline';
 const setupRedVerifyRun = async ({ fix, supervisor }: { fix?: () => DriverResult; supervisor?: () => DriverResult } = {}) => {
 	const dir = setupConsumerRepo({ scripts: { test: 'test ! -f BROKEN' } });
 	const counts: Record<string, number> = {};
+	// A re-emit retry hands the rejected text back to the SAME role, but its
+	// prompt carries none of that role's markers. Invocations here are strictly
+	// sequential, so the role that just answered is the role being retried.
+	let lastRole = 'implement';
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
-			const role = roleOf(prompt);
+			const role = prompt.includes('# Your previous final message') ? lastRole : roleOf(prompt);
+
+			lastRole = role;
 
 			if (role === 'standards-review') {
 				return { text: reviewReport(), exitCode: 0 };
@@ -92,4 +98,82 @@ test('verify: a retry verdict carrying no guidance escalates instead of buying a
 	// the verdict is quoted with its decision
 	expect(result.error ?? '').toMatch(/supervisor \(retry\): DIAGNOSIS-SENTINEL/);
 	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.status).toBe('escalated');
+});
+
+test('verify: a verdict that never parses buys one re-emit retry, then escalates with no ruling to quote', async () => {
+	const { dir, driver, counts, config } = await setupRedVerifyRun({
+		supervisor: () => ({ text: 'The gate looks wrong to me — I have no JSON for you.', exitCode: 0 }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.manifest.status).toBe('escalated');
+	// the contract re-emit is the only extra turn a malformed verdict buys
+	expect(counts.supervisor).toBe(2);
+	// no ruling survived, so no guided retry was spent either
+	expect(counts.fix).toBe(2);
+	expect(result.error ?? '').toMatch(/verify-implement: still failing after retries\./);
+	// nothing is attributed to a supervisor that never ruled
+	expect(result.error ?? '').not.toMatch(/supervisor \(/);
+	// the red gate is still the evidence the escalation carries
+	expect(result.error ?? '').toMatch(/test failed/);
+});
+
+test('verify: a rate limit inside the supervisor-guided retry parks the run instead of escalating it', async () => {
+	let fixTurns = 0;
+	const { dir, driver, counts, config } = await setupRedVerifyRun({
+		fix: () => {
+			fixTurns += 1;
+
+			// The two cheap retries answer normally; the guided third — the one the
+			// supervisor's ruling bought — is where the harness runs out.
+			return fixTurns === 3 ? { text: '', exitCode: 1, rateLimited: true } : { text: report(), exitCode: 0 };
+		},
+		supervisor: () => ({ text: verdict({ decision: 'retry', diagnosis: 'stale artifact', guidance: 'delete BROKEN' }), exitCode: 0 }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// a park a human can resume, never the escalation an exhausted path gives
+	expect(result.manifest.status).toBe('paused-rate-limit');
+	expect(result.error?.includes(`lightsout resume --run ${result.manifest.runId}`)).toBeTruthy();
+	expect(counts.supervisor).toBe(1);
+	// the guided attempt was bought before the limit hit
+	expect(counts.fix).toBe(3);
+	// and it is recorded, so a resume does not silently re-buy it
+	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(4);
+});
+
+test('verify: a fix invocation whose driver dies spends its turn without failing the step — the gate still decides', async () => {
+	const { dir, driver, counts, config } = await setupRedVerifyRun({
+		fix: () => {
+			throw new Error('claude timed out after 3600000ms');
+		},
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// a dead fix is neither a run failure of its own nor a reason to cut the
+	// retry budget short — the still-red gate is what ends the step
+	expect(result.manifest.status).toBe('escalated');
+	expect(counts.fix).toBe(2);
+	expect(counts.supervisor).toBe(1);
+	expect(result.error ?? '').toMatch(/supervisor \(escalate\): stub diagnosis/);
+});
+
+test('verify: a fix reporting failed earns no changed-file attribution — only a complete report is merged', async () => {
+	const { dir, driver, config } = await setupRedVerifyRun({
+		fix: () => ({
+			text: report({ status: 'failed', failures: ['could not find the cause'], changedFiles: [{ path: 'src/ghost.js', summary: 'never written' }] }),
+			exitCode: 0,
+		}),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.manifest.status).toBe('escalated');
+	// the file a failed fix claimed never becomes the run's truth
+	expect(result.manifest.changedFiles.includes('src/ghost.js')).toBe(false);
+	// what implement actually landed is still attributed
+	expect(result.manifest.changedFiles.includes('src/feature.js')).toBe(true);
 });

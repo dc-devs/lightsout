@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { createRun, RunNotFoundError, readRunManifest } from '@/runState';
+import { createRun, RunNotFoundError, readRunManifest } from '#src/runState/index.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 describe('readRunManifest', () => {
 	test('reads a run by the shortened id its own report printed', async () => {

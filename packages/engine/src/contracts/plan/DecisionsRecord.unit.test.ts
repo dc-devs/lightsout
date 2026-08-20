@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { DecisionsRecord } from '@/contracts';
+import { DecisionsRecord } from '#src/contracts/index.ts';
 
 /** One authored Decision-Log row, as the session writes it into decisions.json. */
 const decisionRow = {

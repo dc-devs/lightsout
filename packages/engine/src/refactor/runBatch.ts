@@ -1,19 +1,19 @@
-import { buildRefactorExecutorInvocation } from '@/agents';
-import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
-import { type AdvisoryOutcome, type AgentUsage, BatchOutcome, type LightsoutConfig, type RefactorBatch, type StandardsFinding } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { runBatchGates } from '@/pipeline';
-import { buildBatchFixInvocation } from '@/refactor/buildBatchFixInvocation';
-import { buildBatchReport } from '@/refactor/buildBatchReport';
-import { collectBatchAdvisories } from '@/refactor/collectBatchAdvisories';
-import { BatchStopKind } from '@/refactor/common/constants/BatchStopKind';
-import type { BatchStop } from '@/refactor/common/types/BatchStop';
-import { getAttemptStop } from '@/refactor/getAttemptStop';
-import { invokeBatchAgent } from '@/refactor/invokeBatchAgent';
-import { matchRemainingFindings } from '@/refactor/matchRemainingFindings';
-import { settleBatchGates } from '@/refactor/settleBatchGates';
-import { runStandardsCheck } from '@/standardsCheck';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
+import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { collectBatchChanges } from '#src/common/utils/collectBatchChanges.ts';
+import { type AdvisoryOutcome, type AgentUsage, BatchOutcome, type LightsoutConfig, type RefactorBatch, type StandardsFinding } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runBatchGates } from '#src/pipeline/index.ts';
+import { buildBatchFixInvocation } from '#src/refactor/buildBatchFixInvocation.ts';
+import { buildBatchReport } from '#src/refactor/buildBatchReport.ts';
+import { collectBatchAdvisories } from '#src/refactor/collectBatchAdvisories.ts';
+import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
+import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
+import { getAttemptStop } from '#src/refactor/getAttemptStop.ts';
+import { invokeBatchAgent } from '#src/refactor/invokeBatchAgent.ts';
+import { matchRemainingFindings } from '#src/refactor/matchRemainingFindings.ts';
+import { settleBatchGates } from '#src/refactor/settleBatchGates.ts';
+import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 
 const standaloneBanner =
 	'Standalone refactor run — there is no feature plan. The standards findings below are the entire work-list; nothing else about the repo is being changed.';

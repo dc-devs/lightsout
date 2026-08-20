@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { StandardsFinding } from '@/contracts';
-import { batchFindings } from '@/refactor';
+import type { StandardsFinding } from '#src/contracts/index.ts';
+import { batchFindings } from '#src/refactor/index.ts';
 
 /** Every rule the shipped standards package names, in the order batching is meant to hand them to an agent. */
 const mechanicalFirstOrder = [

@@ -1,6 +1,6 @@
-import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
-import type { Effort, LightsoutConfig, Permissions } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import type { Effort, LightsoutConfig, Permissions } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 
 interface Params {
 	cwd: string;

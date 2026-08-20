@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { describe, expect, test } from '@jest/globals';
-import { terminateChildGroups } from '@/common/utils/terminateChildGroups';
+import { terminateChildGroups } from '#src/common/utils/terminateChildGroups.ts';
 
 /** A detached shell that backgrounds a long sleep and reports its pid. */
 const setupChild = async () => {
@@ -124,7 +124,14 @@ describe('terminateChildGroups', () => {
 		cleanup({ child, grandchildPid });
 	});
 
-	test('given nothing to stop, it does nothing', async () => {
-		await expect(terminateChildGroups({ children: [] })).resolves.toBeUndefined();
+	test('given nothing to stop, it does nothing and never pays the grace period', async () => {
+		const started = Date.now();
+
+		const result = await terminateChildGroups({ children: [], graceMs: 10_000 });
+
+		// an empty shutdown must return at once — a run with no children left to
+		// stop would otherwise sit out a grace period nothing could ever end early
+		expect(result).toBe(undefined);
+		expect(Date.now() - started).toBeLessThan(1_000);
 	});
 });

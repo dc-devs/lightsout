@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { StandardsSet } from '@/contracts';
-import { buildStandardsDocuments, loadStandardsPackage } from '@/standardsPackages';
+import { StandardsSet } from '#src/contracts/index.ts';
+import { buildStandardsDocuments, loadStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /**
  * The package the plugin ships, loaded from disk exactly as a consumer's run

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { CoverageFile } from '@/contracts';
-import { buildCoverageBatch } from '@/coverage/buildCoverageBatch';
+import type { CoverageFile } from '#src/contracts/index.ts';
+import { buildCoverageBatch } from '#src/coverage/buildCoverageBatch.ts';
 
 const file = ({ path, statementsPct, scope = 'root' }: { path: string; statementsPct: number; scope?: string }): CoverageFile => ({
 	path,
@@ -98,5 +98,17 @@ describe('buildCoverageBatch', () => {
 
 		// only files the round measured as short of the bar earn a writer
 		expect(batch.members).toStrictEqual(['src/a.ts']);
+	});
+
+	test('a component above the writer cap that holds no candidate is passed over whole, never chunked', () => {
+		const files = [file({ path: 'src/a.ts', statementsPct: 5 })];
+		const covered = Array.from({ length: 20 }, (_, index) => `src/covered/${String(index).padStart(2, '0')}.ts`);
+
+		const batch = buildCoverageBatch({ files, components: [covered, ['src/a.ts']], batchNumber: 1 });
+
+		// with no candidate to chunk around there is no worst file to keep, so the
+		// whole component is simply not this batch's work
+		expect(batch.members).toStrictEqual(['src/a.ts']);
+		expect(batch.files.map((entry) => entry.path)).toStrictEqual(['src/a.ts']);
 	});
 });

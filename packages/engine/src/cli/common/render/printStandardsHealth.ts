@@ -1,7 +1,7 @@
-import { renderTable } from '@/cli/common/render/renderTable';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import type { StandardsHealth, StandardsHealthRule } from '@/standardsCheck';
+import { renderTable } from '#src/cli/common/render/renderTable.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import type { StandardsHealth, StandardsHealthRule } from '#src/standardsCheck/index.ts';
 
 /** Longest a recorded reason may print before it is cut — one long rationale must not stretch the whole table. */
 const reasonWidth = 96;

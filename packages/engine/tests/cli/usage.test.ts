@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
-import { usageStderr } from '@tests/helpers/usageStderr';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { usageStderr } from '#tests/helpers/usageStderr.ts';
 
 // The dispatch table's fall-through: every argv the CLI answers with the usage
 // block. A removed command and a removed subcommand are pinned here too — they

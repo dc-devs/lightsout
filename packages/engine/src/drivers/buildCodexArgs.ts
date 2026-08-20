@@ -1,4 +1,4 @@
-import { type Effort, Permissions } from '@/contracts';
+import { type Effort, Permissions } from '#src/contracts/index.ts';
 
 interface Params {
 	/** Temp file codex writes its final message to (`--output-last-message`). */

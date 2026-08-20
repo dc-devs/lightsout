@@ -1,8 +1,8 @@
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { packageOf } from '@/common/utils/packageOf';
-import type { WorkReport } from '@/contracts';
-import { consumerRelative } from '@/pipeline/common/utils/consumerRelative';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { packageOf } from '#src/common/utils/packageOf.ts';
+import type { WorkReport } from '#src/contracts/index.ts';
+import { consumerRelative } from '#src/pipeline/common/utils/consumerRelative.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -20,14 +20,14 @@ interface Params {
 export const collectChanged = async ({ run, gitPrefix, reports }: Params): Promise<{ changedFiles: string[]; packages: string[] }> => {
 	// Generated/derived files (configured prefixes) are like gate artifacts:
 	// real in the diff, but never attributed — their source is the change.
-	const isGeneratedFile = (file: string) => (run.config.generated ?? []).some((prefix) => file.startsWith(prefix));
+	const isGeneratedFile = ({ file }: { file: string }) => (run.config.generated ?? []).some((prefix) => file.startsWith(prefix));
 	const packagesDir = run.config['packages-dir'] ?? 'packages';
 	const fromGit = ((await readGitChangedFiles({ cwd: run.cwd })) ?? []).filter(
-		(file) => !run.current().baselineDirtyFiles.includes(file) && !isGeneratedFile(file),
+		(file) => !run.current().baselineDirtyFiles.includes(file) && !isGeneratedFile({ file }),
 	);
 	const fromReports = reports
 		.flatMap((report) => report.changedFiles.map((file) => consumerRelative({ gitPrefix, file: file.path })))
-		.filter((file) => !isGeneratedFile(file));
+		.filter((file) => !isGeneratedFile({ file }));
 	const changedFiles = [...new Set([...run.current().changedFiles, ...fromReports, ...fromGit])];
 	const fromFiles = changedFiles.flatMap((file) => {
 		const packageDir = packageOf({ file, packagesDir });

@@ -1,4 +1,4 @@
-import { exitCli } from '@/cli/common/utils/exitCli';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 
 /** The two outcomes every agent-backed plan runner shares: a hard failure and a parked rate limit. Both print and exit 1. */
 interface PlanRunFailure {
@@ -26,6 +26,10 @@ const survivesPlanFailure = <Result extends { status: string }>(result: Result):
 const planFailureMessageOf = ({ result }: { result: { status: string } }) =>
 	'error' in result && typeof result.error === 'string' ? result.error : `plan run ${result.status}`;
 
+interface Params<Result extends { status: string }> {
+	result: Result;
+}
+
 /**
  * Print a plan runner's failure and exit, or hand back the result narrowed to
  * its remaining variants for the caller.
@@ -44,7 +48,7 @@ const planFailureMessageOf = ({ result }: { result: { status: string } }) =>
  * would mean a parameterised helper that reads worse than the three lines it
  * replaced.
  */
-export const exitOnPlanFailure = async <Result extends { status: string }>(result: Result): Promise<Exclude<Result, PlanRunFailure>> => {
+export const exitOnPlanFailure = async <Result extends { status: string }>({ result }: Params<Result>): Promise<Exclude<Result, PlanRunFailure>> => {
 	if (survivesPlanFailure(result)) {
 		return result;
 	}

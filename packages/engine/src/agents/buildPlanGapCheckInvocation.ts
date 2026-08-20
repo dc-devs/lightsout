@@ -1,4 +1,4 @@
-import planGapCheckPrompt from '@/agents/prompts/planGapCheck.md';
+import planGapCheckPrompt from '#src/agents/prompts/planGapCheck.md';
 
 interface Params {
 	/** The plan text to check for decision-level gaps. */

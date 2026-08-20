@@ -1,4 +1,4 @@
-import supervisorPrompt from '@/agents/prompts/supervisor.md';
+import supervisorPrompt from '#src/agents/prompts/supervisor.md';
 
 interface Params {
 	planContent: string;

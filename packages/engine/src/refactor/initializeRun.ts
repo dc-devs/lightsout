@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { type LightsoutConfig, RefactorWorklist, type RunManifest } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { buildWorklist } from '@/refactor/buildWorklist';
-import { createRun } from '@/runState';
+import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { type LightsoutConfig, RefactorWorklist, type RunManifest } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { buildWorklist } from '#src/refactor/buildWorklist.ts';
+import { createRun } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;

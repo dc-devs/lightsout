@@ -1,14 +1,32 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { gateLogCommand } from '@tests/helpers/gateLogCommand';
-import { readGateLog } from '@tests/helpers/readGateLog';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { GateResult } from '@/contracts';
-import { runGates } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { GateResult } from '#src/contracts/index.ts';
+import { runGates } from '#src/pipeline/index.ts';
+import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
+import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** A gate that writes to stderr and exits red — the output the failure message must carry. */
 const redGate = ({ exitCode, message }: { exitCode: number; message: string }) => `node -e "process.stderr.write('${message}'); process.exit(${exitCode})"`;
+
+/** A monorepo consumer with one real package under `packages/`, so a scope naming any other directory has nothing to resolve. */
+const setupScopedRepo = () => {
+	const dir = setupConsumerRepo({
+		config: {
+			'package-gates': {
+				check: `${gateLogCommand({ kind: 'check' })} {package}`,
+				test: `${gateLogCommand({ kind: 'test' })} {package}`,
+			},
+		},
+	});
+
+	mkdirSync(join(dir, 'packages', 'api'), { recursive: true });
+	writeFileSync(join(dir, 'packages', 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
+
+	return dir;
+};
 
 test('the build gate runs last in the root set, after check and the test run', async () => {
 	const dir = setupConsumerRepo({
@@ -71,4 +89,18 @@ test('a gate that cannot spawn is a red gate, not a crash — and is never re-ru
 	expect(checks[0]?.rerun).toBe(undefined);
 	// the spawn error is the red gate’s evidence
 	expect(checks[0]?.outputTail ?? '').toMatch(/ENOENT/);
+});
+
+test('a package whose manifest cannot be resolved fails its own group only — the rest of the fan-out still runs', async () => {
+	const dir = setupScopedRepo();
+	const config = await loadConfig({ cwd: dir });
+
+	const error = await runGates({ cwd: dir, config, packages: ['api', 'ghost'] });
+
+	// the engine never guesses a workspace filter, so an unresolvable package is
+	// a failure string rather than a thrown error that would take the whole
+	// parallel fan-out down with it
+	expect(error ?? '').toMatch(/declared package 'ghost' has no package.json/);
+	// the healthy package's gates ran to completion beside the broken one
+	expect(readGateLog({ dir })).toStrictEqual(['@acme/api check', '@acme/api test']);
 });

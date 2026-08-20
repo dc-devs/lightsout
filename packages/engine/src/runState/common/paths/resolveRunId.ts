@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
-import { getRunsDir } from '@/runState/common/paths/getRunsDir';
-import { RunNotFoundError } from '@/runState/RunNotFoundError';
+import { getRunsDir } from '#src/runState/common/paths/getRunsDir.ts';
+import { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
 
 interface Params {
 	cwd: string;

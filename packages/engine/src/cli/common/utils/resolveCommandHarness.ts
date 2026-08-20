@@ -1,4 +1,4 @@
-import type { Effort, LightsoutConfig } from '@/contracts';
+import type { Effort, LightsoutConfig } from '#src/contracts/index.ts';
 
 interface Params {
 	config: LightsoutConfig | undefined;

@@ -2,11 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { gateLogCommand } from '@tests/helpers/gateLogCommand';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { GateResult } from '@/contracts';
-import { runGates } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { GateResult } from '#src/contracts/index.ts';
+import { runGates } from '#src/pipeline/index.ts';
+import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const red = 'node -e "process.exit(1)"';
 

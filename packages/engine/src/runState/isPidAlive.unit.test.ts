@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { isPidAlive } from '@/runState';
+import { isPidAlive } from '#src/runState/index.ts';
 
 /** Beyond any OS pid range — process.kill(pid, 0) reports ESRCH, i.e. dead. */
 const deadPid = 999_999_999;

@@ -1,15 +1,15 @@
-import { getPositionals } from '@/cli/common/args/getPositionals';
-import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
-import { usage } from '@/cli/common/constants/usage';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
-import { loadPlanningStandards } from '@/cli/plan/loadPlanningStandards';
-import { planDedupCommand } from '@/cli/plan/planDedupCommand';
-import { planDraftCommand } from '@/cli/plan/planDraftCommand';
-import { planGradeCommand } from '@/cli/plan/planGradeCommand';
-import { planLintCommand } from '@/cli/plan/planLintCommand';
-import { planVerifyFactsCommand } from '@/cli/plan/planVerifyFactsCommand';
+import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
+import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
+import { usage } from '#src/cli/common/constants/usage.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
+import { loadPlanningStandards } from '#src/cli/plan/loadPlanningStandards.ts';
+import { planDedupCommand } from '#src/cli/plan/planDedupCommand.ts';
+import { planDraftCommand } from '#src/cli/plan/planDraftCommand.ts';
+import { planGradeCommand } from '#src/cli/plan/planGradeCommand.ts';
+import { planLintCommand } from '#src/cli/plan/planLintCommand.ts';
+import { planVerifyFactsCommand } from '#src/cli/plan/planVerifyFactsCommand.ts';
 
 export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise<void> => {
 	const subcommand = getPositionals({ args: rest })[0];

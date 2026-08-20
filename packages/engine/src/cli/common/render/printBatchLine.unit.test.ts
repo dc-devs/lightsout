@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { printBatchLine } from '@/cli/common/render/printBatchLine';
-import { RunStatus, type StepRecord } from '@/contracts';
+import { printBatchLine } from '#src/cli/common/render/printBatchLine.ts';
+import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 const stepOf = (overrides: Partial<StepRecord> = {}): StepRecord => ({ id: 'batch-01:clone:src', status: RunStatus.Passed, attempts: 1, ...overrides });
 

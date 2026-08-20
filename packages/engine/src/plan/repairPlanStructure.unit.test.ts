@@ -1,11 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import type { Driver } from '@/drivers';
-import { repairPlanStructure } from '@/plan/repairPlanStructure';
+import type { Driver } from '#src/drivers/index.ts';
+import { repairPlanStructure } from '#src/plan/repairPlanStructure.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** The clean skeleton with the given placeholder markers planted — one lint finding per distinct marker. */
 const planWithMarkers = ({ markers }: { markers: string }) => cleanPlanBody().replace('A new module exporting', `${markers} — a new module exporting`);
@@ -55,8 +55,19 @@ const repairDriver = ({
 	};
 };
 
-const run = ({ cwd, workspaceDir, planPath, driver }: { cwd: string; workspaceDir: string; planPath: string; driver: Driver }) =>
-	repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, timeoutMs: 60_000, progress: () => {} });
+const run = ({
+	cwd,
+	workspaceDir,
+	planPath,
+	driver,
+	progress = () => {},
+}: {
+	cwd: string;
+	workspaceDir: string;
+	planPath: string;
+	driver: Driver;
+	progress?: (message: string) => void;
+}) => repairPlanStructure({ cwd, driver, name: 'demo', planPaths: [planPath], workspaceDir, timeoutMs: 60_000, progress });
 
 describe('repairPlanStructure', () => {
 	test('a clean draft converges without spending a single repair', async () => {
@@ -191,5 +202,64 @@ describe('repairPlanStructure', () => {
 
 		expectStatus(result, 'failed');
 		expect('error' in result && result.error).toMatch(/spawn failed/);
+	});
+
+	test('each repair round is narrated with its number and the findings it is being spent on', async () => {
+		const draft = setupDraft({ body: planWithMarkers({ markers: 'TBD TODO ???' }) });
+		const messages: string[] = [];
+		// 3 → 2 → 1 → 0 findings: real progress every round, so all three repairs
+		// run and the loop ends on a clean plan rather than a no-progress stop
+		const driver = repairDriver({
+			bodies: [planWithMarkers({ markers: 'TBD TODO' }), planWithMarkers({ markers: 'TBD' }), cleanPlanBody()],
+		});
+
+		const result = await run({ ...draft, driver, progress: (message) => messages.push(message) });
+
+		expectStatus(result, 'complete');
+		// the human watching a draft converge sees the count fall round by round
+		expect(messages).toStrictEqual([
+			expect.stringMatching(/3 structural finding\(s\).*repair 1\/3/),
+			expect.stringMatching(/2 structural finding\(s\).*repair 2\/3/),
+			expect.stringMatching(/1 structural finding\(s\).*repair 3\/3/),
+		]);
+	});
+
+	test('the no-progress exit says why it stopped rather than going quiet', async () => {
+		const draft = setupDraft({ body: planWithMarkers({ markers: 'TBD' }) });
+		const messages: string[] = [];
+
+		const result = await run({
+			...draft,
+			driver: repairDriver({ bodies: [planWithMarkers({ markers: 'TBD' })] }),
+			progress: (message) => messages.push(message),
+		});
+
+		expectStatus(result, 'complete');
+		// an unchanged finding set ends the loop, and the narration names the round
+		expect(messages).toEqual(expect.arrayContaining([expect.stringMatching(/repair 1 made no progress/)]));
+	});
+
+	test('a declined repair narrates every discrepancy the repairer could not resolve', async () => {
+		const draft = setupDraft({ body: planWithMarkers({ markers: 'TBD' }) });
+		const messages: string[] = [];
+		const driver = repairDriver({
+			respond: ({ path }) => ({
+				text: JSON.stringify({
+					status: 'error',
+					filesEdited: [path],
+					discrepancies: ["'TBD' unresolvable from the inputs", 'the facts name no owner for this section'],
+				}),
+				exitCode: 0,
+			}),
+		});
+
+		const result = await run({ ...draft, driver, progress: (message) => messages.push(message) });
+
+		expectStatus(result, 'complete');
+		// each decline reaches the session, which is what has to fix it by hand
+		expect(messages.filter((message) => message.includes('declined'))).toStrictEqual([
+			expect.stringContaining("'TBD' unresolvable from the inputs"),
+			expect.stringContaining('the facts name no owner for this section'),
+		]);
 	});
 });

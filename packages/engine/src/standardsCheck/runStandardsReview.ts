@@ -1,8 +1,8 @@
-import { buildStandardsReviewInvocation } from '@/agents';
-import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSeverity } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { invokeAgentWithContract } from '@/invoke';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
+import { buildStandardsReviewInvocation } from '#src/agents/index.ts';
+import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSeverity } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 
 interface Params {
 	cwd: string;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { renamedKey } from '@/contracts/common/utils/renamedKey';
+import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
 
 /**
  * The keys every gate block declares, whatever scope it gates: the two

@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { linkTypescript } from '@tests/helpers/linkTypescript';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
+import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 
 test('resolveConsumerTypescript: a RELATIVE cwd resolves too (createRequire rejects relative paths — observed live with --cwd .)', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-tsres-'));

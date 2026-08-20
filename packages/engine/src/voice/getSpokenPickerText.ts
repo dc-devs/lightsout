@@ -1,6 +1,6 @@
-import { getArrayField } from '@/voice/common/fields/getArrayField';
-import { getStringField } from '@/voice/common/fields/getStringField';
-import { formatSpeakable } from '@/voice/common/utils/formatSpeakable';
+import { getArrayField } from '#src/voice/common/fields/getArrayField.ts';
+import { getStringField } from '#src/voice/common/fields/getStringField.ts';
+import { formatSpeakable } from '#src/voice/common/utils/formatSpeakable.ts';
 
 interface Params {
 	toolInput: unknown;

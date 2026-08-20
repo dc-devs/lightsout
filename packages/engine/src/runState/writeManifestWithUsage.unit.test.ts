@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import type { RunManifest, RunUsage } from '@/contracts';
-import { createRun, readRunManifest, writeManifestWithUsage } from '@/runState';
+import type { RunManifest, RunUsage } from '#src/contracts/index.ts';
+import { createRun, readRunManifest, writeManifestWithUsage } from '#src/runState/index.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Every field a different number so a mix-up shows. */
 const spentTotals: RunUsage = {

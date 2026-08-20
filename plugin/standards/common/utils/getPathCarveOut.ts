@@ -4,7 +4,7 @@ import type { FrameworkCarveOut } from '../types/FrameworkCarveOut.ts';
  * A path under no package at all, and the doc's plain defaults for one whose
  * package declares no framework these rules know.
  */
-const noCarveOut: FrameworkCarveOut = { directory: '.', exemptFolderNames: [], kebabCase: false, routerRoots: [] };
+const noCarveOut: FrameworkCarveOut = { directory: '.', exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] };
 
 interface Params {
 	/** Every package's carve-outs, longest directory first — the order `getFrameworkCarveOuts` returns them in. */

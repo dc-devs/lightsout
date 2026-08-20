@@ -1,8 +1,8 @@
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { packageOf } from '@/common/utils/packageOf';
-import type { LightsoutConfig } from '@/contracts';
-import { runGates } from '@/pipeline/runGates';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { packageOf } from '#src/common/utils/packageOf.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { runGates } from '#src/pipeline/runGates.ts';
 
 interface Params {
 	cwd: string;

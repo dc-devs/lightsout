@@ -1,3 +1,3 @@
-export { FrictionArea } from '@/contracts/friction/FrictionArea';
-export { FrictionEntry } from '@/contracts/friction/FrictionEntry';
-export { FrictionRecord } from '@/contracts/friction/FrictionRecord';
+export { FrictionArea } from '#src/contracts/friction/FrictionArea.ts';
+export { FrictionEntry } from '#src/contracts/friction/FrictionEntry.ts';
+export { FrictionRecord } from '#src/contracts/friction/FrictionRecord.ts';

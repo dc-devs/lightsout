@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '@/contracts';
-import { validateStandardsPackage } from '@/standardsCheck';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
+import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
 const bansTheBannedFile: StandardsCheckRun = ({ input }) =>
@@ -39,6 +39,20 @@ const setupFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) => {
 
 /** A rule folder that ships no fixtures at all — the directory is never created. */
 const setupWithoutFixtures = () => ({ fixturesPath: join(mkdtempSync(join(tmpdir(), 'lightsout-validate-')), 'fixtures') });
+
+/**
+ * A rule folder whose fail side is a directory holding nothing. A side that was
+ * never created cannot show this: the pair is demanded of an empty folder too.
+ */
+const setupEmptyFailFixture = () => {
+	const fixturesPath = join(mkdtempSync(join(tmpdir(), 'lightsout-validate-')), 'fixtures');
+
+	mkdirSync(join(fixturesPath, 'pass', 'src'), { recursive: true });
+	writeFileSync(join(fixturesPath, 'pass', 'src', 'allowed.ts'), 'export const value = 1;\n');
+	mkdirSync(join(fixturesPath, 'fail'), { recursive: true });
+
+	return { fixturesPath };
+};
 
 /** A fixture pair for each of two rules: one whose check catches what its rule describes, one whose check catches nothing. */
 const setupTwoRuleFixtures = () => ({
@@ -109,6 +123,18 @@ describe('validateStandardsPackage', () => {
 		]);
 	});
 
+	test('a fixture side that exists but holds nothing is missing all the same', async () => {
+		const { fixturesPath } = setupEmptyFailFixture();
+
+		const { problems, notes } = await validate({
+			rules: [rule({ id: 'no-banned-file', fixturesPath, inputKind: StandardsInputKind.FileList, run: bansTheBannedFile })],
+		});
+
+		// only the empty side is named — the populated one is a pair member already
+		expect(problems).toStrictEqual(['no-banned-file: fixtures/fail/ is missing or empty — every rule ships a fixture pair']);
+		expect(notes).toStrictEqual([]);
+	});
+
 	test('a judgment-only rule must still ship the fixtures its accuracy is measured against', async () => {
 		const { fixturesPath } = setupWithoutFixtures();
 
@@ -126,6 +152,15 @@ describe('validateStandardsPackage', () => {
 		const { fixturesPath } = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
 
 		const { problems, notes } = await validate({ rules: [rule({ id: 'premature-abstraction', fixturesPath })] });
+
+		expect(problems).toStrictEqual([]);
+		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy']);
+	});
+
+	test('a rule shipping a check but declaring no input kind is judgment-only — there is no input to run it against', async () => {
+		const { fixturesPath } = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
+
+		const { problems, notes } = await validate({ rules: [rule({ id: 'premature-abstraction', fixturesPath, run: bansTheBannedFile })] });
 
 		expect(problems).toStrictEqual([]);
 		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy']);

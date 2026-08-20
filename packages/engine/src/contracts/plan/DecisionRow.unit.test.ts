@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { DecisionRow } from '@/contracts';
+import { DecisionRow } from '#src/contracts/index.ts';
 
 /** One Decision-Log row as the session authors it during the planning dialogue. */
 const setupRow = (overrides: Record<string, unknown> = {}) => {

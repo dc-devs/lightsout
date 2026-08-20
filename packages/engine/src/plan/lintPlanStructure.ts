@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { type LightsoutConfig, StructuralCheck, type StructuralFinding } from '@/contracts';
-import { checkPlanPaths } from '@/plan/checkPlanPaths';
-import { checkVerificationScripts } from '@/plan/checkVerificationScripts';
-import { parsePlan } from '@/plan/parsePlan';
-import { scanPlaceholders } from '@/plan/scanPlaceholders';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
+import { checkPlanPaths } from '#src/plan/checkPlanPaths.ts';
+import { checkVerificationScripts } from '#src/plan/checkVerificationScripts.ts';
+import { parsePlan } from '#src/plan/parsePlan.ts';
+import { scanPlaceholders } from '#src/plan/scanPlaceholders.ts';
 
 interface Params {
 	cwd: string;

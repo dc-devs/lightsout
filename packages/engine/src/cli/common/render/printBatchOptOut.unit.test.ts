@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { printBatchOptOut } from '@/cli/common/render/printBatchOptOut';
+import { printBatchOptOut } from '#src/cli/common/render/printBatchOptOut.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 describe('printBatchOptOut', () => {
 	test('prints the heading with the batch id, every rationale line verbatim, and the hint last', () => {

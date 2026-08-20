@@ -1,7 +1,7 @@
 import { expect, jest, test } from '@jest/globals';
-import { printRunHeader } from '@/cli/common/render/printRunHeader';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 
 // The header's whole output IS its console.log lines, so capturing them is the
 // arrangement. `t.mock.method` restores the real console.log when the test

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { getVoiceMarkerPath } from '@/voice/common/paths/getVoiceMarkerPath';
+import { getVoiceMarkerPath } from '#src/voice/common/paths/getVoiceMarkerPath.ts';
 
 interface Params {
 	cwd: string;

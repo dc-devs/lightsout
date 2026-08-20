@@ -1,0 +1,30 @@
+{
+	"name": "@lightsout/shared",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "Framework-free pure functions more than one package needs: the formatting the terminal and the web app must agree on.",
+	"license": "MIT",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"imports": {
+		"#src/*": "./src/*"
+	},
+	"files": [
+		"src"
+	],
+	"devDependencies": {
+		"@jest/globals": "catalog:",
+		"@types/node": "catalog:",
+		"typescript": "catalog:"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test:unit": "jest -c jest.config.cjs",
+		"test:unit:coverage": "jest -c jest.config.cjs --coverage"
+	},
+	"nx": {
+		"name": "shared"
+	}
+}

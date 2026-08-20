@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { consultSupervisor } from '@/common/utils/consultSupervisor';
-import { createEventFileSink } from '@/common/utils/createEventFileSink';
-import { type AgentUsage, type LightsoutConfig, SupervisorDecision } from '@/contracts';
-import type { Driver } from '@/drivers';
-import type { AgentOutcome } from '@/invoke';
-import { getRunDir } from '@/runState';
+import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
+import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
+import { type AgentUsage, type LightsoutConfig, SupervisorDecision } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import type { AgentOutcome } from '#src/invoke/index.ts';
+import { getRunDir } from '#src/runState/index.ts';
 
 /** The supervisor consult's terminal condition, mapped by the batch loop. */
 type SuperviseOutcome = { kind: 'parked' } | { kind: 'green' } | { kind: 'escalated'; error: string };

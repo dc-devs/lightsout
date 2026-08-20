@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackageRoot, StandardsSet } from './index.ts';
+import { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackageRoot, StandardsSet } from '#src/index.ts';
 
 /**
  * The package entry, tested as the thing a rule author actually imports.

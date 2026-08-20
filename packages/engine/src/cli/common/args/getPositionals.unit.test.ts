@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { getPositionals } from '@/cli/common/args/getPositionals';
+import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 
 test('getPositionals: keeps bare tokens and skips a flag together with the value it consumes', () => {
 	expect(getPositionals({ args: ['somenode', '--rescan', '--cwd', '/x'] })).toStrictEqual(['somenode']);

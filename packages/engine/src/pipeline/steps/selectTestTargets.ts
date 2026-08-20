@@ -1,14 +1,18 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import { isInertSourceFile } from '@/common/utils/isInertSourceFile';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { isInertSourceFile } from '#src/common/utils/isInertSourceFile.ts';
+import { isToolingConfigFile } from '#src/common/utils/isToolingConfigFile.ts';
+import { isUnloadableSourceFile } from '#src/common/utils/isUnloadableSourceFile.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {
 	run: PipelineRun;
 	candidates: string[];
 	/** The consumer's TypeScript module, or undefined — nothing is classified inert without one. */
 	compiler: typeof ts | undefined;
+	/** The workspace's packages folder, so a package root is recognised as a root. */
+	packagesDir: string;
 }
 
 /**
@@ -24,15 +28,26 @@ interface Params {
  *   so a writer is a guaranteed no-op (or an implementation-coupled test the
  *   standards forbid). Classification borrows the consumer's TypeScript,
  *   exactly like the standards check's AST tier; without one, nothing is inert.
+ * - `unreachable` — the file holds real code, but no unit test can ever run it:
+ *   a tool's own settings file is read by that tool and imported by nothing, and
+ *   a file with a module-scope `await` cannot be loaded at all under the
+ *   runner's CommonJS output. Kept apart from `inert` so the run says which of
+ *   the two it skipped, rather than calling real code type-only.
  * - `targets` — everything with runtime code to cover.
  *
  * Deletion filtering runs regardless of the compiler; only inert
  * classification needs it. A file still on disk but transiently unreadable
  * keeps its writer — the prior tolerance, never a lost writer.
  */
-export const selectTestTargets = async ({ run, candidates, compiler }: Params): Promise<{ targets: string[]; inert: string[]; deleted: string[] }> => {
+export const selectTestTargets = async ({
+	run,
+	candidates,
+	compiler,
+	packagesDir,
+}: Params): Promise<{ targets: string[]; inert: string[]; unreachable: string[]; deleted: string[] }> => {
 	const targets: string[] = [];
 	const inert: string[] = [];
+	const unreachable: string[] = [];
 	const deleted: string[] = [];
 
 	for (const file of candidates) {
@@ -50,12 +65,14 @@ export const selectTestTargets = async ({ run, candidates, compiler }: Params): 
 			continue;
 		}
 
-		if (compiler && isInertSourceFile({ path: file, content, compiler })) {
+		if (isToolingConfigFile({ path: file, packagesDir }) || (compiler && isUnloadableSourceFile({ path: file, content, compiler }))) {
+			unreachable.push(file);
+		} else if (compiler && isInertSourceFile({ path: file, content, compiler })) {
 			inert.push(file);
 		} else {
 			targets.push(file);
 		}
 	}
 
-	return { targets, inert, deleted };
+	return { targets, inert, unreachable, deleted };
 };

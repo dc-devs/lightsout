@@ -2,8 +2,8 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
-import { applyStandardsBaseline } from '@/standardsCheck/applyStandardsBaseline';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import { applyStandardsBaseline } from '#src/standardsCheck/applyStandardsBaseline.ts';
 
 const finding = (siteKey: string, severity: StandardsFinding['severity'] = StandardsSeverity.Blocking): StandardsFinding => ({
 	rule: siteKey.split(':')[0] ?? 'multi-export',

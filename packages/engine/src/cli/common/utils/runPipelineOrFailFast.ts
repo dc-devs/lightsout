@@ -1,6 +1,6 @@
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { type PipelineResult, runImplementPipeline } from '@/pipeline';
-import { RunLockError } from '@/runState';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { type PipelineResult, runImplementPipeline } from '#src/pipeline/index.ts';
+import { RunLockError } from '#src/runState/index.ts';
 
 /**
  * Run the pipeline; a RunLockError is a clean fail-fast message (no stack, no

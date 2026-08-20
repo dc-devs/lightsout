@@ -1,4 +1,4 @@
-import { StandardsInputKind } from '@/contracts';
+import { StandardsInputKind } from '#src/contracts/index.ts';
 
 /**
  * The input kinds the engine cannot build without a TypeScript compiler. The

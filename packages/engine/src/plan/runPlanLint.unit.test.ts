@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { StructuralCheck } from '@/contracts';
-import { runPlanLint } from '@/plan';
+import { StructuralCheck } from '#src/contracts/index.ts';
+import { runPlanLint } from '#src/plan/index.ts';
+import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Write a plan deliverable at `.lightsout/plans/<name>/plan.md`. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {

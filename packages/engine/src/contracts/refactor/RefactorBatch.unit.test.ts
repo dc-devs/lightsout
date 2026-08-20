@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RefactorBatch } from '@/contracts';
+import { RefactorBatch } from '#src/contracts/index.ts';
 
 const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding = {

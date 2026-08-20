@@ -32,7 +32,9 @@ const commitAll = ({ cwd, message }: { cwd: string; message: string }) => {
  * Every node_modules is linked, not just the root one. This is a workspace, and
  * the package manager installs nothing at the root that a package declared for
  * itself, so a clone with only the root link cannot resolve `zod` and the build
- * fails on the first import.
+ * fails on the first import. The clone's package list is the authority for which
+ * links to make, because a package added on the branch but not yet committed has
+ * no folder in the clone to link into.
  *
  * `scripts/` is copied from the working tree over what the clone checked out,
  * so these tests exercise the scripts as they stand rather than as they were
@@ -53,7 +55,7 @@ const setupClone = async () => {
 	await cp(join(repoRoot, 'scripts'), join(dir, 'scripts'), { recursive: true });
 	await symlink(join(repoRoot, 'node_modules'), join(dir, 'node_modules'), 'dir');
 
-	for (const entry of await readdir(join(repoRoot, 'packages'), { withFileTypes: true })) {
+	for (const entry of await readdir(join(dir, 'packages'), { withFileTypes: true })) {
 		const installed = join(repoRoot, 'packages', entry.name, 'node_modules');
 
 		if (entry.isDirectory() && existsSync(installed)) {

@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { readBrainstormDecisions } from '@/plan';
+import { readBrainstormDecisions } from '#src/plan/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /**
  * A temp repo whose plan workspace holds the given raw `brainstorm-decisions.json`.

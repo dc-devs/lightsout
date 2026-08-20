@@ -1,9 +1,9 @@
-import { type RefactorWorklist, RunStatus, type StepRecord } from '@/contracts';
-import type { Driver } from '@/drivers';
-import type { RefactorResult } from '@/refactor/RefactorResult';
-import type { RefactorRun } from '@/refactor/RefactorRun';
-import { runBatch } from '@/refactor/runBatch';
-import { settleBatchOutcome } from '@/refactor/settleBatchOutcome';
+import { type RefactorWorklist, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
+import type { RefactorRun } from '#src/refactor/RefactorRun.ts';
+import { runBatch } from '#src/refactor/runBatch.ts';
+import { settleBatchOutcome } from '#src/refactor/settleBatchOutcome.ts';
 
 interface Params {
 	run: RefactorRun;
@@ -38,7 +38,7 @@ export const runWorklistBatches = async ({ run, driver, worklist, batchInputs, m
 		}
 
 		if (maxBatches !== undefined && processed >= maxBatches) {
-			await run.update({ status: RunStatus.PausedBudget, currentStep: null });
+			await run.update({ patch: { status: RunStatus.PausedBudget, currentStep: null } });
 			run.progress(`budget ceiling (${maxBatches} batch(es)) reached — resume with: lightsout refactor --run ${run.current().runId}`);
 			result = run.buildHaltedResult({ error: `paused at --max-batches ${maxBatches} — resume with: lightsout refactor --run ${run.current().runId}` });
 

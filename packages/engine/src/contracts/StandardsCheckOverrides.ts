@@ -2,7 +2,7 @@ import { z } from 'zod';
 // Through the barrel, not the file: `standardsCheck` is a module of its own
 // inside contracts, and its index.ts is the path in. No cycle — nothing under
 // it reads the config.
-import { StandardsSeverity } from '@/contracts/standardsCheck';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/index.ts';
 
 /**
  * A rule's severity, with the pre-rename spelling called out by name.

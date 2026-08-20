@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
-import type { PackageDir } from '@/doctor/common/types/PackageDir';
+import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
+import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
 
 /**
  * Jest config files for one package dir: root-level jest.config.* plus anything

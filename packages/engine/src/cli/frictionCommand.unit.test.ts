@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { frictionCommand } from '@/cli/frictionCommand';
-import { FrictionArea, type FrictionRecord } from '@/contracts';
+import { frictionCommand } from '#src/cli/frictionCommand.ts';
+import { FrictionArea, type FrictionRecord } from '#src/contracts/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // friction renders whatever the run state left on disk, so the arrangement is a
 // real .lightsout/friction.jsonl in a temp repo — read back through the same

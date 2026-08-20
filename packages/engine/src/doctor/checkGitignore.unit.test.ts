@@ -1,8 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { checkGitignore } from '@/doctor/checkGitignore';
+import { checkGitignore } from '#src/doctor/checkGitignore.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 describe('checkGitignore', () => {
 	test('passes when git itself says the run state is ignored', async () => {

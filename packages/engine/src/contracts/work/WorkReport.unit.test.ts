@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { WorkReport } from '@/contracts';
+import { WorkReport } from '#src/contracts/index.ts';
 
 const base = { status: 'complete', changedFiles: [], summary: 'x', failures: [] };
 
@@ -106,4 +106,21 @@ test('WorkReport advisoryOutcomes: entries parse; a missing or partial account i
 	expect(WorkReport.safeParse({ ...base, advisoryOutcomes: [{ rule: 'size-function', siteKey: 'x', outcome: 'partly' }] }).success).toBe(false);
 	// and a lone entry outside the list is a malformed report, not a one-entry account
 	expect(WorkReport.safeParse({ ...base, advisoryOutcomes: { rule: 'size-function', siteKey: 'x', outcome: 'applied' } }).success).toBe(false);
+});
+
+test('WorkReport changedFiles: each entry keeps its path and summary, and nothing the contract does not declare', () => {
+	const parsed = WorkReport.parse({
+		...base,
+		changedFiles: [
+			{ path: 'packages/engine/src/contracts/work/WorkReport.ts', summary: 'rewrote the imports to the package alias' },
+			{ path: 'packages/shared/src/index.ts', summary: 'added the formatter re-exports', linesAdded: 2 },
+		],
+	});
+
+	// the supervisor reads these paths back to decide what to review, so the pair
+	// must survive verbatim while an extra key the agent volunteered is dropped
+	expect(parsed.changedFiles).toStrictEqual([
+		{ path: 'packages/engine/src/contracts/work/WorkReport.ts', summary: 'rewrote the imports to the package alias' },
+		{ path: 'packages/shared/src/index.ts', summary: 'added the formatter re-exports' },
+	]);
 });

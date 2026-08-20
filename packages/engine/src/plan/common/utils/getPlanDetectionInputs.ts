@@ -1,5 +1,6 @@
-import { loadConfig } from '@/common/utils/loadConfig';
-import { resolvePlanDeliverable } from '@/plan/common/utils/resolvePlanDeliverable';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
 
 interface Params {
 	cwd: string;
@@ -13,7 +14,7 @@ interface PlanDetectionInputs {
 	files: Awaited<ReturnType<typeof resolvePlanDeliverable>>['files'];
 	/** Every plan path (overview included) fed to the deterministic detectors. */
 	planPaths: string[];
-	config?: Awaited<ReturnType<typeof loadConfig>>;
+	config?: LightsoutConfig;
 	/** Set when the deliverable could not be resolved (propagated from resolvePlanDeliverable). */
 	error?: string;
 }

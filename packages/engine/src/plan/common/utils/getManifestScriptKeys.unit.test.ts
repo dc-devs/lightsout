@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getManifestScriptKeys } from '@/plan/common/utils/getManifestScriptKeys';
+import { getManifestScriptKeys } from '#src/plan/common/utils/getManifestScriptKeys.ts';
 
 describe('getManifestScriptKeys', () => {
 	test('returns the script names a manifest declares, whatever their values hold', () => {

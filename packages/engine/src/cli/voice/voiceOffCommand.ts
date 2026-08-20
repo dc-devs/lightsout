@@ -1,4 +1,4 @@
-import { deleteVoiceMarker, stopSpeech } from '@/voice';
+import { deleteVoiceMarker, stopSpeech } from '#src/voice/index.ts';
 
 interface Params {
 	cwd: string;

@@ -1,5 +1,5 @@
-import { formatFindingSite, formatFindingText } from '@/agents';
-import type { StandardsFinding, WorkReport } from '@/contracts';
+import { formatFindingSite, formatFindingText } from '#src/agents/index.ts';
+import type { StandardsFinding, WorkReport } from '#src/contracts/index.ts';
 
 interface Params {
 	/** The work-list findings still standing — every one of them blocks. */

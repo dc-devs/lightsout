@@ -1,7 +1,7 @@
 import { dirname } from 'node:path';
-import planTemplate from '@/agents/prompts/planTemplate.md';
-import planWriterPrompt from '@/agents/prompts/planWriter.md';
-import type { DecisionsRecord, PlanFacts, PlanVariant } from '@/contracts';
+import planTemplate from '#src/agents/prompts/planTemplate.md';
+import planWriterPrompt from '#src/agents/prompts/planWriter.md';
+import type { DecisionsRecord, PlanFacts, PlanVariant } from '#src/contracts/index.ts';
 
 interface Params {
 	facts: PlanFacts;

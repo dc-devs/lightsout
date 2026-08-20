@@ -91,6 +91,58 @@ describe('index-not-barrel check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('spares an index route file — a file-based router mandates it and forbids it being a barrel', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'packages/web-app/src/routes/index.tsx',
+					["import { createFileRoute } from '@tanstack/react-router';", '', "export const Route = createFileRoute('/')({ component: Home });"].join('\n'),
+				],
+			],
+			dependencies: [['packages/web-app', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('still judges an index outside the router root in a package that has a router', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [['packages/web-app/src/features/index.ts', "console.log('boot');"]],
+			dependencies: [['packages/web-app', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'index-not-barrel:packages/web-app/src/features/index.ts',
+				files: [{ path: 'packages/web-app/src/features/index.ts' }],
+				detail: '1 statement(s) other than re-export lines, the first at line 1',
+				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+			},
+		]);
+	});
+
+	test('a routes folder in a package with no router earns no exemption', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [['packages/api/src/routes/index.ts', "console.log('boot');"]],
+			dependencies: [['packages/api', ['zod']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'index-not-barrel:packages/api/src/routes/index.ts',
+				files: [{ path: 'packages/api/src/routes/index.ts' }],
+				detail: '1 statement(s) other than re-export lines, the first at line 1',
+				guidance: 'An index file is the module’s doorway — re-export lines only. Executable code belongs in a named entry file such as main.ts.',
+			},
+		]);
+	});
+
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 

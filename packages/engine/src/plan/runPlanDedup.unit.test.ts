@@ -2,10 +2,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { DedupReport, Effort, Permissions } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
-import { runPlanDedup } from '@/plan';
+import { DedupReport, Effort, Permissions } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { runPlanDedup } from '#src/plan/index.ts';
+import { expectStatus } from '#tests/helpers/expectStatus.ts';
 
 /** A temp repo holding the given existing source files, each a one-export module. */
 const seedRepo = ({ existing }: { existing: string[] }) => {
@@ -71,6 +71,21 @@ const judgeDriver = (verdicts: unknown[], calls: { count: number }): Driver => (
 		return { text: JSON.stringify({ verdicts }), exitCode: 0 };
 	},
 });
+
+/**
+ * A plan whose workspace has a directory squatting on the path each rejected
+ * payload wants to be written to, so saving that evidence fails with `EISDIR`.
+ */
+const setupUnwritableEvidence = () => {
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const workspaceDir = join(cwd, '.lightsout', 'plans', name);
+
+	// one per attempt: the first judgment and its single re-emit retry
+	mkdirSync(join(workspaceDir, 'dedup-rejected-1.txt'));
+	mkdirSync(join(workspaceDir, 'dedup-rejected-2.txt'));
+
+	return { cwd, name, workspaceDir };
+};
 
 /** A dedup-judge stub that records every invocation it is handed, returning the given verdicts (none by default). */
 const recordingJudgeDriver = (invocations: DriverInvocation[], verdicts: unknown[] = []): Driver => ({
@@ -282,4 +297,79 @@ test('plan dedup: a judge whose output never satisfies the contract fails and wr
 	expect('error' in result && /dedup judge failed/.test(result.error ?? '')).toBeTruthy();
 	// no report is written for a failed judgment
 	expect(existsSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json'))).toBeFalsy();
+});
+
+test('plan dedup: evidence that cannot be saved never replaces the judging failure it was recording', async () => {
+	const { cwd, name, workspaceDir } = setupUnwritableEvidence();
+	let calls = 0;
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			calls += 1;
+
+			return { text: 'they all look distinct to me', exitCode: 0 };
+		},
+	};
+
+	const result = await runPlanDedup({ cwd, driver, name });
+
+	expectStatus(result, 'failed');
+	// saving the rejected payload is best-effort: a failed write is swallowed, so
+	// the step still buys its re-emit retry and reports why judging failed rather
+	// than rejecting with the filesystem error
+	expect(calls).toBe(2);
+	expect('error' in result && /dedup judge failed/.test(result.error ?? '')).toBeTruthy();
+	expect(existsSync(join(workspaceDir, 'dedup.json'))).toBeFalsy();
+});
+
+test('plan dedup: progress narrates the candidates detected and the duplications to review', async () => {
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const verdict = { plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' };
+	const messages: string[] = [];
+
+	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver([], [verdict]), name, onProgress: (message) => messages.push(message) });
+
+	expectStatus(result, 'complete');
+	// the human waiting on the judge sees what was detected and what came back,
+	// got: ${messages.join(' | ')}
+	expect(messages).toStrictEqual([expect.stringMatching(/1 candidate\(s\) detected/), expect.stringMatching(/1 duplication\(s\) to review/)]);
+});
+
+test('plan dedup: the no-candidate path narrates that there is nothing to review', async () => {
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/brandNewWidget.ts'] });
+	const failIfCalled: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			throw new Error('the judge must not be invoked when there are no candidates');
+		},
+	};
+	const messages: string[] = [];
+
+	const result = await runPlanDedup({ cwd, driver: failIfCalled, name, onProgress: (message) => messages.push(message) });
+
+	expectStatus(result, 'complete');
+	// a silent no-op reads as a hang; the narration says the pass ran and found nothing
+	expect(messages).toStrictEqual([expect.stringMatching(/no prior-art candidates/)]);
+});
+
+test('plan dedup: an explicit timeoutMs reaches the judging harness', async () => {
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const invocations: DriverInvocation[] = [];
+
+	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations), name, timeoutMs: 90_000 });
+
+	expectStatus(result, 'complete');
+	// the caller's ceiling is what kills a hung judge, not this role's own
+	expect(invocations.map(({ timeoutMs }) => timeoutMs)).toStrictEqual([90_000]);
+});
+
+test('plan dedup: an omitted timeoutMs falls back to the thirty-minute ceiling', async () => {
+	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
+	const invocations: DriverInvocation[] = [];
+
+	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations), name });
+
+	expectStatus(result, 'complete');
+	// a judging spawn is never left to run forever just because no ceiling was given
+	expect(invocations.map(({ timeoutMs }) => timeoutMs)).toStrictEqual([30 * 60 * 1000]);
 });

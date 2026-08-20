@@ -1,5 +1,5 @@
-import { dim } from '@/cli/common/terminal/dim';
-import { yellow } from '@/cli/common/terminal/yellow';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { yellow } from '#src/cli/common/terminal/yellow.ts';
 
 interface Params {
 	/** How this run names an opt-out: `declined`, `set aside`. */

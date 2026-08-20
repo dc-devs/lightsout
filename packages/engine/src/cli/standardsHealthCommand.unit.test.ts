@@ -2,13 +2,13 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { standardsHealthCommand } from '@/cli/standardsHealthCommand';
-import type { LightsoutConfig } from '@/contracts';
-import type { StandardsHealth } from '@/standardsCheck';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { standardsHealthCommand } from '#src/cli/standardsHealthCommand.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { StandardsHealth } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -30,8 +30,10 @@ interface ResolveStandardsPackagesParams {
 
 const mockResolveStandardsPackages = jest.fn<(params: ResolveStandardsPackagesParams) => Promise<LoadedStandardsPackage[]>>();
 
-jest.mock('@/standardsCheck', () => ({ buildStandardsHealth: (params: BuildStandardsHealthParams) => mockBuildStandardsHealth(params) }));
-jest.mock('@/standardsPackages', () => ({ resolveStandardsPackages: (params: ResolveStandardsPackagesParams) => mockResolveStandardsPackages(params) }));
+jest.mock('#src/standardsCheck/index.ts', () => ({ buildStandardsHealth: (params: BuildStandardsHealthParams) => mockBuildStandardsHealth(params) }));
+jest.mock('#src/standardsPackages/index.ts', () => ({
+	resolveStandardsPackages: (params: ResolveStandardsPackagesParams) => mockResolveStandardsPackages(params),
+}));
 // -------------------------
 
 const loadedPackage: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules: [] };
@@ -115,5 +117,45 @@ describe('standardsHealthCommand', () => {
 
 		expect(logged).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([]);
+	});
+
+	test('every recorded reason prints beneath its own rule — a decline rate without the argument behind it says which rule to distrust, never why', async () => {
+		const { context, logged } = setupCommand();
+
+		await expect(standardsHealthCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(cellsOf({ logged })[2]).toStrictEqual(['· [plan] the barrel would break', '', '', '', '', '', '', '', '']);
+	});
+
+	test('the same rationale repeated across a rule’s batches is stated once, and a long one is cut rather than stretching the table', async () => {
+		const { context, logged } = setupCommand({
+			health: {
+				rules: [
+					{
+						id: 'size-file',
+						set: 'code',
+						documentPath: 'code/style-guide/structure/size',
+						checked: true,
+						attempted: 3,
+						resolved: 0,
+						declined: 3,
+						untracked: 0,
+						adviceApplied: 0,
+						adviceDeclined: 0,
+						reasons: ['  splitting   this file\n  would break the barrel  ', 'splitting this file would break the barrel', '', 'x'.repeat(120)],
+					},
+				],
+				totals: { rules: 1, checked: 1, judgment: 0 },
+			},
+		});
+
+		await expect(standardsHealthCommand(context)).rejects.toThrow(/process\.exit/);
+
+		const reasons = cellsOf({ logged })
+			.map((cells) => cells[0] ?? '')
+			.filter((cell) => cell.startsWith('· '));
+
+		// whitespace-normalized the two spellings are one reason, the empty one is nothing, and the 120-character one is cut to 96
+		expect(reasons).toStrictEqual(['· splitting this file would break the barrel', `· ${'x'.repeat(95)}…`]);
 	});
 });

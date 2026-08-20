@@ -3,12 +3,16 @@ import type ts from 'typescript';
 import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
 import { getBaseName } from '../../../../../common/utils/getBaseName.ts';
 import { getDirectory } from '../../../../../common/utils/getDirectory.ts';
+import { getFrameworkCarveOuts } from '../../../../../common/utils/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../../../common/utils/getPathCarveOut.ts';
+import { isUnderRouterRoot } from '../../../../../common/utils/isUnderRouterRoot.ts';
 
 /**
  * Every index file, wherever it stands — a src root barrel holds no code any
  * more than an internal one does, so unlike barrel-star there is no root
  * exemption. A barrel under `common/` is spared the same way barrel-star
- * spares it: `path-common-barrel` objects to its existing at all.
+ * spares it: `path-common-barrel` objects to its existing at all. A file under
+ * a package's router root is spared before this is ever asked.
  */
 const isIndexFile = ({ path }: { path: string }) => /^index\.tsx?$/.test(getBaseName({ path })) && !getDirectory({ path }).split('/').includes('common');
 
@@ -18,8 +22,18 @@ const isReExport = ({ statement, compiler }: { statement: ts.Statement; compiler
 
 const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
 	const findings: RawStandardsFinding[] = [];
+	const carveOuts = getFrameworkCarveOuts({ dependencies: input.dependencies });
 
 	for (const [path, tree] of input.trees) {
+		// A file-based router (TanStack, Remix, Next) MANDATES an index route
+		// file, and a route file's content is a route definition — never a
+		// re-export. Judging one is asking for a file the framework forbids, so
+		// the router root is the framework's to name, exactly as
+		// `05-filename-mismatch` and `50-path-folder-casing` already concede.
+		if (isUnderRouterRoot({ path, carveOut: getPathCarveOut({ carveOuts, path }) })) {
+			continue;
+		}
+
 		if (isIndexFile({ path })) {
 			const offending = tree.statements.filter((statement) => !isReExport({ statement, compiler: input.compiler }));
 			const [first] = offending;

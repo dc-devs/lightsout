@@ -1,7 +1,7 @@
-import { buildSupervisorInvocation } from '@/agents';
-import { type LightsoutConfig, Permissions, SupervisorVerdict } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { type AgentOutcome, invokeAgentWithContract } from '@/invoke';
+import { buildSupervisorInvocation } from '#src/agents/index.ts';
+import { type LightsoutConfig, Permissions, SupervisorVerdict } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
 
 const supervisorPermissions = Permissions.ReadOnly;
 

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { seedConfiguredCwd } from '@tests/helpers/seedConfiguredCwd';
+import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 interface Params {
 	status: string;

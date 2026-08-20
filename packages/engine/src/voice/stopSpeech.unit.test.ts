@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { stopSpeech } from '@/voice';
+import { stopSpeech } from '#src/voice/index.ts';
 
 // The reading itself is a real process on a real Mac, so the one thing that
 // cannot run for real here is the kill — everything around it is a real file in

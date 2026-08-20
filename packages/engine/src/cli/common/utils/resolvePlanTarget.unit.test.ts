@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { resolvePlanTarget } from '@/cli/common/utils/resolvePlanTarget';
+import { resolvePlanTarget } from '#src/cli/common/utils/resolvePlanTarget.ts';
 
 /** A temp repo holding a plan file plus a `plans/demo` folder seeded with whatever the case needs. */
 const setupPlanFolder = ({ files }: { files: string[] }) => {

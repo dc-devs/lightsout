@@ -1,4 +1,4 @@
-import unitTestWriterPrompt from '@/agents/prompts/unitTestWriter.md';
+import unitTestWriterPrompt from '#src/agents/prompts/unitTestWriter.md';
 
 interface Params {
 	planContent: string;

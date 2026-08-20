@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { renderTable } from '@/cli/common/render/renderTable';
+import { renderTable } from '#src/cli/common/render/renderTable.ts';
 
 describe('renderTable', () => {
 	test('sizes every column to its widest cell, header included', () => {

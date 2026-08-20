@@ -1,5 +1,5 @@
 import type { StandardsCheckInput } from '@lightsout/standards-contracts';
-import { setupCloneSpansInput } from './setupCloneSpansInput.ts';
+import { setupCloneSpansInput } from '#src/setupCloneSpansInput.ts';
 
 /**
  * An input of a kind the rule under test did not declare.

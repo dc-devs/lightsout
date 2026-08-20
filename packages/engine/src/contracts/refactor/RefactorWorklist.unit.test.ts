@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { RefactorWorklist } from '@/contracts';
+import { RefactorWorklist } from '#src/contracts/index.ts';
 
 const setupWorklist = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const batch = {

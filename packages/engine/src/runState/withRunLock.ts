@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { acquireRunLock } from '@/runState/acquireRunLock';
-import { releaseRunLock } from '@/runState/releaseRunLock';
+import { acquireRunLock } from '#src/runState/acquireRunLock.ts';
+import { releaseRunLock } from '#src/runState/releaseRunLock.ts';
 
 /** The slice of pipeline params the lock lifecycle itself needs. */
 interface PipelineParams {

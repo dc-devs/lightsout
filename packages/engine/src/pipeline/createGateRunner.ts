@@ -1,9 +1,9 @@
-import type { CommandResult } from '@/common/types/CommandResult';
-import { messageOf } from '@/common/utils/messageOf';
-import { runCommand } from '@/common/utils/runCommand';
-import type { GateResult } from '@/contracts';
-import type { RunGate } from '@/pipeline/common/types/RunGate';
-import { appendCommandLog } from '@/runState';
+import type { CommandResult } from '#src/common/types/CommandResult.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { runCommand } from '#src/common/utils/runCommand.ts';
+import type { GateResult } from '#src/contracts/index.ts';
+import type { RunGate } from '#src/pipeline/common/types/RunGate.ts';
+import { appendCommandLog } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;

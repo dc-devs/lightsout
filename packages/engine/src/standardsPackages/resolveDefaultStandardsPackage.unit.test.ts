@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { resolveDefaultStandardsPackage } from '@/standardsPackages';
+import { resolveDefaultStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /**
  * Every other suite runs with LIGHTSOUT_DEFAULT_STANDARDS set, because the walk

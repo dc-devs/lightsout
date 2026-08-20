@@ -1,6 +1,6 @@
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { readFriction } from '@/runState';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { readFriction } from '#src/runState/index.ts';
 
 export const frictionCommand = async ({ cwd }: CommandContext): Promise<void> => {
 	const entries = await readFriction({ cwd });

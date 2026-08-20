@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { AdvisoryOutcome } from '@/contracts';
+import { AdvisoryOutcome } from '#src/contracts/index.ts';
 
 const setupOutcome = (overrides: Record<string, unknown> = {}) => {
 	const outcome = { rule: 'size-function', siteKey: 'size-function:src/a.ts', outcome: 'declined', reason: 'orchestration exemption applies', ...overrides };

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { createEventFileSink } from '@/common/utils/createEventFileSink';
+import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
 
 const setupSink = ({ ready, subdir }: { ready?: Promise<unknown>; subdir?: string } = {}) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-eventsink-'));

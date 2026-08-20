@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { checkVerificationScripts } from '@/plan/checkVerificationScripts';
-import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
+import { checkVerificationScripts } from '#src/plan/checkVerificationScripts.ts';
+import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 
 /** A parsed plan carrying only what this check reads. */
 const planWith = ({ commands, paths = [] }: { commands: string[]; paths?: string[] }): ParsedPlan => ({
@@ -71,6 +71,43 @@ describe('checkVerificationScripts', () => {
 
 		// `--silent` swallows no selector, so the script is the very next token
 		expect(await check({ cwd, planPath, plan: planWith({ commands: ['pnpm --silent check'] }) })).toStrictEqual([]);
+	});
+
+	test('resolves an explicit `run` form past its filter and selector', async () => {
+		const { cwd, planPath } = setupRepo({ manifests: rootManifest({ check: 'tsc --noEmit' }) });
+
+		expect(await check({ cwd, planPath, plan: planWith({ commands: ['pnpm --filter api run check'] }) })).toStrictEqual([]);
+	});
+
+	test('a `run` form naming an undeclared script is flagged under the parsed script name', async () => {
+		const { cwd, planPath } = setupRepo({ manifests: rootManifest({ check: 'tsc --noEmit' }) });
+
+		const findings = await check({ cwd, planPath, plan: planWith({ commands: ['npm run verify --workspace=api'] }) });
+
+		// the workspace flag trails the script, so `verify` is what was referenced
+		expect(findings[0]?.issue).toMatch(/references package script 'verify' which is not in any target package.json/);
+	});
+
+	test('a path naming no package adds no manifest to consult', async () => {
+		const { cwd, planPath } = setupRepo({ manifests: rootManifest({}) });
+
+		// neither a root-level path nor a bare `packages/` prefix names a package
+		const findings = await check({ cwd, planPath, plan: planWith({ commands: ['pnpm check'], paths: ['src/thing.ts', 'packages/'] }) });
+
+		expect(findings[0]?.issue).toMatch(/'check' which is not in any target package.json/);
+	});
+
+	test('a touched package with no manifest of its own is skipped rather than failing the check', async () => {
+		const { cwd, planPath } = setupRepo({ manifests: rootManifest({ check: 'tsc' }) });
+
+		const plan = planWith({ commands: ['pnpm check', 'pnpm build'], paths: ['packages/ghost/src/thing.ts'] });
+		const findings = await check({ cwd, planPath, plan });
+
+		// the unreadable package manifest contributes nothing, and the root
+		// manifest still answers for `check`
+		expect(findings.map((finding) => finding.issue)).toStrictEqual([
+			"verification command 'pnpm build' references package script 'build' which is not in any target package.json",
+		]);
 	});
 
 	test('a raw command with no package-manager prefix is not guessed into a finding', async () => {

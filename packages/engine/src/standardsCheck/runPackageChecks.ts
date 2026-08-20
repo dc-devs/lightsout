@@ -1,13 +1,13 @@
-import { isTestFile } from '@/common/utils/isTestFile';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { type StandardsCheckInput, type StandardsCheckRun, type StandardsFinding, StandardsInputKind, StandardsSeverity } from '@/contracts';
-import { buildCheckInput } from '@/standardsCheck/common/checkInputs/buildCheckInput';
-import { typescriptInputKinds } from '@/standardsCheck/common/constants/typescriptInputKinds';
-import type { ResolvedRuleState } from '@/standardsCheck/common/types/ResolvedRuleState';
-import { findFoldersWithoutTsconfig } from '@/standardsCheck/common/utils/findFoldersWithoutTsconfig';
-import { runRuleCheck } from '@/standardsCheck/common/utils/runRuleCheck';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { type StandardsCheckInput, type StandardsCheckRun, type StandardsFinding, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
+import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
+import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
+import { findFoldersWithoutAliasSource } from '#src/standardsCheck/common/utils/findFoldersWithoutAliasSource.ts';
+import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /** A rule that will actually run, with everything the run needs already resolved. */
 interface LiveRule {
@@ -156,14 +156,17 @@ export const runPackageChecks = async ({
 	}
 
 	// Asked only when a file-text rule actually ran, since that is the pass whose
-	// answer depends on finding a tsconfig. Gated on the rules rather than on
-	// whether the cache holds one: a repo with no tsconfig anywhere is precisely
-	// the case worth reporting, and testing the cache would stay silent about it.
-	const uncovered = live.some((rule) => rule.inputKind === StandardsInputKind.FileText) ? findFoldersWithoutTsconfig({ files: allFiles, contents: cache }) : [];
+	// answer depends on finding an alias declaration. Gated on the rules rather
+	// than on whether the cache holds one: a repo that declares aliases nowhere is
+	// precisely the case worth reporting, and testing the cache would stay silent
+	// about it.
+	const uncovered = live.some((rule) => rule.inputKind === StandardsInputKind.FileText)
+		? findFoldersWithoutAliasSource({ files: allFiles, contents: cache })
+		: [];
 
 	if (uncovered.length > 0) {
 		notes.push(
-			`no tsconfig above ${uncovered.length} folder(s) — path aliases are unknown there, so the barrel and import rules stayed silent rather than guess: ${uncovered.slice(0, 5).join(', ')}${uncovered.length > 5 ? ', …' : ''}`,
+			`no package.json with imports and no tsconfig above ${uncovered.length} folder(s) — path aliases are unknown there, so the barrel and import rules stayed silent rather than guess: ${uncovered.slice(0, 5).join(', ')}${uncovered.length > 5 ? ', …' : ''}`,
 		);
 	}
 

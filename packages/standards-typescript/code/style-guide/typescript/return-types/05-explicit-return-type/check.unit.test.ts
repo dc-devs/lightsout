@@ -232,6 +232,44 @@ describe('explicit-return-type check', () => {
 		]);
 	});
 
+	test('passes over a query-options factory under a queries/ folder, whose inferred type is the contract', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [['src/runs/queries/runsQueryOptions.ts', "export const runsQueryOptions = () => queryOptions({ queryKey: ['runs'], queryFn: listRuns });\n"]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('still reports a sibling utils/ file, so the exemption is the folder and not the package', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [['src/runs/utils/buildRunsKey.ts', "export const buildRunsKey = () => ['runs'];\n"]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.files).toStrictEqual([{ path: 'src/runs/utils/buildRunsKey.ts' }]);
+	});
+
+	test('reports a file merely NAMED queries.ts, since the exemption is a folder the factories live in', async () => {
+		const input = setupSyntaxTreeInput({ sources: [['src/runs/queries.ts', "export const queries = () => ['runs'];\n"]] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.files).toStrictEqual([{ path: 'src/runs/queries.ts' }]);
+	});
+
+	test('passes over a file nested below a queries/ folder, since the exemption is any folder above it', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [['src/runs/queries/common/buildRunsOptions.ts', "export const buildRunsOptions = () => queryOptions({ queryKey: ['runs'] });\n"]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 

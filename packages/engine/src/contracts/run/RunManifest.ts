@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { LightsoutConfig } from '@/contracts/LightsoutConfig';
-import { PackagesSource } from '@/contracts/run/PackagesSource';
-import { RunStatus } from '@/contracts/run/RunStatus';
-import { RunUsage } from '@/contracts/run/RunUsage';
-import { StepRecord } from '@/contracts/run/StepRecord';
+import { LightsoutConfig } from '#src/contracts/LightsoutConfig.ts';
+import { PackagesSource } from '#src/contracts/run/PackagesSource.ts';
+import { RunStatus } from '#src/contracts/run/RunStatus.ts';
+import { RunUsage } from '#src/contracts/run/RunUsage.ts';
+import { StepRecord } from '#src/contracts/run/StepRecord.ts';
 
 /**
  * The on-disk state of a run (`.lightsout/runs/<id>/manifest.json`).

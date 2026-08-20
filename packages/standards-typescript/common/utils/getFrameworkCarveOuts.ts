@@ -16,7 +16,7 @@ const carveOutSignals: Record<string, Partial<Omit<FrameworkCarveOut, 'directory
 	'react-dom': { exemptFolderNames: ['components', 'hooks'] },
 	'@nestjs/core': { exemptFolderNames: ['controllers', 'models', 'services'], kebabCase: true },
 	next: { routerRoots: ['app', 'pages'] },
-	'@tanstack/react-router': { routerRoots: ['routes'] },
+	'@tanstack/react-router': { routerRoots: ['routes'], moduleFolders: ['features/*/screens/*'] },
 	'@remix-run/react': { routerRoots: ['routes'] },
 	'expo-router': { routerRoots: ['app'] },
 };
@@ -54,5 +54,6 @@ export const getFrameworkCarveOuts = ({ dependencies }: Params): FrameworkCarveO
 				exemptFolderNames: [...new Set(signals.flatMap((signal) => signal.exemptFolderNames ?? []))],
 				kebabCase: signals.some((signal) => signal.kebabCase === true),
 				routerRoots: [...new Set(signals.flatMap((signal) => signal.routerRoots ?? []))],
+				moduleFolders: [...new Set(signals.flatMap((signal) => signal.moduleFolders ?? []))],
 			};
 		});

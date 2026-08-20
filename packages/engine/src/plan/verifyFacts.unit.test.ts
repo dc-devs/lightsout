@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { ExploreArea } from '@/contracts';
-import { verifyFacts } from '@/plan';
+import type { ExploreArea } from '#src/contracts/index.ts';
+import { verifyFacts } from '#src/plan/index.ts';
 
 /** A full ExploreArea with per-test overrides. */
 const area = (overrides: Partial<ExploreArea>): ExploreArea => ({

@@ -1,6 +1,6 @@
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { usage } from '@/cli/common/constants/usage';
-import { exitCli } from '@/cli/common/utils/exitCli';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { usage } from '#src/cli/common/constants/usage.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 
 interface Params {
 	flags: Map<string, string | true>;

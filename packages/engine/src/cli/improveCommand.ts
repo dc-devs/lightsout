@@ -1,9 +1,9 @@
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { usage } from '@/cli/common/constants/usage';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
-import { runPromptImprovement } from '@/runPromptImprovement';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { usage } from '#src/cli/common/constants/usage.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
+import { runPromptImprovement } from '#src/runPromptImprovement.ts';
 
 export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const engineCwd = getStringFlag({ flags, name: 'engine' });

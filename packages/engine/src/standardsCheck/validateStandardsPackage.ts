@@ -2,14 +2,14 @@ import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import { messageOf } from '@/common/utils/messageOf';
-import type { StandardsCheckRun, StandardsInputKind } from '@/contracts';
-import { buildCheckInput } from '@/standardsCheck/common/checkInputs/buildCheckInput';
-import { typescriptInputKinds } from '@/standardsCheck/common/constants/typescriptInputKinds';
-import { runRuleCheck } from '@/standardsCheck/common/utils/runRuleCheck';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { StandardsCheckRun, StandardsInputKind } from '#src/contracts/index.ts';
+import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
+import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
+import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
+import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
 
 interface Params {
 	pkg: LoadedStandardsPackage;

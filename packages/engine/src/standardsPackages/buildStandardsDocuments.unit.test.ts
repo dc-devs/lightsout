@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LoadedStandardsDocument, LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
-import { buildStandardsDocuments } from '@/standardsPackages';
+import type { LoadedStandardsDocument, LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import { buildStandardsDocuments } from '#src/standardsPackages/index.ts';
 
 const buildRule = ({ id, prose, channel = 'base' }: { id: string; prose: string; channel?: string }): LoadedStandardsRule => ({
 	id,

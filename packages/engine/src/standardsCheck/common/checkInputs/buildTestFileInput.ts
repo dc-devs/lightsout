@@ -1,5 +1,5 @@
-import { StandardsInputKind, type TestFileInput } from '@/contracts';
-import { readIntoCache } from '@/standardsCheck/common/checkInputs/readIntoCache';
+import { StandardsInputKind, type TestFileInput } from '#src/contracts/index.ts';
+import { readIntoCache } from '#src/standardsCheck/common/checkInputs/readIntoCache.ts';
 
 interface Params {
 	cwd: string;

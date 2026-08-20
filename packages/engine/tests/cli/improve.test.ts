@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
-import { seedConfiguredCwd } from '@tests/helpers/seedConfiguredCwd';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 // improve resolves its driver through the per-command config BEFORE the
 // friction check, and its config load is non-fatal — both paths exit at the

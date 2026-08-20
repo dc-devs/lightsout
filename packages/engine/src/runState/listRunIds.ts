@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises';
-import { getRunsDir } from '@/runState/common/paths/getRunsDir';
+import { getRunsDir } from '#src/runState/common/paths/getRunsDir.ts';
 
 interface Params {
 	cwd: string;

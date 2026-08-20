@@ -1,5 +1,5 @@
-import { type LightsoutConfig, Permissions } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { type LightsoutConfig, Permissions } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
 
 interface Params {
 	config: LightsoutConfig;

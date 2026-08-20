@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { exitCli } from '@/cli/common/utils/exitCli';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 
 /**
  * Capture each stream's queued write callbacks without writing anywhere, so

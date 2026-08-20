@@ -1,7 +1,7 @@
 import { expect, jest, test } from '@jest/globals';
-import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
-import type { StructuralFinding } from '@/contracts';
-import { StructuralCheck } from '@/contracts';
+import { printStructuralFinding } from '#src/cli/common/render/printStructuralFinding.ts';
+import type { StructuralFinding } from '#src/contracts/index.ts';
+import { StructuralCheck } from '#src/contracts/index.ts';
 
 // The finding's whole output IS its two console.log lines, so capturing them is
 // the arrangement. isTTY decides whether the paint helpers emit ANSI, so it is

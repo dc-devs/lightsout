@@ -1,9 +1,9 @@
-import { pathFromLine } from '@/plan/common/paths/pathFromLine';
-import type { ParsedPlan } from '@/plan/common/types/ParsedPlan';
-import { planCreatePaths } from '@/plan/planCreatePaths';
+import { pathFromLine } from '#src/plan/common/paths/pathFromLine.ts';
+import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
+import { planCreatePaths } from '#src/plan/planCreatePaths.ts';
 
 /** Split a plan into its `##` sections (a `###` subheading stays inside its section). */
-const parseSections = (lines: string[]): Map<string, string[]> => {
+const parseSections = ({ lines }: { lines: string[] }): Map<string, string[]> => {
 	const sections = new Map<string, string[]>();
 	let current: string | undefined;
 
@@ -47,7 +47,7 @@ const pathsFromLines = ({ sectionLines, lineMatches }: { sectionLines: string[] 
 };
 
 /** The backtick-delimited command in each `-` bullet of the Verification section. */
-const commandsFromVerification = (sectionLines: string[] | undefined): string[] => {
+const commandsFromVerification = ({ sectionLines }: { sectionLines: string[] | undefined }): string[] => {
 	if (!sectionLines) {
 		return [];
 	}
@@ -69,10 +69,17 @@ const commandsFromVerification = (sectionLines: string[] | undefined): string[] 
 	return commands;
 };
 
+interface Params {
+	/** The plan file's full text. */
+	content: string;
+	/** The plan file's basename — `overview.md` is one of the overview-variant signals. */
+	base: string;
+}
+
 /** Parse a plan file's text into the typed `ParsedPlan` the structural lint keys off. */
-export const parsePlan = ({ content, base }: { content: string; base: string }): ParsedPlan => {
+export const parsePlan = ({ content, base }: Params): ParsedPlan => {
 	const lines = content.split('\n');
-	const sections = parseSections(lines);
+	const sections = parseSections({ lines });
 	const title =
 		lines
 			.find((line) => /^#\s+/.test(line))
@@ -91,7 +98,7 @@ export const parsePlan = ({ content, base }: { content: string; base: string }):
 		createPaths: planCreatePaths({ planText: content }),
 		modifyPaths: pathsFromLines({ sectionLines: sections.get('Files to Modify'), lineMatches: (line) => /^###\s+/.test(line) }),
 		mirrorPaths: pathsFromLines({ sectionLines: sections.get('Patterns to Mirror'), lineMatches: (line) => /^\s*-\s+/.test(line) }),
-		verificationCommands: commandsFromVerification(sections.get('Verification')),
+		verificationCommands: commandsFromVerification({ sectionLines: sections.get('Verification') }),
 		lines,
 	};
 };

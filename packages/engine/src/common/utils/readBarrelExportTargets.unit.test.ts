@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { createSpecifierResolver } from '@/common/utils/createSpecifierResolver';
-import { readBarrelExportTargets } from '@/common/utils/readBarrelExportTargets';
+import { createSpecifierResolver } from '#src/common/utils/createSpecifierResolver.ts';
+import { readBarrelExportTargets } from '#src/common/utils/readBarrelExportTargets.ts';
 
 // Runtime require rather than a static import: the CJS TypeScript compiler
 // probes __filename at load, so it has to be required at runtime rather than
@@ -76,4 +76,32 @@ test('readBarrelExportTargets: an export with no module specifier names no file,
 	// a local re-export points at nothing to place — only the specifier does
 	expect([...targets]).toStrictEqual(['src/mod/feature.ts']);
 	expect(complete).toBe(true);
+});
+
+test('readBarrelExportTargets: a barrel re-exporting through package-imports specifiers places every target it names', () => {
+	const { targets, complete } = readBarrelExportTargets({
+		path: 'src/mod/index.ts',
+		content: ["export { feature } from '#src/mod/feature.ts';", "export type { Config } from '#src/mod/types/Config.ts';"].join('\n'),
+		compiler: ts,
+		resolve,
+	});
+
+	// the shape every barrel in this repo now writes — the alias root plus the
+	// extension the target really carries, since nothing probes it for you
+	expect([...targets].sort()).toStrictEqual(['src/mod/feature.ts', 'src/mod/types/Config.ts']);
+	expect(complete).toBe(true);
+});
+
+test('readBarrelExportTargets: an unplaceable package-imports specifier leaves the surface incomplete rather than passing as an external package', () => {
+	const { complete } = readBarrelExportTargets({
+		path: 'src/mod/index.ts',
+		content: "export { ghost } from '#src/mod/ghost.ts';",
+		compiler: ts,
+		resolve,
+	});
+
+	// a '#'-rooted specifier always names a file in this very repo, so failing to
+	// place one is a hole in the surface — only a published package resolves to
+	// nothing for free
+	expect(complete).toBe(false);
 });

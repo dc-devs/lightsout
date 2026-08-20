@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { DedupVerdict } from '@/contracts';
+import { DedupVerdict } from '#src/contracts/index.ts';
 
 const setupVerdict = (overrides: Record<string, unknown> = {}) => {
 	const verdict = {

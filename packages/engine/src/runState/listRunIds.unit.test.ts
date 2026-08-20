@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { listRunIds } from '@/runState';
+import { listRunIds } from '#src/runState/index.ts';
 
 const setupRepo = ({ runs = [], files = [] }: { runs?: string[]; files?: string[] } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-run-ids-'));

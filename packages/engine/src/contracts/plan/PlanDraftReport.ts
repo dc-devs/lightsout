@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { PlanDraftStatus } from '@/contracts/plan/PlanDraftStatus';
-import { PlanVariant } from '@/contracts/plan/PlanVariant';
+import { PlanDraftStatus } from '#src/contracts/plan/PlanDraftStatus.ts';
+import { PlanVariant } from '#src/contracts/plan/PlanVariant.ts';
 
 /**
  * The plan-writer agent's report from a `plan draft` run: the files written

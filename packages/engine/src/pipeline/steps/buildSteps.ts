@@ -1,13 +1,13 @@
-import { buildFeatureExecutorInvocation, buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '@/agents';
-import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { cleanSlateStep } from '@/pipeline/steps/cleanSlateStep';
-import { formatStep } from '@/pipeline/steps/formatStep';
-import { refactorStep } from '@/pipeline/steps/refactorStep';
-import { verifyStep } from '@/pipeline/steps/verifyStep';
-import { workStep } from '@/pipeline/steps/workStep';
-import { writeTestsStep } from '@/pipeline/steps/writeTestsStep';
+import { buildFeatureExecutorInvocation, buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
+import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { cleanSlateStep } from '#src/pipeline/steps/cleanSlateStep.ts';
+import { formatStep } from '#src/pipeline/steps/formatStep.ts';
+import { refactorStep } from '#src/pipeline/steps/refactorStep.ts';
+import { verifyStep } from '#src/pipeline/steps/verifyStep.ts';
+import { workStep } from '#src/pipeline/steps/workStep.ts';
+import { writeTestsStep } from '#src/pipeline/steps/writeTestsStep.ts';
 
 interface Params {
 	run: PipelineRun;

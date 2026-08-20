@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { nameOf } from '@/common/naming/nameOf';
+import { nameOf } from '#src/common/naming/nameOf.ts';
 
 test('nameOf: strips the source extension to the export name', () => {
 	expect(nameOf('src/a/getUser.ts')).toBe('getUser');

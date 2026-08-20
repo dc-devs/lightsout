@@ -1,6 +1,6 @@
-import { RunState } from '@/common/services/RunState';
-import type { AgentUsage, LightsoutConfig, RunManifest, RunStatus, StepRecord } from '@/contracts';
-import type { RefactorResult } from '@/refactor/RefactorResult';
+import { RunState } from '#src/common/services/RunState.ts';
+import type { AgentUsage, LightsoutConfig, RunManifest, RunStatus, StepRecord } from '#src/contracts/index.ts';
+import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
 
 interface ConstructorParams {
 	cwd: string;
@@ -56,8 +56,8 @@ export class RefactorRun {
 		this.runState.progress(message);
 	}
 
-	update(patch: Partial<RunManifest>): Promise<void> {
-		return this.runState.update(patch);
+	update({ patch }: { patch: Partial<RunManifest> }): Promise<void> {
+		return this.runState.update({ patch });
 	}
 
 	setStep({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }): Promise<void> {

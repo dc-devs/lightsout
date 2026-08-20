@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type AdvisoryOutcome, type BatchReport, type RefactorBatch, type StandardsFinding, StandardsSeverity } from '@/contracts';
-import { buildStandardsHealth } from '@/standardsCheck';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
+import { type AdvisoryOutcome, type BatchReport, type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import { buildStandardsHealth } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
 
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedStandardsRule => ({
 	set: 'code',
@@ -19,10 +19,10 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedS
 	...overrides,
 });
 
-const packageOf = ({ rules }: { rules: LoadedStandardsRule[] }): LoadedStandardsPackage => ({
-	name: 'acme',
+const packageOf = ({ name = 'acme', rules }: { name?: string; rules: LoadedStandardsRule[] }): LoadedStandardsPackage => ({
+	name,
 	formatVersion: 1,
-	rootPath: '/packages/acme',
+	rootPath: `/packages/${name}`,
 	documents: [],
 	rules,
 });
@@ -50,6 +50,10 @@ interface RunSpec {
 	batches: RefactorBatch[];
 	reports?: Record<string, unknown>;
 	worklistJson?: string;
+	/** Raw manifest text, for the run whose manifest cannot be read at all. */
+	manifestJson?: string;
+	/** Batch ids the manifest holds no step record for — how a run stopped before a batch ran is stored. */
+	unrecordedBatchIds?: string[];
 }
 
 /**
@@ -64,6 +68,8 @@ const setupRun = ({
 	batches,
 	reports = {},
 	worklistJson,
+	manifestJson,
+	unrecordedBatchIds = [],
 }: RunSpec & { cwd?: string }) => {
 	const runDir = join(cwd, '.lightsout', 'runs', runId);
 
@@ -71,23 +77,26 @@ const setupRun = ({
 	writeFileSync(join(runDir, 'worklist.json'), worklistJson ?? JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', all: false, batches }));
 	writeFileSync(
 		join(runDir, 'manifest.json'),
-		JSON.stringify({
-			runId,
-			createdAt: '2026-01-01T00:00:00.000Z',
-			updatedAt: '2026-01-01T00:00:00.000Z',
-			plan: join('.lightsout', 'runs', runId, 'worklist.json'),
-			...(pipeline === null ? {} : { pipeline }),
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
-			steps: batches.map((entry) => ({
-				id: entry.id,
+		manifestJson ??
+			JSON.stringify({
+				runId,
+				createdAt: '2026-01-01T00:00:00.000Z',
+				updatedAt: '2026-01-01T00:00:00.000Z',
+				plan: join('.lightsout', 'runs', runId, 'worklist.json'),
+				...(pipeline === null ? {} : { pipeline }),
+				harness: 'stub',
 				status: 'passed',
-				attempts: 1,
-				...(Object.hasOwn(reports, entry.id) ? { report: reports[entry.id] } : {}),
-			})),
-			changedFiles: [],
-		}),
+				currentStep: null,
+				steps: batches
+					.filter((entry) => !unrecordedBatchIds.includes(entry.id))
+					.map((entry) => ({
+						id: entry.id,
+						status: 'passed',
+						attempts: 1,
+						...(Object.hasOwn(reports, entry.id) ? { report: reports[entry.id] } : {}),
+					})),
+				changedFiles: [],
+			}),
 	);
 
 	return cwd;
@@ -295,5 +304,96 @@ describe('buildStandardsHealth', () => {
 
 		// one corrupt run directory must not take the whole account down with it
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, declined: 1 }));
+	});
+
+	test('a run whose manifest will not parse is skipped, and the readable runs still count', async () => {
+		const cwd = setupRuns({
+			runs: [
+				{
+					runId: 'run-broken',
+					batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' })] })],
+					manifestJson: '{ not json at all',
+				},
+				{
+					runId: 'run-good',
+					batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/b.ts' })] })],
+					reports: { 'batch-01': report({ outcome: 'resolved', remainingSiteKeys: [] }) },
+				},
+			],
+		});
+
+		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+
+		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 1, declined: 0, untracked: 0 }));
+	});
+
+	test('a batch the manifest holds no step record for is untracked — a batch that never ran judged nothing', async () => {
+		const cwd = setupRun({
+			batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' })] })],
+			unrecordedBatchIds: ['batch-01'],
+		});
+
+		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+
+		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 0, declined: 0, untracked: 1 }));
+	});
+
+	test('one rule’s counts accumulate across every refactor run the repo has state for', async () => {
+		const cwd = setupRuns({
+			runs: [
+				{
+					runId: 'run-01',
+					batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' })] })],
+					reports: { 'batch-01': report({ outcome: 'resolved', remainingSiteKeys: [] }) },
+				},
+				{
+					runId: 'run-02',
+					batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/b.ts' })] })],
+					reports: {
+						'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/b.ts'], rationale: ['[other] deliberate'] }),
+					},
+				},
+			],
+		});
+
+		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+
+		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(
+			expect.objectContaining({ attempted: 2, resolved: 1, declined: 1, untracked: 0, reasons: ['[other] deliberate'] }),
+		);
+	});
+
+	test('every loaded package contributes rows, sorted by id across the packages together', async () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-health-packages-'));
+
+		const health = await buildStandardsHealth({
+			cwd,
+			packages: [
+				packageOf({ name: 'zeta', rules: [rule({ id: 'path-aliases' })] }),
+				packageOf({ name: 'alpha', rules: [rule({ id: 'multi-export', checked: true })] }),
+			],
+		});
+
+		expect(health.rules.map((entry) => entry.id)).toStrictEqual(['multi-export', 'path-aliases']);
+		expect(health.totals).toStrictEqual({ rules: 2, checked: 1, judgment: 1 });
+	});
+
+	test('each batch is answered by the step record carrying its own id, not by position', async () => {
+		const cwd = setupRun({
+			batches: [
+				batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' })] }),
+				batch({ id: 'batch-02', blocking: [finding({ rule: 'module-boundary', path: 'src/b.ts' })] }),
+			],
+			reports: { 'batch-02': report({ outcome: 'resolved', remainingSiteKeys: [] }) },
+			unrecordedBatchIds: ['batch-01'],
+		});
+
+		const health = await buildStandardsHealth({
+			cwd,
+			packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'module-boundary', checked: true })] })],
+		});
+
+		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 0, untracked: 1 }));
+		expect(rowFor({ rules: health.rules, id: 'module-boundary' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 1, untracked: 0 }));
 	});
 });

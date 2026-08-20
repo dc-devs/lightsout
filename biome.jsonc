@@ -18,6 +18,9 @@
 			// diffing. Formatting them here would make that check fail forever.
 			"!plugin/dist",
 			"!plugin/standards",
+			// Written by the TanStack router plugin. Formatting it would make it
+			// differ from what the generator writes on the next run.
+			"!packages/web-app/src/routeTree.gen.ts",
 			// Diagram sources and their exports — authored by the flow-graphic
 			// tooling, not by hand.
 			"!assets",
@@ -33,6 +36,10 @@
 	// rejoins lines that were hand-wrapped.
 	"formatter": { "enabled": true, "indentStyle": "tab", "lineWidth": 160 },
 	"javascript": { "formatter": { "quoteStyle": "single" } },
+
+	// The web app's stylesheet is Tailwind v4, whose `@theme` and `@apply` are
+	// at-rules the CSS parser rejects as syntax errors until this is on.
+	"css": { "parser": { "tailwindDirectives": true } },
 
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 

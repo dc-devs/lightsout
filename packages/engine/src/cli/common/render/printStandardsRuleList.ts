@@ -1,8 +1,8 @@
-import { renderTable } from '@/cli/common/render/renderTable';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import { StandardsSeverity } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
+import { renderTable } from '#src/cli/common/render/renderTable.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
 
 const countOf = ({ rules, severity }: { rules: StandardsRuleListing[]; severity: StandardsSeverity }) =>
 	rules.filter((rule) => rule.severity === severity).length;

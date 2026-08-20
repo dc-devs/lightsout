@@ -1,4 +1,4 @@
-import { type PlanFacts, PlanVariant } from '@/contracts';
+import { type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
 
 interface Params {
 	facts: PlanFacts;

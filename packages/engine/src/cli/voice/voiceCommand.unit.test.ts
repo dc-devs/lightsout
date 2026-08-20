@@ -2,9 +2,9 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { voiceCommand } from '@/cli/voice/voiceCommand';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { voiceCommand } from '#src/cli/voice/voiceCommand.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
 // -------------------------
@@ -19,10 +19,10 @@ const mockGetStreamText = jest.fn<(params: unknown) => Promise<string>>();
 
 // -------------------------
 
-jest.mock('@/cli/voice/voiceOnCommand', () => ({ voiceOnCommand: (params: unknown) => mockVoiceOnCommand(params) }));
-jest.mock('@/cli/voice/voiceOffCommand', () => ({ voiceOffCommand: (params: unknown) => mockVoiceOffCommand(params) }));
-jest.mock('@/cli/voice/voiceHookCommand', () => ({ voiceHookCommand: (params: unknown) => mockVoiceHookCommand(params) }));
-jest.mock('@/cli/voice/common/utils/getStreamText', () => ({ getStreamText: (params: unknown) => mockGetStreamText(params) }));
+jest.mock('#src/cli/voice/voiceOnCommand.ts', () => ({ voiceOnCommand: (params: unknown) => mockVoiceOnCommand(params) }));
+jest.mock('#src/cli/voice/voiceOffCommand.ts', () => ({ voiceOffCommand: (params: unknown) => mockVoiceOffCommand(params) }));
+jest.mock('#src/cli/voice/voiceHookCommand.ts', () => ({ voiceHookCommand: (params: unknown) => mockVoiceHookCommand(params) }));
+jest.mock('#src/cli/voice/common/utils/getStreamText.ts', () => ({ getStreamText: (params: unknown) => mockGetStreamText(params) }));
 
 // stdin's own isTTY is not among the values tests/config/setupTestEnvironment.ts
 // puts back, and a test that pinned it on would otherwise follow the suite into

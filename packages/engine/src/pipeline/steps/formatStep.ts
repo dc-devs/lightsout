@@ -1,11 +1,11 @@
-import type { CommandResult } from '@/common/types/CommandResult';
-import { messageOf } from '@/common/utils/messageOf';
-import { runCommand } from '@/common/utils/runCommand';
-import { RunStatus } from '@/contracts';
-import { gates } from '@/pipeline/common/utils/gates';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { appendCommandLog } from '@/runState';
+import type { CommandResult } from '#src/common/types/CommandResult.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { runCommand } from '#src/common/utils/runCommand.ts';
+import { RunStatus } from '#src/contracts/index.ts';
+import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { appendCommandLog } from '#src/runState/index.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -61,7 +61,7 @@ export const formatStep = ({ run }: Params): PipelineStep => ({
 			});
 		}
 
-		const error = await gates({ run, coverage: true });
+		const error = await runVerificationGates({ run, coverage: true });
 
 		if (error) {
 			return run.stop({

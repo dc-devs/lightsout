@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { readOverviewPhases } from '@/phases';
+import { readOverviewPhases } from '#src/phases/index.ts';
 
 test('readOverviewPhases: takes the File column in written order, so phase10 stays after phase2', () => {
 	const rows = Array.from({ length: 11 }, (_, index) => `| ${index + 1} | \`phase${index + 1}-slug.md\` | scope ${index + 1} |`).join('\n');

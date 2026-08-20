@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { refactorCommand } from '@/cli/refactorCommand';
-import { type RunManifest, RunStatus } from '@/contracts';
-import type { RefactorResult } from '@/refactor';
-import { RunLockError } from '@/runState';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { refactorCommand } from '#src/cli/refactorCommand.ts';
+import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { RefactorResult } from '#src/refactor/index.ts';
+import { RunLockError } from '#src/runState/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -31,7 +31,7 @@ interface RunRefactorPipelineParams {
 
 const mockRunRefactorPipeline = jest.fn<(params: RunRefactorPipelineParams) => Promise<RefactorResult>>();
 
-jest.mock('@/refactor', () => ({ runRefactorPipeline: (params: RunRefactorPipelineParams) => mockRunRefactorPipeline(params) }));
+jest.mock('#src/refactor/index.ts', () => ({ runRefactorPipeline: (params: RunRefactorPipelineParams) => mockRunRefactorPipeline(params) }));
 // -------------------------
 
 const manifestOf = (overrides: Partial<RunManifest> = {}): RunManifest => ({
@@ -205,5 +205,87 @@ describe('refactorCommand', () => {
 
 		expect(errors.join('\n')).toContain('harness binary not found');
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('every batch earns a line — its outcome icon, its id in a fixed column, what became of it, and the files it touched', async () => {
+		const { context, logged } = setupRefactor({
+			result: {
+				manifest: manifestOf({
+					steps: [
+						{ id: 'worklist', status: RunStatus.Passed, attempts: 1 },
+						{ id: 'batch-1', status: RunStatus.Passed, attempts: 1, changedFiles: ['src/a.ts', 'src/b.ts'] },
+						{ id: 'batch-2', status: RunStatus.Failed, attempts: 2 },
+					],
+				}),
+			},
+		});
+
+		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain(`✓ ${'batch-1'.padEnd(48)}resolved · 2 file(s)`);
+		expect(logged).toContain(`✗ ${'batch-2'.padEnd(48)}failed`);
+		// only batches are batches — the worklist step earns no line
+		expect(logged.some((line) => line.includes('worklist'))).toBe(false);
+	});
+
+	test('a decline is a judgment, not a failure: its own icon, the sites that persist, and the agent’s rationale verbatim', async () => {
+		const { context, logged, exitCodes } = setupRefactor({
+			result: {
+				declined: [{ batchId: 'batch-1', remainingSiteKeys: ['size:a', 'size:b'], rationale: ['splitting this file would break the barrel'] }],
+				manifest: manifestOf({ steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1 }] }),
+			},
+		});
+
+		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged[1]).toBe('\nrefactor run-1234 — PASSED · 1 declined');
+		expect(logged).toContain(`⤫ ${'batch-1'.padEnd(48)}declined (2 site(s) persist)`);
+		expect(logged).toContain('\ndeclined batch-1');
+		// the agent's own words: a decline a reader cannot read is indistinguishable from skipped work
+		expect(logged).toContain('  splitting this file would break the barrel');
+		expect(logged).toContain('  review each site — fix by hand, or accept it as debt: lightsout standards-check --baseline');
+		// a run that only declined still completed
+		expect(exitCodes).toStrictEqual([0]);
+	});
+
+	test('a parked run takes no final check, so it says so instead of printing an unmoved before → after', async () => {
+		const { context, logged, errors } = setupRefactor({
+			result: {
+				ok: false,
+				error: 'run parked: harness rate limited or overloaded',
+				declined: [{ batchId: 'batch-1', remainingSiteKeys: ['size:a'], rationale: ['splitting this file would break the barrel'] }],
+				before: { size: 4 },
+				after: { size: 4 },
+				manifest: manifestOf({ status: RunStatus.PausedRateLimit, steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1 }] }),
+			},
+		});
+
+		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// an unfinished run has not weighed its declines either, so the count stays off the status line
+		expect(logged[1]).toBe('\nrefactor run-1234 — PAUSED-RATE-LIMIT');
+		expect(logged).toContain('\nno burn-down until the run completes — resume to finish and measure');
+		expect(logged.join('\n')).not.toMatch(/size\s+4 → 4/);
+		// and what stopped it is the last thing said, on stderr
+		expect(errors).toStrictEqual(['\nrun parked: harness rate limited or overloaded']);
+	});
+
+	test('a rule that finished at zero and one that only appeared afterwards both get a row, counted from whichever side has it', async () => {
+		const { context, logged } = setupRefactor({ result: { before: { clone: 3 }, after: { 'size-function': 2 } } });
+
+		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// a rule missing from a side is nothing found there, not a row the burn-down drops
+		expect(logged.join('\n')).toMatch(/clone\s+3 → 0/);
+		expect(logged.join('\n')).toMatch(/size-function\s+0 → 2/);
+	});
+
+	test('a run that left work in the tree says so, because the engine writes code and never commits it', async () => {
+		const { context, logged } = setupRefactor({ result: { manifest: manifestOf({ changedFiles: ['src/a.ts', 'src/b.ts'] }) } });
+
+		await expect(refactorCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain('\n2 file(s) changed in the working tree — review and commit; the engine never commits.');
+		expect(logged).toContain('evidence: .lightsout/runs/run-1234-abcd/');
 	});
 });

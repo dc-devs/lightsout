@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { packageOf } from '@/common/utils/packageOf';
+import { packageOf } from '#src/common/utils/packageOf.ts';
 
 test('packageOf: a file under <packagesDir>/<name>/ belongs to that package, however deep it sits', () => {
 	expect(packageOf({ file: 'packages/api/src/index.ts', packagesDir: 'packages' })).toBe('api');

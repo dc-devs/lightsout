@@ -2,10 +2,10 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadStandardsLedger } from '@/cli/loadStandardsLedger';
-import type { LightsoutConfig } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
+import { loadStandardsLedger } from '#src/cli/loadStandardsLedger.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -20,7 +20,7 @@ interface ListStandardsRulesParams {
 
 const mockListStandardsRules = jest.fn<(params: ListStandardsRulesParams) => Promise<StandardsRuleListing[]>>();
 
-jest.mock('@/standardsCheck', () => ({ listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params) }));
+jest.mock('#src/standardsCheck/index.ts', () => ({ listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params) }));
 // -------------------------
 
 const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];

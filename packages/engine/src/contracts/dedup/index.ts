@@ -1,5 +1,5 @@
-export { DedupFinding } from '@/contracts/dedup/DedupFinding';
-export { DedupJudgment } from '@/contracts/dedup/DedupJudgment';
-export { DedupReport } from '@/contracts/dedup/DedupReport';
-export { DedupResolution } from '@/contracts/dedup/DedupResolution';
-export { DedupVerdict } from '@/contracts/dedup/DedupVerdict';
+export { DedupFinding } from '#src/contracts/dedup/DedupFinding.ts';
+export { DedupJudgment } from '#src/contracts/dedup/DedupJudgment.ts';
+export { DedupReport } from '#src/contracts/dedup/DedupReport.ts';
+export { DedupResolution } from '#src/contracts/dedup/DedupResolution.ts';
+export { DedupVerdict } from '#src/contracts/dedup/DedupVerdict.ts';

@@ -1,10 +1,10 @@
-import { dim } from '@/cli/common/terminal/dim';
-import { green } from '@/cli/common/terminal/green';
-import { red } from '@/cli/common/terminal/red';
-import { yellow } from '@/cli/common/terminal/yellow';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { runDoctor } from '@/doctor';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { green } from '#src/cli/common/terminal/green.ts';
+import { red } from '#src/cli/common/terminal/red.ts';
+import { yellow } from '#src/cli/common/terminal/yellow.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { runDoctor } from '#src/doctor/index.ts';
 
 export const doctorCommand = async ({ cwd }: CommandContext): Promise<void> => {
 	const checks = await runDoctor({ cwd });

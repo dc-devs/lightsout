@@ -1,10 +1,10 @@
 import type { z } from 'zod';
-import { buildReportReemitterInvocation } from '@/agents';
-import { messageOf } from '@/common/utils/messageOf';
-import type { AgentUsage, Effort, Permissions } from '@/contracts';
-import type { Driver, DriverResult } from '@/drivers';
-import type { AgentOutcome } from '@/invoke/common/types/AgentOutcome';
-import { extractJsonReport } from '@/invoke/extractJsonReport';
+import { buildReportReemitterInvocation } from '#src/agents/index.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { AgentUsage, Effort, Permissions } from '#src/contracts/index.ts';
+import type { Driver, DriverResult } from '#src/drivers/index.ts';
+import type { AgentOutcome } from '#src/invoke/common/types/AgentOutcome.ts';
+import { extractJsonReport } from '#src/invoke/extractJsonReport.ts';
 
 /**
  * Usage summed across every attempt — a re-emit retry costs tokens too, and the

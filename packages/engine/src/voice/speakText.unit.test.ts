@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { speakText } from '@/voice';
+import { speakText } from '#src/voice/index.ts';
 
 // Mocked Imports
 // -------------------------
@@ -19,7 +19,17 @@ jest.mock('node:child_process', () => ({
 	spawn: (command: string, args: string[], options: object) => mockSpawn(command, args, options),
 }));
 
-const setupSpeech = ({ pid = 4242, recorded, withInputStream = true }: { pid?: number; recorded?: string; withInputStream?: boolean } = {}) => {
+const setupSpeech = ({
+	pid = 4242,
+	recorded,
+	spawnFails = false,
+	withInputStream = true,
+}: {
+	pid?: number;
+	recorded?: string;
+	spawnFails?: boolean;
+	withInputStream?: boolean;
+} = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-speak-text-'));
 	const pidPath = join(cwd, '.lightsout', 'voice-pid');
 
@@ -44,7 +54,13 @@ const setupSpeech = ({ pid = 4242, recorded, withInputStream = true }: { pid?: n
 	} = {
 		pid,
 		stdin: withInputStream ? inputStream : null,
-		on: jest.fn<(event: string, listener: () => void) => void>(),
+		// `spawnFails` hands the failure to whatever listener the subject registered,
+		// which is the only way the real `say` reports that it never came up.
+		on: jest.fn<(event: string, listener: () => void) => void>((event, listener) => {
+			if (spawnFails && event === 'error') {
+				listener();
+			}
+		}),
 		unref: jest.fn<() => void>(),
 	};
 
@@ -105,11 +121,26 @@ describe('speakText', () => {
 		expect(child.on).toHaveBeenCalledWith('error', expect.any(Function));
 	});
 
-	test('a child that came up with no way in is left alone rather than written to', async () => {
-		const { cwd, child } = setupSpeech({ withInputStream: false });
+	test('a spawn that fails outright is swallowed, and the rest of the reading still goes through', async () => {
+		const { cwd, pidPath, child } = setupSpeech({ spawnFails: true });
 
 		await expect(speakText({ cwd, text: 'Question: should it ship?' })).resolves.toBeUndefined();
 
+		// nothing rethrown: an unheard failure here is an uncaught exception, and
+		// for a fire-and-forget hook that means crashing the session it serves
+		expect(readFileSync(pidPath, 'utf8')).toBe('4242');
+		expect(child.unref).toHaveBeenCalled();
+	});
+
+	test('a child that came up with no way in is left alone rather than written to', async () => {
+		const { cwd, pidPath, child, spoken } = setupSpeech({ withInputStream: false });
+
+		await expect(speakText({ cwd, text: 'Question: should it ship?' })).resolves.toBeUndefined();
+
+		expect(spoken).toStrictEqual([]);
+		// the reading is still recorded and let go of: a child with no way in is a
+		// question that goes unread, not a reason to leave the hook holding on
+		expect(readFileSync(pidPath, 'utf8')).toBe('4242');
 		expect(child.unref).toHaveBeenCalled();
 	});
 
