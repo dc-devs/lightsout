@@ -17,7 +17,11 @@ interface Params {
  * @throws {Error} When the file has no `check` export, or that export is not a valid check.
  */
 export const loadCheckModule = async ({ checkPath }: Params): Promise<StandardsCheckModule> => {
-	const imported: Record<string, unknown> = await import(pathToFileURL(checkPath).href);
+	// @vite-ignore: the path is only known at run time — a bundler cannot
+	// pre-resolve which standards package a consumer will point the engine at,
+	// and must leave this import to Node. Server-only: nothing reachable from
+	// the browser entry imports this module.
+	const imported: Record<string, unknown> = await import(/* @vite-ignore */ pathToFileURL(checkPath).href);
 	const parsed = StandardsCheckModule.safeParse(imported.check);
 
 	if (!parsed.success) {

@@ -9,6 +9,17 @@
 		"#src/*": "./src/*",
 		"#tests/*": "./tests/*"
 	},
+	"nx": {
+		"name": "web-app"
+	},
+	"scripts": {
+		"start:dev": "vite dev",
+		"build": "vite build",
+		"start:prod": "srvx --prod -s dist/client dist/server/server.js",
+		"typecheck": "tsc --noEmit",
+		"test:unit": "jest -c jest.config.cjs",
+		"test:unit:coverage": "jest -c jest.config.cjs --coverage"
+	},
 	"dependencies": {
 		"@fontsource/be-vietnam-pro": "5.2.8",
 		"@fontsource/plus-jakarta-sans": "5.2.8",
@@ -49,16 +60,5 @@
 		"ts-jest": "catalog:",
 		"typescript": "catalog:",
 		"vite": "8.0.2"
-	},
-	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"start": "srvx --prod -s dist/client dist/server/server.js",
-		"typecheck": "tsc --noEmit",
-		"test:unit": "jest -c jest.config.cjs",
-		"test:unit:coverage": "jest -c jest.config.cjs --coverage"
-	},
-	"nx": {
-		"name": "web-app"
 	}
 }

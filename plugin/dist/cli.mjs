@@ -25566,7 +25566,10 @@ var hasFile = async ({ path }) => stat4(path).then(
 // src/standardsPackages/common/utils/loadCheckModule.ts
 import { pathToFileURL } from "node:url";
 var loadCheckModule = async ({ checkPath }) => {
-  const imported = await import(pathToFileURL(checkPath).href);
+  const imported = await import(
+    /* @vite-ignore */
+    pathToFileURL(checkPath).href
+  );
   const parsed = StandardsCheckModule.safeParse(imported.check);
   if (!parsed.success) {
     throw new Error(
