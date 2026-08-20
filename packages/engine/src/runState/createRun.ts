@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
+import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
 import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
@@ -8,10 +9,11 @@ interface Params {
 	cwd: string;
 	/** Pre-minted run id (the lock is taken under it before anything is written). Fresh UUID when omitted. */
 	runId?: string;
+	/** Plan path as the caller named it, cwd-relative or absolute — recorded cwd-relative either way. */
 	plan: string;
 	/** Owning pipeline, stamped for resume routing ('implement' | 'refactor'). */
 	pipeline?: string;
-	/** Optional overview plan path (high-level context for a phased plan). */
+	/** Optional overview plan path (high-level context for a phased plan), cwd-relative or absolute — recorded cwd-relative either way. */
 	overview?: string;
 	/** The driver name the run was started with, persisted as the manifest's `harness` field. */
 	driver: string;
@@ -21,16 +23,24 @@ interface Params {
 	baselineDirtyFiles?: string[];
 }
 
-/** Create a new run: fresh id, run directory, and initial manifest on disk. */
+/**
+ * Create a new run: fresh id, run directory, and initial manifest on disk.
+ *
+ * The plan paths are recorded cwd-relative whatever form the caller used: the
+ * manifest's contract is repo-relative, every reader joins the record onto the
+ * repo, and an absolute `--plan` written as given would be joined onto it too
+ * and read back as a missing file. Enforced here, at the one place a manifest
+ * is born, rather than by each pipeline remembering to.
+ */
 export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config, baselineDirtyFiles }: Params): Promise<RunManifest> => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
 		runId: runId ?? randomUUID(),
 		createdAt: now,
 		updatedAt: now,
-		plan,
+		plan: toRepoRelativePath({ cwd, path: plan }),
 		pipeline,
-		overview,
+		overview: overview === undefined ? undefined : toRepoRelativePath({ cwd, path: overview }),
 		harness: driver,
 		config,
 		status: RunStatus.Pending,
