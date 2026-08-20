@@ -1,9 +1,9 @@
 import { buildStandardsReviewInvocation } from '#src/agents/index.ts';
+import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSeverity } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
 import { createAgentHeartbeat } from '#src/standardsCheck/common/utils/createAgentHeartbeat.ts';
-import { formatElapsed } from '#src/standardsCheck/common/utils/formatElapsed.ts';
 import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 
 interface Params {
@@ -111,15 +111,18 @@ export const runStandardsReview = async ({
 	}
 
 	// One agent reads every rule against every file in one sitting, so this is
-	// the slow half: the opening line says what it is waiting on and how long it
-	// may take, the heartbeat says it is still going, and the closing line says
-	// how long it took. The lines carry no prefix — each caller adds the context
-	// its own output needs.
-	const bound = timeoutMs === undefined ? '' : ` — bounded at ${formatElapsed({ elapsedMs: timeoutMs })}`;
+	// the slow half. Each progress line tells the reader what is happening to
+	// them right now, in their own words: the review has started and roughly how
+	// long that takes; it is still running, with proof of life; it finished, and
+	// what it found. Every line names the review, so it stands on its own in a
+	// pipeline log as much as under the command's own heading.
+	const ruleCount = `${rules.length} rule${rules.length === 1 ? '' : 's'}`;
 
-	onProgress?.(`reading ${rules.length} judgment rule(s) against ${files.length} file(s)${bound}`);
+	onProgress?.(
+		`The agent review is now running. ${driver.name} is reading your code against the ${ruleCount} no automated check can judge. This usually takes a few minutes.`,
+	);
 
-	const heartbeat = createAgentHeartbeat({ onProgress: (message) => onProgress?.(message) });
+	const heartbeat = createAgentHeartbeat({ label: 'agent review', onProgress: (message) => onProgress?.(message) });
 
 	// Stopped in `finally` so a throwing invocation never leaves a ticker behind.
 	const outcome = await invokeAgentWithContract({
@@ -135,14 +138,16 @@ export const runStandardsReview = async ({
 	const elapsed = formatElapsed({ elapsedMs: heartbeat.elapsedMs() });
 
 	if (!outcome.ok) {
-		onProgress?.(`stopped after ${elapsed}`);
+		onProgress?.(`Agent review stopped after ${elapsed}.`);
 
 		return { findings: [], notes: [`agent review skipped — ${outcome.failure}`] };
 	}
 
 	const result = toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
+	const count = result.findings.length;
+	const found = count === 0 ? 'nothing to report' : `${count} advisor${count === 1 ? 'y' : 'ies'} to look at`;
 
-	onProgress?.(`done in ${elapsed} — ${result.findings.length} finding(s)`);
+	onProgress?.(`✓ Agent review finished in ${elapsed} — ${found}`);
 
 	return result;
 };

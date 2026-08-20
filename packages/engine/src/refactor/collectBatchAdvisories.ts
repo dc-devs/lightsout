@@ -61,7 +61,7 @@ export const collectBatchAdvisories = async ({
 		channels,
 		files: [...batchFiles],
 		timeoutMs,
-		onProgress: (message) => onProgress(`${batch.id}: agent review: ${message}`),
+		onProgress: (message) => onProgress(`${batch.id}: ${message}`),
 	});
 
 	for (const note of review.notes) {

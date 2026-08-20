@@ -31,11 +31,11 @@ const packageOf = ({ ruleIds }: { ruleIds: string[] }): LoadedStandardsPackage =
 });
 
 /**
- * A stub harness that streams `toolCallEvents` tool calls, then runs on the
- * fake clock for `runForMs` before answering — what the heartbeat is for. With
- * no `runForMs` it answers at once, on the real clock.
+ * A stub harness that streams a Read of `filesRead` distinct files, then runs
+ * on the fake clock for `runForMs` before answering — what the heartbeat is
+ * for. With no `runForMs` it answers at once, on the real clock.
  */
-const setupDriver = ({ result, toolCallEvents = 0, runForMs }: { result: DriverResult; toolCallEvents?: number; runForMs?: number }) => {
+const setupDriver = ({ result, filesRead = 0, runForMs }: { result: DriverResult; filesRead?: number; runForMs?: number }) => {
 	if (runForMs !== undefined) {
 		jest.useFakeTimers({ now: 0 });
 	}
@@ -44,8 +44,8 @@ const setupDriver = ({ result, toolCallEvents = 0, runForMs }: { result: DriverR
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async (invocation) => {
-			for (let index = 0; index < toolCallEvents; index += 1) {
-				invocation.onEvent?.({ type: 'assistant', message: { content: [{ type: 'tool_use' }] } });
+			for (let index = 0; index < filesRead; index += 1) {
+				invocation.onEvent?.({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: `src/${index}.ts` } }] } });
 			}
 
 			if (runForMs !== undefined) {
@@ -60,7 +60,7 @@ const setupDriver = ({ result, toolCallEvents = 0, runForMs }: { result: DriverR
 };
 
 describe('runStandardsReview progress', () => {
-	test('the caller is told what the review covers before an agent is spent on it', async () => {
+	test('the caller is told the review has started, who is reading, against how many rules, and roughly how long that takes', async () => {
 		const { driver, progress, onProgress } = setupDriver({ result: { text: reviewReport(), exitCode: 0 } });
 
 		await runStandardsReview({
@@ -72,7 +72,9 @@ describe('runStandardsReview progress', () => {
 			onProgress,
 		});
 
-		expect(progress[0]).toBe('reading 2 judgment rule(s) against 3 file(s)');
+		expect(progress[0]).toBe(
+			'The agent review is now running. stub is reading your code against the 2 rules no automated check can judge. This usually takes a few minutes.',
+		);
 	});
 
 	test('the caller is told when the review finished, how long it took, and what it found', async () => {
@@ -82,7 +84,7 @@ describe('runStandardsReview progress', () => {
 
 		await runStandardsReview({ cwd: '/repo', driver, packages: [packageOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
 
-		expect(progress.at(-1)).toMatch(/^done in \d+s — 1 finding\(s\)$/);
+		expect(progress.at(-1)).toMatch(/^✓ Agent review finished in \d+s — 1 advisory to look at$/);
 	});
 
 	test('a skipped review still says how long the agent ran before it stopped', async () => {
@@ -90,11 +92,11 @@ describe('runStandardsReview progress', () => {
 
 		await runStandardsReview({ cwd: '/repo', driver, packages: [packageOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
 
-		expect(progress.at(-1)).toMatch(/^stopped after \d+s$/);
+		expect(progress.at(-1)).toMatch(/^Agent review stopped after \d+s\.$/);
 	});
 
 	test('while the agent runs, the caller hears it is still going — with the tool calls seen on the harness stream', async () => {
-		const { driver, progress, onProgress } = setupDriver({ result: { text: reviewReport(), exitCode: 0 }, toolCallEvents: 2, runForMs: 30_000 });
+		const { driver, progress, onProgress } = setupDriver({ result: { text: reviewReport(), exitCode: 0 }, filesRead: 2, runForMs: 30_000 });
 
 		await runStandardsReview({
 			cwd: '/repo',
@@ -106,11 +108,12 @@ describe('runStandardsReview progress', () => {
 			onProgress,
 		});
 
-		// the bound is stated up front, once — a reader knows how long "still working" can last
+		// started → still running, with proof of life → finished: each line says
+		// what is happening to the reader right now
 		expect(progress).toStrictEqual([
-			'reading 1 judgment rule(s) against 1 file(s) — bounded at 60m00s',
-			'still working — 30s elapsed · 2 tool call(s) so far',
-			'done in 30s — 0 finding(s)',
+			'The agent review is now running. stub is reading your code against the 1 rule no automated check can judge. This usually takes a few minutes.',
+			'⏳ agent review still running · 30s · 2 files read so far',
+			'✓ Agent review finished in 30s — nothing to report',
 		]);
 	});
 
@@ -120,6 +123,6 @@ describe('runStandardsReview progress', () => {
 		await runStandardsReview({ cwd: '/repo', driver, packages: [packageOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
 		jest.advanceTimersByTime(120_000);
 
-		expect(progress.filter((line) => line.includes('still working'))).toHaveLength(1);
+		expect(progress.filter((line) => line.includes('still running'))).toHaveLength(1);
 	});
 });

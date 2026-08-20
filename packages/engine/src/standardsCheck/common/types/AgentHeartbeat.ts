@@ -1,5 +1,5 @@
 export interface AgentHeartbeat {
-	/** Relay to the driver's event stream; counts tool calls so each line carries evidence of activity, not just elapsed time. */
+	/** Relay to the driver's event stream; counts the files the agent has read so each line carries proof of life, not just elapsed time. */
 	onEvent: (event: unknown) => void;
 	/** Ends the ticker. */
 	stop: () => void;

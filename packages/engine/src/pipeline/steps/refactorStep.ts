@@ -28,7 +28,7 @@ const reviewAdvisories = async ({ run, packages, channels }: { run: PipelineRun;
 		channels,
 		files: sourceFiles({ run }),
 		timeoutMs: run.agentTimeoutMs,
-		onProgress: (message) => run.progress(`agent review: ${message}`),
+		onProgress: (message) => run.progress(message),
 	});
 
 	for (const note of review.notes) {

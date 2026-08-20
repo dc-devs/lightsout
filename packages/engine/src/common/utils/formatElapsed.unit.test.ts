@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { formatElapsed } from '#src/standardsCheck/common/utils/formatElapsed.ts';
+import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 
 for (const { elapsedMs, expected } of [
 	{ elapsedMs: 0, expected: '0s' },

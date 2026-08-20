@@ -306,7 +306,7 @@ describe('standardsCheckCommand', () => {
 		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 blocking', 'ℹ path-aliases · 1 advisory']);
 		// the fast half's answer is on screen before the slow half starts — a
 		// reader waiting on the agent already has the deterministic result
-		expect(logged.indexOf('⚠ clone · 1 blocking')).toBeLessThan(logged.indexOf('Agent review  ·  judgment rules, read by claude-code'));
+		expect(logged.indexOf('⚠ clone · 1 blocking')).toBeLessThan(logged.indexOf('Agent review'));
 	});
 
 	test('a finding spanning several files lists every site, then wraps its detail and its guidance underneath', async () => {

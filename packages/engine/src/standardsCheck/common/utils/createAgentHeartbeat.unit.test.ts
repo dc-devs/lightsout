@@ -1,15 +1,18 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { createAgentHeartbeat } from '#src/standardsCheck/common/utils/createAgentHeartbeat.ts';
 
-/** A Claude Code stream-json assistant event carrying the given content blocks. */
-const assistantEvent = ({ blocks }: { blocks: string[] }) => ({ type: 'assistant', message: { content: blocks.map((type) => ({ type })) } });
+/** A Claude Code stream-json assistant event carrying one tool call per entry: the tool's name and, for a Read, the file it opened. */
+const toolUseEvent = ({ calls }: { calls: { name: string; path?: string }[] }) => ({
+	type: 'assistant',
+	message: { content: calls.map(({ name, path }) => ({ type: 'tool_use', name, input: path === undefined ? {} : { file_path: path } })) },
+});
 
 /** A heartbeat on a clock that starts at zero, with every line it prints captured. */
 const setupHeartbeat = ({ intervalMs }: { intervalMs?: number } = {}) => {
 	jest.useFakeTimers({ now: 0 });
 
 	const progress: string[] = [];
-	const heartbeat = createAgentHeartbeat({ onProgress: (message) => progress.push(message), intervalMs });
+	const heartbeat = createAgentHeartbeat({ label: 'agent review', onProgress: (message) => progress.push(message), intervalMs });
 
 	return { heartbeat, progress };
 };
@@ -24,12 +27,12 @@ describe('createAgentHeartbeat', () => {
 		expect(progress).toStrictEqual([]);
 	});
 
-	test('prints one elapsed line per interval, by default every 30s', () => {
+	test('prints one "still running" line per interval, by default every 30s, each naming the work and how long it has run', () => {
 		const { progress } = setupHeartbeat();
 
 		jest.advanceTimersByTime(90_000);
 
-		expect(progress).toStrictEqual(['still working — 30s elapsed', 'still working — 1m00s elapsed', 'still working — 1m30s elapsed']);
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s', '⏳ agent review still running · 1m00s', '⏳ agent review still running · 1m30s']);
 	});
 
 	test('the interval is the caller’s to set', () => {
@@ -37,38 +40,65 @@ describe('createAgentHeartbeat', () => {
 
 		jest.advanceTimersByTime(20_000);
 
-		expect(progress).toStrictEqual(['still working — 10s elapsed', 'still working — 20s elapsed']);
+		expect(progress).toStrictEqual(['⏳ agent review still running · 10s', '⏳ agent review still running · 20s']);
 	});
 
-	test('counts tool calls off the harness event stream as evidence the agent is working', () => {
+	test('counts the files the agent has read off the harness event stream — proof of life in the reader’s own words', () => {
 		const { heartbeat, progress } = setupHeartbeat();
 
-		heartbeat.onEvent(assistantEvent({ blocks: ['text', 'tool_use'] }));
-		heartbeat.onEvent(assistantEvent({ blocks: ['tool_use', 'tool_use'] }));
+		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Read', path: 'src/a.ts' }] }));
+		heartbeat.onEvent(
+			toolUseEvent({
+				calls: [
+					{ name: 'Read', path: 'src/b.ts' },
+					{ name: 'Read', path: 'src/c.ts' },
+				],
+			}),
+		);
 		jest.advanceTimersByTime(30_000);
 
-		expect(progress).toStrictEqual(['still working — 30s elapsed · 3 tool call(s) so far']);
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s · 3 files read so far']);
 	});
 
-	test('an event that is not a tool call still shows the harness is streaming — zero calls, not silence', () => {
+	test('one file reads as one file, however it is phrased', () => {
 		const { heartbeat, progress } = setupHeartbeat();
 
+		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Read', path: 'src/a.ts' }] }));
+		jest.advanceTimersByTime(30_000);
+
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s · 1 file read so far']);
+	});
+
+	test('a file opened twice is one file read — the count is files, not calls', () => {
+		const { heartbeat, progress } = setupHeartbeat();
+
+		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Read', path: 'src/a.ts' }] }));
+		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Read', path: 'src/a.ts' }] }));
+		jest.advanceTimersByTime(30_000);
+
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s · 1 file read so far']);
+	});
+
+	test('tool calls that open no file, and events that are not tool calls, add nothing to the count', () => {
+		const { heartbeat, progress } = setupHeartbeat();
+
+		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Grep' }, { name: 'Read' }] }));
 		heartbeat.onEvent({ type: 'system', subtype: 'init' });
 		heartbeat.onEvent('not even json-shaped');
 		jest.advanceTimersByTime(30_000);
 
-		expect(progress).toStrictEqual(['still working — 30s elapsed · 0 tool call(s) so far']);
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s']);
 	});
 
 	test('the count accumulates across lines, so a later line shows the whole run', () => {
 		const { heartbeat, progress } = setupHeartbeat();
 
-		heartbeat.onEvent(assistantEvent({ blocks: ['tool_use'] }));
+		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Read', path: 'src/a.ts' }] }));
 		jest.advanceTimersByTime(30_000);
-		heartbeat.onEvent(assistantEvent({ blocks: ['tool_use'] }));
+		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Read', path: 'src/b.ts' }] }));
 		jest.advanceTimersByTime(30_000);
 
-		expect(progress).toStrictEqual(['still working — 30s elapsed · 1 tool call(s) so far', 'still working — 1m00s elapsed · 2 tool call(s) so far']);
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s · 1 file read so far', '⏳ agent review still running · 1m00s · 2 files read so far']);
 	});
 
 	test('stop ends the ticker — no line is printed after it', () => {
@@ -78,7 +108,7 @@ describe('createAgentHeartbeat', () => {
 		heartbeat.stop();
 		jest.advanceTimersByTime(120_000);
 
-		expect(progress).toStrictEqual(['still working — 30s elapsed']);
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s']);
 	});
 
 	test('elapsed time is read off the clock while running, and frozen once stopped', () => {

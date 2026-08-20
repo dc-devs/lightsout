@@ -85,7 +85,7 @@ const setupCheck = ({
 };
 
 const codeChecksHeading = 'Code checks  ·  deterministic — the same answer every run';
-const agentReviewHeading = 'Agent review  ·  judgment rules, read by claude-code';
+const agentReviewHeading = 'Agent review';
 
 /** The section headings, in the order they were printed. */
 const sectionsOf = ({ logged }: { logged: string[] }) => logged.filter((line) => line.startsWith('Code checks') || line.startsWith('Agent review'));
@@ -138,44 +138,47 @@ describe('standardsCheckCommand sections', () => {
 		expect(logged).toContain('  ℹ 3 site(s) held back by the baseline');
 	});
 
-	test('a section that found nothing and has nothing to note says so, rather than leaving an empty gap', async () => {
-		const { context, logged } = setupCheck({ args: ['--code-checks'] });
+	for (const { findings, expected } of [
+		{ findings: [], expected: 'nothing found' },
+		{ findings: [finding()], expected: '1 advisory' },
+		{ findings: [finding(), finding({ siteKey: 'size:two' })], expected: '2 advisories' },
+		{ findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:1' })], expected: '1 blocking' },
+		{ findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:1' }), finding()], expected: '1 blocking, 1 advisory' },
+	]) {
+		test(`the code checks close with a finish line saying how long they took and what they found: ${expected}`, async () => {
+			const { context, logged } = setupCheck({ args: ['--code-checks'], check: { findings } });
 
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
+			await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged).toContain('  ✓ nothing found');
-	});
+			expect(logged.find((line) => line.includes('Code checks finished'))).toMatch(new RegExp(`^  ✓ Code checks finished in \\d+s — ${expected}$`));
+		});
+	}
 
-	test('the agent review names the configured harness and says what a reader is waiting on before the agent is spent', async () => {
+	test('the agent review adds nothing of its own under the heading — the review narrates itself, from started to finished', async () => {
 		const { context, logged } = setupCheck({
 			args: ['--agent-review'],
-			config: { gates: { check: 'true', test: 'true', 'test-coverage': false }, harness: 'codex' },
+			review: {
+				progress: [
+					'The agent review is now running. claude-code is reading your code against the 62 rules no automated check can judge. This usually takes a few minutes.',
+					'⏳ agent review still running · 30s · 12 files read so far',
+					'✓ Agent review finished in 4m12s — nothing to report',
+				],
+			},
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		const heading = logged.indexOf('Agent review  ·  judgment rules, read by codex');
+		const heading = logged.indexOf(agentReviewHeading);
 
 		expect(heading).toBeGreaterThan(-1);
-		expect(logged[heading + 1]).toBe('  Rules no code can check: one agent reads the files in a single pass and reports what it sees.');
-		expect(logged[heading + 2]).toBe(
-			'  Advisory only — it never blocks. Expect minutes, not seconds; a line prints while it works so you can tell it is alive.',
-		);
+		expect(logged.slice(heading + 1, heading + 4)).toStrictEqual([
+			'  The agent review is now running. claude-code is reading your code against the 62 rules no automated check can judge. This usually takes a few minutes.',
+			'  ⏳ agent review still running · 30s · 12 files read so far',
+			'  ✓ Agent review finished in 4m12s — nothing to report',
+		]);
 	});
 
-	test("the review's progress prints under its section as the review reports it", async () => {
-		const { context, logged } = setupCheck({
-			args: ['--agent-review'],
-			review: { progress: ['reading 4 judgment rule(s) against 12 file(s)', 'still working — 30s elapsed · 5 tool call(s) so far'] },
-		});
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged).toContain('  reading 4 judgment rule(s) against 12 file(s)');
-		expect(logged).toContain('  still working — 30s elapsed · 5 tool call(s) so far');
-	});
-
-	test("a skipped review states why under the check's note marker, and is not passed off as a clean review", async () => {
+	test("a skipped review states why under the check's note marker — a plain statement, never a failure", async () => {
 		const { context, logged } = setupCheck({
 			args: ['--agent-review'],
 			review: { notes: ['agent review skipped — agent invocation failed: spawn claude ENOENT'] },
@@ -183,9 +186,7 @@ describe('standardsCheckCommand sections', () => {
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// a missing harness is a plain statement, never a failure
 		expect(logged).toContain('  ℹ agent review skipped — agent invocation failed: spawn claude ENOENT');
-		expect(logged).not.toContain('  ✓ nothing found');
 		expect(logged.some((line) => line.includes('clean — nothing blocking'))).toBe(true);
 	});
 });

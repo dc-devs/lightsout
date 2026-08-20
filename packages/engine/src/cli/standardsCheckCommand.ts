@@ -4,11 +4,11 @@ import { printSectionHeading } from '#src/cli/common/render/printSectionHeading.
 import { printStandardsRuleList } from '#src/cli/common/render/printStandardsRuleList.ts';
 import { printStandardsSummary } from '#src/cli/common/render/printStandardsSummary.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
-import { green } from '#src/cli/common/terminal/green.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { loadStandardsLedger } from '#src/cli/loadStandardsLedger.ts';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
+import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { runStandardsCheck, writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
 
@@ -21,19 +21,33 @@ const orderBySeverity = ({ findings }: { findings: StandardsFinding[] }) => [
 	...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory),
 ];
 
+/** What the code checks found, in the words the finish line says it. */
+const describeCodeFindings = ({ findings }: { findings: StandardsFinding[] }) => {
+	const blocking = findings.filter((entry) => entry.severity === StandardsSeverity.Blocking).length;
+	const advisories = findings.length - blocking;
+
+	if (findings.length === 0) {
+		return 'nothing found';
+	}
+
+	return [blocking > 0 ? `${blocking} blocking` : '', advisories > 0 ? `${advisories} advisor${advisories === 1 ? 'y' : 'ies'}` : '']
+		.filter(Boolean)
+		.join(', ');
+};
+
 /**
  * One section's result, printed the moment that half finishes: its findings
- * grouped by rule, or a plain "nothing found" when it has neither findings nor
- * anything to note, then its notes. A reader waiting on the slow half is never
+ * grouped by rule, then its notes. A reader waiting on the slow half is never
  * kept from the fast half's answer.
  */
 const printSectionResult = ({ findings, notes }: { findings: StandardsFinding[]; notes: string[] }) => {
-	console.log('');
-
+	// The group renderer opens each rule with its own blank line.
 	if (findings.length > 0) {
 		printFindingGroups({ findings });
-	} else if (notes.length === 0) {
-		console.log(green('  ✓ nothing found'));
+	}
+
+	if (notes.length > 0) {
+		console.log('');
 	}
 
 	for (const note of notes) {
@@ -67,6 +81,7 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 	if (runCodeChecks) {
 		printSectionHeading({ title: 'Code checks', subtitle: 'deterministic — the same answer every run' });
 
+		const startedAt = Date.now();
 		// Persistence is this command's job, not the check's: the merged stream is
 		// what the reader was shown, and two writers to one file would race.
 		const checked = await runStandardsCheck({
@@ -79,15 +94,16 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 		});
 		const ordered = orderBySeverity({ findings: checked.findings });
 
+		printProgress(`✓ Code checks finished in ${formatElapsed({ elapsedMs: Date.now() - startedAt })} — ${describeCodeFindings({ findings: ordered })}`);
 		printSectionResult({ findings: ordered, notes: checked.notes });
 		findings.push(...ordered);
 		notes.push(...checked.notes);
 	}
 
 	if (runAgentReview) {
-		printSectionHeading({ title: 'Agent review', subtitle: `judgment rules, read by ${config?.harness ?? 'claude-code'}` });
-		printProgress('Rules no code can check: one agent reads the files in a single pass and reports what it sees.');
-		printProgress('Advisory only — it never blocks. Expect minutes, not seconds; a line prints while it works so you can tell it is alive.');
+		// The review narrates itself — started, still running, finished — so the
+		// heading is all the command adds.
+		printSectionHeading({ title: 'Agent review' });
 
 		const reviewed = await reviewStandards({ cwd, config, path: checkPath, onProgress: printProgress });
 
