@@ -52,8 +52,12 @@ high-confidence and behavior-preserving:
   successful outcome (`complete` with an empty `changedFiles` and a summary
   saying the code is clean). The engine re-invokes you for further passes
   only while you keep reporting changes — an empty pass ends the loop.
-- Do not run shell commands, builds, or test suites — the engine runs
-  verification after you report.
+- Do not run builds, tests, linters, formatters, package-manager commands,
+  Git commands, network commands, or any other verification or
+  environment-changing command — the engine runs verification after you
+  report. Use the harness's file tools to read and edit files. If the harness
+  exposes the filesystem only through a shell, use the shell solely to inspect
+  and edit files — never for repository commands.
 - Do not create commits or branches.
 
 ## Friction — help the pipeline improve itself

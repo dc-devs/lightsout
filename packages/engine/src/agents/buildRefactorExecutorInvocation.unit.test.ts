@@ -284,3 +284,21 @@ test('buildRefactorExecutorInvocation: the advisory-outcomes ask follows the adv
 	// and before the gate output, which is why this pass is a retry
 	expect(prompt.indexOf('# Report what you did about each advisory')).toBeLessThan(prompt.indexOf('# Verification failure'));
 });
+
+test('buildRefactorExecutorInvocation: the command ban names what is banned and leaves file access open — a harness whose only file access is a shell must not read it as "touch nothing"', () => {
+	const { systemPrompt } = buildRefactorExecutorInvocation({ planContent, changedFiles: ['src/widget.ts'] });
+	// the prompt wraps its lines; the sentences are what matter
+	const prose = systemPrompt.replace(/\s+/g, ' ');
+
+	// verification and environment changes stay the engine's alone
+	expect(prose).toContain(
+		'Do not run builds, tests, linters, formatters, package-manager commands, Git commands, network commands, or any other verification or environment-changing command',
+	);
+	// file inspection and editing are explicitly allowed, by whatever tooling the harness has
+	expect(prose).toContain("Use the harness's file tools to read");
+	expect(prose).toContain(
+		'If the harness exposes the filesystem only through a shell, use the shell solely to inspect and edit files — never for repository commands.',
+	);
+	// the old blanket ban is gone — on Codex it read as "you cannot read or edit files"
+	expect(prose).not.toContain('Do not run shell commands');
+});
