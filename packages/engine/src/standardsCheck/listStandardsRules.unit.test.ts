@@ -230,12 +230,11 @@ describe('listStandardsRules', () => {
 		const rules = await listStandardsRules({ cwd });
 		const severities = Object.fromEntries(rules.filter((rule) => durablePathRules.includes(rule.rule)).map((rule) => [rule.rule, rule.severity]));
 
-		// seven blocking and two advisory. The blocking rules are each a file move,
-		// a rename against a closed list from a doc, or a barrel promotion with one
-		// prescribed remedy — untested-subject-not-public graduated to blocking
-		// after its burn-down proved agents apply that remedy cleanly. The advisory
-		// two rest on judgment the rule can only approximate, or offer the repo
-		// more than one legitimate remedy
+		// all nine blocking. Each is a file move, a rename against a closed list
+		// from a doc, or a barrel promotion with one prescribed remedy —
+		// untested-subject-not-public graduated after its burn-down proved agents
+		// apply that remedy cleanly, and folder-casing and domain-folder-single-file
+		// followed once the repo had stood at zero findings for both
 		expect(severities).toStrictEqual({
 			'path-banned-module-name': StandardsSeverity.Blocking,
 			'path-common-flat': StandardsSeverity.Blocking,
@@ -244,8 +243,8 @@ describe('listStandardsRules', () => {
 			'path-test-not-colocated': StandardsSeverity.Blocking,
 			'path-test-support-in-src': StandardsSeverity.Blocking,
 			'path-test-untested-subject-not-public': StandardsSeverity.Blocking,
-			'path-folder-casing': StandardsSeverity.Advisory,
-			'path-domain-folder-single-file': StandardsSeverity.Advisory,
+			'path-folder-casing': StandardsSeverity.Blocking,
+			'path-domain-folder-single-file': StandardsSeverity.Blocking,
 		});
 	});
 

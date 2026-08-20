@@ -54,7 +54,15 @@ export const collectBatchAdvisories = async ({
 		return machine;
 	}
 
-	const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
+	const review = await runStandardsReview({
+		cwd,
+		driver,
+		packages,
+		channels,
+		files: [...batchFiles],
+		timeoutMs,
+		onProgress: (message) => onProgress(`${batch.id}: agent review: ${message}`),
+	});
 
 	for (const note of review.notes) {
 		onProgress(`${batch.id}: ${note}`);

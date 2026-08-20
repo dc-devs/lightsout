@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -41,7 +42,7 @@ const setupReviewedRun = async ({
 
 	for (const folder of folders) {
 		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
+		writeSource({ dir, path: `${folder}/multi.ts`, source: multiExport });
 	}
 
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
@@ -75,7 +76,7 @@ const setupReviewedRun = async ({
 
 			const folder = prompt.match(/^- (\S+)\/multi\.ts$/m)?.[1] ?? '';
 
-			writeFileSync(join(dir, folder, 'multi.ts'), 'export const alphaThing = 1;\n');
+			writeSource({ dir, path: `${folder}/multi.ts`, source: 'export const alphaThing = 1;\n' });
 			writeFileSync(join(dir, folder, 'betaThing.ts'), 'export const betaThing = 2;\n');
 
 			return {

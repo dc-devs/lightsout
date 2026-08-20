@@ -1,6 +1,4 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { loadConfig } from '#src/common/utils/loadConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -10,11 +8,12 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
 
-const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
+const _commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
 /** A driver whose refactor executor actually fixes a multi-export file by splitting it. */
 const fixingDriver = ({ dir }: { dir: string }): Driver => ({
@@ -29,8 +28,8 @@ const fixingDriver = ({ dir }: { dir: string }): Driver => ({
 		if (target) {
 			const beta = target.replace(/([^/]+)\.ts$/, 'beta.ts');
 
-			writeFileSync(join(dir, target), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, beta), 'export const beta = 2;\n');
+			writeSource({ dir, path: target, source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: beta, source: 'export const beta = 2;\n' });
 
 			return {
 				text: report({
@@ -57,10 +56,7 @@ const decliningDriver: Driver = {
 };
 
 test('refactor: a batch the executor fixes is resolved, with a burn-down', async () => {
-	const dir = setupConsumerRepo();
-
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport } });
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }) });
 
@@ -78,10 +74,7 @@ test('refactor: a batch the executor fixes is resolved, with a burn-down', async
 });
 
 test('refactor: zero changes with persisting clusters is a decline — recorded, run still ok', async () => {
-	const dir = setupConsumerRepo();
-
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport } });
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) });
 
@@ -94,14 +87,7 @@ test('refactor: zero changes with persisting clusters is a decline — recorded,
 });
 
 test('refactor: three consecutive declines stop the run as systemic', async () => {
-	const dir = setupConsumerRepo();
-
-	for (const folder of ['alpha', 'beta', 'gamma']) {
-		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
-	}
-
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: Object.fromEntries(['alpha', 'beta', 'gamma'].map((folder) => [`${folder}/multi.ts`, multiExport])) });
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) });
 
@@ -114,18 +100,15 @@ test('refactor: three consecutive declines stop the run as systemic', async () =
 test('refactor: a dirty tree is a hard error before any run state exists', async () => {
 	const dir = setupConsumerRepo();
 
-	writeFileSync(join(dir, 'src/uncommitted.ts'), 'export const later = 1;\n');
+	writeSource({ dir, path: 'src/uncommitted.ts', source: 'export const later = 1;\n' });
 
 	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) })).rejects.toThrow(/requires a clean tree/);
 });
 
 test('refactor: --allow-dirty records the standing dirt as baseline and never attributes it to a batch', async () => {
-	const dir = setupConsumerRepo();
-
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
-	commitAll(dir);
-	// the standing dirt: an uncommitted file no batch touches
-	writeFileSync(join(dir, 'src/uncommitted.ts'), 'export const later = 1;\n');
+	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport, 'src/uncommitted.ts': 'export const later = 1;\n' } });
+	// the standing dirt: an uncommitted edit to a file no batch touches
+	writeSource({ dir, path: 'src/uncommitted.ts', source: 'export const later = 2;\n' });
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }), allowDirty: true });
 
@@ -134,14 +117,11 @@ test('refactor: --allow-dirty records the standing dirt as baseline and never at
 	// the dirt is frozen into the manifest as baseline...
 	expect(result.manifest.baselineDirtyFiles).toStrictEqual(['src/uncommitted.ts']);
 	// ...and the batch owns only its own edits, however git sees the union
-	expect(result.manifest.changedFiles.sort()).toStrictEqual(['src/beta.ts', 'src/multi.ts']);
+	expect(result.manifest.changedFiles.sort()).toStrictEqual(['src/beta.ts', 'src/multi.ts', 'src/useBeta.ts', 'src/useMulti.ts']);
 });
 
 test('refactor: a red pre-flight gate fails the run before any batch', async () => {
-	const dir = setupConsumerRepo({ scripts: { check: 'false' } });
-
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
-	commitAll(dir);
+	const dir = setupConsumerRepo({ scripts: { check: 'false' }, sources: { 'src/multi.ts': multiExport } });
 
 	const invocations: string[] = [];
 	const driver: Driver = {
@@ -189,10 +169,7 @@ test('refactor: an empty work-list completes as a verdict, spawning nothing', as
 });
 
 test('refactor: a rate limit parks the run; resume finishes it', async () => {
-	const dir = setupConsumerRepo();
-
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport } });
 
 	let calls = 0;
 	const parkThenFix: Driver = {
@@ -228,14 +205,7 @@ test('refactor: a rate limit parks the run; resume finishes it', async () => {
 });
 
 test('refactor: --max-batches parks resumable at the budget ceiling', async () => {
-	const dir = setupConsumerRepo();
-
-	for (const folder of ['alpha', 'beta']) {
-		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
-	}
-
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: Object.fromEntries(['alpha', 'beta'].map((folder) => [`${folder}/multi.ts`, multiExport])) });
 
 	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }), maxBatches: 1 });
 
@@ -250,14 +220,7 @@ test('refactor: --max-batches parks resumable at the budget ceiling', async () =
 });
 
 test('refactor: declines recorded before a park survive the resume (report, streak, and all)', async () => {
-	const dir = setupConsumerRepo();
-
-	for (const folder of ['alpha', 'beta']) {
-		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
-	}
-
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: Object.fromEntries(['alpha', 'beta'].map((folder) => [`${folder}/multi.ts`, multiExport])) });
 
 	let betaCalls = 0;
 	const driver: Driver = {
@@ -277,8 +240,8 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 				return { text: 'usage limit reached', exitCode: 1, rateLimited: true };
 			}
 
-			writeFileSync(join(dir, 'beta/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'beta/beta.ts'), 'export const beta = 2;\n');
+			writeSource({ dir, path: 'beta/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'beta/beta.ts', source: 'export const beta = 2;\n' });
 
 			return {
 				text: report({
@@ -313,14 +276,7 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 });
 
 test('refactor: terminated:scope is a decline that continues, not a run-ending escalation', async () => {
-	const dir = setupConsumerRepo();
-
-	for (const folder of ['alpha', 'beta']) {
-		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
-	}
-
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: Object.fromEntries(['alpha', 'beta'].map((folder) => [`${folder}/multi.ts`, multiExport])) });
 
 	const driver: Driver = {
 		name: 'stub',
@@ -333,8 +289,8 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 				return { text: report({ status: 'terminated:scope', failures: ['cannot be resolved in scope'] }), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'beta/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'beta/beta.ts'), 'export const beta = 2;\n');
+			writeSource({ dir, path: 'beta/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'beta/beta.ts', source: 'export const beta = 2;\n' });
 
 			return {
 				text: report({
@@ -361,10 +317,7 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 });
 
 test('refactor: an invocation failure whose work is verifiably done is salvaged as resolved', async () => {
-	const dir = setupConsumerRepo();
-
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
-	commitAll(dir);
+	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport } });
 
 	// The laptop-sleep shape: the agent fixes the finding on disk, then dies
 	// without ever producing a valid report (both contract attempts fail).
@@ -375,8 +328,8 @@ test('refactor: an invocation failure whose work is verifiably done is salvaged 
 				return { text: reviewReport(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
+			writeSource({ dir, path: 'src/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'src/beta.ts', source: 'export const beta = 2;\n' });
 
 			return { text: 'no json here — the process died mid-report', exitCode: 1 };
 		},

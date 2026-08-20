@@ -1,4 +1,3 @@
-import { dim } from '#src/cli/common/terminal/dim.ts';
 import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
 import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
 import { getDriver } from '#src/drivers/index.ts';
@@ -11,6 +10,8 @@ interface Params {
 	config?: LightsoutConfig;
 	/** Repo-relative subtree to review — absent means the whole repo. */
 	path?: string;
+	/** Relayed from the runner: the opening line, the heartbeat while the agent works, the closing line. */
+	onProgress?: (message: string) => void;
 }
 
 /**
@@ -19,7 +20,7 @@ interface Params {
  * the runner — packages, channels, file scope, harness, time bound — so a run
  * that never asks for the review never loads a package or a harness for it.
  */
-export const reviewStandards = async ({ cwd, config, path }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
+export const reviewStandards = async ({ cwd, config, path, onProgress }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
 	const defaultAgentTimeoutMinutes = 60;
 	const packages = await resolveStandardsPackages({ cwd, config });
 	// No package scope on a standalone command, so the root package.json decides
@@ -36,6 +37,6 @@ export const reviewStandards = async ({ cwd, config, path }: Params): Promise<{ 
 		channels,
 		files,
 		timeoutMs: (config?.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000,
-		onProgress: (message) => console.log(dim(message)),
+		onProgress,
 	});
 };

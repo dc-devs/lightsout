@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 test('write-tests warm gate: a real driver stream event releases the held-back writer before the warm one finishes, and the events still reach the transcript', async () => {
 	const dir = setupConsumerRepo();
@@ -47,8 +48,8 @@ test('write-tests warm gate: a real driver stream event releases the held-back w
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/a.js'), 'export const a = 1;\n');
-			writeFileSync(join(dir, 'src/b.js'), 'export const b = 1;\n');
+			writeSource({ dir, path: 'src/a.js', source: 'export const a = 1;\n' });
+			writeSource({ dir, path: 'src/b.js', source: 'export const b = 1;\n' });
 
 			return {
 				text: report({
@@ -65,8 +66,8 @@ test('write-tests warm gate: a real driver stream event releases the held-back w
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
-	// two changed files → two writer groups
-	expect(writers).toBe(2);
+	// two modules, each with the caller wiring it in → four writer groups
+	expect(writers).toBe(4);
 	// the warm writer spawns first
 	expect(log.indexOf('start:2') > log.indexOf('start:1')).toBeTruthy();
 	// the held-back writer starts on the stream event — not when the warm writer

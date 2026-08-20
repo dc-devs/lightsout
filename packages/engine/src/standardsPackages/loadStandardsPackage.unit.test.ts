@@ -182,6 +182,29 @@ describe('loadStandardsPackage', () => {
 		expect(error.message).toContain('package declares no documents');
 	});
 
+	test('an authored package carries no built marker — its fixtures are still beside its rules', async () => {
+		const { packagePath } = setupPackage({
+			files: { ...rootFile, 'code/architecture/decisions/document.md': '# Architecture Decisions\n\nUniversal decisions.\n' },
+		});
+
+		const pkg = await loadStandardsPackage({ packagePath });
+
+		expect(pkg.built).toBeUndefined();
+	});
+
+	test('a package the bundler stamped loads as built, which is how validate knows not to blame its rules', async () => {
+		const { packagePath } = setupPackage({
+			files: {
+				'lightsout-standards.json': '{ "name": "acme", "formatVersion": 1, "built": true }\n',
+				'code/architecture/decisions/document.md': '# Architecture Decisions\n\nUniversal decisions.\n',
+			},
+		});
+
+		const pkg = await loadStandardsPackage({ packagePath });
+
+		expect(pkg.built).toBe(true);
+	});
+
 	test('refuses a package whose root file is missing', async () => {
 		const { packagePath } = setupPackage({ files: { 'code/style/document.md': '# Style\n' } });
 

@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /**
  * A consumer repo whose implement step lands two unrelated source files — one
@@ -34,8 +35,8 @@ const setupParkedWriterRun = async () => {
 				return { text: report({ changedFiles: [{ path: 'test/alpha.test.js', summary: 'tests' }] }), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/alpha.js'), 'export const alpha = () => 1;\n');
-			writeFileSync(join(dir, 'src/zeta.js'), 'export const zeta = () => 2;\n');
+			writeSource({ dir, path: 'src/alpha.js', source: 'export const alpha = () => 1;\n' });
+			writeSource({ dir, path: 'src/zeta.js', source: 'export const zeta = () => 2;\n' });
 
 			return {
 				text: report({

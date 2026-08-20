@@ -1,7 +1,7 @@
 ---
 summary: "a folder whose casing matches none of the doc's three resolutions"
 checked: true
-severity: advisory
+severity: blocking
 ---
 
 ## Folder Naming

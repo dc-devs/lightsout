@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 test('front-matter scope: scoped clean-slate, name substitution, expansion, root group', async () => {
 	const dir = setupMonorepo();
@@ -41,9 +42,9 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 			// Clean-slate has already run — snapshot its gate log, then stray
 			// outside the declared scope (web) and into the root (shared.js).
 			cleanSlateGates = readGateLog({ dir });
-			writeFileSync(join(dir, 'packages/api/src/feature.js'), 'export const feature = () => 2;\n');
-			writeFileSync(join(dir, 'packages/web/src/widget.js'), 'export const widget = () => 2;\n');
-			writeFileSync(join(dir, 'shared.js'), 'export const shared = () => 2;\n');
+			writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
+			writeSource({ dir, path: 'packages/web/src/widget.js', source: 'export const widget = () => 2;\n' });
+			writeSource({ dir, path: 'shared.js', source: 'export const shared = () => 2;\n' });
 
 			return {
 				text: report({
@@ -117,7 +118,7 @@ test('--packages flag overrides front-matter; source recorded as flag', async ()
 			}
 
 			cleanSlateGates = readGateLog({ dir });
-			writeFileSync(join(dir, 'packages/web/src/widget.js'), 'export const widget = () => 2;\n');
+			writeSource({ dir, path: 'packages/web/src/widget.js', source: 'export const widget = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'packages/web/src/widget.js', summary: 'widget' }] }), exitCode: 0 };
 		},
@@ -147,7 +148,7 @@ test('scope derived from concrete plan-body paths when nothing is declared', asy
 			}
 
 			cleanSlateGates = readGateLog({ dir });
-			writeFileSync(join(dir, 'packages/api/src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},
@@ -197,7 +198,7 @@ const setupParkedMonorepoRun = async () => {
 			}
 
 			if (role === 'implement') {
-				writeFileSync(join(dir, 'packages/api/src/feature.js'), 'export const feature = () => 2;\n');
+				writeSource({ dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
 
 				return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 			}

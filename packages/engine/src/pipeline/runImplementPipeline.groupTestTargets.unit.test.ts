@@ -10,10 +10,10 @@ import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 test('write-tests fan-out: files that import each other share ONE writer; unrelated files stay parallel', async () => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({ config: reachabilityRulesOff });
 
 	linkTypescript({ dir });
 
@@ -93,7 +93,7 @@ test('write-tests fan-out: files that import each other share ONE writer; unrela
 });
 
 test('write-tests fan-out: two internals sharing an UNCHANGED public subject group into one writer, with the subject leading the assignment', async () => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({ config: reachabilityRulesOff });
 
 	linkTypescript({ dir });
 
@@ -176,7 +176,7 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 // pathological amount of context. It is split into sorted chunks instead, and
 // the split is narrated so the run explains why one concept got two writers.
 test('write-tests fan-out: an import component above the writer cap splits into chunks, and says so', async () => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({ config: reachabilityRulesOff });
 
 	linkTypescript({ dir });
 

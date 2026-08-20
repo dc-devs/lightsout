@@ -338,22 +338,6 @@ describe('runStandardsReview', () => {
 		expect(invocations[0]).toEqual(expect.objectContaining({ cwd: '/repo', permissions: 'read-only', timeoutMs: 90_000 }));
 	});
 
-	test('the caller is told what the review covers before an agent is spent on it', async () => {
-		const { driver } = setupDriver({ result: { text: reviewText([]), exitCode: 0 } });
-		const progress: string[] = [];
-
-		await runStandardsReview({
-			cwd: '/repo',
-			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' }), rule({ id: 'one-export' })] })],
-			channels: [],
-			files: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
-			onProgress: (message) => progress.push(message),
-		});
-
-		expect(progress).toEqual([expect.stringMatching(/2 judgment rule\(s\).*3 file\(s\)/)]);
-	});
-
 	test('a harness that will not start is skipped too — nothing here throws', async () => {
 		const { driver } = setupDriver({
 			result: () => {

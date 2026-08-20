@@ -1,6 +1,4 @@
 import { execSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { loadConfig } from '#src/common/utils/loadConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -10,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /**
  * A monorepo whose only finding sits in packages/api, and a driver that
@@ -19,7 +18,7 @@ import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 const setupMonorepoBatch = async () => {
 	const dir = setupMonorepo();
 
-	writeFileSync(join(dir, 'packages/api/src/multi.ts'), 'export const alphaThing = 1;\nexport const betaThing = 2;\n');
+	writeSource({ dir, path: 'packages/api/src/multi.ts', source: 'export const alphaThing = 1;\nexport const betaThing = 2;\n' });
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
 	let preFlightGates: string[] = [];
@@ -31,8 +30,8 @@ const setupMonorepoBatch = async () => {
 			}
 
 			preFlightGates = readGateLog({ dir });
-			writeFileSync(join(dir, 'packages/api/src/multi.ts'), 'export const alphaThing = 1;\n');
-			writeFileSync(join(dir, 'packages/api/src/betaThing.ts'), 'export const betaThing = 2;\n');
+			writeSource({ dir, path: 'packages/api/src/multi.ts', source: 'export const alphaThing = 1;\n' });
+			writeSource({ dir, path: 'packages/api/src/betaThing.ts', source: 'export const betaThing = 2;\n' });
 
 			return {
 				text: report({

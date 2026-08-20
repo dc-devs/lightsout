@@ -116,6 +116,21 @@ const checkFixture = async ({
  * whatever the machine doing the authoring happens to run.
  */
 export const validateStandardsPackage = async ({ pkg }: Params): Promise<{ problems: string[]; notes: string[] }> => {
+	// A built package was stripped of every fixture on the way out, so each of
+	// its rules would report the same two missing sides — hundreds of faults
+	// standing for one fact, and none of them the author's to fix. The package
+	// says which it is, rather than this inferring it from the absence: an
+	// authored package that genuinely ships no fixtures yet is a real authoring
+	// gap, and it has to keep reading as one.
+	if (pkg.built) {
+		return {
+			problems: [
+				`${pkg.name} is a built package — its fixtures were left behind when it was built, so there is nothing here to validate. Point --package at the authored source.`,
+			],
+			notes: [],
+		};
+	}
+
 	// Resolving TypeScript means loading a multi-megabyte module; a package whose
 	// rules never ask for a parsed tree should not pay for it.
 	const hasParsingRule = pkg.rules.some((rule) => rule.inputKind !== undefined && typescriptInputKinds.has(rule.inputKind));

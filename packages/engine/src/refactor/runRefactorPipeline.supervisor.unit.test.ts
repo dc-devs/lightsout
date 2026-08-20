@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // v1.2 — supervisor consult on the red-gate exception path. The fixture's
 // check gate fails while broken.flag exists; the executor's "fix" plants the
@@ -19,7 +20,7 @@ const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c
 const supervisorFixture = () => {
 	const dir = setupConsumerRepo({ scripts: { check: 'test ! -f broken.flag' } });
 
-	writeFileSync(join(dir, 'src/multi.ts'), 'export const alpha = 1;\nexport const beta = 2;\n');
+	writeSource({ dir, path: 'src/multi.ts', source: 'export const alpha = 1;\nexport const beta = 2;\n' });
 	commitAll(dir);
 
 	return dir;
@@ -57,8 +58,8 @@ const gateBreakingInvoke = ({
 		executorCalls += 1;
 
 		if (executorCalls === 1) {
-			writeFileSync(join(dir, 'src/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
+			writeSource({ dir, path: 'src/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'src/beta.ts', source: 'export const beta = 2;\n' });
 			writeFileSync(join(dir, 'broken.flag'), 'red\n');
 
 			return {

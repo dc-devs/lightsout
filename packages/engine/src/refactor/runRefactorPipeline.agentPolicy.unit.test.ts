@@ -1,6 +1,4 @@
 import { execSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { loadConfig } from '#src/common/utils/loadConfig.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
@@ -9,6 +7,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
@@ -21,7 +20,7 @@ const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
 const setupBatchPolicy = async ({ config }: { config?: Record<string, unknown> } = {}) => {
 	const dir = setupConsumerRepo({ config });
 
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
 	const invocations: DriverInvocation[] = [];
@@ -42,8 +41,8 @@ const setupBatchPolicy = async ({ config }: { config?: Record<string, unknown> }
 
 			const beta = target.replace(/([^/]+)\.ts$/, 'beta.ts');
 
-			writeFileSync(join(dir, target), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, beta), 'export const beta = 2;\n');
+			writeSource({ dir, path: target, source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: beta, source: 'export const beta = 2;\n' });
 
 			return {
 				text: report({

@@ -1,5 +1,3 @@
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { loadConfig } from '#src/common/utils/loadConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -9,6 +7,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // Parks and resumes: a rate limit pauses resumable, and resume continues
 // exactly where the manifest says the run stopped.
@@ -39,7 +38,7 @@ test('resume skips passed steps and continues attempt counts', async () => {
 			}
 
 			if (role === 'implement') {
-				writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 			}
@@ -73,8 +72,8 @@ test('resume skips passed steps and continues attempt counts', async () => {
 	expect(resumed.ok).toBe(true);
 	// passed steps are not re-run
 	expect(counts.implement ?? 0).toBe(0);
-	// parked step re-runs
-	expect(counts['write-tests']).toBe(1);
+	// parked step re-runs — one writer per changed file
+	expect(counts['write-tests']).toBe(2);
 	// attempts continue across resume
 	expect(resumed.manifest.steps.find((step) => step.id === 'write-tests')?.attempts).toBe(2);
 });

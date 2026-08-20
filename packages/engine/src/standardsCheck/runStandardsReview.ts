@@ -2,6 +2,8 @@ import { buildStandardsReviewInvocation } from '#src/agents/index.ts';
 import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSeverity } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import { createAgentHeartbeat } from '#src/standardsCheck/common/utils/createAgentHeartbeat.ts';
+import { formatElapsed } from '#src/standardsCheck/common/utils/formatElapsed.ts';
 import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 
 interface Params {
@@ -108,8 +110,18 @@ export const runStandardsReview = async ({
 		return { findings: [], notes: [] };
 	}
 
-	onProgress?.(`agent review: ${rules.length} judgment rule(s) over ${files.length} file(s)`);
+	// One agent reads every rule against every file in one sitting, so this is
+	// the slow half: the opening line says what it is waiting on and how long it
+	// may take, the heartbeat says it is still going, and the closing line says
+	// how long it took. The lines carry no prefix — each caller adds the context
+	// its own output needs.
+	const bound = timeoutMs === undefined ? '' : ` — bounded at ${formatElapsed({ elapsedMs: timeoutMs })}`;
 
+	onProgress?.(`reading ${rules.length} judgment rule(s) against ${files.length} file(s)${bound}`);
+
+	const heartbeat = createAgentHeartbeat({ onProgress: (message) => onProgress?.(message) });
+
+	// Stopped in `finally` so a throwing invocation never leaves a ticker behind.
 	const outcome = await invokeAgentWithContract({
 		driver,
 		cwd,
@@ -117,11 +129,20 @@ export const runStandardsReview = async ({
 		contract: StandardsReviewReport,
 		permissions: Permissions.ReadOnly,
 		timeoutMs,
-	});
+		onEvent: heartbeat.onEvent,
+	}).finally(() => heartbeat.stop());
+
+	const elapsed = formatElapsed({ elapsedMs: heartbeat.elapsedMs() });
 
 	if (!outcome.ok) {
+		onProgress?.(`stopped after ${elapsed}`);
+
 		return { findings: [], notes: [`agent review skipped — ${outcome.failure}`] };
 	}
 
-	return toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
+	const result = toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
+
+	onProgress?.(`done in ${elapsed} — ${result.findings.length} finding(s)`);
+
+	return result;
 };

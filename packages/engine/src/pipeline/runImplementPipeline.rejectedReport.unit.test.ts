@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // A final message that carries no report at all — the shape the contract
 // rejects and the re-emit invocation is handed back.
@@ -42,7 +43,7 @@ test('a final message that fails the report contract is saved to the run dir bef
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: implementProse, exitCode: 0 };
 		},
@@ -103,7 +104,7 @@ test('two rejected messages in one run are filed under distinct sequence numbers
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: implementProse, exitCode: 0 };
 		},
@@ -120,7 +121,8 @@ test('two rejected messages in one run are filed under distinct sequence numbers
 
 	// a second rejection never overwrites the first — the counter runs across
 	// steps
-	expect(rejected).toStrictEqual(['rejected-01-implement-attempt1.txt', 'rejected-02-write-tests-attempt1.txt']);
+	// one writer per changed file, and each rejection is filed under its own number
+	expect(rejected).toStrictEqual(['rejected-01-implement-attempt1.txt', 'rejected-02-write-tests-attempt1.txt', 'rejected-03-write-tests-attempt1.txt']);
 	// each file holds its own step’s text
 	expect(readFileSync(join(agentsDir, 'rejected-02-write-tests-attempt1.txt'), 'utf8').includes(writerProse)).toBeTruthy();
 });

@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const writePackage = ({
 	dir,
@@ -152,7 +153,7 @@ test('pipeline injects channel docs for react packages and announces the detecti
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'packages/web/src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir: dir, path: 'packages/web/src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'packages/web/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},
@@ -210,7 +211,7 @@ test('standardsChannels config replaces detection', async () => {
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'packages/api/src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir: dir, path: 'packages/api/src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},

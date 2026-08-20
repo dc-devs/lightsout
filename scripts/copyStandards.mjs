@@ -1,4 +1,4 @@
-import { cpSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -75,6 +75,14 @@ if (outFlag !== -1 && process.argv[outFlag + 1] === undefined) {
 	// authored package.json is left behind because it names workspace
 	// dependencies that will not exist on a user's machine.
 	writeFileSync(join(destination, 'package.json'), '{\n\t"type": "module"\n}\n');
+
+	// Rewritten rather than copied, to stamp `built`. Everything above strips the
+	// evidence a package is validated against, and the package saying so is what
+	// lets `lightsout standards-validate` report one fact about the artifact
+	// instead of reading every stripped fixture as a rule its author forgot.
+	const root = JSON.parse(readFileSync(join(source, 'lightsout-standards.json'), 'utf8'));
+
+	writeFileSync(join(destination, 'lightsout-standards.json'), `${JSON.stringify({ ...root, built: true }, null, '\t')}\n`);
 
 	console.log(`built standards → ${destination.replace(`${repoRoot}${sep}`, '')}`);
 }

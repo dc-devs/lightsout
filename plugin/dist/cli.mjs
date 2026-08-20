@@ -23005,7 +23005,16 @@ var StandardsCheckModule = external_exports.object({
 var StandardsPackageRoot = external_exports.object({
   /** Names the package in the assembled documents' header lines. */
   name: external_exports.string().min(1),
-  formatVersion: external_exports.literal(1)
+  formatVersion: external_exports.literal(1),
+  /**
+   * Stamped by the bundler on a built package, and absent from every authored
+   * one. Building leaves the fixture pairs and unit tests behind — they prove
+   * the package rather than run it — so a built package cannot answer the
+   * question `lightsout standards-validate` asks. Without this, that command
+   * reads every stripped fixture as a rule its author forgot, and reports a
+   * fault in each of them instead of one fact about the package.
+   */
+  built: external_exports.literal(true).optional()
 });
 
 // ../standards-contracts/src/StandardsSet.ts
@@ -25757,6 +25766,7 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
   return {
     name: root.data.name,
     formatVersion: root.data.formatVersion,
+    built: root.data.built,
     rootPath: packagePath,
     documents,
     rules
@@ -40080,6 +40090,48 @@ var runStandardsCheck = async ({
   return { findings: baseline.reported, notes };
 };
 
+// src/standardsCheck/common/utils/formatElapsed.ts
+var formatElapsed = ({ elapsedMs }) => {
+  const totalSeconds = Math.round(elapsedMs / 1e3);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes === 0 ? `${seconds}s` : `${minutes}m${String(seconds).padStart(2, "0")}s`;
+};
+
+// src/standardsCheck/common/utils/createAgentHeartbeat.ts
+var AssistantEvent = external_exports.object({
+  type: external_exports.literal("assistant"),
+  message: external_exports.object({ content: external_exports.array(external_exports.object({ type: external_exports.string() })) })
+});
+var countToolCalls = ({ event }) => {
+  const parsed = AssistantEvent.safeParse(event);
+  return parsed.success ? parsed.data.message.content.filter((block) => block.type === "tool_use").length : 0;
+};
+var createAgentHeartbeat = ({ onProgress, intervalMs = 3e4 }) => {
+  const startedAt = Date.now();
+  let stoppedAt;
+  let toolCalls = 0;
+  let eventsSeen = false;
+  const tick = () => {
+    const elapsed = formatElapsed({ elapsedMs: Date.now() - startedAt });
+    const activity = eventsSeen ? ` \xB7 ${toolCalls} tool call(s) so far` : "";
+    onProgress(`still working \u2014 ${elapsed} elapsed${activity}`);
+  };
+  const timer = setInterval(tick, intervalMs);
+  timer.unref();
+  return {
+    onEvent: (event) => {
+      eventsSeen = true;
+      toolCalls += countToolCalls({ event });
+    },
+    stop: () => {
+      clearInterval(timer);
+      stoppedAt ??= Date.now();
+    },
+    elapsedMs: () => (stoppedAt ?? Date.now()) - startedAt
+  };
+};
+
 // src/standardsCheck/runStandardsReview.ts
 var collectJudgmentRules = ({ packages, channels }) => packages.flatMap((pkg) => pkg.rules).filter((rule) => !rule.checked && (rule.channel === "base" || channels.includes(rule.channel))).map((rule) => ({ id: rule.id, documentPath: rule.documentPath, prose: rule.prose }));
 var toFindings = ({ reported, known }) => {
@@ -40127,19 +40179,26 @@ var runStandardsReview = async ({
   if (rules.length === 0 || files.length === 0) {
     return { findings: [], notes: [] };
   }
-  onProgress?.(`agent review: ${rules.length} judgment rule(s) over ${files.length} file(s)`);
+  const bound = timeoutMs === void 0 ? "" : ` \u2014 bounded at ${formatElapsed({ elapsedMs: timeoutMs })}`;
+  onProgress?.(`reading ${rules.length} judgment rule(s) against ${files.length} file(s)${bound}`);
+  const heartbeat = createAgentHeartbeat({ onProgress: (message) => onProgress?.(message) });
   const outcome = await invokeAgentWithContract({
     driver,
     cwd,
     invocation: buildStandardsReviewInvocation({ rules, files }),
     contract: StandardsReviewReport,
     permissions: Permissions.ReadOnly,
-    timeoutMs
-  });
+    timeoutMs,
+    onEvent: heartbeat.onEvent
+  }).finally(() => heartbeat.stop());
+  const elapsed = formatElapsed({ elapsedMs: heartbeat.elapsedMs() });
   if (!outcome.ok) {
+    onProgress?.(`stopped after ${elapsed}`);
     return { findings: [], notes: [`agent review skipped \u2014 ${outcome.failure}`] };
   }
-  return toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
+  const result = toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
+  onProgress?.(`done in ${elapsed} \u2014 ${result.findings.length} finding(s)`);
+  return result;
 };
 
 // src/standardsCheck/selectStandardsFindings.ts
@@ -40202,6 +40261,14 @@ var checkFixture = async ({
   return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
 };
 var validateStandardsPackage = async ({ pkg }) => {
+  if (pkg.built) {
+    return {
+      problems: [
+        `${pkg.name} is a built package \u2014 its fixtures were left behind when it was built, so there is nothing here to validate. Point --package at the authored source.`
+      ],
+      notes: []
+    };
+  }
   const hasParsingRule = pkg.rules.some((rule) => rule.inputKind !== void 0 && typescriptInputKinds.has(rule.inputKind));
   const compiler = hasParsingRule ? getEngineTypescript() : void 0;
   const problems = [];
@@ -40254,7 +40321,7 @@ var reviewAdvisories = async ({ run, packages, channels }) => {
     channels,
     files: sourceFiles({ run }),
     timeoutMs: run.agentTimeoutMs,
-    onProgress: (message) => run.progress(message)
+    onProgress: (message) => run.progress(`agent review: ${message}`)
   });
   for (const note of review.notes) {
     run.progress(note);
@@ -42801,7 +42868,15 @@ var collectBatchAdvisories = async ({
   if (!agentReview) {
     return machine;
   }
-  const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
+  const review = await runStandardsReview({
+    cwd,
+    driver,
+    packages,
+    channels,
+    files: [...batchFiles],
+    timeoutMs,
+    onProgress: (message) => onProgress(`${batch.id}: agent review: ${message}`)
+  });
   for (const note of review.notes) {
     onProgress(`${batch.id}: ${note}`);
   }
@@ -43553,7 +43628,7 @@ var resumeCommand = async ({ flags, cwd }) => {
 };
 
 // src/cli/reviewStandards.ts
-var reviewStandards = async ({ cwd, config: config2, path }) => {
+var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
   const defaultAgentTimeoutMinutes2 = 60;
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
@@ -43566,7 +43641,7 @@ var reviewStandards = async ({ cwd, config: config2, path }) => {
     channels,
     files,
     timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4,
-    onProgress: (message) => console.log(dim(message))
+    onProgress
   });
 };
 
@@ -43654,6 +43729,12 @@ var printFindingGroups = ({ findings }) => {
   }
 };
 
+// src/cli/common/render/printSectionHeading.ts
+var printSectionHeading = ({ title, subtitle }) => {
+  console.log("");
+  console.log(`${bold(title)}  ${dim("\xB7")}  ${dim(subtitle)}`);
+};
+
 // src/cli/common/render/printStandardsRuleList.ts
 var countOf = ({ rules, severity }) => rules.filter((rule) => rule.severity === severity).length;
 var describeSettings = ({ settings }) => Object.entries(settings).map(([name, value]) => `${name} ${value}`).join(", ");
@@ -43733,6 +43814,22 @@ var printStandardsSummary = ({ findings, rules, reportPath }) => {
 };
 
 // src/cli/standardsCheckCommand.ts
+var printProgress = (message) => console.log(dim(`  ${message}`));
+var orderBySeverity = ({ findings }) => [
+  ...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
+  ...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory)
+];
+var printSectionResult = ({ findings, notes }) => {
+  console.log("");
+  if (findings.length > 0) {
+    printFindingGroups({ findings });
+  } else if (notes.length === 0) {
+    console.log(green("  \u2713 nothing found"));
+  }
+  for (const note of notes) {
+    console.log(`  ${dim("\u2139")} ${dim(note)}`);
+  }
+};
 var standardsCheckCommand = async ({ flags, cwd }) => {
   const { config: config2, rules } = await loadStandardsLedger({ cwd });
   if (flags.get("list") === true) {
@@ -43747,37 +43844,33 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
   const findings = [];
   const notes = [];
   if (runCodeChecks) {
+    printSectionHeading({ title: "Code checks", subtitle: "deterministic \u2014 the same answer every run" });
     const checked = await runStandardsCheck({
       cwd,
       path: checkPath,
       all: flags.get("all") === true,
       writeBaseline: flags.get("baseline") === true,
       persist: false,
-      onProgress: (message) => console.log(dim(message))
+      onProgress: printProgress
     });
-    findings.push(...checked.findings);
+    const ordered = orderBySeverity({ findings: checked.findings });
+    printSectionResult({ findings: ordered, notes: checked.notes });
+    findings.push(...ordered);
     notes.push(...checked.notes);
   }
   if (runAgentReview) {
-    const reviewed = await reviewStandards({ cwd, config: config2, path: checkPath });
+    printSectionHeading({ title: "Agent review", subtitle: `judgment rules, read by ${config2?.harness ?? "claude-code"}` });
+    printProgress("Rules no code can check: one agent reads the files in a single pass and reports what it sees.");
+    printProgress("Advisory only \u2014 it never blocks. Expect minutes, not seconds; a line prints while it works so you can tell it is alive.");
+    const reviewed = await reviewStandards({ cwd, config: config2, path: checkPath, onProgress: printProgress });
+    printSectionResult({ findings: reviewed.findings, notes: reviewed.notes });
     findings.push(...reviewed.findings);
     notes.push(...reviewed.notes);
   }
-  const ordered = [
-    ...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
-    ...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory)
-  ];
-  printFindingGroups({ findings: ordered });
-  if (notes.length > 0) {
-    console.log("");
-  }
-  for (const note of notes) {
-    console.log(`${dim("\u2139")} ${dim(note)}`);
-  }
   if (runCodeChecks) {
-    await writeStandardsSnapshot({ cwd, snapshot: { at: (/* @__PURE__ */ new Date()).toISOString(), path: checkPath ?? ".", findings: ordered, notes } });
+    await writeStandardsSnapshot({ cwd, snapshot: { at: (/* @__PURE__ */ new Date()).toISOString(), path: checkPath ?? ".", findings, notes } });
   }
-  printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? ".lightsout/standards-check.json" : void 0 });
+  printStandardsSummary({ findings, rules, reportPath: runCodeChecks ? ".lightsout/standards-check.json" : void 0 });
   return exitCli({ code: 0 });
 };
 

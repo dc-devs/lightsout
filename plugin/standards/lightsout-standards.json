@@ -1,4 +1,5 @@
 {
 	"name": "lightsout-defaults",
-	"formatVersion": 1
+	"formatVersion": 1,
+	"built": true
 }

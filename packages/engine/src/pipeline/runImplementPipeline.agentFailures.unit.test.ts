@@ -1,5 +1,3 @@
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { loadConfig } from '#src/common/utils/loadConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -9,6 +7,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // Agent failure modes: terminated reports, malformed output, per-writer
 // failures, and driver exceptions — each recorded, never a zombie run.
@@ -61,8 +60,8 @@ test('write-tests aggregates per-file failures; terminated writers escalate', as
 				}
 
 				if (role === 'implement') {
-					writeFileSync(join(dir, 'src/a.js'), 'export const a = 1;\n');
-					writeFileSync(join(dir, 'src/b.js'), 'export const b = 1;\n');
+					writeSource({ dir, path: 'src/a.js', source: 'export const a = 1;\n' });
+					writeSource({ dir, path: 'src/b.js', source: 'export const b = 1;\n' });
 
 					return {
 						text: report({
@@ -95,7 +94,7 @@ test('write-tests aggregates per-file failures; terminated writers escalate', as
 	expect(failed.manifest.status).toBe('failed');
 	expect(failed.error ?? '').toMatch(/src\/a\.js/);
 	expect(failed.error ?? '').toMatch(/WRITER-FAILURE-SENTINEL/);
-	expect(failed.error ?? '').toMatch(/1 of 2/);
+	expect(failed.error ?? '').toMatch(/1 of 4/);
 
 	const terminated = await run({ failingStatus: 'terminated:scope' });
 

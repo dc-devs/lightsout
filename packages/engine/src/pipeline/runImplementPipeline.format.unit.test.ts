@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** The run's command log as parsed records — the format step's evidence trail. */
 const readCommandLog = ({ dir, runId }: { dir: string; runId: string }): Record<string, unknown>[] =>
@@ -37,7 +38,7 @@ const setupFormatRun = async ({ format, test: testCommand = 'true' }: { format: 
 				return { text: report({ changedFiles: [{ path: 'test/feature.test.js', summary: 'tests' }] }), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},

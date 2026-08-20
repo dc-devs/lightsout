@@ -7,10 +7,10 @@ import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 test('write-tests fan-out: files under __tests__/ are test files, never writer targets', async () => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({ config: reachabilityRulesOff });
 	const writerTargets: string[] = [];
 
 	const driver: Driver = {

@@ -11,6 +11,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
@@ -31,7 +32,7 @@ const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c
 const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'test-coverage'; flag: string }) => {
 	const dir = setupConsumerRepo({ scripts: { [gate]: `test ! -f ${flag}` } });
 
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 	commitAll(dir);
 
 	const prompts: string[] = [];
@@ -50,8 +51,8 @@ const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'test-covera
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'src/beta.ts'), 'export const beta = 2;\n');
+			writeSource({ dir, path: 'src/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'src/beta.ts', source: 'export const beta = 2;\n' });
 			writeFileSync(join(dir, flag), 'red\n');
 
 			return {
@@ -93,7 +94,7 @@ const setupMixedRed = async () => {
 			},
 		}),
 	);
-	writeFileSync(join(dir, 'packages/api/src/multi.ts'), multiExport);
+	writeSource({ dir, path: 'packages/api/src/multi.ts', source: multiExport });
 	commitAll(dir);
 
 	const prompts: string[] = [];
@@ -113,9 +114,9 @@ const setupMixedRed = async () => {
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'packages/api/src/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'packages/api/src/beta.ts'), 'export const beta = 2;\n');
-			writeFileSync(join(dir, 'packages/web/src/touched.ts'), 'export const touched = 1;\n');
+			writeSource({ dir, path: 'packages/api/src/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'packages/api/src/beta.ts', source: 'export const beta = 2;\n' });
+			writeSource({ dir, path: 'packages/web/src/touched.ts', source: 'export const touched = 1;\n' });
 			writeFileSync(join(dir, 'check.flag'), 'red\n');
 			writeFileSync(join(dir, 'coverage.flag'), 'red\n');
 
@@ -146,7 +147,7 @@ const setupAdvisoryGateRed = async () => {
 
 	linkTypescript({ dir });
 	mkdirSync(join(dir, 'alpha'), { recursive: true });
-	writeFileSync(join(dir, 'alpha/multi.ts'), `export const alpha = 1;\n${bigFunction}`);
+	writeSource({ dir, path: 'alpha/multi.ts', source: `export const alpha = 1;\n${bigFunction}` });
 	commitAll(dir);
 
 	const prompts: string[] = [];
@@ -165,8 +166,8 @@ const setupAdvisoryGateRed = async () => {
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'alpha/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'alpha/beta.ts'), 'export const beta = 2;\n');
+			writeSource({ dir, path: 'alpha/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'alpha/beta.ts', source: 'export const beta = 2;\n' });
 			writeFileSync(join(dir, 'check.flag'), 'red\n');
 
 			return {

@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { loadConfig } from '#src/common/utils/loadConfig.ts';
@@ -11,6 +11,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // Advisories ride each batch as context for the executor — recomputed live,
 // carrying their own guidance, scoped to the batch's own files.
@@ -27,7 +28,7 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 	// the advisory rides the batch as context for the same file.
 	const bigFunction = `export const big = () => {\n${Array.from({ length: 85 }, (_, index) => `\tconst v${index} = ${index};`).join('\n')}\n\treturn v0;\n};\n`;
 
-	writeFileSync(join(dir, 'alpha/multi.ts'), `export const alpha = 1;\n${bigFunction}`);
+	writeSource({ dir, path: 'alpha/multi.ts', source: `export const alpha = 1;\n${bigFunction}` });
 	commitAll(dir);
 
 	let calls = 0;
@@ -46,8 +47,8 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 			}
 
 			prompts.push(prompt);
-			writeFileSync(join(dir, 'alpha/multi.ts'), 'export const alpha = 1;\n');
-			writeFileSync(join(dir, 'alpha/beta.ts'), 'export const beta = 2;\n');
+			writeSource({ dir, path: 'alpha/multi.ts', source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'alpha/beta.ts', source: 'export const beta = 2;\n' });
 
 			return {
 				text: report({
@@ -68,7 +69,7 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 
 	// Between park and resume, the advisory's location shifts — the frozen
 	// worklist now cites stale lines.
-	writeFileSync(join(dir, 'alpha/multi.ts'), `${'// shift\n'.repeat(10)}export const alpha = 1;\n${bigFunction}`);
+	writeSource({ dir, path: 'alpha/multi.ts', source: `${'// shift\n'.repeat(10)}export const alpha = 1;\n${bigFunction}` });
 
 	const existing = await readRunManifest({ cwd: dir, runId: parked.manifest.runId });
 	const resumed = await runRefactorPipeline({ cwd: dir, driver, config, existing });
@@ -86,11 +87,17 @@ test('refactor: every advisory on the batch’s files rides the executor prompt,
 	mkdirSync(join(dir, 'alpha'), { recursive: true });
 	mkdirSync(join(dir, 'beta'), { recursive: true });
 
-	// Each file carries a multi-export FINDING plus a dead-export ADVISORY (its
-	// exports are referenced nowhere). Distinct filenames keep the name rules
-	// from producing an advisory that spans both folders.
-	writeFileSync(join(dir, 'alpha/widget.ts'), 'export const alphaThing = 1;\nexport const betaThing = 2;\n');
-	writeFileSync(join(dir, 'beta/gadget.ts'), 'export const gammaThing = 3;\nexport const deltaThing = 4;\n');
+	// Each file carries a multi-export FINDING. alpha's is also half of a
+	// near-identical pair, so it carries a clone ADVISORY too — a rule outside the
+	// size family. Distinct filenames keep the name rules from producing an
+	// advisory that spans both folders.
+	const cloned = (name: string) => `export const ${name} = (): number => {\n${'\tconst padding = 1;\n'.repeat(60)}\treturn 1;\n};\n`;
+
+	// the clone span sits in widget.ts itself, so the advisory lands on a file the
+	// batch owns — an advisory on some other file belongs to some other batch
+	writeSource({ dir, path: 'alpha/widget.ts', source: `export const alphaThing = 1;\n${cloned('betaThing')}` });
+	writeSource({ dir, path: 'alpha/widgetCopy.ts', source: cloned('widgetCopy') });
+	writeSource({ dir, path: 'beta/gadget.ts', source: 'export const gammaThing = 3;\nexport const deltaThing = 4;\n' });
 	commitAll(dir);
 
 	const prompts: string[] = [];
@@ -113,12 +120,12 @@ test('refactor: every advisory on the batch’s files rides the executor prompt,
 
 	const advisorySection = prompts.find((prompt) => prompt.includes('alpha/widget.ts'))?.split('Advisory —')[1] ?? '';
 
-	// a dead-export advisory is not a size advisory, and an advisory the agent
+	// a clone advisory is not a size advisory, and an advisory the agent
 	// never sees is one it can never judge:\n${advisorySection}
-	expect(advisorySection.includes('[dead-export] alpha/widget.ts')).toBeTruthy();
+	expect(advisorySection.includes('[clone] alpha/widget.ts')).toBeTruthy();
 	// its own guidance rides with it — each advisory rule asks for something
 	// different, so a blanket instruction cannot stand in for it
-	expect(advisorySection.includes('A dead code candidate.')).toBeTruthy();
+	expect(advisorySection.includes('Extract the shared span, or justify why the copies must diverge.')).toBeTruthy();
 	// and only the batch's own files: beta's advisory belongs to beta's batch
 	expect(advisorySection.includes('beta/gadget.ts')).toBeFalsy();
 });

@@ -1,7 +1,7 @@
 ---
 summary: "an export nothing else references"
 checked: true
-severity: advisory
+severity: blocking
 ---
 
 ### Unused Code

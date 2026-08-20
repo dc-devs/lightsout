@@ -9,7 +9,7 @@ import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 interface SetupParams {
 	/** Merged over the consumer repo's default gate commands. */
@@ -26,7 +26,10 @@ interface SetupParams {
  * exported by nothing and imported by nothing â€” nothing public reaches it.
  */
 const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams = {}) => {
-	const dir = setupConsumerRepo({ scripts });
+	// unreachable code is this fixture's subject, so the rules that object to it
+	// are off here: leaving them on would report the orphan as work to delete and
+	// the test could never reach the question it asks about coverage.
+	const dir = setupConsumerRepo({ scripts, config: reachabilityRulesOff });
 
 	linkTypescript({ dir });
 
@@ -66,6 +69,7 @@ const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams
 			mkdirSync(join(dir, 'src/feature'), { recursive: true });
 			writeFileSync(join(dir, 'src/feature/index.ts'), "export { feature } from './feature';\n");
 			writeFileSync(join(dir, 'src/feature/feature.ts'), 'export const feature = (): number => 1;\n');
+			// deliberately not wired into the entry: nothing public reaches it, which is the point
 			writeFileSync(join(dir, 'src/feature/orphan.ts'), 'export const orphan = (): number => 2;\n');
 
 			return {
@@ -199,7 +203,8 @@ test('verify-tests failure: the fix re-invocation is rebuilt from the manifest â
  * hidden.ts runs out of importers before it ever reaches a public file.
  */
 const setupHiddenChainRun = async () => {
-	const dir = setupConsumerRepo();
+	// same reason as setupOrphanRun: the chain is unreachable on purpose
+	const dir = setupConsumerRepo({ config: reachabilityRulesOff });
 
 	linkTypescript({ dir });
 
