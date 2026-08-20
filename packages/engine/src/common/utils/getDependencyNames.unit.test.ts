@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getDependencyNames } from '@/common/utils/getDependencyNames';
+import { getDependencyNames } from '#src/common/utils/getDependencyNames.ts';
 
 const manifestPathWith = ({ text }: { text: string }) => {
 	const manifestPath = join(mkdtempSync(join(tmpdir(), 'lightsout-deps-')), 'package.json');

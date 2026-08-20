@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildPlanLintCommand } from '@/plan/common/utils/buildPlanLintCommand';
+import { buildPlanLintCommand } from '#src/plan/common/utils/buildPlanLintCommand.ts';
 
 describe('buildPlanLintCommand', () => {
 	test('runs the CLI bundle that is running now, so the writer lints against this engine', () => {

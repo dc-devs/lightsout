@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DedupFinding } from '@/contracts/dedup/DedupFinding';
+import { DedupFinding } from '#src/contracts/dedup/DedupFinding.ts';
 
 /**
  * The persisted `dedup.json`: every confirmed prior-art duplication the Dedup

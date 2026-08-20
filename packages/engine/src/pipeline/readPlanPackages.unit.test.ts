@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { LightsoutConfig } from '@/contracts';
-import { readPlanPackages, scanPlanPackagePaths } from '@/pipeline';
+import { LightsoutConfig } from '#src/contracts/index.ts';
+import { readPlanPackages, scanPlanPackagePaths } from '#src/pipeline/index.ts';
 
 test('readPlanPackages parses the block-list form', () => {
 	const plan = '---\npackages:\n  - backend-api\n  - "shared"\n---\n# Plan\n';

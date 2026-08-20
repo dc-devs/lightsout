@@ -1,8 +1,8 @@
-import type { AgentUsage, LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
-import type { AgentOutcome } from '@/invoke';
-import { maxCheapFixRetries } from '@/refactor/common/constants/maxCheapFixRetries';
-import { superviseBatch } from '@/refactor/superviseBatch';
+import type { AgentUsage, LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import type { AgentOutcome } from '#src/invoke/index.ts';
+import { maxCheapFixRetries } from '#src/refactor/common/constants/maxCheapFixRetries.ts';
+import { superviseBatch } from '#src/refactor/superviseBatch.ts';
 
 /** How the batch's gates came to rest, mapped by the batch loop onto its own stop kinds. */
 type SettleOutcome = { kind: 'green' } | { kind: 'parked' } | { kind: 'escalated'; error: string };

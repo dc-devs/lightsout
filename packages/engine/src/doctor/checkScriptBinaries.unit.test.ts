@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import type { LightsoutConfig } from '@/contracts';
-import { checkScriptBinaries } from '@/doctor/checkScriptBinaries';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { checkScriptBinaries } from '#src/doctor/checkScriptBinaries.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const configWith = (gates: Partial<LightsoutConfig['gates']>): LightsoutConfig => ({
 	gates: { check: 'true', test: 'true', 'test-coverage': false, ...gates },

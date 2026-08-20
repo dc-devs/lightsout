@@ -1,4 +1,4 @@
-import { createVoiceMarker } from '@/voice';
+import { createVoiceMarker } from '#src/voice/index.ts';
 
 interface Params {
 	cwd: string;

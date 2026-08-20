@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { CoverageFile } from '@/contracts/coverage/CoverageFile';
-import { CoverageTotal } from '@/contracts/coverage/CoverageTotal';
+import { CoverageFile } from '#src/contracts/coverage/CoverageFile.ts';
+import { CoverageTotal } from '#src/contracts/coverage/CoverageTotal.ts';
 
 /**
  * A coverage run's initial measurement, frozen into the run dir at run start.

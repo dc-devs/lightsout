@@ -1,5 +1,5 @@
-import type { StepRecord, WorkReport } from '@/contracts';
-import { consumerRelative } from '@/pipeline/common/utils/consumerRelative';
+import type { StepRecord, WorkReport } from '#src/contracts/index.ts';
+import { consumerRelative } from '#src/pipeline/common/utils/consumerRelative.ts';
 
 interface Params {
 	record: StepRecord;

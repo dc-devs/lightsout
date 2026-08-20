@@ -1,3 +1,3 @@
-export { detectStandardsChannels } from '@/standards/detectStandardsChannels';
-export type { ResolvedStandards } from '@/standards/ResolvedStandards';
-export { resolveStandards } from '@/standards/resolveStandards';
+export { detectStandardsChannels } from '#src/standards/detectStandardsChannels.ts';
+export type { ResolvedStandards } from '#src/standards/ResolvedStandards.ts';
+export { resolveStandards } from '#src/standards/resolveStandards.ts';

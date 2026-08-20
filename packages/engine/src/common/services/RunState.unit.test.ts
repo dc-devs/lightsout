@@ -1,14 +1,15 @@
-import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { RunState } from '@/common/services/RunState';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
+import { RunState } from '#src/common/services/RunState.ts';
+import { type AgentUsage, type LightsoutConfig, type RunManifest, RunStatus, type RunUsage } from '#src/contracts/index.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-const manifestOf = (): RunManifest => ({
+const manifestOf = ({ usage }: { usage?: RunUsage } = {}): RunManifest => ({
 	runId: 'run-state-1',
+	usage,
 	createdAt: '2026-01-01T00:00:00.000Z',
 	updatedAt: '2026-01-01T00:00:00.000Z',
 	plan: '',
@@ -24,19 +25,47 @@ const manifestOf = (): RunManifest => ({
 	unreachableChangedFiles: [],
 });
 
-const setupRunState = ({ onProgress }: { onProgress?: (message: string) => void } = {}) => {
+const setupRunState = ({
+	onProgress,
+	overrides = {},
+	usage,
+}: {
+	onProgress?: (message: string) => void;
+	overrides?: Partial<LightsoutConfig>;
+	usage?: RunUsage;
+} = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-run-state-'));
 
 	mkdirSync(join(cwd, '.lightsout', 'runs', 'run-state-1'), { recursive: true });
 
-	return { cwd, run: new RunState({ cwd, config, manifest: manifestOf(), onProgress }) };
+	return {
+		cwd,
+		agentsLog: join(cwd, '.lightsout', 'runs', 'run-state-1', 'agents.jsonl'),
+		run: new RunState({ cwd, config: { ...config, ...overrides }, manifest: manifestOf({ usage }), onProgress }),
+	};
+};
+
+/** One invocation's spend, as a harness reports it. */
+const spendOf = (): AgentUsage => ({ inputTokens: 10, outputTokens: 4, cacheReadTokens: 2, cacheCreationTokens: 1, costUsd: 0.5 });
+
+/**
+ * A run that has already paid for one invocation — the arrangement for what the
+ * totals do on the next persisted write. `usage` seeds the manifest as a resume
+ * would, so the spend it already carried is part of the arrangement too.
+ */
+const setupSpentRun = async ({ usage }: { usage?: RunUsage } = {}) => {
+	const state = setupRunState({ usage });
+
+	await state.run.recordUsage({ step: 'batch-01', usage: spendOf() });
+
+	return state;
 };
 
 describe('RunState', () => {
 	test('update persists the patch and rebinds the live manifest, so current() never serves a stale read', async () => {
 		const { cwd, run } = setupRunState();
 
-		await run.update({ status: RunStatus.Passed });
+		await run.update({ patch: { status: RunStatus.Passed } });
 
 		expect(run.current().status).toBe(RunStatus.Passed);
 		// persisted before the next action — the crash-safety half of the contract
@@ -59,14 +88,46 @@ describe('RunState', () => {
 		expect(run.current().currentStep).toBe('batch-02');
 	});
 
-	test('progress forwards to the listener, and a run with no listener stays silent instead of crashing', () => {
+	test('setStep writes the caller patch alongside the step, and the step it names beats a stale currentStep in that patch', async () => {
+		const { cwd, run } = setupRunState();
+
+		await run.setStep({
+			record: { id: 'batch-01', status: RunStatus.Running, attempts: 1 },
+			patch: { currentStep: 'batch-00', changedFiles: ['src/a.ts'] },
+		});
+
+		// one persisted write carries both, and the record is the authority on
+		// which step the run is on — a caller cannot leave currentStep behind
+		expect(run.current()).toEqual(expect.objectContaining({ currentStep: 'batch-01', changedFiles: ['src/a.ts'] }));
+		const onDisk = JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', 'run-state-1', 'manifest.json'), 'utf8'));
+
+		expect(onDisk).toEqual(
+			expect.objectContaining({
+				currentStep: 'batch-01',
+				changedFiles: ['src/a.ts'],
+				steps: [{ id: 'batch-01', status: RunStatus.Running, attempts: 1 }],
+			}),
+		);
+	});
+
+	test('progress forwards to the listener', () => {
 		const messages: string[] = [];
 		const { run } = setupRunState({ onProgress: (message) => messages.push(message) });
 
 		run.progress('working');
 
 		expect(messages).toStrictEqual(['working']);
-		expect(() => setupRunState().run.progress('unheard')).not.toThrow();
+	});
+
+	test('a run with no listener drops the message, leaving the manifest exactly as it was', () => {
+		const { run } = setupRunState();
+		const before = run.current();
+
+		run.progress('unheard');
+
+		// progress is a notification, never a write — with nowhere to send it there
+		// is nothing to persist and nothing to rebind
+		expect(run.current()).toBe(before);
 	});
 
 	test('the agent timeout reads the config, with the one-hour default when the config is silent', () => {
@@ -74,5 +135,57 @@ describe('RunState', () => {
 
 		expect(new RunState({ cwd, config, manifest: manifestOf() }).agentTimeoutMs).toBe(60 * 60_000);
 		expect(new RunState({ cwd, config: { ...config, timeouts: { 'agent-minutes': 5 } }, manifest: manifestOf() }).agentTimeoutMs).toBe(5 * 60_000);
+	});
+
+	test('recordUsage leaves a ledger line naming the step and the model and effort in force', async () => {
+		const { agentsLog, run } = setupRunState({ overrides: { model: 'stub-model-1', effort: 'high' } });
+
+		await run.recordUsage({ step: 'batch-01', usage: spendOf() });
+
+		// runs spend the user's subscription — every spend leaves a line
+		expect(JSON.parse(readFileSync(agentsLog, 'utf8').trim())).toEqual(
+			expect.objectContaining({
+				step: 'batch-01',
+				model: 'stub-model-1',
+				effort: 'high',
+				inputTokens: 10,
+				outputTokens: 4,
+				cacheReadTokens: 2,
+				cacheCreationTokens: 1,
+				costUsd: 0.5,
+			}),
+		);
+	});
+
+	test('an invocation whose harness reported no usage leaves no ledger line, rather than a line of zeros', async () => {
+		const { agentsLog, run } = setupRunState();
+
+		await run.recordUsage({ step: 'batch-01' });
+
+		// the engine records what it can prove and never estimates
+		expect(existsSync(agentsLog)).toBe(false);
+	});
+
+	test('the next persisted write stamps the run spend into the manifest, on disk and in current()', async () => {
+		const { cwd, run } = await setupSpentRun();
+
+		await run.update({ patch: { status: RunStatus.Passed } });
+
+		expect(run.current().usage).toStrictEqual({ invocations: 1, inputTokens: 10, outputTokens: 4, cacheReadTokens: 2, cacheCreationTokens: 1, costUsd: 0.5 });
+		const onDisk = JSON.parse(readFileSync(join(cwd, '.lightsout', 'runs', 'run-state-1', 'manifest.json'), 'utf8'));
+
+		expect(onDisk.usage).toStrictEqual({ invocations: 1, inputTokens: 10, outputTokens: 4, cacheReadTokens: 2, cacheCreationTokens: 1, costUsd: 0.5 });
+	});
+
+	test('a resumed run adds to the spend its manifest already carried instead of restarting the count', async () => {
+		const { run } = await setupSpentRun({
+			usage: { invocations: 2, inputTokens: 100, outputTokens: 40, cacheReadTokens: 20, cacheCreationTokens: 10, costUsd: 1.5 },
+		});
+
+		await run.update({ patch: {} });
+
+		// totals survive the process boundary a resume crosses — a restarted count
+		// would under-report what the run has already cost
+		expect(run.current().usage).toStrictEqual({ invocations: 3, inputTokens: 110, outputTokens: 44, cacheReadTokens: 22, cacheCreationTokens: 11, costUsd: 2 });
 	});
 });

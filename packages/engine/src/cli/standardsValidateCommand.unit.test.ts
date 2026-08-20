@@ -1,8 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { standardsValidateCommand } from '@/cli/standardsValidateCommand';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { standardsValidateCommand } from '#src/cli/standardsValidateCommand.ts';
+import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
 // -------------------------
@@ -15,12 +15,12 @@ const mockLoadStandardsPackage = jest.fn<(params: { packagePath: string }) => Pr
 const mockResolveDefaultStandardsPackage = jest.fn<() => string>();
 const mockValidateStandardsPackage = jest.fn<(params: { pkg: LoadedStandardsPackage }) => Promise<{ problems: string[]; notes: string[] }>>();
 
-jest.mock('@/standardsPackages', () => ({
+jest.mock('#src/standardsPackages/index.ts', () => ({
 	loadStandardsPackage: (params: { packagePath: string }) => mockLoadStandardsPackage(params),
 	resolveDefaultStandardsPackage: () => mockResolveDefaultStandardsPackage(),
 }));
 
-jest.mock('@/standardsCheck', () => ({
+jest.mock('#src/standardsCheck/index.ts', () => ({
 	validateStandardsPackage: (params: { pkg: LoadedStandardsPackage }) => mockValidateStandardsPackage(params),
 }));
 // -------------------------

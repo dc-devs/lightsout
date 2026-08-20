@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { pathExists } from '@/plan/common/paths/pathExists';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {
 	cwd: string;

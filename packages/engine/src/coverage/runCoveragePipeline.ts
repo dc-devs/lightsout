@@ -1,22 +1,30 @@
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { collectImportEdges } from '@/common/utils/collectImportEdges';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { type AgentUsage, BatchOutcome, CoverageBatchReport, type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
-import { buildCoverageBatch } from '@/coverage/buildCoverageBatch';
-import type { CoverageResult } from '@/coverage/CoverageResult';
-import { maxFileStrikes } from '@/coverage/common/constants/maxFileStrikes';
-import { updateFileStrikes } from '@/coverage/common/utils/updateFileStrikes';
-import { initializeCoverageRun } from '@/coverage/initializeCoverageRun';
-import { runCoverageBatch } from '@/coverage/runCoverageBatch';
-import { runCoverageCheck } from '@/coverage/runCoverageCheck';
-import { seedCoverageResumeState } from '@/coverage/seedCoverageResumeState';
-import { selectCoverageCandidates } from '@/coverage/selectCoverageCandidates';
-import type { Driver } from '@/drivers';
-import { groupConnectedFiles, runGates } from '@/pipeline';
-import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '@/runState';
-import { resolveStandards } from '@/standards';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import {
+	type AgentUsage,
+	BatchOutcome,
+	CoverageBatchReport,
+	type LightsoutConfig,
+	type RunManifest,
+	RunStatus,
+	type StepRecord,
+} from '#src/contracts/index.ts';
+import { buildCoverageBatch } from '#src/coverage/buildCoverageBatch.ts';
+import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
+import { maxFileStrikes } from '#src/coverage/common/constants/maxFileStrikes.ts';
+import { updateFileStrikes } from '#src/coverage/common/utils/updateFileStrikes.ts';
+import { initializeCoverageRun } from '#src/coverage/initializeCoverageRun.ts';
+import { runCoverageBatch } from '#src/coverage/runCoverageBatch.ts';
+import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
+import { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
+import { selectCoverageCandidates } from '#src/coverage/selectCoverageCandidates.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { groupConnectedFiles, runGates } from '#src/pipeline/index.ts';
+import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
+import { resolveStandards } from '#src/standards/index.ts';
 
 const defaultAgentTimeoutMinutes = 60;
 const maxConsecutiveDeclines = 3;

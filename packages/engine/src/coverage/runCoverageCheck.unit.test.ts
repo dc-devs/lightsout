@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { gateLogCommand } from '@tests/helpers/gateLogCommand';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { readGateLog } from '@tests/helpers/readGateLog';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runCoverageCheck } from '@/coverage/runCoverageCheck';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
+import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
  * An Istanbul json-summary report as the tooling writes it: absolute file

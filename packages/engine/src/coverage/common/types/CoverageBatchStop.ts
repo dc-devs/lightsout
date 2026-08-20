@@ -1,4 +1,4 @@
-import type { CoverageBatchReport } from '@/contracts';
+import type { CoverageBatchReport } from '#src/contracts/index.ts';
 
 /** One coverage batch's terminal condition, before the pipeline records it. */
 export type CoverageBatchStop =

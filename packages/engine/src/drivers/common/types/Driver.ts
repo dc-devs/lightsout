@@ -1,5 +1,5 @@
-import type { DriverInvocation } from '@/drivers/common/types/DriverInvocation';
-import type { DriverResult } from '@/drivers/common/types/DriverResult';
+import type { DriverInvocation } from '#src/drivers/common/types/DriverInvocation.ts';
+import type { DriverResult } from '#src/drivers/common/types/DriverResult.ts';
 
 /**
  * The harness boundary. A driver spawns the user's own installed coding agent

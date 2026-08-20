@@ -70,6 +70,14 @@
 			"cache": true,
 			"inputs": ["default", "^default", { "externalDependencies": ["esbuild"] }]
 		},
+		// The web app's Vite build. `dev` deliberately gets no entry: a
+		// long-running server is not a cacheable target, and naming it here
+		// would invite someone to try.
+		"build": {
+			"cache": true,
+			"inputs": ["default", "^default"],
+			"outputs": ["{projectRoot}/dist"]
+		},
 		"bundle": {
 			"cache": true,
 			"inputs": ["production", "^production", { "externalDependencies": ["esbuild"] }]

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PlanFixStatus } from '@/contracts/plan/PlanFixStatus';
+import { PlanFixStatus } from '#src/contracts/plan/PlanFixStatus.ts';
 
 /**
  * The plan-repairer agent's report from one draft-repair invocation: which

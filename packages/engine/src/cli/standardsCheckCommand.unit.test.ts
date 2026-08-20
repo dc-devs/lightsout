@@ -1,13 +1,13 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { standardsCheckCommand } from '@/cli/standardsCheckCommand';
-import { type LightsoutConfig, type StandardsFinding, StandardsSeverity } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { standardsCheckCommand } from '#src/cli/standardsCheckCommand.ts';
+import { type LightsoutConfig, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
 // -------------------------
@@ -42,11 +42,13 @@ interface ReviewStandardsParams {
 
 const mockReviewStandards = jest.fn<(params: ReviewStandardsParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('@/standardsCheck', () => ({
+jest.mock('#src/standardsCheck/index.ts', () => ({
 	runStandardsCheck: (params: RunStandardsCheckParams) => mockRunStandardsCheck(params),
 	listStandardsRules: (params: ListStandardsRulesParams) => mockListStandardsRules(params),
+	// The writer stays real — what the command leaves on disk is one of the things asserted below.
+	writeStandardsSnapshot: jest.requireActual<typeof import('#src/standardsCheck/index.ts')>('#src/standardsCheck/index.ts').writeStandardsSnapshot,
 }));
-jest.mock('@/cli/reviewStandards', () => ({ reviewStandards: (params: ReviewStandardsParams) => mockReviewStandards(params) }));
+jest.mock('#src/cli/reviewStandards.ts', () => ({ reviewStandards: (params: ReviewStandardsParams) => mockReviewStandards(params) }));
 // -------------------------
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
@@ -92,15 +94,6 @@ const setupCheck = ({
 	mockReviewStandards.mockResolvedValue({ findings: review.findings ?? [], notes: review.notes ?? [] });
 
 	return { context: { flags: parseFlags({ args }), rest: [], cwd }, cwd, ...captured };
-};
-
-/** The typed evidence file, as the command left it — or undefined when it wrote none. */
-const writtenReport = ({ cwd }: { cwd: string }) => {
-	try {
-		return JSON.parse(readFileSync(join(cwd, '.lightsout', 'standards-check.json'), 'utf8')) as { path: string; findings: StandardsFinding[]; notes: string[] };
-	} catch {
-		return undefined;
-	}
 };
 
 const listing = (overrides: Partial<StandardsRuleListing> = {}): StandardsRuleListing => ({
@@ -341,38 +334,29 @@ describe('standardsCheckCommand', () => {
 		expect(logged.some((line) => line.includes('clean — nothing blocking'))).toBe(true);
 	});
 
-	test('the command writes the merged stream itself, so one run leaves one report', async () => {
-		const { context, cwd } = setupCheck({
-			args: [],
-			check: {
-				findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })],
-				notes: ['3 site(s) held back by the baseline'],
-			},
-			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })] },
+	test('a finding spanning several files lists every site, then wraps its detail and its guidance underneath', async () => {
+		const spanning = finding({
+			rule: 'clone',
+			siteKey: 'clone:src/a.ts:3',
+			files: [
+				{ path: 'src/a.ts', startLine: 3 },
+				{ path: 'src/b.ts', startLine: 9, endLine: 20 },
+			],
+			detail: 'the same 12 lines in 2 files',
+			guidance: 'extract the shared block into one module',
+		});
+		const { context, logged } = setupCheck({
+			check: { findings: [spanning] },
+			rules: [listing({ rule: 'clone', summary: 'the same code in more than one place' })],
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// the check never writes it — two writers to one file would race
-		expect(checkParams()?.persist).toBe(false);
-
-		const written = writtenReport({ cwd });
-
-		expect(written?.path).toBe('.');
-		expect(written?.findings.map((entry) => entry.rule)).toStrictEqual(['clone', 'path-aliases']);
-		expect(written?.notes).toStrictEqual(['3 site(s) held back by the baseline']);
-	});
-
-	test('a review-only run prints but writes nothing — the evidence file is the machine half’s', async () => {
-		const { context, cwd, logged } = setupCheck({
-			args: ['--agent-review'],
-			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })] },
-		});
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(writtenReport({ cwd })).toBe(undefined);
-		// and it does not claim a report a reader could go open
-		expect(logged.some((line) => line.startsWith('report: '))).toBe(false);
+		// no single location to align a row on, so each site gets its own line
+		expect(logged).toContain('    src/a.ts:3');
+		expect(logged).toContain('    src/b.ts:9-20');
+		expect(logged).toContain('      the same 12 lines in 2 files');
+		// the guidance is stated once beneath the rows it covers
+		expect(logged).toContain('    extract the shared block into one module');
 	});
 });

@@ -1,4 +1,4 @@
-import { appendRunLog } from '@/runState/common/utils/appendRunLog';
+import { appendRunLog } from '#src/runState/common/utils/appendRunLog.ts';
 
 interface Params {
 	cwd: string;

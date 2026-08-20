@@ -1,17 +1,17 @@
 import { dirname } from 'node:path';
-import { buildUnitTestWriterInvocation } from '@/agents';
-import { defaultCoverageSummaryPath } from '@/common/constants/defaultCoverageSummaryPath';
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { packageOf } from '@/common/utils/packageOf';
-import { type AgentUsage, BatchOutcome, type CoverageBatchReport, type LightsoutConfig, WorkReportStatus } from '@/contracts';
-import type { CoverageBatch } from '@/coverage/common/types/CoverageBatch';
-import type { CoverageBatchStop } from '@/coverage/common/types/CoverageBatchStop';
-import { invokeCoverageAgent } from '@/coverage/invokeCoverageAgent';
-import { runCoverageCheck } from '@/coverage/runCoverageCheck';
-import type { Driver } from '@/drivers';
-import { runBatchGates } from '@/pipeline';
+import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
+import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { collectBatchChanges } from '#src/common/utils/collectBatchChanges.ts';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { packageOf } from '#src/common/utils/packageOf.ts';
+import { type AgentUsage, BatchOutcome, type CoverageBatchReport, type LightsoutConfig, WorkReportStatus } from '#src/contracts/index.ts';
+import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
+import type { CoverageBatchStop } from '#src/coverage/common/types/CoverageBatchStop.ts';
+import { invokeCoverageAgent } from '#src/coverage/invokeCoverageAgent.ts';
+import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runBatchGates } from '#src/pipeline/index.ts';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =
@@ -71,6 +71,9 @@ export const runCoverageBatch = async ({
 }: Params): Promise<CoverageBatchStop> => {
 	const rationale: string[] = [];
 	const reportedFiles = new Set<string>();
+	// Kept by testsOnly, read by finish — the two are the batch's only writer
+	// and only reader of what it changed.
+	let changedFiles: string[] = [];
 	const coverageDir = dirname(config['coverage-summary-path'] ?? defaultCoverageSummaryPath);
 	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 	let invocationCount = 0;
@@ -98,18 +101,18 @@ export const runCoverageBatch = async ({
 	const gates = () => runBatchGates({ cwd, config, coverage: false, runId, step: batch.id, onProgress });
 
 	/**
-	 * The batch's changed files with the measurement's own artifacts dropped,
-	 * and the tests-only verdict on what is left. Re-run after every invocation
-	 * — a fix agent can edit source exactly as the first one can.
+	 * Record the batch's changed files with the measurement's own artifacts
+	 * dropped, and return the tests-only verdict on what is left. Re-run after
+	 * every invocation — a fix agent can edit source exactly as the first one can.
 	 */
 	const testsOnly = async () => {
-		const changed = (await collectBatchChanges({ cwd, config, reportedFiles, attributedFiles })).filter(
+		changedFiles = (await collectBatchChanges({ cwd, config, reportedFiles, attributedFiles })).filter(
 			(path) => !isMeasurementOutput({ path, coverageDir, packagesDir }),
 		);
-		const offenders = changed.filter((path) => !isTestFile({ path }));
+
+		const offenders = changedFiles.filter((path) => !isTestFile({ path }));
 
 		return {
-			changed,
 			error:
 				offenders.length === 0
 					? undefined
@@ -117,7 +120,15 @@ export const runCoverageBatch = async ({
 		};
 	};
 
-	const reportOf = ({ outcome, files }: { outcome: BatchOutcome; files: CoverageBatchReport['files'] }): CoverageBatchReport => ({ outcome, files, rationale });
+	/**
+	 * Every classified end of the batch goes through here, so no branch can
+	 * report an outcome without the files the last tests-only pass observed.
+	 */
+	const finish = ({ outcome, files }: { outcome: BatchOutcome; files: CoverageBatchReport['files'] }): CoverageBatchStop => ({
+		kind: 'done',
+		report: { outcome, files, rationale },
+		changedFiles,
+	});
 
 	/** The batch's files as they stood before it ran — the record a batch that never measured leaves. */
 	const unmeasured = () => batch.files.map((file) => ({ path: file.path, beforePct: file.statementsPct, afterPct: file.statementsPct }));
@@ -160,7 +171,7 @@ export const runCoverageBatch = async ({
 			rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but coverage improved and gates are green`);
 			onProgress(`${batch.id}: invocation failed but coverage moved on disk — salvaged as resolved`);
 
-			return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Resolved, files: salvaged.files }), changedFiles: violated.changed };
+			return finish({ outcome: BatchOutcome.Resolved, files: salvaged.files });
 		}
 
 		return { kind: 'failed', error: `${batch.id}: ${attempt.failure}` };
@@ -184,14 +195,13 @@ export const runCoverageBatch = async ({
 
 		rationale.push(...report.failures.map((entry) => `[${marker}] ${entry}`));
 
-		return { kind: 'done', report: reportOf({ outcome: BatchOutcome.Declined, files: unmeasured() }), changedFiles: checked.changed };
+		return finish({ outcome: BatchOutcome.Declined, files: unmeasured() });
 	}
 
 	if (report.status !== WorkReportStatus.Complete) {
 		return { kind: 'escalated', error: `${batch.id}: ${report.status} — ${report.failures.join('; ')}` };
 	}
 
-	let changed = checked.changed;
 	let gateError = await gates();
 
 	for (let retry = 1; gateError && retry <= maxCheapFixRetries; retry += 1) {
@@ -218,7 +228,6 @@ export const runCoverageBatch = async ({
 			return { kind: 'failed', error: refixed.error };
 		}
 
-		changed = refixed.changed;
 		gateError = await gates();
 	}
 
@@ -227,7 +236,6 @@ export const runCoverageBatch = async ({
 	}
 
 	const measured = await measure();
-	const outcome = measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined;
 
-	return { kind: 'done', report: reportOf({ outcome, files: measured.files }), changedFiles: changed };
+	return finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
 };

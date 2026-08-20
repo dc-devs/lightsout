@@ -1,4 +1,4 @@
-import type { ConfigGates } from '@/contracts';
+import type { ConfigGates } from '#src/contracts/index.ts';
 
 /** The kebab keys every gates block fixes; anything else that made it through the schema is a custom `test-*` suite. */
 const fixedKeys = new Set(['check', 'test', 'test-coverage', 'generate', 'build', 'format']);

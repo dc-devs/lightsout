@@ -1,12 +1,12 @@
-import { consultSupervisor } from '@/common/utils/consultSupervisor';
-import { RunStatus, type StepRecord, SupervisorDecision, WorkReportStatus } from '@/contracts';
-import { collectChanged } from '@/pipeline/common/utils/collectChanged';
-import { gates } from '@/pipeline/common/utils/gates';
-import { withStepFiles } from '@/pipeline/common/utils/withStepFiles';
-import type { PipelineResult } from '@/pipeline/PipelineResult';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { appendFriction } from '@/runState';
+import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
+import { RunStatus, type StepRecord, SupervisorDecision, WorkReportStatus } from '#src/contracts/index.ts';
+import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
+import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
+import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { appendFriction } from '#src/runState/index.ts';
 
 const maxCheapFixRetries = 2;
 
@@ -51,7 +51,7 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 			}
 		}
 
-		const error = await gates({ run, coverage });
+		const error = await runVerificationGates({ run, coverage });
 
 		return { rateLimited: false as const, record: next, error };
 	};
@@ -82,7 +82,7 @@ export const verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix
 		await run.setStep({ record });
 		run.progress(`step ${id} — attempt ${record.attempts}`);
 
-		let error = await gates({ run, coverage });
+		let error = await runVerificationGates({ run, coverage });
 
 		// Cheap mechanical retries: hand the role the gate output and re-verify.
 		for (let retry = 1; error && retry <= maxCheapFixRetries; retry += 1) {

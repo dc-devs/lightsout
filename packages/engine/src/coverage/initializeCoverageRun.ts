@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { CoverageWorklist, type LightsoutConfig, type RunManifest } from '@/contracts';
-import { runCoverageCheck } from '@/coverage/runCoverageCheck';
-import type { Driver } from '@/drivers';
-import { createRun } from '@/runState';
+import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { CoverageWorklist, type LightsoutConfig, type RunManifest } from '#src/contracts/index.ts';
+import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { createRun } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;

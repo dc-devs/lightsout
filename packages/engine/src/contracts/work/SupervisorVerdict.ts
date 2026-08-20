@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SupervisorDecision } from '@/contracts/work/SupervisorDecision';
+import { SupervisorDecision } from '#src/contracts/work/SupervisorDecision.ts';
 
 /**
  * The supervisor's output contract. Invoked only on the exception path —

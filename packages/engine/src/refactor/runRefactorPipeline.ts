@@ -1,16 +1,16 @@
-import { type LightsoutConfig, type RunManifest, RunStatus, StandardsSeverity } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { countByRule } from '@/refactor/countByRule';
-import { initializeRun } from '@/refactor/initializeRun';
-import type { RefactorResult } from '@/refactor/RefactorResult';
-import { RefactorRun } from '@/refactor/RefactorRun';
-import { runPreflightGate } from '@/refactor/runPreflightGate';
-import { runWorklistBatches } from '@/refactor/runWorklistBatches';
-import { seedResumeState } from '@/refactor/seedResumeState';
-import { withRunLock } from '@/runState';
-import { resolveStandards } from '@/standards';
-import { runStandardsCheck } from '@/standardsCheck';
-import { resolveStandardsPackages } from '@/standardsPackages';
+import { type LightsoutConfig, type RunManifest, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { countByRule } from '#src/refactor/countByRule.ts';
+import { initializeRun } from '#src/refactor/initializeRun.ts';
+import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
+import { RefactorRun } from '#src/refactor/RefactorRun.ts';
+import { runPreflightGate } from '#src/refactor/runPreflightGate.ts';
+import { runWorklistBatches } from '#src/refactor/runWorklistBatches.ts';
+import { seedResumeState } from '#src/refactor/seedResumeState.ts';
+import { withRunLock } from '#src/runState/index.ts';
+import { resolveStandards } from '#src/standards/index.ts';
+import { runStandardsCheck } from '#src/standardsCheck/index.ts';
+import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
 
 interface Params {
 	cwd: string;
@@ -61,10 +61,10 @@ const executeRefactor = async ({
 	const before = countByRule({ findings: worklist.batches.flatMap((batch) => batch.blocking) });
 	const run = new RefactorRun({ cwd, config, manifest, onProgress, declined: seeded.declined, before });
 
-	await run.update({ status: RunStatus.Running });
+	await run.update({ patch: { status: RunStatus.Running } });
 
 	if (worklist.batches.length === 0) {
-		await run.update({ status: RunStatus.Passed, currentStep: null });
+		await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
 		run.progress('refactor: no findings in scope — nothing to do');
 
 		return { ok: true, manifest: run.current(), declined: run.declined, before: run.before, after: run.before };
@@ -103,7 +103,7 @@ const executeRefactor = async ({
 
 	const finalCheck = await runStandardsCheck({ cwd, path: worklist.path === '.' ? undefined : worklist.path, all: worklist.all, persist: false });
 
-	await run.update({ status: RunStatus.Passed, currentStep: null });
+	await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
 
 	// Finding severity only, mirroring the worklist filter — the burn-down
 	// compares work against work, never advisories.

@@ -3,8 +3,8 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, expect, test } from '@jest/globals';
-import { Effort, Permissions } from '@/contracts';
-import { createClaudeCodeDriver } from '@/drivers';
+import { Effort, Permissions } from '#src/contracts/index.ts';
+import { createClaudeCodeDriver } from '#src/drivers/index.ts';
 
 // The `claude` binary is the one unowned boundary here, so each setup writes a
 // fake one onto PATH: it records the argv and stdin it was handed, copies any
@@ -211,6 +211,23 @@ test('createClaudeCodeDriver: a result event carrying only a cost reports it wit
 		exitCode: 0,
 		rateLimited: false,
 		usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1.25 },
+	});
+});
+
+test('createClaudeCodeDriver: a result event carrying only token counts reports them with a zeroed cost', async () => {
+	const { driver, cwd } = await setupClaude({
+		stdoutChunks: [event({ type: 'result', result: 'FINAL', usage: { input_tokens: 7, output_tokens: 9 } })],
+	});
+
+	const result = await driver.invoke({ prompt: 'TASK', cwd });
+
+	expect(result).toStrictEqual({
+		text: 'FINAL',
+		exitCode: 0,
+		rateLimited: false,
+		// a harness that reports tokens but no price is recorded at zero cost,
+		// never dropped for want of the one field it left out
+		usage: { inputTokens: 7, outputTokens: 9, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 },
 	});
 });
 

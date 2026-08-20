@@ -1,5 +1,5 @@
-import promptImproverPrompt from '@/agents/prompts/promptImprover.md';
-import type { FrictionRecord } from '@/contracts';
+import promptImproverPrompt from '#src/agents/prompts/promptImprover.md';
+import type { FrictionRecord } from '#src/contracts/index.ts';
 
 interface Params {
 	/** Aggregated friction records across runs, with provenance. */

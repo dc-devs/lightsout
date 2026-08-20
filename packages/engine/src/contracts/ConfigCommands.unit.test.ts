@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { ConfigCommands } from '@/contracts';
+import { ConfigCommands } from '#src/contracts/index.ts';
 
 test('ConfigCommands: full entries and partial entries both parse with their fields intact', () => {
 	const commands = {

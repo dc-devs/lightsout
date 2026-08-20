@@ -1,5 +1,5 @@
 import { expect, jest, test } from '@jest/globals';
-import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
+import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 
 // The stamp is elapsed wall time since the printer was created, so the clock is
 // the arrangement: the mocked Date starts every printer at zero. The printed

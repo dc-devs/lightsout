@@ -2,12 +2,12 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
-import { initializeCoverageRun } from '@/coverage/initializeCoverageRun';
-import type { Driver } from '@/drivers';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import { initializeCoverageRun } from '#src/coverage/initializeCoverageRun.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 

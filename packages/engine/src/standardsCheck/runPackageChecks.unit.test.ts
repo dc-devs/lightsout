@@ -2,12 +2,12 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { linkTypescript } from '@tests/helpers/linkTypescript';
-import { type FileListInput, type StandardsCheckInput, type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '@/contracts';
-import { runPackageChecks } from '@/standardsCheck';
-import type { ResolvedRuleState } from '@/standardsCheck/common/types/ResolvedRuleState';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
+import { type FileListInput, type StandardsCheckInput, type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
+import { runPackageChecks } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 
 /** A repo the checks run against. `typescript` decides whether the compiler-backed kinds can run at all. */
 const setupRepo = ({ typescript = false }: { typescript?: boolean } = {}) => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupFileTextInput } from './index.ts';
+import { setupFileTextInput } from '#src/index.ts';
 
 describe('setupFileTextInput', () => {
 	test('builds the arm a file-text check narrows to', () => {

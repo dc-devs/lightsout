@@ -1,12 +1,12 @@
 import { join } from 'node:path';
-import { buildPlanDedupInvocation } from '@/agents';
-import { writeJsonFile } from '@/common/utils/writeJsonFile';
-import { type DedupFinding, DedupJudgment, type DedupReport, type Effort, type Permissions } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
-import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
-import { matchDedupVerdicts } from '@/plan/common/utils/matchDedupVerdicts';
-import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
+import { buildPlanDedupInvocation } from '#src/agents/index.ts';
+import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
+import { type DedupFinding, DedupJudgment, type DedupReport, type Effort, type Permissions } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
+import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
+import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 
 interface Params {
 	cwd: string;

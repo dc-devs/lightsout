@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { StructuralCheck } from '@/contracts';
-import { checkPlanPaths } from '@/plan/checkPlanPaths';
-import { parsePlan } from '@/plan/parsePlan';
+import { StructuralCheck } from '#src/contracts/index.ts';
+import { checkPlanPaths } from '#src/plan/checkPlanPaths.ts';
+import { parsePlan } from '#src/plan/parsePlan.ts';
 
 /** A repo holding one real source file, and a parsed plan built from the given sections. */
 const setup = ({ sections }: { sections: string }) => {

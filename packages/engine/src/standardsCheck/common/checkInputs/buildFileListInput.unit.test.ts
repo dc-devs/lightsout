@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { buildFileListInput } from '@/standardsCheck/common/checkInputs/buildFileListInput';
+import { buildFileListInput } from '#src/standardsCheck/common/checkInputs/buildFileListInput.ts';
 
 /** A repo whose manifests are whatever the test needs them to be, written verbatim. */
 const setupRepo = ({ manifests = {} }: { manifests?: Record<string, string> } = {}) => {

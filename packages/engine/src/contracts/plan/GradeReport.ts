@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { PlanGap } from '@/contracts/plan/PlanGap';
-import { PlanGrade } from '@/contracts/plan/PlanGrade';
-import { StructuralFinding } from '@/contracts/plan/StructuralFinding';
+import { PlanGap } from '#src/contracts/plan/PlanGap.ts';
+import { PlanGrade } from '#src/contracts/plan/PlanGrade.ts';
+import { StructuralFinding } from '#src/contracts/plan/StructuralFinding.ts';
 
 /**
  * The persisted `grade.json`: a plan's grade plus the evidence behind it — the

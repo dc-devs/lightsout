@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
-import { seedRunFixture } from '@tests/helpers/seedRunFixture';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { seedRunFixture } from '#tests/helpers/seedRunFixture.ts';
 
 test('cli: status in a fresh dir reports no runs and exits 0', async () => {
 	const cwd = await freshCwd();

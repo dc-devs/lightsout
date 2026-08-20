@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { collectImportEdges } from '@/common/utils/collectImportEdges';
+import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
 
 // Runtime require rather than a static import: the CJS TypeScript compiler
 // probes __filename at load, so it has to be required at runtime rather than

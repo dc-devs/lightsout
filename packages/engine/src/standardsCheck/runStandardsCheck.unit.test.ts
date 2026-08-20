@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { runStandardsCheck } from '@/standardsCheck';
+import { runStandardsCheck } from '#src/standardsCheck/index.ts';
 
 const bigBody = `
 	let total = 0;
@@ -195,6 +195,8 @@ test('runStandardsCheck reports stage progress and leaves the evidence file alon
 	expect(findings.length > 0).toBeTruthy();
 	// persist: false never clobbers the standalone report
 	expect(existsSync(join(dir, '.lightsout/standards-check.json'))).toBeFalsy();
+	// nor does an in-pipeline run contribute a point to the standards trend
+	expect(existsSync(join(dir, '.lightsout/standards-check'))).toBeFalsy();
 });
 
 test('a persisting run writes the typed evidence file it returns', async () => {
@@ -203,13 +205,21 @@ test('a persisting run writes the typed evidence file it returns', async () => {
 	const { findings, notes } = await runStandardsCheck({ cwd: dir });
 
 	const raw = readFileSync(join(dir, '.lightsout/standards-check.json'), 'utf8');
-	const report = JSON.parse(raw) as { path: string; findings: Array<{ siteKey: string }>; notes: string[] };
+	const report = JSON.parse(raw) as { at: string; path: string; findings: Array<{ siteKey: string }>; notes: string[] };
 	// a whole-repo run records the root as its scope
 	expect(report.path).toBe('.');
 	// the file holds what the caller got
 	expect(report.findings.map((finding) => finding.siteKey).sort()).toStrictEqual(findings.map((finding) => finding.siteKey).sort());
 	// the notes travel with the findings
 	expect(report.notes).toStrictEqual(notes);
+
+	const dated = readdirSync(join(dir, '.lightsout/standards-check'));
+
+	// the same writer leaves a dated copy beside it, byte for byte
+	expect(dated.length).toBe(1);
+	expect(readFileSync(join(dir, '.lightsout/standards-check', dated[0]), 'utf8')).toBe(raw);
+	// named for the moment the check ran, with nothing a filesystem refuses
+	expect(dated[0]).toBe(`${report.at.replaceAll(':', '-').replaceAll('.', '-')}.json`);
 });
 
 /** Write a set of repo-relative files under `dir`, creating the folders they need. */

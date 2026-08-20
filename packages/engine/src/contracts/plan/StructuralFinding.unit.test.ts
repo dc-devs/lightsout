@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { StructuralFinding } from '@/contracts';
+import { StructuralFinding } from '#src/contracts/index.ts';
 
 const setupFinding = (overrides: Record<string, unknown> = {}) => {
 	const finding = {

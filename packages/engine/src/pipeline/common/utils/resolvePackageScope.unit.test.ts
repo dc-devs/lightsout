@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, PackagesSource } from '@/contracts';
-import { resolvePackageScope } from '@/pipeline/common/utils/resolvePackageScope';
+import { type LightsoutConfig, PackagesSource } from '#src/contracts/index.ts';
+import { resolvePackageScope } from '#src/pipeline/common/utils/resolvePackageScope.ts';
 
 const monorepo: LightsoutConfig = {
 	gates: { check: 'true', test: 'true', 'test-coverage': false },

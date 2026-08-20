@@ -1,12 +1,12 @@
-import { getRequiredFlag } from '@/cli/common/args/getRequiredFlag';
-import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
-import { bold } from '@/cli/common/terminal/bold';
-import { green } from '@/cli/common/terminal/green';
-import { red } from '@/cli/common/terminal/red';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { runPlanLint } from '@/plan';
+import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
+import { printStructuralFinding } from '#src/cli/common/render/printStructuralFinding.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { green } from '#src/cli/common/terminal/green.ts';
+import { red } from '#src/cli/common/terminal/red.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { runPlanLint } from '#src/plan/index.ts';
 
 export const planLintCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });

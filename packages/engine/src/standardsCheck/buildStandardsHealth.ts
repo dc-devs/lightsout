@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type AdvisoryOutcome, AdvisoryResponse, BatchOutcome, BatchReport, RefactorWorklist, type StandardsFinding } from '@/contracts';
-import { listRunIds, readRunManifest } from '@/runState';
-import type { StandardsHealth } from '@/standardsCheck/common/types/StandardsHealth';
-import type { StandardsHealthRule } from '@/standardsCheck/common/types/StandardsHealthRule';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
+import { type AdvisoryOutcome, AdvisoryResponse, BatchOutcome, BatchReport, RefactorWorklist, type StandardsFinding } from '#src/contracts/index.ts';
+import { listRunIds, readRunManifest } from '#src/runState/index.ts';
+import type { StandardsHealth } from '#src/standardsCheck/common/types/StandardsHealth.ts';
+import type { StandardsHealthRule } from '#src/standardsCheck/common/types/StandardsHealthRule.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /** The running counts for one rule: every field of its report row except the ones the rule itself supplies. */
 type Tally = Omit<StandardsHealthRule, 'id' | 'set' | 'documentPath' | 'checked'>;

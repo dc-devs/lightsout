@@ -1,6 +1,6 @@
 import { unlink } from 'node:fs/promises';
-import { getRunLockPath } from '@/runState/common/paths/getRunLockPath';
-import { readRunLock } from '@/runState/readRunLock';
+import { getRunLockPath } from '#src/runState/common/paths/getRunLockPath.ts';
+import { readRunLock } from '#src/runState/readRunLock.ts';
 
 interface Params {
 	cwd: string;

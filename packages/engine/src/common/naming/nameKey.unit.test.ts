@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { nameKey } from '@/common/naming/nameKey';
+import { nameKey } from '#src/common/naming/nameKey.ts';
 
 test('nameKey: synonym verbs collapse to one key', () => {
 	expect(nameKey({ name: 'fetchUserData' })).toBe(nameKey({ name: 'getUserData' }));

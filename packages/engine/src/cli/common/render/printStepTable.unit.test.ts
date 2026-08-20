@@ -1,9 +1,7 @@
 import { expect, jest, test } from '@jest/globals';
-import { printStepTable } from '@/cli/common/render/printStepTable';
-import { RunStatus } from '@/contracts';
-import type { summarizeRun } from '@/runState';
-
-type StepSummary = Awaited<ReturnType<typeof summarizeRun>>['steps'][number];
+import { printStepTable } from '#src/cli/common/render/printStepTable.ts';
+import { RunStatus } from '#src/contracts/index.ts';
+import type { StepSummary } from '#src/runState/index.ts';
 
 // The table's whole output IS its console.log lines, so capturing them is the
 // arrangement. isTTY is pinned off so the ANSI paint helpers stay no-ops and

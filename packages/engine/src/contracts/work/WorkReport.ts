@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { FrictionEntry } from '@/contracts/friction';
-import { AdvisoryOutcome } from '@/contracts/standardsCheck/AdvisoryOutcome';
-import { WorkReportStatus } from '@/contracts/work/WorkReportStatus';
+import { FrictionEntry } from '#src/contracts/friction/index.ts';
+import { AdvisoryOutcome } from '#src/contracts/standardsCheck/AdvisoryOutcome.ts';
+import { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
 
 /**
  * The shared output contract for working agent roles (feature-executor,

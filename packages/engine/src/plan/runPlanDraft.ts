@@ -1,19 +1,27 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildPlanWriterInvocation } from '@/agents';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { type DecisionsRecord, type Effort, type Permissions, PlanDraftReport, PlanDraftStatus, type PlanVariant, type StructuralFinding } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { planDraftOutputs } from '@/plan/common/paths/planDraftOutputs';
-import { verifyDraftedFiles } from '@/plan/common/paths/verifyDraftedFiles';
-import { buildPlanLintCommand } from '@/plan/common/utils/buildPlanLintCommand';
-import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
-import { estimatePlanScope } from '@/plan/estimatePlanScope';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
-import { readBrainstormDecisions } from '@/plan/readBrainstormDecisions';
-import { readDecisions } from '@/plan/readDecisions';
-import { readPlanFacts } from '@/plan/readPlanFacts';
-import { repairPlanStructure } from '@/plan/repairPlanStructure';
+import { buildPlanWriterInvocation } from '#src/agents/index.ts';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import {
+	type DecisionsRecord,
+	type Effort,
+	type Permissions,
+	PlanDraftReport,
+	PlanDraftStatus,
+	type PlanVariant,
+	type StructuralFinding,
+} from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
+import { verifyDraftedFiles } from '#src/plan/common/paths/verifyDraftedFiles.ts';
+import { buildPlanLintCommand } from '#src/plan/common/utils/buildPlanLintCommand.ts';
+import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { estimatePlanScope } from '#src/plan/estimatePlanScope.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
+import { readDecisions } from '#src/plan/readDecisions.ts';
+import { readPlanFacts } from '#src/plan/readPlanFacts.ts';
+import { repairPlanStructure } from '#src/plan/repairPlanStructure.ts';
 
 interface Params {
 	cwd: string;

@@ -1,15 +1,15 @@
-import { printStructuralFinding } from '@/cli/common/render/printStructuralFinding';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import { green } from '@/cli/common/terminal/green';
-import { red } from '@/cli/common/terminal/red';
-import { yellow } from '@/cli/common/terminal/yellow';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
-import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
-import type { LightsoutConfig } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { runPlanGrade } from '@/plan';
+import { printStructuralFinding } from '#src/cli/common/render/printStructuralFinding.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { green } from '#src/cli/common/terminal/green.ts';
+import { red } from '#src/cli/common/terminal/red.ts';
+import { yellow } from '#src/cli/common/terminal/yellow.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { exitOnPlanFailure } from '#src/cli/plan/common/utils/exitOnPlanFailure.ts';
+import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runPlanGrade } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -20,7 +20,7 @@ interface Params {
 }
 
 export const planGradeCommand = async ({ cwd, driver, name, standards, config }: Params): Promise<void> => {
-	const result = await exitOnPlanFailure(await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config })));
+	const result = await exitOnPlanFailure({ result: await runPlanGrade(planRunOptions({ cwd, driver, name, standards, config })) });
 
 	const { grade } = result;
 

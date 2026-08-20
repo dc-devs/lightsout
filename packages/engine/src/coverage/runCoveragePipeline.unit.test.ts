@@ -2,13 +2,13 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { linkTypescript } from '@tests/helpers/linkTypescript';
-import { report } from '@tests/helpers/report';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { RunManifest } from '@/contracts';
-import { runCoveragePipeline } from '@/coverage';
-import type { Driver } from '@/drivers';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { RunManifest } from '#src/contracts/index.ts';
+import { runCoveragePipeline } from '#src/coverage/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
+import { report } from '#tests/helpers/report.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /**
  * The consumer's own coverage gate, as a real command: it reads the scope's
@@ -56,6 +56,18 @@ const setupRepo = ({ files, check = 'true', contents = {} }: { files: Record<str
 	);
 
 	return dir;
+};
+
+/**
+ * The human's move between a failed pre-flight and a resume: turn the red check
+ * gate green and commit it, so the tree the resumed run measures is still clean.
+ */
+const repairCheckGate = ({ dir }: { dir: string }) => {
+	const configPath = join(dir, 'lightsout.config.json');
+	const config = JSON.parse(readFileSync(configPath, 'utf8')) as { gates: Record<string, string | false> };
+
+	writeFileSync(configPath, JSON.stringify({ ...config, gates: { ...config.gates, check: 'true' } }));
+	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm repair', { cwd: dir });
 };
 
 /** A monorepo whose packages measure themselves, one already over the threshold. */
@@ -140,8 +152,19 @@ const stubWriter = ({
 	return { driver, prompts };
 };
 
-const runPipeline = async ({ dir, driver, maxBatches, existing }: { dir: string; driver: Driver; maxBatches?: number; existing?: RunManifest }) =>
-	runCoveragePipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), maxBatches, existing });
+const runPipeline = async ({
+	dir,
+	driver,
+	maxBatches,
+	existing,
+	onProgress,
+}: {
+	dir: string;
+	driver: Driver;
+	maxBatches?: number;
+	existing?: RunManifest;
+	onProgress?: (message: string) => void;
+}) => runCoveragePipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), maxBatches, existing, onProgress });
 
 describe('runCoveragePipeline', () => {
 	test('a repo already over its threshold ends green without spawning anything', async () => {
@@ -154,6 +177,19 @@ describe('runCoveragePipeline', () => {
 		expect(result.manifest.status).toBe('passed');
 		expect(prompts.length).toBe(0);
 		expect(result.after).toStrictEqual([{ scope: 'root', statementsPct: 100, passed: true }]);
+	});
+
+	test('a caller that asks for progress is told each stage as the run reaches it', async () => {
+		const dir = setupRepo({ files: { 'src/a.ts': 10 } });
+		const { driver } = stubWriter({ dir });
+		const messages: string[] = [];
+
+		const result = await runPipeline({ dir, driver, onProgress: (message) => messages.push(message) });
+
+		expect(result.ok).toBe(true);
+		// the narration is the only window a caller has into a long unattended
+		// run, and it arrives in the order the stages actually happened
+		expect(messages.join('\n')).toMatch(/pre-flight[\s\S]*batch-01:root — 1 file\(s\) worst-covered[\s\S]*batch-01:root: resolved[\s\S]*gate green/);
 	});
 
 	test("the consumer's own exit code ends the run: batches repeat until the gate goes green", async () => {
@@ -295,6 +331,23 @@ describe('runCoveragePipeline', () => {
 		expect(result.manifest.status).toBe('failed');
 		expect(result.error ?? '').toMatch(/not green before raising coverage/);
 		expect(prompts.length).toBe(0);
+	});
+
+	test('a resumed run re-runs a pre-flight that never passed, counting the retry as a second attempt', async () => {
+		const dir = setupRepo({ files: { 'src/a.ts': 10 }, check: 'false' });
+		const { driver, prompts } = stubWriter({ dir });
+		const failed = await runPipeline({ dir, driver });
+
+		repairCheckGate({ dir });
+
+		const resumed = await runPipeline({ dir, driver, existing: failed.manifest });
+
+		// only a PASSED pre-flight is skipped on resume — a failed one is the
+		// reason the run stopped, so the resume has to answer it again
+		expect(resumed.manifest.steps.find((step) => step.id === 'pre-flight')).toStrictEqual({ id: 'pre-flight', status: 'passed', attempts: 2 });
+		// with the gate green the round proceeds, so the resume is not a re-park
+		expect(resumed.ok).toBe(true);
+		expect(prompts.length).toBe(1);
 	});
 
 	test('without a consumer TypeScript every component is one file, so a batch is plain worst-first', async () => {

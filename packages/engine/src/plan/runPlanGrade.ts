@@ -1,12 +1,12 @@
 import { basename, join } from 'node:path';
-import { buildPlanGapCheckInvocation } from '@/agents';
-import { writeJsonFile } from '@/common/utils/writeJsonFile';
-import { type Effort, GapCheckReport, type GradeReport, type Permissions, type PlanGap, PlanGrade } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { createPlanAgentRunner } from '@/plan/common/utils/createPlanAgentRunner';
-import { getPlanDetectionPass } from '@/plan/common/utils/getPlanDetectionPass';
-import { detectPriorArtCandidates } from '@/plan/detectPriorArtCandidates';
-import { lintPlanStructure } from '@/plan/lintPlanStructure';
+import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
+import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
+import { type Effort, GapCheckReport, type GradeReport, type Permissions, type PlanGap, PlanGrade } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
+import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
+import { lintPlanStructure } from '#src/plan/lintPlanStructure.ts';
 
 interface Params {
 	cwd: string;

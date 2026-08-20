@@ -118,6 +118,52 @@ describe('filename-mismatch check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test("ignores a route file, whose name the package's router mandates", async () => {
+		const input = setupFileTextInput({
+			contents: [
+				['packages/web-app/package.json', '{ "dependencies": { "@tanstack/react-router": "^1.0.0" } }'],
+				['packages/web-app/src/routes/runs.$runId.tsx', 'export const Route = createFileRoute();'],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('still reports a misnamed file elsewhere in the same router package, so the exemption is the directory', async () => {
+		const input = setupFileTextInput({
+			contents: [
+				['packages/web-app/package.json', '{ "dependencies": { "@tanstack/react-router": "^1.0.0" } }'],
+				['packages/web-app/src/runs/chargeLabel.ts', 'export const getChargeLabel = (): number => 1;'],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'filename-mismatch:packages/web-app/src/runs/chargeLabel.ts',
+				files: [{ path: 'packages/web-app/src/runs/chargeLabel.ts' }],
+				detail: "file 'chargeLabel' exports 'getChargeLabel'",
+				guidance: 'The filename should match the export it holds.',
+			},
+		]);
+	});
+
+	test('reports a routes/ file in a package that declares no router, since nothing mandates the name there', async () => {
+		const input = setupFileTextInput({
+			contents: [
+				['packages/engine/package.json', '{ "dependencies": { "zod": "^4.0.0" } }'],
+				['packages/engine/src/routes/chargeLabel.ts', 'export const getChargeLabel = (): number => 1;'],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.files).toStrictEqual([{ path: 'packages/engine/src/routes/chargeLabel.ts' }]);
+	});
+
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 

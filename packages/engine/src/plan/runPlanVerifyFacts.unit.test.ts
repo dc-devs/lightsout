@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { PlanFacts } from '@/contracts';
-import { runPlanVerifyFacts } from '@/plan';
+import { PlanFacts } from '#src/contracts/index.ts';
+import { runPlanVerifyFacts } from '#src/plan/index.ts';
+import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Seed the workspace's authored facts.json with the given raw content. */
 const seedFacts = ({ cwd, name, content }: { cwd: string; name: string; content: string }) => {

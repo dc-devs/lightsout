@@ -1,17 +1,16 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { RunState } from '@/common/services/RunState';
-import { createEventFileSink } from '@/common/utils/createEventFileSink';
-import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type StepRecord, WorkReport } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { invokeAgentWithContract } from '@/invoke';
-import type { PipelineResult } from '@/pipeline/PipelineResult';
-import { getRunDir } from '@/runState';
+import { formatTokenCount } from '@lightsout/shared';
+import { RunState } from '#src/common/services/RunState.ts';
+import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
+import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type StepRecord, WorkReport } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { invokeAgentWithContract } from '#src/invoke/index.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { getRunDir } from '#src/runState/index.ts';
 
-const formatTokens = (count: number) => (count >= 1000 ? `${(count / 1000).toFixed(1)}k` : `${count}`);
-
-const formatUsage = (usage: AgentUsage) =>
-	`in ${formatTokens(usage.inputTokens)} · out ${formatTokens(usage.outputTokens)} · cache-read ${formatTokens(usage.cacheReadTokens)} · $${usage.costUsd.toFixed(2)}`;
+const formatUsage = ({ usage }: { usage: AgentUsage }) =>
+	`in ${formatTokenCount({ count: usage.inputTokens })} · out ${formatTokenCount({ count: usage.outputTokens })} · cache-read ${formatTokenCount({ count: usage.cacheReadTokens })} · $${usage.costUsd.toFixed(2)}`;
 
 interface ConstructorParams {
 	cwd: string;
@@ -73,8 +72,8 @@ export class PipelineRun {
 		this.runState.progress(message);
 	}
 
-	update(patch: Partial<RunManifest>): Promise<void> {
-		return this.runState.update(patch);
+	update({ patch }: { patch: Partial<RunManifest> }): Promise<void> {
+		return this.runState.update({ patch });
 	}
 
 	parkMessage(): string {
@@ -107,7 +106,7 @@ export class PipelineRun {
 		await this.runState.recordUsage({ step, usage });
 
 		if (usage) {
-			this.progress(`  ${step} · usage: ${formatUsage(usage)}`);
+			this.progress(`  ${step} · usage: ${formatUsage({ usage })}`);
 		}
 	}
 

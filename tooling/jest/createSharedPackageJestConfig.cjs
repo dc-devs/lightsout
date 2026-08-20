@@ -1,10 +1,10 @@
 const createJestConfig = require('./createJestConfig.cjs');
 
 /**
- * The Jest settings the two shared packages — standards-contracts and
- * standards-testkit — have in common. They are the same package shape: a small
- * `src/` of co-located unit tests, and no fixtures to keep out of the coverage
- * denominator.
+ * The Jest settings the shared packages — standards-contracts,
+ * standards-testkit and shared — have in common. They are the same package
+ * shape: a small `src/` of co-located unit tests, and no fixtures to keep out
+ * of the coverage denominator.
  *
  * They are also what everything else builds against, so they carry the same
  * coverage bar as the engine. A small denominator makes a percentage move

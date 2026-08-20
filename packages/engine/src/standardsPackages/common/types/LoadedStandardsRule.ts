@@ -1,4 +1,4 @@
-import type { StandardsCheckRun, StandardsInputKind, StandardsSet, StandardsSeverity } from '@/contracts';
+import type { StandardsCheckRun, StandardsInputKind, StandardsSet, StandardsSeverity } from '#src/contracts/index.ts';
 
 /** One rule folder, read: its prose, its declaration, and its check when it ships one. */
 export interface LoadedStandardsRule {

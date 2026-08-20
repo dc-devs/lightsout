@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { DecisionRow } from '@/contracts/plan/DecisionRow';
-import { DecisionSource } from '@/contracts/plan/DecisionSource';
+import { DecisionRow } from '#src/contracts/plan/DecisionRow.ts';
+import { DecisionSource } from '#src/contracts/plan/DecisionSource.ts';
 
 /**
  * The brainstorm-authored `brainstorm-decisions.json`: the plan name plus the

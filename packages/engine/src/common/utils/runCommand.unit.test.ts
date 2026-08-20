@@ -2,8 +2,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { runCommand } from '@/common/utils/runCommand';
+import { runCommand } from '#src/common/utils/runCommand.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 const setupCwd = ({ files = {} }: { files?: Record<string, string> } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-runcommand-'));

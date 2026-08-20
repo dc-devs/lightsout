@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { buildPromptImproverInvocation } from '@/agents';
-import type { FrictionRecord } from '@/contracts';
+import { buildPromptImproverInvocation } from '#src/agents/index.ts';
+import type { FrictionRecord } from '#src/contracts/index.ts';
 
 const record = (overrides: Partial<FrictionRecord> = {}): FrictionRecord => ({
 	kind: 'friction',

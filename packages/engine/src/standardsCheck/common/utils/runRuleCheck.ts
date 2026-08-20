@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { messageOf } from '@/common/utils/messageOf';
-import { RawStandardsFinding, type StandardsCheckInput, type StandardsCheckRun } from '@/contracts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { RawStandardsFinding, type StandardsCheckInput, type StandardsCheckRun } from '#src/contracts/index.ts';
 
 const rawFindings = z.array(RawStandardsFinding);
 

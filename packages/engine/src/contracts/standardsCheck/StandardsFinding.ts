@@ -1,6 +1,6 @@
 import { RawStandardsFinding } from '@lightsout/standards-contracts';
 import { z } from 'zod';
-import { StandardsSeverity } from '@/contracts/standardsCheck/StandardsSeverity';
+import { StandardsSeverity } from '#src/contracts/standardsCheck/StandardsSeverity.ts';
 
 /**
  * One structural defect found by `lightsout standards-check`. Typed because

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DedupResolution } from '@/contracts/dedup/DedupResolution';
+import { DedupResolution } from '#src/contracts/dedup/DedupResolution.ts';
 
 /**
  * The judge agent's ruling on one detected name collision: whether the planned

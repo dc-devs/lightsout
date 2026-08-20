@@ -1,4 +1,4 @@
-import { dim } from '@/cli/common/terminal/dim';
+import { dim } from '#src/cli/common/terminal/dim.ts';
 
 interface Row {
 	cells: string[];

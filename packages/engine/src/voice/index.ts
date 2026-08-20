@@ -1,7 +1,7 @@
-export { createVoiceMarker } from '@/voice/createVoiceMarker';
-export { deleteVoiceMarker } from '@/voice/deleteVoiceMarker';
-export { getSpokenPickerText } from '@/voice/getSpokenPickerText';
-export { getSpokenQuestion } from '@/voice/getSpokenQuestion';
-export { isVoiceOn } from '@/voice/isVoiceOn';
-export { speakText } from '@/voice/speakText';
-export { stopSpeech } from '@/voice/stopSpeech';
+export { createVoiceMarker } from '#src/voice/createVoiceMarker.ts';
+export { deleteVoiceMarker } from '#src/voice/deleteVoiceMarker.ts';
+export { getSpokenPickerText } from '#src/voice/getSpokenPickerText.ts';
+export { getSpokenQuestion } from '#src/voice/getSpokenQuestion.ts';
+export { isVoiceOn } from '#src/voice/isVoiceOn.ts';
+export { speakText } from '#src/voice/speakText.ts';
+export { stopSpeech } from '#src/voice/stopSpeech.ts';

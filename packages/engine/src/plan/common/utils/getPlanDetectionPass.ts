@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
-import { getPlanDetectionInputs } from '@/plan/common/utils/getPlanDetectionInputs';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
+import { getPlanDetectionInputs } from '#src/plan/common/utils/getPlanDetectionInputs.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {
 	cwd: string;

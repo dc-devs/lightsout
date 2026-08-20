@@ -1,4 +1,5 @@
-export { SupervisorDecision } from '@/contracts/work/SupervisorDecision';
-export { SupervisorVerdict } from '@/contracts/work/SupervisorVerdict';
-export { WorkReport } from '@/contracts/work/WorkReport';
-export { WorkReportStatus } from '@/contracts/work/WorkReportStatus';
+export { SupervisorDecision } from '#src/contracts/work/SupervisorDecision.ts';
+export { SupervisorVerdict } from '#src/contracts/work/SupervisorVerdict.ts';
+export { WorkReport } from '#src/contracts/work/WorkReport.ts';
+export { WorkReportStatus } from '#src/contracts/work/WorkReportStatus.ts';
+export { WritersReport } from '#src/contracts/work/WritersReport.ts';

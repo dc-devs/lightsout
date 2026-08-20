@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { BatchReport } from '@/contracts';
+import { BatchReport } from '#src/contracts/index.ts';
 
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const report = {

@@ -1,8 +1,8 @@
 import { Detector, MemoryStore } from '@jscpd/core';
 import { Tokenizer } from '@jscpd/tokenizer';
-import { type CloneSpan, type CloneSpansInput, StandardsInputKind } from '@/contracts';
-import { readIntoCache } from '@/standardsCheck/common/checkInputs/readIntoCache';
-import { blankImportSpans } from '@/standardsCheck/common/utils/blankImportSpans';
+import { type CloneSpan, type CloneSpansInput, StandardsInputKind } from '#src/contracts/index.ts';
+import { readIntoCache } from '#src/standardsCheck/common/checkInputs/readIntoCache.ts';
+import { blankImportSpans } from '#src/standardsCheck/common/utils/blankImportSpans.ts';
 
 interface Params {
 	cwd: string;

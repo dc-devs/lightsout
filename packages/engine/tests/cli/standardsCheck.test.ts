@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { runCli } from '@tests/helpers/runCli';
-import { seedStandardsFixture } from '@tests/helpers/seedStandardsFixture';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { seedStandardsFixture } from '#tests/helpers/seedStandardsFixture.ts';
 
 test('cli: standards-check prints each finding, the rule breakdown, and exits 0', async () => {
 	const { cwd } = await seedStandardsFixture();

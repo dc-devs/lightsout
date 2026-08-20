@@ -1,6 +1,6 @@
-import { runCommand } from '@/common/utils/runCommand';
-import { probeTimeoutMs } from '@/doctor/common/constants/probeTimeoutMs';
-import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
+import { runCommand } from '#src/common/utils/runCommand.ts';
+import { probeTimeoutMs } from '#src/doctor/common/constants/probeTimeoutMs.ts';
+import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 
 const gitignoreEntries = ['.lightsout/runs/', '.lightsout/plans/', '.lightsout/friction.jsonl', '.lightsout/lock.json'];
 

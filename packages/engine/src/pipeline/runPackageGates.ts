@@ -1,12 +1,12 @@
-import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
-import { messageOf } from '@/common/utils/messageOf';
-import { resolvePackageGatesConfig } from '@/common/utils/resolvePackageGatesConfig';
-import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
-import type { GateResult, LightsoutConfig } from '@/contracts';
-import type { GateCommands } from '@/pipeline/common/types/GateCommands';
-import type { RunGate } from '@/pipeline/common/types/RunGate';
-import { runGateSet } from '@/pipeline/runGateSet';
-import { appendCommandLog } from '@/runState';
+import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { resolvePackageGatesConfig } from '#src/common/utils/resolvePackageGatesConfig.ts';
+import { resolvePackageManifest } from '#src/common/utils/resolvePackageManifest.ts';
+import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
+import type { GateCommands } from '#src/pipeline/common/types/GateCommands.ts';
+import type { RunGate } from '#src/pipeline/common/types/RunGate.ts';
+import { runGateSet } from '#src/pipeline/runGateSet.ts';
+import { appendCommandLog } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;

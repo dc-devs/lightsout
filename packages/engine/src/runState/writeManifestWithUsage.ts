@@ -1,5 +1,5 @@
-import type { RunManifest, RunUsage } from '@/contracts';
-import { writeRunManifest } from '@/runState/writeRunManifest';
+import type { RunManifest, RunUsage } from '#src/contracts/index.ts';
+import { writeRunManifest } from '#src/runState/writeRunManifest.ts';
 
 interface Params {
 	cwd: string;

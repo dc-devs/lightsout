@@ -1,17 +1,17 @@
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { usage } from '@/cli/common/constants/usage';
-import { printResult } from '@/cli/common/render/printResult';
-import { printRunHeader } from '@/cli/common/render/printRunHeader';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { createProgressPrinter } from '@/cli/common/utils/createProgressPrinter';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { resolveCommandHarness } from '@/cli/common/utils/resolveCommandHarness';
-import { runPhasesOrFailFast } from '@/cli/common/utils/runPhasesOrFailFast';
-import { runPipelineOrFailFast } from '@/cli/common/utils/runPipelineOrFailFast';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { RunStatus } from '@/contracts';
-import { getDriver } from '@/drivers';
-import { RunNotFoundError, readRunManifest } from '@/runState';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { usage } from '#src/cli/common/constants/usage.ts';
+import { printResult } from '#src/cli/common/render/printResult.ts';
+import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
+import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
+import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { RunStatus } from '#src/contracts/index.ts';
+import { getDriver } from '#src/drivers/index.ts';
+import { RunNotFoundError, readRunManifest } from '#src/runState/index.ts';
 
 /** Pipelines that own their own resume door — `lightsout resume` sends them back to it. */
 const resumeCommandByPipeline: Record<string, string | undefined> = { refactor: 'refactor', coverage: 'test-coverage-to-threshold' };

@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { PackageGates } from '@/contracts';
+import { PackageGates } from '#src/contracts/index.ts';
 
 test('PackageGates: a block whose every command carries the {package} placeholder parses intact', () => {
 	const packageGates = {

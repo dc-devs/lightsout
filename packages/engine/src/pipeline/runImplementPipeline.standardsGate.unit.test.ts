@@ -1,13 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { Driver } from '@/drivers';
-import { runImplementPipeline } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // The standards gate: findings feed the refactor prompt, declines are judged
 // by whether the gating set changed, and the config switch is honored.
@@ -224,4 +224,38 @@ test('standards default on when unspecified; false switches them off explicitly'
 
 	// false → no standards section
 	expect(disabled.includes('# Standards\n\nThese rules are binding')).toBeFalsy();
+});
+
+test('a declared standards package that cannot be loaded stops the run before any agent spawns', async () => {
+	const dir = setupConsumerRepo({ config: { 'standards-packages': ['standards/ghost'] } });
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			throw new Error('no agent should be invoked');
+		},
+	};
+	const progress: string[] = [];
+
+	const result = await runImplementPipeline({
+		cwd: dir,
+		driver,
+		config: await loadConfig({ cwd: dir }),
+		planPath: 'plan.md',
+		onProgress: (message) => progress.push(message),
+	});
+
+	// a consumer that declared standards and did not get them must not run: the
+	// load failure comes back as a failed manifest, never as a thrown crash that
+	// would leave the run with no record of why it ended
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	expect(result.error ?? '').toMatch(/standards package root file not found/);
+
+	const cleanSlate = result.manifest.steps.find((step) => step.id === 'clean-slate');
+
+	// the run stopped at the first step without ever attempting it — a zero
+	// attempt count is what distinguishes "never started" from "ran and failed"
+	expect(cleanSlate?.status).toBe('failed');
+	expect(cleanSlate?.attempts).toBe(0);
+	expect(progress.some((line) => line.startsWith('run stopped at clean-slate'))).toBeTruthy();
 });

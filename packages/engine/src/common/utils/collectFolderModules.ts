@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join, posix } from 'node:path';
 import type ts from 'typescript';
-import type { FolderModule } from '@/common/types/FolderModule';
-import { createSpecifierResolver } from '@/common/utils/createSpecifierResolver';
-import { readBarrelExportTargets } from '@/common/utils/readBarrelExportTargets';
+import type { FolderModule } from '#src/common/types/FolderModule.ts';
+import { createSpecifierResolver } from '#src/common/utils/createSpecifierResolver.ts';
+import { readBarrelExportTargets } from '#src/common/utils/readBarrelExportTargets.ts';
 
 const isBarrel = ({ path }: { path: string }) => /^index\.tsx?$/.test(posix.basename(path));
 

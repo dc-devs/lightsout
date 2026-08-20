@@ -1,16 +1,16 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { linkTypescript } from '@tests/helpers/linkTypescript';
-import { readCommandLog } from '@tests/helpers/readCommandLog';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { verdict } from '@tests/helpers/verdict';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { Driver } from '@/drivers';
-import { runImplementPipeline } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
+import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { verdict } from '#tests/helpers/verdict.ts';
 
 const countLog = (dir: string, file: string) => {
 	try {

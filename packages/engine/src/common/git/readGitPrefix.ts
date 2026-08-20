@@ -1,5 +1,5 @@
-import { gitTimeoutMs } from '@/common/constants/gitTimeoutMs';
-import { runCommand } from '@/common/utils/runCommand';
+import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
+import { runCommand } from '#src/common/utils/runCommand.ts';
 
 interface Params {
 	cwd: string;

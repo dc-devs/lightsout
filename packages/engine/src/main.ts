@@ -1,4 +1,4 @@
-import type { CommandContext } from '@/cli';
+import type { CommandContext } from '#src/cli/index.ts';
 import {
 	doctorCommand,
 	exitCli,
@@ -17,7 +17,7 @@ import {
 	testCoverageToThresholdCommand,
 	usage,
 	voiceCommand,
-} from '@/cli';
+} from '#src/cli/index.ts';
 
 const commands: Record<string, (context: CommandContext) => Promise<void>> = {
 	implement: implementCommand,

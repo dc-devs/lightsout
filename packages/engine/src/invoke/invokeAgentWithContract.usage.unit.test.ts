@@ -1,16 +1,16 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { outcomeFields } from '@tests/helpers/outcomeFields';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { WorkReport } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { invokeAgentWithContract } from '@/invoke/invokeAgentWithContract';
-import { runImplementPipeline } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { WorkReport } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { outcomeFields } from '#tests/helpers/outcomeFields.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const stubUsage = (outputTokens: number) => ({
 	inputTokens: 10,
@@ -70,6 +70,31 @@ test('an attempt reporting no usage does not zero the invocation total', async (
 
 	expect(parsed).toBeTruthy();
 	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 50, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
+});
+
+test('usage from an earlier attempt survives a later attempt that reports none', async () => {
+	let calls = 0;
+
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			calls += 1;
+
+			return calls === 1 ? { text: 'no json here', exitCode: 0, usage: stubUsage(100) } : { text: 'still no json here', exitCode: 0 };
+		},
+	};
+
+	const { failure, usage } = outcomeFields(
+		await invokeAgentWithContract({
+			driver,
+			cwd: '.',
+			invocation: { systemPrompt: 's', prompt: 'p' },
+			contract: WorkReport,
+		}),
+	);
+
+	expect(failure ?? '').toMatch(/did not match contract/);
+	expect(usage).toStrictEqual({ inputTokens: 10, outputTokens: 100, cacheReadTokens: 1000, cacheCreationTokens: 5, costUsd: 0.5 });
 });
 
 test('usage spent before a rate limit is still reported — a parked run is billed for what it burned', async () => {

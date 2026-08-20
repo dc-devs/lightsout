@@ -1,4 +1,4 @@
-import reportReemitterPrompt from '@/agents/prompts/reportReemitter.md';
+import reportReemitterPrompt from '#src/agents/prompts/reportReemitter.md';
 
 interface Params {
 	/** The agent's raw final message that failed contract validation. */

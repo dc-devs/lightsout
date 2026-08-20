@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gateLogCommand } from '@tests/helpers/gateLogCommand';
+import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 
 interface Params {
 	plan?: string;

@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { FrictionRecord } from '@/contracts';
+import { FrictionRecord } from '#src/contracts/index.ts';
 
 const entry = { kind: 'friction', area: 'environment', detail: 'no jest config in the package' };
 const provenance = { at: '2026-01-01T00:00:00.000Z', runId: 'run-1234-abcd', step: 'write-tests' };

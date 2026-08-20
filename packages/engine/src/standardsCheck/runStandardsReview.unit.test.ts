@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
-import { StandardsSeverity } from '@/contracts';
-import type { Driver, DriverInvocation, DriverResult } from '@/drivers';
-import { runStandardsReview } from '@/standardsCheck';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
+import { StandardsSeverity } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation, DriverResult } from '#src/drivers/index.ts';
+import { runStandardsReview } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
 
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedStandardsRule => ({
 	set: 'code',

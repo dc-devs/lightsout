@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { getRunsDir } from '@/runState';
+import { getRunsDir } from '#src/runState/index.ts';
 
 describe('getRunsDir', () => {
 	test('gathers every run under .lightsout/runs inside the target repo', () => {

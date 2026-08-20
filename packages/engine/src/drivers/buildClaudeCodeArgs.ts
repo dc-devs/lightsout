@@ -1,4 +1,4 @@
-import { type Effort, Permissions } from '@/contracts';
+import { type Effort, Permissions } from '#src/contracts/index.ts';
 
 /** The neutral capability levels expressed in Claude Code's own permission-mode vocabulary. */
 const claudePermissionModes: Record<Permissions, string> = {

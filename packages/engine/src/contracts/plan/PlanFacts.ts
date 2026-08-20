@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { ExploreArea } from '@/contracts/plan/ExploreArea';
-import { PathVerification } from '@/contracts/plan/PathVerification';
+import { ExploreArea } from '#src/contracts/plan/ExploreArea.ts';
+import { PathVerification } from '#src/contracts/plan/PathVerification.ts';
 
 /**
  * The persisted `facts.json` for a plan workspace: the request, the merged

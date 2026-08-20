@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
-import { StandardsCheckModule } from '@/contracts';
-import { formatSchemaIssues } from '@/standardsPackages/common/utils/formatSchemaIssues';
+import { StandardsCheckModule } from '#src/contracts/index.ts';
+import { formatSchemaIssues } from '#src/standardsPackages/common/utils/formatSchemaIssues.ts';
 
 interface Params {
 	/** Absolute path of a rule folder's check.ts. */

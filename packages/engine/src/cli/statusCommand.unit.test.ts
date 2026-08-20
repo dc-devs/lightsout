@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { statusCommand } from '@/cli/statusCommand';
-import { type RunManifest, RunStatus, type StepRecord } from '@/contracts';
+import { statusCommand } from '#src/cli/statusCommand.ts';
+import { type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 /** Beyond any OS pid range — the live-process probe reports it dead. */
 const deadPid = 999_999_999;
@@ -167,7 +167,7 @@ describe('statusCommand', () => {
 
 		await expect(statusCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged.join('\n')).not.toMatch(/no live process/);
+		expect(logged).toStrictEqual(['run-seq  running  plan: plans/demo/overview.md  phases: 1/3  updated: 2026-01-01T00:00:03.000Z']);
 	});
 
 	test.each([

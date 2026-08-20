@@ -1,13 +1,13 @@
 import { resolve } from 'node:path';
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { dim } from '@/cli/common/terminal/dim';
-import { green } from '@/cli/common/terminal/green';
-import { red } from '@/cli/common/terminal/red';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { messageOf } from '@/common/utils/messageOf';
-import { validateStandardsPackage } from '@/standardsCheck';
-import { loadStandardsPackage, resolveDefaultStandardsPackage } from '@/standardsPackages';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { green } from '#src/cli/common/terminal/green.ts';
+import { red } from '#src/cli/common/terminal/red.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
+import { loadStandardsPackage, resolveDefaultStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /**
  * The package named by `--package`, or the bundled default when the flag is

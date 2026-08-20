@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import { checkChangedFilesExecuted } from '@/coverage/checkChangedFilesExecuted';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { checkChangedFilesExecuted } from '#src/coverage/checkChangedFilesExecuted.ts';
 
 // Runtime require rather than a static import: the CJS TypeScript compiler
 // probes __filename at load, so it has to be required at runtime rather than
@@ -55,6 +55,25 @@ const setupUnmeasuredPackage = () => {
 	mkdirSync(join(cwd, 'packages', 'docs', 'src'), { recursive: true });
 	writeFileSync(join(cwd, 'packages', 'docs', 'package.json'), JSON.stringify({ name: '@acme/docs', scripts: {} }));
 	writeFileSync(join(cwd, 'packages', 'docs', 'src', 'cold.ts'), 'export const cold = () => 1;');
+
+	return cwd;
+};
+
+/** A monorepo whose packages live somewhere other than `packages/`, each measuring itself. */
+const setupCustomPackagesDir = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-executed-apps-'));
+
+	mkdirSync(join(cwd, 'apps', 'web', 'src'), { recursive: true });
+	mkdirSync(join(cwd, 'apps', 'web', 'coverage'), { recursive: true });
+	writeFileSync(join(cwd, 'apps', 'web', 'package.json'), JSON.stringify({ name: '@acme/web', scripts: { 'test:coverage': 'x' } }));
+	writeFileSync(join(cwd, 'apps', 'web', 'src', 'cold.ts'), 'export const cold = () => 1;');
+	writeFileSync(
+		join(cwd, 'apps', 'web', 'coverage', 'coverage-summary.json'),
+		JSON.stringify({
+			total: { statements: { pct: 50, covered: 1, total: 2 } },
+			[join(cwd, 'apps', 'web', 'src', 'cold.ts')]: { statements: { pct: 0, covered: 0, total: 2 } },
+		}),
+	);
 
 	return cwd;
 };
@@ -188,4 +207,28 @@ test('checkChangedFilesExecuted: a package whose coverage command was never conf
 
 	// no command measures docs, so there is no summary to demand — and none is demanded
 	expect(error).toBe(undefined);
+});
+
+test('checkChangedFilesExecuted: in root mode a file under the packages directory sits outside the single root measurement', async () => {
+	const cwd = setupRepo({ files: { 'packages/api/src/cold.ts': 'export const cold = () => 1;' } });
+
+	// no summary was written here, so a file this check held to the bar would come
+	// back with the missing-summary error rather than a pass
+	const error = await checkChangedFilesExecuted({ cwd, config: rootConfig, changedFiles: ['packages/api/src/cold.ts'], compiler: ts });
+
+	expect(error).toBe(undefined);
+});
+
+test('checkChangedFilesExecuted: a configured packages directory is where a changed file’s scope is looked up', async () => {
+	const config: LightsoutConfig = {
+		gates: { check: 'true', test: 'true', 'test-coverage': false },
+		'packages-dir': 'apps',
+		'package-gates': { check: 'true {package}', test: 'true {package}', 'test-coverage': 'pnpm --filter {package} run test:coverage' },
+	};
+	const cwd = setupCustomPackagesDir();
+
+	const error = await checkChangedFilesExecuted({ cwd, config, changedFiles: ['apps/web/src/cold.ts'], compiler: ts });
+
+	// under the default 'packages' this file would map to no scope at all and pass unmeasured
+	expect(error).toContain('changed-file-execution: 1 changed file(s) never executed under the tests: apps/web/src/cold.ts');
 });

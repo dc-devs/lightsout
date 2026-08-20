@@ -1,10 +1,10 @@
 import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { messageOf } from '@/common/utils/messageOf';
-import { AuthoredFacts, type PlanFacts } from '@/contracts';
-import { readPlanWorkspaceFile } from '@/plan/common/utils/readPlanWorkspaceFile';
-import { planWorkspaceDir } from '@/plan/planWorkspaceDir';
-import { verifyFacts } from '@/plan/verifyFacts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { AuthoredFacts, type PlanFacts } from '#src/contracts/index.ts';
+import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
+import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
+import { verifyFacts } from '#src/plan/verifyFacts.ts';
 
 interface Params {
 	cwd: string;

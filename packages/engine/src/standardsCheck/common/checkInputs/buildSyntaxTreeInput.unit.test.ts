@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { expectDefined } from '@tests/helpers/expectDefined';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { buildSyntaxTreeInput } from '@/standardsCheck/common/checkInputs/buildSyntaxTreeInput';
+import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { buildSyntaxTreeInput } from '#src/standardsCheck/common/checkInputs/buildSyntaxTreeInput.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
 
 const setupRepo = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-syntax-tree-'));
@@ -22,7 +22,17 @@ const compiler = resolveConsumerTypescript({ cwd: process.cwd() });
 const buildInput = ({ cwd, source, cache }: { cwd: string; source: string[]; cache: Map<string, string> }) => {
 	expectDefined(compiler);
 
-	return buildSyntaxTreeInput({ cwd, source, tests: [], files: source, referenceFiles: source, standardsPackages: [], compiler, cache });
+	return buildSyntaxTreeInput({
+		cwd,
+		source,
+		tests: [],
+		files: source,
+		referenceFiles: source,
+		standardsPackages: [],
+		compiler,
+		cache,
+		packagesDir: 'packages',
+	});
 };
 
 describe('buildSyntaxTreeInput', () => {

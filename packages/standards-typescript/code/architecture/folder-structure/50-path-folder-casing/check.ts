@@ -6,6 +6,7 @@ import { getDirectory } from '../../../../common/utils/getDirectory.ts';
 import { getFrameworkCarveOuts } from '../../../../common/utils/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../common/utils/getPathCarveOut.ts';
 import { getSourceRoot } from '../../../../common/utils/getSourceRoot.ts';
+import { isUnderRouterRoot } from '../../../../common/utils/isUnderRouterRoot.ts';
 import { readPathLists } from '../../../../common/utils/readPathLists.ts';
 
 const camelCase = /^[a-z][A-Za-z0-9]*$/;
@@ -85,11 +86,7 @@ export const check: StandardsCheckModule = {
 			const sharing = siblingNames.filter((sibling) => getCasingStyle({ segment: sibling }) === style);
 			const settled = siblingNames.length >= 2 && sharing.length * 2 > siblingNames.length;
 
-			// A router root is matched only DIRECTLY under the package's `src/`: at
-			// arbitrary depth an ordinary domain folder called `routes` would exempt
-			// its whole subtree.
-			const topSegment = directory.slice(sourceRoot.length).replace(/\/.*$/, '');
-			const mandated = carveOut.kebabCase || carveOut.routerRoots.includes(topSegment) || frameworkFolder.test(name);
+			const mandated = carveOut.kebabCase || isUnderRouterRoot({ path: directory, carveOut }) || frameworkFolder.test(name);
 
 			if (!settled && !mandated) {
 				findings.push(

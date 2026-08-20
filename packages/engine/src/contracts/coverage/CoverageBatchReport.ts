@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BatchOutcome } from '@/contracts/refactor/BatchOutcome';
+import { BatchOutcome } from '#src/contracts/refactor/BatchOutcome.ts';
 
 /** The step-record `report` payload a coverage batch persists. */
 export const CoverageBatchReport = z.object({

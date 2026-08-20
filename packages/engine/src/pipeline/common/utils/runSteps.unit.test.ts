@@ -2,12 +2,12 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type LightsoutConfig, RunStatus } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { runSteps } from '@/pipeline/common/utils/runSteps';
-import { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { createRun } from '@/runState';
+import { type LightsoutConfig, RunStatus } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runSteps } from '#src/pipeline/common/utils/runSteps.ts';
+import { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { createRun } from '#src/runState/index.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 const idleDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };

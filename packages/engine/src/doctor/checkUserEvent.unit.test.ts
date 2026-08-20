@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { checkUserEvent } from '@/doctor/checkUserEvent';
-import type { PackageDir } from '@/doctor/common/types/PackageDir';
+import { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
+import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
 
 /** Package directories holding the given manifests, keyed by package label. */
 const setupPackages = ({ manifests }: { manifests: Record<string, string> }) => {

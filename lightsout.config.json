@@ -21,7 +21,7 @@
 		"test-coverage": "pnpm test:unit:coverage",
 		"test-e2e": "pnpm test:e2e",
 		"format": "pnpm format",
-		"build": "pnpm bundle"
+		"build": "pnpm build"
 	},
 	"package-gates": {
 		"check": "pnpm --filter {package} run typecheck",
@@ -29,5 +29,5 @@
 		"test-coverage": "pnpm --filter {package} run test:unit:coverage"
 	},
 	"agent-commands": ["pnpm", "python3", "rsvg-convert"],
-	"generated": ["plugin/dist/", "plugin/standards/"]
+	"generated": ["plugin/dist/", "plugin/standards/", "packages/web-app/src/routeTree.gen.ts"]
 }

@@ -1,5 +1,5 @@
-import type { CoverageTotal, RunManifest } from '@/contracts';
-import type { CoverageSetAside } from '@/coverage/common/types/CoverageSetAside';
+import type { CoverageTotal, RunManifest } from '#src/contracts/index.ts';
+import type { CoverageSetAside } from '#src/coverage/common/types/CoverageSetAside.ts';
 
 export interface CoverageResult {
 	/** True only when the coverage gate went green; a parked or escalated run is false. */

@@ -1,13 +1,12 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { StandardsFinding } from '@/contracts';
-import { detectStandardsChannels } from '@/standards';
-import { applyStandardsBaseline } from '@/standardsCheck/applyStandardsBaseline';
-import { buildDominantPathNote } from '@/standardsCheck/buildDominantPathNote';
-import { resolvePackageRuleStates } from '@/standardsCheck/resolvePackageRuleStates';
-import { runPackageChecks } from '@/standardsCheck/runPackageChecks';
-import { resolveStandardsPackages } from '@/standardsPackages';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { StandardsFinding } from '#src/contracts/index.ts';
+import { detectStandardsChannels } from '#src/standards/index.ts';
+import { applyStandardsBaseline } from '#src/standardsCheck/applyStandardsBaseline.ts';
+import { buildDominantPathNote } from '#src/standardsCheck/buildDominantPathNote.ts';
+import { resolvePackageRuleStates } from '#src/standardsCheck/resolvePackageRuleStates.ts';
+import { runPackageChecks } from '#src/standardsCheck/runPackageChecks.ts';
+import { writeStandardsSnapshot } from '#src/standardsCheck/writeStandardsSnapshot.ts';
+import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
 
 interface Params {
 	cwd: string;
@@ -77,20 +76,12 @@ export const runStandardsCheck = async ({
 		notes.push(dominantNote);
 	}
 
-	const dir = join(cwd, '.lightsout');
-
-	await mkdir(dir, { recursive: true });
-
 	const baseline = await applyStandardsBaseline({ cwd, path, findings, all, writeBaseline });
 
 	notes.push(...baseline.notes);
 
 	if (persist) {
-		await writeFile(
-			join(dir, 'standards-check.json'),
-			`${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`,
-			'utf8',
-		);
+		await writeStandardsSnapshot({ cwd, snapshot: { at: new Date().toISOString(), path: path ?? '.', findings, notes } });
 	}
 
 	return { findings: baseline.reported, notes };

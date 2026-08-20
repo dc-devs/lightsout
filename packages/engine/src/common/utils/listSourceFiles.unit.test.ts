@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
 
 const setupRepo = (files: string[]) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-listsrc-'));

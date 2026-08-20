@@ -1,4 +1,4 @@
-import planDedupPrompt from '@/agents/prompts/planDedup.md';
+import planDedupPrompt from '#src/agents/prompts/planDedup.md';
 
 /** One detected name collision — a plain shape so the agents package stays free of an engine dependency (structurally a `PriorArtCandidate`). */
 interface Candidate {

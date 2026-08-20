@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { FrictionArea } from '@/contracts/friction/FrictionArea';
-import { FrictionKind } from '@/contracts/friction/FrictionKind';
+import { FrictionArea } from '#src/contracts/friction/FrictionArea.ts';
+import { FrictionKind } from '#src/contracts/friction/FrictionKind.ts';
 
 /**
  * One moment where the system fought the agent — the raw signal the

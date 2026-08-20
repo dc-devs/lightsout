@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { writePlanDeliverable } from '@tests/helpers/writePlanDeliverable';
-import { planGradeCommand } from '@/cli/plan';
-import type { LightsoutConfig } from '@/contracts';
-import { Effort, GapArea, Permissions } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
+import { planGradeCommand } from '#src/cli/plan/index.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { Effort, GapArea, Permissions } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writePlanDeliverable } from '#tests/helpers/writePlanDeliverable.ts';
 
 /** The command's own output, with the progress printer's timestamped narration dropped. */
 const printedLines = ({ logged }: { logged: string[] }) => logged.filter((line) => !/^\[\+\d+:\d\d\]/.test(line));

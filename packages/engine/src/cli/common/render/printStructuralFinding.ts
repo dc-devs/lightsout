@@ -1,6 +1,6 @@
-import { dim } from '@/cli/common/terminal/dim';
-import { yellow } from '@/cli/common/terminal/yellow';
-import type { StructuralFinding } from '@/contracts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { yellow } from '#src/cli/common/terminal/yellow.ts';
+import type { StructuralFinding } from '#src/contracts/index.ts';
 
 interface Params {
 	finding: StructuralFinding;

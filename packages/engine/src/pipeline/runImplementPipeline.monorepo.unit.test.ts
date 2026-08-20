@@ -1,14 +1,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { readGateLog } from '@tests/helpers/readGateLog';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupMonorepo } from '@tests/helpers/setupMonorepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { Driver } from '@/drivers';
-import { runImplementPipeline } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 
 test('front-matter scope: scoped clean-slate, name substitution, expansion, root group', async () => {
 	const dir = setupMonorepo();
@@ -173,4 +173,63 @@ test('a declared package without package.json fails its gate group with a clear 
 
 	expect(result.manifest.status).toBe('failed');
 	expect(result.error ?? '').toMatch(/ghost.*no package\.json|no package\.json.*ghost/);
+});
+
+/**
+ * A monorepo run parked mid-flight: implement lands a file in the declared
+ * package, then the write-tests invocation is rate-limited, leaving a resumable
+ * manifest whose scope is already settled.
+ */
+const setupParkedMonorepoRun = async () => {
+	const dir = setupMonorepo();
+	const config = await loadConfig({ cwd: dir });
+	const parkOnWrite: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
+			if (role === 'write-tests') {
+				return { text: '', exitCode: 1, rateLimited: true };
+			}
+
+			if (role === 'implement') {
+				writeFileSync(join(dir, 'packages/api/src/feature.js'), 'export const feature = () => 2;\n');
+
+				return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
+			}
+
+			return { text: report(), exitCode: 0 };
+		},
+	};
+	const parked = await runImplementPipeline({ cwd: dir, driver: parkOnWrite, config, planPath: 'plan.md' });
+	const resumeDriver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) => (roleOf(prompt) === 'standards-review' ? { text: reviewReport(), exitCode: 0 } : { text: report(), exitCode: 0 }),
+	};
+
+	return { dir, config, parked, resumeDriver };
+};
+
+test('a resumed manifest with no recorded scope origin still narrates its scope, attributed to the manifest', async () => {
+	const { dir, config, parked, resumeDriver } = await setupParkedMonorepoRun();
+	const progress: string[] = [];
+
+	// `packagesSource` is optional on the contract, so a manifest written before
+	// the origin was recorded is a legitimate resume input
+	const resumed = await runImplementPipeline({
+		cwd: dir,
+		driver: resumeDriver,
+		config,
+		existing: { ...parked.manifest, packagesSource: undefined },
+		onProgress: (message) => progress.push(message),
+	});
+
+	// the settled scope survives the resume untouched — it is never re-derived
+	expect(resumed.manifest.packages).toStrictEqual(['api']);
+	// and it is attributed to the manifest rather than narrated as `undefined`
+	expect(progress.includes('package scope: api (from manifest)')).toBeTruthy();
 });

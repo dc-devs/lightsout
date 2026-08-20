@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { paint } from '@/cli/common/terminal/paint';
+import { paint } from '#src/cli/common/terminal/paint.ts';
 
 test('paint: no-op when stdout is not a TTY, wraps with the ANSI code when it is', () => {
 	const original = process.stdout.isTTY;

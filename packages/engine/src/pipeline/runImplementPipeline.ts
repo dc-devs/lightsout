@@ -1,17 +1,17 @@
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { readGitPrefix } from '@/common/git/readGitPrefix';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { type LightsoutConfig, type RunManifest, RunStatus } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { prepareRun } from '@/pipeline/common/utils/prepareRun';
-import { resolveTestSubjects } from '@/pipeline/common/utils/resolveTestSubjects';
-import { runSteps } from '@/pipeline/common/utils/runSteps';
-import type { PipelineResult } from '@/pipeline/PipelineResult';
-import { PipelineRun } from '@/pipeline/PipelineRun';
-import { buildSteps } from '@/pipeline/steps/buildSteps';
-import { createRun, withRunLock } from '@/runState';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { prepareRun } from '#src/pipeline/common/utils/prepareRun.ts';
+import { resolveTestSubjects } from '#src/pipeline/common/utils/resolveTestSubjects.ts';
+import { runSteps } from '#src/pipeline/common/utils/runSteps.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { buildSteps } from '#src/pipeline/steps/buildSteps.ts';
+import { createRun, withRunLock } from '#src/runState/index.ts';
 
 // The end-of-run look at the files write-tests skipped as unreachable: later
 // steps (refactor wiring) may have connected them to a public surface, so
@@ -31,7 +31,7 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 	const targets = recorded.filter((file) => universe.includes(file));
 	const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
 
-	await run.update({ unreachableChangedFiles: orphans });
+	await run.update({ patch: { unreachableChangedFiles: orphans } });
 
 	if (orphans.length > 0) {
 		run.progress(
@@ -120,7 +120,7 @@ const executePipeline = async ({
 	const gitPrefix = await readGitPrefix({ cwd });
 	const steps = buildSteps({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor });
 
-	await run.update({ status: RunStatus.Running });
+	await run.update({ patch: { status: RunStatus.Running } });
 
 	const stopped = await runSteps({ run, steps });
 
@@ -129,7 +129,7 @@ const executePipeline = async ({
 	}
 
 	await recheckUnreachable({ run });
-	await run.update({ status: RunStatus.Passed, currentStep: null });
+	await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
 
 	const passed: PipelineResult = { ok: true, manifest: run.current() };
 

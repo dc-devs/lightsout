@@ -1,9 +1,9 @@
-import { renderTable } from '@/cli/common/render/renderTable';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import { green } from '@/cli/common/terminal/green';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
-import type { StandardsRuleListing } from '@/standardsCheck';
+import { renderTable } from '#src/cli/common/render/renderTable.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { green } from '#src/cli/common/terminal/green.ts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
 
 interface Params {
 	findings: StandardsFinding[];

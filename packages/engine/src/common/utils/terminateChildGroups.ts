@@ -1,6 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
-import { killGraceMs } from '@/common/constants/killGraceMs';
-import { killProcessGroup } from '@/common/utils/killProcessGroup';
+import { killGraceMs } from '#src/common/constants/killGraceMs.ts';
+import { killProcessGroup } from '#src/common/utils/killProcessGroup.ts';
 
 interface Params {
 	children: Iterable<ChildProcess>;

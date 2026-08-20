@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { RunManifest } from '@/contracts';
+import { RunManifest } from '#src/contracts/index.ts';
 
 const base = {
 	runId: 'run-1',

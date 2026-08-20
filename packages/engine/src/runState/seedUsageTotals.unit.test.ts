@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { RunUsage } from '@/contracts';
-import { seedUsageTotals } from '@/runState';
+import type { RunUsage } from '#src/contracts/index.ts';
+import { seedUsageTotals } from '#src/runState/index.ts';
 
 /** A manifest's persisted spend — every field a different number so a mix-up shows. */
 const setupPersistedUsage = (): { usage: RunUsage } => ({

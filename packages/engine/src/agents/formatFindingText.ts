@@ -1,4 +1,4 @@
-import type { StandardsFinding } from '@/contracts';
+import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface Params {
 	finding: StandardsFinding;

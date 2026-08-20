@@ -2,16 +2,18 @@ import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import type ts from 'typescript';
 import { z } from 'zod';
-import { defaultCoverageSummaryPath } from '@/common/constants/defaultCoverageSummaryPath';
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { isInertSourceFile } from '@/common/utils/isInertSourceFile';
-import { isTestableSourceFile } from '@/common/utils/isTestableSourceFile';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { packageOf } from '@/common/utils/packageOf';
-import type { LightsoutConfig } from '@/contracts';
-import type { CoverageScope } from '@/coverage/common/types/CoverageScope';
-import { buildMissingSummaryMessage } from '@/coverage/common/utils/buildMissingSummaryMessage';
-import { resolveCoverageScopes } from '@/coverage/resolveCoverageScopes';
+import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { isInertSourceFile } from '#src/common/utils/isInertSourceFile.ts';
+import { isTestableSourceFile } from '#src/common/utils/isTestableSourceFile.ts';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { isToolingConfigFile } from '#src/common/utils/isToolingConfigFile.ts';
+import { isUnloadableSourceFile } from '#src/common/utils/isUnloadableSourceFile.ts';
+import { packageOf } from '#src/common/utils/packageOf.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { CoverageScope } from '#src/coverage/common/types/CoverageScope.ts';
+import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
+import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';
 
 /**
  * The executed-statement half of an Istanbul json-summary, parsed at the
@@ -45,19 +47,24 @@ interface Params {
  * one executed statement in the coverage report the gate just produced. The
  * bar is "ran at all" — thresholds stay with the repo's own coverage command.
  * Deleted files and provably inert ones (type-only, barrels) have nothing to
- * execute; files outside every coverage scope are outside the measurement.
+ * execute; a tool's own configuration and files the runner cannot load at all
+ * (module-scope `await`) can never show an executed statement whatever the
+ * tests do; files outside every coverage scope are outside the measurement.
  */
 export const checkChangedFilesExecuted = async ({ cwd, config, changedFiles, compiler }: Params): Promise<string | undefined> => {
 	if (changedFiles.length === 0 || compiler === undefined) {
 		return undefined;
 	}
 
+	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 	const candidates: string[] = [];
 
-	for (const file of changedFiles.filter((changed) => isTestableSourceFile(changed) && !isTestFile({ path: changed }))) {
+	for (const file of changedFiles.filter(
+		(changed) => isTestableSourceFile(changed) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir }),
+	)) {
 		const content = await readFile(join(cwd, file), 'utf8').catch(() => undefined);
 
-		if (content !== undefined && !isInertSourceFile({ path: file, content, compiler })) {
+		if (content !== undefined && !isInertSourceFile({ path: file, content, compiler }) && !isUnloadableSourceFile({ path: file, content, compiler })) {
 			candidates.push(file);
 		}
 	}
@@ -68,7 +75,6 @@ export const checkChangedFilesExecuted = async ({ cwd, config, changedFiles, com
 
 	const summaryPath = config['coverage-summary-path'] ?? defaultCoverageSummaryPath;
 	const scopes = await resolveCoverageScopes({ cwd, config, summaryPath });
-	const packagesDir = config['packages-dir'] ?? defaultPackagesDir;
 	const monorepo = config['package-gates']?.['test-coverage'] !== undefined;
 
 	// Monorepo mode measures packages only, so root files sit outside the

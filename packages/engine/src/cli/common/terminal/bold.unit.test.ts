@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { bold } from '@/cli/common/terminal/bold';
+import { bold } from '#src/cli/common/terminal/bold.ts';
 
 // bold is an emphasis callback built over paint, so the only thing it decides
 // is the ANSI code — observable on a TTY and nowhere else. isTTY is the whole

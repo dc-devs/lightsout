@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { LightsoutConfig, StructuralCheck } from '@/contracts';
-import { lintPlanStructure } from '@/plan';
+import { LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
+import { lintPlanStructure } from '#src/plan/index.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Write a plan file into a plan's own folder and return its absolute path. */
 const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: string }) => {

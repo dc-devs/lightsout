@@ -1,10 +1,11 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { RunManifest, RunStatus, RunUsage } from '@/contracts';
-import { getRunDir } from '@/runState/common/paths/getRunDir';
-import { readJsonlRecords } from '@/runState/common/utils/readJsonlRecords';
-import { readFriction } from '@/runState/readFriction';
+import type { RunManifest } from '#src/contracts/index.ts';
+import { getRunDir } from '#src/runState/common/paths/getRunDir.ts';
+import type { RunSummary } from '#src/runState/common/types/RunSummary.ts';
+import { readJsonlRecords } from '#src/runState/common/utils/readJsonlRecords.ts';
+import { readFriction } from '#src/runState/readFriction.ts';
 
 const LedgerRecord = z.object({
 	step: z.string(),
@@ -17,32 +18,6 @@ const CommandRecord = z.object({
 	rerun: z.literal(true).optional(),
 	skipped: z.literal(true).optional(),
 });
-
-interface StepSummary {
-	id: string;
-	status: RunStatus;
-	attempts: number;
-	durationMs: number | undefined;
-	changedFiles: string[] | undefined;
-	invocations: number;
-	outputTokens: number;
-	costUsd: number;
-}
-
-interface RunSummary {
-	wallMs: number;
-	/** Sum of step durations — actual working time, unlike wall, which spans idle gaps between a failure and its resume. */
-	activeMs: number;
-	gateMs: number;
-	usage: RunUsage | undefined;
-	/** Share of all input the model read from cache — the run's cost-efficiency dial. */
-	cacheReadShare: number | undefined;
-	steps: StepSummary[];
-	gates: { commands: number; reruns: number; skipped: number };
-	/** Final messages that failed their contract and cost a re-emit retry. */
-	rejectedReports: number;
-	frictionByArea: { area: string; count: number }[];
-}
 
 interface Params {
 	cwd: string;

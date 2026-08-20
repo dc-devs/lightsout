@@ -1,4 +1,4 @@
-import type { Effort, Permissions } from '@/contracts';
+import type { Effort, Permissions } from '#src/contracts/index.ts';
 
 export interface DriverInvocation {
 	/** Full user-message prompt, assembled deterministically by the engine (plan, standards, task). */

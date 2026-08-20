@@ -1,4 +1,4 @@
-import { pathFromLine } from '@/plan/common/paths/pathFromLine';
+import { pathFromLine } from '#src/plan/common/paths/pathFromLine.ts';
 
 interface Params {
 	/** The full markdown text of one plan file. */

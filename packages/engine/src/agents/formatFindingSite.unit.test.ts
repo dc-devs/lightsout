@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { formatFindingSite } from '@/agents';
-import type { StandardsFinding } from '@/contracts';
+import { formatFindingSite } from '#src/agents/index.ts';
+import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface SetupParams {
 	/** Absent line numbers model a whole-file finding. */

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { PlanGap } from '@/contracts';
+import { PlanGap } from '#src/contracts/index.ts';
 
 const setupGap = (overrides: Record<string, unknown> = {}) => {
 	const gap = {

@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { AuthoredFacts, PathVerification } from '@/contracts';
-import { pathExists } from '@/plan/common/paths/pathExists';
-import { getManifestScriptKeys } from '@/plan/common/utils/getManifestScriptKeys';
+import type { AuthoredFacts, PathVerification } from '#src/contracts/index.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import { getManifestScriptKeys } from '#src/plan/common/utils/getManifestScriptKeys.ts';
 
 interface Params {
 	cwd: string;

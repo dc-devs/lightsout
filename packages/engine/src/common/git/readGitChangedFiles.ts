@@ -1,6 +1,6 @@
-import { gitTimeoutMs } from '@/common/constants/gitTimeoutMs';
-import { readGitPrefix } from '@/common/git/readGitPrefix';
-import { runCommand } from '@/common/utils/runCommand';
+import { gitTimeoutMs } from '#src/common/constants/gitTimeoutMs.ts';
+import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
+import { runCommand } from '#src/common/utils/runCommand.ts';
 
 interface Params {
 	cwd: string;

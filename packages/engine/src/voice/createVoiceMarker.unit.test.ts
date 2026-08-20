@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { createVoiceMarker } from '@/voice';
+import { createVoiceMarker } from '#src/voice/index.ts';
 
 const setupProject = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-create-voice-marker-'));

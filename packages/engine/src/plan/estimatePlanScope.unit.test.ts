@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { PlanFacts } from '@/contracts';
-import { estimatePlanScope } from '@/plan/estimatePlanScope';
+import type { PlanFacts } from '#src/contracts/index.ts';
+import { estimatePlanScope } from '#src/plan/estimatePlanScope.ts';
 
 /** Facts whose one area touches the given modify and mirror paths. */
 const factsTouching = ({ modify = [], mirror = [] }: { modify?: string[]; mirror?: string[] }): PlanFacts => ({

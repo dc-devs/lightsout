@@ -1,8 +1,8 @@
-import { BatchOutcome, BatchReport, type RefactorBatch, RunStatus, type StepRecord } from '@/contracts';
-import { BatchStopKind } from '@/refactor/common/constants/BatchStopKind';
-import type { BatchStop } from '@/refactor/common/types/BatchStop';
-import type { RefactorResult } from '@/refactor/RefactorResult';
-import type { RefactorRun } from '@/refactor/RefactorRun';
+import { BatchOutcome, BatchReport, type RefactorBatch, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
+import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
+import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
+import type { RefactorRun } from '#src/refactor/RefactorRun.ts';
 
 const maxConsecutiveDeclines = 3;
 
@@ -66,7 +66,7 @@ export const settleBatchOutcome = async ({ run, batch, record, outcome, declineS
 	if (streak >= maxConsecutiveDeclines) {
 		const error = `${maxConsecutiveDeclines} consecutive batches declined — likely systemic (standards injection, gate config, or a rule bug), not worth further agent spend.`;
 
-		await run.update({ status: RunStatus.Escalated, currentStep: null });
+		await run.update({ patch: { status: RunStatus.Escalated, currentStep: null } });
 		run.progress(`refactor run stopped after ${batch.id} — ${RunStatus.Escalated}`);
 		settlement.result = run.buildHaltedResult({ error });
 	}

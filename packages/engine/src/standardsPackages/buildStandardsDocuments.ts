@@ -1,6 +1,6 @@
-import { StandardsSet } from '@/contracts';
-import type { LoadedStandardsDocument } from '@/standardsPackages/common/types/LoadedStandardsDocument';
-import type { LoadedStandardsPackage } from '@/standardsPackages/common/types/LoadedStandardsPackage';
+import { StandardsSet } from '#src/contracts/index.ts';
+import type { LoadedStandardsDocument } from '#src/standardsPackages/common/types/LoadedStandardsDocument.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/common/types/LoadedStandardsPackage.ts';
 
 interface Params {
 	pkg: LoadedStandardsPackage;

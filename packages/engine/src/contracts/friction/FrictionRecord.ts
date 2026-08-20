@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FrictionEntry } from '@/contracts/friction/FrictionEntry';
+import { FrictionEntry } from '#src/contracts/friction/FrictionEntry.ts';
 
 /**
  * A friction entry as persisted to `.lightsout/friction.jsonl` — the entry

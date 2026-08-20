@@ -1,0 +1,171 @@
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "@fontsource/be-vietnam-pro/400.css";
+@import "@fontsource/be-vietnam-pro/500.css";
+@import "@fontsource/be-vietnam-pro/600.css";
+@import "@fontsource/be-vietnam-pro/700.css";
+@import "@fontsource/be-vietnam-pro/800.css";
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+	/* ========================================
+	   BRAND COLORS - Single source of truth
+	   ======================================== */
+	--brand: oklch(0.5 0.26 263.83);
+	--brand-lighter: oklch(from var(--brand) l c h / 90%);
+	--brand-semi-light: oklch(from var(--brand) l c h / 5%);
+	--brand-light: oklch(from var(--brand) l c h / 3%);
+	--brand-dark: oklch(from var(--brand) calc(l - 0.1) c h);
+
+	/* ========================================
+	   RUN STATUS COLORS
+	   Tailwind's own palette values, written out. The `theme()` helper that
+	   names them is deprecated in v4, and `var(--color-*)` would tie these to
+	   Tailwind still emitting palette entries nothing else in this app uses.
+	   The comment on each line says which entry the value came from.
+	   ======================================== */
+	--status-running: oklch(76.9% 0.188 70.08); /* amber 500 */
+	--status-running-light: oklch(98.7% 0.022 95.277); /* amber 50 */
+	--status-running-border: oklch(92.4% 0.12 95.746); /* amber 200 */
+
+	--status-passed: oklch(69.6% 0.17 162.48); /* emerald 500 */
+	--status-passed-light: oklch(97.9% 0.021 166.113); /* emerald 50 */
+	--status-passed-border: oklch(90.5% 0.093 164.15); /* emerald 200 */
+
+	--status-failed: oklch(63.7% 0.237 25.331); /* red 500 */
+	--status-failed-light: oklch(97.1% 0.013 17.38); /* red 50 */
+	--status-failed-border: oklch(88.5% 0.062 18.334); /* red 200 */
+
+	/* Both paused states share one colour; the badge text still names which. */
+	--status-paused: oklch(70.4% 0.04 256.788); /* slate 400 */
+	--status-paused-light: oklch(98.4% 0.003 247.858); /* slate 50 */
+	--status-paused-border: oklch(92.9% 0.013 255.508); /* slate 200 */
+
+	--status-escalated: oklch(62.7% 0.265 303.9); /* purple 500 */
+	--status-escalated-light: oklch(97.7% 0.014 308.299); /* purple 50 */
+	--status-escalated-border: oklch(90.2% 0.063 306.703); /* purple 200 */
+
+	/* ========================================
+	   CORE THEME
+	   ======================================== */
+	--primary: var(--brand);
+	--primary-light: var(--brand-light);
+	--primary-foreground: oklch(1 0 0);
+
+	--radius: 0.6rem;
+
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.23 0 0);
+
+	--border: oklch(92.9% 0.013 255.508); /* slate 200 */
+	--ring: var(--primary);
+
+	--muted: oklch(96.8% 0.007 247.896); /* slate 100 */
+	--muted-foreground: oklch(55.4% 0.046 257.417); /* slate 500 */
+	--muted-foreground-strong: oklch(44.6% 0.043 257.281); /* slate 600 */
+
+	--destructive: oklch(0.65 0.25 25);
+	--destructive-foreground: oklch(1 0 0);
+
+	--success: oklch(59.6% 0.145 163.225); /* emerald 600 */
+
+	--accent: var(--brand-light);
+	--accent-foreground: var(--foreground);
+
+	--popover: var(--background);
+	--popover-foreground: var(--foreground);
+
+	--card: oklch(1 0 0);
+	--card-foreground: var(--foreground);
+
+	--surface: oklch(1 0 0);
+	--surface-foreground: var(--foreground);
+
+	--sidebar: var(--background);
+	--sidebar-foreground: var(--foreground);
+	--sidebar-accent: var(--brand-light);
+	--sidebar-accent-selected: var(--brand-semi-light);
+	--sidebar-accent-foreground: var(--accent-foreground);
+	--sidebar-border: var(--border);
+	--sidebar-ring: var(--ring);
+}
+
+@theme inline {
+	--font-sans:
+		"Plus Jakarta Sans", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+	--radius-lg: var(--radius);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-sm: calc(var(--radius) - 4px);
+
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-border: var(--border);
+	--color-ring: var(--ring);
+
+	--color-status-running: var(--status-running);
+	--color-status-running-light: var(--status-running-light);
+	--color-status-running-border: var(--status-running-border);
+
+	--color-status-passed: var(--status-passed);
+	--color-status-passed-light: var(--status-passed-light);
+	--color-status-passed-border: var(--status-passed-border);
+
+	--color-status-failed: var(--status-failed);
+	--color-status-failed-light: var(--status-failed-light);
+	--color-status-failed-border: var(--status-failed-border);
+
+	--color-status-paused: var(--status-paused);
+	--color-status-paused-light: var(--status-paused-light);
+	--color-status-paused-border: var(--status-paused-border);
+
+	--color-status-escalated: var(--status-escalated);
+	--color-status-escalated-light: var(--status-escalated-light);
+	--color-status-escalated-border: var(--status-escalated-border);
+
+	--color-primary: var(--primary);
+	--color-primary-hover: var(--brand-lighter);
+	--color-primary-foreground: var(--primary-foreground);
+
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted-foreground-strong: var(--muted-foreground-strong);
+
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+
+	--color-success: var(--success);
+
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+
+	--color-surface: var(--surface);
+	--color-surface-foreground: var(--surface-foreground);
+
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-selected: var(--sidebar-accent-selected);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+	}
+}

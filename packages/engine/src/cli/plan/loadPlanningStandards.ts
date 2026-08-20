@@ -1,8 +1,8 @@
-import { dim } from '@/cli/common/terminal/dim';
-import { messageOf } from '@/common/utils/messageOf';
-import type { LightsoutConfig } from '@/contracts';
-import { detectStandardsChannels } from '@/standards';
-import { buildStandardsDocuments, resolveStandardsPackages } from '@/standardsPackages';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { detectStandardsChannels } from '#src/standards/index.ts';
+import { buildStandardsDocuments, resolveStandardsPackages } from '#src/standardsPackages/index.ts';
 
 interface Params {
 	cwd: string;

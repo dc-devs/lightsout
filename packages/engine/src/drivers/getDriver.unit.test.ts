@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { getDriver } from '@/drivers';
+import { getDriver } from '#src/drivers/index.ts';
 
 test('getDriver: the claude-code name yields a driver that reports that harness', () => {
 	const driver = getDriver({ name: 'claude-code' });

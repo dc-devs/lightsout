@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanGapCheckInvocation } from '@/agents';
+import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
 
 const planText = '# Phase 1\n\nPLAN-SENTINEL';
 const overviewText = '# Overview\n\nOVERVIEW-SENTINEL';
@@ -58,4 +58,24 @@ test('buildPlanGapCheckInvocation: the user prompt is the plan under check plus 
 	expect(prompt.includes('OVERVIEW-SENTINEL')).toBeFalsy();
 	// the standards are paid for once, in the cached system prompt
 	expect(prompt.includes('STANDARDS-SENTINEL')).toBeFalsy();
+});
+
+test('buildPlanGapCheckInvocation: the standards section follows the role directly when no overview is given', () => {
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, standards });
+
+	const sections = systemPrompt.split('\n\n---\n\n');
+
+	// role and standards only — the two optional sections are gated independently
+	expect(sections.length).toBe(2);
+	expect(sections[0].startsWith('# Role: Check Plan Gaps')).toBeTruthy();
+	expect(sections[1]).toBe(`# Code standards\n\nThe implementing agent loads these too — flag only where the plan contradicts them:\n\n${standards}`);
+});
+
+test('buildPlanGapCheckInvocation: an empty overview and empty standards add no sections', () => {
+	const { systemPrompt } = buildPlanGapCheckInvocation({ planText, overviewText: '', standards: '' });
+
+	// empty text is nothing to grade against, so neither heading is emitted
+	expect(systemPrompt.includes('# Overview (context only')).toBeFalsy();
+	expect(systemPrompt.includes('# Code standards')).toBeFalsy();
+	expect(systemPrompt.split('\n\n---\n\n').length).toBe(1);
 });

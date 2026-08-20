@@ -1,4 +1,4 @@
-import type { PipelineResult } from '@/pipeline/PipelineResult';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 
 export interface PipelineStep {
 	id: string;

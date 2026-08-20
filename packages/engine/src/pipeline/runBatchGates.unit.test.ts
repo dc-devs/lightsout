@@ -1,12 +1,12 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { gateLogCommand } from '@tests/helpers/gateLogCommand';
-import { readGateLog } from '@tests/helpers/readGateLog';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { setupMonorepo } from '@tests/helpers/setupMonorepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import { runBatchGates } from '@/pipeline';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { runBatchGates } from '#src/pipeline/index.ts';
+import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
+import { readGateLog } from '#tests/helpers/readGateLog.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
 
 /** A monorepo with the given files dirtied — the git diff is what the scope is read from. */
 const setupTouched = async ({ files, git = true }: { files: string[]; git?: boolean }) => {

@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { collapseCasing } from '@/common/naming/collapseCasing';
-import { nameKey } from '@/common/naming/nameKey';
-import { nameOf } from '@/common/naming/nameOf';
-import { isTestFile } from '@/common/utils/isTestFile';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import type { LightsoutConfig } from '@/contracts';
-import type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';
-import { planCreatePaths } from '@/plan/planCreatePaths';
+import { collapseCasing } from '#src/common/naming/collapseCasing.ts';
+import { nameKey } from '#src/common/naming/nameKey.ts';
+import { nameOf } from '#src/common/naming/nameOf.ts';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
+import { planCreatePaths } from '#src/plan/planCreatePaths.ts';
 
 interface Params {
 	cwd: string;

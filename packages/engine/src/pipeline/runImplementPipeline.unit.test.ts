@@ -1,15 +1,16 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { readCommandLog } from '@tests/helpers/readCommandLog';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { Driver } from '@/drivers';
-import { runImplementPipeline } from '@/pipeline';
-import { readFriction } from '@/runState';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
+import { runImplementPipeline } from '#src/pipeline/index.ts';
+import { readFriction } from '#src/runState/index.ts';
+import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const countLog = (dir: string, file: string) => {
 	try {
@@ -152,7 +153,9 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(progress.some((line) => line.includes('step implement: agent report complete'))).toBeTruthy();
 	// No consumer TypeScript in this repo → grouping degrades to one file per group.
 	// writer fan-out announced
-	expect(progress.some((line) => line.includes('2 group(s): 2 subject(s) covering 2 changed file(s), up to 5 writers in parallel'))).toBeTruthy();
+	expect(
+		progress.some((line) => line.includes(`2 group(s): 2 subject(s) covering 2 changed file(s), up to ${testWriterConcurrency} writers in parallel`)),
+	).toBeTruthy();
 	// refactor loop end announced
 	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
 });
@@ -343,4 +346,22 @@ test('--skip-refactor omits the refactor steps; absent format command is skipped
 
 	expect(format?.status).toBe('passed');
 	expect(format?.report).toStrictEqual({ skipped: 'no format command configured' });
+});
+
+test('a run started with no plan path at all fails before any agent spawns', async () => {
+	const dir = setupConsumerRepo();
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async () => {
+			throw new Error('no agent should be invoked');
+		},
+	};
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+
+	expect(result.ok).toBe(false);
+	expect(result.manifest.status).toBe('failed');
+	// an omitted plan path is recorded as the empty path it is and read back as
+	// a missing plan — never as an empty plan the agents would work from
+	expect(result.manifest.plan).toBe('');
+	expect(result.error ?? '').toMatch(/plan file not found/);
 });

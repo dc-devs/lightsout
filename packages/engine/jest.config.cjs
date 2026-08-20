@@ -22,8 +22,4 @@ module.exports = createJestConfig({
 	// and always exited 0. These make it fail. Loosening any of them is an
 	// explicit edit here, never a silent drift.
 	coverageThreshold: { global: { statements: 95, branches: 95, functions: 95, lines: 95 } },
-	moduleNameMapper: {
-		'^@/(.*)$': '<rootDir>/src/$1',
-		'^@tests/(.*)$': '<rootDir>/tests/$1',
-	},
 });

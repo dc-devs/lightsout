@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { isVoiceOn } from '@/voice';
+import { isVoiceOn } from '#src/voice/index.ts';
 
 const setupProject = ({ stateFolder = true, marker = false }: { stateFolder?: boolean; marker?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-is-voice-on-'));

@@ -1,10 +1,10 @@
 import { access, readFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
-import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { findUnfinishedSequence } from '@/phases/findUnfinishedSequence';
-import { readOverviewPhases } from '@/phases/readOverviewPhases';
-import { createRun, writeRunManifest } from '@/runState';
+import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
+import { readOverviewPhases } from '#src/phases/readOverviewPhases.ts';
+import { createRun, writeRunManifest } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;

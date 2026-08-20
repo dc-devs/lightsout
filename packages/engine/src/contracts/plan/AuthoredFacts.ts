@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ExploreArea } from '@/contracts/plan/ExploreArea';
+import { ExploreArea } from '#src/contracts/plan/ExploreArea.ts';
 
 /**
  * The session-authored facts for a plan, before the engine stamps its on-disk

@@ -20,6 +20,9 @@
 		"test:unit:coverage": "nx run-many -t test:unit:coverage",
 		"test:e2e": "nx run-many -t test:e2e",
 		"bundle": "nx run-many -t bundle",
+		"build": "pnpm bundle && nx build web-app",
+		"build:web": "nx build web-app",
+		"dev:web": "pnpm --filter @lightsout/web-app dev",
 		"check:shipped": "node scripts/checkShipped.mjs",
 		"graph": "nx graph",
 		"lightsout": "node plugin/dist/cli.mjs"

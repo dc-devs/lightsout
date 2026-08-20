@@ -1,5 +1,5 @@
-import type { DedupFinding, DedupVerdict } from '@/contracts';
-import type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';
+import type { DedupFinding, DedupVerdict } from '#src/contracts/index.ts';
+import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
 
 interface Params {
 	/** Every name collision the engine detected, deterministically. */

@@ -1,1 +1,1 @@
-export { GateResult } from '@/contracts/gates/GateResult';
+export { GateResult } from '#src/contracts/gates/GateResult.ts';

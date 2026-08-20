@@ -1,5 +1,5 @@
-import { buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '@/agents';
-import type { StandardsFinding } from '@/contracts';
+import { buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
+import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface Params {
 	planContent: string;

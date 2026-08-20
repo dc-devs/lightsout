@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import { checkGenerated } from '@/doctor/checkGenerated';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { checkGenerated } from '#src/doctor/checkGenerated.ts';
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 

@@ -2,13 +2,13 @@ import { execSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { report } from '@tests/helpers/report';
-import { reviewReport } from '@tests/helpers/reviewReport';
-import { roleOf } from '@tests/helpers/roleOf';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { Driver } from '@/drivers';
-import { runRefactorPipeline } from '@/refactor';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runRefactorPipeline } from '#src/refactor/index.ts';
+import { report } from '#tests/helpers/report.ts';
+import { reviewReport } from '#tests/helpers/reviewReport.ts';
+import { roleOf } from '#tests/helpers/roleOf.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // v1.2 — supervisor consult on the red-gate exception path. The fixture's
 // check gate fails while broken.flag exists; the executor's "fix" plants the

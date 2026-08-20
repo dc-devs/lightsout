@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
-import type { CommandResult } from '@/common/types/CommandResult';
-import { collectChildOutput } from '@/common/utils/collectChildOutput';
+import type { CommandResult } from '#src/common/types/CommandResult.ts';
+import { collectChildOutput } from '#src/common/utils/collectChildOutput.ts';
 
 interface Params {
 	/** Full shell command from consumer config (e.g. `pnpm --filter api check`). */

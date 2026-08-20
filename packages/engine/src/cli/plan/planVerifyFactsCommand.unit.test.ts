@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { planVerifyFactsCommand } from '@/cli/plan';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { planVerifyFactsCommand } from '#src/cli/plan/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // verify-facts is deterministic — no agent — so the arrangement is a real
 // consumer repo whose authored facts claim one real and one missing path plus

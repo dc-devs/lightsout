@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { GateResult } from '@/contracts';
+import { GateResult } from '#src/contracts/index.ts';
 
 const setupGateResult = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const result: Record<string, unknown> = {

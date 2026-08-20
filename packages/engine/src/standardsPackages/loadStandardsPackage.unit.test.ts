@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { loadStandardsPackage } from '@/standardsPackages';
+import type { StandardsCheckInput } from '#src/contracts/index.ts';
+import { StandardsInputKind } from '#src/contracts/index.ts';
+import { loadStandardsPackage } from '#src/standardsPackages/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /** A temp standards package holding the given package-relative files, plus any empty folders. */
 const setupPackage = ({ files = {}, folders = [] }: { files?: Record<string, string>; folders?: string[] } = {}) => {
@@ -31,6 +33,28 @@ const ruleFiles = ({ path, markdown }: { path: string; markdown: string }) => ({
 	[`${path}/rule.md`]: markdown,
 	[`${path}/fixtures/pass/src/example.ts`]: 'export const example = 1;\n',
 	[`${path}/fixtures/fail/src/example.ts`]: 'export const example = 2;\n',
+});
+
+/**
+ * The check a rule ships, written the way a package author writes one: a `check`
+ * export naming its input kind, and one finding per file it is handed.
+ */
+const checkSource =
+	'export const check = {\n' +
+	"\tinputKind: 'file-list',\n" +
+	'\trun: ({ input }) => input.files.map((path) => ({ siteKey: `loose-file:${path}`, files: [{ path }], detail: `${path} sits outside a module` })),\n' +
+	'};\n';
+
+/** The engine-built input a file-list check reads — only `files` is what the check above looks at. */
+const fileListInput = ({ files }: { files: string[] }): StandardsCheckInput => ({
+	kind: StandardsInputKind.FileList,
+	cwd: '/repo',
+	source: files,
+	tests: [],
+	files,
+	referenceFiles: [],
+	dependencies: new Map(),
+	standardsPackages: [],
 });
 
 describe('loadStandardsPackage', () => {
@@ -92,6 +116,29 @@ describe('loadStandardsPackage', () => {
 		// no check declared, so no check loaded
 		expect(boundaries?.inputKind).toBe(undefined);
 		expect(boundaries?.run).toBe(undefined);
+	});
+
+	test('reads a package authored with Windows line endings', async () => {
+		const { packagePath } = setupPackage({
+			files: {
+				...rootFile,
+				'code/style/document.md': '---\r\nchannel: react\r\n---\r\n\r\n# Style\r\n',
+				...ruleFiles({
+					path: 'code/style/01-functions',
+					markdown: '---\r\nsummary: one export per file\r\nseverity: blocking\r\n---\r\n\r\nProse.\r\n',
+				}),
+			},
+		});
+
+		const pkg = await loadStandardsPackage({ packagePath });
+		const functions = pkg.rules.find((rule) => rule.id === 'functions');
+
+		// a CRLF file declares exactly what the same LF file would — the markers are found and the prose starts after them
+		expect(pkg.documents[0]?.channel).toBe('react');
+		expect(pkg.documents[0]?.intro).toBe('# Style');
+		expect(functions?.summary).toBe('one export per file');
+		expect(functions?.defaultSeverity).toBe('blocking');
+		expect(functions?.prose).toBe('Prose.');
 	});
 
 	test('reports every structural and honesty problem in one error rather than the first', async () => {
@@ -211,6 +258,23 @@ describe('loadStandardsPackage', () => {
 		expect(error.message).toContain('package declares no documents');
 	});
 
+	test('treats a front matter block that is not a set of declarations as declaring nothing', async () => {
+		const { packagePath } = setupPackage({
+			files: {
+				...rootFile,
+				'code/style/document.md': '---\n- one\n- two\n---\n\n# Style\n',
+				...ruleFiles({ path: 'code/style/01-functions', markdown: '---\n- one\n- two\n---\n\nProse.\n' }),
+			},
+		});
+
+		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+
+		// a YAML list names no fields, so the document falls back to base rather than failing
+		expect(error.message).not.toContain('code/style/document.md');
+		// the same silence is fatal for a rule, whose summary has no default to fall back on
+		expect(error.message).toContain('code/style/01-functions/rule.md: summary');
+	});
+
 	test('reports a rule whose rule.md cannot be read', async () => {
 		const { packagePath } = setupPackage({
 			folders: ['code/style/01-unreadable/rule.md'],
@@ -226,6 +290,60 @@ describe('loadStandardsPackage', () => {
 
 		// a directory named rule.md makes the folder look like a rule whose declaration cannot be read
 		expect(error.message).toContain('code/style/01-unreadable/rule.md: unreadable — ');
+	});
+
+	test('loads the check a declared rule ships, carrying the input kind it asked for and the function itself', async () => {
+		const { packagePath } = setupPackage({
+			files: {
+				...rootFile,
+				'code/style/document.md': '# Style\n',
+				...ruleFiles({ path: 'code/style/01-loose-file', markdown: '---\nsummary: a source file outside a module\nchecked: true\n---\n\nProse.\n' }),
+				'code/style/01-loose-file/check.ts': checkSource,
+			},
+		});
+
+		const pkg = await loadStandardsPackage({ packagePath });
+		const looseFile = pkg.rules.find((rule) => rule.id === 'loose-file');
+		const findings = await looseFile?.run?.({ input: fileListInput({ files: ['src/alpha.ts'] }), settings: {} });
+
+		// the declaration is honest, so the rule carries the kind its check asked for
+		expect(looseFile?.checked).toBe(true);
+		expect(looseFile?.inputKind).toBe('file-list');
+		// the function on the rule is the package's own — what it returns is what a run would see
+		expect(findings).toStrictEqual([{ siteKey: 'loose-file:src/alpha.ts', files: [{ path: 'src/alpha.ts' }], detail: 'src/alpha.ts sits outside a module' }]);
+	});
+
+	test('reports a rule whose check.ts exports no usable check, and drops the rule', async () => {
+		const { packagePath } = setupPackage({
+			files: {
+				...rootFile,
+				'code/style/document.md': '# Style\n',
+				...ruleFiles({ path: 'code/style/01-bad-check', markdown: '---\nsummary: ships a check it cannot load\nchecked: true\n---\n\nProse.\n' }),
+				'code/style/01-bad-check/check.ts': 'export const check = 5;\n',
+			},
+		});
+
+		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+
+		// the rule folder is named alongside the file the author has to open
+		expect(error.message).toContain('code/style/01-bad-check: check.ts must export `check` as { inputKind, run }');
+		expect(error.message).toContain(join(packagePath, 'code/style/01-bad-check/check.ts'));
+	});
+
+	test('reports a rule whose check.ts cannot be imported at all', async () => {
+		const { packagePath } = setupPackage({
+			files: {
+				...rootFile,
+				'code/style/document.md': '# Style\n',
+				...ruleFiles({ path: 'code/style/01-throwing-check', markdown: '---\nsummary: ships a check that fails on import\nchecked: true\n---\n\nProse.\n' }),
+				'code/style/01-throwing-check/check.ts': "throw new Error('this check cannot initialise');\n",
+			},
+		});
+
+		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+
+		// an import that blows up is the rule's fault to report, never the loader's to crash on
+		expect(error.message).toContain('code/style/01-throwing-check: this check cannot initialise');
 	});
 
 	test('walks past folders carrying no marker file and stops descending at a document', async () => {

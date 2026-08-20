@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { scanPlaceholders } from '@/plan/scanPlaceholders';
+import { scanPlaceholders } from '#src/plan/scanPlaceholders.ts';
 
 describe('scanPlaceholders', () => {
 	test('each marker is reported once, on the first line it appears', () => {

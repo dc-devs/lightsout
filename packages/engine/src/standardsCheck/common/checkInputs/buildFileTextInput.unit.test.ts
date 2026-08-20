@@ -2,9 +2,17 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { buildFileTextInput } from '@/standardsCheck/common/checkInputs/buildFileTextInput';
+import { buildFileTextInput } from '#src/standardsCheck/common/checkInputs/buildFileTextInput.ts';
 
-const setupRepo = ({ tsconfig = true, packageTsconfig = false }: { tsconfig?: boolean; packageTsconfig?: boolean } = {}) => {
+const setupRepo = ({
+	tsconfig = true,
+	packageTsconfig = false,
+	packageManifest = false,
+}: {
+	tsconfig?: boolean;
+	packageTsconfig?: boolean;
+	packageManifest?: boolean;
+} = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-file-text-'));
 
 	mkdirSync(join(cwd, 'src'), { recursive: true });
@@ -15,10 +23,17 @@ const setupRepo = ({ tsconfig = true, packageTsconfig = false }: { tsconfig?: bo
 		writeFileSync(join(cwd, 'tsconfig.json'), '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } } }\n');
 	}
 
-	if (packageTsconfig) {
+	if (packageTsconfig || packageManifest) {
 		mkdirSync(join(cwd, 'packages/engine/src'), { recursive: true });
 		writeFileSync(join(cwd, 'packages/engine/src/beta.ts'), 'export const beta = 3;\n');
+	}
+
+	if (packageTsconfig) {
 		writeFileSync(join(cwd, 'packages/engine/tsconfig.json'), '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } } }\n');
+	}
+
+	if (packageManifest) {
+		writeFileSync(join(cwd, 'packages/engine/package.json'), '{ "imports": { "#src/*": "./src/*" } }\n');
 	}
 
 	return { cwd };
@@ -81,13 +96,25 @@ describe('buildFileTextInput', () => {
 		expect([...input.contents.keys()]).toContain('packages/engine/tsconfig.json');
 	});
 
-	test('a folder holding no tsconfig contributes nothing rather than an empty entry', async () => {
+	test('a folder holding neither alias source contributes nothing rather than an empty entry', async () => {
 		const { cwd } = setupRepo({ packageTsconfig: true });
 
 		const input = await buildInput({ cwd, cache: new Map(), files: ['packages/engine/src/beta.ts'] });
 
 		expect(input.contents.has('packages/engine/src/tsconfig.json')).toBe(false);
 		expect(input.contents.has('packages/tsconfig.json')).toBe(false);
+		expect(input.contents.has('packages/engine/src/package.json')).toBe(false);
+		expect(input.contents.has('packages/package.json')).toBe(false);
+	});
+
+	test("adds a package's own manifest, the other place a package declares its aliases", async () => {
+		const { cwd } = setupRepo({ tsconfig: false, packageManifest: true });
+
+		const input = await buildInput({ cwd, cache: new Map(), files: ['packages/engine/src/beta.ts'] });
+
+		// a package that declares `imports` instead of `compilerOptions.paths`
+		// would otherwise read as declaring no aliases at all
+		expect(input.contents.get('packages/engine/package.json')).toContain('"#src/*"');
 	});
 
 	test('hands back the run cache itself, so a second kind reuses what it read', async () => {

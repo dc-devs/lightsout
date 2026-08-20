@@ -1,6 +1,6 @@
-import type { Driver } from '@/drivers/common/types/Driver';
-import { createClaudeCodeDriver } from '@/drivers/createClaudeCodeDriver';
-import { createCodexDriver } from '@/drivers/createCodexDriver';
+import type { Driver } from '#src/drivers/common/types/Driver.ts';
+import { createClaudeCodeDriver } from '#src/drivers/createClaudeCodeDriver.ts';
+import { createCodexDriver } from '#src/drivers/createCodexDriver.ts';
 
 interface Params {
 	name: string;

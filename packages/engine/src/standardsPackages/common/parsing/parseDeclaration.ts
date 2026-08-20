@@ -1,7 +1,7 @@
 import type { z } from 'zod';
-import { messageOf } from '@/common/utils/messageOf';
-import { parseFrontMatter } from '@/standardsPackages/common/parsing/parseFrontMatter';
-import { formatSchemaIssues } from '@/standardsPackages/common/utils/formatSchemaIssues';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { parseFrontMatter } from '#src/standardsPackages/common/parsing/parseFrontMatter.ts';
+import { formatSchemaIssues } from '#src/standardsPackages/common/utils/formatSchemaIssues.ts';
 
 interface Params<Shape> {
 	/** The whole markdown file. */

@@ -1,12 +1,12 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { messageOf } from '@/common/utils/messageOf';
-import { StandardsPackageRoot, StandardsSet } from '@/contracts';
-import { parseDocumentFolder } from '@/standardsPackages/common/parsing/parseDocumentFolder';
-import type { LoadedStandardsDocument } from '@/standardsPackages/common/types/LoadedStandardsDocument';
-import type { LoadedStandardsPackage } from '@/standardsPackages/common/types/LoadedStandardsPackage';
-import type { LoadedStandardsRule } from '@/standardsPackages/common/types/LoadedStandardsRule';
-import { formatSchemaIssues } from '@/standardsPackages/common/utils/formatSchemaIssues';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { StandardsPackageRoot, StandardsSet } from '#src/contracts/index.ts';
+import { parseDocumentFolder } from '#src/standardsPackages/common/parsing/parseDocumentFolder.ts';
+import type { LoadedStandardsDocument } from '#src/standardsPackages/common/types/LoadedStandardsDocument.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/common/types/LoadedStandardsPackage.ts';
+import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
+import { formatSchemaIssues } from '#src/standardsPackages/common/utils/formatSchemaIssues.ts';
 
 interface Params {
 	/** Absolute package root. */

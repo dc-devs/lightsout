@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { buildPlanWriterInvocation } from '@/agents';
-import type { DecisionsRecord, PlanFacts } from '@/contracts';
+import { buildPlanWriterInvocation } from '#src/agents/index.ts';
+import type { DecisionsRecord, PlanFacts } from '#src/contracts/index.ts';
 
 /** A minimal verified PlanFacts with distinctive values to spot in the prompt. */
 const facts = (): PlanFacts => ({

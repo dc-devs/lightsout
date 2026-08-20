@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { collectChildOutput } from '@/common/utils/collectChildOutput';
+import { collectChildOutput } from '#src/common/utils/collectChildOutput.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /**
  * A shell child with both output streams piped, spawned detached — the shape
@@ -9,6 +9,18 @@ import { collectChildOutput } from '@/common/utils/collectChildOutput';
  * process-group leader, which is what lets a timeout kill the tree it started.
  */
 const shellChild = ({ script }: { script: string }) => spawn(script, { shell: true, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+
+/**
+ * A detached child that DECLINES SIGTERM and runs until something uncatchable
+ * ends it. Node rather than a shell script: a `sleep` in the group dies to the
+ * group's SIGTERM however the shell above it traps, so only a process handling
+ * the signal itself can prove the escalation ran.
+ */
+const stubbornChild = () =>
+	spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);"], {
+		stdio: ['ignore', 'pipe', 'pipe'],
+		detached: true,
+	});
 
 test('collectChildOutput: both streams are collected and the exit code is a result, not an exception', async () => {
 	const result = await collectChildOutput({ child: shellChild({ script: 'echo out; echo err 1>&2; exit 3' }) });
@@ -106,4 +118,22 @@ test('collectChildOutput: the deadline asks before it insists, so a child can fl
 	await new Promise((resolve) => child.once('close', resolve));
 
 	expect(lines).toContain('flushed-on-term');
+});
+
+test('collectChildOutput: a child that declines SIGTERM is killed outright once the grace period runs out', async () => {
+	const child = stubbornChild();
+	const closed = new Promise<void>((resolve) => {
+		child.once('close', () => resolve());
+	});
+
+	const error = await getRejectionError({ promise: collectChildOutput({ child, timeout: { ms: 50, message: 'timed out' } }) });
+
+	expect(error.message).toBe('timed out');
+
+	await closed;
+
+	// asking politely is the courtesy; SIGKILL is the guarantee. Without the
+	// escalation a harness that traps SIGTERM would outlive the run that spawned
+	// it, holding its pipes and still billing.
+	expect(child.signalCode).toBe('SIGKILL');
 });

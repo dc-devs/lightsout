@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AdvisoryResponse } from '@/contracts/standardsCheck/AdvisoryResponse';
+import { AdvisoryResponse } from '#src/contracts/standardsCheck/AdvisoryResponse.ts';
 
 /**
  * One advisory finding's fate, as the agent that was shown it reports.

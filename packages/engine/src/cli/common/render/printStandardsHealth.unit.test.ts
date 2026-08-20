@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { printStandardsHealth } from '@/cli/common/render/printStandardsHealth';
-import type { StandardsHealth, StandardsHealthRule } from '@/standardsCheck';
+import { printStandardsHealth } from '#src/cli/common/render/printStandardsHealth.ts';
+import type { StandardsHealth, StandardsHealthRule } from '#src/standardsCheck/index.ts';
 
 const healthRule = (overrides: Partial<StandardsHealthRule> & { id: string }): StandardsHealthRule => ({
 	set: 'code',

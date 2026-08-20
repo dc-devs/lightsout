@@ -6,11 +6,18 @@
 	"description": "The deterministic engine: gates, typed contracts, resumable manifests, supervisor.",
 	"license": "MIT",
 	"exports": {
-		".": "./src/main.ts"
+		".": "./src/index.ts",
+		"./contracts": "./src/contracts/index.ts",
+		"./cli": "./src/main.ts"
+	},
+	"imports": {
+		"#src/*": "./src/*",
+		"#tests/*": "./tests/*"
 	},
 	"dependencies": {
 		"@jscpd/core": "catalog:",
 		"@jscpd/tokenizer": "catalog:",
+		"@lightsout/shared": "workspace:*",
 		"@lightsout/standards-contracts": "workspace:*",
 		"yaml": "catalog:",
 		"zod": "catalog:"

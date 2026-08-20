@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
-import { RunManifest } from '@/contracts';
-import { getRunManifestPath } from '@/runState/common/paths/getRunManifestPath';
-import { resolveRunId } from '@/runState/common/paths/resolveRunId';
+import { RunManifest } from '#src/contracts/index.ts';
+import { getRunManifestPath } from '#src/runState/common/paths/getRunManifestPath.ts';
+import { resolveRunId } from '#src/runState/common/paths/resolveRunId.ts';
 
 interface Params {
 	cwd: string;

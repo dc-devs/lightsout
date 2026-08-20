@@ -1,11 +1,11 @@
 import type ts from 'typescript';
-import { type StandardsCheckInput, StandardsInputKind } from '@/contracts';
-import { buildCloneSpansInput } from '@/standardsCheck/common/checkInputs/buildCloneSpansInput';
-import { buildFileListInput } from '@/standardsCheck/common/checkInputs/buildFileListInput';
-import { buildFileTextInput } from '@/standardsCheck/common/checkInputs/buildFileTextInput';
-import { buildImportGraphInput } from '@/standardsCheck/common/checkInputs/buildImportGraphInput';
-import { buildSyntaxTreeInput } from '@/standardsCheck/common/checkInputs/buildSyntaxTreeInput';
-import { buildTestFileInput } from '@/standardsCheck/common/checkInputs/buildTestFileInput';
+import { type StandardsCheckInput, StandardsInputKind } from '#src/contracts/index.ts';
+import { buildCloneSpansInput } from '#src/standardsCheck/common/checkInputs/buildCloneSpansInput.ts';
+import { buildFileListInput } from '#src/standardsCheck/common/checkInputs/buildFileListInput.ts';
+import { buildFileTextInput } from '#src/standardsCheck/common/checkInputs/buildFileTextInput.ts';
+import { buildImportGraphInput } from '#src/standardsCheck/common/checkInputs/buildImportGraphInput.ts';
+import { buildSyntaxTreeInput } from '#src/standardsCheck/common/checkInputs/buildSyntaxTreeInput.ts';
+import { buildTestFileInput } from '#src/standardsCheck/common/checkInputs/buildTestFileInput.ts';
 
 interface Params {
 	/** Which shape to build — the kind a rule's check declared. */
@@ -72,7 +72,7 @@ export const buildCheckInput = async ({
 				return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler });
 			}
 
-			return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, cache });
+			return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, cache, packagesDir });
 		}
 	}
 };

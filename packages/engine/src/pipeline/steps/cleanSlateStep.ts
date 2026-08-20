@@ -1,8 +1,8 @@
-import { readGitChangedFiles } from '@/common/git/readGitChangedFiles';
-import { RunStatus } from '@/contracts';
-import { gates } from '@/pipeline/common/utils/gates';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
+import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
+import { RunStatus } from '#src/contracts/index.ts';
+import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -21,7 +21,7 @@ export const cleanSlateStep = ({ run }: Params): PipelineStep['run'] => {
 		await run.setStep({ record });
 		run.progress(`step clean-slate — attempt ${record.attempts}`);
 
-		const error = await gates({ run, coverage: true });
+		const error = await runVerificationGates({ run, coverage: true });
 
 		if (error) {
 			return run.stop({

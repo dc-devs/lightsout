@@ -1,4 +1,4 @@
-import type { CoverageFile } from '@/contracts';
+import type { CoverageFile } from '#src/contracts/index.ts';
 
 /** One round's batch: whole import-graph components of one scope, ~batchSize tracked candidates. */
 export interface CoverageBatch {

@@ -2,9 +2,9 @@ import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { collectBatchChanges } from '@/common/utils/collectBatchChanges';
-import type { LightsoutConfig } from '@/contracts';
+import { collectBatchChanges } from '#src/common/utils/collectBatchChanges.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
@@ -18,6 +18,18 @@ describe('collectBatchChanges', () => {
 
 		// agents can forget a file; git cannot be sweet-talked
 		expect(changed.sort()).toStrictEqual(['src/reported.ts', 'src/untold.ts']);
+	});
+
+	test('a file the agent reported and git also saw is listed once', async () => {
+		const cwd = setupConsumerRepo();
+
+		writeFileSync(join(cwd, 'src/both.ts'), 'export const both = 1;\n');
+
+		const changed = await collectBatchChanges({ cwd, config, reportedFiles: new Set(['src/both.ts']), attributedFiles: [] });
+
+		// the two truths agree far more often than they differ — agreement must not
+		// inflate the count downstream steps read as the batch's size
+		expect(changed).toStrictEqual(['src/both.ts']);
 	});
 
 	test('drops files an earlier step already claimed, so a batch is not credited twice', async () => {

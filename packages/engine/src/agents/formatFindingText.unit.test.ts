@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { formatFindingText } from '@/agents';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { formatFindingText } from '#src/agents/index.ts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
 	rule: 'size-function',

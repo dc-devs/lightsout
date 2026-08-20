@@ -1,5 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
-import { terminateChildGroups } from '@/common/utils/terminateChildGroups';
+import { terminateChildGroups } from '#src/common/utils/terminateChildGroups.ts';
 
 const relayed: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
 const live = new Set<ChildProcess>();

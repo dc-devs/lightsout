@@ -1,8 +1,8 @@
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { messageOf } from '@/common/utils/messageOf';
-import { runPhasesPipeline } from '@/phases';
-import type { PipelineResult } from '@/pipeline';
-import { RunLockError } from '@/runState';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { messageOf } from '#src/common/utils/messageOf.ts';
+import { runPhasesPipeline } from '#src/phases/index.ts';
+import type { PipelineResult } from '#src/pipeline/index.ts';
+import { RunLockError } from '#src/runState/index.ts';
 
 /**
  * Run a phased sequence; every throw on the way in is a clean one-line exit.

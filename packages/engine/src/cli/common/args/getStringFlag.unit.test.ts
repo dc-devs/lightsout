@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { parseFlags } from '@/cli/common/args/parseFlags';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 
 test('getStringFlag: returns the string value, undefined for a boolean flag, undefined when absent', () => {
 	const flags = parseFlags({ args: ['--name', 'bar', '--all'] });

@@ -1,10 +1,10 @@
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { improveCommand } from '@/cli/improveCommand';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { improveCommand } from '#src/cli/improveCommand.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // improve resolves its config and driver BEFORE the friction check, and its
 // config load is non-fatal only when no config file exists — both arrangements
@@ -68,14 +68,23 @@ test('improveCommand: a present-but-invalid config is a hard error, not the miss
 const setupImproveRun = ({
 	report,
 	friction = [{ area: 'prompt', detail: 'the executor guessed at scope' }],
+	config,
 }: {
 	report: unknown;
 	friction?: Record<string, unknown>[];
+	/** A lightsout.config.json to leave in the consumer repo — omitted, the repo has none. */
+	config?: Record<string, unknown>;
 }) => {
 	const captured = captureCommandOutput();
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-improve-run-'));
 	const engineCwd = mkdtempSync(join(tmpdir(), 'lightsout-improve-engine-'));
 	const binDir = join(cwd, 'bin');
+	/** Where the fake harness records the argv it was spawned with. */
+	const argvPath = join(cwd, 'argv.txt');
+
+	if (config) {
+		writeFileSync(join(cwd, 'lightsout.config.json'), JSON.stringify(config));
+	}
 
 	mkdirSync(join(cwd, '.lightsout'), { recursive: true });
 	writeFileSync(
@@ -87,12 +96,15 @@ const setupImproveRun = ({
 	writeFileSync(join(engineCwd, 'src/agents/prompts/executor.md'), '# executor\n');
 
 	mkdirSync(binDir, { recursive: true });
-	writeFileSync(join(binDir, 'claude'), `#!/bin/sh\ncat > /dev/null\nprintf '%s' '${JSON.stringify(report)}'\n`, 'utf8');
+	writeFileSync(join(binDir, 'claude'), `#!/bin/sh\nprintf '%s\\n' "$@" > '${argvPath}'\ncat > /dev/null\nprintf '%s' '${JSON.stringify(report)}'\n`, 'utf8');
 	chmodSync(join(binDir, 'claude'), 0o755);
 	process.env.PATH = `${binDir}:${process.env.PATH ?? ''}`;
 
-	return { context: { flags: parseFlags({ args: ['--engine', engineCwd] }), rest: [], cwd }, engineCwd, ...captured };
+	return { context: { flags: parseFlags({ args: ['--engine', engineCwd] }), rest: [], cwd }, engineCwd, argvPath, ...captured };
 };
+
+/** The argv the fake harness was spawned with, as one space-joined line. */
+const spawnedArgv = ({ argvPath }: { argvPath: string }) => readFileSync(argvPath, 'utf8').trimEnd().split('\n').join(' ');
 
 const changeReport = ({ status = 'complete', changedFiles = [] }: { status?: string; changedFiles?: { path: string; summary: string }[] } = {}) => ({
 	status,
@@ -115,6 +127,52 @@ test('improveCommand: a complete report is printed file by file and exits 0', as
 		`\nreview the diff in ${engineCwd} — the loop proposes, a human ships.`,
 	]);
 	expect(exitCodes).toStrictEqual([0]);
+});
+
+test("improveCommand: a config on disk is loaded, and the improve entry's own model and effort are what reach the harness", async () => {
+	const { context, argvPath, exitCodes } = setupImproveRun({
+		report: changeReport(),
+		config: {
+			gates: { check: 'true', test: 'true', 'test-coverage': false },
+			harness: 'claude-code',
+			model: 'global-model',
+			effort: 'low',
+			commands: { improve: { model: 'improve-model', effort: 'high' } },
+		},
+	});
+
+	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
+
+	const argv = spawnedArgv({ argvPath });
+
+	expect(argv).toContain('--model improve-model --effort high');
+	expect(argv).not.toContain('global-model');
+	expect(exitCodes).toStrictEqual([0]);
+});
+
+test('improveCommand: with a config that names no improve entry, the globals are what reach the harness', async () => {
+	const { context, argvPath } = setupImproveRun({
+		report: changeReport(),
+		config: { gates: { check: 'true', test: 'true', 'test-coverage': false }, model: 'global-model', effort: 'max' },
+	});
+
+	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(spawnedArgv({ argvPath })).toContain('--model global-model --effort max');
+});
+
+test('improveCommand: no config at all still spawns the default harness, with no model or effort invented for it', async () => {
+	const { context, argvPath } = setupImproveRun({ report: changeReport() });
+
+	await expect(improveCommand(context)).rejects.toThrow(/process\.exit/);
+
+	const argv = spawnedArgv({ argvPath });
+
+	// claude-code is the fallback harness, and an unstated model is left unstated
+	// rather than guessed at — the harness picks its own
+	expect(argv).toContain('--append-system-prompt-file');
+	expect(argv).not.toContain('--model');
+	expect(argv).not.toContain('--effort');
 });
 
 test('improveCommand: a report that changed nothing skips the review prompt, because there is no diff to read', async () => {

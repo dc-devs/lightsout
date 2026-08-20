@@ -1,6 +1,6 @@
-import { isTestableSourceFile } from '@/common/utils/isTestableSourceFile';
-import { isTestFile } from '@/common/utils/isTestFile';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { isTestableSourceFile } from '#src/common/utils/isTestableSourceFile.ts';
+import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {
 	run: PipelineRun;

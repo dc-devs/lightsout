@@ -37,7 +37,9 @@ export const check: StandardsCheckModule = {
 	 * A package with no aliases is told by this very document to use relative
 	 * paths, so the rule has nothing to say there. A package whose aliases could
 	 * not be read is not judged at all: the fix this rule asks for is "write the
-	 * alias instead", and it cannot name one it never saw.
+	 * alias instead", and it cannot name one it never saw. Either declaration
+	 * answers — `package.json` → `imports` or `tsconfig.json` →
+	 * `compilerOptions.paths` — which is why the guidance below names both.
 	 *
 	 * Only files inside a `src` tree, which is what those aliases are configured
 	 * to reach, and only specifiers that resolve to a file in scope — which
@@ -66,7 +68,8 @@ export const check: StandardsCheckModule = {
 							rule: 'import-path-alias',
 							files: [{ path: file }],
 							detail: `${relative.map((specifier) => `'${specifier}'`).join(', ')} ${relative.length > 1 ? 'are' : 'is'} imported by relative path`,
-							guidance: "Import through the package's configured alias — read `tsconfig.json` → `compilerOptions.paths` for the right one.",
+							guidance:
+								"Import through the package's configured alias — read the package's `package.json` → `imports` or `tsconfig.json` → `compilerOptions.paths` for the right one.",
 						});
 			})
 			.filter((finding): finding is RawStandardsFinding => finding !== undefined);

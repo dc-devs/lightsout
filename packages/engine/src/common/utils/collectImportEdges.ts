@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import { createSpecifierResolver } from '@/common/utils/createSpecifierResolver';
+import { createSpecifierResolver } from '#src/common/utils/createSpecifierResolver.ts';
 
 interface Params {
 	cwd: string;

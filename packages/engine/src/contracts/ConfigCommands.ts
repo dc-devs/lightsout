@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Effort } from '@/contracts/Effort';
+import { Effort } from '#src/contracts/Effort.ts';
 
 /** One command's harness override: harness, model, and/or effort, each falling back to the global field. */
 const commandHarness = z

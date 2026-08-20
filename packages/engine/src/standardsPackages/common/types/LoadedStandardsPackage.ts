@@ -1,5 +1,5 @@
-import type { LoadedStandardsDocument } from '@/standardsPackages/common/types/LoadedStandardsDocument';
-import type { LoadedStandardsRule } from '@/standardsPackages/common/types/LoadedStandardsRule';
+import type { LoadedStandardsDocument } from '#src/standardsPackages/common/types/LoadedStandardsDocument.ts';
+import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
 
 /** A whole standards package as the loader read it off disk. */
 export interface LoadedStandardsPackage {

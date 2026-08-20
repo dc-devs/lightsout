@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { CoverageWorklist } from '@/contracts';
+import { CoverageWorklist } from '#src/contracts/index.ts';
 
 const worklist = {
 	at: '2026-01-01T00:00:00.000Z',

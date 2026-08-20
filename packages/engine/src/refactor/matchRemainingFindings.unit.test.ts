@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import type { StandardsFinding } from '@/contracts';
-import { matchRemainingFindings } from '@/refactor';
+import type { StandardsFinding } from '#src/contracts/index.ts';
+import { matchRemainingFindings } from '#src/refactor/index.ts';
 
 const finding = ({ rule, siteKey, paths }: { rule: StandardsFinding['rule']; siteKey: string; paths: string[] }): StandardsFinding => ({
 	rule,

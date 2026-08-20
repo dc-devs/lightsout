@@ -10,6 +10,10 @@ node_modules/
 .test-dist/
 .nx/
 coverage/
+# Vite/TanStack build output for the web app. The committed-artifact
+# exception above applies only to plugin/.
+.tanstack/
+packages/web-app/dist/
 # ...but the coverage PIPELINE is source, not a report. The bare pattern above
 # matches a `coverage` directory at ANY depth, which silently swallowed the
 # whole `lightsout test-coverage-to-threshold` module.

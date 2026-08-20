@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildStandardsReviewInvocation } from '@/agents';
+import { buildStandardsReviewInvocation } from '#src/agents/index.ts';
 
 const rule = ({ id, documentPath = 'code/architecture/folder-structure', prose }: { id: string; documentPath?: string; prose: string }) => ({
 	id,

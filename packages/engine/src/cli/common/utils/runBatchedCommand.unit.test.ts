@@ -1,10 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { parseFlags } from '@/cli/common/args/parseFlags';
-import { runBatchedCommand } from '@/cli/common/utils/runBatchedCommand';
-import type { LightsoutConfig } from '@/contracts';
-import { RunLockError } from '@/runState';
+import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
+import { runBatchedCommand } from '#src/cli/common/utils/runBatchedCommand.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { RunLockError } from '#src/runState/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 interface SeenStart {
 	config?: LightsoutConfig;

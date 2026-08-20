@@ -1,5 +1,5 @@
-import type { RawStandardsFinding } from './RawStandardsFinding.ts';
-import type { StandardsCheckInput } from './StandardsCheckInput.ts';
+import type { RawStandardsFinding } from '#src/RawStandardsFinding.ts';
+import type { StandardsCheckInput } from '#src/StandardsCheckInput.ts';
 
 /**
  * The call signature every package check satisfies. It receives data the engine

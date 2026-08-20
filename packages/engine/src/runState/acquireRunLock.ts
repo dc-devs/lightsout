@@ -1,9 +1,9 @@
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { getRunLockPath } from '@/runState/common/paths/getRunLockPath';
-import { isPidAlive } from '@/runState/isPidAlive';
-import { RunLockError } from '@/runState/RunLockError';
-import { readRunLock } from '@/runState/readRunLock';
+import { getRunLockPath } from '#src/runState/common/paths/getRunLockPath.ts';
+import { isPidAlive } from '#src/runState/isPidAlive.ts';
+import { RunLockError } from '#src/runState/RunLockError.ts';
+import { readRunLock } from '#src/runState/readRunLock.ts';
 
 interface Params {
 	cwd: string;

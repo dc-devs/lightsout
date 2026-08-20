@@ -1,4 +1,4 @@
-import featureExecutorPrompt from '@/agents/prompts/featureExecutor.md';
+import featureExecutorPrompt from '#src/agents/prompts/featureExecutor.md';
 
 interface Params {
 	/** Full plan content, inlined — the agent never loads its own context. */

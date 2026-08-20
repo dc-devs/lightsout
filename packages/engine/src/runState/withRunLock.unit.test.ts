@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { RunLockError, readRunLock, withRunLock } from '@/runState';
+import { RunLockError, readRunLock, withRunLock } from '#src/runState/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 /** Beyond any OS pid range — process.kill(pid, 0) reports ESRCH, i.e. dead. */
 const deadPid = 999_999_999;

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { deleteVoiceMarker } from '@/voice';
+import { deleteVoiceMarker } from '#src/voice/index.ts';
 
 const setupProject = ({ marker = true, otherState = false }: { marker?: boolean; otherState?: boolean } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-delete-voice-marker-'));

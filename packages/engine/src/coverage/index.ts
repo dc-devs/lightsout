@@ -1,3 +1,3 @@
-export type { CoverageResult } from '@/coverage/CoverageResult';
-export { checkChangedFilesExecuted } from '@/coverage/checkChangedFilesExecuted';
-export { runCoveragePipeline } from '@/coverage/runCoveragePipeline';
+export type { CoverageResult } from '#src/coverage/CoverageResult.ts';
+export { checkChangedFilesExecuted } from '#src/coverage/checkChangedFilesExecuted.ts';
+export { runCoveragePipeline } from '#src/coverage/runCoveragePipeline.ts';

@@ -1,6 +1,6 @@
 import type ts from 'typescript';
-import type { CloneSpan } from './CloneSpan.ts';
-import type { StandardsInputKind } from './StandardsInputKind.ts';
+import type { CloneSpan } from '#src/CloneSpan.ts';
+import type { StandardsInputKind } from '#src/StandardsInputKind.ts';
 
 /**
  * The inputs a check may declare, one interface per kind. A check never opens a
@@ -32,12 +32,17 @@ export interface FileTextInput {
 	referenceFiles: string[];
 	/**
 	 * Text for every path in `files` ∪ `referenceFiles`, plus every tsconfig.json
-	 * sitting above one of them, when present; each file read once for the whole
-	 * run.
+	 * and every package.json sitting above one of them, when present; each file
+	 * read once for the whole run.
 	 *
 	 * Every tsconfig, not just the root's, because path aliases are declared per
 	 * package — a rule resolving one file's imports must read the nearest config
 	 * above THAT file, not the workspace's.
+	 *
+	 * The manifests are promised for the same reason: a package may declare its
+	 * aliases in `package.json` → `imports` instead, and they also carry the
+	 * dependency lists a rule needs to tell which framework mandates govern a
+	 * file.
 	 */
 	contents: Map<string, string>;
 	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
@@ -54,6 +59,8 @@ export interface SyntaxTreeInput {
 	compiler: typeof ts;
 	/** One parsed SourceFile per path in `source`. */
 	trees: Map<string, ts.SourceFile>;
+	/** What each package declares it depends on, keyed by package root (`.` for the repo). A framework carve-out is keyed on what a package DECLARES, so an AST rule needs this to honour one. */
+	dependencies: Map<string, string[]>;
 	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
 	standardsPackages: string[];
 }

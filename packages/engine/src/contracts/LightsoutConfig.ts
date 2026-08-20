@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { ConfigCommands } from '@/contracts/ConfigCommands';
-import { ConfigGates } from '@/contracts/ConfigGates';
-import { renamedKey } from '@/contracts/common/utils/renamedKey';
-import { Effort } from '@/contracts/Effort';
-import { PackageGates } from '@/contracts/PackageGates';
-import { Permissions } from '@/contracts/Permissions';
-import { StandardsCheckOverrides } from '@/contracts/StandardsCheckOverrides';
+import { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
+import { ConfigGates } from '#src/contracts/ConfigGates.ts';
+import { renamedKey } from '#src/contracts/common/utils/renamedKey.ts';
+import { Effort } from '#src/contracts/Effort.ts';
+import { PackageGates } from '#src/contracts/PackageGates.ts';
+import { Permissions } from '#src/contracts/Permissions.ts';
+import { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.ts';
 
 /**
  * Consumer configuration (`lightsout.config.json` at the target repo root).

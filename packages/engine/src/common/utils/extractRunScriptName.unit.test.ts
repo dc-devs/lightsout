@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
+import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
 
 test('extractRunScriptName reads the script after a run token, stepping over flags', () => {
 	expect(extractRunScriptName({ command: 'pnpm --filter @acme/api run check' })).toBe('check');

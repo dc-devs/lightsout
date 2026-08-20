@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { getDependencyNames } from '@/common/utils/getDependencyNames';
+import { getDependencyNames } from '#src/common/utils/getDependencyNames.ts';
 
 /** A channel activates when ANY scoped package depends on one of its signal packages. */
 const channelSignals: Record<string, string[]> = {

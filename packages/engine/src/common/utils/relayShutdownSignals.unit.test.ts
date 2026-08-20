@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { describe, expect, jest, test } from '@jest/globals';
-import { relayShutdownSignals } from '@/common/utils/relayShutdownSignals';
+import { relayShutdownSignals } from '#src/common/utils/relayShutdownSignals.ts';
 
 /** A detached shell that reports its grandchild's pid, then waits. */
 const setupChild = async () => {
@@ -54,7 +54,7 @@ const setupRelay = async () => {
 
 	jest.resetModules();
 
-	const { relayShutdownSignals: fresh } = await import('@/common/utils/relayShutdownSignals');
+	const { relayShutdownSignals: fresh } = await import('#src/common/utils/relayShutdownSignals.ts');
 	const raised: NodeJS.Signals[] = [];
 	const realKill = process.kill.bind(process);
 

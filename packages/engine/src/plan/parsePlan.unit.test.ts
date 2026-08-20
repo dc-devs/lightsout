@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { parsePlan } from '@/plan/parsePlan';
+import { parsePlan } from '#src/plan/parsePlan.ts';
 
 const parse = ({ content, base = 'demo.md' }: { content: string; base?: string }) => parsePlan({ content, base });
 

@@ -1,16 +1,16 @@
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import { green } from '@/cli/common/terminal/green';
-import { red } from '@/cli/common/terminal/red';
-import { yellow } from '@/cli/common/terminal/yellow';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { exitOnPlanFailure } from '@/cli/plan/common/utils/exitOnPlanFailure';
-import { planRunOptions } from '@/cli/plan/common/utils/planRunOptions';
-import type { LightsoutConfig } from '@/contracts';
-import { PlanVariant } from '@/contracts';
-import type { Driver } from '@/drivers';
-import { runPlanDraft } from '@/plan';
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { green } from '#src/cli/common/terminal/green.ts';
+import { red } from '#src/cli/common/terminal/red.ts';
+import { yellow } from '#src/cli/common/terminal/yellow.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { exitOnPlanFailure } from '#src/cli/plan/common/utils/exitOnPlanFailure.ts';
+import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { PlanVariant } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { runPlanDraft } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -24,7 +24,7 @@ interface Params {
 export const planDraftCommand = async ({ cwd, driver, name, standards, config, flags }: Params): Promise<void> => {
 	const scopeFlag = getStringFlag({ flags, name: 'scope' });
 	const scope = scopeFlag === 'phased' ? PlanVariant.Overview : scopeFlag === 'single' ? PlanVariant.Single : undefined;
-	const result = await exitOnPlanFailure(await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config }), scope }));
+	const result = await exitOnPlanFailure({ result: await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config }), scope }) });
 
 	if (result.status === 'facts-error') {
 		console.error(`\n${red('facts error')} — the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);

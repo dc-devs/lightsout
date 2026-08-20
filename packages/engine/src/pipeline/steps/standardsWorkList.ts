@@ -1,6 +1,6 @@
-import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import { runStandardsCheck, selectStandardsFindings } from '@/standardsCheck';
+import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { runStandardsCheck, selectStandardsFindings } from '#src/standardsCheck/index.ts';
 
 interface Params {
 	run: PipelineRun;

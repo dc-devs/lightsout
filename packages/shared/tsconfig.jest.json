@@ -1,0 +1,1 @@
+{ "extends": ["./tsconfig.json", "../../tooling/jest/tsconfig.overrides.json"] }

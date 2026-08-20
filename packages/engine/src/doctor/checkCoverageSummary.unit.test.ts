@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import type { LightsoutConfig } from '@/contracts';
-import { checkCoverageSummary } from '@/doctor/checkCoverageSummary';
-import type { PackageDir } from '@/doctor/common/types/PackageDir';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
+import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': 'pnpm test:coverage' };
 

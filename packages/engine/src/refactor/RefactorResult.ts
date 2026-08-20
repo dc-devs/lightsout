@@ -1,4 +1,4 @@
-import type { RunManifest } from '@/contracts';
+import type { RunManifest } from '#src/contracts/index.ts';
 
 export interface RefactorResult {
 	/** True for both clean completion and completion with declines — a decline is a judgment, not a failure. */

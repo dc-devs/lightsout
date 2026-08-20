@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { readIntoCache } from '@/standardsCheck/common/checkInputs/readIntoCache';
+import { readIntoCache } from '#src/standardsCheck/common/checkInputs/readIntoCache.ts';
 
 const setupRepo = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-cache-'));

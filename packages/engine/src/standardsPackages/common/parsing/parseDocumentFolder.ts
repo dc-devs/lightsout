@@ -1,12 +1,12 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { StandardsSet } from '@/contracts';
-import { parseDeclaration } from '@/standardsPackages/common/parsing/parseDeclaration';
-import { parseRuleFolder } from '@/standardsPackages/common/parsing/parseRuleFolder';
-import type { LoadedStandardsDocument } from '@/standardsPackages/common/types/LoadedStandardsDocument';
-import type { LoadedStandardsRule } from '@/standardsPackages/common/types/LoadedStandardsRule';
-import { hasFile } from '@/standardsPackages/common/utils/hasFile';
+import type { StandardsSet } from '#src/contracts/index.ts';
+import { parseDeclaration } from '#src/standardsPackages/common/parsing/parseDeclaration.ts';
+import { parseRuleFolder } from '#src/standardsPackages/common/parsing/parseRuleFolder.ts';
+import type { LoadedStandardsDocument } from '#src/standardsPackages/common/types/LoadedStandardsDocument.ts';
+import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
+import { hasFile } from '#src/standardsPackages/common/utils/hasFile.ts';
 
 interface Params {
 	/** Absolute document folder path (contains document.md). */

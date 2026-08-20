@@ -1,11 +1,11 @@
 import type ts from 'typescript';
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { collectImportEdges } from '@/common/utils/collectImportEdges';
-import { chunkFileGroup } from '@/pipeline/chunkFileGroup';
-import type { TestTargetGroup } from '@/pipeline/common/types/TestTargetGroup';
-import { partitionByPackage } from '@/pipeline/common/utils/partitionByPackage';
-import { groupConnectedFiles } from '@/pipeline/groupConnectedFiles';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
+import { chunkFileGroup } from '#src/pipeline/chunkFileGroup.ts';
+import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
+import { partitionByPackage } from '#src/pipeline/common/utils/partitionByPackage.ts';
+import { groupConnectedFiles } from '#src/pipeline/groupConnectedFiles.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 /** Pathological guard: an import component above this splits into sorted chunks — no config knob until live evidence asks for one. */
 const maxWriterGroupFiles = 12;

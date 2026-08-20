@@ -1,4 +1,4 @@
-import type { RunManifest } from '@/contracts';
+import type { RunManifest } from '#src/contracts/index.ts';
 
 export interface PipelineResult {
 	ok: boolean;

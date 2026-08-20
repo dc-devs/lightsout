@@ -1,11 +1,10 @@
 import { basename } from 'node:path';
-import { formatDuration } from '@/cli/common/formatting/formatDuration';
-import { formatTokenCount } from '@/cli/common/formatting/formatTokenCount';
-import { printStepTable } from '@/cli/common/render/printStepTable';
-import { bold } from '@/cli/common/terminal/bold';
-import { paintStatus } from '@/cli/common/terminal/paintStatus';
-import type { PipelineResult } from '@/pipeline';
-import { summarizeRun } from '@/runState';
+import { formatDuration, formatTokenCount } from '@lightsout/shared';
+import { printStepTable } from '#src/cli/common/render/printStepTable.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
+import type { PipelineResult } from '#src/pipeline/index.ts';
+import { summarizeRun } from '#src/runState/index.ts';
 
 interface Params {
 	result: PipelineResult;

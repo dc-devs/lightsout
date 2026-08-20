@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
-import { seedConfiguredCwd } from '@tests/helpers/seedConfiguredCwd';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { seedConfiguredCwd } from '#tests/helpers/seedConfiguredCwd.ts';
 
 interface Params {
 	/** Accept the planted findings as debt first, so the suppression and --all paths are reachable. */

@@ -1,15 +1,15 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { createDraftDriver } from '@tests/helpers/createDraftDriver';
-import { expectDefined } from '@tests/helpers/expectDefined';
-import { expectStatus } from '@tests/helpers/expectStatus';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { seedPlanWorkspace } from '@tests/helpers/seedPlanWorkspace';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import type { DriverInvocation } from '@/drivers';
-import { runPlanDraft } from '@/plan';
+import type { DriverInvocation } from '#src/drivers/index.ts';
+import { runPlanDraft } from '#src/plan/index.ts';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { createDraftDriver } from '#tests/helpers/createDraftDriver.ts';
+import { expectDefined } from '#tests/helpers/expectDefined.ts';
+import { expectStatus } from '#tests/helpers/expectStatus.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
+import { seedPlanWorkspace } from '#tests/helpers/seedPlanWorkspace.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // The /brainstorm hand-off: settled rows merge into the draft prompt ahead of
 // the plan's own, ride the repair invocation by path, and are narrated either way.

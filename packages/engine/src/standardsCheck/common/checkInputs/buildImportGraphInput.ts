@@ -1,6 +1,6 @@
 import type ts from 'typescript';
-import { collectImportEdges } from '@/common/utils/collectImportEdges';
-import { type ImportGraphInput, StandardsInputKind } from '@/contracts';
+import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
+import { type ImportGraphInput, StandardsInputKind } from '#src/contracts/index.ts';
 
 interface Params {
 	cwd: string;

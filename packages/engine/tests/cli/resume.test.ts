@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
-import { seedRunFixture } from '@tests/helpers/seedRunFixture';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
+import { seedRunFixture } from '#tests/helpers/seedRunFixture.ts';
 
 // A parked implement run plus a config naming a DIFFERENT harness. resume
 // reconstructs its driver from the manifest's recorded harness, never from the

@@ -1,17 +1,17 @@
-import { defaultPackagesDir } from '@/common/constants/defaultPackagesDir';
-import { listSourceFiles } from '@/common/utils/listSourceFiles';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import { RunStatus } from '@/contracts';
-import { testWriterConcurrency } from '@/pipeline/common/constants/testWriterConcurrency';
-import { collectChanged } from '@/pipeline/common/utils/collectChanged';
-import { resolveTestSubjects } from '@/pipeline/common/utils/resolveTestSubjects';
-import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
-import { withStepFiles } from '@/pipeline/common/utils/withStepFiles';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { groupTestTargets } from '@/pipeline/steps/groupTestTargets';
-import { runWriterBatches } from '@/pipeline/steps/runWriterBatches';
-import { selectTestTargets } from '@/pipeline/steps/selectTestTargets';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { RunStatus } from '#src/contracts/index.ts';
+import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
+import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
+import { resolveTestSubjects } from '#src/pipeline/common/utils/resolveTestSubjects.ts';
+import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { groupTestTargets } from '#src/pipeline/steps/groupTestTargets.ts';
+import { runWriterBatches } from '#src/pipeline/steps/runWriterBatches.ts';
+import { selectTestTargets } from '#src/pipeline/steps/selectTestTargets.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -29,7 +29,7 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 
 		const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 		const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-		const { targets, inert, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler });
+		const { targets, inert, unreachable, deleted } = await selectTestTargets({ run, candidates: sourceFiles({ run }), compiler, packagesDir });
 
 		if (deleted.length > 0) {
 			run.progress(`write-tests: ${deleted.length} deleted file(s) skipped (removed by the plan, nothing to cover): ${deleted.join(', ')}`);
@@ -37,6 +37,12 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 
 		if (inert.length > 0) {
 			run.progress(`write-tests: ${inert.length} inert file(s) skipped (barrel/type-only, nothing to cover): ${inert.join(', ')}`);
+		}
+
+		if (unreachable.length > 0) {
+			run.progress(
+				`write-tests: ${unreachable.length} file(s) skipped — real code no unit test can run (a tool's own settings file, or a module-scope await the runner cannot load): ${unreachable.join(', ')}`,
+			);
 		}
 
 		const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;

@@ -1,14 +1,13 @@
-import { statusIcons } from '@/cli/common/constants/statusIcons';
-import { formatDuration } from '@/cli/common/formatting/formatDuration';
-import { formatTokenCount } from '@/cli/common/formatting/formatTokenCount';
-import { renderTable } from '@/cli/common/render/renderTable';
-import { bold } from '@/cli/common/terminal/bold';
-import { dim } from '@/cli/common/terminal/dim';
-import { paintStatus } from '@/cli/common/terminal/paintStatus';
-import type { summarizeRun } from '@/runState';
+import { formatDuration, formatTokenCount } from '@lightsout/shared';
+import { statusIcons } from '#src/cli/common/constants/statusIcons.ts';
+import { renderTable } from '#src/cli/common/render/renderTable.ts';
+import { bold } from '#src/cli/common/terminal/bold.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
+import type { StepSummary } from '#src/runState/index.ts';
 
 interface Params {
-	steps: Awaited<ReturnType<typeof summarizeRun>>['steps'];
+	steps: StepSummary[];
 	activeMs: number;
 }
 

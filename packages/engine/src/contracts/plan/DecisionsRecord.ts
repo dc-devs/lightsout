@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DecisionRow } from '@/contracts/plan/DecisionRow';
+import { DecisionRow } from '#src/contracts/plan/DecisionRow.ts';
 
 /**
  * The session-authored `decisions.json`: the plan name plus the Decision-Log

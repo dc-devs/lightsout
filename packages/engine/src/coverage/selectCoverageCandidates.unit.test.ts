@@ -2,10 +2,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { linkTypescript } from '@tests/helpers/linkTypescript';
-import { resolveConsumerTypescript } from '@/common/utils/resolveConsumerTypescript';
-import type { CoverageFile, CoverageTotal } from '@/contracts';
-import { selectCoverageCandidates } from '@/coverage/selectCoverageCandidates';
+import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import type { CoverageFile, CoverageTotal } from '#src/contracts/index.ts';
+import { selectCoverageCandidates } from '#src/coverage/selectCoverageCandidates.ts';
+import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 
 const file = ({ path, statementsPct = 10, scope = 'root' }: { path: string; statementsPct?: number; scope?: string }): CoverageFile => ({
 	path,

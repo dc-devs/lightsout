@@ -1,6 +1,6 @@
-import { RunStatus, type StepRecord, type WorkReport } from '@/contracts';
-import type { PipelineResult } from '@/pipeline/PipelineResult';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { RunStatus, type StepRecord, type WorkReport } from '#src/contracts/index.ts';
+import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {
 	run: PipelineRun;

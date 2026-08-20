@@ -1,5 +1,5 @@
-import type { AgentUsage, LightsoutConfig, RunManifest, RunUsage, StepRecord } from '@/contracts';
-import { recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '@/runState';
+import type { AgentUsage, LightsoutConfig, RunManifest, RunUsage, StepRecord } from '#src/contracts/index.ts';
+import { recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '#src/runState/index.ts';
 
 const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord }) => {
 	const existing = steps.findIndex((step) => step.id === record.id);
@@ -26,9 +26,9 @@ interface ConstructorParams {
  * persist-before-the-next-action ordering lives in exactly one place instead
  * of once per pipeline.
  *
- * A concrete run — the implement pipeline's, the refactor pipeline's —
- * extends this with the parts that differ: what its steps are, what its
- * halted result looks like, and how it invokes agents.
+ * A concrete run — the implement pipeline's, the refactor pipeline's — HOLDS
+ * one of these and forwards to it, adding the parts that differ: what its
+ * steps are, what its halted result looks like, and how it invokes agents.
  */
 export class RunState {
 	readonly cwd: string;
@@ -59,12 +59,12 @@ export class RunState {
 		this.onProgress?.(message);
 	}
 
-	async update(patch: Partial<RunManifest>): Promise<void> {
+	async update({ patch }: { patch: Partial<RunManifest> }): Promise<void> {
 		this.manifest = await writeManifestWithUsage({ cwd: this.cwd, manifest: this.manifest, patch, usageTotals: this.usageTotals });
 	}
 
 	async setStep({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }): Promise<void> {
-		await this.update({ ...patch, currentStep: record.id, steps: upsertStep({ steps: this.manifest.steps, record }) });
+		await this.update({ patch: { ...patch, currentStep: record.id, steps: upsertStep({ steps: this.manifest.steps, record }) } });
 	}
 
 	recordUsage({ step, usage }: { step: string; usage?: AgentUsage }): Promise<void> {

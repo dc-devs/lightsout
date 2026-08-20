@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { buildReportReemitterInvocation } from '@/agents';
+import { buildReportReemitterInvocation } from '#src/agents/index.ts';
 
 const setupReemitter = ({
 	rejectedText = 'Sure! Here is the report:\n\n```json\n{ "status": "complete" }\n```',
@@ -72,4 +72,15 @@ test('buildReportReemitterInvocation: both headings survive empty inputs', () =>
 
 	// an empty error or message leaves its heading in place
 	expect(prompt.endsWith('# Validation error\n\n\n\n# Your previous final message\n\n')).toBeTruthy();
+});
+
+test('buildReportReemitterInvocation: a blank line separates the role prompt from the validation error section', () => {
+	const params = setupReemitter();
+
+	const { prompt } = buildReportReemitterInvocation(params);
+
+	// the sections are joined by a blank line, so each heading opens its own block
+	expect(prompt.includes('\n\n# Validation error\n\n')).toBeTruthy();
+	// and the role prompt itself is not swallowed by that heading
+	expect(prompt.indexOf('# Validation error')).toBeGreaterThan('# Re-emit your report'.length);
 });

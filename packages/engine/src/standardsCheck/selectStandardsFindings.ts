@@ -1,4 +1,4 @@
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 interface Params {
 	findings: StandardsFinding[];

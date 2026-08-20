@@ -1,0 +1,15 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		// A browser package needs the DOM and JSX; everything else it inherits.
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"jsx": "react-jsx",
+		"types": ["node", "@testing-library/jest-dom/jest-globals"]
+	},
+	// tests/ is typechecked and reached through `#tests/*`: shared test support
+	// may not live under src/, so the helpers have nowhere else to go.
+	"include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "tests/**/*.ts", "tests/**/*.tsx"],
+	// Restated because naming `exclude` at all replaces TypeScript's default, and
+	// `src/**` would otherwise sweep the symlinked dependency tree.
+	"exclude": ["node_modules"]
+}

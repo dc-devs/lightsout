@@ -1,6 +1,6 @@
-import type { CoverageFile } from '@/contracts';
-import type { CoverageBatch } from '@/coverage/common/types/CoverageBatch';
-import { chunkFileGroup } from '@/pipeline';
+import type { CoverageFile } from '#src/contracts/index.ts';
+import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
+import { chunkFileGroup } from '#src/pipeline/index.ts';
 
 const defaultBatchSize = 5;
 /** The implement fan-out's writer cap: an import component above this splits into sorted chunks rather than drowning one invocation. */
@@ -29,13 +29,13 @@ interface Params {
 export const buildCoverageBatch = ({ files, components, batchNumber, batchSize = defaultBatchSize }: Params): CoverageBatch => {
 	const scope = files[0].scope;
 	const candidateByPath = new Map(files.map((file) => [file.path, file]));
-	const candidatesOf = (members: string[]) => members.flatMap((path) => candidateByPath.get(path) ?? []);
-	const worstOf = (candidates: CoverageFile[]) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
+	const candidatesOf = ({ members }: { members: string[] }) => members.flatMap((path) => candidateByPath.get(path) ?? []);
+	const worstOf = ({ candidates }: { candidates: CoverageFile[] }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
 
 	// A component too large for one writer splits into sorted chunks, and the
 	// chunk holding the worst candidate is the one this batch takes.
-	const groupOf = (component: string[]) => {
-		const candidates = candidatesOf(component);
+	const groupOf = ({ component }: { component: string[] }) => {
+		const candidates = candidatesOf({ members: component });
 
 		if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
 			return { members: component, candidates };
@@ -46,13 +46,15 @@ export const buildCoverageBatch = ({ files, components, batchNumber, batchSize =
 			.filter((chunk) => chunk.includes(worst.path))
 			.flat();
 
-		return { members, candidates: candidatesOf(members) };
+		return { members, candidates: candidatesOf({ members }) };
 	};
 
 	const ranked = components
-		.map((component) => groupOf(component))
+		.map((component) => groupOf({ component }))
 		.filter((group) => group.candidates.length > 0)
-		.sort((left, right) => worstOf(left.candidates) - worstOf(right.candidates) || left.members[0].localeCompare(right.members[0]));
+		.sort(
+			(left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0]),
+		);
 
 	const members: string[] = [];
 	const tracked: CoverageFile[] = [];

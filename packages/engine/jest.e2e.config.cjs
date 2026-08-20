@@ -11,8 +11,4 @@ module.exports = createJestConfig({
 	rootDir: __dirname,
 	testMatch: ['<rootDir>/tests/**/*.test.ts'],
 	globalSetup: '<rootDir>/tests/config/buildCliUnderTest.cjs',
-	moduleNameMapper: {
-		'^@/(.*)$': '<rootDir>/src/$1',
-		'^@tests/(.*)$': '<rootDir>/tests/$1',
-	},
 });

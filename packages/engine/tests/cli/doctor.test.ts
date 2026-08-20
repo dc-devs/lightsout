@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
 
 // The dispatch table's doctor entry, end to end: a dir with no config is the
 // one doctor outcome that needs no harness binary installed, so the route is

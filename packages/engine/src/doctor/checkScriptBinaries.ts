@@ -1,7 +1,7 @@
-import { runCommand } from '@/common/utils/runCommand';
-import type { LightsoutConfig } from '@/contracts';
-import { probeTimeoutMs } from '@/doctor/common/constants/probeTimeoutMs';
-import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
+import { runCommand } from '#src/common/utils/runCommand.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { probeTimeoutMs } from '#src/doctor/common/constants/probeTimeoutMs.ts';
+import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 
 interface Params {
 	cwd: string;

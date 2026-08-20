@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import type { SyntaxTreeInput } from '@lightsout/standards-contracts';
 import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupSyntaxTreeInput } from './index.ts';
+import { setupSyntaxTreeInput } from '#src/index.ts';
 
 /** The arm under test, narrowed — every case here builds a syntax-tree input. */
 const setupTrees = ({ sources }: { sources: Array<[string, string]> }) => setupSyntaxTreeInput({ sources }) as SyntaxTreeInput;

@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '@/contracts';
-import { validateStandardsPackage } from '@/standardsCheck';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '@/standardsPackages';
+import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
 
 // Mocked Imports
 // -------------------------

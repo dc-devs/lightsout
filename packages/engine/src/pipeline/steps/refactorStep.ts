@@ -1,17 +1,17 @@
-import { buildRefactorExecutorInvocation } from '@/agents';
-import { RunStatus, type WorkReport, WorkReportStatus } from '@/contracts';
-import { collectChanged } from '@/pipeline/common/utils/collectChanged';
-import { invokeRoleOrStop } from '@/pipeline/common/utils/invokeRoleOrStop';
-import { sourceFiles } from '@/pipeline/common/utils/sourceFiles';
-import { withStepFiles } from '@/pipeline/common/utils/withStepFiles';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
-import type { PipelineStep } from '@/pipeline/PipelineStep';
-import { describePersistingFindings } from '@/pipeline/steps/describePersistingFindings';
-import { standardsWorkList } from '@/pipeline/steps/standardsWorkList';
-import { appendFriction } from '@/runState';
-import { detectStandardsChannels } from '@/standards';
-import { runStandardsReview } from '@/standardsCheck';
-import { type LoadedStandardsPackage, resolveStandardsPackages } from '@/standardsPackages';
+import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
+import { invokeRoleOrStop } from '#src/pipeline/common/utils/invokeRoleOrStop.ts';
+import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
+import { describePersistingFindings } from '#src/pipeline/steps/describePersistingFindings.ts';
+import { standardsWorkList } from '#src/pipeline/steps/standardsWorkList.ts';
+import { appendFriction } from '#src/runState/index.ts';
+import { detectStandardsChannels } from '#src/standards/index.ts';
+import { runStandardsReview } from '#src/standardsCheck/index.ts';
+import { type LoadedStandardsPackage, resolveStandardsPackages } from '#src/standardsPackages/index.ts';
 
 const maxRefactorPasses = 3;
 

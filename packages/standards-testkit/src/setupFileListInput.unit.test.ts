@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupFileListInput } from './index.ts';
+import { setupFileListInput } from '#src/index.ts';
 
 describe('setupFileListInput', () => {
 	test('builds the arm a file-list check narrows to', () => {

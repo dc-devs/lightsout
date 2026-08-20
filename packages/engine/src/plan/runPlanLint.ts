@@ -1,6 +1,6 @@
-import type { StructuralFinding } from '@/contracts';
-import { getPlanDetectionInputs } from '@/plan/common/utils/getPlanDetectionInputs';
-import { lintPlanStructure } from '@/plan/lintPlanStructure';
+import type { StructuralFinding } from '#src/contracts/index.ts';
+import { getPlanDetectionInputs } from '#src/plan/common/utils/getPlanDetectionInputs.ts';
+import { lintPlanStructure } from '#src/plan/lintPlanStructure.ts';
 
 interface Params {
 	cwd: string;

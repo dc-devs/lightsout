@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { cleanPlanBody } from '@tests/helpers/cleanPlanBody';
-import { freshCwd } from '@tests/helpers/freshCwd';
-import { runCli } from '@tests/helpers/runCli';
+import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
+import { freshCwd } from '#tests/helpers/freshCwd.ts';
+import { runCli } from '#tests/helpers/runCli.ts';
 
 // A consumer repo with a plan deliverable and deliberately NO
 // lightsout.config.json: `plan lint` is deterministic and must route before

@@ -1,6 +1,6 @@
-import { loadConfig } from '@/common/utils/loadConfig';
-import type { LightsoutConfig } from '@/contracts';
-import { listStandardsRules, type StandardsRuleListing } from '@/standardsCheck';
+import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { listStandardsRules, type StandardsRuleListing } from '#src/standardsCheck/index.ts';
 
 interface Params {
 	cwd: string;

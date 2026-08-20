@@ -2,9 +2,9 @@ import type { StandardsCheckInput, SyntaxTreeInput } from '@lightsout/standards-
 import { StandardsInputKind } from '@lightsout/standards-contracts';
 import ts from 'typescript';
 
-interface Params extends Partial<Omit<SyntaxTreeInput, 'kind' | 'trees' | 'compiler'>> {
-	/** Each file and its text; the tree is parsed for you. */
+interface Params extends Partial<Omit<SyntaxTreeInput, 'kind' | 'trees' | 'compiler' | 'dependencies'>> {
 	sources?: Array<[string, string]>;
+	dependencies?: Array<[string, string[]]>;
 }
 
 /**
@@ -21,9 +21,10 @@ interface Params extends Partial<Omit<SyntaxTreeInput, 'kind' | 'trees' | 'compi
  * more often than they walk down, and a tree without them fails in ways that
  * look like the rule is wrong rather than the fixture.
  *
- * @param sources - each file and its text
+ * @param sources - each file and its text, as pairs; the tree is parsed for you
+ * @param dependencies - declared dependency names per package directory, as pairs — the same shape `setupFileListInput` takes, so a rule needing a framework carve-out is arranged the same way whichever input it reads
  */
-export const setupSyntaxTreeInput = ({ sources = [], ...overrides }: Params = {}): StandardsCheckInput => {
+export const setupSyntaxTreeInput = ({ sources = [], dependencies = [], ...overrides }: Params = {}): StandardsCheckInput => {
 	const paths = sources.map(([path]) => path);
 	const trees = new Map(sources.map(([path, text]) => [path, ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true)]));
 
@@ -37,6 +38,7 @@ export const setupSyntaxTreeInput = ({ sources = [], ...overrides }: Params = {}
 		standardsPackages: [],
 		compiler: ts,
 		trees,
+		dependencies: new Map(dependencies),
 		...overrides,
 	};
 };

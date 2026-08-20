@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { getRejectionError } from '@tests/helpers/getRejectionError';
-import { readDecisions } from '@/plan';
+import { readDecisions } from '#src/plan/index.ts';
+import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /**
  * A temp repo whose plan workspace holds the given raw `decisions.json`.
@@ -76,7 +76,7 @@ describe('readDecisions', () => {
 		const { cwd, name } = setupWorkspace({ content: '{"planName": "grill-me",' });
 
 		// a truncated file is a hard error — never a silent empty record
-		expect(readDecisions({ cwd, name })).rejects.toThrow(SyntaxError);
+		await expect(readDecisions({ cwd, name })).rejects.toThrow(SyntaxError);
 	});
 
 	test('rejects a record that violates the contract', async () => {

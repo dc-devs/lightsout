@@ -3,10 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from '@jest/globals';
-import { type WorkReport, WorkReportStatus } from '@/contracts';
-import { runWriterBatches } from '@/pipeline';
-import type { TestTargetGroup } from '@/pipeline/common/types/TestTargetGroup';
-import type { PipelineRun } from '@/pipeline/PipelineRun';
+import { type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
+import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
+import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
+import { runWriterBatches } from '#src/pipeline/index.ts';
+import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 /** A complete WorkReport with per-test overrides. */
 const workReport = (overrides: Partial<WorkReport> = {}): WorkReport => ({
@@ -185,7 +186,33 @@ test('runWriterBatches: a warm spawn that rate-limits before streaming stops eve
 	expect(log).toStrictEqual(['start:src/file0.ts', 'end:src/file0.ts']);
 });
 
-test('runWriterBatches: a warm spawn that rate-limits after streaming stops the batches that have not started', async () => {
+test('runWriterBatches: a freed slot takes the next group while a slow writer is still running', async () => {
+	// One writer far slower than the rest. Under batching, nothing past the
+	// first `testWriterConcurrency` groups could start until it returned; the
+	// slots are meant to refill from the fast ones instead.
+	const slow = 'src/file1.ts';
+	const { run, log } = setupRun({
+		respond: async ({ file, onFirstEvent }) => {
+			if (onFirstEvent) {
+				onFirstEvent();
+			}
+
+			await delay(file === slow ? 200 : 5);
+
+			return answered(workReport());
+		},
+	});
+
+	const queued = 2;
+	const overflow = `src/file${testWriterConcurrency + queued}.ts`;
+	const { reports } = await runWriterBatches({ run, groups: groupsOf(testWriterConcurrency + queued + 1), planContent: '# Plan' });
+
+	expect(reports.length).toBe(testWriterConcurrency + queued + 1);
+	// the queued group ran on a slot freed by a fast writer, not after the slow one
+	expect(log.indexOf(`start:${overflow}`)).toBeLessThan(log.indexOf(`end:${slow}`));
+});
+
+test('runWriterBatches: a warm spawn that rate-limits after streaming stops the groups still waiting for a slot', async () => {
 	const { run, log } = setupRun({
 		respond: async ({ onFirstEvent }) => {
 			if (onFirstEvent) {
@@ -201,14 +228,16 @@ test('runWriterBatches: a warm spawn that rate-limits after streaming stops the 
 		},
 	});
 
-	// 7 groups: one warm spawn, then two released batches of 5 and 1.
-	const { reports, parked } = await runWriterBatches({ run, groups: groupsOf(7), planContent: '# Plan' });
+	// One warm spawn, then more chains than there are slots — so some are still
+	// queued when the warm spawn's rate limit lands and parks the run.
+	const queued = 3;
+	const { reports, parked } = await runWriterBatches({ run, groups: groupsOf(testWriterConcurrency + queued + 1), planContent: '# Plan' });
 
 	expect(parked).toBe(true);
-	// the in-flight batch finished; the next one never started
-	expect(reports.length).toBe(5);
-	// the last group was never spawned
-	expect(log.includes('start:src/file6.ts')).toBeFalsy();
+	// every slot that had already opened ran to completion
+	expect(reports.length).toBe(testWriterConcurrency);
+	// nothing waiting for a slot was ever spawned
+	expect(log.includes(`start:src/file${testWriterConcurrency + queued}.ts`)).toBeFalsy();
 });
 
 test('runWriterBatches: complete, failed, and absent reports aggregate exactly as the step expects', async () => {
@@ -240,4 +269,130 @@ test('runWriterBatches: complete, failed, and absent reports aggregate exactly a
 	expect(failures.includes('src/file3.ts: terminated:ambiguity — unclear plan')).toBeTruthy();
 	// a termination status escalates, a plain failure does not
 	expect(terminated).toBe(true);
+});
+
+test('runWriterBatches: a warm spawn that rate-limits after streaming abandons the rest of its own cluster, not the others', async () => {
+	const { run, log } = setupRun({
+		respond: async ({ onFirstEvent }) => {
+			if (onFirstEvent) {
+				onFirstEvent();
+				await delay(20);
+
+				return rateLimitedOutcome();
+			}
+
+			return answered(workReport());
+		},
+	});
+	// The warm spawn IS the first cluster's first chunk, so its rate limit has
+	// to stop the chunk queued behind it — an unrelated cluster released by the
+	// same first event has nothing to do with that limit and still runs.
+	const groups: TestTargetGroup[] = [
+		{ subjects: ['src/a1.ts'], mustExecute: ['src/a1.ts'], cluster: '#a' },
+		{ subjects: ['src/a2.ts'], mustExecute: ['src/a2.ts'], cluster: '#a' },
+		{ subjects: ['src/b.ts'], mustExecute: ['src/b.ts'], cluster: '#b' },
+	];
+
+	const { reports, parked } = await runWriterBatches({ run, groups, planContent: '# Plan' });
+
+	expect(parked).toBe(true);
+	// the trailing chunk of the rate-limited cluster is never spawned
+	expect(log.includes('start:src/a2.ts')).toBeFalsy();
+	// the unrelated cluster ran and its report is kept
+	expect(log.includes('start:src/b.ts')).toBeTruthy();
+	expect(reports.length).toBe(1);
+});
+
+test('runWriterBatches: a warm spawn that fails without rate-limiting leaves the rest of its own cluster free to run', async () => {
+	const { run, log } = setupRun({
+		respond: async ({ onFirstEvent }) => {
+			if (onFirstEvent) {
+				onFirstEvent();
+
+				return { ok: false, failure: 'driver exploded', rateLimited: false };
+			}
+
+			return answered(workReport());
+		},
+	});
+	// Only a rate limit stops a cluster's chain. A plain failure is recorded
+	// and the chunk queued behind it still gets its writer.
+	const groups: TestTargetGroup[] = [
+		{ subjects: ['src/a1.ts'], mustExecute: ['src/a1.ts'], cluster: '#a' },
+		{ subjects: ['src/a2.ts'], mustExecute: ['src/a2.ts'], cluster: '#a' },
+	];
+
+	const { reports, failures, parked } = await runWriterBatches({ run, groups, planContent: '# Plan' });
+
+	// a plain failure never parks the run
+	expect(parked).toBe(false);
+	// the trailing chunk of the failed cluster still ran
+	expect(log.includes('start:src/a2.ts')).toBeTruthy();
+	// the failed warm spawn contributed no report, only a failure
+	expect(reports.length).toBe(1);
+	expect(failures).toStrictEqual(['src/a1.ts: driver exploded']);
+});
+
+test('runWriterBatches: a warm spawn whose driver throws surfaces the error instead of hanging on its first-event gate', async () => {
+	const { run } = setupRun({
+		respond: async ({ onFirstEvent }) => {
+			if (onFirstEvent) {
+				throw new Error('harness crashed');
+			}
+
+			return answered(workReport());
+		},
+	});
+
+	await expect(runWriterBatches({ run, groups: groupsOf(3), planContent: '# Plan' })).rejects.toThrow('harness crashed');
+});
+
+test('runWriterBatches: a rate limit inside one open slot stops the chains still queued behind it', async () => {
+	// The park comes from a released chain here, not the warm spawn.
+	const limited = 'src/file1.ts';
+	const { run, log } = setupRun({
+		respond: async ({ file, onFirstEvent }) => {
+			if (onFirstEvent) {
+				onFirstEvent();
+			}
+
+			await delay(file === limited ? 5 : 200);
+
+			return file === limited ? rateLimitedOutcome() : answered(workReport());
+		},
+	});
+
+	const queued = 3;
+	const { reports, failures, parked } = await runWriterBatches({ run, groups: groupsOf(testWriterConcurrency + queued + 1), planContent: '# Plan' });
+
+	expect(parked).toBe(true);
+	// a rate limit parks; it is never also a step failure
+	expect(failures).toStrictEqual([]);
+	// nothing waiting for a slot was ever spawned
+	expect(log.includes(`start:src/file${testWriterConcurrency + queued}.ts`)).toBeFalsy();
+	// the warm spawn plus every opened slot, minus the one that rate-limited
+	expect(reports.length).toBe(testWriterConcurrency);
+});
+
+test('runWriterBatches: the warm report is folded in exactly once however many slots settle after it', async () => {
+	// Every runner reaches the warm-collection point after the warm spawn settled.
+	const { run } = setupRun({
+		respond: async ({ onFirstEvent }) => {
+			if (onFirstEvent) {
+				onFirstEvent();
+
+				return answered(workReport({ summary: 'warm' }));
+			}
+
+			await delay(10);
+
+			return answered(workReport());
+		},
+	});
+
+	const { reports, parked } = await runWriterBatches({ run, groups: groupsOf(testWriterConcurrency + 1), planContent: '# Plan' });
+
+	expect(parked).toBe(false);
+	expect(reports.filter((report) => report.summary === 'warm').length).toBe(1);
+	expect(reports.length).toBe(testWriterConcurrency + 1);
 });

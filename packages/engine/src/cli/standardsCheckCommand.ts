@@ -1,28 +1,14 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { getStringFlag } from '@/cli/common/args/getStringFlag';
-import { printFindingGroups } from '@/cli/common/render/printFindingGroups';
-import { printStandardsRuleList } from '@/cli/common/render/printStandardsRuleList';
-import { printStandardsSummary } from '@/cli/common/render/printStandardsSummary';
-import { dim } from '@/cli/common/terminal/dim';
-import type { CommandContext } from '@/cli/common/types/CommandContext';
-import { exitCli } from '@/cli/common/utils/exitCli';
-import { loadStandardsLedger } from '@/cli/loadStandardsLedger';
-import { reviewStandards } from '@/cli/reviewStandards';
-import { type StandardsFinding, StandardsSeverity } from '@/contracts';
-import { runStandardsCheck } from '@/standardsCheck';
-
-const reportPath = '.lightsout/standards-check.json';
-
-/** The typed evidence file the refactor pipeline reads as its work-list, written once per run by the command that owns it. */
-const writeCheckReport = async ({ cwd, path, findings, notes }: { cwd: string; path?: string; findings: StandardsFinding[]; notes: string[] }) => {
-	await mkdir(join(cwd, '.lightsout'), { recursive: true });
-	await writeFile(
-		join(cwd, '.lightsout', 'standards-check.json'),
-		`${JSON.stringify({ at: new Date().toISOString(), path: path ?? '.', findings, notes }, undefined, '\t')}\n`,
-		'utf8',
-	);
-};
+import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+import { printFindingGroups } from '#src/cli/common/render/printFindingGroups.ts';
+import { printStandardsRuleList } from '#src/cli/common/render/printStandardsRuleList.ts';
+import { printStandardsSummary } from '#src/cli/common/render/printStandardsSummary.ts';
+import { dim } from '#src/cli/common/terminal/dim.ts';
+import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
+import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { loadStandardsLedger } from '#src/cli/loadStandardsLedger.ts';
+import { reviewStandards } from '#src/cli/reviewStandards.ts';
+import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
+import { runStandardsCheck, writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
 
 export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	// Both paths need the ledger: `--list` prints it whole, the run path reads
@@ -91,9 +77,9 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 	// leaves it exactly as the last real check left it rather than overwriting
 	// it with a judgment call.
 	if (runCodeChecks) {
-		await writeCheckReport({ cwd, path: checkPath, findings: ordered, notes });
+		await writeStandardsSnapshot({ cwd, snapshot: { at: new Date().toISOString(), path: checkPath ?? '.', findings: ordered, notes } });
 	}
 
-	printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? reportPath : undefined });
+	printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? '.lightsout/standards-check.json' : undefined });
 	return exitCli({ code: 0 });
 };

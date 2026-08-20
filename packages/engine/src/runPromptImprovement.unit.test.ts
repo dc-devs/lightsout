@@ -1,11 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { report } from '@tests/helpers/report';
-import { setupConsumerRepo } from '@tests/helpers/setupConsumerRepo';
-import { Effort } from '@/contracts';
-import type { Driver, DriverInvocation } from '@/drivers';
-import { runPromptImprovement } from '@/runPromptImprovement';
+import { Effort } from '#src/contracts/index.ts';
+import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
+import { runPromptImprovement } from '#src/runPromptImprovement.ts';
+import { report } from '#tests/helpers/report.ts';
+import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 const writeEngineRepo = () => {
 	const dir = setupConsumerRepo({ git: false });

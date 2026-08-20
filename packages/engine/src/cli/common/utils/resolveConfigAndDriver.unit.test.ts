@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { resolveConfigAndDriver } from '@/cli/common/utils/resolveConfigAndDriver';
+import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
 
 const setupConsumerDir = ({ config }: { config?: Record<string, unknown> } = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-cli-resolve-'));

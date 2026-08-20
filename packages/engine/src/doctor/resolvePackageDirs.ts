@@ -1,10 +1,10 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extractRunScriptName } from '@/common/utils/extractRunScriptName';
-import { resolvePackageManifest } from '@/common/utils/resolvePackageManifest';
-import type { LightsoutConfig } from '@/contracts';
-import type { DoctorCheck } from '@/doctor/common/types/DoctorCheck';
-import type { PackageDir } from '@/doctor/common/types/PackageDir';
+import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
+import { resolvePackageManifest } from '#src/common/utils/resolvePackageManifest.ts';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
+import type { PackageDir } from '#src/doctor/common/types/PackageDir.ts';
 
 interface Params {
 	cwd: string;

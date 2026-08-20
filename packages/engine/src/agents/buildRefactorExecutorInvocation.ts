@@ -1,7 +1,7 @@
-import { formatFindingSite } from '@/agents/formatFindingSite';
-import { formatFindingText } from '@/agents/formatFindingText';
-import refactorExecutorPrompt from '@/agents/prompts/refactorExecutor.md';
-import type { StandardsFinding } from '@/contracts';
+import { formatFindingSite } from '#src/agents/formatFindingSite.ts';
+import { formatFindingText } from '#src/agents/formatFindingText.ts';
+import refactorExecutorPrompt from '#src/agents/prompts/refactorExecutor.md';
+import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface Params {
 	planContent: string;

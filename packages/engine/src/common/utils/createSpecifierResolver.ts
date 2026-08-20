@@ -1,5 +1,5 @@
 import { posix } from 'node:path';
-import type { SpecifierResolver } from '@/common/types/SpecifierResolver';
+import type { SpecifierResolver } from '#src/common/types/SpecifierResolver.ts';
 
 interface Params {
 	/** Repo-relative files — the universe specifiers resolve against. */

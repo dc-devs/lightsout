@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { buildTestFileInput } from '@/standardsCheck/common/checkInputs/buildTestFileInput';
+import { buildTestFileInput } from '#src/standardsCheck/common/checkInputs/buildTestFileInput.ts';
 
 const setupRepo = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-test-file-'));

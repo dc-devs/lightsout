@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { messageOf } from '@/common/utils/messageOf';
+import { messageOf } from '#src/common/utils/messageOf.ts';
 
 describe('messageOf', () => {
 	test('an Error reports its message, not its stringified self', () => {

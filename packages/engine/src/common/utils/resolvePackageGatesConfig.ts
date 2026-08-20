@@ -1,4 +1,4 @@
-import type { PackageGates } from '@/contracts';
+import type { PackageGates } from '#src/contracts/index.ts';
 
 /** The kebab keys the scoped block fixes; anything else that made it through the schema is a custom `test-*` suite. */
 const fixedKeys = new Set(['check', 'test', 'test-coverage', 'build']);

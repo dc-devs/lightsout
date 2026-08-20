@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
-import { DedupResolution, type DedupVerdict } from '@/contracts';
-import type { PriorArtCandidate } from '@/plan/common/types/PriorArtCandidate';
-import { matchDedupVerdicts } from '@/plan/common/utils/matchDedupVerdicts';
+import { DedupResolution, type DedupVerdict } from '#src/contracts/index.ts';
+import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
+import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 
 const candidate = (overrides: Partial<PriorArtCandidate> = {}): PriorArtCandidate => ({
 	plannedSymbol: 'formatDate',

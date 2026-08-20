@@ -2,10 +2,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { captureCommandOutput } from '@tests/helpers/captureCommandOutput';
-import { reviewStandards } from '@/cli/reviewStandards';
-import type { LightsoutConfig, StandardsFinding } from '@/contracts';
-import type { Driver } from '@/drivers';
+import { reviewStandards } from '#src/cli/reviewStandards.ts';
+import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
+import type { Driver } from '#src/drivers/index.ts';
+import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
 // -------------------------
@@ -25,10 +25,10 @@ interface RunStandardsReviewParams {
 
 const mockRunStandardsReview = jest.fn<(params: RunStandardsReviewParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
 
-jest.mock('@/standardsCheck', () => ({
+jest.mock('#src/standardsCheck/index.ts', () => ({
 	runStandardsReview: (params: RunStandardsReviewParams) => mockRunStandardsReview(params),
 }));
-jest.mock('@/standardsPackages', () => ({ resolveStandardsPackages: async () => [] }));
+jest.mock('#src/standardsPackages/index.ts', () => ({ resolveStandardsPackages: async () => [] }));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };

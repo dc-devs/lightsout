@@ -1,6 +1,6 @@
-import type { LightsoutConfig } from '@/contracts';
-import type { ResolvedRuleState } from '@/standardsCheck/common/types/ResolvedRuleState';
-import type { LoadedStandardsPackage } from '@/standardsPackages';
+import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
+import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 
 interface Params {
 	packages: LoadedStandardsPackage[];
