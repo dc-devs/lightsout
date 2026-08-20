@@ -144,3 +144,21 @@ test('buildUnitTestWriterInvocation: empty lists emit their headers with no bull
 	// own bullets, so only the region above them is inspected
 	expect(prompt.slice(0, prompt.indexOf('Rules for this assignment:')).includes('\n- ')).toBeFalsy();
 });
+
+test('buildUnitTestWriterInvocation: the command ban names what is banned and leaves file access open — a harness whose only file access is a shell must not read it as "touch nothing"', () => {
+	const { systemPrompt } = buildUnitTestWriterInvocation(soloParams);
+	// the prompt wraps its lines; the sentences are what matter
+	const prose = systemPrompt.replace(/\s+/g, ' ');
+
+	// verification and environment changes stay the engine's alone
+	expect(prose).toContain(
+		'Do not run builds, tests, linters, formatters, package-manager commands, Git commands, network commands, or any other verification or environment-changing command',
+	);
+	// file inspection and editing are explicitly allowed, by whatever tooling the harness has
+	expect(prose).toContain("Use the harness's file tools to read");
+	expect(prose).toContain(
+		'If the harness exposes the filesystem only through a shell, use the shell solely to inspect and edit files — never for repository commands.',
+	);
+	// the old blanket ban is gone — on Codex it read as "you cannot read or edit files"
+	expect(prose).not.toContain('Do not run shell commands');
+});

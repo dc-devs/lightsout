@@ -35,6 +35,22 @@ describe('readPlanSources', () => {
 		expect(sources).toStrictEqual({ planContent: '# Phase 1\n', overviewContent: '# Overview\n' });
 	});
 
+	test('an absolute plan path is read where it points, not glued onto the repo root', async () => {
+		const { cwd } = setupRepo({ files: { 'plans/demo/plan.md': '# Plan\nabsolute\n' } });
+
+		const sources = await readPlanSources({ cwd, plan: join(cwd, 'plans', 'demo', 'plan.md') });
+
+		expect(sources).toStrictEqual({ planContent: '# Plan\nabsolute\n' });
+	});
+
+	test('an absolute overview path is read where it points too', async () => {
+		const { cwd } = setupRepo({ files: { 'plans/demo/phase1.md': '# Phase 1\n', 'plans/demo/overview.md': '# Overview\n' } });
+
+		const sources = await readPlanSources({ cwd, plan: 'plans/demo/phase1.md', overview: join(cwd, 'plans', 'demo', 'overview.md') });
+
+		expect(sources).toStrictEqual({ planContent: '# Phase 1\n', overviewContent: '# Overview\n' });
+	});
+
 	test('an unreadable plan fails rather than spawning agents with nothing to implement', async () => {
 		const { cwd } = setupRepo();
 

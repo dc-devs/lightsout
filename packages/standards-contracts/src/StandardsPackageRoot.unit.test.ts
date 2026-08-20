@@ -32,6 +32,30 @@ describe('StandardsPackageRoot', () => {
 		expect(parsed.name).toBe('acme/house-rules');
 	});
 
+	test('an authored root carries no built marker — its absence is what says the fixtures are still there', () => {
+		const { root } = setupRoot();
+
+		const parsed = StandardsPackageRoot.parse(root);
+
+		expect(parsed.built).toBeUndefined();
+	});
+
+	test('a built root carries the marker the bundler stamps, so validate can tell the artifact from the source', () => {
+		const { root } = setupRoot({ extra: { built: true } });
+
+		const parsed = StandardsPackageRoot.parse(root);
+
+		expect(parsed).toStrictEqual({ name: 'lightsout defaults', formatVersion: 1, built: true });
+	});
+
+	test('rejects a root claiming it was not built — the marker is stamped or absent, never argued with', () => {
+		const { root } = setupRoot({ extra: { built: false } });
+
+		const result = StandardsPackageRoot.safeParse(root);
+
+		expect(result.success).toBe(false);
+	});
+
 	test('keys the contract does not declare are kept out of the parsed root rather than refused', () => {
 		const { root } = setupRoot({ extra: { description: 'the bundled defaults', channels: ['react'] } });
 

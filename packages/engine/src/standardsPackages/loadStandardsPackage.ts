@@ -132,6 +132,7 @@ export const loadStandardsPackage = async ({ packagePath }: Params): Promise<Loa
 	return {
 		name: root.data.name,
 		formatVersion: root.data.formatVersion,
+		built: root.data.built,
 		rootPath: packagePath,
 		documents,
 		rules,

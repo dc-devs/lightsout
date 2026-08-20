@@ -91,19 +91,22 @@ describe('reviewStandards', () => {
 		expect(reviewParams()?.files).toStrictEqual(['src/index.ts']);
 	});
 
-	test("the runner's progress reaches the terminal as it reports it", async () => {
+	test("the runner's progress reaches the caller as it reports it — the caller decides how it is shown", async () => {
 		const cwd = setupRepo();
 		const { logged } = captureCommandOutput();
+		const progress: string[] = [];
 
 		mockRunStandardsReview.mockImplementation(async ({ onProgress }) => {
-			onProgress?.('reviewing 4 judgment rule(s) over 12 file(s)');
+			onProgress?.('reading 4 judgment rule(s) against 12 file(s)');
 
 			return { findings: [], notes: [] };
 		});
 
-		await reviewStandards({ cwd });
+		await reviewStandards({ cwd, onProgress: (message) => progress.push(message) });
 
-		expect(logged).toStrictEqual(['reviewing 4 judgment rule(s) over 12 file(s)']);
+		expect(progress).toStrictEqual(['reading 4 judgment rule(s) against 12 file(s)']);
+		// nothing is printed here: presentation belongs to the command
+		expect(logged).toStrictEqual([]);
 	});
 
 	test("the runner's answer comes back whole — findings and notes alike", async () => {

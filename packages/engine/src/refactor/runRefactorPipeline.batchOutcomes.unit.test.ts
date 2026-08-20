@@ -10,6 +10,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -29,8 +30,8 @@ const splitFile = ({ dir, file, first, second }: { dir: string; file: string; fi
 const setupTwoFindingBatch = async () => {
 	const dir = setupConsumerRepo();
 
-	writeFileSync(join(dir, 'src/one.ts'), 'export const alphaOne = 1;\nexport const betaOne = 2;\n');
-	writeFileSync(join(dir, 'src/two.ts'), 'export const alphaTwo = 1;\nexport const betaTwo = 2;\n');
+	writeSource({ dir, path: 'src/one.ts', source: 'export const alphaOne = 1;\nexport const betaOne = 2;\n' });
+	writeSource({ dir, path: 'src/two.ts', source: 'export const alphaTwo = 1;\nexport const betaTwo = 2;\n' });
 	commitAll(dir);
 
 	const prompts: string[] = [];
@@ -47,7 +48,7 @@ const setupTwoBatchRun = async () => {
 
 	for (const folder of ['alpha', 'beta']) {
 		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
+		writeSource({ dir, path: `${folder}/multi.ts`, source: multiExport });
 	}
 
 	commitAll(dir);
@@ -63,7 +64,7 @@ const setupTwoBatchRun = async () => {
 const setupRedGateBatch = async () => {
 	const dir = setupConsumerRepo({ scripts: { check: 'test ! -f broken.flag' } });
 
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 	commitAll(dir);
 
 	const prompts: string[] = [];
@@ -214,7 +215,7 @@ describe('runRefactorPipeline batch outcomes', () => {
 	test('an invocation that produces no report and no verifiable work fails the run', async () => {
 		const dir = setupConsumerRepo();
 
-		writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+		writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 		commitAll(dir);
 
 		const driver: Driver = {
@@ -240,7 +241,7 @@ describe('runRefactorPipeline batch outcomes', () => {
 		test(`a '${status}' batch report stops the run as ${expected}`, async () => {
 			const dir = setupConsumerRepo();
 
-			writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+			writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 			commitAll(dir);
 
 			const driver: Driver = {

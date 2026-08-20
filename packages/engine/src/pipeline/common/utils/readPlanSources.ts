@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 
 interface Params {
 	cwd: string;
-	/** Repo-relative plan path, as the manifest recorded it. */
+	/** Plan path as the manifest recorded it — repo-relative by contract; an absolute one from an older record still reads. */
 	plan: string;
-	/** Repo-relative overview path for a phased plan. Absent for a single plan. */
+	/** Overview path for a phased plan, the same way. Absent for a single plan. */
 	overview?: string;
 }
 
@@ -19,7 +19,9 @@ interface Params {
  * the manifest says there is one.
  */
 export const readPlanSources = async ({ cwd, plan, overview }: Params): Promise<{ planContent: string; overviewContent?: string } | { error: string }> => {
-	const planPath = join(cwd, plan);
+	// resolve, not join: a relative record is read under the repo, and an
+	// absolute one is read where it points instead of being glued onto the repo.
+	const planPath = resolve(cwd, plan);
 	const planContent = await readFile(planPath, 'utf8').catch(() => undefined);
 
 	if (planContent === undefined) {
@@ -30,7 +32,7 @@ export const readPlanSources = async ({ cwd, plan, overview }: Params): Promise<
 		return { planContent };
 	}
 
-	const overviewPath = join(cwd, overview);
+	const overviewPath = resolve(cwd, overview);
 	const overviewContent = await readFile(overviewPath, 'utf8').catch(() => undefined);
 
 	if (overviewContent === undefined) {

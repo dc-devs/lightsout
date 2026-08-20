@@ -10,6 +10,7 @@ import { readRunManifest } from '#src/runState/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 test('nested consumer: agent-reported repo-root-relative paths normalize to consumer-relative — no duplicate identities', async () => {
 	// The consumer sits INSIDE a larger git repo (like a fixture or a
@@ -19,7 +20,7 @@ test('nested consumer: agent-reported repo-root-relative paths normalize to cons
 	const dir = join(root, 'consumer');
 
 	mkdirSync(join(dir, 'src'), { recursive: true });
-	writeFileSync(join(dir, 'src/index.js'), 'export const one = 1;\n');
+	writeSource({ dir, path: 'src/index.js', source: 'export const one = 1;\n' });
 	writeFileSync(join(dir, 'plan.md'), '# Plan: add feature\n');
 	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));
 	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: root });
@@ -49,7 +50,7 @@ test('nested consumer: agent-reported repo-root-relative paths normalize to cons
 
 			// The agent writes the file correctly but echoes the git-ROOT-relative
 			// path in its report (observed live) — git-truth says src/feature.js.
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'consumer/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},
@@ -58,12 +59,13 @@ test('nested consumer: agent-reported repo-root-relative paths normalize to cons
 	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
-	// one real changed file — one writer, not two
-	expect(writerCount).toBe(1);
+	// one real module and the caller wiring it in — two writers, not three: the
+	// repo-root-relative path the agent reported is the same file, not another
+	expect(writerCount).toBe(2);
 
 	const manifest = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
 	const sourceChanges = manifest.changedFiles.filter((file) => file.startsWith('src/') || file.startsWith('consumer/'));
 
-	// one consumer-relative identity, no repo-root duplicate
-	expect(sourceChanges).toStrictEqual(['src/feature.js']);
+	// one consumer-relative identity per file, no repo-root duplicate
+	expect(sourceChanges).toStrictEqual(['src/feature.js', 'src/useFeature.js']);
 });

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 interface Params {
 	plan?: string;
@@ -23,7 +24,8 @@ export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: ap
 	] as const) {
 		mkdirSync(join(dir, 'packages', pkgDir, 'src'), { recursive: true });
 		writeFileSync(join(dir, 'packages', pkgDir, 'package.json'), JSON.stringify({ name: pkgName }));
-		writeFileSync(join(dir, 'packages', pkgDir, 'src/index.js'), 'export const one = 1;\n');
+		// each package is its own program: an entry that consumes the module beside it
+		writeSource({ dir, path: `packages/${pkgDir}/src/index.js`, source: 'export const one = 1;\n' });
 	}
 
 	writeFileSync(join(dir, 'plan.md'), plan);

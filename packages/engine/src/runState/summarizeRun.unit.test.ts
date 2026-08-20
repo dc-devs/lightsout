@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const usage = {
 	inputTokens: 10,
@@ -44,7 +45,7 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 				};
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage };
 		},
@@ -78,7 +79,8 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 	expect(implement?.costUsd).toBe(0.5);
 
 	expect(writeTests?.changedFiles).toStrictEqual(['test.feature.test.js']);
-	expect(writeTests?.invocations).toBe(1);
+	// one writer per changed file: the module and the caller wiring it in
+	expect(writeTests?.invocations).toBe(2);
 
 	// The refactor loop reported zero changes on its first pass — attributed
 	// as an explicit empty list, distinct from steps that never change files.

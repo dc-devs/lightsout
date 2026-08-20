@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // The standards gate: findings feed the refactor prompt, declines are judged
 // by whether the gating set changed, and the config switch is honored.
@@ -48,7 +49,7 @@ test('standards gate: findings feed the refactor prompt; a fixing pass clears th
 			}
 
 			// Implement plants a multi-export violation — the standards gate's target.
-			writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
+			writeSource({ dir, path: 'src/messy.js', source: 'export const first = () => 1;\nexport const second = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/messy.js', summary: 'feature' }] }), exitCode: 0 };
 		},
@@ -105,7 +106,7 @@ test('standards gate: two identical declined passes escalate early — the third
 				};
 			}
 
-			writeFileSync(join(dir, 'src/messy.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
+			writeSource({ dir, path: 'src/messy.js', source: 'export const first = () => 1;\nexport const second = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/messy.js', summary: 'feature' }] }), exitCode: 0 };
 		},
@@ -156,15 +157,15 @@ test('standards gate: a declined pass that still CHANGED the gating set earns th
 				// reporting zero changes — the gating set shrinks, so the
 				// early-exit must NOT fire; passes 2 and 3 decline identically.
 				if (refactorInvocations === 1) {
-					writeFileSync(join(dir, 'src/alpha.js'), 'export const first = () => 1;\n');
+					writeSource({ dir, path: 'src/alpha.js', source: 'export const first = () => 1;\n' });
 				}
 
 				return { text: report(), exitCode: 0 };
 			}
 
 			// Implement plants two violations in two files (two distinct clusters).
-			writeFileSync(join(dir, 'src/alpha.js'), 'export const first = () => 1;\nexport const second = () => 2;\n');
-			writeFileSync(join(dir, 'src/beta.js'), 'export const third = () => 3;\nexport const fourth = () => 4;\n');
+			writeSource({ dir, path: 'src/alpha.js', source: 'export const first = () => 1;\nexport const second = () => 2;\n' });
+			writeSource({ dir, path: 'src/beta.js', source: 'export const third = () => 3;\nexport const fourth = () => 4;\n' });
 
 			return {
 				text: report({

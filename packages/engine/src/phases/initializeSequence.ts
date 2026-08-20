@@ -1,5 +1,6 @@
 import { access, readFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
+import { toRepoRelativePath } from '#src/common/utils/toRepoRelativePath.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus, type StepRecord } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { findUnfinishedSequence } from '#src/phases/findUnfinishedSequence.ts';
@@ -92,7 +93,9 @@ export const initializeSequence = async ({ cwd, driver, config, overviewPath, st
 		throw new Error('a fresh phased run needs an overview path');
 	}
 
-	const overview = relative(cwd, resolve(cwd, overviewPath));
+	// The relative form up front, not only in the record: the phase-file checks
+	// and the unfinished-sequence guard below all read it.
+	const overview = toRepoRelativePath({ cwd, path: overviewPath });
 	const phases = await getPhaseFiles({ cwd, overview });
 	const firstPhase = startPhase ?? 1;
 

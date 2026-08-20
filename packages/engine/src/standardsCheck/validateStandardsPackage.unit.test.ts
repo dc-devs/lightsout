@@ -72,8 +72,8 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPa
 	...overrides,
 });
 
-const validate = ({ rules }: { rules: LoadedStandardsRule[] }) => {
-	const pkg: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
+const validate = ({ rules, built }: { rules: LoadedStandardsRule[]; built?: true }) => {
+	const pkg: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, built, rootPath: '/packages/acme', documents: [], rules };
 
 	return validateStandardsPackage({ pkg });
 };
@@ -108,6 +108,25 @@ describe('validateStandardsPackage', () => {
 		});
 
 		expect(problems).toStrictEqual(['no-banned-file: the pass fixture produced 1 finding(s) — the check flags code the rule allows']);
+	});
+
+	test('a built package is one problem about the package, not a missing pair charged to every rule it holds', async () => {
+		const { fixturesPath } = setupWithoutFixtures();
+
+		const { problems, notes } = await validate({
+			built: true,
+			rules: [
+				rule({ id: 'no-banned-file', fixturesPath, inputKind: StandardsInputKind.FileList, run: bansTheBannedFile }),
+				rule({ id: 'premature-abstraction', fixturesPath }),
+			],
+		});
+
+		// two rules, both stripped, and neither named: the build took the fixtures,
+		// so there is nothing here either author could have done differently
+		expect(problems).toStrictEqual([
+			'acme is a built package — its fixtures were left behind when it was built, so there is nothing here to validate. Point --package at the authored source.',
+		]);
+		expect(notes).toStrictEqual([]);
 	});
 
 	test('a rule shipping no fixtures is a problem here — the requirement authoring enforces, not loading', async () => {

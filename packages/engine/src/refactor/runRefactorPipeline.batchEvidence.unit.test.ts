@@ -9,6 +9,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -21,8 +22,8 @@ const prose = 'Split the file — see the diff. (no JSON from me)';
 
 /** Split the fixture's multi-export file: the edit that resolves the finding. */
 const splitMulti = ({ dir }: { dir: string }) => {
-	writeFileSync(join(dir, 'src/multi.ts'), 'export const alphaThing = 1;\n');
-	writeFileSync(join(dir, 'src/betaThing.ts'), 'export const betaThing = 2;\n');
+	writeSource({ dir, path: 'src/multi.ts', source: 'export const alphaThing = 1;\n' });
+	writeSource({ dir, path: 'src/betaThing.ts', source: 'export const betaThing = 2;\n' });
 };
 
 /**
@@ -33,7 +34,7 @@ const splitMulti = ({ dir }: { dir: string }) => {
 const setupBatchRun = async ({ config, invoke }: { config?: Record<string, unknown>; invoke: (repo: string) => Driver['invoke'] }) => {
 	const dir = setupConsumerRepo({ config });
 
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
 	const driver: Driver = { name: 'stub', invoke: invoke(dir) };
@@ -182,7 +183,7 @@ describe('runRefactorPipeline batch evidence', () => {
 		expect(result.ok).toBe(true);
 		// the forgotten file is still the batch’s doing — agents can forget, git
 		// cannot be sweet-talked
-		expect([...result.manifest.changedFiles].sort()).toStrictEqual(['src/betaThing.ts', 'src/multi.ts']);
+		expect([...result.manifest.changedFiles].sort()).toStrictEqual(['src/betaThing.ts', 'src/multi.ts', 'src/useBetaThing.ts', 'src/useMulti.ts']);
 	});
 
 	test('keeps generated output out of a batch’s changed files', async () => {
@@ -207,6 +208,6 @@ describe('runRefactorPipeline batch evidence', () => {
 
 		expect(result.ok).toBe(true);
 		// build output the run happened to produce is not work the human must review
-		expect([...result.manifest.changedFiles].sort()).toStrictEqual(['src/betaThing.ts', 'src/multi.ts']);
+		expect([...result.manifest.changedFiles].sort()).toStrictEqual(['src/betaThing.ts', 'src/multi.ts', 'src/useBetaThing.ts', 'src/useMulti.ts']);
 	});
 });

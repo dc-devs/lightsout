@@ -11,6 +11,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const stubUsage = (outputTokens: number) => ({
 	inputTokens: 10,
@@ -173,7 +174,7 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 				return { text: report(), exitCode: 0, usage: stubUsage(300) };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir: dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage: stubUsage(100) };
 		},
@@ -191,21 +192,22 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 
 	expect(result.ok).toBe(true);
 
-	// implement + 1 test writer + refactor = 3 invocations
+	// implement + 2 test writers (the module and its caller) + refactor = 4 invocations
 	const ledger = readFileSync(join(dir, '.lightsout', 'runs', result.manifest.runId, 'agents.jsonl'), 'utf8')
 		.trim()
 		.split('\n')
 		.map((line) => JSON.parse(line) as Record<string, unknown>);
 
-	expect(ledger.length).toBe(3);
-	expect(ledger.map((record) => record.step)).toStrictEqual(['implement', 'write-tests', 'refactor']);
+	expect(ledger.length).toBe(4);
+	expect(ledger.map((record) => record.step)).toStrictEqual(['implement', 'write-tests', 'write-tests', 'refactor']);
 	expect(ledger[0].outputTokens).toBe(100);
 
-	expect(result.manifest.usage?.invocations).toBe(3);
-	expect(result.manifest.usage?.outputTokens).toBe(600);
-	expect(result.manifest.usage?.inputTokens).toBe(30);
-	expect(result.manifest.usage?.cacheReadTokens).toBe(3000);
-	expect(result.manifest.usage?.costUsd).toBe(1.5);
+	// implement 100 + two writers at 200 + refactor 300
+	expect(result.manifest.usage?.invocations).toBe(4);
+	expect(result.manifest.usage?.outputTokens).toBe(800);
+	expect(result.manifest.usage?.inputTokens).toBe(40);
+	expect(result.manifest.usage?.cacheReadTokens).toBe(4000);
+	expect(result.manifest.usage?.costUsd).toBe(2);
 
 	// usage narrated:\n${progressLines.filter((line) =>
 	// line.includes('usage')).join('\n')}
@@ -234,7 +236,7 @@ test('a driver reporting no usage leaves no ledger and no manifest aggregate', a
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir: dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},

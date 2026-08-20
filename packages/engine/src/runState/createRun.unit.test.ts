@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { createRun, getRunDir, readRunManifest } from '#src/runState/index.ts';
@@ -84,6 +85,32 @@ describe('createRun', () => {
 		expect(manifest.pipeline).toBe('refactor');
 		// the driver is persisted as the harness a resume must reuse
 		expect(manifest.harness).toBe('codex');
+	});
+
+	test('records an absolute plan path relative to the repo — the same plan however the caller named it', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: join(cwd, 'plans', 'demo', 'plan.md'), driver: 'stub' });
+
+		// every reader joins the record onto the repo; an absolute record would be
+		// joined too, and read back as a missing plan
+		expect(manifest.plan).toBe(join('plans', 'demo', 'plan.md'));
+	});
+
+	test('records an absolute overview path relative to the repo the same way', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: 'plans/demo/phase1.md', overview: join(cwd, 'plans', 'demo', 'overview.md'), driver: 'stub' });
+
+		expect(manifest.overview).toBe(join('plans', 'demo', 'overview.md'));
+	});
+
+	test('keeps a relative plan path exactly as the caller named it', async () => {
+		const { cwd } = setupRepo();
+
+		const manifest = await createRun({ cwd, plan: join('plans', 'demo', 'plan.md'), driver: 'stub' });
+
+		expect(manifest.plan).toBe(join('plans', 'demo', 'plan.md'));
 	});
 
 	test('leaves the optional routing fields unset when the caller omits them', async () => {

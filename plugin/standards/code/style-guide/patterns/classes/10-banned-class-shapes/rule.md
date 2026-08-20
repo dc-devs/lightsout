@@ -1,7 +1,7 @@
 ---
 summary: "a class that is only static members, or one stateless method"
 checked: true
-severity: advisory
+severity: blocking
 ---
 
 **Banned:**

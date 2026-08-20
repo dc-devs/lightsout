@@ -15,6 +15,11 @@ interface Params {
  * A repo with a planted tier-0 synonym pair split across two folders, and no
  * node_modules — so the compiler-gated tiers degrade to a note, which is the
  * other rendering path `standards-check` owns.
+ *
+ * Both halves of the pair are consumed by an entry point that exports nothing,
+ * so the only thing wrong with this repo is the synonym: an unconsumed export
+ * is its own blocking verdict, and one planted here would arrive as work the
+ * fixture never meant to plant.
  */
 export const seedStandardsFixture = async ({ baseline = false, config }: Params = {}): Promise<{ cwd: string }> => {
 	const cwd = config ? await seedConfiguredCwd({ config }) : await freshCwd();
@@ -23,6 +28,11 @@ export const seedStandardsFixture = async ({ baseline = false, config }: Params 
 	await mkdir(join(cwd, 'src', 'b'), { recursive: true });
 	await writeFile(join(cwd, 'src', 'a', 'getUserData.ts'), 'export const getUserData = () => 1;\n', 'utf8');
 	await writeFile(join(cwd, 'src', 'b', 'fetchUserData.ts'), 'export const fetchUserData = () => 2;\n', 'utf8');
+	await writeFile(
+		join(cwd, 'src', 'app.ts'),
+		"import { getUserData } from './a/getUserData.ts';\nimport { fetchUserData } from './b/fetchUserData.ts';\n\nconsole.log(getUserData, fetchUserData);\n",
+		'utf8',
+	);
 
 	if (baseline) {
 		await runCli({ args: ['standards-check', '--code-checks', '--baseline', '--cwd', cwd] });

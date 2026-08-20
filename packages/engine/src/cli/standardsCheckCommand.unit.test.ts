@@ -38,6 +38,7 @@ interface ReviewStandardsParams {
 	cwd: string;
 	config?: LightsoutConfig;
 	path?: string;
+	onProgress?: (message: string) => void;
 }
 
 const mockReviewStandards = jest.fn<(params: ReviewStandardsParams) => Promise<{ findings: StandardsFinding[]; notes: string[] }>>();
@@ -120,8 +121,8 @@ const setupRuleList = ({ cwd, rules = [listing()] }: { cwd: string; rules?: Stan
 	return { context: { flags: parseFlags({ args: ['--list'] }), rest: [], cwd }, ...captured };
 };
 
-/** The group headings the renderer printed, in the order they were printed. */
-const headingsOf = ({ logged }: { logged: string[] }) => logged.filter((line) => line.includes(' · '));
+/** The finding-group headings the renderer printed, in the order they were printed — the section headings carry no icon. */
+const headingsOf = ({ logged }: { logged: string[] }) => logged.filter((line) => /^[⚠ℹ] /.test(line));
 
 /** The printed table's rows, cell by cell. */
 const cellsOf = ({ logged }: { logged: string[] }) =>
@@ -202,22 +203,6 @@ describe('standardsCheckCommand', () => {
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(checkParams()).toEqual(expect.objectContaining({ path: undefined }));
-	});
-
-	test('progress reaches the terminal as the check reports it, ahead of any result', async () => {
-		const { context, logged } = setupCheck({ check: { progress: ['checking 12 source file(s)', 'tier 0 (names): done'], findings: [finding()] } });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged.slice(0, 2)).toStrictEqual(['checking 12 source file(s)', 'tier 0 (names): done']);
-	});
-
-	test("the check's notes are printed under their own marker", async () => {
-		const { context, logged } = setupCheck({ check: { findings: [finding()], notes: ['3 site(s) held back by the baseline'] } });
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		expect(logged).toContain('ℹ 3 site(s) held back by the baseline');
 	});
 
 	test('a clean repo with nothing to note prints the clean line and no note block', async () => {
@@ -309,7 +294,7 @@ describe('standardsCheckCommand', () => {
 		expect(params?.path).toBe('src');
 	});
 
-	test('review findings join the same stream, printed after the blocking work', async () => {
+	test('review findings join the same stream, printed under their own section after the code checks have already reported', async () => {
 		const { context, logged } = setupCheck({
 			args: [],
 			check: { findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })] },
@@ -319,19 +304,9 @@ describe('standardsCheckCommand', () => {
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
 		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 blocking', 'ℹ path-aliases · 1 advisory']);
-	});
-
-	test("the review's skip note prints under the same marker the check's notes use", async () => {
-		const { context, logged } = setupCheck({
-			args: ['--agent-review'],
-			review: { notes: ['agent review skipped — agent invocation failed: spawn claude ENOENT'] },
-		});
-
-		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
-
-		// a missing harness is a plain statement, never a failure
-		expect(logged).toContain('ℹ agent review skipped — agent invocation failed: spawn claude ENOENT');
-		expect(logged.some((line) => line.includes('clean — nothing blocking'))).toBe(true);
+		// the fast half's answer is on screen before the slow half starts — a
+		// reader waiting on the agent already has the deterministic result
+		expect(logged.indexOf('⚠ clone · 1 blocking')).toBeLessThan(logged.indexOf('Agent review'));
 	});
 
 	test('a finding spanning several files lists every site, then wraps its detail and its guidance underneath', async () => {

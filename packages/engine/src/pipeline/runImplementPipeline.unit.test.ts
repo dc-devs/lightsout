@@ -11,6 +11,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const countLog = (dir: string, file: string) => {
 	try {
@@ -63,7 +64,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 				refactorPass += 1;
 
 				if (refactorPass === 1) {
-					writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 3;\n');
+					writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 3;\n' });
 
 					return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'tidied' }] }), exitCode: 0 };
 				}
@@ -73,8 +74,8 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 
 			// Implement: write two JS files but report only one — git must catch
 			// the second — plus a .tf that must earn no agent turns.
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
-			writeFileSync(join(dir, 'src/helper.js'), 'export const helper = () => 1;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+			writeSource({ dir, path: 'src/helper.js', source: 'export const helper = () => 1;\n' });
 			writeFileSync(join(dir, 'src/infra.tf'), 'resource "x" "y" {}\n');
 
 			return {
@@ -110,8 +111,9 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	expect(result.manifest.baselineDirtyFiles.includes('scratch.txt')).toBeTruthy();
 	// gate artifacts and run state never attributed
 	expect(result.manifest.changedFiles.some((file) => file === 'cov.log' || file === 'fmt.log' || file.startsWith('.lightsout/'))).toBeFalsy();
-	// one writer per JS/TS file — the .tf earned no writer
-	expect(prompts['write-tests']?.length).toBe(2);
+	// one writer per JS/TS file — two modules and the two callers wiring them in;
+	// the .tf earned no writer
+	expect(prompts['write-tests']?.length).toBe(4);
 	// each writer got exactly one file — the same lone file under both the
 	// subjects and must-execute headers (rules bullets carry spaces, so the
 	// single-token match reads back only file bullets)
@@ -154,7 +156,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	// No consumer TypeScript in this repo → grouping degrades to one file per group.
 	// writer fan-out announced
 	expect(
-		progress.some((line) => line.includes(`2 group(s): 2 subject(s) covering 2 changed file(s), up to ${testWriterConcurrency} writers in parallel`)),
+		progress.some((line) => line.includes(`4 group(s): 4 subject(s) covering 4 changed file(s), up to ${testWriterConcurrency} writers in parallel`)),
 	).toBeTruthy();
 	// refactor loop end announced
 	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
@@ -179,7 +181,7 @@ test('non-git directory degrades to agent-reported files', async () => {
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},
@@ -199,7 +201,7 @@ test('friction lands in friction.jsonl with run/step provenance; decisions keep 
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return {
 				text: report({
@@ -326,7 +328,7 @@ test('--skip-refactor omits the refactor steps; absent format command is skipped
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},

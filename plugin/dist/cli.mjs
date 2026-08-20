@@ -8015,7 +8015,7 @@ usage:
 
 // src/cli/common/utils/exitCli.ts
 var exitCli = async ({ code }) => {
-  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve8) => stream.write("", () => resolve8()))));
+  await Promise.all([process.stdout, process.stderr].map((stream) => new Promise((resolve9) => stream.write("", () => resolve9()))));
   return process.exit(code);
 };
 
@@ -8105,7 +8105,7 @@ var killProcessGroup = ({ child, signal }) => {
 
 // src/common/utils/terminateChildGroups.ts
 var settled = ({ child }) => child.exitCode !== null || child.signalCode !== null;
-var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve8) => child.once("exit", () => resolve8()));
+var exited = ({ child }) => settled({ child }) ? Promise.resolve() : new Promise((resolve9) => child.once("exit", () => resolve9()));
 var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
   const targets = [...children];
   for (const child of targets) {
@@ -8117,8 +8117,8 @@ var terminateChildGroups = async ({ children, graceMs = killGraceMs }) => {
   let grace;
   await Promise.race([
     Promise.all(targets.map((child) => exited({ child }))),
-    new Promise((resolve8) => {
-      grace = setTimeout(resolve8, graceMs);
+    new Promise((resolve9) => {
+      grace = setTimeout(resolve9, graceMs);
     })
   ]);
   clearTimeout(grace);
@@ -8175,7 +8175,7 @@ var relayShutdownSignals = ({ child }) => {
 
 // src/common/utils/collectChildOutput.ts
 var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
-  return new Promise((resolve8, reject) => {
+  return new Promise((resolve9, reject) => {
     let stdout = "";
     let stderr = "";
     let lineBuffer = "";
@@ -8218,7 +8218,7 @@ var collectChildOutput = ({ child, timeout, onStdoutLine }) => {
       clearTimeout(timer);
       stopRelay();
       emitLines({ text: "", flush: true });
-      resolve8({ exitCode: code ?? -1, stdout, stderr });
+      resolve9({ exitCode: code ?? -1, stdout, stderr });
     });
   });
 };
@@ -23005,7 +23005,16 @@ var StandardsCheckModule = external_exports.object({
 var StandardsPackageRoot = external_exports.object({
   /** Names the package in the assembled documents' header lines. */
   name: external_exports.string().min(1),
-  formatVersion: external_exports.literal(1)
+  formatVersion: external_exports.literal(1),
+  /**
+   * Stamped by the bundler on a built package, and absent from every authored
+   * one. Building leaves the fixture pairs and unit tests behind — they prove
+   * the package rather than run it — so a built package cannot answer the
+   * question `lightsout standards-validate` asks. Without this, that command
+   * reads every stripped fixture as a rule its author forgot, and reports a
+   * fault in each of them instead of one fact about the package.
+   */
+  built: external_exports.literal(true).optional()
 });
 
 // ../standards-contracts/src/StandardsSet.ts
@@ -24375,6 +24384,10 @@ var readJsonlRecords = async ({ path, schema }) => {
 import { randomUUID } from "node:crypto";
 import { mkdir as mkdir4 } from "node:fs/promises";
 
+// src/common/utils/toRepoRelativePath.ts
+import { relative, resolve } from "node:path";
+var toRepoRelativePath = ({ cwd, path }) => relative(cwd, resolve(cwd, path));
+
 // src/runState/writeRunManifest.ts
 import { rename, writeFile as writeFile2 } from "node:fs/promises";
 
@@ -24402,9 +24415,9 @@ var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: c
     runId: runId ?? randomUUID(),
     createdAt: now,
     updatedAt: now,
-    plan,
+    plan: toRepoRelativePath({ cwd, path: plan }),
     pipeline,
-    overview,
+    overview: overview === void 0 ? void 0 : toRepoRelativePath({ cwd, path: overview }),
     harness: driver,
     config: config2,
     status: RunStatus.Pending,
@@ -24819,16 +24832,16 @@ var resolveCommandHarness = ({ config: config2, command }) => {
 
 // src/cli/common/utils/resolvePlanTarget.ts
 import { stat as stat3 } from "node:fs/promises";
-import { join as join16, resolve } from "node:path";
+import { join as join16, resolve as resolve2 } from "node:path";
 var resolvePlanTarget = async ({ cwd, planPath }) => {
-  const isDirectory = await stat3(resolve(cwd, planPath)).then(
+  const isDirectory = await stat3(resolve2(cwd, planPath)).then(
     (entry) => entry.isDirectory(),
     () => false
   );
   if (!isDirectory) {
     return { planPath };
   }
-  const holds = async (name) => stat3(resolve(cwd, planPath, name)).then(
+  const holds = async (name) => stat3(resolve2(cwd, planPath, name)).then(
     (entry) => entry.isFile(),
     () => false
   );
@@ -24857,7 +24870,7 @@ var findUnfinishedSequence = async ({ cwd, overviewPath }) => {
 
 // src/phases/initializeSequence.ts
 import { access, readFile as readFile9 } from "node:fs/promises";
-import { dirname as dirname3, join as join17, relative, resolve as resolve2 } from "node:path";
+import { dirname as dirname3, join as join17 } from "node:path";
 
 // src/phases/readOverviewPhases.ts
 var readOverviewPhases = ({ overviewContent }) => {
@@ -24928,7 +24941,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
   if (!overviewPath) {
     throw new Error("a fresh phased run needs an overview path");
   }
-  const overview = relative(cwd, resolve2(cwd, overviewPath));
+  const overview = toRepoRelativePath({ cwd, path: overviewPath });
   const phases = await getPhaseFiles({ cwd, overview });
   const firstPhase = startPhase ?? 1;
   if (!Number.isInteger(firstPhase) || firstPhase < 1 || firstPhase > phases.length) {
@@ -24949,7 +24962,7 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 };
 
 // src/phases/runPhasesPipeline.ts
-import { dirname as dirname7, join as join45 } from "node:path";
+import { dirname as dirname7, join as join44 } from "node:path";
 
 // src/pipeline/chunkFileGroup.ts
 var chunkFileGroup = ({ files, max }) => {
@@ -25374,9 +25387,9 @@ var resolveConsumerTypescript = ({ cwd, packagesDir = "packages" }) => {
 
 // src/pipeline/common/utils/readPlanSources.ts
 import { readFile as readFile10 } from "node:fs/promises";
-import { join as join20 } from "node:path";
+import { resolve as resolve4 } from "node:path";
 var readPlanSources = async ({ cwd, plan, overview }) => {
-  const planPath = join20(cwd, plan);
+  const planPath = resolve4(cwd, plan);
   const planContent = await readFile10(planPath, "utf8").catch(() => void 0);
   if (planContent === void 0) {
     return { error: `plan file not found: ${planPath}` };
@@ -25384,7 +25397,7 @@ var readPlanSources = async ({ cwd, plan, overview }) => {
   if (overview === void 0) {
     return { planContent };
   }
-  const overviewPath = join20(cwd, overview);
+  const overviewPath = resolve4(cwd, overview);
   const overviewContent = await readFile10(overviewPath, "utf8").catch(() => void 0);
   if (overviewContent === void 0) {
     return { error: `overview file not found: ${overviewPath}` };
@@ -25429,7 +25442,7 @@ var resolvePackageScope = ({
 };
 
 // src/standards/detectStandardsChannels.ts
-import { join as join21 } from "node:path";
+import { join as join20 } from "node:path";
 
 // src/common/utils/getDependencyNames.ts
 import { readFile as readFile11 } from "node:fs/promises";
@@ -25462,7 +25475,7 @@ var channelSignals = {
   tanstack: ["@tanstack/react-start", "@tanstack/start"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
-  const manifestPaths = packages.length > 0 ? packages.map((name) => join21(cwd, packagesDir, name, "package.json")) : [join21(cwd, "package.json")];
+  const manifestPaths = packages.length > 0 ? packages.map((name) => join20(cwd, packagesDir, name, "package.json")) : [join20(cwd, "package.json")];
   const dependencies = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     for (const name of await getDependencyNames({ manifestPath }) ?? []) {
@@ -25501,11 +25514,11 @@ var buildStandardsDocuments = ({ pkg, channels }) => {
 
 // src/standardsPackages/loadStandardsPackage.ts
 import { readdir as readdir10, readFile as readFile14 } from "node:fs/promises";
-import { join as join24 } from "node:path";
+import { join as join23 } from "node:path";
 
 // src/standardsPackages/common/parsing/parseDocumentFolder.ts
 import { readdir as readdir9, readFile as readFile13 } from "node:fs/promises";
-import { join as join23 } from "node:path";
+import { join as join22 } from "node:path";
 
 // src/standardsPackages/common/parsing/parseFrontMatter.ts
 var import_yaml = __toESM(require_dist(), 1);
@@ -25554,7 +25567,7 @@ var parseDeclaration = ({ text, schema, filePath, problems }) => {
 
 // src/standardsPackages/common/parsing/parseRuleFolder.ts
 import { readFile as readFile12 } from "node:fs/promises";
-import { basename as basename2, join as join22 } from "node:path";
+import { basename as basename2, join as join21 } from "node:path";
 
 // src/standardsPackages/common/utils/hasFile.ts
 import { stat as stat4 } from "node:fs/promises";
@@ -25588,7 +25601,7 @@ var ruleDeclaration = external_exports.object({
 });
 var getRuleDeclaration = async ({ folderPath, rulePath, found }) => {
   const filePath = `${rulePath}/rule.md`;
-  const text = await readFile12(join22(folderPath, "rule.md"), "utf8").catch((error51) => {
+  const text = await readFile12(join21(folderPath, "rule.md"), "utf8").catch((error51) => {
     found.push(`${filePath}: unreadable \u2014 ${messageOf({ error: error51 })}`);
     return void 0;
   });
@@ -25604,7 +25617,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
     found.push(`${rulePath}: rule folder must be named <NN>-<rule-id>, e.g. 01-${folderName}`);
   }
   const { declaration, prose } = await getRuleDeclaration({ folderPath, rulePath, found });
-  const checkPath = join22(folderPath, "check.ts");
+  const checkPath = join21(folderPath, "check.ts");
   const hasCheck = await hasFile({ path: checkPath });
   if (declaration?.checked === true && !hasCheck) {
     found.push(`${rulePath}: declares checked: true but ships no check.ts`);
@@ -25612,7 +25625,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
   if (declaration?.checked === false && hasCheck) {
     found.push(`${rulePath}: ships a check.ts but does not declare checked: true`);
   }
-  const fixturesPath = join22(folderPath, "fixtures");
+  const fixturesPath = join21(folderPath, "fixtures");
   let check2;
   if (declaration?.checked === true && hasCheck) {
     try {
@@ -25651,7 +25664,7 @@ var listRuleFolders = async ({ folderPath }) => {
   const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   const folders = [];
   for (const name of directories) {
-    const isRule = await hasFile({ path: join23(folderPath, name, "rule.md") });
+    const isRule = await hasFile({ path: join22(folderPath, name, "rule.md") });
     if (isRule) {
       folders.push(name);
     }
@@ -25664,7 +25677,7 @@ var parseDocumentFolder = async ({
   set: set2,
   problems
 }) => {
-  const text = await readFile13(join23(folderPath, "document.md"), "utf8").catch(() => void 0);
+  const text = await readFile13(join22(folderPath, "document.md"), "utf8").catch(() => void 0);
   if (text === void 0) {
     problems.push(`${documentPath}/document.md: unreadable`);
     return void 0;
@@ -25677,7 +25690,7 @@ var parseDocumentFolder = async ({
   });
   const rules = [];
   for (const name of await listRuleFolders({ folderPath })) {
-    const rule = await parseRuleFolder({ folderPath: join23(folderPath, name), set: set2, documentPath, problems });
+    const rule = await parseRuleFolder({ folderPath: join22(folderPath, name), set: set2, documentPath, problems });
     if (rule !== void 0 && declaration !== void 0) {
       rules.push({ ...rule, channel: declaration.channel });
     }
@@ -25707,7 +25720,7 @@ var walk = async ({ folderPath, documentPath, set: set2, problems, documents, ru
   } else {
     const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
     for (const name of directories) {
-      await walk({ folderPath: join24(folderPath, name), documentPath: `${documentPath}/${name}`, set: set2, problems, documents, rules });
+      await walk({ folderPath: join23(folderPath, name), documentPath: `${documentPath}/${name}`, set: set2, problems, documents, rules });
     }
   }
 };
@@ -25725,7 +25738,7 @@ var findDuplicateIds = ({ rules }) => {
   return duplicates;
 };
 var loadStandardsPackage = async ({ packagePath }) => {
-  const rootFilePath = join24(packagePath, "lightsout-standards.json");
+  const rootFilePath = join23(packagePath, "lightsout-standards.json");
   const rootText = await readFile14(rootFilePath, "utf8").catch(() => void 0);
   if (rootText === void 0) {
     throw new Error(`standards package root file not found: ${rootFilePath}`);
@@ -25744,7 +25757,7 @@ var loadStandardsPackage = async ({ packagePath }) => {
   const documents = [];
   const rules = [];
   for (const set2 of [StandardsSet.Code, StandardsSet.Tests]) {
-    await walk({ folderPath: join24(packagePath, set2), documentPath: set2, set: set2, problems, documents, rules });
+    await walk({ folderPath: join23(packagePath, set2), documentPath: set2, set: set2, problems, documents, rules });
   }
   if (documents.length === 0) {
     problems.push("package declares no documents \u2014 code/ and tests/ hold no folder with a document.md");
@@ -25757,6 +25770,7 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
   return {
     name: root.data.name,
     formatVersion: root.data.formatVersion,
+    built: root.data.built,
     rootPath: packagePath,
     documents,
     rules
@@ -25765,23 +25779,23 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
 
 // src/standardsPackages/resolveDefaultStandardsPackage.ts
 import { existsSync } from "node:fs";
-import { dirname as dirname4, join as join25, resolve as resolve4 } from "node:path";
+import { dirname as dirname4, join as join24, resolve as resolve5 } from "node:path";
 var overrideVariable = "LIGHTSOUT_DEFAULT_STANDARDS";
 var resolveDefaultStandardsPackage = ({ startDir } = {}) => {
   const override = process.env[overrideVariable];
   if (override !== void 0) {
-    const overridden = resolve4(override);
-    if (!existsSync(join25(overridden, "lightsout-standards.json"))) {
+    const overridden = resolve5(override);
+    if (!existsSync(join24(overridden, "lightsout-standards.json"))) {
       throw new Error(`${overrideVariable} points at ${overridden}, which holds no lightsout-standards.json`);
     }
     return overridden;
   }
   const entryPoint = process.argv[1];
-  let current = resolve4(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname4(entryPoint)));
+  let current = resolve5(startDir ?? (entryPoint === void 0 ? process.cwd() : dirname4(entryPoint)));
   let found;
   while (found === void 0) {
-    const candidates = [join25(current, "standards"), join25(current, "plugin", "standards")];
-    found = candidates.find((candidate) => existsSync(join25(candidate, "lightsout-standards.json")));
+    const candidates = [join24(current, "standards"), join24(current, "plugin", "standards")];
+    found = candidates.find((candidate) => existsSync(join24(candidate, "lightsout-standards.json")));
     const parent = dirname4(current);
     if (found === void 0 && parent === current) {
       throw new Error(`bundled default standards not found next to the engine (searched upward from ${current})`);
@@ -25792,7 +25806,7 @@ var resolveDefaultStandardsPackage = ({ startDir } = {}) => {
 };
 
 // src/standardsPackages/resolveStandardsPackages.ts
-import { isAbsolute, resolve as resolve5 } from "node:path";
+import { isAbsolute, resolve as resolve6 } from "node:path";
 var resolveRoots = ({ cwd, standardsPackages }) => {
   if (standardsPackages === false) {
     return [];
@@ -25800,7 +25814,7 @@ var resolveRoots = ({ cwd, standardsPackages }) => {
   if (standardsPackages === void 0) {
     return [resolveDefaultStandardsPackage()];
   }
-  return standardsPackages.map((entry) => isAbsolute(entry) ? entry : resolve5(cwd, entry));
+  return standardsPackages.map((entry) => isAbsolute(entry) ? entry : resolve6(cwd, entry));
 };
 var findCrossPackageDuplicates = ({ packages }) => {
   const owners = /* @__PURE__ */ new Map();
@@ -25888,11 +25902,11 @@ var prepareRun = async ({ run, cwd, config: config2, packages }) => {
 
 // src/pipeline/common/utils/resolveTestSubjects.ts
 import { readFile as readFile17 } from "node:fs/promises";
-import { join as join28 } from "node:path";
+import { join as join27 } from "node:path";
 
 // src/common/utils/collectFolderModules.ts
 import { readFile as readFile15 } from "node:fs/promises";
-import { join as join26, posix as posix2 } from "node:path";
+import { join as join25, posix as posix2 } from "node:path";
 
 // src/common/utils/createSpecifierResolver.ts
 import { posix } from "node:path";
@@ -25928,7 +25942,7 @@ var isExternalPackage = ({ specifier }) => {
   const segments = specifier.split("/");
   return segments.length === 1 || specifier.startsWith("@") && segments.length === 2;
 };
-var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve8 }) => {
+var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve9 }) => {
   const scriptKind = /\.tsx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
   const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
   const targets = /* @__PURE__ */ new Set();
@@ -25938,7 +25952,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve8 }) =
       continue;
     }
     const specifier = statement.moduleSpecifier.text;
-    const resolved = resolve8({ from: path, specifier });
+    const resolved = resolve9({ from: path, specifier });
     if (resolved !== void 0) {
       targets.add(resolved);
     } else if (!isExternalPackage({ specifier })) {
@@ -25951,7 +25965,7 @@ var readBarrelExportTargets = ({ path, content, compiler, resolve: resolve8 }) =
 // src/common/utils/collectFolderModules.ts
 var isBarrel = ({ path }) => /^index\.tsx?$/.test(posix2.basename(path));
 var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }) => {
-  const resolve8 = createSpecifierResolver({ files });
+  const resolve9 = createSpecifierResolver({ files });
   const barrelDirs = /* @__PURE__ */ new Map();
   for (const file2 of files) {
     const directory = posix2.dirname(file2);
@@ -25962,8 +25976,8 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }) =>
   const nestedModuleDirs = [...barrelDirs.keys()];
   const modules = /* @__PURE__ */ new Map();
   for (const [folder, barrelPath] of barrelDirs) {
-    const content = await readFile15(join26(cwd, barrelPath), "utf8").catch(() => void 0);
-    const surface = content === void 0 ? { targets: /* @__PURE__ */ new Set(), complete: false } : readBarrelExportTargets({ path: barrelPath, content, compiler, resolve: resolve8 });
+    const content = await readFile15(join25(cwd, barrelPath), "utf8").catch(() => void 0);
+    const surface = content === void 0 ? { targets: /* @__PURE__ */ new Set(), complete: false } : readBarrelExportTargets({ path: barrelPath, content, compiler, resolve: resolve9 });
     const prefix = `${folder}/`;
     const hasOwnCommon = files.some((file2) => file2.startsWith(`${folder}/common/`));
     const ownFiles = files.filter(
@@ -25978,18 +25992,18 @@ var collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }) =>
 
 // src/common/utils/collectImportEdges.ts
 import { readFile as readFile16 } from "node:fs/promises";
-import { join as join27 } from "node:path";
+import { join as join26 } from "node:path";
 var collectImportEdges = async ({ cwd, files, compiler }) => {
-  const resolve8 = createSpecifierResolver({ files });
+  const resolve9 = createSpecifierResolver({ files });
   const edges = [];
   for (const from of files) {
-    const content = await readFile16(join27(cwd, from), "utf8").catch(() => void 0);
+    const content = await readFile16(join26(cwd, from), "utf8").catch(() => void 0);
     if (content === void 0) {
       continue;
     }
     const specifiers = [...new Set(compiler.preProcessFile(content, true, true).importedFiles.map((imported) => imported.fileName))];
     for (const specifier of specifiers) {
-      const to = resolve8({ from, specifier });
+      const to = resolve9({ from, specifier });
       if (to !== void 0 && to !== from) {
         edges.push({ from, to });
       }
@@ -26045,7 +26059,7 @@ var resolvePartition = async ({ cwd, targets, universe, compiler }) => {
   const contents = /* @__PURE__ */ new Map();
   const isProvablyInert = async ({ file: file2 }) => {
     if (!contents.has(file2)) {
-      contents.set(file2, await readFile17(join28(cwd, file2), "utf8").catch(() => void 0));
+      contents.set(file2, await readFile17(join27(cwd, file2), "utf8").catch(() => void 0));
     }
     const content = contents.get(file2);
     return content !== void 0 && isInertSourceFile({ path: file2, content, compiler });
@@ -26132,7 +26146,7 @@ var runSteps = async ({ run, steps }) => {
 
 // src/pipeline/PipelineRun.ts
 import { mkdir as mkdir5, writeFile as writeFile3 } from "node:fs/promises";
-import { join as join29 } from "node:path";
+import { join as join28 } from "node:path";
 
 // src/common/services/RunState.ts
 var upsertStep = ({ steps, record: record2 }) => {
@@ -26263,7 +26277,7 @@ var extractJsonReport = ({ text }) => {
 };
 
 // src/agents/prompts/featureExecutor.md
-var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence. Sole\n  exception: commands listed under a `# Granted commands` section in your\n  task, and only for producing the deliverables described there \u2014 never for\n  verifying, installing, or anything the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
+var featureExecutor_default = '# Role: Feature Executor\n\nYou are a principal software engineer implementing a feature in the current\nrepository. You work autonomously from the plan appended to these instructions,\nand your final message is machine-parsed \u2014 it is a data payload, not prose for\na human.\n\n## Validate before you code\n\n1. Read the plan, then read every existing file it references \u2014 files to\n   modify, integration points, adjacent types. Build full understanding of the\n   current state before changing anything.\n2. If any file, module, or API the plan references does not exist on disk,\n   stop. Report status `terminated:stale-references`, listing each missing\n   reference in `failures`. Do not improvise around a stale plan.\n3. If the plan is ambiguous or leaves implementation-critical decisions\n   unspecified, stop. Report status `terminated:ambiguity`, naming each\n   ambiguity in `failures`. Do not guess \u2014 a wrong guess costs more than a\n   re-run.\n4. If the plan requires creating or modifying more than 50 source files\n   (excluding tests, barrels, and type-only files), stop. Report status\n   `terminated:scope` \u2014 the plan must be split upstream.\n\n## Implement\n\n- The plan is authoritative \u2014 do not reinterpret or second-guess its\n  decisions. If the repo\'s own CLAUDE.md conflicts with the plan, CLAUDE.md\n  wins; comply with it and note the conflict in `failures`.\n- An Overview section, when present, is high-level context from a multi-phase\n  effort \u2014 use it to understand intent, but implement only what the Plan\n  section specifies.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for every line you write.\n- Read every file before modifying it. Read independent files in parallel.\n- Implement the feature completely \u2014 no stubs, no partial code, no TODOs.\n- Do not add functionality the plan doesn\'t ask for, and do not touch files\n  outside the plan\'s scope.\n- Do not delete existing tests. If a test fails because the plan intentionally\n  changed behavior, update it to pin the new behavior and list it in\n  `changedFiles`. Never weaken or remove an assertion to make a failure go\n  away \u2014 fix the source instead.\n- Write tests only when the plan explicitly requires them \u2014 otherwise a\n  dedicated test-writer role covers your changes after you report.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands. Sole exception: commands listed under a\n  `# Granted commands` section in your task, and only for producing the\n  deliverables described there \u2014 never for verifying, installing, or anything\n  the grant text doesn\'t cover.\n- Do not create commits or branches.\n- Do not read or write any agent memory, and do not edit CLAUDE.md or other\n  standing instructions \u2014 anything worth persisting belongs in your report\n  (friction included), which the engine records.\n\n## Prior art before new symbols\n\nBefore creating any NEW exported symbol the plan does not explicitly name,\nsearch the repository for an existing implementation \u2014 the exact name, its\nsynonyms (fetch/load/retrieve \u2248 get, make/generate \u2248 create, remove \u2248\ndelete), and the domain words. If a match exists, use it instead of\nduplicating it \u2014 or report the conflict in `failures` if it can\'t serve.\nRecord every such symbol in the `priorArt` array of your report: the terms\nyou searched and what they surfaced. An empty `matches` is a legitimate\nentry \u2014 "searched, found nothing" is evidence the pipeline records. Symbols\nthe plan names explicitly need no entry.\n\n## Self-review\n\nBefore reporting, re-read the plan once more and diff it mentally against what\nyou changed: every requirement covered, nothing extra added, every changed\nfile tracked.\n\nThen, if a Standards section was provided, re-read it top to bottom and audit\nevery file you changed against every rule \u2014 the full set, not the subset you\nremember from before you started coding. Fix each deviation in source before\nreporting: the refactor role should find clean code, not do your conformance\npass for you.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what changed" }],\n	"summary": "one line: what was implemented, or why it wasn\'t",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }],\n	"priorArt": [{ "symbol": "formatDate", "searches": ["formatDate", "format.*date", "dateToString"], "matches": [] }]\n}\n```\n\nReport `complete` only if you implemented everything the plan requires. Never\nclaim changes you did not make \u2014 the engine diffs the worktree and a false\nreport is worse than a failed one.\n';
 
 // src/agents/buildFeatureExecutorInvocation.ts
 var buildFeatureExecutorInvocation = ({
@@ -26525,7 +26539,7 @@ var formatFindingSite = ({ file: file2 }) => `${file2.path}${file2.startLine ? `
 var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \u2014 ${finding.guidance}` : finding.detail;
 
 // src/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limit below still governs an advisory: never change behavior or a\n  public API. An advisory whose only available fix would do either is REPORTED\n  as a noted exemption with your reason, never applied.\n- Deleting an export is a public-API change by definition. A dead-export-family\n  advisory (`dead-export`, `test-only-export`, `barrel-only-export`) is\n  therefore reported rather than acted on, unless the finding itself proves\n  nothing consumes the export.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limit below still governs an advisory: never change behavior or a\n  public API. An advisory whose only available fix would do either is REPORTED\n  as a noted exemption with your reason, never applied.\n- Deleting an export is a public-API change by definition. A dead-export-family\n  advisory (`dead-export`, `test-only-export`, `barrel-only-export`) is\n  therefore reported rather than acted on, unless the finding itself proves\n  nothing consumes the export.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // src/agents/buildRefactorExecutorInvocation.ts
 var advisoryOutcomesSection = [
@@ -26614,7 +26628,7 @@ ${rejectedText}`];
 };
 
 // src/agents/prompts/standardsReviewer.md
-var standardsReviewer_default = '# Role: Standards Reviewer\n\nYou read a set of standards rules against a set of files and report where the\nfiles break them. The rules are the ones no code can check \u2014 they are judgment,\nwhich is why a reader is doing this instead of a check. Their full text is\nappended to these instructions; the files in scope arrive in the task message.\nYour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## What you are for\n\nEvery rule you are given was written out in full on purpose: its argument is\nwhat lets you recognise a violation the author never anticipated. Read the\nargument, not just the headline, and apply it to what the files actually do.\n\n## How to work\n\n- Read the files in scope. Read enough surrounding code to judge conventions \u2014\n  reading outside the scope is fine, reporting outside it is not.\n- Report a violation only when you can point at a specific file and say, in the\n  rule\'s own terms, what is wrong there. "This file could be cleaner" is not a\n  finding.\n- Quote the rule\'s reasoning in your `detail`, so a reader can disagree with you\n  on the merits rather than guessing what you had in mind.\n- Prefer silence to speculation. An empty `findings` list is a correct and\n  common answer, and a report full of weak findings makes the whole review\n  ignorable.\n- Report each violation once, at the site where it lives. Do not re-report the\n  same problem under several rules.\n\n## Your findings are advice\n\nEverything you report is advisory. It never blocks a run, never fails a gate,\nand never obliges anyone to act \u2014 a human or another agent weighs it in context\nand may decline it with a reason. Write accordingly: state what you saw, why the\nrule cares, and what you would do about it. Do not escalate, do not insist, and\ndo not pad the list to look thorough.\n\n## Hard limits\n\n- Change nothing. You read and report; you never edit, create, or delete files.\n- Do not run shell commands, builds, or test suites.\n- `rule` must be one of the rule ids given to you, spelled exactly. A finding\n  naming any other id is dropped.\n- Every finding needs at least one file, with a repo-relative path as it was\n  listed to you. Line numbers are welcome when you have them.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"findings": [\n		{\n			"rule": "the-rule-id-exactly-as-given",\n			"files": [{ "path": "src/example.ts", "startLine": 12, "endLine": 30 }],\n			"detail": "what is true of this site, in the rule\'s own terms",\n			"guidance": "optional \u2014 what to do about findings of this kind"\n		}\n	]\n}\n```\n\nAn empty list is written as `{ "findings": [] }`.\n';
+var standardsReviewer_default = '# Role: Standards Reviewer\n\nYou read a set of standards rules against a set of files and report where the\nfiles break them. The rules are the ones no code can check \u2014 they are judgment,\nwhich is why a reader is doing this instead of a check. Their full text is\nappended to these instructions; the files in scope arrive in the task message.\nYour final message is machine-parsed \u2014 it is a data payload, not prose for a\nhuman.\n\n## What you are for\n\nEvery rule you are given was written out in full on purpose: its argument is\nwhat lets you recognise a violation the author never anticipated. Read the\nargument, not just the headline, and apply it to what the files actually do.\n\n## How to work\n\n- Read the files in scope. Read enough surrounding code to judge conventions \u2014\n  reading outside the scope is fine, reporting outside it is not.\n- Report a violation only when you can point at a specific file and say, in the\n  rule\'s own terms, what is wrong there. "This file could be cleaner" is not a\n  finding.\n- Quote the rule\'s reasoning in your `detail`, so a reader can disagree with you\n  on the merits rather than guessing what you had in mind.\n- Prefer silence to speculation. An empty `findings` list is a correct and\n  common answer, and a report full of weak findings makes the whole review\n  ignorable.\n- Report each violation once, at the site where it lives. Do not re-report the\n  same problem under several rules.\n\n## Your findings are advice\n\nEverything you report is advisory. It never blocks a run, never fails a gate,\nand never obliges anyone to act \u2014 a human or another agent weighs it in context\nand may decline it with a reason. Write accordingly: state what you saw, why the\nrule cares, and what you would do about it. Do not escalate, do not insist, and\ndo not pad the list to look thorough.\n\n## Hard limits\n\n- Change nothing. You read and report; you never edit, create, or delete files.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command. Use the harness\'s file tools to read. If the\n  harness exposes the filesystem only through a shell, use the shell solely\n  to read files \u2014 never for repository commands.\n- `rule` must be one of the rule ids given to you, spelled exactly. A finding\n  naming any other id is dropped.\n- Every finding needs at least one file, with a repo-relative path as it was\n  listed to you. Line numbers are welcome when you have them.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"findings": [\n		{\n			"rule": "the-rule-id-exactly-as-given",\n			"files": [{ "path": "src/example.ts", "startLine": 12, "endLine": 30 }],\n			"detail": "what is true of this site, in the rule\'s own terms",\n			"guidance": "optional \u2014 what to do about findings of this kind"\n		}\n	]\n}\n```\n\nAn empty list is written as `{ "findings": [] }`.\n';
 
 // src/agents/buildStandardsReviewInvocation.ts
 var ruleSection = ({ rule }) => `**Rule id: \`${rule.id}\`**
@@ -26665,7 +26679,7 @@ ${planContent}`,
 };
 
 // src/agents/prompts/unitTestWriter.md
-var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously: the plan and any standards are appended\nto these instructions, and your assignment arrives in your task message as two\nlists \u2014 test subjects (public surfaces to test through) and changed internals\n(files your tests must execute through those surfaces). Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read both lists in your task \u2014 the subjects, to learn each surface\'s\n   observable behavior, and the changed internals, tracing how each is\n   reached from a subject \u2014 plus the plan for context on intended behavior.\n2. Read the repository\'s existing tests first and mirror their mechanics:\n   framework, assertion style, file placement, naming. Never introduce a new\n   test framework or runner.\n3. When provided Standards and existing tests disagree on STYLE (structure,\n   setup patterns, hooks), precedence is by what you are writing:\n   - **Extending an existing test file** \u2192 match that file\'s local style,\n     even where it predates the Standards. One file, one style; do not mix.\n   - **Creating a new test file** \u2192 the Standards win, even when the file\n     the plan names as your mirror uses an older style. Mirror the target\'s\n     COVERAGE (what it tests), not its structure.\n   Applying this precedence is normal operation, NOT friction \u2014 do not record\n   a friction entry for each legacy-style file you encounter. Record ONE\n   `friction` entry (`area: "standards"`) only if the rule itself failed you:\n   the conflict was not stylistic, or it was ambiguous which case applied.\n   Legacy-style cleanup is tracked by the repo owner; your run is not that\n   cleanup.\n\n## Write\n\n- Tests target ONLY files in the subjects list: test observable behavior\n  through each subject\'s public surface, covering the changed code\'s branches\n  and edge cases \u2014 an internal file is covered through the subject that owns\n  it, and you never create a test file for a non-subject. The engine\'s\n  coverage gate, when configured, holds your work to the consumer\'s threshold\n  after you report.\n- The engine verifies, from the coverage report, that every changed file\n  listed in your task executed under the tests. A listed internal your tests\n  never reach is a missing test path through its subject \u2014 not an excuse for\n  a direct internal test.\n- If a target file already has tests, add only what is missing to cover its\n  changed behavior; if nothing is missing, report `complete` with an empty\n  `changedFiles` \u2014 do not rewrite healthy tests. Coverage-complete is not\n  the same as tested: audit the existing assertions against the changed\n  code paths, and where a path asserts no OUTPUT VALUE or SIDE EFFECT\n  (`toBeDefined()` or `not.toThrow()` alone where a return value or mutation\n  is meaningful), strengthen that assertion; name audited files in `summary`.\n- Before writing any mock or fixture, check the package\'s existing test\n  support (`test/mocks/`, `test/fixtures/`, co-located `__mocks__/`) and\n  reuse what exists \u2014 a second copy of a mock drifts from the first.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for the tests you write.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run shell commands, builds, or test suites \u2014 the engine runs\n  verification after you report, against gates you cannot influence.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var unitTestWriter_default = '# Role: Unit Test Writer\n\nYou are a principal software engineer writing unit tests for recently changed\nsource files. You work autonomously: the plan and any standards are appended\nto these instructions, and your assignment arrives in your task message as two\nlists \u2014 test subjects (public surfaces to test through) and changed internals\n(files your tests must execute through those surfaces). Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Study before you write\n\n1. Read both lists in your task \u2014 the subjects, to learn each surface\'s\n   observable behavior, and the changed internals, tracing how each is\n   reached from a subject \u2014 plus the plan for context on intended behavior.\n2. Read the repository\'s existing tests first and mirror their mechanics:\n   framework, assertion style, file placement, naming. Never introduce a new\n   test framework or runner.\n3. When provided Standards and existing tests disagree on STYLE (structure,\n   setup patterns, hooks), precedence is by what you are writing:\n   - **Extending an existing test file** \u2192 match that file\'s local style,\n     even where it predates the Standards. One file, one style; do not mix.\n   - **Creating a new test file** \u2192 the Standards win, even when the file\n     the plan names as your mirror uses an older style. Mirror the target\'s\n     COVERAGE (what it tests), not its structure.\n   Applying this precedence is normal operation, NOT friction \u2014 do not record\n   a friction entry for each legacy-style file you encounter. Record ONE\n   `friction` entry (`area: "standards"`) only if the rule itself failed you:\n   the conflict was not stylistic, or it was ambiguous which case applied.\n   Legacy-style cleanup is tracked by the repo owner; your run is not that\n   cleanup.\n\n## Write\n\n- Tests target ONLY files in the subjects list: test observable behavior\n  through each subject\'s public surface, covering the changed code\'s branches\n  and edge cases \u2014 an internal file is covered through the subject that owns\n  it, and you never create a test file for a non-subject. The engine\'s\n  coverage gate, when configured, holds your work to the consumer\'s threshold\n  after you report.\n- The engine verifies, from the coverage report, that every changed file\n  listed in your task executed under the tests. A listed internal your tests\n  never reach is a missing test path through its subject \u2014 not an excuse for\n  a direct internal test.\n- If a target file already has tests, add only what is missing to cover its\n  changed behavior; if nothing is missing, report `complete` with an empty\n  `changedFiles` \u2014 do not rewrite healthy tests. Coverage-complete is not\n  the same as tested: audit the existing assertions against the changed\n  code paths, and where a path asserts no OUTPUT VALUE or SIDE EFFECT\n  (`toBeDefined()` or `not.toThrow()` alone where a return value or mutation\n  is meaningful), strengthen that assertion; name audited files in `summary`.\n- Before writing any mock or fixture, check the package\'s existing test\n  support (`test/mocks/`, `test/fixtures/`, co-located `__mocks__/`) and\n  reuse what exists \u2014 a second copy of a mock drifts from the first.\n- If a Standards section is appended to these instructions, every rule in it is\n  binding for the tests you write.\n- Skip files that are not testable source (config, type-only files, barrels,\n  and test files themselves) \u2014 note each skip and why in `summary`.\n- Do not modify source files. If a changed file\'s behavior appears defective\n  against the plan\'s intent, do not write a test that pins the defect and do\n  not fix the source \u2014 report status `failed` naming the suspected defect in\n  `failures`. A defect report is the correct output; a papered-over test is\n  not.\n- Do not delete or weaken existing tests or assertions.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report, against gates you cannot influence. Use the harness\'s file tools to\n  read and edit files. If the harness exposes the filesystem only through a\n  shell, use the shell solely to inspect and edit files \u2014 never for\n  repository commands.\n- Do not create commits or branches.\n\n## If re-invoked with a verification failure\n\nFix your tests only. If the failure traces to a source defect rather than\nyour tests, report status `failed` with the diagnosis in `failures` instead of\nadjusting a test to pass.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "test/example.test.ts", "summary": "one clause on what was added" }],\n	"summary": "one line: what was tested, plus any skipped files and why",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // src/agents/buildUnitTestWriterInvocation.ts
 var buildUnitTestWriterInvocation = ({
@@ -26853,8 +26867,8 @@ var PipelineRun = class {
   // the terminal. Evidence only: outcomes never depend on it.
   agentEventSink({ step }) {
     this.transcriptCount += 1;
-    const dir = join29(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
-    const path = join29(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
+    const dir = join28(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
+    const path = join28(dir, `stream-${String(this.transcriptCount).padStart(2, "0")}-${step}.jsonl`);
     return createEventFileSink({ path, ready: mkdir5(dir, { recursive: true }) });
   }
   // A final message that fails its contract is still evidence — persist it
@@ -26863,10 +26877,10 @@ var PipelineRun = class {
   persistRejected({ step }) {
     return async ({ text, attempt, validationError }) => {
       this.rejectedCount += 1;
-      const dir = join29(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
+      const dir = join28(getRunDir({ cwd: this.cwd, runId: this.current().runId }), "agents");
       const name = `rejected-${String(this.rejectedCount).padStart(2, "0")}-${step}-attempt${attempt}.txt`;
       await mkdir5(dir, { recursive: true });
-      await writeFile3(join29(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
+      await writeFile3(join28(dir, name), `# step: ${step} \xB7 invocation attempt ${attempt}
 # validation: ${validationError}
 
 ${text}`, "utf8");
@@ -26919,7 +26933,7 @@ var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isT
 
 // src/coverage/checkChangedFilesExecuted.ts
 import { readFile as readFile18 } from "node:fs/promises";
-import { join as join31, relative as relative3 } from "node:path";
+import { join as join30, relative as relative3 } from "node:path";
 
 // src/common/utils/isToolingConfigFile.ts
 var isToolingConfigFile = ({ path, packagesDir }) => {
@@ -26953,7 +26967,7 @@ var buildMissingSummaryMessage = ({ summaryPath, scope }) => `no readable covera
 
 // src/coverage/resolveCoverageScopes.ts
 import { readdir as readdir11 } from "node:fs/promises";
-import { join as join30 } from "node:path";
+import { join as join29 } from "node:path";
 var rootScope = "root";
 var listPackageScopes = async ({
   cwd,
@@ -26962,7 +26976,7 @@ var listPackageScopes = async ({
   summaryPath,
   scope
 }) => {
-  const entries = await readdir11(join30(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir11(join29(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
   const scriptName = extractRunScriptName({ command: template });
   const scopes = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
@@ -26976,7 +26990,7 @@ var listPackageScopes = async ({
     scopes.push({
       scope: entry.name,
       command: template.split("{package}").join(manifest.name),
-      summaryPath: join30(packagesDir, entry.name, summaryPath)
+      summaryPath: join29(packagesDir, entry.name, summaryPath)
     });
   }
   return scopes;
@@ -26995,7 +27009,7 @@ var resolveCoverageScopes = async ({ cwd, config: config2, summaryPath, scope })
 var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
 var readExecutionSummary = async ({ cwd, summaryPath }) => {
   try {
-    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile18(join31(cwd, summaryPath), "utf8")));
+    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile18(join30(cwd, summaryPath), "utf8")));
     return new Map(Object.entries(parsed).map(([key, entry]) => [relative3(cwd, key), entry.statements]));
   } catch {
     return void 0;
@@ -27010,7 +27024,7 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   for (const file2 of changedFiles.filter(
     (changed) => isTestableSourceFile(changed) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
   )) {
-    const content = await readFile18(join31(cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile18(join30(cwd, file2), "utf8").catch(() => void 0);
     if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler }) && !isUnloadableSourceFile({ path: file2, content, compiler })) {
       candidates.push(file2);
     }
@@ -27112,11 +27126,11 @@ var updateFileStrikes = ({ batchId, files, fileStrikes }) => {
 
 // src/coverage/initializeCoverageRun.ts
 import { readFile as readFile20, writeFile as writeFile4 } from "node:fs/promises";
-import { join as join33 } from "node:path";
+import { join as join32 } from "node:path";
 
 // src/coverage/runCoverageCheck.ts
 import { readFile as readFile19 } from "node:fs/promises";
-import { join as join32, relative as relative4 } from "node:path";
+import { join as join31, relative as relative4 } from "node:path";
 var CoverageSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ pct: external_exports.unknown() }) }));
 var readJsonFile = async ({ path }) => {
   try {
@@ -27127,7 +27141,7 @@ var readJsonFile = async ({ path }) => {
   }
 };
 var readScopeSummary = async ({ cwd, scope, summaryPath, passed }) => {
-  const parsed = CoverageSummaryReport.safeParse(await readJsonFile({ path: join32(cwd, summaryPath) }));
+  const parsed = CoverageSummaryReport.safeParse(await readJsonFile({ path: join31(cwd, summaryPath) }));
   if (!parsed.success) {
     throw new Error(buildMissingSummaryMessage({ summaryPath, scope }));
   }
@@ -27196,7 +27210,7 @@ var initializeCoverageRun = async ({
       const command = pipeline === "refactor" ? "refactor" : "resume";
       throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile20(join33(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile20(join32(cwd, existing.plan), "utf8"))) };
   }
   if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
     throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
@@ -27213,9 +27227,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   }
   const measured = await runCoverageCheck({ cwd, config: config2 });
   const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
-  const worklistPath = join33(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join32(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile4(join33(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile4(join32(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -27233,7 +27247,7 @@ var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attribut
 
 // src/coverage/invokeCoverageAgent.ts
 import { mkdir as mkdir6, writeFile as writeFile5 } from "node:fs/promises";
-import { join as join34 } from "node:path";
+import { join as join33 } from "node:path";
 var invokeCoverageAgent = async ({
   cwd,
   runId,
@@ -27248,9 +27262,9 @@ var invokeCoverageAgent = async ({
   rationale,
   recordUsage
 }) => {
-  const agentsDir = join34(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join33(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
-  const streamPath = join34(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join33(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir6(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -27264,7 +27278,7 @@ var invokeCoverageAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile5(join34(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile5(join33(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}${label ? ` ${label}` : ""}`, usage: outcome.usage });
@@ -27436,7 +27450,7 @@ var seedCoverageResumeState = ({ manifest }) => {
 
 // src/coverage/selectCoverageCandidates.ts
 import { readFile as readFile21 } from "node:fs/promises";
-import { join as join35 } from "node:path";
+import { join as join34 } from "node:path";
 var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPackages, compiler }) => {
   const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
   const candidates = [];
@@ -27444,7 +27458,7 @@ var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsP
     if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPackages }) || !isTestableSourceFile(file2.path)) {
       continue;
     }
-    const content = compiler === void 0 ? void 0 : await readFile21(join35(cwd, file2.path), "utf8").catch(() => void 0);
+    const content = compiler === void 0 ? void 0 : await readFile21(join34(cwd, file2.path), "utf8").catch(() => void 0);
     if (compiler !== void 0 && content !== void 0 && isInertSourceFile({ path: file2.path, content, compiler })) {
       continue;
     }
@@ -27772,7 +27786,7 @@ var describePersistingFindings = ({ findings, report, passes }) => {
 
 // src/standardsCheck/applyStandardsBaseline.ts
 import { readFile as readFile22, writeFile as writeFile6 } from "node:fs/promises";
-import { join as join36 } from "node:path";
+import { join as join35 } from "node:path";
 var StandardsBaseline = external_exports.object({
   at: external_exports.string(),
   path: external_exports.string(),
@@ -27785,7 +27799,7 @@ var applyStandardsBaseline = async ({
   all,
   writeBaseline
 }) => {
-  const baselinePath = join36(cwd, "lightsout.standards-baseline.json");
+  const baselinePath = join35(cwd, "lightsout.standards-baseline.json");
   const baselineRaw = await readFile22(baselinePath, "utf8").catch(() => void 0);
   const notes = [];
   let baselineJson;
@@ -27862,7 +27876,7 @@ var buildDominantPathNote = ({ findings }) => {
 
 // src/standardsCheck/buildStandardsHealth.ts
 import { readFile as readFile23 } from "node:fs/promises";
-import { join as join37 } from "node:path";
+import { join as join36 } from "node:path";
 var emptyTally = () => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
 var tallyFor = ({ tallies, rule }) => {
   const existing = tallies.get(rule);
@@ -27878,7 +27892,7 @@ var readRefactorRun = async ({ cwd, runId }) => {
   if ((manifest.pipeline ?? "implement") !== "refactor") {
     return void 0;
   }
-  const worklist = RefactorWorklist.parse(JSON.parse(await readFile23(join37(cwd, manifest.plan), "utf8")));
+  const worklist = RefactorWorklist.parse(JSON.parse(await readFile23(join36(cwd, manifest.plan), "utf8")));
   return { worklist, steps: manifest.steps };
 };
 var countBatchSites = ({ tallies, blocking, report }) => {
@@ -27999,15 +28013,15 @@ var listStandardsRules = async ({ cwd, config: config2 }) => {
 };
 
 // src/standardsCheck/common/paths/getStandardsSnapshotsDir.ts
-import { join as join38 } from "node:path";
+import { join as join37 } from "node:path";
 var getStandardsSnapshotsDir = ({ cwd }) => {
-  return join38(cwd, ".lightsout", "standards-check");
+  return join37(cwd, ".lightsout", "standards-check");
 };
 
 // src/standardsCheck/common/paths/getStandardsCheckPath.ts
-import { join as join39 } from "node:path";
+import { join as join38 } from "node:path";
 var getStandardsCheckPath = ({ cwd }) => {
-  return join39(cwd, ".lightsout", "standards-check.json");
+  return join38(cwd, ".lightsout", "standards-check.json");
 };
 
 // ../../node_modules/.pnpm/eventemitter3@5.0.4/node_modules/eventemitter3/index.mjs
@@ -28042,7 +28056,7 @@ var RabinKarp = class _RabinKarp {
     this.cloneValidators = cloneValidators;
   }
   async run(tokenMap, store) {
-    return new Promise((resolve8) => {
+    return new Promise((resolve9) => {
       let mapFrameInStore;
       let clone3 = null;
       const clones = [];
@@ -28074,7 +28088,7 @@ var RabinKarp = class _RabinKarp {
             if (clone3 && this.validate(clone3)) {
               clones.push(clone3);
             }
-            resolve8(clones);
+            resolve9(clones);
           }
         });
       };
@@ -28172,9 +28186,9 @@ var MemoryStore = class {
     this.values[namespace] = this.values[namespace] || {};
   }
   get(key) {
-    return new Promise((resolve8, reject) => {
+    return new Promise((resolve9, reject) => {
       if (key in this.values[this._namespace]) {
-        resolve8(this.values[this._namespace][key]);
+        resolve9(this.values[this._namespace][key]);
       } else {
         reject(new Error("not found"));
       }
@@ -39727,12 +39741,12 @@ var Tokenizer = class {
 
 // src/standardsCheck/common/checkInputs/readIntoCache.ts
 import { readFile as readFile24 } from "node:fs/promises";
-import { join as join40 } from "node:path";
+import { join as join39 } from "node:path";
 var readIntoCache = async ({ cwd, paths, cache }) => {
   const texts = /* @__PURE__ */ new Map();
   for (const path of paths) {
     if (!cache.has(path)) {
-      const text = await readFile24(join40(cwd, path), "utf8").catch(() => void 0);
+      const text = await readFile24(join39(cwd, path), "utf8").catch(() => void 0);
       if (text !== void 0) {
         cache.set(path, text);
       }
@@ -39779,13 +39793,13 @@ var buildCloneSpansInput = async ({ cwd, source, settings, cache }) => {
 
 // src/standardsCheck/common/checkInputs/readPackageDependencies.ts
 import { readdir as readdir12 } from "node:fs/promises";
-import { join as join41 } from "node:path";
+import { join as join40 } from "node:path";
 var readPackageDependencies = async ({ cwd, packagesDir }) => {
   const dependencies = /* @__PURE__ */ new Map();
-  dependencies.set(".", await getDependencyNames({ manifestPath: join41(cwd, "package.json") }) ?? []);
-  const children = await readdir12(join41(cwd, packagesDir)).catch(() => []);
+  dependencies.set(".", await getDependencyNames({ manifestPath: join40(cwd, "package.json") }) ?? []);
+  const children = await readdir12(join40(cwd, packagesDir)).catch(() => []);
   for (const name of children.sort()) {
-    const names = await getDependencyNames({ manifestPath: join41(cwd, packagesDir, name, "package.json") });
+    const names = await getDependencyNames({ manifestPath: join40(cwd, packagesDir, name, "package.json") });
     if (names !== void 0) {
       dependencies.set(`${packagesDir}/${name}`, names);
     }
@@ -40032,7 +40046,7 @@ var runPackageChecks = async ({
 
 // src/standardsCheck/writeStandardsSnapshot.ts
 import { mkdir as mkdir7, writeFile as writeFile7 } from "node:fs/promises";
-import { join as join42 } from "node:path";
+import { join as join41 } from "node:path";
 var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
   const body = `${JSON.stringify(snapshot, void 0, "	")}
 `;
@@ -40040,7 +40054,7 @@ var writeStandardsSnapshot = async ({ cwd, snapshot }) => {
   const fileName = `${snapshot.at.replaceAll(":", "-").replaceAll(".", "-")}.json`;
   await mkdir7(snapshotsDir, { recursive: true });
   await writeFile7(getStandardsCheckPath({ cwd }), body, "utf8");
-  await writeFile7(join42(snapshotsDir, fileName), body, "utf8");
+  await writeFile7(join41(snapshotsDir, fileName), body, "utf8");
 };
 
 // src/standardsCheck/runStandardsCheck.ts
@@ -40078,6 +40092,55 @@ var runStandardsCheck = async ({
     await writeStandardsSnapshot({ cwd, snapshot: { at: (/* @__PURE__ */ new Date()).toISOString(), path: path ?? ".", findings, notes } });
   }
   return { findings: baseline.reported, notes };
+};
+
+// src/common/utils/formatElapsed.ts
+var formatElapsed = ({ elapsedMs }) => {
+  const totalSeconds = Math.round(elapsedMs / 1e3);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes === 0 ? `${seconds}s` : `${minutes}m${String(seconds).padStart(2, "0")}s`;
+};
+
+// src/standardsCheck/common/utils/createAgentHeartbeat.ts
+var AssistantEvent = external_exports.object({
+  type: external_exports.literal("assistant"),
+  message: external_exports.object({
+    content: external_exports.array(external_exports.object({ type: external_exports.string(), name: external_exports.string().optional(), input: external_exports.object({ file_path: external_exports.string().optional() }).optional() }))
+  })
+});
+var readPathsOf = ({ event }) => {
+  const parsed = AssistantEvent.safeParse(event);
+  if (!parsed.success) {
+    return [];
+  }
+  return parsed.data.message.content.flatMap(
+    (block) => block.type === "tool_use" && block.name === "Read" && block.input?.file_path ? [block.input.file_path] : []
+  );
+};
+var createAgentHeartbeat = ({ label, onProgress, intervalMs = 3e4 }) => {
+  const startedAt = Date.now();
+  const filesRead = /* @__PURE__ */ new Set();
+  let stoppedAt;
+  const tick = () => {
+    const elapsed = formatElapsed({ elapsedMs: Date.now() - startedAt });
+    const activity = filesRead.size === 0 ? "" : ` \xB7 ${filesRead.size} file${filesRead.size === 1 ? "" : "s"} read so far`;
+    onProgress(`\u23F3 ${label} still running \xB7 ${elapsed}${activity}`);
+  };
+  const timer = setInterval(tick, intervalMs);
+  timer.unref();
+  return {
+    onEvent: (event) => {
+      for (const path of readPathsOf({ event })) {
+        filesRead.add(path);
+      }
+    },
+    stop: () => {
+      clearInterval(timer);
+      stoppedAt ??= Date.now();
+    },
+    elapsedMs: () => (stoppedAt ?? Date.now()) - startedAt
+  };
 };
 
 // src/standardsCheck/runStandardsReview.ts
@@ -40127,19 +40190,30 @@ var runStandardsReview = async ({
   if (rules.length === 0 || files.length === 0) {
     return { findings: [], notes: [] };
   }
-  onProgress?.(`agent review: ${rules.length} judgment rule(s) over ${files.length} file(s)`);
+  const ruleCount = `${rules.length} rule${rules.length === 1 ? "" : "s"}`;
+  onProgress?.(
+    `The agent review is now running. ${driver.name} is reading your code against the ${ruleCount} no automated check can judge. This usually takes a few minutes.`
+  );
+  const heartbeat = createAgentHeartbeat({ label: "agent review", onProgress: (message) => onProgress?.(message) });
   const outcome = await invokeAgentWithContract({
     driver,
     cwd,
     invocation: buildStandardsReviewInvocation({ rules, files }),
     contract: StandardsReviewReport,
     permissions: Permissions.ReadOnly,
-    timeoutMs
-  });
+    timeoutMs,
+    onEvent: heartbeat.onEvent
+  }).finally(() => heartbeat.stop());
+  const elapsed = formatElapsed({ elapsedMs: heartbeat.elapsedMs() });
   if (!outcome.ok) {
+    onProgress?.(`Agent review stopped after ${elapsed}.`);
     return { findings: [], notes: [`agent review skipped \u2014 ${outcome.failure}`] };
   }
-  return toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
+  const result = toFindings({ reported: outcome.report.findings, known: new Set(rules.map((rule) => rule.id)) });
+  const count2 = result.findings.length;
+  const found = count2 === 0 ? "nothing to report" : `${count2} advisor${count2 === 1 ? "y" : "ies"} to look at`;
+  onProgress?.(`\u2713 Agent review finished in ${elapsed} \u2014 ${found}`);
+  return result;
 };
 
 // src/standardsCheck/selectStandardsFindings.ts
@@ -40155,7 +40229,7 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 // src/standardsCheck/validateStandardsPackage.ts
 import { readdir as readdir13 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
-import { join as join43 } from "node:path";
+import { join as join42 } from "node:path";
 var fixtureSides = ["fail", "pass"];
 var getEngineTypescript = () => {
   let compiler;
@@ -40169,7 +40243,7 @@ var getEngineTypescript = () => {
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
   for (const side of fixtureSides) {
-    const entries = await readdir13(join43(fixturesPath, side)).catch(() => void 0);
+    const entries = await readdir13(join42(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
     }
@@ -40183,7 +40257,7 @@ var checkFixture = async ({
   side,
   compiler
 }) => {
-  const cwd = join43(rule.fixturesPath, side);
+  const cwd = join42(rule.fixturesPath, side);
   const { files } = await listSourceFiles({ cwd });
   const input = await buildCheckInput({
     kind: inputKind,
@@ -40202,6 +40276,14 @@ var checkFixture = async ({
   return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
 };
 var validateStandardsPackage = async ({ pkg }) => {
+  if (pkg.built) {
+    return {
+      problems: [
+        `${pkg.name} is a built package \u2014 its fixtures were left behind when it was built, so there is nothing here to validate. Point --package at the authored source.`
+      ],
+      notes: []
+    };
+  }
   const hasParsingRule = pkg.rules.some((rule) => rule.inputKind !== void 0 && typescriptInputKinds.has(rule.inputKind));
   const compiler = hasParsingRule ? getEngineTypescript() : void 0;
   const problems = [];
@@ -40610,8 +40692,8 @@ var createWarmSpawn = ({
   let settled2 = false;
   let collected = false;
   let release;
-  const gate = new Promise((resolve8) => {
-    release = resolve8;
+  const gate = new Promise((resolve9) => {
+    release = resolve9;
   });
   const warm = group === void 0 ? void 0 : spawnWriter({ group, onFirstEvent: release }).finally(() => {
     settled2 = true;
@@ -40692,7 +40774,7 @@ var runWriterBatches = async ({
 
 // src/pipeline/steps/selectTestTargets.ts
 import { readFile as readFile25, stat as stat5 } from "node:fs/promises";
-import { join as join44 } from "node:path";
+import { join as join43 } from "node:path";
 var selectTestTargets = async ({
   run,
   candidates,
@@ -40704,9 +40786,9 @@ var selectTestTargets = async ({
   const unreachable = [];
   const deleted = [];
   for (const file2 of candidates) {
-    const content = await readFile25(join44(run.cwd, file2), "utf8").catch(() => void 0);
+    const content = await readFile25(join43(run.cwd, file2), "utf8").catch(() => void 0);
     if (content === void 0) {
-      const exists = await stat5(join44(run.cwd, file2)).then(
+      const exists = await stat5(join43(run.cwd, file2)).then(
         () => true,
         () => false
       );
@@ -40976,7 +41058,7 @@ var runPhasesPipeline = async ({
     if (step.status === RunStatus.Passed) {
       continue;
     }
-    const planPath = join45(dirname7(manifest.plan), step.id);
+    const planPath = join44(dirname7(manifest.plan), step.id);
     onProgress?.(`phase ${index + 1}/${total}: ${step.id}`);
     const recorded = PhaseReport.safeParse(step.report);
     const childManifest = recorded.success ? await readRunManifest({ cwd, runId: recorded.data.runId }).catch(() => void 0) : void 0;
@@ -41129,10 +41211,10 @@ var spawnCollect = ({ command, args, cwd, stdinText, timeoutMs, onStdoutLine }) 
 // src/drivers/common/utils/writeSystemPromptFile.ts
 import { mkdtemp, rm, writeFile as writeFile8 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join as join46 } from "node:path";
+import { join as join45 } from "node:path";
 var writeSystemPromptFile = async ({ systemPrompt }) => {
-  const dir = await mkdtemp(join46(tmpdir(), "lightsout-system-prompt-"));
-  const path = join46(dir, "system-prompt.md");
+  const dir = await mkdtemp(join45(tmpdir(), "lightsout-system-prompt-"));
+  const path = join45(dir, "system-prompt.md");
   await writeFile8(path, systemPrompt, "utf8");
   return { path, cleanup: () => rm(dir, { recursive: true, force: true }).catch(() => void 0) };
 };
@@ -41212,15 +41294,15 @@ ${stderr}`),
 // src/drivers/createCodexDriver.ts
 import { mkdtemp as mkdtemp2, readFile as readFile26, rm as rm2 } from "node:fs/promises";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join47 } from "node:path";
+import { join as join46 } from "node:path";
 var rateLimitPattern = /usage limit|rate limit|limit reached|quota|529|overloaded/i;
 var createCodexDriver = () => {
   const driver = {
     name: "codex",
     invoke: async (invocation) => {
       const { prompt, systemPrompt, model, effort, permissions, cwd, timeoutMs } = invocation;
-      const outDir = await mkdtemp2(join47(tmpdir2(), "lightsout-codex-"));
-      const outFile = join47(outDir, "last-message.txt");
+      const outDir = await mkdtemp2(join46(tmpdir2(), "lightsout-codex-"));
+      const outFile = join46(outDir, "last-message.txt");
       const args = buildCodexArgs({ outFile, model, effort, permissions });
       const fullPrompt = systemPrompt ? `# Role instructions
 
@@ -41327,9 +41409,9 @@ var implementCommand = async ({ flags, cwd }) => {
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
 import { stat as stat6 } from "node:fs/promises";
-import { join as join48 } from "node:path";
+import { join as join47 } from "node:path";
 var resolveConfigAndDriver = async ({ cwd, command }) => {
-  const configPath = join48(cwd, "lightsout.config.json");
+  const configPath = join47(cwd, "lightsout.config.json");
   const present = await stat6(configPath).then(
     () => true,
     () => false
@@ -41343,15 +41425,15 @@ var resolveConfigAndDriver = async ({ cwd, command }) => {
 
 // src/runPromptImprovement.ts
 import { readdir as readdir14 } from "node:fs/promises";
-import { join as join49 } from "node:path";
+import { join as join48 } from "node:path";
 var promptsDir = "src/agents/prompts";
 var runPromptImprovement = async ({ consumerCwd, engineCwd, driver, model, effort }) => {
   const friction = await readFriction({ cwd: consumerCwd });
   if (friction.length === 0) {
     return { status: "no-friction", friction };
   }
-  const files = await readdir14(join49(engineCwd, promptsDir));
-  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join49(promptsDir, file2));
+  const files = await readdir14(join48(engineCwd, promptsDir));
+  const promptFiles = files.filter((file2) => file2.endsWith(".md")).map((file2) => join48(promptsDir, file2));
   const improverTimeoutMs = 20 * 6e4;
   const outcome = await invokeAgentWithContract({
     driver,
@@ -41473,7 +41555,7 @@ var planRunOptions = ({ cwd, driver, name, standards, config: config2 }) => ({
 });
 
 // src/plan/checkPlanPaths.ts
-import { basename as basename3, join as join50 } from "node:path";
+import { basename as basename3, join as join49 } from "node:path";
 
 // src/plan/common/paths/pathExists.ts
 import { stat as stat7 } from "node:fs/promises";
@@ -41486,7 +41568,7 @@ var pathExists = ({ path }) => stat7(path).then(
 var checkPlanPaths = async ({ plan, cwd, planPath }) => {
   const findings = [];
   for (const path of [...plan.modifyPaths, ...plan.mirrorPaths]) {
-    if (!await pathExists({ path: join50(cwd, path) })) {
+    if (!await pathExists({ path: join49(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `referenced path does not exist: ${path}`,
@@ -41496,7 +41578,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
     }
   }
   for (const path of plan.createPaths) {
-    if (await pathExists({ path: join50(cwd, path) })) {
+    if (await pathExists({ path: join49(cwd, path) })) {
       findings.push({
         check: StructuralCheck.PathExists,
         issue: `Files to Create path already exists: ${path}`,
@@ -41510,7 +41592,7 @@ var checkPlanPaths = async ({ plan, cwd, planPath }) => {
 
 // src/plan/checkVerificationScripts.ts
 import { readFile as readFile27 } from "node:fs/promises";
-import { basename as basename4, join as join51 } from "node:path";
+import { basename as basename4, join as join50 } from "node:path";
 
 // src/plan/common/utils/getManifestScriptKeys.ts
 var Manifest2 = external_exports.object({ scripts: external_exports.record(external_exports.string(), external_exports.unknown()).optional() });
@@ -41553,7 +41635,7 @@ var checkVerificationScripts = async ({ plan, cwd, planPath, packagesDir, config
       }
     }
   }
-  const manifestPaths = [join51(cwd, "package.json"), ...[...packageDirs].map((dir) => join51(cwd, packagesDir, dir, "package.json"))];
+  const manifestPaths = [join50(cwd, "package.json"), ...[...packageDirs].map((dir) => join50(cwd, packagesDir, dir, "package.json"))];
   const availableScripts = /* @__PURE__ */ new Set();
   for (const manifestPath of manifestPaths) {
     const raw = await readFile27(manifestPath, "utf8").catch(() => void 0);
@@ -41866,19 +41948,19 @@ var lintPlanStructure = async ({ cwd, planPaths, config: config2 }) => {
 
 // src/plan/readBrainstormDecisions.ts
 import { access as access2 } from "node:fs/promises";
-import { join as join54 } from "node:path";
+import { join as join53 } from "node:path";
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
 import { readFile as readFile30 } from "node:fs/promises";
-import { join as join53 } from "node:path";
+import { join as join52 } from "node:path";
 
 // src/plan/planWorkspaceDir.ts
-import { join as join52 } from "node:path";
-var planWorkspaceDir = ({ cwd, name }) => join52(cwd, ".lightsout", "plans", name);
+import { join as join51 } from "node:path";
+var planWorkspaceDir = ({ cwd, name }) => join51(cwd, ".lightsout", "plans", name);
 
 // src/plan/common/utils/readPlanWorkspaceFile.ts
 var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) => {
-  const filePath = join53(planWorkspaceDir({ cwd, name }), fileName);
+  const filePath = join52(planWorkspaceDir({ cwd, name }), fileName);
   const raw = await readFile30(filePath, "utf8").catch(() => {
     throw new Error(notFound(filePath));
   });
@@ -41888,7 +41970,7 @@ var readPlanWorkspaceFile = async ({ cwd, name, fileName, schema, notFound }) =>
 // src/plan/readBrainstormDecisions.ts
 var brainstormDecisionsFile = "brainstorm-decisions.json";
 var readBrainstormDecisions = async ({ cwd, name }) => {
-  const filePath = join54(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
+  const filePath = join53(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
   const present = await access2(filePath).then(
     () => true,
     () => false
@@ -41928,11 +42010,11 @@ var readPlanFacts = async ({ cwd, name }) => {
 };
 
 // src/plan/repairPlanStructure.ts
-import { join as join56 } from "node:path";
+import { join as join55 } from "node:path";
 
 // src/plan/common/utils/createPlanAgentRunner.ts
 import { writeFile as writeFile9 } from "node:fs/promises";
-import { join as join55 } from "node:path";
+import { join as join54 } from "node:path";
 var createPlanAgentRunner = ({
   cwd,
   driver,
@@ -41943,7 +42025,7 @@ var createPlanAgentRunner = ({
   permissions,
   timeoutMs
 }) => {
-  const onEvent = createEventFileSink({ path: join55(workspaceDir, `${step}-stream.jsonl`) });
+  const onEvent = createEventFileSink({ path: join54(workspaceDir, `${step}-stream.jsonl`) });
   return ({ invocation, contract, label, allowedCommands }) => invokeAgentWithContract({
     driver,
     cwd,
@@ -41957,7 +42039,7 @@ var createPlanAgentRunner = ({
     onEvent,
     onRejectedOutput: async ({ text, attempt }) => {
       const name = `${step}-rejected-${label === void 0 ? "" : `${label}-`}${attempt}.txt`;
-      await writeFile9(join55(workspaceDir, name), text, "utf8").catch(() => void 0);
+      await writeFile9(join54(workspaceDir, name), text, "utf8").catch(() => void 0);
     }
   });
 };
@@ -41988,9 +42070,9 @@ var repairPlanStructure = async ({
       invocation: buildPlanRepairInvocation({
         findings,
         planPaths,
-        decisionsPath: join56(workspaceDir, "decisions.json"),
+        decisionsPath: join55(workspaceDir, "decisions.json"),
         brainstormDecisionsPath,
-        factsPath: join56(workspaceDir, "facts.json")
+        factsPath: join55(workspaceDir, "facts.json")
       }),
       contract: PlanFixReport
     });
@@ -42017,7 +42099,7 @@ var repairPlanStructure = async ({
 };
 
 // src/plan/runPlanDedup.ts
-import { join as join58 } from "node:path";
+import { join as join57 } from "node:path";
 
 // src/common/utils/writeJsonFile.ts
 import { writeFile as writeFile10 } from "node:fs/promises";
@@ -42031,10 +42113,10 @@ import { mkdir as mkdir8 } from "node:fs/promises";
 
 // src/plan/common/utils/resolvePlanDeliverable.ts
 import { readdir as readdir15, readFile as readFile31 } from "node:fs/promises";
-import { join as join57 } from "node:path";
+import { join as join56 } from "node:path";
 var resolvePlanDeliverable = async ({ cwd, name }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  const singlePath = join57(dir, "plan.md");
+  const singlePath = join56(dir, "plan.md");
   let overviewPath;
   let overviewText;
   const files = [];
@@ -42044,7 +42126,7 @@ var resolvePlanDeliverable = async ({ cwd, name }) => {
     const dirEntries = await readdir15(dir).catch(() => []);
     const entries = dirEntries.filter((entry) => entry === "overview.md" || /^phase\d+.*\.md$/.test(entry)).sort();
     for (const entry of entries) {
-      const path = join57(dir, entry);
+      const path = join56(dir, entry);
       const text = await readFile31(path, "utf8");
       if (entry === "overview.md") {
         overviewPath = path;
@@ -42122,7 +42204,7 @@ var runPlanDedup = async ({
   const candidates = await detectPriorArtCandidates({ cwd, planPaths, config: config2 });
   const writeReport = async (findings2) => {
     const dedup2 = { planName: name, findings: findings2, reviewedAt: (/* @__PURE__ */ new Date()).toISOString() };
-    const dedupPath2 = join58(workspaceDir, "dedup.json");
+    const dedupPath2 = join57(workspaceDir, "dedup.json");
     await writeJsonFile({ path: dedupPath2, value: dedup2 });
     return { dedup: dedup2, dedupPath: dedupPath2 };
   };
@@ -42150,19 +42232,19 @@ var runPlanDedup = async ({
 
 // src/plan/runPlanDraft.ts
 import { mkdir as mkdir9 } from "node:fs/promises";
-import { join as join61 } from "node:path";
+import { join as join60 } from "node:path";
 
 // src/plan/common/paths/planDraftOutputs.ts
-import { join as join59 } from "node:path";
+import { join as join58 } from "node:path";
 var planDraftOutputs = ({ cwd, name, variant }) => {
   const dir = planWorkspaceDir({ cwd, name });
-  return variant === PlanVariant.Single ? [{ path: join59(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join59(dir, "overview.md"), variant: PlanVariant.Overview }];
+  return variant === PlanVariant.Single ? [{ path: join58(dir, "plan.md"), variant: PlanVariant.Single }] : [{ path: join58(dir, "overview.md"), variant: PlanVariant.Overview }];
 };
 
 // src/plan/common/paths/verifyDraftedFiles.ts
-import { isAbsolute as isAbsolute2, join as join60 } from "node:path";
+import { isAbsolute as isAbsolute2, join as join59 } from "node:path";
 var verifyDraftedFiles = async ({ cwd, filesWritten }) => {
-  const planPaths = filesWritten.map((file2) => isAbsolute2(file2.path) ? file2.path : join60(cwd, file2.path));
+  const planPaths = filesWritten.map((file2) => isAbsolute2(file2.path) ? file2.path : join59(cwd, file2.path));
   if (planPaths.length === 0) {
     return { error: "plan-writer reported drafted but listed no files written" };
   }
@@ -42236,7 +42318,7 @@ var runPlanDraft = async ({
     name,
     planPaths,
     workspaceDir,
-    brainstormDecisionsPath: brainstorm ? join61(workspaceDir, "brainstorm-decisions.json") : void 0,
+    brainstormDecisionsPath: brainstorm ? join60(workspaceDir, "brainstorm-decisions.json") : void 0,
     config: config2,
     model,
     effort,
@@ -42258,7 +42340,7 @@ var runPlanDraft = async ({
 };
 
 // src/plan/runPlanGrade.ts
-import { basename as basename7, join as join62 } from "node:path";
+import { basename as basename7, join as join61 } from "node:path";
 var runPlanGrade = async ({
   cwd,
   driver,
@@ -42305,7 +42387,7 @@ var runPlanGrade = async ({
     passed: grade === PlanGrade.A,
     gradedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const gradePath = join62(workspaceDir, "grade.json");
+  const gradePath = join61(workspaceDir, "grade.json");
   await writeJsonFile({ path: gradePath, value: report });
   progress(`plan grade ${name}: ${grade} (${structural.length} structural, ${gaps.length} gap(s))`);
   return { status: "complete", workspaceDir, grade: report, gradePath };
@@ -42325,16 +42407,16 @@ var runPlanLint = async ({ cwd, name, onProgress }) => {
 
 // src/plan/runPlanVerifyFacts.ts
 import { access as access3, copyFile, mkdir as mkdir10, writeFile as writeFile11 } from "node:fs/promises";
-import { join as join64, resolve as resolve6 } from "node:path";
+import { join as join63, resolve as resolve7 } from "node:path";
 
 // src/plan/verifyFacts.ts
 import { readFile as readFile32 } from "node:fs/promises";
-import { join as join63 } from "node:path";
+import { join as join62 } from "node:path";
 var verifyFacts = async ({ cwd, facts }) => {
   const paths = facts.areas.flatMap((area) => [...area.filesToModify.map((file2) => file2.path), ...area.patternsToMirror.map((pattern) => pattern.path)]);
   const missingPaths = [];
   for (const path of paths) {
-    const exists = await pathExists({ path: join63(cwd, path) });
+    const exists = await pathExists({ path: join62(cwd, path) });
     if (!exists) {
       missingPaths.push(path);
     }
@@ -42345,7 +42427,7 @@ var verifyFacts = async ({ cwd, facts }) => {
     if (area.scripts.length === 0) {
       continue;
     }
-    const manifestPaths = [join63(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join63(cwd, pkg, "package.json"))];
+    const manifestPaths = [join62(cwd, "package.json"), ...area.affectedPackages.map((pkg) => join62(cwd, pkg, "package.json"))];
     const available = /* @__PURE__ */ new Set();
     for (const manifestPath of manifestPaths) {
       const raw = await readFile32(manifestPath, "utf8").catch(() => void 0);
@@ -42380,8 +42462,8 @@ var snapshotNotes = async ({
   notesFile,
   progress
 }) => {
-  const source = resolve6(cwd, notesFile);
-  const destination = join64(workspaceDir, "notes.md");
+  const source = resolve7(cwd, notesFile);
+  const destination = join63(workspaceDir, "notes.md");
   const alreadyFrozen = await access3(destination).then(
     () => true,
     () => false
@@ -42402,7 +42484,7 @@ var snapshotNotes = async ({
 var runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }) => {
   const progress = onProgress ?? (() => void 0);
   const workspaceDir = planWorkspaceDir({ cwd, name });
-  const factsPath = join64(workspaceDir, "facts.json");
+  const factsPath = join63(workspaceDir, "facts.json");
   if (notesFile !== void 0) {
     const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
     if (snapshot.error !== void 0) {
@@ -42801,7 +42883,15 @@ var collectBatchAdvisories = async ({
   if (!agentReview) {
     return machine;
   }
-  const review = await runStandardsReview({ cwd, driver, packages, channels, files: [...batchFiles], timeoutMs, onProgress });
+  const review = await runStandardsReview({
+    cwd,
+    driver,
+    packages,
+    channels,
+    files: [...batchFiles],
+    timeoutMs,
+    onProgress: (message) => onProgress(`${batch.id}: ${message}`)
+  });
   for (const note of review.notes) {
     onProgress(`${batch.id}: ${note}`);
   }
@@ -42852,7 +42942,7 @@ var getAttemptStop = async ({
 
 // src/refactor/initializeRun.ts
 import { readFile as readFile33, writeFile as writeFile12 } from "node:fs/promises";
-import { join as join65 } from "node:path";
+import { join as join64 } from "node:path";
 
 // src/refactor/buildWorklist.ts
 var buildWorklist = async ({ cwd, config: config2, path, all = false }) => {
@@ -42889,7 +42979,7 @@ var initializeRun = async ({
     if ((existing.pipeline ?? "implement") !== "refactor") {
       throw new Error(`run ${existing.runId} belongs to the implement pipeline \u2014 resume it with: lightsout resume --run ${existing.runId}`);
     }
-    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile33(join65(cwd, existing.plan), "utf8"))) };
+    return { manifest: existing, worklist: RefactorWorklist.parse(JSON.parse(await readFile33(join64(cwd, existing.plan), "utf8"))) };
   }
   const dirty = await readGitChangedFiles({ cwd });
   if (dirty === void 0) {
@@ -42902,9 +42992,9 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
     );
   }
   const worklist = await buildWorklist({ cwd, config: config2, path, all });
-  const worklistPath = join65(".lightsout", "runs", runId, "worklist.json");
+  const worklistPath = join64(".lightsout", "runs", runId, "worklist.json");
   const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "refactor", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile12(join65(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+  await writeFile12(join64(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
 `, "utf8");
   return { manifest, worklist };
 };
@@ -43030,7 +43120,7 @@ ${guidance}` : gateError;
 
 // src/refactor/invokeBatchAgent.ts
 import { mkdir as mkdir11, writeFile as writeFile13 } from "node:fs/promises";
-import { join as join66 } from "node:path";
+import { join as join65 } from "node:path";
 var invokeBatchAgent = async ({
   cwd,
   runId,
@@ -43046,9 +43136,9 @@ var invokeBatchAgent = async ({
   advisoryOutcomes,
   recordUsage
 }) => {
-  const agentsDir = join66(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join65(getRunDir({ cwd, runId }), "agents");
   const slug = batch.id.replace(/[:/]/g, "_");
-  const streamPath = join66(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  const streamPath = join65(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
   await mkdir11(agentsDir, { recursive: true });
   const outcome = await invokeAgentWithContract({
     driver,
@@ -43062,7 +43152,7 @@ var invokeBatchAgent = async ({
     allowedCommands: config2["agent-commands"],
     onEvent: createEventFileSink({ path: streamPath }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile13(join66(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile13(join65(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
@@ -43087,7 +43177,7 @@ var maxCheapFixRetries3 = 2;
 
 // src/refactor/superviseBatch.ts
 import { mkdir as mkdir12, writeFile as writeFile14 } from "node:fs/promises";
-import { join as join67 } from "node:path";
+import { join as join66 } from "node:path";
 var superviseBatch = async ({
   cwd,
   runId,
@@ -43104,7 +43194,7 @@ var superviseBatch = async ({
   gates
 }) => {
   onProgress(`${batchId}: gates red after ${maxCheapFixRetries4} cheap fix attempt(s) \u2014 consulting supervisor`);
-  const agentsDir = join67(getRunDir({ cwd, runId }), "agents");
+  const agentsDir = join66(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir12(agentsDir, { recursive: true });
   const verdict = await consultSupervisor({
@@ -43115,9 +43205,9 @@ var superviseBatch = async ({
     stepId: batchId,
     errorOutput: gateError,
     attempts,
-    onEvent: createEventFileSink({ path: join67(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
+    onEvent: createEventFileSink({ path: join66(agentsDir, `stream-${slug}-supervisor.jsonl`) }),
     onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile14(join67(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
+      await writeFile14(join66(agentsDir, `rejected-${slug}-supervisor-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
   await recordUsage({ step: `${batchId}:supervisor`, usage: verdict.usage });
@@ -43553,7 +43643,7 @@ var resumeCommand = async ({ flags, cwd }) => {
 };
 
 // src/cli/reviewStandards.ts
-var reviewStandards = async ({ cwd, config: config2, path }) => {
+var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
   const defaultAgentTimeoutMinutes2 = 60;
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
@@ -43566,7 +43656,7 @@ var reviewStandards = async ({ cwd, config: config2, path }) => {
     channels,
     files,
     timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4,
-    onProgress: (message) => console.log(dim(message))
+    onProgress
   });
 };
 
@@ -43654,6 +43744,12 @@ var printFindingGroups = ({ findings }) => {
   }
 };
 
+// src/cli/common/render/printSectionHeading.ts
+var printSectionHeading = ({ title, subtitle }) => {
+  console.log("");
+  console.log(subtitle === void 0 ? bold(title) : `${bold(title)}  ${dim("\xB7")}  ${dim(subtitle)}`);
+};
+
 // src/cli/common/render/printStandardsRuleList.ts
 var countOf = ({ rules, severity }) => rules.filter((rule) => rule.severity === severity).length;
 var describeSettings = ({ settings }) => Object.entries(settings).map(([name, value]) => `${name} ${value}`).join(", ");
@@ -43733,6 +43829,30 @@ var printStandardsSummary = ({ findings, rules, reportPath }) => {
 };
 
 // src/cli/standardsCheckCommand.ts
+var printProgress = (message) => console.log(dim(`  ${message}`));
+var orderBySeverity = ({ findings }) => [
+  ...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
+  ...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory)
+];
+var describeCodeFindings = ({ findings }) => {
+  const blocking = findings.filter((entry) => entry.severity === StandardsSeverity.Blocking).length;
+  const advisories = findings.length - blocking;
+  if (findings.length === 0) {
+    return "nothing found";
+  }
+  return [blocking > 0 ? `${blocking} blocking` : "", advisories > 0 ? `${advisories} advisor${advisories === 1 ? "y" : "ies"}` : ""].filter(Boolean).join(", ");
+};
+var printSectionResult = ({ findings, notes }) => {
+  if (findings.length > 0) {
+    printFindingGroups({ findings });
+  }
+  if (notes.length > 0) {
+    console.log("");
+  }
+  for (const note of notes) {
+    console.log(`  ${dim("\u2139")} ${dim(note)}`);
+  }
+};
 var standardsCheckCommand = async ({ flags, cwd }) => {
   const { config: config2, rules } = await loadStandardsLedger({ cwd });
   if (flags.get("list") === true) {
@@ -43747,37 +43867,33 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
   const findings = [];
   const notes = [];
   if (runCodeChecks) {
+    printSectionHeading({ title: "Code checks", subtitle: "deterministic \u2014 the same answer every run" });
+    const startedAt = Date.now();
     const checked = await runStandardsCheck({
       cwd,
       path: checkPath,
       all: flags.get("all") === true,
       writeBaseline: flags.get("baseline") === true,
       persist: false,
-      onProgress: (message) => console.log(dim(message))
+      onProgress: printProgress
     });
-    findings.push(...checked.findings);
+    const ordered = orderBySeverity({ findings: checked.findings });
+    printProgress(`\u2713 Code checks finished in ${formatElapsed({ elapsedMs: Date.now() - startedAt })} \u2014 ${describeCodeFindings({ findings: ordered })}`);
+    printSectionResult({ findings: ordered, notes: checked.notes });
+    findings.push(...ordered);
     notes.push(...checked.notes);
   }
   if (runAgentReview) {
-    const reviewed = await reviewStandards({ cwd, config: config2, path: checkPath });
+    printSectionHeading({ title: "Agent review" });
+    const reviewed = await reviewStandards({ cwd, config: config2, path: checkPath, onProgress: printProgress });
+    printSectionResult({ findings: reviewed.findings, notes: reviewed.notes });
     findings.push(...reviewed.findings);
     notes.push(...reviewed.notes);
   }
-  const ordered = [
-    ...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
-    ...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory)
-  ];
-  printFindingGroups({ findings: ordered });
-  if (notes.length > 0) {
-    console.log("");
-  }
-  for (const note of notes) {
-    console.log(`${dim("\u2139")} ${dim(note)}`);
-  }
   if (runCodeChecks) {
-    await writeStandardsSnapshot({ cwd, snapshot: { at: (/* @__PURE__ */ new Date()).toISOString(), path: checkPath ?? ".", findings: ordered, notes } });
+    await writeStandardsSnapshot({ cwd, snapshot: { at: (/* @__PURE__ */ new Date()).toISOString(), path: checkPath ?? ".", findings, notes } });
   }
-  printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? ".lightsout/standards-check.json" : void 0 });
+  printStandardsSummary({ findings, rules, reportPath: runCodeChecks ? ".lightsout/standards-check.json" : void 0 });
   return exitCli({ code: 0 });
 };
 
@@ -43849,11 +43965,11 @@ var standardsHealthCommand = async ({ cwd }) => {
 };
 
 // src/cli/standardsValidateCommand.ts
-import { resolve as resolve7 } from "node:path";
+import { resolve as resolve8 } from "node:path";
 var loadRequestedPackage = async ({ requested, cwd }) => (
   // resolve() leaves an absolute --package alone, so both forms the flag
   // accepts land here.
-  loadStandardsPackage({ packagePath: requested === void 0 ? resolveDefaultStandardsPackage() : resolve7(cwd, requested) })
+  loadStandardsPackage({ packagePath: requested === void 0 ? resolveDefaultStandardsPackage() : resolve8(cwd, requested) })
 );
 var standardsValidateCommand = async ({ flags, cwd }) => {
   const requested = getStringFlag({ flags, name: "package" });
@@ -43960,9 +44076,9 @@ import { mkdir as mkdir13, writeFile as writeFile15 } from "node:fs/promises";
 import { dirname as dirname8 } from "node:path";
 
 // src/voice/common/paths/getVoiceMarkerPath.ts
-import { join as join68 } from "node:path";
+import { join as join67 } from "node:path";
 var getVoiceMarkerPath = ({ cwd }) => {
-  return join68(cwd, ".lightsout", "voice-on");
+  return join67(cwd, ".lightsout", "voice-on");
 };
 
 // src/voice/createVoiceMarker.ts
@@ -44096,9 +44212,9 @@ import { spawn as spawn3 } from "node:child_process";
 import { writeFile as writeFile16 } from "node:fs/promises";
 
 // src/voice/common/paths/getVoicePidPath.ts
-import { join as join69 } from "node:path";
+import { join as join68 } from "node:path";
 var getVoicePidPath = ({ cwd }) => {
-  return join69(cwd, ".lightsout", "voice-pid");
+  return join68(cwd, ".lightsout", "voice-pid");
 };
 
 // src/voice/stopSpeech.ts

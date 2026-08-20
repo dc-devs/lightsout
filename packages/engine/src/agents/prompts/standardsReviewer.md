@@ -39,7 +39,11 @@ do not pad the list to look thorough.
 ## Hard limits
 
 - Change nothing. You read and report; you never edit, create, or delete files.
-- Do not run shell commands, builds, or test suites.
+- Do not run builds, tests, linters, formatters, package-manager commands,
+  Git commands, network commands, or any other verification or
+  environment-changing command. Use the harness's file tools to read. If the
+  harness exposes the filesystem only through a shell, use the shell solely
+  to read files — never for repository commands.
 - `rule` must be one of the rule ids given to you, spelled exactly. A finding
   naming any other id is dropped.
 - Every finding needs at least one file, with a repo-relative path as it was

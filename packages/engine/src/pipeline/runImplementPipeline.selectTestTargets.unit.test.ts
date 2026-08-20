@@ -8,7 +8,7 @@ import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // The write-tests fan-out is the boundary the inert-file classifier lives
 // behind: a source file provably free of executable statements (a barrel, a
@@ -53,7 +53,16 @@ const behavioralFiles = {
 };
 
 test('write-tests fan-out: every executable-code kind earns a writer; barrels and type-only files are inert-skipped', async () => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({
+		config: {
+			'standards-checks': {
+				...reachabilityRulesOff['standards-checks'],
+				// the fixture's `Kind` union is deliberately bare: it is here as a
+				// type-only export the writer selection has to skip, not as code to fix
+				'bare-string-union': 'off',
+			},
+		},
+	});
 
 	linkTypescript({ dir });
 
@@ -134,7 +143,16 @@ test('write-tests fan-out: every executable-code kind earns a writer; barrels an
 // which returns stale-references and escalates the run. The write-tests step
 // must skip deletions deterministically — never spawn a writer for them.
 test('write-tests fan-out: a deleted source file is skipped, never sent to a writer, and does not escalate the run', async () => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({
+		config: {
+			'standards-checks': {
+				...reachabilityRulesOff['standards-checks'],
+				// the fixture's `Kind` union is deliberately bare: it is here as a
+				// type-only export the writer selection has to skip, not as code to fix
+				'bare-string-union': 'off',
+			},
+		},
+	});
 
 	linkTypescript({ dir });
 
@@ -204,7 +222,16 @@ test('write-tests fan-out: a deleted source file is skipped, never sent to a wri
 // the two alike would silently drop a real source file from the test-writing
 // fan-out, leaving it uncovered with nothing said about it.
 test('write-tests fan-out: an unreadable file that still exists keeps its writer, unlike a deleted one', async () => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({
+		config: {
+			'standards-checks': {
+				...reachabilityRulesOff['standards-checks'],
+				// the fixture's `Kind` union is deliberately bare: it is here as a
+				// type-only export the writer selection has to skip, not as code to fix
+				'bare-string-union': 'off',
+			},
+		},
+	});
 
 	linkTypescript({ dir });
 

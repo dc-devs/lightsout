@@ -11,6 +11,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n';
@@ -36,7 +37,7 @@ const setupTwoFolderRun = async () => {
 
 	for (const folder of ['alpha', 'beta']) {
 		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
+		writeSource({ dir, path: `${folder}/multi.ts`, source: multiExport });
 	}
 
 	commitAll(dir);
@@ -66,7 +67,7 @@ const setupTwoFolderRun = async () => {
 const setupBaselinedRun = async () => {
 	const dir = setupConsumerRepo();
 
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 	writeFileSync(
 		join(dir, 'lightsout.standards-baseline.json'),
 		`${JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.', siteKeys: ['multi-export:src/multi.ts'] })}\n`,
@@ -107,8 +108,8 @@ const setupBaselinedRun = async () => {
 const setupTwoFindingFolder = async () => {
 	const dir = setupConsumerRepo();
 
-	writeFileSync(join(dir, 'src/one.ts'), 'export const alphaOne = 1;\nexport const betaOne = 2;\n');
-	writeFileSync(join(dir, 'src/two.ts'), 'export const alphaTwo = 1;\nexport const betaTwo = 2;\n');
+	writeSource({ dir, path: 'src/one.ts', source: 'export const alphaOne = 1;\nexport const betaOne = 2;\n' });
+	writeSource({ dir, path: 'src/two.ts', source: 'export const alphaTwo = 1;\nexport const betaTwo = 2;\n' });
 	commitAll(dir);
 
 	const driver: Driver = {
@@ -131,7 +132,7 @@ const priorReport = `${JSON.stringify({ at: '2026-01-01T00:00:00.000Z', path: '.
 const setupParkedRun = async ({ report }: { report?: string } = {}) => {
 	const dir = setupConsumerRepo();
 
-	writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+	writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 	commitAll(dir);
 
 	if (report) {
@@ -162,8 +163,8 @@ const setupDefaultPackagesRun = async () => {
 
 	mkdirSync(join(dir, 'packages/api'), { recursive: true });
 	mkdirSync(join(dir, 'packages/web'), { recursive: true });
-	writeFileSync(join(dir, 'packages/api/multi.ts'), multiExport);
-	writeFileSync(join(dir, 'packages/web/pair.ts'), 'export const gammaThing = 3;\nexport const deltaThing = 4;\n');
+	writeSource({ dir, path: 'packages/api/multi.ts', source: multiExport });
+	writeSource({ dir, path: 'packages/web/pair.ts', source: 'export const gammaThing = 3;\nexport const deltaThing = 4;\n' });
 	commitAll(dir);
 
 	const driver: Driver = {
@@ -208,7 +209,10 @@ describe('runRefactorPipeline work-list', () => {
 		const dir = setupConsumerRepo();
 
 		linkTypescript({ dir });
-		writeFileSync(join(dir, 'src/multi.ts'), `export const alphaThing = 1;\n${bigFunction}`);
+		writeSource({ dir, path: 'src/multi.ts', source: `export const alphaThing = 1;\n${bigFunction}` });
+		// a second, near-identical copy: a different advisory rule from the size one,
+		// which is the whole point of the assertion below
+		writeSource({ dir, path: 'src/bigThingCopy.ts', source: bigFunction.replace('bigThing', 'bigThingCopy') });
 		commitAll(dir);
 
 		const driver: Driver = {
@@ -232,7 +236,7 @@ describe('runRefactorPipeline work-list', () => {
 		expect(advisories.length > 0).toBeTruthy();
 		// EVERY advisory rides along, not just the size ones — each carries its own
 		// guidance, and one the agent never sees is one it can never judge
-		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['dead-export', 'size-function']);
+		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['clone', 'size-function']);
 		// advisories are never batched as work
 		expect([...new Set(worklist.batches.flatMap((batch) => batch.blocking.map((finding) => finding.severity)))]).toStrictEqual(['blocking']);
 	});
@@ -242,8 +246,8 @@ describe('runRefactorPipeline work-list', () => {
 
 		mkdirSync(join(dir, 'modules/api'), { recursive: true });
 		mkdirSync(join(dir, 'modules/web'), { recursive: true });
-		writeFileSync(join(dir, 'modules/api/multi.ts'), multiExport);
-		writeFileSync(join(dir, 'modules/web/pair.ts'), 'export const gammaThing = 3;\nexport const deltaThing = 4;\n');
+		writeSource({ dir, path: 'modules/api/multi.ts', source: multiExport });
+		writeSource({ dir, path: 'modules/web/pair.ts', source: 'export const gammaThing = 3;\nexport const deltaThing = 4;\n' });
 		commitAll(dir);
 
 		const driver: Driver = {
@@ -361,7 +365,7 @@ describe('runRefactorPipeline work-list', () => {
 	test('a repo outside any git worktree is refused before any run state exists', async () => {
 		const dir = setupConsumerRepo({ git: false });
 
-		writeFileSync(join(dir, 'src/multi.ts'), multiExport);
+		writeSource({ dir, path: 'src/multi.ts', source: multiExport });
 
 		const driver: Driver = {
 			name: 'stub',

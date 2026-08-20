@@ -28,9 +28,9 @@ test('cli: standards-check counts advisories apart from findings and does not ca
 
 	const { stdout, stderr, code } = await runCli({ args: ['standards-check', '--code-checks', '--cwd', cwd] });
 
-	// the fixture plants a synonym pair and the two unreferenced exports behind
-	// it — all advice to weigh, none of it work
-	expect(stdout).toMatch(/│ total\s+│\s+—\s+│\s+3\s+│/);
+	// the fixture plants a synonym pair and nothing else — advice to weigh, and
+	// no work
+	expect(stdout).toMatch(/│ total\s+│\s+—\s+│\s+1\s+│/);
 	// so the accept-as-debt hint stays quiet — advice is not a ledger entry
 	expect(stdout.includes('--baseline')).toBeFalsy();
 	expect(stderr).toBe('');
@@ -111,13 +111,13 @@ test('cli: standards-check --list prints the enforcement ledger and runs no chec
 	// a rule's live numbers ride its summary line
 	expect(stdout).toContain('minTokens 50');
 	// the totals close it off, counting both kinds of rule
-	expect(stdout).toMatch(/│ 134 rule\(s\)\s+│\s+30 blocking\s+│\s+104 advisory, 0 off\s+│\s+51 by code, 83 by judgment\s+│/);
+	expect(stdout).toMatch(/│ 134 rule\(s\)\s+│\s+41 blocking\s+│\s+93 advisory, 0 off\s+│\s+51 by code, 83 by judgment\s+│/);
 	// the test-shape rules name the document they enforce
 	expect(stdout).toMatch(/│ test-nested-describe\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: tests\/unit-testing\s+│/);
 	// and so do the file-placement rules, across the three docs they come from
 	expect(stdout).toMatch(/│ path-banned-module-name\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: code\/architecture\/folder-structure\s+│/);
 	expect(stdout).toMatch(/│ path-common-barrel\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: code\/style-guide\/structure\/module-api\s+│/);
-	expect(stdout).toMatch(/│ path-folder-casing\s+│\s+advisory\s+│\s+code\s+│\s+lightsout-defaults: code\/architecture\/folder-structure\s+│/);
+	expect(stdout).toMatch(/│ path-folder-casing\s+│\s+blocking\s+│\s+code\s+│\s+lightsout-defaults: code\/architecture\/folder-structure\s+│/);
 	// --list answers a question about configuration — it never checks the tree
 	expect(stdout.includes('report: .lightsout/standards-check.json')).toBeFalsy();
 	expect(stderr).toBe('');
@@ -131,7 +131,7 @@ test('cli: standards-check --list marks the rules this repo configured', async (
 
 	// "this is our policy" reads apart from "this is the default"
 	expect(stdout).toMatch(/│ name-synonym\s+│\s+off \(config\)\s+│/);
-	expect(stdout).toMatch(/│ 134 rule\(s\)\s+│\s+30 blocking\s+│\s+103 advisory, 1 off\s+│\s+51 by code, 83 by judgment\s+│/);
+	expect(stdout).toMatch(/│ 134 rule\(s\)\s+│\s+41 blocking\s+│\s+92 advisory, 1 off\s+│\s+51 by code, 83 by judgment\s+│/);
 	expect(code).toBe(0);
 });
 

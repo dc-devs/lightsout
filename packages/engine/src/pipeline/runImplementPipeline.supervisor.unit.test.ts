@@ -10,6 +10,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 // The supervisor consult on the red-gate exception path: cheap retries first,
 // then escalate with a diagnosis, or heal the run with guided retry.
@@ -40,7 +41,7 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 			writeFileSync(join(dir, 'BROKEN'), 'x');
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
@@ -88,7 +89,7 @@ test('supervisor retry-with-guidance heals the run', async () => {
 			}
 
 			if (role === 'implement') {
-				writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+				writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 				writeFileSync(join(dir, 'BROKEN'), 'x');
 
 				return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };

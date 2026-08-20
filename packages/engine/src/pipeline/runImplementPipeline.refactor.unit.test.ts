@@ -8,6 +8,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** The rule ids the standards reviewer was handed, in the order its invocation lists them. */
 const ruleIdsOffered = ({ systemPrompt }: { systemPrompt: string }) => [...systemPrompt.matchAll(/Rule id: `([^`]+)`/g)].map(([, id]) => id ?? '');
@@ -34,13 +35,16 @@ const setupRefactorRun = async ({
 	extraSources = {},
 	onReview = () => reviewReport(),
 	onRefactor,
+	config: repoConfig,
 }: {
 	source: string;
 	extraSources?: Record<string, string>;
 	onReview?: (params: { ruleIds: string[] }) => string;
 	onRefactor: (params: { pass: number; cwd: string }) => string;
+	/** Extra repo config — for a fixture whose subject is a shape some rule objects to. */
+	config?: Record<string, unknown>;
 }) => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo({ config: repoConfig });
 	const progress: string[] = [];
 	const refactorPrompts: string[] = [];
 	const reviewScopes: string[][] = [];
@@ -75,7 +79,7 @@ const setupRefactorRun = async ({
 				return { text: onRefactor({ pass: passes, cwd: dir }), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/subject.js'), source);
+			writeSource({ dir, path: 'src/subject.js', source });
 
 			for (const [path, contents] of Object.entries(extraSources)) {
 				mkdirSync(dirname(join(dir, path)), { recursive: true });
@@ -143,7 +147,7 @@ test('refactor: a loop that spends every pass still changing files cannot walk p
 		onRefactor: ({ pass, cwd }) => {
 			// Every pass edits the file and reports the change, so the loop never
 			// takes its no-change exit — it simply runs out of passes.
-			writeFileSync(join(cwd, 'src/subject.js'), `export const first = () => ${pass};\nexport const second = () => 2;\n`);
+			writeSource({ dir: cwd, path: 'src/subject.js', source: `export const first = () => ${pass};\nexport const second = () => 2;\n` });
 
 			return report({ changedFiles: [{ path: 'src/subject.js', summary: `pass ${pass}` }] });
 		},
@@ -229,6 +233,9 @@ test('refactor: a star re-export blocks the loop on its own — severity is the 
 			'src/widget/widget.ts': 'export const widget = () => 1;\n',
 			'src/widget/index.ts': "export * from './widget';\n",
 		},
+		// the planted barrel is also, unavoidably, a barrel nothing consumes — a
+		// second verdict on the same file that would make "alone" untestable
+		config: { 'standards-checks': { 'barrel-only-export': 'off' } },
 		onRefactor: () => report({ changedFiles: [] }),
 	});
 
@@ -244,10 +251,11 @@ test('refactor: a star re-export blocks the loop on its own — severity is the 
 
 test('refactor: the gate narration counts the work-list and the advisories, and nothing else', async () => {
 	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
-		// Two exports in one file: one blocking multi-export finding, plus the
-		// unconsumed-export advisory that rides along with it — an advisory from
-		// a rule outside the size family, which now reaches the loop too.
+		// Two exports in one file: one blocking multi-export finding. The near-copy
+		// beside it contributes a clone advisory — a rule outside the size family,
+		// so the line has both counts to carry.
 		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
+		extraSources: { 'src/copyOfFirst.js': `export const copyOfFirst = () => {\n${'\tconst padding = 1;\n'.repeat(40)}\treturn 1;\n};\n` },
 		onRefactor: () => report({ changedFiles: [] }),
 	});
 
@@ -319,7 +327,10 @@ test("refactor: the review reads the run's changed source — not the tests the 
 
 	// the repo's committed src/index.js and the writers' test/subject.test.js are
 	// both absent — scope is this run's changed source and nothing else
-	expect(reviewScopes).toStrictEqual([['src/subject.js', 'src/widget.js']]);
+	expect(reviewScopes).toStrictEqual([
+		['src/subject.js', 'src/widget.js', 'src/useSubject.js'],
+		['src/subject.js', 'src/widget.js', 'src/useSubject.js'],
+	]);
 });
 
 test('refactor: a loop that spends every pass on a tree the checks find clean passes at the post-loop check', async () => {
@@ -329,7 +340,7 @@ test('refactor: a loop that spends every pass on a tree the checks find clean pa
 			// Every pass edits the file and reports the change, so the loop never
 			// takes its no-change exit — but nothing it writes is a work-list
 			// finding, so the post-loop check has nothing to escalate on.
-			writeFileSync(join(cwd, 'src/subject.js'), `export const subject = () => ${pass};\n`);
+			writeSource({ dir: cwd, path: 'src/subject.js', source: `export const subject = () => ${pass};\n` });
 
 			return report({ changedFiles: [{ path: 'src/subject.js', summary: `pass ${pass}` }] });
 		},

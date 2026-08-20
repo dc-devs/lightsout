@@ -1,5 +1,6 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { printFindingGroups } from '#src/cli/common/render/printFindingGroups.ts';
+import { printSectionHeading } from '#src/cli/common/render/printSectionHeading.ts';
 import { printStandardsRuleList } from '#src/cli/common/render/printStandardsRuleList.ts';
 import { printStandardsSummary } from '#src/cli/common/render/printStandardsSummary.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
@@ -7,8 +8,52 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { loadStandardsLedger } from '#src/cli/loadStandardsLedger.ts';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
+import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { runStandardsCheck, writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
+
+/** Progress lines sit under their section heading, indented and dim. */
+const printProgress = (message: string) => console.log(dim(`  ${message}`));
+
+/** Blocking first: findings are the work, and an advisory read first would set the wrong expectation about what a run is asking for. */
+const orderBySeverity = ({ findings }: { findings: StandardsFinding[] }) => [
+	...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
+	...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory),
+];
+
+/** What the code checks found, in the words the finish line says it. */
+const describeCodeFindings = ({ findings }: { findings: StandardsFinding[] }) => {
+	const blocking = findings.filter((entry) => entry.severity === StandardsSeverity.Blocking).length;
+	const advisories = findings.length - blocking;
+
+	if (findings.length === 0) {
+		return 'nothing found';
+	}
+
+	return [blocking > 0 ? `${blocking} blocking` : '', advisories > 0 ? `${advisories} advisor${advisories === 1 ? 'y' : 'ies'}` : '']
+		.filter(Boolean)
+		.join(', ');
+};
+
+/**
+ * One section's result, printed the moment that half finishes: its findings
+ * grouped by rule, then its notes. A reader waiting on the slow half is never
+ * kept from the fast half's answer.
+ */
+const printSectionResult = ({ findings, notes }: { findings: StandardsFinding[]; notes: string[] }) => {
+	// The group renderer opens each rule with its own blank line.
+	if (findings.length > 0) {
+		printFindingGroups({ findings });
+	}
+
+	if (notes.length > 0) {
+		console.log('');
+	}
+
+	for (const note of notes) {
+		console.log(`  ${dim('ℹ')} ${dim(note)}`);
+	}
+};
 
 export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	// Both paths need the ledger: `--list` prints it whole, the run path reads
@@ -34,6 +79,9 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 	const notes: string[] = [];
 
 	if (runCodeChecks) {
+		printSectionHeading({ title: 'Code checks', subtitle: 'deterministic — the same answer every run' });
+
+		const startedAt = Date.now();
 		// Persistence is this command's job, not the check's: the merged stream is
 		// what the reader was shown, and two writers to one file would race.
 		const checked = await runStandardsCheck({
@@ -42,44 +90,36 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 			all: flags.get('all') === true,
 			writeBaseline: flags.get('baseline') === true,
 			persist: false,
-			onProgress: (message) => console.log(dim(message)),
+			onProgress: printProgress,
 		});
+		const ordered = orderBySeverity({ findings: checked.findings });
 
-		findings.push(...checked.findings);
+		printProgress(`✓ Code checks finished in ${formatElapsed({ elapsedMs: Date.now() - startedAt })} — ${describeCodeFindings({ findings: ordered })}`);
+		printSectionResult({ findings: ordered, notes: checked.notes });
+		findings.push(...ordered);
 		notes.push(...checked.notes);
 	}
 
 	if (runAgentReview) {
-		const reviewed = await reviewStandards({ cwd, config, path: checkPath });
+		// The review narrates itself — started, still running, finished — so the
+		// heading is all the command adds.
+		printSectionHeading({ title: 'Agent review' });
 
+		const reviewed = await reviewStandards({ cwd, config, path: checkPath, onProgress: printProgress });
+
+		printSectionResult({ findings: reviewed.findings, notes: reviewed.notes });
 		findings.push(...reviewed.findings);
 		notes.push(...reviewed.notes);
 	}
 
-	// Findings lead: they are the work, and an advisory read first would set the
-	// wrong expectation about what the run is asking for.
-	const ordered = [
-		...findings.filter((entry) => entry.severity === StandardsSeverity.Blocking),
-		...findings.filter((entry) => entry.severity === StandardsSeverity.Advisory),
-	];
-
-	printFindingGroups({ findings: ordered });
-
-	if (notes.length > 0) {
-		console.log('');
-	}
-
-	for (const note of notes) {
-		console.log(`${dim('ℹ')} ${dim(note)}`);
-	}
-
 	// The evidence file is the machine half's work-list, so a review-only run
 	// leaves it exactly as the last real check left it rather than overwriting
-	// it with a judgment call.
+	// it with a judgment call. Review findings are advisory by construction, so
+	// the file keeps the blocking-first order the reader saw.
 	if (runCodeChecks) {
-		await writeStandardsSnapshot({ cwd, snapshot: { at: new Date().toISOString(), path: checkPath ?? '.', findings: ordered, notes } });
+		await writeStandardsSnapshot({ cwd, snapshot: { at: new Date().toISOString(), path: checkPath ?? '.', findings, notes } });
 	}
 
-	printStandardsSummary({ findings: ordered, rules, reportPath: runCodeChecks ? '.lightsout/standards-check.json' : undefined });
+	printStandardsSummary({ findings, rules, reportPath: runCodeChecks ? '.lightsout/standards-check.json' : undefined });
 	return exitCli({ code: 0 });
 };

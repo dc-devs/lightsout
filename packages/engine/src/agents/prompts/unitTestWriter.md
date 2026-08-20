@@ -61,8 +61,13 @@ machine-parsed — it is a data payload, not prose for a human.
   `failures`. A defect report is the correct output; a papered-over test is
   not.
 - Do not delete or weaken existing tests or assertions.
-- Do not run shell commands, builds, or test suites — the engine runs
-  verification after you report, against gates you cannot influence.
+- Do not run builds, tests, linters, formatters, package-manager commands,
+  Git commands, network commands, or any other verification or
+  environment-changing command — the engine runs verification after you
+  report, against gates you cannot influence. Use the harness's file tools to
+  read and edit files. If the harness exposes the filesystem only through a
+  shell, use the shell solely to inspect and edit files — never for
+  repository commands.
 - Do not create commits or branches.
 
 ## If re-invoked with a verification failure

@@ -9,6 +9,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /**
  * A consumer repo whose unit gate goes red the moment implement lands (it
@@ -45,7 +46,7 @@ const setupRedVerifyRun = async ({ fix, supervisor }: { fix?: () => DriverResult
 				return fix?.() ?? { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 			writeFileSync(join(dir, 'BROKEN'), 'x');
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };

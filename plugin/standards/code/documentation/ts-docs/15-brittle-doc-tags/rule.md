@@ -1,7 +1,7 @@
 ---
 summary: "a doc comment carrying a tag git, TypeScript or the issue tracker already owns"
 checked: true
-severity: advisory
+severity: blocking
 ---
 
 ## Brittle Tags — Do NOT Use

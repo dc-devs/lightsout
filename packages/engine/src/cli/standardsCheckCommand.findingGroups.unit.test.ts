@@ -77,7 +77,7 @@ const setupFindings = ({ findings }: { findings: StandardsFinding[] }) => {
 };
 
 /** The group headings the renderer printed, in the order they were printed. */
-const headingsOf = ({ logged }: { logged: string[] }) => logged.filter((line) => line.includes(' · '));
+const headingsOf = ({ logged }: { logged: string[] }) => logged.filter((line) => /^[⚠ℹ] /.test(line));
 
 /** The rows and guidance lines, which share the four-space row indent — detail lines take six. */
 const rowLinesOf = ({ logged }: { logged: string[] }) => logged.filter((line) => line.startsWith('    ') && !line.startsWith('     '));

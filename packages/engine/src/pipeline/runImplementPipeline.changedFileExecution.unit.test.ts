@@ -9,8 +9,9 @@ import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
-import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { verdict } from '#tests/helpers/verdict.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 const countLog = (dir: string, file: string) => {
 	try {
@@ -54,7 +55,7 @@ interface SetupParams {
  * compiler the check stands down entirely.
  */
 const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const feature = (): number => 1;\n' }, statements, onFix }: SetupParams) => {
-	const dir = setupConsumerRepo({ scripts: { 'test-coverage': 'true' } });
+	const dir = setupConsumerRepo({ scripts: { 'test-coverage': 'true' }, config: reachabilityRulesOff });
 
 	linkTypescript({ dir });
 	writeCoverageSummary({ dir, statements });
@@ -176,7 +177,7 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 				return { text: report(), exitCode: 0 };
 			}
 
-			writeFileSync(join(dir, 'src/feature.js'), 'export const feature = () => 2;\n');
+			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return {
 				text: report({
@@ -195,8 +196,9 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 	expect(result.ok).toBe(true);
 	// generated file never attributed — even agent-reported
 	expect(result.manifest.changedFiles.includes('src/gen/model.ts')).toBeFalsy();
-	// no writer spawned for the generated .ts
-	expect(writers).toStrictEqual(['src/feature.js']);
+	// no writer spawned for the generated .ts; the module and the caller wiring it
+	// in are both the agent's work and both earn one
+	expect(writers).toStrictEqual(['src/feature.js', 'src/useFeature.js']);
 	// generate is the first command of the first gate set
 	expect(commands[0]?.kind).toBe('generate');
 	// generate ran once per gate set (clean-slate + 3 verifies; no format

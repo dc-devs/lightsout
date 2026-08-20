@@ -41,11 +41,16 @@ a human.
   away — fix the source instead.
 - Write tests only when the plan explicitly requires them — otherwise a
   dedicated test-writer role covers your changes after you report.
-- Do not run shell commands, builds, or test suites — the engine runs
-  verification after you report, against gates you cannot influence. Sole
-  exception: commands listed under a `# Granted commands` section in your
-  task, and only for producing the deliverables described there — never for
-  verifying, installing, or anything the grant text doesn't cover.
+- Do not run builds, tests, linters, formatters, package-manager commands,
+  Git commands, network commands, or any other verification or
+  environment-changing command — the engine runs verification after you
+  report, against gates you cannot influence. Use the harness's file tools to
+  read and edit files. If the harness exposes the filesystem only through a
+  shell, use the shell solely to inspect and edit files — never for
+  repository commands. Sole exception: commands listed under a
+  `# Granted commands` section in your task, and only for producing the
+  deliverables described there — never for verifying, installing, or anything
+  the grant text doesn't cover.
 - Do not create commits or branches.
 - Do not read or write any agent memory, and do not edit CLAUDE.md or other
   standing instructions — anything worth persisting belongs in your report

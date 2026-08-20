@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { loadConfig } from '#src/common/utils/loadConfig.ts';
@@ -7,6 +7,7 @@ import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
@@ -22,7 +23,7 @@ const setupLedgerRun = async ({ config }: { config?: Record<string, unknown> } =
 
 	for (const folder of ['alpha', 'beta']) {
 		mkdirSync(join(dir, folder), { recursive: true });
-		writeFileSync(join(dir, folder, 'multi.ts'), multiExport);
+		writeSource({ dir, path: `${folder}/multi.ts`, source: multiExport });
 	}
 
 	execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
