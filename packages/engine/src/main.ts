@@ -4,6 +4,7 @@ import {
 	exitCli,
 	frictionCommand,
 	getStringFlag,
+	getUnknownFlagsMessage,
 	implementCommand,
 	improveCommand,
 	parseFlags,
@@ -40,13 +41,14 @@ const main = async (): Promise<void> => {
 	const flags = parseFlags({ args: rest });
 	const cwd = getStringFlag({ flags, name: 'cwd' }) ?? process.cwd();
 	const run = command === undefined ? undefined : commands[command];
+	const problem = command === undefined || run === undefined ? undefined : getUnknownFlagsMessage({ command, flags });
 
-	if (run) {
+	if (run && problem === undefined) {
 		await run({ flags, rest, cwd });
 		return;
 	}
 
-	console.error(usage);
+	console.error(problem === undefined ? usage : `${problem}\n\n${usage}`);
 	return exitCli({ code: command === undefined || command === 'help' ? 0 : 1 });
 };
 

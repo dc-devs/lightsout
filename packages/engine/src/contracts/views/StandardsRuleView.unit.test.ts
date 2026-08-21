@@ -21,6 +21,7 @@ const setupRuleView = ({ omit, extra = {} }: { omit?: string; extra?: Record<str
 			untracked: 0,
 			adviceApplied: 2,
 			adviceDeclined: 1,
+			adviceAlreadyMet: 0,
 			reasons: ['the span is a schema, not duplication'],
 		},
 		...extra,
@@ -58,6 +59,7 @@ describe('StandardsRuleView', () => {
 				untracked: 0,
 				adviceApplied: 2,
 				adviceDeclined: 1,
+				adviceAlreadyMet: 0,
 				reasons: ['the span is a schema, not duplication'],
 			},
 		});
@@ -67,7 +69,7 @@ describe('StandardsRuleView', () => {
 		const { ruleView } = setupRuleView({
 			extra: {
 				findingCount: 0,
-				history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] },
+				history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [] },
 			},
 		});
 
@@ -78,7 +80,7 @@ describe('StandardsRuleView', () => {
 		expect(parsed).toEqual(
 			expect.objectContaining({
 				findingCount: 0,
-				history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] },
+				history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [] },
 			}),
 		);
 	});
@@ -233,7 +235,7 @@ describe('StandardsRuleView', () => {
 	test('rejects a history count given as a numeric string', () => {
 		const { ruleView } = setupRuleView({
 			extra: {
-				history: { attempted: '5', resolved: 4, declined: 1, untracked: 0, adviceApplied: 2, adviceDeclined: 1, reasons: [] },
+				history: { attempted: '5', resolved: 4, declined: 1, untracked: 0, adviceApplied: 2, adviceDeclined: 1, adviceAlreadyMet: 0, reasons: [] },
 			},
 		});
 
@@ -245,7 +247,16 @@ describe('StandardsRuleView', () => {
 	test('rejects a decline reason that is not a string', () => {
 		const { ruleView } = setupRuleView({
 			extra: {
-				history: { attempted: 1, resolved: 0, declined: 1, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [{ text: 'schema' }] },
+				history: {
+					attempted: 1,
+					resolved: 0,
+					declined: 1,
+					untracked: 0,
+					adviceApplied: 0,
+					adviceDeclined: 0,
+					adviceAlreadyMet: 0,
+					reasons: [{ text: 'schema' }],
+				},
 			},
 		});
 
@@ -265,6 +276,7 @@ describe('StandardsRuleView', () => {
 					untracked: 0,
 					adviceApplied: 0,
 					adviceDeclined: 0,
+					adviceAlreadyMet: 0,
 					reasons: ['the span is a schema, not duplication', 'splitting it would break the public surface'],
 				},
 			},
@@ -279,7 +291,7 @@ describe('StandardsRuleView', () => {
 		const { ruleView } = setupRuleView({
 			extra: {
 				findings: [{ rule: 'size-file' }],
-				history: { attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [], batches: 2 },
+				history: { attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [], batches: 2 },
 			},
 		});
 
@@ -289,7 +301,7 @@ describe('StandardsRuleView', () => {
 		// live once on the view, not copied onto every rule
 		expect(parsed).toEqual(
 			expect.objectContaining({
-				history: { attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] },
+				history: { attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [] },
 			}),
 		);
 		expect(parsed).not.toHaveProperty('findings');

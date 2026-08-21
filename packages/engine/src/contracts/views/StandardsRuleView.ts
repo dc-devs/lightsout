@@ -34,6 +34,7 @@ export const StandardsRuleView = z.object({
 		untracked: z.number(),
 		adviceApplied: z.number(),
 		adviceDeclined: z.number(),
+		adviceAlreadyMet: z.number(),
 		reasons: z.array(z.string()),
 	}),
 });

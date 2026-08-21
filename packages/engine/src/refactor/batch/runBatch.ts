@@ -2,7 +2,7 @@ import { type AgentUsage, BatchOutcome, type LightsoutConfig, type RefactorBatch
 import type { Driver } from '#src/drivers/index.ts';
 import { collectBatchAdvisories } from '#src/refactor/batch/collectBatchAdvisories.ts';
 import { createBatchTools } from '#src/refactor/batch/createBatchTools.ts';
-import { matchRemainingFindings } from '#src/refactor/batch/matchRemainingFindings.ts';
+import { readStandingWork } from '#src/refactor/batch/readStandingWork.ts';
 import { runBatchPass } from '#src/refactor/batch/runBatchPass.ts';
 import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
 import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
@@ -83,8 +83,9 @@ export const runBatch = async ({
 	// batches may have already eliminated these sites — no agent spent) and
 	// FRESH advisories (frozen worklist advisories cite pre-run line numbers).
 	const preCheck = await tools.checkLive();
+	const standing = readStandingWork({ batch, findings: preCheck.findings, onProgress });
 
-	if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
+	if (standing.length === 0) {
 		onProgress(`${batch.id}: sites already resolved by earlier work — no agent spent`);
 
 		return { kind: BatchStopKind.Done, report: tools.reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
@@ -106,7 +107,7 @@ export const runBatch = async ({
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever sites survived a pass that DID change the tree (a partial).
 	const passBudget = 2;
-	let workFindings: StandardsFinding[] = batch.blocking;
+	let workFindings: StandardsFinding[] = standing;
 	let stop: BatchStop | undefined;
 
 	for (let pass = 1; pass <= passBudget && stop === undefined; pass += 1) {

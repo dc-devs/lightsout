@@ -8,7 +8,7 @@
 // removal of `verify`, 2026-08-08 for the plan-folder form of `implement`,
 // 2026-08-08 for `standards-validate`, 2026-08-09 for the `standards-check`
 // half-selectors and `standards-health`, 2026-08-09 for `voice`, 2026-08-09
-// for `test-coverage-to-threshold`.)
+// for `test-coverage-to-threshold`, 2026-08-21 for the exit-code table.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -34,6 +34,11 @@ usage:
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)
   lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
+
+exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable — a --max-batches ceiling, or a harness rate limit
+  1  anything else
 `;
 
 /** Exactly what the CLI writes to stderr whenever it prints usage. */

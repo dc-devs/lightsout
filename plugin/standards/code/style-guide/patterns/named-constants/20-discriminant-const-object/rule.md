@@ -42,10 +42,11 @@ Two cases that look the same and are not:
 - **A union with no `const` object behind it.** `type Mode = 'fast' | 'slow'` has
   no member to name — declaring one is [bare-string-union]'s ask, and this rule
   has nothing to say until it exists.
-- **A value the file may not import.** A standards package ships as a bare
-  directory with no `node_modules`, so every value a rule's `check.ts` imports has
-  to resolve inside its own package. `input.kind !== 'syntax-tree'` spells the
-  literal out because it has no other choice.
+- **A constant the file cannot import.** Narrowing against a member needs a path
+  from this file to the object holding it. Where there is none — a package that
+  does not depend on the one declaring the constant, a folder a build deliberately
+  isolates — the literal is the only spelling available, and this rule has nothing
+  to ask for.
 
 `typeof value === 'string'` is not a discriminant either, whatever a const object
 elsewhere happens to hold: `typeof` types as the operator's own fixed union.

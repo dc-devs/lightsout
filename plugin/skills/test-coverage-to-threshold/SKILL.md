@@ -24,7 +24,11 @@ deterministic code. Do not add workflow steps to this file.
    uncommitted changes as baseline instead of demanding a clean tree),
    `--cwd <path>`. To resume a parked run:
    `test-coverage-to-threshold --run <id>`.
-3. Relay the engine's output verbatim — the per-batch outcomes, the set-aside
+3. Read the exit code before anything else. `0` finished. `2` stopped with
+   work left and can be picked up: the run hit `--max-batches` or a harness
+   rate limit, and its last printed line says how to resume — this is not a
+   failure, report it as progress. Anything else is a failure.
+4. Relay the engine's output verbatim — the per-batch outcomes, the set-aside
    files with their reasons, and the before → after coverage table ARE the
    result. If files were set aside, tell the user each needs a human: they
    likely need source changes before they can be tested. The engine never

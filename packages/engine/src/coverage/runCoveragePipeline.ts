@@ -27,7 +27,6 @@ import { runGates } from '#src/gates/index.ts';
 import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
 import { resolveStandards } from '#src/standards/index.ts';
 
-const defaultAgentTimeoutMinutes = 60;
 const maxConsecutiveDeclines = 3;
 
 interface Params {
@@ -127,6 +126,7 @@ const executeCoverage = async ({
 	}
 
 	const { testStandards } = await resolveStandards({ cwd, config, packages: [] });
+	const defaultAgentTimeoutMinutes = 60;
 	const agentTimeoutMs = (config.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000;
 	// Resolved once for the run: without a consumer TypeScript, grouping degrades
 	// to one file per batch component, exactly like the implement fan-out.

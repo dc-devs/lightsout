@@ -35,9 +35,10 @@ const sumHistory = ({ rules }: { rules: StandardsRuleView[] }) =>
 			untracked: totals.untracked + history.untracked,
 			adviceApplied: totals.adviceApplied + history.adviceApplied,
 			adviceDeclined: totals.adviceDeclined + history.adviceDeclined,
+			adviceAlreadyMet: totals.adviceAlreadyMet + history.adviceAlreadyMet,
 			reasons: [],
 		}),
-		{ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] },
+		{ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [] },
 	);
 
 interface Props {
@@ -83,6 +84,7 @@ export const RefactorHistoryPanel = ({ rules, selected }: Props) => {
 				counts={[
 					['applied', history.adviceApplied],
 					['declined', history.adviceDeclined],
+					['already met', history.adviceAlreadyMet],
 				]}
 			/>
 			{reasons.length === 0 ? null : (

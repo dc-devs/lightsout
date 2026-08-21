@@ -1,10 +1,26 @@
 import { describe, expect, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { runBatchedCommand } from '#src/cli/common/utils/runBatchedCommand.ts';
-import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { RunLockError } from '#src/runState/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+
+const manifestOf = ({ status }: { status: RunStatus }): RunManifest => ({
+	runId: 'run-42',
+	createdAt: '2026-01-01T00:00:00.000Z',
+	updatedAt: '2026-01-01T00:00:00.000Z',
+	plan: '',
+	harness: 'stub',
+	status,
+	currentStep: null,
+	steps: [],
+	changedFiles: [],
+	packages: [],
+	baselineDirtyFiles: [],
+	testSubjects: [],
+	unreachableChangedFiles: [],
+});
 
 interface SeenStart {
 	config?: LightsoutConfig;
@@ -12,7 +28,18 @@ interface SeenStart {
 	existing?: unknown;
 }
 
-const setupShell = ({ args = [], result = { ok: true }, failWith }: { args?: string[]; result?: { ok: boolean }; failWith?: Error } = {}) => {
+const setupShell = ({
+	args = [],
+	ok = true,
+	status = RunStatus.Passed,
+	failWith,
+}: {
+	args?: string[];
+	ok?: boolean;
+	status?: RunStatus;
+	failWith?: Error;
+} = {}) => {
+	const result = { ok, manifest: manifestOf({ status }) };
 	const captured = captureCommandOutput();
 	const cwd = setupConsumerRepo();
 	const seen: SeenStart = {};
@@ -49,16 +76,32 @@ describe('runBatchedCommand', () => {
 		expect(seen.maxBatches).toBe(2);
 		expect(seen.existing).toBeUndefined();
 		expect(logged[0]).toBe('lightsout: refactor starting run');
-		expect(printed).toStrictEqual([{ ok: true }]);
+		expect(printed).toStrictEqual([{ ok: true, manifest: manifestOf({ status: RunStatus.Passed }) }]);
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('an unfinished run exits 1, whatever it managed along the way', async () => {
-		const { command, exitCodes } = setupShell({ result: { ok: false } });
+	test('a run that broke exits 1, whatever it managed along the way', async () => {
+		const { command, exitCodes } = setupShell({ ok: false, status: RunStatus.Failed });
 
 		await expect(command).rejects.toThrow(/process\.exit/);
 
 		expect(exitCodes).toStrictEqual([1]);
+	});
+
+	test('a run that stopped at its ceiling exits 2, so a caller can tell it apart from one that broke', async () => {
+		const { command, exitCodes } = setupShell({ ok: false, status: RunStatus.PausedBudget });
+
+		await expect(command).rejects.toThrow(/process\.exit/);
+
+		expect(exitCodes).toStrictEqual([2]);
+	});
+
+	test('a run parked at a rate-limit wall exits 2 as well — it is waiting, not broken', async () => {
+		const { command, exitCodes } = setupShell({ ok: false, status: RunStatus.PausedRateLimit });
+
+		await expect(command).rejects.toThrow(/process\.exit/);
+
+		expect(exitCodes).toStrictEqual([2]);
 	});
 
 	test('a --max-batches below one is rejected before the pipeline is asked to do anything', async () => {

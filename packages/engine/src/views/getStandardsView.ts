@@ -52,6 +52,7 @@ const buildRuleView = ({
 			untracked: health.untracked,
 			adviceApplied: health.adviceApplied,
 			adviceDeclined: health.adviceDeclined,
+			adviceAlreadyMet: health.adviceAlreadyMet,
 			reasons: health.reasons,
 		},
 	};

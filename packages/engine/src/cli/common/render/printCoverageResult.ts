@@ -59,5 +59,5 @@ export const printCoverageResult = ({ result }: Params): void => {
 		}
 	}
 
-	printRunFooter({ manifest, error: result.ok ? undefined : result.error });
+	printRunFooter({ manifest, ending: result.ok ? undefined : result.error });
 };

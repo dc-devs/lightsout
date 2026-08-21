@@ -187,7 +187,18 @@ export const check: StandardsCheckModule = {
 		const constStrings = readConstStrings({ typedFiles: input.typedFiles, compiler: input.compiler });
 		const findings: RawStandardsFinding[] = [];
 
-		for (const [path, { sourceFile, checker }] of input.typedFiles) {
+		// Reported on source only. `typedFiles` also carries tests and files
+		// outside the run's scope, because the evidence above needs them typed —
+		// but a test narrowing a string is the test's own business, and a file
+		// nobody asked about is not this run's to report.
+		for (const path of input.source) {
+			const typed = input.typedFiles.get(path);
+
+			if (typed === undefined) {
+				continue;
+			}
+
+			const { sourceFile, checker } = typed;
 			const home = packageOf({ path, standardsPackages: input.standardsPackages });
 			const declarations = declarationLines({ sourceFile, compiler: input.compiler });
 			const narrowings = narrowingSites({

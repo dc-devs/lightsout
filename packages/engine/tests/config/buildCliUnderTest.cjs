@@ -1,6 +1,8 @@
 const { join } = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+const checkNodeVersion = require('../../../../tooling/jest/checkNodeVersion.cjs');
+
 const repoRoot = join(__dirname, '..', '..', '..', '..');
 
 // tests/cli.test.ts runs .test-dist/cli-under-test.mjs as a real subprocess and
@@ -17,7 +19,13 @@ const repoRoot = join(__dirname, '..', '..', '..', '..');
 // Imported rather than required: buildEngine.mjs is ESM with a top-level await,
 // which `require` refuses. A globalSetup may be async, so dynamic import costs
 // nothing and avoids paying for a subprocess.
+//
+// Naming a globalSetup here replaces the one createJestConfig supplies, so the
+// Node version check has to be called rather than inherited. Left out, this
+// suite would be the one path that still starts on a Node measured to segfault.
 module.exports = async () => {
+	await checkNodeVersion();
+
 	const { buildEngine } = await import(pathToFileURL(join(repoRoot, 'scripts', 'buildEngine.mjs')).href);
 
 	await buildEngine({ out: join(repoRoot, '.test-dist', 'cli-under-test.mjs') });

@@ -7963,28 +7963,6 @@ var getStringFlag = ({ flags, name }) => {
   return typeof value === "string" ? value : void 0;
 };
 
-// src/cli/common/args/parseFlags.ts
-var parseFlags = ({ args }) => {
-  const flags = /* @__PURE__ */ new Map();
-  let index = 0;
-  while (index < args.length) {
-    const key = args[index];
-    if (!key?.startsWith("--")) {
-      index += 1;
-      continue;
-    }
-    const value = args[index + 1];
-    if (value === void 0 || value.startsWith("--")) {
-      flags.set(key.slice(2), true);
-      index += 1;
-    } else {
-      flags.set(key.slice(2), value);
-      index += 2;
-    }
-  }
-  return flags;
-};
-
 // src/cli/common/constants/usage.ts
 var usage = `lightsout \u2014 deterministic engine for coding agents
 
@@ -8011,7 +7989,49 @@ usage:
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions \u2014 Mac-only)
   lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
+
+exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
+  1  anything else
 `;
+
+// src/cli/common/args/readCommandFlags.ts
+var commandOf = ({ line }) => /^\s+lightsout\s+(\S+)/.exec(line)?.[1];
+var readCommandFlags = ({ command }) => {
+  const lines = usage.split("\n").filter((line) => commandOf({ line }) === command);
+  const names = lines.flatMap((line) => [...line.matchAll(/--([a-z][a-z\d-]*)/g)].map(([, name]) => name ?? ""));
+  return /* @__PURE__ */ new Set(["cwd", ...names]);
+};
+
+// src/cli/common/args/getUnknownFlagsMessage.ts
+var getUnknownFlagsMessage = ({ command, flags }) => {
+  const accepted = readCommandFlags({ command });
+  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
+  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
+};
+
+// src/cli/common/args/parseFlags.ts
+var parseFlags = ({ args }) => {
+  const flags = /* @__PURE__ */ new Map();
+  let index = 0;
+  while (index < args.length) {
+    const key = args[index];
+    if (!key?.startsWith("--")) {
+      index += 1;
+      continue;
+    }
+    const value = args[index + 1];
+    if (value === void 0 || value.startsWith("--")) {
+      flags.set(key.slice(2), true);
+      index += 1;
+    } else {
+      flags.set(key.slice(2), value);
+      index += 2;
+    }
+  }
+  return flags;
+};
 
 // src/cli/common/utils/exitCli.ts
 var exitCli = async ({ code }) => {
@@ -23285,7 +23305,9 @@ var Permissions = {
 // src/contracts/standardsCheck/AdvisoryResponse.ts
 var AdvisoryResponse = {
   Applied: "applied",
-  Declined: "declined"
+  Declined: "declined",
+  /** The end-state the advice asks for was already true — nothing to do, and nothing rejected. */
+  AlreadyMet: "already-met"
 };
 
 // src/contracts/standardsCheck/AdvisoryOutcome.ts
@@ -23428,6 +23450,12 @@ var LightsoutConfig = external_exports.object({
    * dir). Treated like gate artifacts: real files in the diff, but excluded
    * from changed-file attribution — they never earn agent turns and never
    * pollute the manifest. The source that generates them is the change.
+   *
+   * This is also where a repo says its build output lands when the walk
+   * cannot guess it. `listSourceFiles` skips `dist`, `build`, `coverage` and
+   * `out` by name outside a `src` folder; anything else — an output dir with
+   * a house name, or one written inside `src` — is invisible to the engine
+   * until it is named here, and would otherwise be checked as source.
    */
   generated: external_exports.array(external_exports.string()).optional(),
   /**
@@ -23977,6 +24005,7 @@ var StandardsRuleView = external_exports.object({
     untracked: external_exports.number(),
     adviceApplied: external_exports.number(),
     adviceDeclined: external_exports.number(),
+    adviceAlreadyMet: external_exports.number(),
     reasons: external_exports.array(external_exports.string())
   })
 });
@@ -24395,6 +24424,9 @@ var isRunLive = ({ manifest, lock }) => {
   return child.success && child.data.runId === lock.runId;
 };
 
+// src/runState/isRunPaused.ts
+var isRunPaused = ({ status }) => status === RunStatus.PausedRateLimit || status === RunStatus.PausedBudget;
+
 // src/runState/listRunIds.ts
 import { readdir as readdir5 } from "node:fs/promises";
 var listRunIds = async ({ cwd }) => {
@@ -24787,7 +24819,13 @@ var printResult = async ({ result, cwd }) => {
     });
   }
   label({ name: "evidence", value: `.lightsout/runs/${manifest.runId}/` });
-  if (!ok && error51) {
+  if (ok || error51 === void 0) {
+    return;
+  }
+  if (isRunPaused({ status: manifest.status })) {
+    console.log(`
+${error51}`);
+  } else {
     console.error(`
 ${error51}`);
   }
@@ -24840,6 +24878,17 @@ var createProgressPrinter = () => {
     const seconds = Math.round((Date.now() - startedAt) / 1e3);
     console.log(`[+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}] ${message}`);
   };
+};
+
+// src/cli/common/constants/pausedExitCode.ts
+var pausedExitCode = 2;
+
+// src/cli/common/utils/exitForRunResult.ts
+var exitForRunResult = ({ ok, manifest }) => {
+  if (ok) {
+    return exitCli({ code: 0 });
+  }
+  return exitCli({ code: isRunPaused({ status: manifest.status }) ? pausedExitCode : 1 });
 };
 
 // src/cli/common/utils/resolveCommandHarness.ts
@@ -25046,14 +25095,14 @@ var readGitChangedFiles = async ({ cwd }) => {
 // src/common/sourceFiles/listSourceFiles.ts
 import { readdir as readdir8 } from "node:fs/promises";
 import { join as join19, relative as relative2 } from "node:path";
-var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
+var buildOutputDirs = /* @__PURE__ */ new Set(["dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
   const files = [];
   const standardsPackages = [];
   const standardsPackageRootFile = "lightsout-standards.json";
   const fixturesDir = "fixtures";
-  const walk2 = async (dir, insideStandardsPackage) => {
+  const walk2 = async (dir, insideStandardsPackage, insideSource) => {
     const entries = await readdir8(dir, { withFileTypes: true }).catch(() => []);
     const isPackageRoot = !insideStandardsPackage && entries.some((entry) => entry.name === standardsPackageRootFile);
     const insidePackage = insideStandardsPackage || isPackageRoot;
@@ -25061,7 +25110,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       standardsPackages.push(relative2(cwd, dir));
     }
     for (const entry of entries) {
-      if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules" || !insideSource && buildOutputDirs.has(entry.name)) {
         continue;
       }
       const path = join19(dir, entry.name);
@@ -25069,7 +25118,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
         if (insidePackage && entry.name === fixturesDir) {
           continue;
         }
-        await walk2(path, insidePackage);
+        await walk2(path, insidePackage, insideSource || entry.name === "src");
         continue;
       }
       const rel = relative2(cwd, path);
@@ -25082,7 +25131,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       files.push(rel);
     }
   };
-  await walk2(cwd, false);
+  await walk2(cwd, false, false);
   return { files: files.sort(), standardsPackages: standardsPackages.sort() };
 };
 
@@ -25899,13 +25948,13 @@ var RunState = class {
   usageTotals;
   onProgress;
   constructor({ cwd, config: config2, manifest, onProgress }) {
-    const defaultAgentTimeoutMinutes2 = 60;
+    const defaultAgentTimeoutMinutes = 60;
     this.cwd = cwd;
     this.config = config2;
     this.manifest = manifest;
     this.onProgress = onProgress;
     this.usageTotals = seedUsageTotals({ usage: manifest.usage });
-    this.agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4;
+    this.agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4;
   }
   /** The live manifest — reread after any update/setStep, never cached by callers. */
   current() {
@@ -26278,7 +26327,8 @@ var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \
 // src/agents/buildRefactorExecutorInvocation.ts
 var advisoryOutcomesSection = [
   "# Report what you did about each advisory",
-  'For every advisory listed above \u2014 machine-checked or agent-reviewed \u2014 add one entry to the `advisoryOutcomes` array of your report: the finding\'s `rule` and `siteKey` copied exactly as given, `outcome` of "applied" when you made the change or "declined" when you did not, and for a decline a short `reason`.',
+  "For every advisory listed above \u2014 machine-checked or agent-reviewed \u2014 add one entry to the `advisoryOutcomes` array of your report: the finding's `rule` and `siteKey` copied exactly as given, an `outcome`, and for a decline a short `reason`.",
+  'The three outcomes: "applied" when you made the change; "declined" when you judged the advice wrong here; "already-met" when the end-state it asks for was already true and you edited nothing. Do not report "applied" for a change you did not have to make, and do not report "declined" for advice you did not actually reject \u2014 each reads as the opposite of what happened.',
   "This is an account, never a gate: it is what tells a human which rules keep being declined and why. Reporting a decline honestly is always better than an entry that claims work you did not do.",
   '```\n"advisoryOutcomes": [{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies \u2014 every step delegates" }]\n```'
 ].join("\n\n");
@@ -26667,6 +26717,52 @@ var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
 // src/pipeline/common/utils/sourceFiles.ts
 var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile({ path: file2 }) && isTestableSourceFile({ path: file2 }));
 
+// src/common/fileGroups/chunkFileGroup.ts
+var chunkFileGroup = ({ files, max }) => {
+  const sorted = [...files].sort();
+  const chunks = [];
+  for (let start = 0; start < sorted.length; start += max) {
+    chunks.push(sorted.slice(start, start + max));
+  }
+  return chunks;
+};
+
+// src/coverage/buildCoverageBatch.ts
+var maxWriterGroupFiles = 12;
+var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => {
+  const scope = files[0].scope;
+  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
+  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
+  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
+  const groupOf = ({ component }) => {
+    const candidates = candidatesOf({ members: component });
+    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
+      return { members: component, candidates };
+    }
+    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
+    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
+    return { members: members2, candidates: candidatesOf({ members: members2 }) };
+  };
+  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
+    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
+  );
+  const members = [];
+  const tracked = [];
+  for (const group of ranked) {
+    if (tracked.length >= batchSize) {
+      break;
+    }
+    members.push(...group.members);
+    tracked.push(...group.candidates);
+  }
+  return {
+    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
+    scope,
+    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
+    members
+  };
+};
+
 // src/coverage/checkChangedFilesExecuted.ts
 import { readFile as readFile18 } from "node:fs/promises";
 import { join as join31, relative as relative3 } from "node:path";
@@ -26803,103 +26899,6 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   return `changed-file-execution: ${unexecuted.length} changed file(s) never executed under the tests: ${unexecuted.join(", ")} \u2014 cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.`;
 };
 
-// src/common/fileGroups/groupConnectedFiles.ts
-var groupConnectedFiles = ({ files, edges }) => {
-  const parent = new Map(files.map((file2) => [file2, file2]));
-  const find = (file2) => {
-    const up = parent.get(file2);
-    if (up === void 0 || up === file2) {
-      return file2;
-    }
-    const root = find(up);
-    parent.set(file2, root);
-    return root;
-  };
-  for (const { from, to } of edges) {
-    if (!parent.has(from) || !parent.has(to)) {
-      continue;
-    }
-    const rootFrom = find(from);
-    const rootTo = find(to);
-    if (rootFrom !== rootTo) {
-      parent.set(rootFrom, rootTo);
-    }
-  }
-  const byRoot = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
-    const root = find(file2);
-    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
-  }
-  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
-};
-
-// src/common/fileGroups/chunkFileGroup.ts
-var chunkFileGroup = ({ files, max }) => {
-  const sorted = [...files].sort();
-  const chunks = [];
-  for (let start = 0; start < sorted.length; start += max) {
-    chunks.push(sorted.slice(start, start + max));
-  }
-  return chunks;
-};
-
-// src/coverage/buildCoverageBatch.ts
-var defaultBatchSize = 5;
-var maxWriterGroupFiles = 12;
-var buildCoverageBatch = ({ files, components, batchNumber, batchSize = defaultBatchSize }) => {
-  const scope = files[0].scope;
-  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
-  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
-  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
-  const groupOf = ({ component }) => {
-    const candidates = candidatesOf({ members: component });
-    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
-      return { members: component, candidates };
-    }
-    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
-    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
-    return { members: members2, candidates: candidatesOf({ members: members2 }) };
-  };
-  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
-    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
-  );
-  const members = [];
-  const tracked = [];
-  for (const group of ranked) {
-    if (tracked.length >= batchSize) {
-      break;
-    }
-    members.push(...group.members);
-    tracked.push(...group.candidates);
-  }
-  return {
-    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
-    scope,
-    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
-    members
-  };
-};
-
-// src/coverage/common/constants/maxFileStrikes.ts
-var maxFileStrikes = 3;
-
-// src/coverage/common/utils/updateFileStrikes.ts
-var updateFileStrikes = ({ batchId, files, fileStrikes }) => {
-  const setAside = [];
-  for (const file2 of files) {
-    if (file2.afterPct > file2.beforePct) {
-      fileStrikes.set(file2.path, 0);
-      continue;
-    }
-    const strikes = (fileStrikes.get(file2.path) ?? 0) + 1;
-    fileStrikes.set(file2.path, strikes);
-    if (strikes === maxFileStrikes) {
-      setAside.push({ batchId, files: [file2.path], rationale: [`no improvement across ${maxFileStrikes} batches \u2014 likely needs source changes`] });
-    }
-  }
-  return setAside;
-};
-
 // src/coverage/initializeCoverageRun.ts
 import { readFile as readFile20, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join33 } from "node:path";
@@ -27010,17 +27009,6 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   return { manifest, worklist };
 };
 
-// src/coverage/runCoverageBatch.ts
-import { dirname as dirname6 } from "node:path";
-
-// src/common/utils/collectBatchChanges.ts
-var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
-  const attributed = new Set(attributedFiles);
-  const isGenerated = ({ file: file2 }) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated({ file: file2 }));
-  return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
-};
-
 // src/coverage/invokeCoverageAgent.ts
 import { mkdir as mkdir6, writeFile as writeFile5 } from "node:fs/promises";
 import { join as join34 } from "node:path";
@@ -27069,6 +27057,17 @@ var invokeCoverageAgent = async ({
     rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
   }
   return outcome;
+};
+
+// src/coverage/runCoverageBatch.ts
+import { dirname as dirname6 } from "node:path";
+
+// src/common/utils/collectBatchChanges.ts
+var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
+  const attributed = new Set(attributedFiles);
+  const isGenerated = ({ file: file2 }) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated({ file: file2 }));
+  return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
 };
 
 // src/common/config/resolveGates.ts
@@ -27449,6 +27448,56 @@ ${gateError}` };
   return finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
 };
 
+// src/common/fileGroups/groupConnectedFiles.ts
+var groupConnectedFiles = ({ files, edges }) => {
+  const parent = new Map(files.map((file2) => [file2, file2]));
+  const find = (file2) => {
+    const up = parent.get(file2);
+    if (up === void 0 || up === file2) {
+      return file2;
+    }
+    const root = find(up);
+    parent.set(file2, root);
+    return root;
+  };
+  for (const { from, to } of edges) {
+    if (!parent.has(from) || !parent.has(to)) {
+      continue;
+    }
+    const rootFrom = find(from);
+    const rootTo = find(to);
+    if (rootFrom !== rootTo) {
+      parent.set(rootFrom, rootTo);
+    }
+  }
+  const byRoot = /* @__PURE__ */ new Map();
+  for (const file2 of files) {
+    const root = find(file2);
+    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
+  }
+  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
+};
+
+// src/coverage/common/constants/maxFileStrikes.ts
+var maxFileStrikes = 3;
+
+// src/coverage/common/utils/updateFileStrikes.ts
+var updateFileStrikes = ({ batchId, files, fileStrikes }) => {
+  const setAside = [];
+  for (const file2 of files) {
+    if (file2.afterPct > file2.beforePct) {
+      fileStrikes.set(file2.path, 0);
+      continue;
+    }
+    const strikes = (fileStrikes.get(file2.path) ?? 0) + 1;
+    fileStrikes.set(file2.path, strikes);
+    if (strikes === maxFileStrikes) {
+      setAside.push({ batchId, files: [file2.path], rationale: [`no improvement across ${maxFileStrikes} batches \u2014 likely needs source changes`] });
+    }
+  }
+  return setAside;
+};
+
 // src/coverage/seedCoverageResumeState.ts
 var seedCoverageResumeState = ({ manifest }) => {
   const setAside = [];
@@ -27492,7 +27541,6 @@ var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsP
 };
 
 // src/coverage/runCoveragePipeline.ts
-var defaultAgentTimeoutMinutes = 60;
 var maxConsecutiveDeclines = 3;
 var executeCoverage = async ({
   cwd,
@@ -27543,6 +27591,7 @@ ${gateError}` });
     await setStep({ record: { ...record2, status: RunStatus.Passed } });
   }
   const { testStandards } = await resolveStandards({ cwd, config: config2, packages: [] });
+  const defaultAgentTimeoutMinutes = 60;
   const agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4;
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir });
   const { standardsPackages } = await listSourceFiles({ cwd });
@@ -27931,7 +27980,16 @@ var buildDominantPathNote = ({ findings }) => {
 // src/standardsCheck/buildStandardsHealth.ts
 import { readFile as readFile23 } from "node:fs/promises";
 import { join as join37 } from "node:path";
-var emptyTally = () => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
+var emptyTally = () => ({
+  attempted: 0,
+  resolved: 0,
+  declined: 0,
+  untracked: 0,
+  adviceApplied: 0,
+  adviceDeclined: 0,
+  adviceAlreadyMet: 0,
+  reasons: []
+});
 var tallyFor = ({ tallies, rule }) => {
   const existing = tallies.get(rule);
   if (existing) {
@@ -27979,6 +28037,10 @@ var countAdvice = ({ tallies, outcomes }) => {
     const tally = tallyFor({ tallies, rule: entry.rule });
     if (entry.outcome === AdvisoryResponse.Applied) {
       tally.adviceApplied += 1;
+      continue;
+    }
+    if (entry.outcome === AdvisoryResponse.AlreadyMet) {
+      tally.adviceAlreadyMet += 1;
       continue;
     }
     tally.adviceDeclined += 1;
@@ -39959,7 +40021,7 @@ var buildTypeCheckerInput = async ({
   packagesDir
 }) => {
   const configOf = /* @__PURE__ */ new Map();
-  for (const path of source) {
+  for (const path of /* @__PURE__ */ new Set([...files, ...referenceFiles])) {
     const configPath = findNearestConfig({ cwd, path, compiler });
     if (configPath !== void 0) {
       configOf.set(path, configPath);
@@ -41591,7 +41653,7 @@ var implementCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  return exitCli({ code: result.ok ? 0 : 1 });
+  return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
@@ -42935,15 +42997,21 @@ ${yellow(heading)} ${batchId}`);
 };
 
 // src/cli/common/render/printRunFooter.ts
-var printRunFooter = ({ manifest, error: error51 }) => {
+var printRunFooter = ({ manifest, ending }) => {
   if (manifest.changedFiles.length > 0) {
     console.log(`
 ${manifest.changedFiles.length} file(s) changed in the working tree \u2014 review and commit; the engine never commits.`);
   }
   console.log(`evidence: .lightsout/runs/${manifest.runId}/`);
-  if (error51) {
+  if (ending === void 0) {
+    return;
+  }
+  if (isRunPaused({ status: manifest.status })) {
+    console.log(`
+${ending}`);
+  } else {
     console.error(`
-${error51}`);
+${ending}`);
   }
 };
 
@@ -42979,7 +43047,7 @@ ${bold(`refactor ${manifest.runId.slice(0, 8)}`)} \u2014 ${statusLabel}`);
       console.log(`  ${rule.padEnd(20)}${before[rule] ?? 0} \u2192 ${after[rule] ?? 0}`);
     }
   }
-  printRunFooter({ manifest, error: result.ok ? void 0 : result.error });
+  printRunFooter({ manifest, ending: result.ok ? void 0 : result.error });
 };
 
 // src/cli/common/utils/runBatchedCommand.ts
@@ -43012,7 +43080,7 @@ ${error51 instanceof RunLockError ? error51.message : messageOf({ error: error51
     return exitCli({ code: 1 });
   }
   print({ result });
-  return exitCli({ code: result.ok ? 0 : 1 });
+  return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };
 
 // src/refactor/describeIntroducedFindings.ts
@@ -43307,6 +43375,17 @@ var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards
   }
   onProgress(`${batch.id}: the polish pass brought back ${revived.length} site(s) this batch had cleared \u2014 recorded as declined`);
   return tools.finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: revived });
+};
+
+// src/refactor/batch/readStandingWork.ts
+var readStandingWork = ({ batch, findings, onProgress }) => {
+  const standing = new Set(matchRemainingFindings({ frozen: batch.blocking, live: findings }));
+  if (standing.size > 0 && standing.size < batch.blocking.length) {
+    onProgress(
+      `${batch.id}: ${batch.blocking.length - standing.size} of ${batch.blocking.length} site(s) already resolved by earlier work \u2014 working the ${standing.size} still standing`
+    );
+  }
+  return findings.filter((finding) => standing.has(finding.siteKey));
 };
 
 // src/refactor/batch/reviewBatchOutput.ts
@@ -43676,7 +43755,8 @@ var runBatch = async ({
     recordUsage
   });
   const preCheck = await tools.checkLive();
-  if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
+  const standing = readStandingWork({ batch, findings: preCheck.findings, onProgress });
+  if (standing.length === 0) {
     onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
     return { kind: BatchStopKind.Done, report: tools.reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
   }
@@ -43693,7 +43773,7 @@ var runBatch = async ({
     onProgress
   });
   const passBudget = 2;
-  let workFindings = batch.blocking;
+  let workFindings = standing;
   let stop;
   for (let pass = 1; pass <= passBudget && stop === void 0; pass += 1) {
     const passed = await runBatchPass({ tools, batch, pass, workFindings, advisories, standards, testStandards, onProgress });
@@ -44098,12 +44178,12 @@ var resumeCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  return exitCli({ code: result.ok ? 0 : 1 });
+  return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };
 
 // src/cli/reviewStandards.ts
 var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
-  const defaultAgentTimeoutMinutes2 = 60;
+  const defaultAgentTimeoutMinutes = 60;
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
   const { files: walked } = await listSourceFiles({ cwd, exclude: config2?.generated });
@@ -44114,7 +44194,7 @@ var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
     packages,
     channels,
     files,
-    timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4,
+    timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4,
     onProgress
   });
 };
@@ -44361,8 +44441,9 @@ var reasonWidth = 96;
 var count = ({ value }) => value === 0 ? "\u2014" : `${value}`;
 var rate = ({ part, total }) => total === 0 ? "\u2014" : `${Math.round(part / total * 100)}%`;
 var reasonLines = ({ reasons }) => [...new Set(reasons.map((reason) => reason.replace(/\s+/g, " ").trim()))].filter((reason) => reason.length > 0).map((reason) => reason.length > reasonWidth ? `${reason.slice(0, reasonWidth - 1)}\u2026` : reason);
+var answerableAdvice = ({ rule }) => rule.adviceApplied + rule.adviceDeclined;
 var ruleRows = ({ rule }) => {
-  const advice = rule.adviceApplied + rule.adviceDeclined;
+  const advice = answerableAdvice({ rule }) + rule.adviceAlreadyMet;
   return [
     {
       cells: [
@@ -44374,7 +44455,7 @@ var ruleRows = ({ rule }) => {
         count({ value: rule.untracked }),
         rate({ part: rule.declined, total: rule.attempted }),
         count({ value: advice }),
-        rate({ part: rule.adviceDeclined, total: advice })
+        rate({ part: rule.adviceDeclined, total: answerableAdvice({ rule }) })
       ]
     },
     ...reasonLines({ reasons: rule.reasons }).map((reason) => ({
@@ -44389,7 +44470,7 @@ var printStandardsHealth = ({ health }) => {
   const { rules, totals } = health;
   const rows = rules.flatMap((rule) => ruleRows({ rule }));
   const attempted = sum({ rules, of: (rule) => rule.attempted });
-  const advice = sum({ rules, of: (rule) => rule.adviceApplied + rule.adviceDeclined });
+  const advice = sum({ rules, of: (rule) => answerableAdvice({ rule }) + rule.adviceAlreadyMet });
   const totalsRow = {
     cells: [
       `${totals.rules} rule(s)`,
@@ -44400,7 +44481,7 @@ var printStandardsHealth = ({ health }) => {
       count({ value: sum({ rules, of: (rule) => rule.untracked }) }),
       rate({ part: sum({ rules, of: (rule) => rule.declined }), total: attempted }),
       count({ value: advice }),
-      rate({ part: sum({ rules, of: (rule) => rule.adviceDeclined }), total: advice })
+      rate({ part: sum({ rules, of: (rule) => rule.adviceDeclined }), total: sum({ rules, of: (rule) => answerableAdvice({ rule }) }) })
     ],
     emphasis: bold
   };
@@ -44509,7 +44590,7 @@ ${bold(`test-coverage-to-threshold ${manifest.runId.slice(0, 8)}`)} \u2014 ${sta
       console.log(`  ${scope.padEnd(20)}${from?.statementsPct ?? 0} \u2192 ${to?.statementsPct ?? 0}`);
     }
   }
-  printRunFooter({ manifest, error: result.ok ? void 0 : result.error });
+  printRunFooter({ manifest, ending: result.ok ? void 0 : result.error });
 };
 
 // src/cli/testCoverageToThresholdCommand.ts
@@ -44824,11 +44905,14 @@ var main = async () => {
   const flags = parseFlags({ args: rest });
   const cwd = getStringFlag({ flags, name: "cwd" }) ?? process.cwd();
   const run = command === void 0 ? void 0 : commands[command];
-  if (run) {
+  const problem = command === void 0 || run === void 0 ? void 0 : getUnknownFlagsMessage({ command, flags });
+  if (run && problem === void 0) {
     await run({ flags, rest, cwd });
     return;
   }
-  console.error(usage);
+  console.error(problem === void 0 ? usage : `${problem}
+
+${usage}`);
   return exitCli({ code: command === void 0 || command === "help" ? 0 : 1 });
 };
 await main();

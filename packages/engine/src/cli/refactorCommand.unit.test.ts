@@ -266,8 +266,10 @@ describe('refactorCommand', () => {
 		expect(logged[1]).toBe('\nrefactor run-1234 — PAUSED-RATE-LIMIT');
 		expect(logged).toContain('\nno burn-down until the run completes — resume to finish and measure');
 		expect(logged.join('\n')).not.toMatch(/size\s+4 → 4/);
-		// and what stopped it is the last thing said, on stderr
-		expect(errors).toStrictEqual(['\nrun parked: harness rate limited or overloaded']);
+		// what stopped it is the last thing said — on stdout, because a pause is
+		// not a fault, and the run exits 2 rather than 1 to say so
+		expect(logged).toContain('\nrun parked: harness rate limited or overloaded');
+		expect(errors).toStrictEqual([]);
 	});
 
 	test('a rule that finished at zero and one that only appeared afterwards both get a row, counted from whichever side has it', async () => {

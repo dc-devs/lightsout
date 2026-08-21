@@ -14,14 +14,11 @@ const toolingDir = __dirname;
  * `isolatedModules: true`, and in ts-jest that is what makes it transpile-only.
  * `pnpm typecheck` is the type gate.
  *
- * Run these on the Node in `.nvmrc`. On Node 24.11.0 a jest worker segfaults
- * roughly one full engine run in five — the crash report names
- * `ClearStaleLeftTrimmedPointerVisitor` inside V8's mark-compact collector, so
- * it is a garbage-collector bug in the binary and nothing a test did. It
- * surfaces as `Test suite failed to run … terminated by another process:
- * signal=SIGSEGV` against whichever suite that worker happened to hold, which
- * reads like a broken test and is not one. Node 22.22.2 and 24.19.0 both run it
- * clean.
+ * `globalSetup` refuses to start on a Node version measured to crash this suite
+ * often; checkNodeVersion.cjs holds the versions and the evidence, including
+ * why a rare lone SIGSEGV on a permitted version is still that bug rather than
+ * a test. A config that needs its own globalSetup — the e2e one builds a
+ * bundle — calls that check itself, so neither path skips it.
  *
  * @param rootDir - the package root; every glob in the returned config anchors to it
  */
@@ -41,6 +38,7 @@ module.exports = ({ rootDir, ...rest }) => ({
 	// would report a package's counter-examples as this repo's own test failures.
 	// Restating node_modules is required: naming this key replaces Jest's default.
 	testPathIgnorePatterns: ['/node_modules/', '/fixtures/'],
+	globalSetup: join(toolingDir, 'checkNodeVersion.cjs'),
 	setupFilesAfterEnv: [join(toolingDir, 'setupTestEnvironment.ts')],
 	transform: {
 		// Re-declares the key the ts-jest preset supplies — that is how each

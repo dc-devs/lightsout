@@ -80,6 +80,12 @@ export const LightsoutConfig = z.object({
 	 * dir). Treated like gate artifacts: real files in the diff, but excluded
 	 * from changed-file attribution — they never earn agent turns and never
 	 * pollute the manifest. The source that generates them is the change.
+	 *
+	 * This is also where a repo says its build output lands when the walk
+	 * cannot guess it. `listSourceFiles` skips `dist`, `build`, `coverage` and
+	 * `out` by name outside a `src` folder; anything else — an output dir with
+	 * a house name, or one written inside `src` — is invisible to the engine
+	 * until it is named here, and would otherwise be checked as source.
 	 */
 	generated: z.array(z.string()).optional(),
 	/**

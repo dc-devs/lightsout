@@ -1,4 +1,5 @@
 export { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
+export { getUnknownFlagsMessage } from '#src/cli/common/args/getUnknownFlagsMessage.ts';
 export { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 export { usage } from '#src/cli/common/constants/usage.ts';
 export type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
