@@ -133,4 +133,17 @@ describe('readBarrelExports', () => {
 			{ names: [], star: true, specifier: './buildGreeting', target: { kind: 'file', path: 'src/feature/buildGreeting.ts' } },
 		]);
 	});
+
+	test('reads an export block a formatter wrapped across lines, not just a one-line one', () => {
+		const { barrelPath, contents, files } = setupBarrel({
+			text: ['export {', '\trenderGreeting,', "} from './renderGreeting';"].join('\n'),
+		});
+
+		const exports = readBarrelExports({ barrelPath, contents, files });
+
+		// biome wraps a long list, and matching one line at a time read every
+		// wrapped block as absent — so a long barrel looked empty
+		expect(exports).toHaveLength(1);
+		expect(exports[0]?.names).toStrictEqual(['renderGreeting']);
+	});
 });
