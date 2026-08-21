@@ -1,4 +1,5 @@
 import { buildFeatureExecutorInvocation, buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
+import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
@@ -41,7 +42,8 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 						planContent,
 						id: 'verify-refactor',
 						coverage: true,
-						buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles({ run }), standards, errorContext }),
+						buildFix: (errorContext) =>
+							buildRefactorExecutorInvocation({ scope: RefactorScope.Feature, planContent, changedFiles: sourceFiles({ run }), standards, errorContext }),
 					}),
 				},
 			];

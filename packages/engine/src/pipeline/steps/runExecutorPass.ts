@@ -1,4 +1,5 @@
 import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { RunStatus, type StandardsFinding, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { invokeRoleOrStop } from '#src/pipeline/common/utils/invokeRoleOrStop.ts';
@@ -40,7 +41,14 @@ export const runExecutorPass = async ({
 	const outcome = await invokeRoleOrStop({
 		run,
 		record,
-		invocation: buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles({ run }), standards, findings, advisories }),
+		invocation: buildRefactorExecutorInvocation({
+			scope: RefactorScope.Feature,
+			planContent,
+			changedFiles: sourceFiles({ run }),
+			standards,
+			findings,
+			advisories,
+		}),
 		step: 'refactor',
 	});
 

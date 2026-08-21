@@ -1,11 +1,24 @@
 import refactorExecutorPrompt from '#src/agents/prompts/refactorExecutor.md';
+import refactorScopeFeaturePrompt from '#src/agents/prompts/refactorScopeFeature.md';
+import refactorScopeStandalonePrompt from '#src/agents/prompts/refactorScopeStandalone.md';
+import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
 import { formatFindingText } from '#src/common/findings/formatFindingText.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface Params {
+	/**
+	 * Who is invoking, which decides which files the executor may write. Required
+	 * rather than defaulted: the two callers want opposite answers, and a default
+	 * would silently give one of them the other's.
+	 */
+	scope: RefactorScope;
 	planContent: string;
-	/** Files changed earlier in the run — the only files the refactorer may modify. */
+	/**
+	 * The files to work on. In feature scope these are the only files the
+	 * executor may modify; in standalone scope they are where the findings are,
+	 * and the fix may reach the files it cannot be finished without.
+	 */
 	changedFiles: string[];
 	/** Optional consumer standards content (style card), inlined verbatim. */
 	standards?: string;
@@ -32,6 +45,17 @@ const advisoryOutcomesSection = [
 	'```\n"advisoryOutcomes": [{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies — every step delegates" }]\n```',
 ].join('\n\n');
 
+/** The scope section for one caller — the only part of the role prompt that differs between them. */
+const scopePrompt = ({ scope }: { scope: RefactorScope }) => (scope === RefactorScope.Standalone ? refactorScopeStandalonePrompt : refactorScopeFeaturePrompt);
+
+/**
+ * What the work-list is called in the task message. "Changed files" is a true
+ * description of a feature's refactor step and a false one of a standalone run,
+ * where nothing has changed yet and the files are simply where the findings sit.
+ */
+const worklistHeading = ({ scope }: { scope: RefactorScope }) =>
+	scope === RefactorScope.Standalone ? '# Files the findings name' : '# Changed files to review';
+
 /** Render one standards finding as a markdown bullet with its formatted site(s). */
 const findingLine = (finding: StandardsFinding) => {
 	const where = finding.files.map((file) => formatFindingSite({ file })).join(' ↔ ');
@@ -53,6 +77,7 @@ const advisoryLine = (finding: StandardsFinding) => `${findingLine(finding)} (si
  * output grow between passes and stay in the user prompt.
  */
 export const buildRefactorExecutorInvocation = ({
+	scope,
 	planContent,
 	changedFiles,
 	standards,
@@ -61,13 +86,13 @@ export const buildRefactorExecutorInvocation = ({
 	reportAdvisoryOutcomes,
 	errorContext,
 }: Params): { systemPrompt: string; prompt: string } => {
-	const roleSections = [refactorExecutorPrompt, `# Plan (context for what these changes were for)\n\n${planContent}`];
+	const roleSections = [refactorExecutorPrompt, scopePrompt({ scope }), `# Plan (context for what these changes were for)\n\n${planContent}`];
 
 	if (standards) {
 		roleSections.push(`# Standards\n\nThese rules are binding:\n\n${standards}`);
 	}
 
-	const sections = [`# Changed files to review\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`];
+	const sections = [`${worklistHeading({ scope })}\n\n${changedFiles.map((file) => `- ${file}`).join('\n')}`];
 
 	if ((findings && findings.length > 0) || (advisories && advisories.length > 0)) {
 		const parts = ['# Standards findings (deterministic checks)'];
