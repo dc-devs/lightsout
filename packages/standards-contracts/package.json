@@ -32,6 +32,7 @@
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
+		"check": "biome check --error-on-warnings . && tsc --noEmit",
 		"test:unit": "jest -c jest.config.cjs",
 		"test:unit:coverage": "jest -c jest.config.cjs --coverage"
 	},
