@@ -2,7 +2,6 @@ import { chunkFileGroup } from '#src/common/fileGroups/chunkFileGroup.ts';
 import type { CoverageFile } from '#src/contracts/index.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
 
-const defaultBatchSize = 5;
 /** The implement fan-out's writer cap: an import component above this splits into sorted chunks rather than drowning one invocation. */
 const maxWriterGroupFiles = 12;
 
@@ -13,7 +12,7 @@ interface Params {
 	components: string[][];
 	/** 1-based sequential batch number across the run. */
 	batchNumber: number;
-	/** Tracked-candidate fill target. */
+	/** Tracked-candidate fill target. Five when the caller says nothing. */
 	batchSize?: number;
 }
 
@@ -26,7 +25,7 @@ interface Params {
  * module's boundary beside its internals: well-covered members ride along as
  * context, and only the candidates below the bar are tracked for improvement.
  */
-export const buildCoverageBatch = ({ files, components, batchNumber, batchSize = defaultBatchSize }: Params): CoverageBatch => {
+export const buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }: Params): CoverageBatch => {
 	const scope = files[0].scope;
 	const candidateByPath = new Map(files.map((file) => [file.path, file]));
 	const candidatesOf = ({ members }: { members: string[] }) => members.flatMap((path) => candidateByPath.get(path) ?? []);

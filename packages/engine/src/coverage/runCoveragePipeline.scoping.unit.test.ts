@@ -1,3 +1,8 @@
+// The gate-and-scoping half of runCoveragePipeline, split from
+// runCoveragePipeline.unit.test.ts when that file passed the test-file line
+// cap. Its fixtures are its own: the rule that forced the split says each half
+// carries what it needs, and test files are exempt from the duplication rules.
+
 import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,6 +11,7 @@ import { readConfig } from '#src/common/config/readConfig.ts';
 import type { RunManifest } from '#src/contracts/index.ts';
 import { runCoveragePipeline } from '#src/coverage/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 import { report } from '#tests/helpers/report.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -61,7 +67,7 @@ const setupRepo = ({ files, check = 'true', contents = {} }: { files: Record<str
  * The human's move between a failed pre-flight and a resume: turn the red check
  * gate green and commit it, so the tree the resumed run measures is still clean.
  */
-const _repairCheckGate = ({ dir }: { dir: string }) => {
+const repairCheckGate = ({ dir }: { dir: string }) => {
 	const configPath = join(dir, 'lightsout.config.json');
 	const config = JSON.parse(readFileSync(configPath, 'utf8')) as { gates: Record<string, string | false> };
 
@@ -70,7 +76,7 @@ const _repairCheckGate = ({ dir }: { dir: string }) => {
 };
 
 /** A monorepo whose packages measure themselves, one already over the threshold. */
-const _setupMonorepoRepo = ({ scopes }: { scopes: Record<string, Record<string, number>> }) => {
+const setupMonorepoRepo = ({ scopes }: { scopes: Record<string, Record<string, number>> }) => {
 	const dir = setupConsumerRepo({
 		git: false,
 		scripts: { 'test-coverage': 'node coverageGate.cjs' },
@@ -165,158 +171,97 @@ const runPipeline = async ({
 	onProgress?: (message: string) => void;
 }) => runCoveragePipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), maxBatches, existing, onProgress });
 
-describe('runCoveragePipeline', () => {
-	test('a repo already over its threshold ends green without spawning anything', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 100 } });
+describe('runCoveragePipeline gates and scoping', () => {
+	test('a red pre-flight gate fails the run before any batch, because a batch cannot be blamed for it', async () => {
+		const dir = setupRepo({ files: { 'src/a.ts': 10 }, check: 'false' });
 		const { driver, prompts } = stubWriter({ dir });
-
-		const result = await runPipeline({ dir, driver });
-
-		expect(result.ok).toBe(true);
-		expect(result.manifest.status).toBe('passed');
-		expect(prompts.length).toBe(0);
-		expect(result.after).toStrictEqual([{ scope: 'root', statementsPct: 100, passed: true }]);
-	});
-
-	test('a caller that asks for progress is told each stage as the run reaches it', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10 } });
-		const { driver } = stubWriter({ dir });
-		const messages: string[] = [];
-
-		const result = await runPipeline({ dir, driver, onProgress: (message) => messages.push(message) });
-
-		expect(result.ok).toBe(true);
-		// the narration is the only window a caller has into a long unattended
-		// run, and it arrives in the order the stages actually happened
-		expect(messages.join('\n')).toMatch(/pre-flight[\s\S]*batch-01:root — 1 file\(s\) worst-covered[\s\S]*batch-01:root: resolved[\s\S]*gate green/);
-	});
-
-	test("the consumer's own exit code ends the run: batches repeat until the gate goes green", async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10, 'src/b.ts': 20 } });
-		const { driver, prompts } = stubWriter({ dir, limit: 1 });
-
-		const result = await runPipeline({ dir, driver });
-
-		expect(result.ok).toBe(true);
-		// one file covered per round, so the gate took two batches to go green
-		expect(result.manifest.steps.filter((step) => step.id.startsWith('batch-')).map((step) => step.id)).toStrictEqual(['batch-01:root', 'batch-02:root']);
-		expect(prompts.length).toBe(2);
-		expect(result.before[0]?.statementsPct).toBe(15);
-		expect(result.after[0]?.statementsPct).toBe(100);
-		// the tests are in the tree; the engine never commits them
-		expect(result.manifest.changedFiles).toStrictEqual(['src/a.unit.test.ts', 'src/b.unit.test.ts']);
-	});
-
-	test('the batch ceiling parks the run with the command that resumes it', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10, 'src/b.ts': 20 } });
-		const { driver } = stubWriter({ dir, limit: 1 });
-
-		const result = await runPipeline({ dir, driver, maxBatches: 1 });
-
-		expect(result.ok).toBe(false);
-		expect(result.manifest.status).toBe('paused-budget');
-		expect(result.error ?? '').toContain(`lightsout test-coverage-to-threshold --run ${result.manifest.runId}`);
-		// a parked run measured nothing final — its after echoes before
-		expect(result.after).toStrictEqual(result.before);
-	});
-
-	test('a resumed run continues the batch numbering and keeps its earlier work', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10, 'src/b.ts': 20 } });
-		const { driver } = stubWriter({ dir, limit: 1 });
-		const parked = await runPipeline({ dir, driver, maxBatches: 1 });
-
-		const resumed = await runPipeline({ dir, driver, existing: parked.manifest });
-
-		expect(resumed.ok).toBe(true);
-		// numbering continues from the persisted records, not from process memory
-		expect(resumed.manifest.steps.filter((step) => step.id.startsWith('batch-')).map((step) => step.id)).toStrictEqual(['batch-01:root', 'batch-02:root']);
-	});
-
-	test('a batch that moved nothing is declined, and its files never come back', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10 } });
-		const { driver, prompts } = stubWriter({ dir, covers: () => false });
-
-		const result = await runPipeline({ dir, driver });
-
-		expect(result.ok).toBe(false);
-		expect(result.setAside).toStrictEqual([{ batchId: 'batch-01:root', files: ['src/a.ts'], rationale: [] }]);
-		// the second round found nothing left to try, and said why in both directions
-		expect(result.error ?? '').toMatch(/set-aside files need source changes, or the threshold binds on a metric other than statements/);
-		expect(result.manifest.status).toBe('escalated');
-		expect(prompts.length).toBe(1);
-	});
-
-	test('three consecutive declines stop the run as systemic', async () => {
-		const files: Record<string, number> = {};
-
-		for (let index = 0; index < 15; index += 1) {
-			files[`src/f${String(index).padStart(2, '0')}.ts`] = 10;
-		}
-
-		const dir = setupRepo({ files });
-		const { driver } = stubWriter({ dir, covers: () => false });
-
-		const result = await runPipeline({ dir, driver });
-
-		expect(result.ok).toBe(false);
-		expect(result.error ?? '').toMatch(/3 consecutive batches declined/);
-		expect(result.manifest.status).toBe('escalated');
-		expect(result.setAside.length).toBe(3);
-	});
-
-	test('a file carried through three improving batches without improving is set aside on its own', async () => {
-		const dir = setupRepo({ files: { 'src/stuck.ts': 10, 'src/m1.ts': 10, 'src/m2.ts': 10, 'src/m3.ts': 10 } });
-		const { driver } = stubWriter({ dir, covers: (file) => !file.includes('stuck'), limit: 1 });
-
-		const result = await runPipeline({ dir, driver });
-
-		// the free-rider guard: an improving batch would shelter it forever
-		expect(result.setAside).toStrictEqual([
-			{ batchId: 'batch-03:root', files: ['src/stuck.ts'], rationale: ['no improvement across 3 batches — likely needs source changes'] },
-		]);
-		expect(result.ok).toBe(false);
-	});
-
-	test('a writer that reaches for source stops the run, leaving the tree for a human', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10 } });
-		const driver: Driver = {
-			name: 'stub',
-			invoke: async () => {
-				writeFileSync(join(dir, 'src/a.ts'), 'export const value = () => 2;\n');
-
-				return { text: report({ changedFiles: [{ path: 'src/a.ts', summary: 'reworked the module' }] }), exitCode: 0 };
-			},
-		};
 
 		const result = await runPipeline({ dir, driver });
 
 		expect(result.ok).toBe(false);
 		expect(result.manifest.status).toBe('failed');
-		expect(result.error ?? '').toContain('src/a.ts');
-		// the batch's own record carries the stop, so a resume sees where it happened
-		expect(result.manifest.steps.find((step) => step.id === 'batch-01:root')?.status).toBe('failed');
+		expect(result.error ?? '').toMatch(/not green before raising coverage/);
+		expect(prompts.length).toBe(0);
 	});
 
-	test('an ambiguity the writer cannot resolve escalates the whole run to a human', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10 } });
+	test('a resumed run re-runs a pre-flight that never passed, counting the retry as a second attempt', async () => {
+		const dir = setupRepo({ files: { 'src/a.ts': 10 }, check: 'false' });
+		const { driver, prompts } = stubWriter({ dir });
+		const failed = await runPipeline({ dir, driver });
+
+		repairCheckGate({ dir });
+
+		const resumed = await runPipeline({ dir, driver, existing: failed.manifest });
+
+		// only a PASSED pre-flight is skipped on resume — a failed one is the
+		// reason the run stopped, so the resume has to answer it again
+		expect(resumed.manifest.steps.find((step) => step.id === 'pre-flight')).toStrictEqual({ id: 'pre-flight', status: 'passed', attempts: 2 });
+		// with the gate green the round proceeds, so the resume is not a re-park
+		expect(resumed.ok).toBe(true);
+		expect(prompts.length).toBe(1);
+	});
+
+	test('without a consumer TypeScript every component is one file, so a batch is plain worst-first', async () => {
+		const files: Record<string, number> = {};
+
+		for (let index = 0; index < 7; index += 1) {
+			files[`src/f${index}.ts`] = index;
+		}
+
+		const dir = setupRepo({ files });
+		const { driver, prompts } = stubWriter({ dir });
+
+		await runPipeline({ dir, driver });
+
+		// no import graph to group by — the batch is exactly the five worst files
+		expect(listedFiles({ prompt: prompts[0] ?? '' })).toStrictEqual(['src/f0.ts', 'src/f1.ts', 'src/f2.ts', 'src/f3.ts', 'src/f4.ts']);
+	});
+
+	test('work only ever goes to a package whose own gate is red', async () => {
+		const dir = setupMonorepoRepo({
+			scopes: { api: { 'packages/api/src/a.ts': 10 }, web: { 'packages/web/src/b.ts': 100 } },
+		});
+		const prompts: string[] = [];
 		const driver: Driver = {
 			name: 'stub',
-			invoke: async () => ({ text: report({ status: 'terminated:ambiguity', failures: ['which module owns this file?'] }), exitCode: 0 }),
+			invoke: async ({ prompt }) => {
+				prompts.push(prompt);
+				writeFileSync(join(dir, 'packages/api/src/a.unit.test.ts'), 'test("covers", () => undefined);\n');
+				writeSummary({ dir, scopeDir: 'packages/api', files: { 'packages/api/src/a.ts': 100 } });
+
+				return { text: report({ changedFiles: [{ path: 'packages/api/src/a.unit.test.ts', summary: 'covers a' }] }), exitCode: 0 };
+			},
 		};
 
 		const result = await runPipeline({ dir, driver });
 
-		expect(result.manifest.status).toBe('escalated');
-		expect(result.error ?? '').toContain('which module owns this file?');
+		expect(result.ok).toBe(true);
+		// the batch is scoped to the failing package, so re-measuring re-runs only its suite
+		expect(result.manifest.steps.filter((step) => step.id.startsWith('batch-')).map((step) => step.id)).toStrictEqual(['batch-01:api']);
+		// the green package's file is never handed to a writer
+		expect(listedFiles({ prompt: prompts[0] ?? '' })).toStrictEqual(['packages/api/src/a.ts']);
+		expect(result.after).toStrictEqual([
+			{ scope: 'api', statementsPct: 100, passed: true },
+			{ scope: 'web', statementsPct: 100, passed: true },
+		]);
 	});
 
-	test('a rate-limited harness parks the run with the resume hint', async () => {
-		const dir = setupRepo({ files: { 'src/a.ts': 10 } });
-		const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
+	test('a barrel, a type-only file and a non-source file are never handed to a writer', async () => {
+		const contents = {
+			'src/barrel.ts': "export { value } from '@/elsewhere';\n",
+			'src/types.ts': 'export interface Shape {\n\tside: number;\n}\n',
+			'src/styles.css': '.a { color: red; }\n',
+		};
+		const dir = setupRepo({ files: { 'src/barrel.ts': 0, 'src/types.ts': 0, 'src/styles.css': 0, 'src/real.ts': 40 }, contents });
 
-		const result = await runPipeline({ dir, driver });
+		linkTypescript({ dir });
 
-		expect(result.manifest.status).toBe('paused-rate-limit');
-		expect(result.error ?? '').toContain(`lightsout test-coverage-to-threshold --run ${result.manifest.runId}`);
+		const { driver, prompts } = stubWriter({ dir });
+
+		await runPipeline({ dir, driver });
+
+		// untestable files sit at the bottom of a statements ordering and would
+		// fill every early batch with guaranteed declines
+		expect(listedFiles({ prompt: prompts[0] ?? '' })).toStrictEqual(['src/real.ts']);
 	});
 });
