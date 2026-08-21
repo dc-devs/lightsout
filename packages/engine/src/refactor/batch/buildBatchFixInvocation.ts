@@ -1,4 +1,5 @@
 import { buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
+import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface Params {
@@ -38,5 +39,14 @@ export const buildBatchFixInvocation = ({
 	// working the same advisory list.
 	return coverageRed
 		? buildUnitTestWriterInvocation({ planContent, subjects: files, mustExecute: files, standards: testStandards, errorContext })
-		: buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, reportAdvisoryOutcomes: true, errorContext });
+		: buildRefactorExecutorInvocation({
+				scope: RefactorScope.Standalone,
+				planContent,
+				changedFiles: files,
+				standards,
+				findings,
+				advisories,
+				reportAdvisoryOutcomes: true,
+				errorContext,
+			});
 };

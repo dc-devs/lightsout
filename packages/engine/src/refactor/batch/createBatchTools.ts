@@ -79,6 +79,7 @@ export const createBatchTools = ({
 			reportedFiles,
 			rationale,
 			advisoryOutcomes,
+			onProgress,
 			recordUsage,
 		});
 	};

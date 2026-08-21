@@ -20,7 +20,10 @@ export const roleOf = (prompt: string) => {
 		return 'write-tests';
 	}
 
-	if (prompt.includes('# Changed files to review')) {
+	// Two headings, one role: the refactor executor names its work-list for who
+	// invoked it — a feature's changed files, or the files a standalone run's
+	// findings sit in — and both are the same agent doing the same job.
+	if (prompt.includes('# Changed files to review') || prompt.includes('# Files the findings name')) {
 		return 'refactor';
 	}
 

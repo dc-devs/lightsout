@@ -24,9 +24,10 @@
 		"build": "pnpm build"
 	},
 	"package-gates": {
-		"check": "pnpm --filter {package} run typecheck",
+		"check": "pnpm --filter {package} run check",
 		"test": "pnpm --filter {package} run test:unit",
-		"test-coverage": "pnpm --filter {package} run test:unit:coverage"
+		"test-coverage": "pnpm --filter {package} run test:unit:coverage",
+		"test-e2e": "pnpm --filter {package} run test:e2e"
 	},
 	"standards-checks": {
 		"folder-census": "blocking",

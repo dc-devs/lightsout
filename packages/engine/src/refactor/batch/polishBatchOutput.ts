@@ -1,4 +1,5 @@
 import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { BatchOutcome, type RefactorBatch, type StandardsFinding } from '#src/contracts/index.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import { standaloneBanner } from '#src/refactor/batch/common/constants/standaloneBanner.ts';
@@ -52,6 +53,7 @@ export const polishBatchOutput = async ({ tools, batch, baseline, workFindings, 
 	await tools.invoke({
 		label: 'polish',
 		invocation: buildRefactorExecutorInvocation({
+			scope: RefactorScope.Standalone,
 			planContent: standaloneBanner,
 			changedFiles: files,
 			standards,

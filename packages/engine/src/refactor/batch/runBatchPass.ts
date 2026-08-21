@@ -1,4 +1,5 @@
 import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
+import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { BatchOutcome, type RefactorBatch, type StandardsFinding } from '#src/contracts/index.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import { standaloneBanner } from '#src/refactor/batch/common/constants/standaloneBanner.ts';
@@ -36,6 +37,7 @@ export const runBatchPass = async ({ tools, batch, pass, workFindings, advisorie
 	const attempt = await tools.invoke({
 		label: pass === 1 ? '' : 'requeue',
 		invocation: buildRefactorExecutorInvocation({
+			scope: RefactorScope.Standalone,
 			planContent: standaloneBanner,
 			changedFiles: files,
 			standards,

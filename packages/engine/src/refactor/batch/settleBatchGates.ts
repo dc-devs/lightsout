@@ -1,7 +1,7 @@
+import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
 import type { AgentUsage, LightsoutConfig } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import type { AgentOutcome } from '#src/invoke/index.ts';
-import { maxCheapFixRetries } from '#src/refactor/batch/common/constants/maxCheapFixRetries.ts';
 import { SettleKind } from '#src/refactor/batch/common/constants/SettleKind.ts';
 import type { SettleOutcome } from '#src/refactor/batch/common/types/SettleOutcome.ts';
 import { superviseBatch } from '#src/refactor/batch/superviseBatch.ts';

@@ -3,8 +3,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { runCoverageBatch } from '#src/coverage/batch/runCoverageBatch.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
-import { runCoverageBatch } from '#src/coverage/runCoverageBatch.ts';
 import type { Driver, DriverResult } from '#src/drivers/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -291,7 +291,9 @@ describe('runCoverageBatch', () => {
 		const dir = setupBatchRepo();
 		const { driver } = stubDriver({ results: [{ text: '', exitCode: 1, rateLimited: true }] });
 
-		expect((await runBatch({ dir, driver })).kind).toBe('parked');
+		const outcome = await runBatch({ dir, driver });
+
+		expect(outcome.kind).toBe('parked');
 	});
 
 	test('a rate limit during a fix re-invocation parks too, mid-batch', async () => {
@@ -301,7 +303,9 @@ describe('runCoverageBatch', () => {
 			results: [completed[0], { text: '', exitCode: 1, rateLimited: true }],
 		});
 
-		expect((await runBatch({ dir, driver })).kind).toBe('parked');
+		const outcome = await runBatch({ dir, driver });
+
+		expect(outcome.kind).toBe('parked');
 		// the fix invocation carries the gate output
 		expect(prompts[1]).toContain('# Verification failure');
 	});
