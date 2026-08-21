@@ -7989,6 +7989,11 @@ usage:
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions \u2014 Mac-only)
   lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
+
+exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable \u2014 a --max-batches ceiling, or a harness rate limit
+  1  anything else
 `;
 
 // src/cli/common/args/readCommandFlags.ts
@@ -24410,6 +24415,9 @@ var isRunLive = ({ manifest, lock }) => {
   return child.success && child.data.runId === lock.runId;
 };
 
+// src/runState/isRunPaused.ts
+var isRunPaused = ({ status }) => status === RunStatus.PausedRateLimit || status === RunStatus.PausedBudget;
+
 // src/runState/listRunIds.ts
 import { readdir as readdir5 } from "node:fs/promises";
 var listRunIds = async ({ cwd }) => {
@@ -24802,7 +24810,13 @@ var printResult = async ({ result, cwd }) => {
     });
   }
   label({ name: "evidence", value: `.lightsout/runs/${manifest.runId}/` });
-  if (!ok && error51) {
+  if (ok || error51 === void 0) {
+    return;
+  }
+  if (isRunPaused({ status: manifest.status })) {
+    console.log(`
+${error51}`);
+  } else {
     console.error(`
 ${error51}`);
   }
@@ -24855,6 +24869,17 @@ var createProgressPrinter = () => {
     const seconds = Math.round((Date.now() - startedAt) / 1e3);
     console.log(`[+${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}] ${message}`);
   };
+};
+
+// src/cli/common/constants/pausedExitCode.ts
+var pausedExitCode = 2;
+
+// src/cli/common/utils/exitForRunResult.ts
+var exitForRunResult = ({ ok, manifest }) => {
+  if (ok) {
+    return exitCli({ code: 0 });
+  }
+  return exitCli({ code: isRunPaused({ status: manifest.status }) ? pausedExitCode : 1 });
 };
 
 // src/cli/common/utils/resolveCommandHarness.ts
@@ -41606,7 +41631,7 @@ var implementCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  return exitCli({ code: result.ok ? 0 : 1 });
+  return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };
 
 // src/cli/common/utils/resolveConfigAndDriver.ts
@@ -42950,15 +42975,21 @@ ${yellow(heading)} ${batchId}`);
 };
 
 // src/cli/common/render/printRunFooter.ts
-var printRunFooter = ({ manifest, error: error51 }) => {
+var printRunFooter = ({ manifest, ending }) => {
   if (manifest.changedFiles.length > 0) {
     console.log(`
 ${manifest.changedFiles.length} file(s) changed in the working tree \u2014 review and commit; the engine never commits.`);
   }
   console.log(`evidence: .lightsout/runs/${manifest.runId}/`);
-  if (error51) {
+  if (ending === void 0) {
+    return;
+  }
+  if (isRunPaused({ status: manifest.status })) {
+    console.log(`
+${ending}`);
+  } else {
     console.error(`
-${error51}`);
+${ending}`);
   }
 };
 
@@ -42994,7 +43025,7 @@ ${bold(`refactor ${manifest.runId.slice(0, 8)}`)} \u2014 ${statusLabel}`);
       console.log(`  ${rule.padEnd(20)}${before[rule] ?? 0} \u2192 ${after[rule] ?? 0}`);
     }
   }
-  printRunFooter({ manifest, error: result.ok ? void 0 : result.error });
+  printRunFooter({ manifest, ending: result.ok ? void 0 : result.error });
 };
 
 // src/cli/common/utils/runBatchedCommand.ts
@@ -43027,7 +43058,7 @@ ${error51 instanceof RunLockError ? error51.message : messageOf({ error: error51
     return exitCli({ code: 1 });
   }
   print({ result });
-  return exitCli({ code: result.ok ? 0 : 1 });
+  return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };
 
 // src/refactor/describeIntroducedFindings.ts
@@ -44113,7 +44144,7 @@ var resumeCommand = async ({ flags, cwd }) => {
     onProgress: createProgressPrinter()
   });
   await printResult({ result, cwd });
-  return exitCli({ code: result.ok ? 0 : 1 });
+  return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };
 
 // src/cli/reviewStandards.ts
@@ -44524,7 +44555,7 @@ ${bold(`test-coverage-to-threshold ${manifest.runId.slice(0, 8)}`)} \u2014 ${sta
       console.log(`  ${scope.padEnd(20)}${from?.statementsPct ?? 0} \u2192 ${to?.statementsPct ?? 0}`);
     }
   }
-  printRunFooter({ manifest, error: result.ok ? void 0 : result.error });
+  printRunFooter({ manifest, ending: result.ok ? void 0 : result.error });
 };
 
 // src/cli/testCoverageToThresholdCommand.ts

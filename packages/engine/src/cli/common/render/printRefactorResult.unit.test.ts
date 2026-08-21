@@ -124,7 +124,9 @@ test('printRefactorResult: a parked run prints no burn-down, because its after m
 	expect(output()).not.toContain('burn-down (findings before → after)');
 	expect(output()).toContain('no burn-down until the run completes');
 	expect(output()).toContain('✗ batch-1');
-	expect(errors.join('\n')).toContain('run parked: harness rate limited or overloaded');
+	// a pause is guidance, not a fault — see printRunFooter
+	expect(output()).toContain('run parked: harness rate limited or overloaded');
+	expect(errors).toStrictEqual([]);
 });
 
 test('printRefactorResult: the burn-down lists every rule in either count map, alphabetically, treating an absent side as zero', () => {

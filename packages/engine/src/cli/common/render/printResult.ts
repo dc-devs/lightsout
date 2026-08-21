@@ -4,7 +4,7 @@ import { printStepTable } from '#src/cli/common/render/printStepTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
 import type { PipelineResult } from '#src/pipeline/index.ts';
-import { summarizeRun } from '#src/runState/index.ts';
+import { isRunPaused, summarizeRun } from '#src/runState/index.ts';
 
 interface Params {
 	result: PipelineResult;
@@ -78,7 +78,15 @@ export const printResult = async ({ result, cwd }: Params): Promise<void> => {
 
 	label({ name: 'evidence', value: `.lightsout/runs/${manifest.runId}/` });
 
-	if (!ok && error) {
+	if (ok || error === undefined) {
+		return;
+	}
+
+	// A run parked at a rate-limit wall says how to pick it up again. That is
+	// guidance, not a fault, and stderr reads as a fault.
+	if (isRunPaused({ status: manifest.status })) {
+		console.log(`\n${error}`);
+	} else {
 		console.error(`\n${error}`);
 	}
 };

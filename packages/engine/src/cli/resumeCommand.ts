@@ -5,6 +5,7 @@ import { printRunHeader } from '#src/cli/common/render/printRunHeader.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
@@ -79,5 +80,5 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 				});
 
 	await printResult({ result, cwd });
-	return exitCli({ code: result.ok ? 0 : 1 });
+	return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };

@@ -9,6 +9,7 @@ export type { StepSummary } from '#src/runState/common/types/StepSummary.ts';
 export { createRun } from '#src/runState/createRun.ts';
 export { isPidAlive } from '#src/runState/isPidAlive.ts';
 export { isRunLive } from '#src/runState/isRunLive.ts';
+export { isRunPaused } from '#src/runState/isRunPaused.ts';
 export { isRunResumable } from '#src/runState/isRunResumable.ts';
 export { listRunIds } from '#src/runState/listRunIds.ts';
 export { acquireRunLock, RunLockError, readRunLock, releaseRunLock, withRunLock } from '#src/runState/lock/index.ts';

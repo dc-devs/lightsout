@@ -23,4 +23,9 @@ usage:
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)
   lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
+
+exit codes (implement, resume, refactor, test-coverage-to-threshold):
+  0  finished
+  2  stopped with work left and resumable — a --max-batches ceiling, or a harness rate limit
+  1  anything else
 `;

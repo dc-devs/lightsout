@@ -101,7 +101,9 @@ test('printCoverageResult: a parked run prints no table, because its after merel
 	// the batch that stopped the run says what it stopped as — neither resolved nor declined
 	expect(output()).toContain('✗ batch-01:root');
 	expect(output()).toMatch(/batch-01:root\s+paused-rate-limit/);
-	expect(errors.join('\n')).toContain('run parked: harness rate limited or overloaded');
+	// a pause is guidance, not a fault — see printRunFooter
+	expect(output()).toContain('run parked: harness rate limited or overloaded');
+	expect(errors).toStrictEqual([]);
 });
 
 test('printCoverageResult: the table lists every scope either measurement saw, alphabetically', () => {

@@ -1,12 +1,19 @@
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { exitForRunResult } from '#src/cli/common/utils/exitForRunResult.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 import { RunLockError, readRunManifest } from '#src/runState/index.ts';
+
+/** What every batched pipeline returns: whether it finished, and the manifest it finished against. */
+interface BatchedRunResult {
+	ok: boolean;
+	manifest: RunManifest;
+}
 
 /** Everything the shared prelude resolved, handed to the pipeline the command actually runs. */
 interface BatchedRunStart {
@@ -18,7 +25,7 @@ interface BatchedRunStart {
 	existing: RunManifest | undefined;
 }
 
-interface Params<Result extends { ok: boolean }> {
+interface Params<Result extends BatchedRunResult> {
 	flags: CommandContext['flags'];
 	cwd: string;
 	/** Which lightsout command this is — selects its harness entry, and names it in the banner. */
@@ -37,8 +44,14 @@ interface Params<Result extends { ok: boolean }> {
  * get. Every failure on the way in prints one line and exits 1: an unknown
  * run id says which id, a lock collision speaks in the lock's own words, and
  * neither is worth a stack trace.
+ *
+ * Three exit codes, because a caller has three things to tell apart and only
+ * two of them are pass and fail: 0 finished, 2 stopped with work left and can
+ * be resumed (`--max-batches`, a rate-limit wall), 1 anything else. A loop that
+ * drives `refactor --max-batches 1` used to see the same 1 for "made progress"
+ * and "broke", and could only separate them by reading the printed status.
  */
-export const runBatchedCommand = async <Result extends { ok: boolean }>({ flags, cwd, command, run, print }: Params<Result>): Promise<void> => {
+export const runBatchedCommand = async <Result extends BatchedRunResult>({ flags, cwd, command, run, print }: Params<Result>): Promise<void> => {
 	const resumeRunId = getStringFlag({ flags, name: 'run' });
 	const maxBatchesFlag = getStringFlag({ flags, name: 'max-batches' });
 	const loaded = await readConfig({ cwd });
@@ -76,5 +89,5 @@ export const runBatchedCommand = async <Result extends { ok: boolean }>({ flags,
 
 	print({ result });
 
-	return exitCli({ code: result.ok ? 0 : 1 });
+	return exitForRunResult({ ok: result.ok, manifest: result.manifest });
 };
