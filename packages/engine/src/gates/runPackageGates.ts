@@ -3,9 +3,9 @@ import { resolvePackageGatesConfig } from '#src/common/config/resolvePackageGate
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { readPackageManifest } from '#src/common/workspace/readPackageManifest.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
-import type { GateCommands } from '#src/pipeline/common/types/GateCommands.ts';
-import type { RunGate } from '#src/pipeline/common/types/RunGate.ts';
-import { runGateSet } from '#src/pipeline/runGateSet.ts';
+import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
+import type { RunGate } from '#src/gates/common/types/RunGate.ts';
+import { runGateSet } from '#src/gates/runGateSet.ts';
 import { appendCommandLog } from '#src/runState/index.ts';
 
 interface Params {

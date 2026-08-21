@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { loadStandardsLedger } from '#src/cli/loadStandardsLedger.ts';
+import { readStandardsLedger } from '#src/cli/readStandardsLedger.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { StandardsRuleListing } from '#src/standardsCheck/index.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -25,13 +25,13 @@ jest.mock('#src/standardsCheck/index.ts', () => ({ listStandardsRules: (params: 
 
 const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];
 
-describe('loadStandardsLedger', () => {
+describe('readStandardsLedger', () => {
 	test("the repo's own config and path reach the listing, so the ledger is this repo's policy", async () => {
 		const cwd = setupConsumerRepo({ git: false, config: { 'standards-checks': { clone: 'off' } } });
 
 		mockListStandardsRules.mockResolvedValue([]);
 
-		const { config } = await loadStandardsLedger({ cwd });
+		const { config } = await readStandardsLedger({ cwd });
 
 		expect(listParams()?.config).toEqual(expect.objectContaining({ 'standards-checks': { clone: 'off' } }));
 		// the repo path travels too: the packages a listing is built from are the
@@ -46,7 +46,7 @@ describe('loadStandardsLedger', () => {
 
 		mockListStandardsRules.mockResolvedValue(rules);
 
-		const ledger = await loadStandardsLedger({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-ledger-')) });
+		const ledger = await readStandardsLedger({ cwd: mkdtempSync(join(tmpdir(), 'lightsout-ledger-')) });
 
 		expect(listParams()?.config).toBeUndefined();
 		expect(ledger).toStrictEqual({ config: undefined, rules });
@@ -58,7 +58,7 @@ describe('loadStandardsLedger', () => {
 		writeFileSync(join(cwd, 'lightsout.config.json'), '{ "gates":');
 		mockListStandardsRules.mockResolvedValue([]);
 
-		await loadStandardsLedger({ cwd });
+		await readStandardsLedger({ cwd });
 
 		// the ledger still answers — at the defaults, exactly as if no config existed
 		expect(listParams()?.config).toBeUndefined();
@@ -67,6 +67,6 @@ describe('loadStandardsLedger', () => {
 	test('a ledger that cannot be built refuses, carrying the loader’s own message', async () => {
 		mockListStandardsRules.mockRejectedValue(new Error('standards package "acme" could not be loaded'));
 
-		await expect(loadStandardsLedger({ cwd: '/repo' })).rejects.toThrow('standards package "acme" could not be loaded');
+		await expect(readStandardsLedger({ cwd: '/repo' })).rejects.toThrow('standards package "acme" could not be loaded');
 	});
 });

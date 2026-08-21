@@ -1,6 +1,6 @@
 import type { RunListing } from '#src/contracts/index.ts';
 import { listRunIds, readRunLock, readRunManifest } from '#src/runState/index.ts';
-import { loadRunListing } from '#src/views/common/utils/loadRunListing.ts';
+import { readRunListing } from '#src/views/common/utils/readRunListing.ts';
 
 interface Params {
 	cwd: string;
@@ -25,7 +25,7 @@ export const listRuns = async ({ cwd }: Params): Promise<RunListing[]> => {
 			continue;
 		}
 
-		listings.push(await loadRunListing({ cwd, manifest, lock }));
+		listings.push(await readRunListing({ cwd, manifest, lock }));
 	}
 
 	return listings.sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));

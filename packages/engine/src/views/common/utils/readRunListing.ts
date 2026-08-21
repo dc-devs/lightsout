@@ -40,7 +40,7 @@ interface Params {
  * detail header can never disagree about a run's title, whether it is live, or
  * whether resuming it would do anything.
  */
-export const loadRunListing = async ({ cwd, manifest, lock }: Params): Promise<RunListing> => {
+export const readRunListing = async ({ cwd, manifest, lock }: Params): Promise<RunListing> => {
 	const worklist = manifest.plan.endsWith('worklist.json') ? await readFrozenWorklist({ cwd, manifest }) : undefined;
 
 	return buildRunListing({ manifest, lock, worklist });

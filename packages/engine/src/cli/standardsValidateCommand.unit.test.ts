@@ -16,7 +16,7 @@ const mockResolveDefaultStandardsPackage = jest.fn<() => string>();
 const mockValidateStandardsPackage = jest.fn<(params: { pkg: LoadedStandardsPackage }) => Promise<{ problems: string[]; notes: string[] }>>();
 
 jest.mock('#src/standardsPackages/index.ts', () => ({
-	loadStandardsPackage: (params: { packagePath: string }) => mockLoadStandardsPackage(params),
+	readStandardsPackage: (params: { packagePath: string }) => mockLoadStandardsPackage(params),
 	resolveDefaultStandardsPackage: () => mockResolveDefaultStandardsPackage(),
 }));
 

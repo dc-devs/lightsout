@@ -31,7 +31,7 @@ jest.mock('#src/cli/plan/planDraftCommand.ts', () => ({ planDraftCommand: (param
 jest.mock('#src/cli/plan/planDedupCommand.ts', () => ({ planDedupCommand: (params: unknown) => mockPlanDedupCommand(params) }));
 jest.mock('#src/cli/plan/planGradeCommand.ts', () => ({ planGradeCommand: (params: unknown) => mockPlanGradeCommand(params) }));
 jest.mock('#src/cli/common/utils/resolveConfigAndDriver.ts', () => ({ resolveConfigAndDriver: (params: unknown) => mockResolveConfigAndDriver(params) }));
-jest.mock('#src/cli/plan/loadPlanningStandards.ts', () => ({ loadPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
+jest.mock('#src/cli/plan/readPlanningStandards.ts', () => ({ readPlanningStandards: (params: unknown) => mockLoadPlanningStandards(params) }));
 
 const stubDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
 

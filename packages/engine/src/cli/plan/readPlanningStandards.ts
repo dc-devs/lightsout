@@ -13,7 +13,7 @@ interface Params {
 // absent) — resolved once and threaded into draft, dedup, and grade, exactly
 // the mechanism the implement pipeline uses. Only the code set: planning writes
 // a plan, not tests.
-export const loadPlanningStandards = async ({ cwd, config }: Params): Promise<string | undefined> => {
+export const readPlanningStandards = async ({ cwd, config }: Params): Promise<string | undefined> => {
 	const packagesDir = config?.['packages-dir'] ?? 'packages';
 	let standards: string | undefined;
 

@@ -93,6 +93,40 @@ describe('discriminant-const-object check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('a case clause is the same narrowing spelled the other way, and counts', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				['src/common/constants/SyncEventKind.ts', "export const SyncEventKind = {\n\tFileAdded: 'file-added',\n} as const;\n"],
+				[
+					'src/sync/route.ts',
+					"import { SyncEventKind } from '../common/constants/SyncEventKind';\n\nexport const route = (event: { kind: string }): string => {\n\tswitch (event.kind) {\n\t\tcase 'file-added':\n\t\t\treturn 'added';\n\t\tdefault:\n\t\t\treturn 'other';\n\t}\n};\n",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.detail).toBe('discriminant compared against a raw string literal at line 5');
+	});
+
+	test('a switch on something that is not a field is not a discriminant', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				['src/common/constants/SyncEventKind.ts', "export const SyncEventKind = {\n\tFileAdded: 'file-added',\n} as const;\n"],
+				// switching on a plain parameter: nothing here says the string is a
+				// family's discriminant rather than any string this file routes on
+				[
+					'src/sync/label.ts',
+					"import { SyncEventKind } from '../common/constants/SyncEventKind';\n\nexport const label = (name: string): string => {\n\tswitch (name) {\n\t\tcase 'file-added':\n\t\t\treturn 'added';\n\t\tdefault:\n\t\t\treturn 'other';\n\t}\n};\n",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
 	test('answers nothing for an input kind it did not ask for', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 

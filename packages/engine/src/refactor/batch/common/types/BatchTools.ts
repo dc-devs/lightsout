@@ -1,5 +1,5 @@
 import type { StandardsFinding } from '#src/contracts/index.ts';
-import type { runBatchGates } from '#src/pipeline/index.ts';
+import type { runBatchGates } from '#src/gates/index.ts';
 import type { BatchRecorder } from '#src/refactor/batch/common/types/BatchRecorder.ts';
 import type { BatchSiteChecker } from '#src/refactor/batch/common/types/BatchSiteChecker.ts';
 import type { invokeBatchAgent } from '#src/refactor/batch/invokeBatchAgent.ts';

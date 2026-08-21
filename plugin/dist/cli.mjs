@@ -24981,46 +24981,6 @@ var initializeSequence = async ({ cwd, driver, config: config2, overviewPath, st
 // src/phases/runPhase.ts
 import { dirname as dirname7, join as join45 } from "node:path";
 
-// src/pipeline/chunkFileGroup.ts
-var chunkFileGroup = ({ files, max }) => {
-  const sorted = [...files].sort();
-  const chunks = [];
-  for (let start = 0; start < sorted.length; start += max) {
-    chunks.push(sorted.slice(start, start + max));
-  }
-  return chunks;
-};
-
-// src/pipeline/groupConnectedFiles.ts
-var groupConnectedFiles = ({ files, edges }) => {
-  const parent = new Map(files.map((file2) => [file2, file2]));
-  const find = (file2) => {
-    const up = parent.get(file2);
-    if (up === void 0 || up === file2) {
-      return file2;
-    }
-    const root = find(up);
-    parent.set(file2, root);
-    return root;
-  };
-  for (const { from, to } of edges) {
-    if (!parent.has(from) || !parent.has(to)) {
-      continue;
-    }
-    const rootFrom = find(from);
-    const rootTo = find(to);
-    if (rootFrom !== rootTo) {
-      parent.set(rootFrom, rootTo);
-    }
-  }
-  const byRoot = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
-    const root = find(file2);
-    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
-  }
-  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
-};
-
 // src/pipeline/readPlanPackages.ts
 var unquote = (value) => value.trim().replace(/^['"]|['"]$/g, "");
 var collectBlockItems = ({ lines, keyIndex }) => {
@@ -25076,265 +25036,6 @@ var readGitChangedFiles = async ({ cwd }) => {
     const renameTarget = arrow === -1 ? path : path.slice(arrow + " -> ".length);
     return renameTarget.replace(/^"|"$/g, "");
   }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
-};
-
-// src/common/workspace/packageOf.ts
-var packageOf = ({ file: file2, packagesDir }) => {
-  const prefix = `${packagesDir}/`;
-  if (!file2.startsWith(prefix)) {
-    return void 0;
-  }
-  const rest = file2.slice(prefix.length);
-  const separator = rest.indexOf("/");
-  return separator > 0 ? rest.slice(0, separator) : void 0;
-};
-
-// src/common/config/resolveGates.ts
-var fixedKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "generate", "build", "format"]);
-var resolveGates = ({ gates }) => ({
-  check: gates.check,
-  test: gates.test,
-  testCoverage: gates["test-coverage"],
-  ...gates.generate === void 0 ? {} : { generate: gates.generate },
-  ...gates.build === void 0 ? {} : { build: gates.build },
-  ...gates.format === void 0 ? {} : { format: gates.format },
-  extraTests: Object.entries(gates).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
-});
-
-// src/pipeline/createGateRunner.ts
-var createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }) => {
-  const executeOnce = async ({ kind, command, group, rerun }) => {
-    const gateTimeoutMs = 10 * 6e4;
-    const outputTailChars = 2e3;
-    const startedAt = Date.now();
-    let result;
-    try {
-      result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
-    } catch (error51) {
-      result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
-    }
-    onProgress?.(`gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`);
-    const gateResult = {
-      kind,
-      group,
-      command,
-      exitCode: result.exitCode,
-      durationMs: Date.now() - startedAt,
-      ...rerun ? { rerun: true } : {},
-      ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
-${result.stderr}`.slice(-outputTailChars) }
-    };
-    if (runId) {
-      await appendCommandLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, ...gateResult } });
-    }
-    onGateResult?.(gateResult);
-    return result;
-  };
-  return async ({ kind, command, group }) => {
-    const first = await executeOnce({ kind, command, group });
-    if (first.exitCode === 0 || first.exitCode === -1) {
-      return first;
-    }
-    onProgress?.(`gate [${group}] ${kind}: red (exit ${first.exitCode}) \u2014 re-running once to rule out flake`);
-    return executeOnce({ kind, command, group, rerun: true });
-  };
-};
-
-// src/pipeline/runGateSet.ts
-var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) => {
-  const group = label ?? "root";
-  const prefix = label ? `[${label}] ` : "";
-  const failures = [];
-  const stop = () => failFast && failures.length > 0;
-  if (commands2.check) {
-    const check2 = await gate({ kind: "check", command: commands2.check, group });
-    if (check2.exitCode !== 0) {
-      failures.push(`${prefix}check failed (exit ${check2.exitCode}):
-${check2.stdout}
-${check2.stderr}`);
-    }
-  }
-  if (!stop() && commands2.testCoverage) {
-    const coverageResult = await gate({ kind: "testCoverage", command: commands2.testCoverage, group });
-    if (coverageResult.exitCode !== 0) {
-      failures.push(`${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
-${coverageResult.stdout}
-${coverageResult.stderr}`);
-    }
-  } else if (!stop() && commands2.test) {
-    const tests = await gate({ kind: "test", command: commands2.test, group });
-    if (tests.exitCode !== 0) {
-      failures.push(`${prefix}test failed (exit ${tests.exitCode}):
-${tests.stdout}
-${tests.stderr}`);
-    }
-  }
-  for (const { name, command } of commands2.extraTests ?? []) {
-    if (stop() || !command) {
-      continue;
-    }
-    const extra = await gate({ kind: name, command, group });
-    if (extra.exitCode !== 0) {
-      failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):
-${extra.stdout}
-${extra.stderr}`);
-    }
-  }
-  if (!stop() && commands2.build) {
-    const build = await gate({ kind: "build", command: commands2.build, group });
-    if (build.exitCode !== 0) {
-      failures.push(`${prefix}build failed (exit ${build.exitCode}):
-${build.stdout}
-${build.stderr}`);
-    }
-  }
-  return failures.length > 0 ? failures.join("\n\n") : void 0;
-};
-
-// src/common/config/resolvePackageGatesConfig.ts
-var fixedKeys2 = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "build"]);
-var resolvePackageGatesConfig = ({ packageGates }) => ({
-  check: packageGates.check,
-  test: packageGates.test,
-  ...packageGates["test-coverage"] === void 0 ? {} : { testCoverage: packageGates["test-coverage"] },
-  ...packageGates.build === void 0 ? {} : { build: packageGates.build },
-  extraTests: Object.entries(packageGates).filter((entry) => !fixedKeys2.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
-});
-
-// src/pipeline/runPackageGates.ts
-var runPackageGates = async ({
-  cwd,
-  packagesDir,
-  packageDir,
-  scoped,
-  coverage,
-  gate,
-  failFast,
-  runId,
-  step,
-  onGateResult,
-  onProgress
-}) => {
-  let manifest;
-  try {
-    manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
-  } catch (error51) {
-    return messageOf({ error: error51 });
-  }
-  const templates = resolvePackageGatesConfig({ packageGates: scoped });
-  const substitute = ({ command }) => command.split("{package}").join(manifest.name);
-  const scopedCommand = async ({ kind, template }) => {
-    const scriptName = extractRunScriptName({ command: template });
-    if (!scriptName || Object.hasOwn(manifest.scripts, scriptName)) {
-      return substitute({ command: template });
-    }
-    onProgress?.(`gate [${packageDir}] ${kind}: skipped (no "${scriptName}" script)`);
-    if (runId) {
-      await appendCommandLog({
-        cwd,
-        runId,
-        record: {
-          at: (/* @__PURE__ */ new Date()).toISOString(),
-          step,
-          group: packageDir,
-          kind,
-          command: substitute({ command: template }),
-          skipped: true,
-          reason: `no "${scriptName}" script`
-        }
-      });
-    }
-    onGateResult?.({ kind, group: packageDir, command: substitute({ command: template }), skipped: true, reason: `no "${scriptName}" script` });
-    return void 0;
-  };
-  const testCoverage = coverage && templates.testCoverage ? await scopedCommand({ kind: "testCoverage", template: templates.testCoverage }) : void 0;
-  const extraTests = [];
-  for (const { name, command } of templates.extraTests) {
-    extraTests.push({ name, command: await scopedCommand({ kind: name, template: command }) });
-  }
-  return runGateSet({
-    label: packageDir,
-    gate,
-    failFast,
-    commands: {
-      check: await scopedCommand({ kind: "check", template: templates.check }),
-      // Coverage replaces the plain test run; only when coverage is
-      // absent or skipped does test get its own script lookup.
-      test: testCoverage ? void 0 : await scopedCommand({ kind: "test", template: templates.test }),
-      testCoverage,
-      extraTests,
-      build: templates.build ? await scopedCommand({ kind: "build", template: templates.build }) : void 0
-    }
-  });
-};
-
-// src/pipeline/runGates.ts
-var runGates = async ({
-  cwd,
-  config: config2,
-  coverage,
-  packages,
-  includeRoot,
-  runId,
-  step,
-  failFast,
-  onGateResult,
-  onProgress
-}) => {
-  const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
-  const gates = resolveGates({ gates: config2.gates });
-  if (gates.generate) {
-    const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
-    if (generated.exitCode !== 0) {
-      return `generate failed (exit ${generated.exitCode}):
-${generated.stdout}
-${generated.stderr}`;
-    }
-  }
-  const rootCommands = {
-    check: gates.check,
-    test: gates.test,
-    testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
-    extraTests: gates.extraTests,
-    build: gates.build
-  };
-  const scoped = config2["package-gates"];
-  if (!scoped || !packages || packages.length === 0) {
-    return runGateSet({ commands: rootCommands, gate, failFast });
-  }
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  const results = await Promise.all(
-    packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }))
-  );
-  if (includeRoot) {
-    results.push(await runGateSet({ commands: rootCommands, gate, label: "root", failFast }));
-  }
-  const errors = results.filter((result) => Boolean(result));
-  return errors.length > 0 ? errors.join("\n\n") : void 0;
-};
-
-// src/pipeline/runBatchGates.ts
-var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProgress }) => {
-  const changed = await readGitChangedFiles({ cwd }) ?? [];
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  const touched = [
-    ...new Set(
-      changed.flatMap((file2) => {
-        const name = packageOf({ file: file2, packagesDir });
-        return name === void 0 ? [] : [name];
-      })
-    )
-  ];
-  return runGates({
-    cwd,
-    config: config2,
-    coverage,
-    packages: touched,
-    includeRoot: changed.some((file2) => packageOf({ file: file2, packagesDir }) === void 0),
-    runId,
-    step,
-    onProgress
-  });
 };
 
 // src/common/sourceFiles/listSourceFiles.ts
@@ -25529,7 +25230,7 @@ var buildStandardsDocuments = ({ pkg, channels }) => {
   return assembled;
 };
 
-// src/standardsPackages/loadStandardsPackage.ts
+// src/standardsPackages/readStandardsPackage.ts
 import { readdir as readdir10, readFile as readFile14 } from "node:fs/promises";
 import { join as join24 } from "node:path";
 
@@ -25593,9 +25294,9 @@ var hasFile = async ({ path }) => stat4(path).then(
   () => false
 );
 
-// src/standardsPackages/common/utils/loadCheckModule.ts
+// src/standardsPackages/common/utils/importCheckModule.ts
 import { pathToFileURL } from "node:url";
-var loadCheckModule = async ({ checkPath }) => {
+var importCheckModule = async ({ checkPath }) => {
   const imported = await import(
     /* @vite-ignore */
     pathToFileURL(checkPath).href
@@ -25646,7 +25347,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
   let check2;
   if (declaration?.checked === true && hasCheck) {
     try {
-      check2 = await loadCheckModule({ checkPath });
+      check2 = await importCheckModule({ checkPath });
     } catch (error51) {
       found.push(`${rulePath}: ${messageOf({ error: error51 })}`);
     }
@@ -25722,7 +25423,7 @@ var parseDocumentFolder = async ({
   return parsedDocument;
 };
 
-// src/standardsPackages/loadStandardsPackage.ts
+// src/standardsPackages/readStandardsPackage.ts
 var walk = async ({ folderPath, documentPath, set: set2, problems, documents, rules }) => {
   const entries = await readdir10(folderPath, { withFileTypes: true }).catch(() => void 0);
   if (entries === void 0) {
@@ -25754,7 +25455,7 @@ var findDuplicateIds = ({ rules }) => {
   }
   return duplicates;
 };
-var loadStandardsPackage = async ({ packagePath }) => {
+var readStandardsPackage = async ({ packagePath }) => {
   const rootFilePath = join24(packagePath, "lightsout-standards.json");
   const rootText = await readFile14(rootFilePath, "utf8").catch(() => void 0);
   if (rootText === void 0) {
@@ -25852,7 +25553,7 @@ var resolveStandardsPackages = async ({ cwd, config: config2 }) => {
   const roots = resolveRoots({ cwd, standardsPackages: config2?.["standards-packages"] });
   const packages = [];
   for (const packagePath of roots) {
-    packages.push(await loadStandardsPackage({ packagePath }));
+    packages.push(await readStandardsPackage({ packagePath }));
   }
   const duplicates = findCrossPackageDuplicates({ packages });
   if (duplicates.length > 0) {
@@ -26046,6 +25747,17 @@ var isTestFile = ({ path, standardsPackages = [] }) => {
   const inStandardsPackage = standardsPackages.some((root) => path.startsWith(`${root}/`));
   const directory = inStandardsPackage ? testDirectoryInStandardsPackage : testDirectory;
   return directory.test(path) || testFileName.test(path);
+};
+
+// src/common/workspace/packageOf.ts
+var packageOf = ({ file: file2, packagesDir }) => {
+  const prefix = `${packagesDir}/`;
+  if (!file2.startsWith(prefix)) {
+    return void 0;
+  }
+  const rest = file2.slice(prefix.length);
+  const separator = rest.indexOf("/");
+  return separator > 0 ? rest.slice(0, separator) : void 0;
 };
 
 // src/pipeline/common/utils/partitionByPackage.ts
@@ -26819,7 +26531,9 @@ var PipelineRun = class {
   driver;
   // The shared run state is held, not inherited: what this run adds — step
   // timers, evidence counters, agent invocation — stays visible against a
-  // plain value it forwards to.
+  // plain value it forwards to. It stays private for the same reason:
+  // `setStep` and `recordUsage` below add to what they forward, and a caller
+  // holding the state could call the plain versions instead.
   runState;
   // Active time per step, accumulated across attempts and resumes: the
   // timer starts when nextRecord picks the step up (seeded with any prior
@@ -27084,6 +26798,46 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   return `changed-file-execution: ${unexecuted.length} changed file(s) never executed under the tests: ${unexecuted.join(", ")} \u2014 cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.`;
 };
 
+// src/common/fileGroups/groupConnectedFiles.ts
+var groupConnectedFiles = ({ files, edges }) => {
+  const parent = new Map(files.map((file2) => [file2, file2]));
+  const find = (file2) => {
+    const up = parent.get(file2);
+    if (up === void 0 || up === file2) {
+      return file2;
+    }
+    const root = find(up);
+    parent.set(file2, root);
+    return root;
+  };
+  for (const { from, to } of edges) {
+    if (!parent.has(from) || !parent.has(to)) {
+      continue;
+    }
+    const rootFrom = find(from);
+    const rootTo = find(to);
+    if (rootFrom !== rootTo) {
+      parent.set(rootFrom, rootTo);
+    }
+  }
+  const byRoot = /* @__PURE__ */ new Map();
+  for (const file2 of files) {
+    const root = find(file2);
+    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
+  }
+  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
+};
+
+// src/common/fileGroups/chunkFileGroup.ts
+var chunkFileGroup = ({ files, max }) => {
+  const sorted = [...files].sort();
+  const chunks = [];
+  for (let start = 0; start < sorted.length; start += max) {
+    chunks.push(sorted.slice(start, start + max));
+  }
+  return chunks;
+};
+
 // src/coverage/buildCoverageBatch.ts
 var defaultBatchSize = 5;
 var maxWriterGroupFiles = 12;
@@ -27310,6 +27064,254 @@ var invokeCoverageAgent = async ({
     rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
   }
   return outcome;
+};
+
+// src/common/config/resolveGates.ts
+var fixedKeys = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "generate", "build", "format"]);
+var resolveGates = ({ gates }) => ({
+  check: gates.check,
+  test: gates.test,
+  testCoverage: gates["test-coverage"],
+  ...gates.generate === void 0 ? {} : { generate: gates.generate },
+  ...gates.build === void 0 ? {} : { build: gates.build },
+  ...gates.format === void 0 ? {} : { format: gates.format },
+  extraTests: Object.entries(gates).filter((entry) => !fixedKeys.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
+});
+
+// src/gates/createGateRunner.ts
+var createGateRunner = ({ cwd, runId, step, onGateResult, onProgress }) => {
+  const executeOnce = async ({ kind, command, group, rerun }) => {
+    const gateTimeoutMs = 10 * 6e4;
+    const outputTailChars = 2e3;
+    const startedAt = Date.now();
+    let result;
+    try {
+      result = await runCommand({ command, cwd, timeoutMs: gateTimeoutMs });
+    } catch (error51) {
+      result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
+    }
+    onProgress?.(`gate [${group}] ${kind}${rerun ? " (re-run)" : ""}: exit ${result.exitCode} (${((Date.now() - startedAt) / 1e3).toFixed(1)}s)`);
+    const gateResult = {
+      kind,
+      group,
+      command,
+      exitCode: result.exitCode,
+      durationMs: Date.now() - startedAt,
+      ...rerun ? { rerun: true } : {},
+      ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
+${result.stderr}`.slice(-outputTailChars) }
+    };
+    if (runId) {
+      await appendCommandLog({ cwd, runId, record: { at: (/* @__PURE__ */ new Date()).toISOString(), step, ...gateResult } });
+    }
+    onGateResult?.(gateResult);
+    return result;
+  };
+  return async ({ kind, command, group }) => {
+    const first = await executeOnce({ kind, command, group });
+    if (first.exitCode === 0 || first.exitCode === -1) {
+      return first;
+    }
+    onProgress?.(`gate [${group}] ${kind}: red (exit ${first.exitCode}) \u2014 re-running once to rule out flake`);
+    return executeOnce({ kind, command, group, rerun: true });
+  };
+};
+
+// src/gates/runGateSet.ts
+var runGateSet = async ({ commands: commands2, label, gate, failFast = true }) => {
+  const group = label ?? "root";
+  const prefix = label ? `[${label}] ` : "";
+  const failures = [];
+  const stop = () => failFast && failures.length > 0;
+  if (commands2.check) {
+    const check2 = await gate({ kind: "check", command: commands2.check, group });
+    if (check2.exitCode !== 0) {
+      failures.push(`${prefix}check failed (exit ${check2.exitCode}):
+${check2.stdout}
+${check2.stderr}`);
+    }
+  }
+  if (!stop() && commands2.testCoverage) {
+    const coverageResult = await gate({ kind: "testCoverage", command: commands2.testCoverage, group });
+    if (coverageResult.exitCode !== 0) {
+      failures.push(`${prefix}test-coverage failed (exit ${coverageResult.exitCode}):
+${coverageResult.stdout}
+${coverageResult.stderr}`);
+    }
+  } else if (!stop() && commands2.test) {
+    const tests = await gate({ kind: "test", command: commands2.test, group });
+    if (tests.exitCode !== 0) {
+      failures.push(`${prefix}test failed (exit ${tests.exitCode}):
+${tests.stdout}
+${tests.stderr}`);
+    }
+  }
+  for (const { name, command } of commands2.extraTests ?? []) {
+    if (stop() || !command) {
+      continue;
+    }
+    const extra = await gate({ kind: name, command, group });
+    if (extra.exitCode !== 0) {
+      failures.push(`${prefix}${name} failed (exit ${extra.exitCode}):
+${extra.stdout}
+${extra.stderr}`);
+    }
+  }
+  if (!stop() && commands2.build) {
+    const build = await gate({ kind: "build", command: commands2.build, group });
+    if (build.exitCode !== 0) {
+      failures.push(`${prefix}build failed (exit ${build.exitCode}):
+${build.stdout}
+${build.stderr}`);
+    }
+  }
+  return failures.length > 0 ? failures.join("\n\n") : void 0;
+};
+
+// src/common/config/resolvePackageGatesConfig.ts
+var fixedKeys2 = /* @__PURE__ */ new Set(["check", "test", "test-coverage", "build"]);
+var resolvePackageGatesConfig = ({ packageGates }) => ({
+  check: packageGates.check,
+  test: packageGates.test,
+  ...packageGates["test-coverage"] === void 0 ? {} : { testCoverage: packageGates["test-coverage"] },
+  ...packageGates.build === void 0 ? {} : { build: packageGates.build },
+  extraTests: Object.entries(packageGates).filter((entry) => !fixedKeys2.has(entry[0]) && typeof entry[1] === "string").map(([name, command]) => ({ name, command }))
+});
+
+// src/gates/runPackageGates.ts
+var runPackageGates = async ({
+  cwd,
+  packagesDir,
+  packageDir,
+  scoped,
+  coverage,
+  gate,
+  failFast,
+  runId,
+  step,
+  onGateResult,
+  onProgress
+}) => {
+  let manifest;
+  try {
+    manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
+  } catch (error51) {
+    return messageOf({ error: error51 });
+  }
+  const templates = resolvePackageGatesConfig({ packageGates: scoped });
+  const substitute = ({ command }) => command.split("{package}").join(manifest.name);
+  const scopedCommand = async ({ kind, template }) => {
+    const scriptName = extractRunScriptName({ command: template });
+    if (!scriptName || Object.hasOwn(manifest.scripts, scriptName)) {
+      return substitute({ command: template });
+    }
+    onProgress?.(`gate [${packageDir}] ${kind}: skipped (no "${scriptName}" script)`);
+    if (runId) {
+      await appendCommandLog({
+        cwd,
+        runId,
+        record: {
+          at: (/* @__PURE__ */ new Date()).toISOString(),
+          step,
+          group: packageDir,
+          kind,
+          command: substitute({ command: template }),
+          skipped: true,
+          reason: `no "${scriptName}" script`
+        }
+      });
+    }
+    onGateResult?.({ kind, group: packageDir, command: substitute({ command: template }), skipped: true, reason: `no "${scriptName}" script` });
+    return void 0;
+  };
+  const testCoverage = coverage && templates.testCoverage ? await scopedCommand({ kind: "testCoverage", template: templates.testCoverage }) : void 0;
+  const extraTests = [];
+  for (const { name, command } of templates.extraTests) {
+    extraTests.push({ name, command: await scopedCommand({ kind: name, template: command }) });
+  }
+  return runGateSet({
+    label: packageDir,
+    gate,
+    failFast,
+    commands: {
+      check: await scopedCommand({ kind: "check", template: templates.check }),
+      // Coverage replaces the plain test run; only when coverage is
+      // absent or skipped does test get its own script lookup.
+      test: testCoverage ? void 0 : await scopedCommand({ kind: "test", template: templates.test }),
+      testCoverage,
+      extraTests,
+      build: templates.build ? await scopedCommand({ kind: "build", template: templates.build }) : void 0
+    }
+  });
+};
+
+// src/gates/runGates.ts
+var runGates = async ({
+  cwd,
+  config: config2,
+  coverage,
+  packages,
+  includeRoot,
+  runId,
+  step,
+  failFast,
+  onGateResult,
+  onProgress
+}) => {
+  const gate = createGateRunner({ cwd, runId, step, onGateResult, onProgress });
+  const gates = resolveGates({ gates: config2.gates });
+  if (gates.generate) {
+    const generated = await gate({ kind: "generate", command: gates.generate, group: "root" });
+    if (generated.exitCode !== 0) {
+      return `generate failed (exit ${generated.exitCode}):
+${generated.stdout}
+${generated.stderr}`;
+    }
+  }
+  const rootCommands = {
+    check: gates.check,
+    test: gates.test,
+    testCoverage: coverage && typeof gates.testCoverage === "string" ? gates.testCoverage : void 0,
+    extraTests: gates.extraTests,
+    build: gates.build
+  };
+  const scoped = config2["package-gates"];
+  if (!scoped || !packages || packages.length === 0) {
+    return runGateSet({ commands: rootCommands, gate, failFast });
+  }
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const results = await Promise.all(
+    packages.map((packageDir) => runPackageGates({ cwd, packagesDir, packageDir, scoped, coverage, gate, failFast, runId, step, onGateResult, onProgress }))
+  );
+  if (includeRoot) {
+    results.push(await runGateSet({ commands: rootCommands, gate, label: "root", failFast }));
+  }
+  const errors = results.filter((result) => Boolean(result));
+  return errors.length > 0 ? errors.join("\n\n") : void 0;
+};
+
+// src/gates/runBatchGates.ts
+var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProgress }) => {
+  const changed = await readGitChangedFiles({ cwd }) ?? [];
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const touched = [
+    ...new Set(
+      changed.flatMap((file2) => {
+        const name = packageOf({ file: file2, packagesDir });
+        return name === void 0 ? [] : [name];
+      })
+    )
+  ];
+  return runGates({
+    cwd,
+    config: config2,
+    coverage,
+    packages: touched,
+    includeRoot: changed.some((file2) => packageOf({ file: file2, packagesDir }) === void 0),
+    runId,
+    step,
+    onProgress
+  });
 };
 
 // src/coverage/runCoverageBatch.ts
@@ -41586,29 +41588,6 @@ review the diff in ${engineCwd} \u2014 the loop proposes, a human ships.`);
   return exitCli({ code: report.status === WorkReportStatus.Complete ? 0 : 1 });
 };
 
-// src/cli/loadStandardsLedger.ts
-var loadStandardsLedger = async ({ cwd }) => {
-  const config2 = await readConfig({ cwd }).catch(() => void 0);
-  const rules = await listStandardsRules({ cwd, config: config2 });
-  return { config: config2, rules };
-};
-
-// src/cli/plan/loadPlanningStandards.ts
-var loadPlanningStandards = async ({ cwd, config: config2 }) => {
-  const packagesDir = config2?.["packages-dir"] ?? "packages";
-  let standards;
-  try {
-    const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
-    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
-    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
-    standards = texts.length === 0 ? void 0 : texts.join("\n\n");
-  } catch (error51) {
-    console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
-    standards = void 0;
-  }
-  return standards;
-};
-
 // src/cli/common/args/getPositionals.ts
 var getPositionals = ({ args }) => {
   const positionals = [];
@@ -42800,6 +42779,22 @@ facts: ${result.factsPath}`);
   return exitCli({ code: 0 });
 };
 
+// src/cli/plan/readPlanningStandards.ts
+var readPlanningStandards = async ({ cwd, config: config2 }) => {
+  const packagesDir = config2?.["packages-dir"] ?? "packages";
+  let standards;
+  try {
+    const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
+    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
+    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
+    standards = texts.length === 0 ? void 0 : texts.join("\n\n");
+  } catch (error51) {
+    console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
+    standards = void 0;
+  }
+  return standards;
+};
+
 // src/cli/plan/planCommand.ts
 var planCommand = async ({ flags, rest, cwd }) => {
   const subcommand = getPositionals({ args: rest })[0];
@@ -42814,7 +42809,7 @@ var planCommand = async ({ flags, rest, cwd }) => {
   if (subcommand === "draft" || subcommand === "dedup" || subcommand === "grade") {
     const name = await getRequiredFlag({ flags, name: "name" });
     const { config: config2, driver } = await resolveConfigAndDriver({ cwd, command: "plan" });
-    const standards = await loadPlanningStandards({ cwd, config: config2 });
+    const standards = await readPlanningStandards({ cwd, config: config2 });
     if (subcommand === "draft") {
       await planDraftCommand({ cwd, driver, name, standards, config: config2, flags });
       return;
@@ -42828,6 +42823,13 @@ var planCommand = async ({ flags, rest, cwd }) => {
   }
   console.error(usage);
   return exitCli({ code: 1 });
+};
+
+// src/cli/readStandardsLedger.ts
+var readStandardsLedger = async ({ cwd }) => {
+  const config2 = await readConfig({ cwd }).catch(() => void 0);
+  const rules = await listStandardsRules({ cwd, config: config2 });
+  return { config: config2, rules };
 };
 
 // src/cli/common/render/printBatchLine.ts
@@ -43710,6 +43712,11 @@ var RefactorRun = class {
   // The shared run state is held, not inherited: the burn-down accounting
   // below is this run's own, and the methods it shares with every other run
   // forward to the value it holds.
+  //
+  // Those forwards stay. Publishing this value instead would let a caller
+  // reach through it, and PipelineRun — the sibling holding the same state —
+  // adds a step timer and a usage line to two of the same methods. One way in
+  // per run is what makes those additions unskippable.
   runState;
   constructor({ cwd, config: config2, manifest, declined, before, onProgress }) {
     this.runState = new RunState({ cwd, config: config2, manifest, onProgress });
@@ -44220,7 +44227,7 @@ var printSectionResult = ({ findings, notes }) => {
   }
 };
 var standardsCheckCommand = async ({ flags, cwd }) => {
-  const { config: config2, rules } = await loadStandardsLedger({ cwd });
+  const { config: config2, rules } = await readStandardsLedger({ cwd });
   if (flags.get("list") === true) {
     printStandardsRuleList({ rules });
     return exitCli({ code: 0 });
@@ -44335,7 +44342,7 @@ import { resolve as resolve8 } from "node:path";
 var loadRequestedPackage = async ({ requested, cwd }) => (
   // resolve() leaves an absolute --package alone, so both forms the flag
   // accepts land here.
-  loadStandardsPackage({ packagePath: requested === void 0 ? resolveDefaultStandardsPackage() : resolve8(cwd, requested) })
+  readStandardsPackage({ packagePath: requested === void 0 ? resolveDefaultStandardsPackage() : resolve8(cwd, requested) })
 );
 var standardsValidateCommand = async ({ flags, cwd }) => {
   const requested = getStringFlag({ flags, name: "package" });

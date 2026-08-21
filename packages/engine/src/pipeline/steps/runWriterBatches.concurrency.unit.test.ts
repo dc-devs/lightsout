@@ -59,8 +59,13 @@ describe('runWriterBatches', () => {
 	// time, so the ceiling is no longer structural — these pin it. A cursor that
 	// over-counts would spawn past the rate limit the constant exists to respect;
 	// one that under-counts would quietly serialize the fan-out.
+	//
+	// The expected peak is written out rather than read from the constant. The
+	// arrangement may say "more groups than slots" in terms of the constant, but
+	// an assertion that moves with the value it is checking agrees with the code
+	// no matter what the code says.
 	test.each([
-		{ what: 'more chains queued than slots', groupCount: testWriterConcurrency + 6, expectedPeak: testWriterConcurrency },
+		{ what: 'more chains queued than slots', groupCount: testWriterConcurrency + 6, expectedPeak: 10 },
 		{ what: 'fewer chains queued than slots', groupCount: 4, expectedPeak: 3 },
 	])('holds $expectedPeak writers at once with $what, and still reports every group', async ({ groupCount, expectedPeak }) => {
 		const { run, peak } = setupSlotCounter();

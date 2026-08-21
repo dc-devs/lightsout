@@ -7,7 +7,7 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
-import { loadStandardsPackage, resolveDefaultStandardsPackage } from '#src/standardsPackages/index.ts';
+import { readStandardsPackage, resolveDefaultStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /**
  * The package named by `--package`, or the bundled default when the flag is
@@ -17,7 +17,7 @@ import { loadStandardsPackage, resolveDefaultStandardsPackage } from '#src/stand
 const loadRequestedPackage = async ({ requested, cwd }: { requested?: string; cwd: string }) =>
 	// resolve() leaves an absolute --package alone, so both forms the flag
 	// accepts land here.
-	loadStandardsPackage({ packagePath: requested === undefined ? resolveDefaultStandardsPackage() : resolve(cwd, requested) });
+	readStandardsPackage({ packagePath: requested === undefined ? resolveDefaultStandardsPackage() : resolve(cwd, requested) });
 
 /**
  * `lightsout standards-validate` — run every check in a standards package

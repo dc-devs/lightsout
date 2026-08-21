@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { StandardsCheckInput } from '#src/contracts/index.ts';
 import { StandardsInputKind } from '#src/contracts/index.ts';
-import { loadStandardsPackage } from '#src/standardsPackages/index.ts';
+import { readStandardsPackage } from '#src/standardsPackages/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /** A temp standards package holding the given package-relative files, plus any empty folders. */
@@ -57,7 +57,7 @@ const fileListInput = ({ files }: { files: string[] }): StandardsCheckInput => (
 	standardsPackages: [],
 });
 
-describe('loadStandardsPackage', () => {
+describe('readStandardsPackage', () => {
 	test('reads documents and their rules in folder order, stamping the document channel onto every rule', async () => {
 		const { packagePath } = setupPackage({
 			files: {
@@ -79,7 +79,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const pkg = await loadStandardsPackage({ packagePath });
+		const pkg = await readStandardsPackage({ packagePath });
 		const decisions = pkg.documents.find((document) => document.path === 'code/architecture/decisions');
 		const unitTesting = pkg.documents.find((document) => document.path === 'tests/unit-testing');
 		const graduation = pkg.rules.find((rule) => rule.id === 'graduation-rule');
@@ -130,7 +130,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const pkg = await loadStandardsPackage({ packagePath });
+		const pkg = await readStandardsPackage({ packagePath });
 		const functions = pkg.rules.find((rule) => rule.id === 'functions');
 
 		// a CRLF file declares exactly what the same LF file would — the markers are found and the prose starts after them
@@ -159,7 +159,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// one error, naming the package and listing every fault: ${error.message}
 		expect(error.message.startsWith(`standards package failed to load (${packagePath}):`)).toBeTruthy();
@@ -176,7 +176,7 @@ describe('loadStandardsPackage', () => {
 	test('refuses a package whose walk finds no document at all', async () => {
 		const { packagePath } = setupPackage({ files: { ...rootFile, 'code/style/README.md': '# not a document\n' } });
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// a package with nothing to say is a wrong path or a broken tree, never an intent
 		expect(error.message).toContain('package declares no documents');
@@ -187,7 +187,7 @@ describe('loadStandardsPackage', () => {
 			files: { ...rootFile, 'code/architecture/decisions/document.md': '# Architecture Decisions\n\nUniversal decisions.\n' },
 		});
 
-		const pkg = await loadStandardsPackage({ packagePath });
+		const pkg = await readStandardsPackage({ packagePath });
 
 		expect(pkg.built).toBeUndefined();
 	});
@@ -200,7 +200,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const pkg = await loadStandardsPackage({ packagePath });
+		const pkg = await readStandardsPackage({ packagePath });
 
 		expect(pkg.built).toBe(true);
 	});
@@ -208,7 +208,7 @@ describe('loadStandardsPackage', () => {
 	test('refuses a package whose root file is missing', async () => {
 		const { packagePath } = setupPackage({ files: { 'code/style/document.md': '# Style\n' } });
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// the message names the file a reader has to open
 		expect(error.message).toBe(`standards package root file not found: ${join(packagePath, 'lightsout-standards.json')}`);
@@ -217,7 +217,7 @@ describe('loadStandardsPackage', () => {
 	test('refuses a package whose root file will not parse', async () => {
 		const { packagePath } = setupPackage({ files: { 'lightsout-standards.json': '{ "name": ' } });
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		expect(error.message).toContain(`standards package root file is not valid JSON (${join(packagePath, 'lightsout-standards.json')})`);
 	});
@@ -225,7 +225,7 @@ describe('loadStandardsPackage', () => {
 	test('refuses a package written against another format version', async () => {
 		const { packagePath } = setupPackage({ files: { 'lightsout-standards.json': '{ "name": "acme", "formatVersion": 2 }' } });
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		expect(error.message).toContain(`standards package root file is invalid (${join(packagePath, 'lightsout-standards.json')})`);
 		expect(error.message).toContain('formatVersion');
@@ -241,7 +241,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// a directory named document.md makes the folder look like a document it cannot read
 		expect(error.message).toContain('code/unreadable/document.md: unreadable');
@@ -258,7 +258,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// the document is named alongside the line the author has to look at
 		expect(error.message).toContain('code/style/document.md: front matter is not valid YAML (starting "channel: {unclosed")');
@@ -273,7 +273,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// a channel decides whether the document applies at all, so a broken one cannot be defaulted past
 		expect(error.message).toContain('code/style/document.md: channel');
@@ -290,7 +290,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// a YAML list names no fields, so the document falls back to base rather than failing
 		expect(error.message).not.toContain('code/style/document.md');
@@ -309,7 +309,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// a directory named rule.md makes the folder look like a rule whose declaration cannot be read
 		expect(error.message).toContain('code/style/01-unreadable/rule.md: unreadable — ');
@@ -325,7 +325,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const pkg = await loadStandardsPackage({ packagePath });
+		const pkg = await readStandardsPackage({ packagePath });
 		const looseFile = pkg.rules.find((rule) => rule.id === 'loose-file');
 		const findings = await looseFile?.run?.({ input: fileListInput({ files: ['src/alpha.ts'] }), settings: {} });
 
@@ -346,7 +346,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// the rule folder is named alongside the file the author has to open
 		expect(error.message).toContain('code/style/01-bad-check: check.ts must export `check` as { inputKind, run }');
@@ -363,7 +363,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const error = await getRejectionError({ promise: loadStandardsPackage({ packagePath }) });
+		const error = await getRejectionError({ promise: readStandardsPackage({ packagePath }) });
 
 		// an import that blows up is the rule's fault to report, never the loader's to crash on
 		expect(error.message).toContain('code/style/01-throwing-check: this check cannot initialise');
@@ -381,7 +381,7 @@ describe('loadStandardsPackage', () => {
 			},
 		});
 
-		const pkg = await loadStandardsPackage({ packagePath });
+		const pkg = await readStandardsPackage({ packagePath });
 
 		// the package's own helper folders are not documents, and a document's subtree holds only its rule folders
 		expect(pkg.documents.map((document) => document.path)).toStrictEqual(['code/style']);

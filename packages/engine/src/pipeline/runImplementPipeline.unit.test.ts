@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readFriction } from '#src/runState/index.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
@@ -154,10 +153,10 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	// agent reports streamed
 	expect(progress.some((line) => line.includes('step implement: agent report complete'))).toBeTruthy();
 	// No consumer TypeScript in this repo → grouping degrades to one file per group.
-	// writer fan-out announced
-	expect(
-		progress.some((line) => line.includes(`4 group(s): 4 subject(s) covering 4 changed file(s), up to ${testWriterConcurrency} writers in parallel`)),
-	).toBeTruthy();
+	// Writer fan-out announced. The ceiling is spelled out rather than
+	// interpolated from the constant: a line built from the same constant the
+	// assertion reads says the same thing whatever the number is.
+	expect(progress.some((line) => line.includes('4 group(s): 4 subject(s) covering 4 changed file(s), up to 10 writers in parallel'))).toBeTruthy();
 	// refactor loop end announced
 	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
 });

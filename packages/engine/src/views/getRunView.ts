@@ -4,7 +4,7 @@ import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import { AgentInvocation, GateEvidence, PhaseReport, PipelineKind, type RunStepView, type RunView, type StepRecord } from '#src/contracts/index.ts';
 import { getRunDir, listRunIds, readFriction, readRunLock, readRunManifest, summarizeRun } from '#src/runState/index.ts';
 import { getRunTitle } from '#src/views/common/utils/getRunTitle.ts';
-import { loadRunListing } from '#src/views/common/utils/loadRunListing.ts';
+import { readRunListing } from '#src/views/common/utils/readRunListing.ts';
 
 /** The per-step spend summarizeRun attributed, keyed by step id. */
 type StepUsage = Map<string, { invocations: number; outputTokens: number; costUsd: number }>;
@@ -93,7 +93,7 @@ interface Params {
  *
  * Every number here is computed by the readers that already own it —
  * `summarizeRun` for timing and per-step cost, the JSONL reader for the two
- * logs, `loadRunListing` for the row a list would show. Nothing is re-derived,
+ * logs, `readRunListing` for the row a list would show. Nothing is re-derived,
  * so a detail page and a sidebar row cannot disagree.
  *
  * @param cwd - the repo whose run state is read
@@ -117,7 +117,7 @@ export const getRunView = async ({ cwd, runId }: Params): Promise<RunView> => {
 	const friction = await readFriction({ cwd });
 
 	return {
-		listing: await loadRunListing({ cwd, manifest, lock }),
+		listing: await readRunListing({ cwd, manifest, lock }),
 		harness: manifest.harness,
 		overview,
 		currentStep: manifest.currentStep,

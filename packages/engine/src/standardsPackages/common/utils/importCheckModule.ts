@@ -16,7 +16,7 @@ interface Params {
  * @param checkPath - absolute path of the rule folder's check.ts
  * @throws {Error} When the file has no `check` export, or that export is not a valid check.
  */
-export const loadCheckModule = async ({ checkPath }: Params): Promise<StandardsCheckModule> => {
+export const importCheckModule = async ({ checkPath }: Params): Promise<StandardsCheckModule> => {
 	// @vite-ignore: the path is only known at run time — a bundler cannot
 	// pre-resolve which standards package a consumer will point the engine at,
 	// and must leave this import to Node. Server-only: nothing reachable from

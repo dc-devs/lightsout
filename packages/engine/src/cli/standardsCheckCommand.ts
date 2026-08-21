@@ -7,7 +7,7 @@ import { printStandardsSummary } from '#src/cli/common/render/printStandardsSumm
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { loadStandardsLedger } from '#src/cli/loadStandardsLedger.ts';
+import { readStandardsLedger } from '#src/cli/readStandardsLedger.ts';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
 import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { runStandardsCheck, writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
@@ -58,7 +58,7 @@ const printSectionResult = ({ findings, notes }: { findings: StandardsFinding[];
 export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	// Both paths need the ledger: `--list` prints it whole, the run path reads
 	// each rule's summary from it.
-	const { config, rules } = await loadStandardsLedger({ cwd });
+	const { config, rules } = await readStandardsLedger({ cwd });
 
 	// --list answers "what does this repo enforce?" and runs nothing.
 	if (flags.get('list') === true) {

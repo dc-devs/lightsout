@@ -1,5 +1,5 @@
 import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
-import { runGates } from '#src/pipeline/index.ts';
+import { runGates } from '#src/gates/index.ts';
 import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
 import type { RefactorRun } from '#src/refactor/RefactorRun.ts';
 

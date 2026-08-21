@@ -1,4 +1,5 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { groupConnectedFiles } from '#src/common/fileGroups/groupConnectedFiles.ts';
 import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
@@ -22,7 +23,7 @@ import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
 import { selectCoverageCandidates } from '#src/coverage/selectCoverageCandidates.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { groupConnectedFiles, runGates } from '#src/pipeline/index.ts';
+import { runGates } from '#src/gates/index.ts';
 import { recordAgentUsage, seedUsageTotals, withRunLock, writeManifestWithUsage } from '#src/runState/index.ts';
 import { resolveStandards } from '#src/standards/index.ts';
 

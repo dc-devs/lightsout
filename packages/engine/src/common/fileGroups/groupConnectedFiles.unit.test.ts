@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { groupConnectedFiles } from '#src/pipeline/index.ts';
+import { groupConnectedFiles } from '#src/common/fileGroups/groupConnectedFiles.ts';
 
 test('groupConnectedFiles: chains merge, isolates stand alone, output is deterministic', () => {
 	const files = ['c.ts', 'a.ts', 'b.ts', 'lonely.ts'];

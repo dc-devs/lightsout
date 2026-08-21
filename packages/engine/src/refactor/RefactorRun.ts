@@ -26,6 +26,11 @@ export class RefactorRun {
 	// The shared run state is held, not inherited: the burn-down accounting
 	// below is this run's own, and the methods it shares with every other run
 	// forward to the value it holds.
+	//
+	// Those forwards stay. Publishing this value instead would let a caller
+	// reach through it, and PipelineRun — the sibling holding the same state —
+	// adds a step timer and a usage line to two of the same methods. One way in
+	// per run is what makes those additions unskippable.
 	private readonly runState: RunState;
 
 	constructor({ cwd, config, manifest, declined, before, onProgress }: ConstructorParams) {

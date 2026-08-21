@@ -3,8 +3,8 @@ import { RawStandardsFinding } from '#src/index.ts';
 
 const setupRawFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
-		siteKey: 'size-file:src/standardsPackages/loadStandardsPackage.ts',
-		files: [{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214 }],
+		siteKey: 'size-file:src/standardsPackages/readStandardsPackage.ts',
+		files: [{ path: 'src/standardsPackages/readStandardsPackage.ts', startLine: 1, endLine: 214 }],
 		detail: 'a 214-line file against a 200-line limit',
 		...extra,
 	};
@@ -25,8 +25,8 @@ describe('RawStandardsFinding', () => {
 		// guidance is optional: a check that supplies none leaves the key absent
 		// rather than carrying an empty string the brief would print as a blank line
 		expect(parsed).toStrictEqual({
-			siteKey: 'size-file:src/standardsPackages/loadStandardsPackage.ts',
-			files: [{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214 }],
+			siteKey: 'size-file:src/standardsPackages/readStandardsPackage.ts',
+			files: [{ path: 'src/standardsPackages/readStandardsPackage.ts', startLine: 1, endLine: 214 }],
 			detail: 'a 214-line file against a 200-line limit',
 		});
 	});
@@ -41,8 +41,8 @@ describe('RawStandardsFinding', () => {
 		// severity from front matter under any config override, so a check that
 		// names either could name it wrong
 		expect(parsed).toStrictEqual({
-			siteKey: 'size-file:src/standardsPackages/loadStandardsPackage.ts',
-			files: [{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214 }],
+			siteKey: 'size-file:src/standardsPackages/readStandardsPackage.ts',
+			files: [{ path: 'src/standardsPackages/readStandardsPackage.ts', startLine: 1, endLine: 214 }],
 			detail: 'a 214-line file against a 200-line limit',
 		});
 	});
@@ -81,7 +81,7 @@ describe('RawStandardsFinding', () => {
 		const { finding } = setupRawFinding({
 			extra: {
 				files: [
-					{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 12, endLine: 48 },
+					{ path: 'src/standardsPackages/readStandardsPackage.ts', startLine: 12, endLine: 48 },
 					{ path: 'src/standardsPackages/buildStandardsDocuments.ts', startLine: 90, endLine: 126 },
 				],
 			},
@@ -92,7 +92,7 @@ describe('RawStandardsFinding', () => {
 		// a duplication finding is only actionable with every site it appears at —
 		// the agent is handed all of them, in the order the check reported them
 		expect(parsed.files).toStrictEqual([
-			{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 12, endLine: 48 },
+			{ path: 'src/standardsPackages/readStandardsPackage.ts', startLine: 12, endLine: 48 },
 			{ path: 'src/standardsPackages/buildStandardsDocuments.ts', startLine: 90, endLine: 126 },
 		]);
 	});
@@ -109,14 +109,14 @@ describe('RawStandardsFinding', () => {
 
 	test('keys a site declares beyond path and lines are stripped', () => {
 		const { finding } = setupRawFinding({
-			extra: { files: [{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214, tokens: 180 }] },
+			extra: { files: [{ path: 'src/standardsPackages/readStandardsPackage.ts', startLine: 1, endLine: 214, tokens: 180 }] },
 		});
 
 		const parsed = RawStandardsFinding.parse(finding);
 
 		// a check may know more than the contract declares; what crosses the
 		// boundary is the same shape whatever the check measured
-		expect(parsed.files).toStrictEqual([{ path: 'src/standardsPackages/loadStandardsPackage.ts', startLine: 1, endLine: 214 }]);
+		expect(parsed.files).toStrictEqual([{ path: 'src/standardsPackages/readStandardsPackage.ts', startLine: 1, endLine: 214 }]);
 	});
 
 	test.each([{ field: 'siteKey' }, { field: 'files' }, { field: 'detail' }])('rejects a finding with no $field', ({ field }) => {

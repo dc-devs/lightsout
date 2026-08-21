@@ -89,7 +89,7 @@ const findDuplicateIds = ({ rules }: { rules: LoadedStandardsRule[] }) => {
  * @param packagePath - absolute package root (the folder holding lightsout-standards.json)
  * @throws {Error} When the root file is missing or invalid, or the tree has any structural or honesty problem.
  */
-export const loadStandardsPackage = async ({ packagePath }: Params): Promise<LoadedStandardsPackage> => {
+export const readStandardsPackage = async ({ packagePath }: Params): Promise<LoadedStandardsPackage> => {
 	const rootFilePath = join(packagePath, 'lightsout-standards.json');
 	const rootText = await readFile(rootFilePath, 'utf8').catch(() => undefined);
 

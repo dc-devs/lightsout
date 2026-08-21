@@ -35,7 +35,9 @@ export class PipelineRun {
 	readonly driver: Driver;
 	// The shared run state is held, not inherited: what this run adds — step
 	// timers, evidence counters, agent invocation — stays visible against a
-	// plain value it forwards to.
+	// plain value it forwards to. It stays private for the same reason:
+	// `setStep` and `recordUsage` below add to what they forward, and a caller
+	// holding the state could call the plain versions instead.
 	private readonly runState: RunState;
 	// Active time per step, accumulated across attempts and resumes: the
 	// timer starts when nextRecord picks the step up (seeded with any prior

@@ -1,6 +1,6 @@
 import type { AgentUsage, LightsoutConfig, RefactorBatch, StandardsFinding } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { runBatchGates } from '#src/pipeline/index.ts';
+import { runBatchGates } from '#src/gates/index.ts';
 import { standaloneBanner } from '#src/refactor/batch/common/constants/standaloneBanner.ts';
 import type { BatchTools } from '#src/refactor/batch/common/types/BatchTools.ts';
 import { createBatchRecorder } from '#src/refactor/batch/createBatchRecorder.ts';

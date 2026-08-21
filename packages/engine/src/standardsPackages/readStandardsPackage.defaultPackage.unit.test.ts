@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { StandardsSet } from '#src/contracts/index.ts';
-import { buildStandardsDocuments, loadStandardsPackage } from '#src/standardsPackages/index.ts';
+import { buildStandardsDocuments, readStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /**
  * The package the plugin ships, loaded from disk exactly as a consumer's run
@@ -18,10 +18,10 @@ const setupDefaultPackage = async () => {
 	// thing that changes when a repo grows a second place to run tests from.
 	const packagePath = join(__dirname, '..', '..', '..', 'standards-typescript');
 
-	return { pkg: await loadStandardsPackage({ packagePath }) };
+	return { pkg: await readStandardsPackage({ packagePath }) };
 };
 
-describe('loadStandardsPackage', () => {
+describe('readStandardsPackage', () => {
 	test('carries all 23 shipped documents, split across the code and tests trees', async () => {
 		const { pkg } = await setupDefaultPackage();
 

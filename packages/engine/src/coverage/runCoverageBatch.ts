@@ -11,7 +11,7 @@ import type { CoverageBatchStop } from '#src/coverage/common/types/CoverageBatch
 import { invokeCoverageAgent } from '#src/coverage/invokeCoverageAgent.ts';
 import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { runBatchGates } from '#src/pipeline/index.ts';
+import { runBatchGates } from '#src/gates/index.ts';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =

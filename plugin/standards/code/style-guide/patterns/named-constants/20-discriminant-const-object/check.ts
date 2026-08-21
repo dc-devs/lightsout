@@ -77,9 +77,14 @@ const declarationLines = ({ sourceFile, compiler }: { sourceFile: ts.SourceFile;
 };
 
 /**
- * Lines comparing a field against a raw string literal that a `const` object in
+ * Lines narrowing a field against a raw string literal that a `const` object in
  * scope already holds — the narrowing half, and the half the rule's own prose
  * is about: "otherwise consumers retype the literal at every narrowing site".
+ *
+ * Both ways of narrowing count. `event.kind === 'file-added'` and
+ * `switch (event.kind) { case 'file-added': }` retype the same literal, and a
+ * rule that saw only the first would send an agent to fix an `if` and walk past
+ * the switch beneath it.
  *
  * The object has to be in scope for the file to be at fault. A literal that
  * merely happens to match some unrelated object elsewhere in the repo is not a
@@ -107,6 +112,19 @@ const comparisonLines = ({
 			const accessed = sides.some((side) => compiler.isPropertyAccessExpression(side));
 
 			if (equality && accessed && literal !== undefined && compiler.isStringLiteral(literal) && held.has(literal.text)) {
+				lines.push(lineOf({ sourceFile, node }));
+			}
+		}
+
+		// A case clause is the same narrowing spelled the other way. The switch it
+		// belongs to is two nodes up — clause, block, statement — and its subject
+		// has to be a field for the literal to be a discriminant rather than any
+		// string this file happens to switch on.
+		if (compiler.isCaseClause(node) && compiler.isStringLiteral(node.expression) && held.has(node.expression.text)) {
+			const block = node.parent;
+			const statement = block?.parent;
+
+			if (statement !== undefined && compiler.isSwitchStatement(statement) && compiler.isPropertyAccessExpression(statement.expression)) {
 				lines.push(lineOf({ sourceFile, node }));
 			}
 		}

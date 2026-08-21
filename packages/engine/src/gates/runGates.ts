@@ -1,10 +1,10 @@
 import { resolveGates } from '#src/common/config/resolveGates.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
-import type { GateCommands } from '#src/pipeline/common/types/GateCommands.ts';
-import { createGateRunner } from '#src/pipeline/createGateRunner.ts';
-import { runGateSet } from '#src/pipeline/runGateSet.ts';
-import { runPackageGates } from '#src/pipeline/runPackageGates.ts';
+import type { GateCommands } from '#src/gates/common/types/GateCommands.ts';
+import { createGateRunner } from '#src/gates/createGateRunner.ts';
+import { runGateSet } from '#src/gates/runGateSet.ts';
+import { runPackageGates } from '#src/gates/runPackageGates.ts';
 
 interface Params {
 	cwd: string;

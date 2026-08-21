@@ -16,8 +16,14 @@ export interface FileAddedEvent {
 	path: string;
 }
 
-// consumer — no raw strings
+// consumer — no raw strings, whichever way it narrows
 if (event.kind === SyncEventKind.FileAdded) { /* ... */ }
+
+switch (event.kind) {
+	case SyncEventKind.FileAdded: {
+		/* ... */
+	}
+}
 ```
 
 ❌ BAD:
