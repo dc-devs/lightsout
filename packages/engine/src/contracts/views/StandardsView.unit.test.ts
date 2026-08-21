@@ -13,7 +13,7 @@ const buildRuleView = (extra: Record<string, unknown> = {}) => ({
 	fromConfig: false,
 	settings: { maxLines: 400 },
 	findingCount: 1,
-	history: { attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] },
+	history: { attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [] },
 	...extra,
 });
 

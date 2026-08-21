@@ -20,15 +20,15 @@ describe('AdvisoryOutcome', () => {
 		expect(AdvisoryOutcome.parse(outcome)).toStrictEqual(outcome);
 	});
 
-	test('outcome accepts each of the two answers the health report has a column for', () => {
-		for (const answer of ['applied', 'declined']) {
+	test('outcome accepts each of the three answers the health report has a column for', () => {
+		for (const answer of ['applied', 'declined', 'already-met']) {
 			expect(AdvisoryOutcome.safeParse(setupOutcome({ outcome: answer }).outcome).success).toBe(true);
 		}
 	});
 
-	test('outcome accepts nothing beyond those two answers', () => {
+	test('outcome accepts nothing beyond those three answers', () => {
 		for (const answer of ['Applied', 'skipped', 'partial', true]) {
-			// an invented answer would land in neither column of the health report
+			// an invented answer would land in no column of the health report
 			expect(AdvisoryOutcome.safeParse(setupOutcome({ outcome: answer }).outcome).success).toBe(false);
 		}
 	});

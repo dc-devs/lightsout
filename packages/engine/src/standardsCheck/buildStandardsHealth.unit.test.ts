@@ -226,6 +226,29 @@ describe('buildStandardsHealth', () => {
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, adviceApplied: 0, adviceDeclined: 0 }));
 	});
 
+	test('advice the code already met is counted apart from both taking it and rejecting it', async () => {
+		const cwd = setupRun({
+			batches: [batch({ id: 'batch-01', blocking: [] })],
+			reports: {
+				'batch-01': report({
+					outcome: 'resolved',
+					advisoryOutcomes: [
+						advice({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts', outcome: 'already-met' }),
+						advice({ rule: 'path-aliases', siteKey: 'path-aliases:src/b.ts', outcome: 'applied' }),
+					],
+				}),
+			},
+		});
+
+		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'path-aliases' })] })] });
+
+		// counting it as applied would credit the rule with advice nobody acted
+		// on; counting it as declined would blame it for a rejection nobody made
+		expect(rowFor({ rules: health.rules, id: 'path-aliases' })).toEqual(
+			expect.objectContaining({ adviceApplied: 1, adviceDeclined: 0, adviceAlreadyMet: 1, reasons: [] }),
+		);
+	});
+
 	test('an implement run is not this report’s material', async () => {
 		const cwd = setupRun({
 			pipeline: 'implement',

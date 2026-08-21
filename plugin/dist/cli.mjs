@@ -23305,7 +23305,9 @@ var Permissions = {
 // src/contracts/standardsCheck/AdvisoryResponse.ts
 var AdvisoryResponse = {
   Applied: "applied",
-  Declined: "declined"
+  Declined: "declined",
+  /** The end-state the advice asks for was already true — nothing to do, and nothing rejected. */
+  AlreadyMet: "already-met"
 };
 
 // src/contracts/standardsCheck/AdvisoryOutcome.ts
@@ -23997,6 +23999,7 @@ var StandardsRuleView = external_exports.object({
     untracked: external_exports.number(),
     adviceApplied: external_exports.number(),
     adviceDeclined: external_exports.number(),
+    adviceAlreadyMet: external_exports.number(),
     reasons: external_exports.array(external_exports.string())
   })
 });
@@ -26318,7 +26321,8 @@ var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \
 // src/agents/buildRefactorExecutorInvocation.ts
 var advisoryOutcomesSection = [
   "# Report what you did about each advisory",
-  'For every advisory listed above \u2014 machine-checked or agent-reviewed \u2014 add one entry to the `advisoryOutcomes` array of your report: the finding\'s `rule` and `siteKey` copied exactly as given, `outcome` of "applied" when you made the change or "declined" when you did not, and for a decline a short `reason`.',
+  "For every advisory listed above \u2014 machine-checked or agent-reviewed \u2014 add one entry to the `advisoryOutcomes` array of your report: the finding's `rule` and `siteKey` copied exactly as given, an `outcome`, and for a decline a short `reason`.",
+  'The three outcomes: "applied" when you made the change; "declined" when you judged the advice wrong here; "already-met" when the end-state it asks for was already true and you edited nothing. Do not report "applied" for a change you did not have to make, and do not report "declined" for advice you did not actually reject \u2014 each reads as the opposite of what happened.',
   "This is an account, never a gate: it is what tells a human which rules keep being declined and why. Reporting a decline honestly is always better than an entry that claims work you did not do.",
   '```\n"advisoryOutcomes": [{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies \u2014 every step delegates" }]\n```'
 ].join("\n\n");
@@ -27971,7 +27975,16 @@ var buildDominantPathNote = ({ findings }) => {
 // src/standardsCheck/buildStandardsHealth.ts
 import { readFile as readFile23 } from "node:fs/promises";
 import { join as join37 } from "node:path";
-var emptyTally = () => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
+var emptyTally = () => ({
+  attempted: 0,
+  resolved: 0,
+  declined: 0,
+  untracked: 0,
+  adviceApplied: 0,
+  adviceDeclined: 0,
+  adviceAlreadyMet: 0,
+  reasons: []
+});
 var tallyFor = ({ tallies, rule }) => {
   const existing = tallies.get(rule);
   if (existing) {
@@ -28019,6 +28032,10 @@ var countAdvice = ({ tallies, outcomes }) => {
     const tally = tallyFor({ tallies, rule: entry.rule });
     if (entry.outcome === AdvisoryResponse.Applied) {
       tally.adviceApplied += 1;
+      continue;
+    }
+    if (entry.outcome === AdvisoryResponse.AlreadyMet) {
+      tally.adviceAlreadyMet += 1;
       continue;
     }
     tally.adviceDeclined += 1;
@@ -44413,8 +44430,9 @@ var reasonWidth = 96;
 var count = ({ value }) => value === 0 ? "\u2014" : `${value}`;
 var rate = ({ part, total }) => total === 0 ? "\u2014" : `${Math.round(part / total * 100)}%`;
 var reasonLines = ({ reasons }) => [...new Set(reasons.map((reason) => reason.replace(/\s+/g, " ").trim()))].filter((reason) => reason.length > 0).map((reason) => reason.length > reasonWidth ? `${reason.slice(0, reasonWidth - 1)}\u2026` : reason);
+var answerableAdvice = ({ rule }) => rule.adviceApplied + rule.adviceDeclined;
 var ruleRows = ({ rule }) => {
-  const advice = rule.adviceApplied + rule.adviceDeclined;
+  const advice = answerableAdvice({ rule }) + rule.adviceAlreadyMet;
   return [
     {
       cells: [
@@ -44426,7 +44444,7 @@ var ruleRows = ({ rule }) => {
         count({ value: rule.untracked }),
         rate({ part: rule.declined, total: rule.attempted }),
         count({ value: advice }),
-        rate({ part: rule.adviceDeclined, total: advice })
+        rate({ part: rule.adviceDeclined, total: answerableAdvice({ rule }) })
       ]
     },
     ...reasonLines({ reasons: rule.reasons }).map((reason) => ({
@@ -44441,7 +44459,7 @@ var printStandardsHealth = ({ health }) => {
   const { rules, totals } = health;
   const rows = rules.flatMap((rule) => ruleRows({ rule }));
   const attempted = sum({ rules, of: (rule) => rule.attempted });
-  const advice = sum({ rules, of: (rule) => rule.adviceApplied + rule.adviceDeclined });
+  const advice = sum({ rules, of: (rule) => answerableAdvice({ rule }) + rule.adviceAlreadyMet });
   const totalsRow = {
     cells: [
       `${totals.rules} rule(s)`,
@@ -44452,7 +44470,7 @@ var printStandardsHealth = ({ health }) => {
       count({ value: sum({ rules, of: (rule) => rule.untracked }) }),
       rate({ part: sum({ rules, of: (rule) => rule.declined }), total: attempted }),
       count({ value: advice }),
-      rate({ part: sum({ rules, of: (rule) => rule.adviceDeclined }), total: advice })
+      rate({ part: sum({ rules, of: (rule) => rule.adviceDeclined }), total: sum({ rules, of: (rule) => answerableAdvice({ rule }) }) })
     ],
     emphasis: bold
   };

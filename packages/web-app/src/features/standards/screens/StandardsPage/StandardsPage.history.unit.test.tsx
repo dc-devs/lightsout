@@ -38,6 +38,7 @@ const worked = {
 				untracked: 1,
 				adviceApplied: 4,
 				adviceDeclined: 3,
+				adviceAlreadyMet: 0,
 				reasons: ['the split would spread one flow over four files'],
 			},
 		}),

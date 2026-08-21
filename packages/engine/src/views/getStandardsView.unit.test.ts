@@ -129,7 +129,7 @@ test('a rule row carries what the rule says, how this repo runs it, and how many
 		settings: {},
 		findingCount: 2,
 		// no refactor run has met this rule yet
-		history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] },
+		history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [] },
 	});
 	expect(judgment?.findingCount).toBe(1);
 	expect(judgment?.checked).toBe(false);
@@ -193,7 +193,16 @@ test('refactor history is folded onto the rule whose sites a run attempted', asy
 	const view = await getStandardsView({ cwd });
 
 	// the site was frozen and is gone afterwards, so it counts as resolved
-	expect(view.rules[0]?.history).toStrictEqual({ attempted: 1, resolved: 1, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
+	expect(view.rules[0]?.history).toStrictEqual({
+		attempted: 1,
+		resolved: 1,
+		declined: 0,
+		untracked: 0,
+		adviceApplied: 0,
+		adviceDeclined: 0,
+		adviceAlreadyMet: 0,
+		reasons: [],
+	});
 });
 
 test('the trend comes back oldest first, one point per check the user took', async () => {
@@ -280,6 +289,7 @@ test('every history count and reason lands in its own column, on the rule it bel
 		untracked: 2,
 		adviceApplied: 0,
 		adviceDeclined: 0,
+		adviceAlreadyMet: 0,
 		reasons: ['the generated module is not ours to split'],
 	});
 	// advice is recorded against the rule that gave it, never the rule the batch was working
@@ -290,6 +300,7 @@ test('every history count and reason lands in its own column, on the rule it bel
 		untracked: 0,
 		adviceApplied: 1,
 		adviceDeclined: 2,
+		adviceAlreadyMet: 0,
 		reasons: ['the name is a term of art here', 'renaming it would break the published API'],
 	});
 });

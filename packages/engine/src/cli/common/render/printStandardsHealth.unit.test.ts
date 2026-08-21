@@ -12,6 +12,7 @@ const healthRule = (overrides: Partial<StandardsHealthRule> & { id: string }): S
 	untracked: 0,
 	adviceApplied: 0,
 	adviceDeclined: 0,
+	adviceAlreadyMet: 0,
 	reasons: [],
 	...overrides,
 });
@@ -62,6 +63,21 @@ describe('printStandardsHealth', () => {
 		});
 
 		expect(cellsOf({ logged })[1]).toStrictEqual(['multi-export', 'code', '4', '2', '1', '1', '25%', '4', '25%']);
+	});
+
+	test('advice the code already met is shown in the count but kept out of the decline rate', () => {
+		const { logged } = setupPrinter();
+
+		printStandardsHealth({
+			health: healthOf({
+				rules: [healthRule({ id: 'multi-export', adviceApplied: 1, adviceDeclined: 1, adviceAlreadyMet: 2 })],
+			}),
+		});
+
+		// 4 pieces of advice were read; 2 of them asked for nothing, so the rate
+		// is 1 of 2 rather than 1 of 4 — otherwise redundant advice would read as
+		// advice that keeps being agreed with
+		expect(cellsOf({ logged })[1]).toStrictEqual(['multi-export', 'code', '—', '—', '—', '—', '—', '4', '50%']);
 	});
 
 	test('each recorded reason prints once beneath its rule', () => {

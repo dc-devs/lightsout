@@ -17,8 +17,19 @@ const reasonLines = ({ reasons }: { reasons: string[] }) =>
 		.filter((reason) => reason.length > 0)
 		.map((reason) => (reason.length > reasonWidth ? `${reason.slice(0, reasonWidth - 1)}…` : reason));
 
+/**
+ * How much of a rule's advice actually asked for a change.
+ *
+ * An `already-met` answer is advice the code already satisfied: nothing was
+ * done and nothing was rejected. It is shown in the `advice` count, because the
+ * agent did read it, but it is kept out of the decline rate's denominator —
+ * otherwise a rule whose advice is usually redundant would show a falling
+ * decline rate for a reason that has nothing to do with declining.
+ */
+const answerableAdvice = ({ rule }: { rule: StandardsHealthRule }) => rule.adviceApplied + rule.adviceDeclined;
+
 const ruleRows = ({ rule }: { rule: StandardsHealthRule }) => {
-	const advice = rule.adviceApplied + rule.adviceDeclined;
+	const advice = answerableAdvice({ rule }) + rule.adviceAlreadyMet;
 
 	return [
 		{
@@ -31,7 +42,7 @@ const ruleRows = ({ rule }: { rule: StandardsHealthRule }) => {
 				count({ value: rule.untracked }),
 				rate({ part: rule.declined, total: rule.attempted }),
 				count({ value: advice }),
-				rate({ part: rule.adviceDeclined, total: advice }),
+				rate({ part: rule.adviceDeclined, total: answerableAdvice({ rule }) }),
 			],
 		},
 		...reasonLines({ reasons: rule.reasons }).map((reason) => ({
@@ -59,6 +70,10 @@ interface Params {
  * the only record is the agent's own answer. Mixing them would let the
  * measured half vouch for the reported half.
  *
+ * `advice` counts everything the agent was shown; the decline rate beside it
+ * divides only by the advice that asked for a change, so a rule whose advice
+ * the code already satisfied is not credited with agreement it never won.
+ *
  * `untracked` is the honest bucket: a batch that failed, was parked, or never
  * ran left its sites with no recorded fate, and counting those as declines
  * would blame a rule for an outage.
@@ -71,7 +86,7 @@ export const printStandardsHealth = ({ health }: Params): void => {
 	const { rules, totals } = health;
 	const rows = rules.flatMap((rule) => ruleRows({ rule }));
 	const attempted = sum({ rules, of: (rule) => rule.attempted });
-	const advice = sum({ rules, of: (rule) => rule.adviceApplied + rule.adviceDeclined });
+	const advice = sum({ rules, of: (rule) => answerableAdvice({ rule }) + rule.adviceAlreadyMet });
 	const totalsRow = {
 		cells: [
 			`${totals.rules} rule(s)`,
@@ -82,7 +97,7 @@ export const printStandardsHealth = ({ health }: Params): void => {
 			count({ value: sum({ rules, of: (rule) => rule.untracked }) }),
 			rate({ part: sum({ rules, of: (rule) => rule.declined }), total: attempted }),
 			count({ value: advice }),
-			rate({ part: sum({ rules, of: (rule) => rule.adviceDeclined }), total: advice }),
+			rate({ part: sum({ rules, of: (rule) => rule.adviceDeclined }), total: sum({ rules, of: (rule) => answerableAdvice({ rule }) }) }),
 		],
 		emphasis: bold,
 	};

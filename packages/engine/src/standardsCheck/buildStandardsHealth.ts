@@ -9,7 +9,16 @@ import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 /** The running counts for one rule: every field of its report row except the ones the rule itself supplies. */
 type Tally = Omit<StandardsHealthRule, 'id' | 'set' | 'documentPath' | 'checked'>;
 
-const emptyTally = (): Tally => ({ attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [] });
+const emptyTally = (): Tally => ({
+	attempted: 0,
+	resolved: 0,
+	declined: 0,
+	untracked: 0,
+	adviceApplied: 0,
+	adviceDeclined: 0,
+	adviceAlreadyMet: 0,
+	reasons: [],
+});
 
 const tallyFor = ({ tallies, rule }: { tallies: Map<string, Tally>; rule: string }) => {
 	const existing = tallies.get(rule);
@@ -93,6 +102,14 @@ const countAdvice = ({ tallies, outcomes }: { tallies: Map<string, Tally>; outco
 
 		if (entry.outcome === AdvisoryResponse.Applied) {
 			tally.adviceApplied += 1;
+			continue;
+		}
+
+		// Counted apart from both: nothing was done and nothing was rejected, so
+		// folding it into either number would misreport how often the advice is
+		// worth its noise.
+		if (entry.outcome === AdvisoryResponse.AlreadyMet) {
+			tally.adviceAlreadyMet += 1;
 			continue;
 		}
 

@@ -34,5 +34,5 @@ export const buildStandardsRuleView = ({
 	fromConfig,
 	settings,
 	findingCount,
-	history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, reasons: [], ...history },
+	history: { attempted: 0, resolved: 0, declined: 0, untracked: 0, adviceApplied: 0, adviceDeclined: 0, adviceAlreadyMet: 0, reasons: [], ...history },
 });

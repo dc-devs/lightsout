@@ -26,6 +26,8 @@ export interface StandardsHealthRule {
 	adviceApplied: number;
 	/** Advisory and review findings this rule's advice was declined on. */
 	adviceDeclined: number;
+	/** Advisory and review findings whose end-state the agent found already true — neither taken nor rejected. */
+	adviceAlreadyMet: number;
 	/** Rationale from batches that left this rule's sites standing, plus each declined advice's reason. */
 	reasons: string[];
 }
