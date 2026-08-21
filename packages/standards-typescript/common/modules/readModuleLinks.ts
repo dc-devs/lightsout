@@ -59,6 +59,7 @@ export const readModuleLinks = ({ sourceFile, checker, compiler, cwd }: Params):
 			const names = bindings !== undefined && compiler.isNamedImports(bindings) ? readNames({ bindings, compiler }) : [];
 
 			links.push({
+				typeOnly: clause?.isTypeOnly === true,
 				reExport: false,
 				star: bindings !== undefined && compiler.isNamespaceImport(bindings),
 				names: clause?.name === undefined ? names : [{ from: 'default', as: clause.name.text }, ...names],
@@ -70,6 +71,7 @@ export const readModuleLinks = ({ sourceFile, checker, compiler, cwd }: Params):
 			const clause = statement.exportClause;
 
 			links.push({
+				typeOnly: statement.isTypeOnly,
 				reExport: true,
 				star: clause === undefined || compiler.isNamespaceExport(clause),
 				names: clause !== undefined && compiler.isNamedExports(clause) ? readNames({ bindings: clause, compiler }) : [],

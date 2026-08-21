@@ -106,7 +106,7 @@ describe('barrel-dead-entry check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('a parent barrel passing a name through gets no such allowance — its line points at a barrel, not a tested subject', async () => {
+	test('a parent barrel passing a name through gets no such allowance — the tested file belongs to the child module, not the parent', async () => {
 		const input = setupRepo({
 			sources: [
 				['src/app/index.ts', "export { ingestRecords } from './ingestion/index.ts';"],

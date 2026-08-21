@@ -1,5 +1,7 @@
 /** One `import … from` or `export … from` line, with its specifier already resolved. */
 export interface ModuleLink {
+	/** True for `export type { … } from` and `import type { … } from` — the whole statement, not a per-name `type` modifier. */
+	typeOnly: boolean;
 	/** True when the line re-exports (`export … from`) rather than imports. A barrel's surface is its re-export lines; a re-export is also a consumption of what it points at. */
 	reExport: boolean;
 	/** Repo-relative path the specifier resolves to, or undefined when it left the repo or could not be placed — `resolved` tells those two apart. */

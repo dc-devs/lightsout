@@ -12,7 +12,11 @@ export { isRunLive } from '#src/runState/isRunLive.ts';
 export { isRunPaused } from '#src/runState/isRunPaused.ts';
 export { isRunResumable } from '#src/runState/isRunResumable.ts';
 export { listRunIds } from '#src/runState/listRunIds.ts';
-export { acquireRunLock, RunLockError, readRunLock, releaseRunLock, withRunLock } from '#src/runState/lock/index.ts';
+// acquireRunLock and releaseRunLock are deliberately NOT re-published here.
+// `withRunLock` is their only caller and it releases what it acquires; offering
+// the pair to the whole engine is an invitation to take a lock and forget it.
+// Their own tests reach them through `runState/lock/index.ts`.
+export { RunLockError, readRunLock, withRunLock } from '#src/runState/lock/index.ts';
 export { RunNotFoundError } from '#src/runState/RunNotFoundError.ts';
 export { readFriction } from '#src/runState/readFriction.ts';
 export { readReviewFindings } from '#src/runState/readReviewFindings.ts';

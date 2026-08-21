@@ -30,7 +30,14 @@ describe('readModuleLinks', () => {
 		});
 
 		expect(links).toStrictEqual([
-			{ reExport: false, star: false, resolved: true, target: 'src/ingestion/ingestRecords.ts', names: [{ from: 'ingestRecords', as: 'ingest' }] },
+			{
+				typeOnly: false,
+				reExport: false,
+				star: false,
+				resolved: true,
+				target: 'src/ingestion/ingestRecords.ts',
+				names: [{ from: 'ingestRecords', as: 'ingest' }],
+			},
 		]);
 	});
 
@@ -56,7 +63,7 @@ describe('readModuleLinks', () => {
 			path: 'src/ingestion/index.ts',
 		});
 
-		expect(links[0]).toStrictEqual({ reExport: true, star: true, resolved: true, target: 'src/ingestion/ingestRecords.ts', names: [] });
+		expect(links[0]).toStrictEqual({ typeOnly: false, reExport: true, star: true, resolved: true, target: 'src/ingestion/ingestRecords.ts', names: [] });
 	});
 
 	test('reads a namespace import the same way — the whole surface, nothing named', () => {
@@ -111,5 +118,20 @@ describe('readModuleLinks', () => {
 		});
 
 		expect(links).toStrictEqual([]);
+	});
+
+	test('marks a whole-statement `import type` as type-only, which the barrel rules read as a contract rather than a use', () => {
+		const links = linksOf({
+			sources: [
+				[
+					'src/reporting/buildReport.ts',
+					"import type { Rows } from '../ingestion/ingestRecords.ts';\n\nexport const buildReport = (rows: Rows): number => rows;",
+				],
+				['src/ingestion/ingestRecords.ts', 'export type Rows = number;'],
+			],
+			path: 'src/reporting/buildReport.ts',
+		});
+
+		expect(links[0]?.typeOnly).toBe(true);
 	});
 });

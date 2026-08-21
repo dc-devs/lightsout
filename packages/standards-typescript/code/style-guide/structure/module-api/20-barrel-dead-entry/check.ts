@@ -21,9 +21,49 @@ const readLinks = ({ input }: { input: TypeCheckerInput }) => {
  *
  * An `export *` line publishes names it does not write down, so it contributes
  * none here — `barrel-star` is the rule that objects to that.
+ *
+ * An `export type { … }` line contributes none either. A type published beside
+ * the function whose signature names it is part of that function's contract,
+ * and nobody having written `const x: T = f()` yet is not evidence the type is
+ * dead. All three type entries this rule reported on a real repo were exactly
+ * that: the return element of a published function, a field of a published
+ * result, the return type of a published factory.
  */
 const publishedNames = ({ links }: { links: ModuleLink[] }) =>
-	links.filter((link) => link.reExport && !link.star).flatMap((link) => link.names.map((name) => ({ name: name.as, target: link.target })));
+	links.filter((link) => link.reExport && !link.star && !link.typeOnly).flatMap((link) => link.names.map((name) => ({ name: name.as, target: link.target })));
+
+/**
+ * The file that actually declares a published name.
+ *
+ * A name is often published through a chain — `runState/index.ts` publishes
+ * `acquireRunLock` from `runState/lock/index.ts`, which publishes it from
+ * `runState/lock/acquireRunLock.ts` — so the file behind an entry is found by
+ * following the name, hop by hop, until the target stops being a barrel. The
+ * name can be renamed on the way (`export { a as b }`), which is why each hop
+ * looks the next one up by the name the barrel published it AS and carries on
+ * with the name the target knows it by.
+ */
+const declaringFile = ({
+	name,
+	target,
+	links,
+	seen,
+}: {
+	name: string;
+	target?: string;
+	links: Map<string, ModuleLink[]>;
+	seen: Set<string>;
+}): string | undefined => {
+	if (target === undefined || !isBarrelFile({ path: target }) || seen.has(target)) {
+		return target;
+	}
+
+	seen.add(target);
+
+	const next = (links.get(target) ?? []).filter((link) => link.reExport).find((link) => link.names.some((entry) => entry.as === name));
+
+	return next === undefined ? target : declaringFile({ name: next.names.find((entry) => entry.as === name)?.from ?? name, target: next.target, links, seen });
+};
 
 /**
  * Whether a barrel entry exists to satisfy the test standards rather than a
@@ -35,18 +75,42 @@ const publishedNames = ({ links }: { links: ModuleLink[] }) =>
  * it dead would set the two rules against each other and leave no edit that
  * satisfies both.
  *
- * The allowance is deliberately narrow. It applies only when this barrel
- * publishes the tested FILE, so a parent barrel passing a name through from a
- * child barrel gets nothing from it: the parent's line points at the child's
- * `index.ts`, which is not a tested subject, and a pass-through nobody imports
- * from the parent is exactly what this rule is for.
+ * The allowance follows the name to the file it actually comes from, however
+ * many barrels it travelled, and then applies only if that file belongs to THIS
+ * module. A barrel further up passing the same name through earns nothing: the
+ * test standards asked the file's own module to publish it, and sparing the
+ * ancestor would hide exactly the unused pass-through this rule exists to find.
  */
-const isTestedSubject = ({ target, tests }: { target?: string; tests: string[] }) => {
-	if (target === undefined || isBarrelFile({ path: target })) {
+const isTestedSubject = ({
+	name,
+	target,
+	folder,
+	links,
+	moduleFolders,
+	tests,
+}: {
+	name: string;
+	target?: string;
+	folder: string;
+	links: Map<string, ModuleLink[]>;
+	moduleFolders: string[];
+	tests: string[];
+}) => {
+	const file = declaringFile({ name, target, links, seen: new Set() });
+
+	if (file === undefined || isBarrelFile({ path: file })) {
 		return false;
 	}
 
-	const stem = target.replace(/\.tsx?$/, '');
+	// Only the file's OWN module earns the allowance. The test standards ask
+	// that a tested file be published by the module it belongs to; a barrel
+	// further up passing the same name through is not what they asked for, and
+	// sparing it would hide exactly the pass-through this rule exists to find.
+	if (moduleFolders.find((candidate) => file.startsWith(`${candidate}/`)) !== folder) {
+		return false;
+	}
+
+	const stem = file.replace(/\.tsx?$/, '');
 
 	return tests.some((test) => test.startsWith(`${stem}.`));
 };
@@ -90,13 +154,21 @@ const buildFindings = ({ input }: { input: TypeCheckerInput }) => {
 		};
 	};
 
-	return [...mapFolderModules({ files: input.files, getSurface, standardsPackages: input.standardsPackages })]
+	const modules = [...mapFolderModules({ files: input.files, getSurface, standardsPackages: input.standardsPackages })];
+	// Longest first, so the first match for a file is the module it belongs to
+	// rather than one of its ancestors.
+	const moduleFolders = modules.map(([folder]) => folder).sort((left, right) => right.length - left.length);
+
+	return modules
 		.map(([folder, { barrelPath }]) => {
 			const { consumed, takesEverything } = consumedNames({ barrelPath, folder, links });
 			const orphans = takesEverything
 				? []
 				: publishedNames({ links: links.get(barrelPath) ?? [] })
-						.filter((entry) => !consumed.has(entry.name) && !isTestedSubject({ target: entry.target, tests: input.tests }))
+						.filter(
+							(entry) =>
+								!consumed.has(entry.name) && !isTestedSubject({ name: entry.name, target: entry.target, folder, links, moduleFolders, tests: input.tests }),
+						)
 						.map((entry) => entry.name);
 
 			return orphans.length === 0
