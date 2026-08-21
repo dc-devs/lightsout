@@ -52,6 +52,17 @@ const readStandardsGate = async ({ run, packages, channels }: { run: PipelineRun
 };
 
 /**
+ * Where a pass that changed nothing leaves the loop, as members rather than as
+ * literals — a caller narrowing on one would otherwise retype the string, and
+ * this file is both the caller and the author.
+ */
+const NoChangeOutcome = {
+	Complete: 'complete',
+	Escalate: 'escalate',
+	Retry: 'retry',
+} as const;
+
+/**
  * Where a pass that changed nothing leaves the loop. A work-list the agent
  * declines twice running is a stable disagreement — the agent has judged, the
  * checks cannot hear judgment, and a further pass only re-buys the same answer.
@@ -70,7 +81,7 @@ const decideNoChangePass = ({
 	if (workList.length === 0) {
 		run.progress(`refactor pass ${pass}: no changes — loop complete`);
 
-		return { kind: 'complete' as const };
+		return { kind: NoChangeOutcome.Complete };
 	}
 
 	const declined = workList
@@ -83,12 +94,12 @@ const decideNoChangePass = ({
 	}
 
 	if (pass === maxRefactorPasses || declined === lastDeclined) {
-		return { kind: 'escalate' as const };
+		return { kind: NoChangeOutcome.Escalate };
 	}
 
 	run.progress(`refactor pass ${pass}: no changes but the checks still report ${workList.length} blocking — another pass`);
 
-	return { kind: 'retry' as const, declined };
+	return { kind: NoChangeOutcome.Retry, declined };
 };
 
 /**
@@ -176,12 +187,12 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 			// tree — no re-check needed to judge the gate.
 			const decided = decideNoChangePass({ run, workList, pass, lastDeclined });
 
-			if (decided.kind === 'complete') {
+			if (decided.kind === NoChangeOutcome.Complete) {
 				cleanExit = true;
 				break;
 			}
 
-			if (decided.kind === 'escalate') {
+			if (decided.kind === NoChangeOutcome.Escalate) {
 				return run.stop({
 					record: { ...record, report },
 					status: RunStatus.Escalated,

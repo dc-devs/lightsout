@@ -40,13 +40,13 @@ describe('StandardsCheckModule', () => {
 		}
 	});
 
-	test('the input-kind vocabulary is exactly those six wire values', () => {
+	test('the input-kind vocabulary is exactly those seven wire values', () => {
 		const inputKinds = [...Object.values(StandardsInputKind)].sort();
 
 		// each kind names one input the engine has to build before any check runs —
 		// a kind added or renamed without being restated here is an unreviewed
 		// change to what package authors may write
-		expect(inputKinds).toStrictEqual(['clone-spans', 'file-list', 'file-text', 'import-graph', 'syntax-tree', 'test-file']);
+		expect(inputKinds).toStrictEqual(['clone-spans', 'file-list', 'file-text', 'import-graph', 'syntax-tree', 'test-file', 'type-checker']);
 	});
 
 	test('rejects an input kind outside the closed set', () => {

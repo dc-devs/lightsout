@@ -5,7 +5,7 @@ import type ts from 'typescript';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { StandardsCheckFunction, StandardsInputKind } from '#src/contracts/index.ts';
+import { type StandardsCheckFunction, StandardsInputKind } from '#src/contracts/index.ts';
 import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
 import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
 import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
@@ -96,6 +96,14 @@ const checkFixture = async ({
 		cache: new Map<string, string>(),
 		compiler,
 	});
+
+	// A fixture side is its own miniature repo, and a type-checker input needs a
+	// tsconfig to build a program from. Without one the check is handed nothing
+	// and answers nothing, which would otherwise be reported as "the check does
+	// not catch what the rule describes" — the wrong file to go looking in.
+	if (input.kind === StandardsInputKind.TypeChecker && input.typedFiles.size === 0 && files.length > 0) {
+		throw new Error(`no tsconfig.json in fixtures/${side}/, so none of its ${files.length} file(s) could be typed — a type-checker rule's fixtures need one`);
+	}
 
 	return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
 };

@@ -13,6 +13,7 @@ export type {
 	StandardsCheckInput,
 	SyntaxTreeInput,
 	TestFileInput,
+	TypeCheckerInput,
 } from '@lightsout/standards-contracts';
 export { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackageRoot, StandardsSet } from '@lightsout/standards-contracts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';

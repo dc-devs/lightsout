@@ -9,6 +9,7 @@ export type {
 	StandardsCheckInput,
 	SyntaxTreeInput,
 	TestFileInput,
+	TypeCheckerInput,
 } from '#src/StandardsCheckInput.ts';
 export { StandardsCheckModule } from '#src/StandardsCheckModule.ts';
 export { StandardsInputKind } from '#src/StandardsInputKind.ts';
