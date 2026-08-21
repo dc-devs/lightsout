@@ -42,6 +42,8 @@ interface Params {
  * resolve inside its own tree — and the engine runs against whatever package
  * `standards-packages` names, so it cannot reach into the default one. Change
  * one, change the other.
+ *
+ * @mirrors packages/standards-typescript/common/naming/getNameKey.ts
  */
 export const getNameKey = ({ name }: Params): string => {
 	const tokens = getTokens({ name });

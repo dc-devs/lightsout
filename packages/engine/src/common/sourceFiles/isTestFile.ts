@@ -46,6 +46,8 @@ interface Params {
  * inside its own tree, and the engine runs against whatever package
  * `standards-packages` names rather than the default one. Change one, change
  * the other.
+ *
+ * @mirrors packages/standards-typescript/common/paths/isTestFile.ts
  */
 export const isTestFile = ({ path, standardsPackages = [] }: Params): boolean => {
 	const inStandardsPackage = standardsPackages.some((root) => path.startsWith(`${root}/`));

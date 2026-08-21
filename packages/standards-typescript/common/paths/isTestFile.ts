@@ -36,6 +36,8 @@ interface Params {
  * this package ships as a bare directory with no manifest and no
  * `node_modules`, so every value it imports has to resolve inside its own
  * tree. Change one, change the other.
+ *
+ * @mirrors packages/engine/src/common/sourceFiles/isTestFile.ts
  */
 export const isTestFile = ({ path, standardsPackages = [] }: Params): boolean => {
 	const inStandardsPackage = standardsPackages.some((root) => path.startsWith(`${root}/`));

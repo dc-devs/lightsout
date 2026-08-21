@@ -36,8 +36,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Biome then TypeScript — the same command lightsout.config.json points
-      # its `check` gate at.
+      # Biome, TypeScript, then the mirror check — the same command
+      # lightsout.config.json points its `check` gate at.
       - run: pnpm check
 
       # Runs the unit suite AND the 95% coverage thresholds declared in
