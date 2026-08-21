@@ -26316,7 +26316,21 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 };
 
 // src/agents/prompts/refactorExecutor.md
-var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limit below still governs an advisory: never change behavior or a\n  public API. An advisory whose only available fix would do either is REPORTED\n  as a noted exemption with your reason, never applied.\n- Deleting an export is a public-API change by definition. A dead-export-family\n  advisory (`dead-export`, `test-only-export`, `barrel-only-export`) is\n  therefore reported rather than acted on, unless the finding itself proves\n  nothing consumes the export.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer improving code that already works. You\nwork autonomously: your scope section, the plan, and any standards are appended\nto these instructions, while the files to work on, the standards findings, and\nany verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\nThe scope section appended below says which files you may write. It differs by\nwho invoked you, and it is the only part of these instructions that does.\n\n## What to improve\n\nRead the files in your task, plus enough surrounding code to judge the\nconventions around them, then apply improvements that are high-confidence and\nbehavior-preserving:\n\n- Duplication across the files you may write (extract it if the repo has a place)\n- Dead code, unused exports, scaffolding nothing reaches any more\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limits below still govern an advisory: never change behavior, and\n  never write a file your scope section does not allow. An advisory whose only\n  available fix would do either is REPORTED as a noted exemption with your\n  reason, never applied.\n\n## Hard limits\n\n- Never change behavior or add functionality.\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands.\n- Do not reproduce house formatting by hand. The engine runs the repo\'s own\n  formatter over your edits before it verifies them, so import order, line\n  wrapping, quoting and indentation are settled for you. Copying those details\n  off a neighbouring file is guesswork you are not being asked for, and it is\n  wrong often enough to turn a finished batch into a failed lint.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+
+// src/agents/prompts/refactorScopeFeature.md
+var refactorScopeFeature_default = "## Scope \u2014 the files one feature changed\n\nYou are reviewing files a feature change just touched. Review ONLY the changed\nfiles listed in your task. Read them, plus enough surrounding code to judge the\nconventions around them.\n\n- Never refactor a file outside the listed set. Reading is fine; writing is not.\n- Never change a public API. Deleting or moving an export is a public-API change\n  by definition. A dead-export-family advisory (`dead-export`,\n  `test-only-export`, `barrel-only-export`) is therefore REPORTED rather than\n  acted on, unless the finding itself proves nothing consumes the export.\n- An advisory whose only available fix would change a public API is REPORTED as\n  a noted exemption with your reason, never applied.\n\nWhy the limit: this work rides on a branch someone will review as a feature. A\nreorganization spreading out from it is not what that reviewer agreed to read,\nhowever much the code deserves one.\n";
+
+// src/agents/prompts/refactorScopeStandalone.md
+var refactorScopeStandalone_default = "## Scope \u2014 a standalone reorganization\n\nThere is no feature plan. The standards findings in your task ARE the entire\nwork-list, and reorganizing the code they name is the reason this run exists \u2014\nnot a side effect to keep small.\n\nThe listed files are where the findings are. They are not a fence. You may also\nwrite:\n\n- Any new file a fix creates. The files a split produces are in scope, always.\n- Any file a listed fix cannot be finished without: the counterpart a\n  duplication finding names, the type a discriminant finding asks you to back\n  with a `const` object, the sibling that should import a constant you promoted.\n- Any barrel that must change because you moved what it publishes.\n\nMoving an export between files is expected here, and so is extracting a piece\ntwo callers share. Neither is a public-API change while the repo still offers\nthe same names to the same importers \u2014 so update every importer you break, in\nthe same pass.\n\nTwo things this does NOT widen:\n\n- **Behavior.** Every hard limit below still holds without exception. A\n  reorganization that changes what the code DOES is a failed run, not a bonus.\n- **Silence.** Every file you write goes in `changedFiles` with its reason. The\n  engine verifies all of it, and an unreported edit is the one thing that can\n  make a green gate a lie.\n\nFinish one finding across every file it touches before starting the next.\nHalf of a fix, reported as applied because the flagged file's half is done,\nis worse than the same fix reported as skipped: the engine re-checks the\nflagged file, sees it clean, and nothing ever comes back for the other half.\n";
+
+// src/common/constants/RefactorScope.ts
+var RefactorScope = {
+  /** The refactor step inside an implement run: the feature's own changed files, nothing else. */
+  Feature: "feature",
+  /** The `lightsout refactor` command: the standards findings are the work-list, and moving code between files is the point. */
+  Standalone: "standalone"
+};
 
 // src/common/findings/formatFindingSite.ts
 var formatFindingSite = ({ file: file2 }) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`;
@@ -26332,12 +26346,15 @@ var advisoryOutcomesSection = [
   "This is an account, never a gate: it is what tells a human which rules keep being declined and why. Reporting a decline honestly is always better than an entry that claims work you did not do.",
   '```\n"advisoryOutcomes": [{ "rule": "size-function", "siteKey": "size-function:src/example.ts", "outcome": "declined", "reason": "orchestration exemption applies \u2014 every step delegates" }]\n```'
 ].join("\n\n");
+var scopePrompt = ({ scope }) => scope === RefactorScope.Standalone ? refactorScopeStandalone_default : refactorScopeFeature_default;
+var worklistHeading = ({ scope }) => scope === RefactorScope.Standalone ? "# Files the findings name" : "# Changed files to review";
 var findingLine = (finding) => {
   const where = finding.files.map((file2) => formatFindingSite({ file: file2 })).join(" \u2194 ");
   return `- [${finding.rule}] ${where} \u2014 ${formatFindingText({ finding })}`;
 };
 var advisoryLine = (finding) => `${findingLine(finding)} (siteKey: \`${finding.siteKey}\`)`;
 var buildRefactorExecutorInvocation = ({
+  scope,
   planContent,
   changedFiles,
   standards,
@@ -26346,7 +26363,7 @@ var buildRefactorExecutorInvocation = ({
   reportAdvisoryOutcomes,
   errorContext
 }) => {
-  const roleSections = [refactorExecutor_default, `# Plan (context for what these changes were for)
+  const roleSections = [refactorExecutor_default, scopePrompt({ scope }), `# Plan (context for what these changes were for)
 
 ${planContent}`];
   if (standards) {
@@ -26356,7 +26373,7 @@ These rules are binding:
 
 ${standards}`);
   }
-  const sections = [`# Changed files to review
+  const sections = [`${worklistHeading({ scope })}
 
 ${changedFiles.map((file2) => `- ${file2}`).join("\n")}`];
   if (findings && findings.length > 0 || advisories && advisories.length > 0) {
@@ -27448,6 +27465,91 @@ ${gateError}` };
   return finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
 };
 
+// src/coverage/CoverageRun.ts
+var CoverageRun = class {
+  setAside;
+  before;
+  // The shared run state is held, not inherited: the coverage accounting above
+  // is this run's own, and the methods it shares with every other run forward
+  // to the value it holds.
+  runState;
+  constructor({ cwd, config: config2, manifest, setAside, before, onProgress }) {
+    this.runState = new RunState({ cwd, config: config2, manifest, onProgress });
+    this.setAside = setAside;
+    this.before = before;
+  }
+  get cwd() {
+    return this.runState.cwd;
+  }
+  get config() {
+    return this.runState.config;
+  }
+  /** Ceiling for a run's agent invocations, config-resolved once. */
+  get agentTimeoutMs() {
+    return this.runState.agentTimeoutMs;
+  }
+  /** The live manifest — reread after any update/setStep, never cached by callers. */
+  current() {
+    return this.runState.current();
+  }
+  progress(message) {
+    this.runState.progress(message);
+  }
+  update({ patch }) {
+    return this.runState.update({ patch });
+  }
+  setStep({ record: record2, patch }) {
+    return this.runState.setStep({ record: record2, patch });
+  }
+  recordUsage({ step, usage: usage2 }) {
+    return this.runState.recordUsage({ step, usage: usage2 });
+  }
+  /**
+   * The result for a run that ends before a green measurement — with no fresh
+   * numbers, the after side can only honestly be the before side.
+   */
+  buildHaltedResult({ error: error51 }) {
+    return { ok: false, manifest: this.current(), error: error51, setAside: this.setAside, before: this.before, after: this.before };
+  }
+  /** Persist a step's terminal status (and the run's), announce it, then halt. */
+  async stop({ record: record2, status, error: error51 }) {
+    await this.setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
+    this.progress(`coverage run stopped at ${record2.id} \u2014 ${status}`);
+    return this.buildHaltedResult({ error: error51 });
+  }
+};
+
+// src/coverage/runCoveragePreflightGate.ts
+var runCoveragePreflightGate = async ({ run }) => {
+  const steps = run.current().steps;
+  if (steps.some((step) => step.id === "pre-flight" && step.status === RunStatus.Passed)) {
+    return void 0;
+  }
+  const record2 = {
+    id: "pre-flight",
+    status: RunStatus.Running,
+    attempts: (steps.find((step) => step.id === "pre-flight")?.attempts ?? 0) + 1
+  };
+  await run.setStep({ record: record2 });
+  run.progress("pre-flight \u2014 types and unit tests before any batch");
+  const gateError = await runGates({
+    cwd: run.cwd,
+    config: run.config,
+    coverage: false,
+    runId: run.current().runId,
+    step: "pre-flight",
+    onProgress: (message) => run.progress(message)
+  });
+  let result;
+  if (gateError) {
+    result = await run.stop({ record: record2, status: RunStatus.Failed, error: `Codebase is not green before raising coverage \u2014 fix this first.
+${gateError}` });
+  } else {
+    await run.setStep({ record: { ...record2, status: RunStatus.Passed } });
+  }
+  return result;
+};
+
 // src/common/fileGroups/groupConnectedFiles.ts
 var groupConnectedFiles = ({ files, edges }) => {
   const parent = new Map(files.map((file2) => [file2, file2]));
@@ -27478,6 +27580,52 @@ var groupConnectedFiles = ({ files, edges }) => {
   return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
 };
 
+// src/coverage/selectCoverageCandidates.ts
+import { readFile as readFile21 } from "node:fs/promises";
+import { join as join35 } from "node:path";
+var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPackages, compiler }) => {
+  const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
+  const candidates = [];
+  for (const file2 of measured.files) {
+    if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPackages }) || !isTestableSourceFile({ path: file2.path })) {
+      continue;
+    }
+    const content = compiler === void 0 ? void 0 : await readFile21(join35(cwd, file2.path), "utf8").catch(() => void 0);
+    if (compiler !== void 0 && content !== void 0 && isInertSourceFile({ path: file2.path, content, compiler })) {
+      continue;
+    }
+    candidates.push(file2);
+  }
+  return candidates;
+};
+
+// src/coverage/buildCoverageRound.ts
+var buildCoverageRound = async ({ cwd, measured, setAside, standardsPackages, compiler, batchNumber }) => {
+  const setAsidePaths = new Set(setAside.flatMap((entry) => entry.files));
+  const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPackages, compiler });
+  if (candidates.length === 0) {
+    return {
+      error: "coverage gate is red but no improvable file remains \u2014 set-aside files need source changes, or the threshold binds on a metric other than statements (branches/functions/lines); human required"
+    };
+  }
+  const scope = candidates[0].scope;
+  const memberPool = measured.files.filter((file2) => file2.scope === scope && !setAsidePaths.has(file2.path) && !isTestFile({ path: file2.path, standardsPackages })).map((file2) => file2.path);
+  const components = compiler ? groupConnectedFiles({ files: memberPool, edges: await collectImportEdges({ cwd, files: memberPool, compiler }) }) : memberPool.map((file2) => [file2]);
+  const batch = buildCoverageBatch({ files: candidates.filter((file2) => file2.scope === scope), components, batchNumber });
+  return batch.members.length === 0 ? { error: `scope '${scope}' has candidates but the member pool excludes them all \u2014 candidate selection and member filtering disagree; human required` } : { batch };
+};
+
+// src/common/constants/maxConsecutiveDeclines.ts
+var maxConsecutiveDeclines = 3;
+
+// src/coverage/common/constants/CoverageBatchStopKind.ts
+var CoverageBatchStopKind = {
+  Parked: "parked",
+  Failed: "failed",
+  Escalated: "escalated",
+  Done: "done"
+};
+
 // src/coverage/common/constants/maxFileStrikes.ts
 var maxFileStrikes = 3;
 
@@ -27496,6 +27644,116 @@ var updateFileStrikes = ({ batchId, files, fileStrikes }) => {
     }
   }
   return setAside;
+};
+
+// src/coverage/settleCoverageBatch.ts
+var settleCoverageBatch = async ({ run, batch, record: record2, outcome, declineStreak, fileStrikes }) => {
+  if (outcome.kind === CoverageBatchStopKind.Parked) {
+    const error51 = `run parked: harness rate limited or overloaded \u2014 resume with \`lightsout test-coverage-to-threshold --run ${run.current().runId}\` when the window resets.`;
+    return { result: await run.stop({ record: record2, status: RunStatus.PausedRateLimit, error: error51 }), declineStreak };
+  }
+  if (outcome.kind === CoverageBatchStopKind.Failed || outcome.kind === CoverageBatchStopKind.Escalated) {
+    const status = outcome.kind === CoverageBatchStopKind.Failed ? RunStatus.Failed : RunStatus.Escalated;
+    return { result: await run.stop({ record: record2, status, error: outcome.error }), declineStreak };
+  }
+  const report = CoverageBatchReport.parse(outcome.report);
+  await run.setStep({
+    record: { ...record2, status: RunStatus.Passed, report, changedFiles: outcome.changedFiles },
+    patch: { changedFiles: [.../* @__PURE__ */ new Set([...run.current().changedFiles, ...outcome.changedFiles])] }
+  });
+  const settlement = { declineStreak: 0 };
+  if (report.outcome !== BatchOutcome.Declined) {
+    const struck = updateFileStrikes({ batchId: batch.id, files: report.files, fileStrikes });
+    run.setAside.push(...struck);
+    for (const path of struck.flatMap((entry) => entry.files)) {
+      run.progress(`${path}: set aside after ${maxFileStrikes} batches without improvement`);
+    }
+    run.progress(`${batch.id}: resolved`);
+  } else {
+    const streak = declineStreak + 1;
+    settlement.declineStreak = streak;
+    run.setAside.push({ batchId: batch.id, files: report.files.map((file2) => file2.path), rationale: report.rationale });
+    run.progress(`${batch.id}: declined (${report.files.length} file(s) set aside)`);
+    if (streak >= maxConsecutiveDeclines) {
+      const error51 = `${maxConsecutiveDeclines} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or untestable source), not worth further agent spend.`;
+      await run.update({ patch: { status: RunStatus.Escalated, currentStep: null } });
+      run.progress(`coverage run stopped after ${batch.id} \u2014 ${RunStatus.Escalated}`);
+      settlement.result = run.buildHaltedResult({ error: error51 });
+    }
+  }
+  return settlement;
+};
+
+// src/coverage/runCoverageRounds.ts
+var runRoundBatch = async ({
+  run,
+  driver,
+  batch,
+  testStandards,
+  declineStreak,
+  fileStrikes
+}) => {
+  const prior = run.current().steps.find((step) => step.id === batch.id);
+  const record2 = { id: batch.id, status: RunStatus.Running, attempts: (prior?.attempts ?? 0) + 1 };
+  await run.setStep({ record: record2 });
+  run.progress(`${batch.id} \u2014 ${batch.files.length} file(s) worst-covered, ${batch.members.length} in the writer's hands`);
+  const outcome = await runCoverageBatch({
+    cwd: run.cwd,
+    runId: run.current().runId,
+    driver,
+    config: run.config,
+    batch,
+    testStandards,
+    agentTimeoutMs: run.agentTimeoutMs,
+    // The baseline dirt rides along: files dirty before the run started are
+    // no batch's doing, however git sees the union.
+    attributedFiles: [...run.current().changedFiles, ...run.current().baselineDirtyFiles],
+    onProgress: (message) => run.progress(message),
+    recordUsage: (entry) => run.recordUsage(entry)
+  });
+  return settleCoverageBatch({ run, batch, record: record2, outcome, declineStreak, fileStrikes });
+};
+var runCoverageRounds = async ({ run, driver, batchInputs, maxBatches, resumed }) => {
+  const { testStandards, compiler, standardsPackages } = batchInputs;
+  let declineStreak = resumed.declineStreak;
+  let batchCount = resumed.batchCount;
+  let processed = 0;
+  let result;
+  while (result === void 0) {
+    const measured = await runCoverageCheck({
+      cwd: run.cwd,
+      config: run.config,
+      runId: run.current().runId,
+      step: "measure",
+      onProgress: (message) => run.progress(message)
+    });
+    if (measured.passed) {
+      await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
+      run.progress("coverage gate green \u2014 nothing left to do");
+      result = { ok: true, manifest: run.current(), setAside: run.setAside, before: run.before, after: measured.totals };
+      continue;
+    }
+    if (maxBatches !== void 0 && processed >= maxBatches) {
+      const resume = `resume with: lightsout test-coverage-to-threshold --run ${run.current().runId}`;
+      await run.update({ patch: { status: RunStatus.PausedBudget, currentStep: null } });
+      run.progress(`budget ceiling (${maxBatches} batch(es)) reached \u2014 ${resume}`);
+      result = run.buildHaltedResult({ error: `paused at --max-batches ${maxBatches} \u2014 ${resume}` });
+      continue;
+    }
+    batchCount += 1;
+    const round = await buildCoverageRound({ cwd: run.cwd, measured, setAside: run.setAside, standardsPackages, compiler, batchNumber: batchCount });
+    if ("error" in round) {
+      await run.update({ patch: { status: RunStatus.Escalated, currentStep: null } });
+      run.progress(`coverage run escalated \u2014 ${round.error}`);
+      result = run.buildHaltedResult({ error: round.error });
+      continue;
+    }
+    const settled2 = await runRoundBatch({ run, driver, batch: round.batch, testStandards, declineStreak, fileStrikes: resumed.fileStrikes });
+    processed += 1;
+    declineStreak = settled2.declineStreak;
+    result = settled2.result;
+  }
+  return result;
 };
 
 // src/coverage/seedCoverageResumeState.ts
@@ -27521,27 +27779,7 @@ var seedCoverageResumeState = ({ manifest }) => {
   return { setAside, declineStreak, fileStrikes, batchCount };
 };
 
-// src/coverage/selectCoverageCandidates.ts
-import { readFile as readFile21 } from "node:fs/promises";
-import { join as join35 } from "node:path";
-var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPackages, compiler }) => {
-  const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
-  const candidates = [];
-  for (const file2 of measured.files) {
-    if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPackages }) || !isTestableSourceFile({ path: file2.path })) {
-      continue;
-    }
-    const content = compiler === void 0 ? void 0 : await readFile21(join35(cwd, file2.path), "utf8").catch(() => void 0);
-    if (compiler !== void 0 && content !== void 0 && isInertSourceFile({ path: file2.path, content, compiler })) {
-      continue;
-    }
-    candidates.push(file2);
-  }
-  return candidates;
-};
-
 // src/coverage/runCoveragePipeline.ts
-var maxConsecutiveDeclines = 3;
 var executeCoverage = async ({
   cwd,
   runId,
@@ -27552,143 +27790,18 @@ var executeCoverage = async ({
   existing,
   onProgress
 }) => {
-  const progress = onProgress ?? (() => void 0);
-  const initialized = await initializeCoverageRun({ cwd, runId, driver, config: config2, allowDirty, existing });
-  const { worklist } = initialized;
-  let { manifest } = initialized;
-  const usageTotals = seedUsageTotals({ usage: manifest.usage });
-  const update = async (patch) => {
-    manifest = await writeManifestWithUsage({ cwd, manifest, patch, usageTotals });
-  };
-  const recordUsage = ({ step, usage: usage2 }) => recordAgentUsage({ cwd, runId: manifest.runId, step, model: config2.model, effort: config2.effort, totals: usageTotals, usage: usage2 });
-  const setStep = async ({ record: record2, patch }) => {
-    const steps = manifest.steps.some((step) => step.id === record2.id) ? manifest.steps.map((step) => step.id === record2.id ? record2 : step) : [...manifest.steps, record2];
-    await update({ ...patch, currentStep: record2.id, steps });
-  };
+  const { manifest, worklist } = await initializeCoverageRun({ cwd, runId, driver, config: config2, allowDirty, existing });
   const seeded = seedCoverageResumeState({ manifest });
-  const setAside = seeded.setAside;
-  const fileStrikes = seeded.fileStrikes;
-  const before = worklist.totals;
-  const stop = async ({ record: record2, status, error: error51 }) => {
-    await setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
-    progress(`coverage run stopped at ${record2.id} \u2014 ${status}`);
-    return { ok: false, manifest, error: error51, setAside, before, after: before };
-  };
-  await update({ status: RunStatus.Running });
-  if (!manifest.steps.some((step) => step.id === "pre-flight" && step.status === RunStatus.Passed)) {
-    const record2 = {
-      id: "pre-flight",
-      status: RunStatus.Running,
-      attempts: (manifest.steps.find((step) => step.id === "pre-flight")?.attempts ?? 0) + 1
-    };
-    await setStep({ record: record2 });
-    progress("pre-flight \u2014 types and unit tests before any batch");
-    const gateError = await runGates({ cwd, config: config2, coverage: false, runId: manifest.runId, step: "pre-flight", onProgress });
-    if (gateError) {
-      return stop({ record: record2, status: RunStatus.Failed, error: `Codebase is not green before raising coverage \u2014 fix this first.
-${gateError}` });
-    }
-    await setStep({ record: { ...record2, status: RunStatus.Passed } });
+  const run = new CoverageRun({ cwd, config: config2, manifest, onProgress, setAside: seeded.setAside, before: worklist.totals });
+  await run.update({ patch: { status: RunStatus.Running } });
+  const redBaseline = await runCoveragePreflightGate({ run });
+  if (redBaseline) {
+    return redBaseline;
   }
   const { testStandards } = await resolveStandards({ cwd, config: config2, packages: [] });
-  const defaultAgentTimeoutMinutes = 60;
-  const agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4;
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir });
   const { standardsPackages } = await listSourceFiles({ cwd });
-  let declineStreak = seeded.declineStreak;
-  let batchCount = seeded.batchCount;
-  let processed = 0;
-  while (true) {
-    const measured = await runCoverageCheck({ cwd, config: config2, runId: manifest.runId, step: "measure", onProgress: progress });
-    if (measured.passed) {
-      await update({ status: RunStatus.Passed, currentStep: null });
-      progress("coverage gate green \u2014 nothing left to do");
-      return { ok: true, manifest, setAside, before, after: measured.totals };
-    }
-    if (maxBatches !== void 0 && processed >= maxBatches) {
-      await update({ status: RunStatus.PausedBudget, currentStep: null });
-      progress(`budget ceiling (${maxBatches} batch(es)) reached \u2014 resume with: lightsout test-coverage-to-threshold --run ${manifest.runId}`);
-      return {
-        ok: false,
-        manifest,
-        error: `paused at --max-batches ${maxBatches} \u2014 resume with: lightsout test-coverage-to-threshold --run ${manifest.runId}`,
-        setAside,
-        before,
-        after: before
-      };
-    }
-    const setAsidePaths = new Set(setAside.flatMap((entry) => entry.files));
-    const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPackages, compiler });
-    if (candidates.length === 0) {
-      const error51 = "coverage gate is red but no improvable file remains \u2014 set-aside files need source changes, or the threshold binds on a metric other than statements (branches/functions/lines); human required";
-      await update({ status: RunStatus.Escalated, currentStep: null });
-      progress(`coverage run escalated \u2014 ${error51}`);
-      return { ok: false, manifest, error: error51, setAside, before, after: before };
-    }
-    const scope = candidates[0].scope;
-    const memberPool = measured.files.filter((file2) => file2.scope === scope && !setAsidePaths.has(file2.path) && !isTestFile({ path: file2.path, standardsPackages })).map((file2) => file2.path);
-    const components = compiler ? groupConnectedFiles({ files: memberPool, edges: await collectImportEdges({ cwd, files: memberPool, compiler }) }) : memberPool.map((file2) => [file2]);
-    batchCount += 1;
-    const batch = buildCoverageBatch({ files: candidates.filter((file2) => file2.scope === scope), components, batchNumber: batchCount });
-    if (batch.members.length === 0) {
-      const error51 = `scope '${scope}' has candidates but the member pool excludes them all \u2014 candidate selection and member filtering disagree; human required`;
-      await update({ status: RunStatus.Escalated, currentStep: null });
-      progress(`coverage run escalated \u2014 ${error51}`);
-      return { ok: false, manifest, error: error51, setAside, before, after: before };
-    }
-    const record2 = { id: batch.id, status: RunStatus.Running, attempts: (manifest.steps.find((step) => step.id === batch.id)?.attempts ?? 0) + 1 };
-    await setStep({ record: record2 });
-    progress(`${batch.id} \u2014 ${batch.files.length} file(s) worst-covered, ${batch.members.length} in the writer's hands`);
-    const outcome = await runCoverageBatch({
-      cwd,
-      runId: manifest.runId,
-      driver,
-      config: config2,
-      batch,
-      testStandards,
-      agentTimeoutMs,
-      // The baseline dirt rides along: files dirty before the run started are
-      // no batch's doing, however git sees the union.
-      attributedFiles: [...manifest.changedFiles, ...manifest.baselineDirtyFiles],
-      onProgress: progress,
-      recordUsage
-    });
-    processed += 1;
-    if (outcome.kind === "parked") {
-      return stop({
-        record: record2,
-        status: RunStatus.PausedRateLimit,
-        error: `run parked: harness rate limited or overloaded \u2014 resume with \`lightsout test-coverage-to-threshold --run ${manifest.runId}\` when the window resets.`
-      });
-    }
-    if (outcome.kind === "failed" || outcome.kind === "escalated") {
-      return stop({ record: record2, status: outcome.kind === "failed" ? RunStatus.Failed : RunStatus.Escalated, error: outcome.error });
-    }
-    const report = CoverageBatchReport.parse(outcome.report);
-    await setStep({
-      record: { ...record2, status: RunStatus.Passed, report, changedFiles: outcome.changedFiles },
-      patch: { changedFiles: [.../* @__PURE__ */ new Set([...manifest.changedFiles, ...outcome.changedFiles])] }
-    });
-    if (report.outcome === BatchOutcome.Declined) {
-      setAside.push({ batchId: batch.id, files: report.files.map((file2) => file2.path), rationale: report.rationale });
-      declineStreak += 1;
-      progress(`${batch.id}: declined (${report.files.length} file(s) set aside)`);
-      if (declineStreak >= maxConsecutiveDeclines) {
-        const error51 = `${maxConsecutiveDeclines} consecutive batches declined \u2014 likely systemic (standards injection, gate config, or untestable source), not worth further agent spend.`;
-        await update({ status: RunStatus.Escalated, currentStep: null });
-        progress(`coverage run stopped after ${batch.id} \u2014 ${RunStatus.Escalated}`);
-        return { ok: false, manifest, error: error51, setAside, before, after: before };
-      }
-      continue;
-    }
-    declineStreak = 0;
-    const struck = updateFileStrikes({ batchId: batch.id, files: report.files, fileStrikes });
-    setAside.push(...struck);
-    for (const path of struck.flatMap((entry) => entry.files)) {
-      progress(`${path}: set aside after ${maxFileStrikes} batches without improvement`);
-    }
-    progress(`${batch.id}: resolved`);
-  }
+  return runCoverageRounds({ run, driver, batchInputs: { testStandards, compiler, standardsPackages }, maxBatches, resumed: seeded });
 };
 var runCoveragePipeline = (params) => withRunLock({ params, run: executeCoverage });
 
@@ -27744,49 +27857,51 @@ ${error51}`
   };
 };
 
+// src/common/processes/runFormatter.ts
+var runFormatter = async ({ cwd, runId, config: config2, step }) => {
+  const command = config2.gates.format;
+  if (!command) {
+    return void 0;
+  }
+  const formatTimeoutMs = 10 * 6e4;
+  const startedAt = Date.now();
+  let result;
+  try {
+    result = await runCommand({ command, cwd, timeoutMs: formatTimeoutMs });
+  } catch (error51) {
+    result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error51 }) };
+  }
+  await appendCommandLog({
+    cwd,
+    runId,
+    record: {
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      step,
+      group: "root",
+      kind: "format",
+      command,
+      exitCode: result.exitCode,
+      durationMs: Date.now() - startedAt,
+      ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
+${result.stderr}`.slice(-2e3) }
+    }
+  });
+  return result.exitCode === 0 ? void 0 : `format failed (exit ${result.exitCode}):
+${result.stdout}
+${result.stderr}`;
+};
+
 // src/pipeline/steps/formatStep.ts
 var formatStep = ({ run }) => ({
   id: "format",
   skip: () => run.config.gates.format ? void 0 : "no format command configured",
   run: async () => {
-    const formatCommand = run.config.gates.format;
-    if (!formatCommand) {
-      return void 0;
-    }
     const record2 = run.nextRecord({ id: "format" });
     await run.setStep({ record: record2 });
     run.progress("step format \u2014 running formatter");
-    const formatTimeoutMs = 10 * 6e4;
-    const startedAt = Date.now();
-    let result;
-    try {
-      result = await runCommand({ command: formatCommand, cwd: run.cwd, timeoutMs: formatTimeoutMs });
-    } catch (error52) {
-      result = { exitCode: -1, stdout: "", stderr: messageOf({ error: error52 }) };
-    }
-    await appendCommandLog({
-      cwd: run.cwd,
-      runId: run.current().runId,
-      record: {
-        at: (/* @__PURE__ */ new Date()).toISOString(),
-        step: "format",
-        group: "root",
-        kind: "format",
-        command: formatCommand,
-        exitCode: result.exitCode,
-        durationMs: Date.now() - startedAt,
-        ...result.exitCode === 0 ? {} : { outputTail: `${result.stdout}
-${result.stderr}`.slice(-2e3) }
-      }
-    });
-    if (result.exitCode !== 0) {
-      return run.stop({
-        record: record2,
-        status: RunStatus.Failed,
-        error: `format failed (exit ${result.exitCode}):
-${result.stdout}
-${result.stderr}`
-      });
+    const formatError2 = await runFormatter({ cwd: run.cwd, runId: run.current().runId, config: run.config, step: "format" });
+    if (formatError2) {
+      return run.stop({ record: record2, status: RunStatus.Failed, error: formatError2 });
     }
     const error51 = await runVerificationGates({ run, coverage: true });
     if (error51) {
@@ -27870,7 +27985,14 @@ var runExecutorPass = async ({
   const outcome = await invokeRoleOrStop({
     run,
     record: record2,
-    invocation: buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles({ run }), standards, findings, advisories }),
+    invocation: buildRefactorExecutorInvocation({
+      scope: RefactorScope.Feature,
+      planContent,
+      changedFiles: sourceFiles({ run }),
+      standards,
+      findings,
+      advisories
+    }),
     step: "refactor"
   });
   if ("stopped" in outcome) {
@@ -41099,7 +41221,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         planContent,
         id: "verify-refactor",
         coverage: true,
-        buildFix: (errorContext) => buildRefactorExecutorInvocation({ planContent, changedFiles: sourceFiles({ run }), standards, errorContext })
+        buildFix: (errorContext) => buildRefactorExecutorInvocation({ scope: RefactorScope.Feature, planContent, changedFiles: sourceFiles({ run }), standards, errorContext })
       })
     }
   ];
@@ -43325,7 +43447,16 @@ var buildBatchFixInvocation = ({
 
 ${guidance}` : gateError;
   const coverageRed = gateError.includes("test-coverage failed") && !/(check|test-unit|build|generate|format) failed/.test(gateError);
-  return coverageRed ? buildUnitTestWriterInvocation({ planContent, subjects: files, mustExecute: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({ planContent, changedFiles: files, standards, findings, advisories, reportAdvisoryOutcomes: true, errorContext });
+  return coverageRed ? buildUnitTestWriterInvocation({ planContent, subjects: files, mustExecute: files, standards: testStandards, errorContext }) : buildRefactorExecutorInvocation({
+    scope: RefactorScope.Standalone,
+    planContent,
+    changedFiles: files,
+    standards,
+    findings,
+    advisories,
+    reportAdvisoryOutcomes: true,
+    errorContext
+  });
 };
 
 // src/refactor/batch/createFixInvoker.ts
@@ -43355,6 +43486,7 @@ var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards
   await tools.invoke({
     label: "polish",
     invocation: buildRefactorExecutorInvocation({
+      scope: RefactorScope.Standalone,
       planContent: standaloneBanner2,
       changedFiles: files,
       standards,
@@ -43450,6 +43582,7 @@ var invokeBatchAgent = async ({
   reportedFiles,
   rationale,
   advisoryOutcomes,
+  onProgress,
   recordUsage
 }) => {
   const agentsDir = join66(getRunDir({ cwd, runId }), "agents");
@@ -43471,6 +43604,10 @@ var invokeBatchAgent = async ({
       await writeFile12(join66(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
     }
   });
+  const formatError2 = await runFormatter({ cwd, runId, config: config2, step: batch.id });
+  if (formatError2) {
+    onProgress(`${batch.id}: ${formatError2}`);
+  }
   await recordUsage({ step: `${batch.id}${label ? ` ${label}` : ""}`, usage: outcome.usage });
   if (!outcome.ok) {
     return outcome;
@@ -43639,6 +43776,7 @@ var createBatchTools = ({
       reportedFiles,
       rationale,
       advisoryOutcomes,
+      onProgress,
       recordUsage
     });
   };
@@ -43678,6 +43816,7 @@ var runBatchPass = async ({ tools, batch, pass, workFindings, advisories, standa
   const attempt = await tools.invoke({
     label: pass === 1 ? "" : "requeue",
     invocation: buildRefactorExecutorInvocation({
+      scope: RefactorScope.Standalone,
       planContent: standaloneBanner2,
       changedFiles: files,
       standards,
