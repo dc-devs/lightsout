@@ -24617,6 +24617,9 @@ var frictionCommand = async ({ cwd }) => {
 // src/cli/common/render/printResult.ts
 import { basename } from "node:path";
 
+// ../shared/src/formatting/formatCost.ts
+var formatCost = ({ usd }) => `$${usd.toFixed(2)}`;
+
 // ../shared/src/formatting/formatDuration.ts
 var formatDuration = ({ ms }) => {
   if (ms === void 0) {
@@ -24702,7 +24705,7 @@ var printStepTable = ({ steps, activeMs }) => {
       formatDuration({ ms: step.durationMs }),
       step.invocations > 0 ? `${step.invocations}` : "\u2014",
       step.invocations > 0 ? formatTokenCount({ count: step.outputTokens }) : "\u2014",
-      step.invocations > 0 ? `$${step.costUsd.toFixed(2)}` : "\u2014",
+      step.invocations > 0 ? formatCost({ usd: step.costUsd }) : "\u2014",
       step.changedFiles ? `${step.changedFiles.length}` : "\u2014"
     ]
   }));
@@ -24713,7 +24716,7 @@ var printStepTable = ({ steps, activeMs }) => {
     activeMs > 0 ? formatDuration({ ms: activeMs }) : "\u2014",
     invocations > 0 ? `${invocations}` : "\u2014",
     invocations > 0 ? formatTokenCount({ count: steps.reduce((count2, step) => count2 + step.outputTokens, 0) }) : "\u2014",
-    invocations > 0 ? `$${steps.reduce((total, step) => total + step.costUsd, 0).toFixed(2)}` : "\u2014",
+    invocations > 0 ? formatCost({ usd: steps.reduce((total, step) => total + step.costUsd, 0) }) : "\u2014",
     `${steps.reduce((count2, step) => count2 + (step.changedFiles?.length ?? 0), 0)}`
   ];
   const lines = renderTable({
@@ -24752,7 +24755,7 @@ var printResult = async ({ result, cwd }) => {
       name: "tokens",
       value: `in ${formatTokenCount({ count: inputTokens })} \xB7 out ${formatTokenCount({ count: outputTokens })} \xB7 cache-read ${formatTokenCount({ count: cacheReadTokens })}${share}`
     });
-    label({ name: "cost", value: `$${costUsd.toFixed(2)} API-equivalent \xB7 ${invocations} invocation${plural({ count: invocations })}` });
+    label({ name: "cost", value: `${formatCost({ usd: costUsd })} API-equivalent \xB7 ${invocations} invocation${plural({ count: invocations })}` });
   }
   console.log("");
   printStepTable({ steps: summary.steps, activeMs: summary.activeMs });
@@ -26525,7 +26528,7 @@ var invokeAgentWithContract = async ({
 };
 
 // src/pipeline/PipelineRun.ts
-var formatUsage = ({ usage: usage2 }) => `in ${formatTokenCount({ count: usage2.inputTokens })} \xB7 out ${formatTokenCount({ count: usage2.outputTokens })} \xB7 cache-read ${formatTokenCount({ count: usage2.cacheReadTokens })} \xB7 $${usage2.costUsd.toFixed(2)}`;
+var formatUsage = ({ usage: usage2 }) => `in ${formatTokenCount({ count: usage2.inputTokens })} \xB7 out ${formatTokenCount({ count: usage2.outputTokens })} \xB7 cache-read ${formatTokenCount({ count: usage2.cacheReadTokens })} \xB7 ${formatCost({ usd: usage2.costUsd })}`;
 var PipelineRun = class {
   /** Public: the supervisor consult invokes with its own contract/timeouts, outside invokeRole. */
   driver;
@@ -44339,14 +44342,14 @@ var standardsHealthCommand = async ({ cwd }) => {
 
 // src/cli/standardsValidateCommand.ts
 import { resolve as resolve8 } from "node:path";
-var loadRequestedPackage = async ({ requested, cwd }) => (
+var readRequestedPackage = async ({ requested, cwd }) => (
   // resolve() leaves an absolute --package alone, so both forms the flag
   // accepts land here.
   readStandardsPackage({ packagePath: requested === void 0 ? resolveDefaultStandardsPackage() : resolve8(cwd, requested) })
 );
 var standardsValidateCommand = async ({ flags, cwd }) => {
   const requested = getStringFlag({ flags, name: "package" });
-  const pkg = await loadRequestedPackage({ requested, cwd }).catch((error51) => {
+  const pkg = await readRequestedPackage({ requested, cwd }).catch((error51) => {
     console.error(messageOf({ error: error51 }));
     return exitCli({ code: 1 });
   });

@@ -14,7 +14,7 @@ import { readStandardsPackage, resolveDefaultStandardsPackage } from '#src/stand
  * absent. Async so that a default that cannot be located rejects like a package
  * that cannot be read — one failure path for the caller to report.
  */
-const loadRequestedPackage = async ({ requested, cwd }: { requested?: string; cwd: string }) =>
+const readRequestedPackage = async ({ requested, cwd }: { requested?: string; cwd: string }) =>
 	// resolve() leaves an absolute --package alone, so both forms the flag
 	// accepts land here.
 	readStandardsPackage({ packagePath: requested === undefined ? resolveDefaultStandardsPackage() : resolve(cwd, requested) });
@@ -30,7 +30,7 @@ const loadRequestedPackage = async ({ requested, cwd }: { requested?: string; cw
  */
 export const standardsValidateCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const requested = getStringFlag({ flags, name: 'package' });
-	const pkg = await loadRequestedPackage({ requested, cwd }).catch((error: unknown) => {
+	const pkg = await readRequestedPackage({ requested, cwd }).catch((error: unknown) => {
 		console.error(messageOf({ error }));
 		return exitCli({ code: 1 });
 	});

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { formatTokenCount } from '@lightsout/shared';
+import { formatCost, formatTokenCount } from '@lightsout/shared';
 import { RunState } from '#src/common/services/RunState.ts';
 import { createEventFileSink } from '#src/common/utils/createEventFileSink.ts';
 import { type AgentUsage, type LightsoutConfig, Permissions, type RunManifest, RunStatus, type StepRecord, WorkReport } from '#src/contracts/index.ts';
@@ -10,7 +10,7 @@ import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { getRunDir } from '#src/runState/index.ts';
 
 const formatUsage = ({ usage }: { usage: AgentUsage }) =>
-	`in ${formatTokenCount({ count: usage.inputTokens })} · out ${formatTokenCount({ count: usage.outputTokens })} · cache-read ${formatTokenCount({ count: usage.cacheReadTokens })} · $${usage.costUsd.toFixed(2)}`;
+	`in ${formatTokenCount({ count: usage.inputTokens })} · out ${formatTokenCount({ count: usage.outputTokens })} · cache-read ${formatTokenCount({ count: usage.cacheReadTokens })} · ${formatCost({ usd: usage.costUsd })}`;
 
 interface ConstructorParams {
 	cwd: string;

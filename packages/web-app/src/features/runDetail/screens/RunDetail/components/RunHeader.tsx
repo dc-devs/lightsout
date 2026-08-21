@@ -1,11 +1,10 @@
 import type { RunView } from '@lightsout/engine';
 import { RunStatus } from '@lightsout/engine/contracts';
-import { formatDuration } from '@lightsout/shared';
+import { formatCost, formatDuration } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { CopyButton } from '#src/common/components/ui/CopyButton.tsx';
 import { RunStatusBadge } from '#src/common/components/ui/RunStatusBadge.tsx';
-import { formatCost } from '#src/common/formatting/formatCost.ts';
 import { FailureNotice } from '#src/features/runDetail/screens/RunDetail/components/FailureNotice.tsx';
 import { PlanPathButton } from '#src/features/runDetail/screens/RunDetail/components/PlanPathButton.tsx';
 

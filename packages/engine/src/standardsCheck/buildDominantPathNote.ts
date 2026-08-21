@@ -39,6 +39,11 @@ const findDominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
 	return prefix.split('/').length >= 2 ? { dir: prefix, count, total: paths.length } : undefined;
 };
 
+interface Params {
+	/** Every finding the report holds — the note is about their distribution, not any one of them. */
+	findings: StandardsFinding[];
+}
+
 /**
  * The self-diagnosis note for a report dominated by one directory, or undefined
  * when the report has none to make. A report whose findings pile up under a
@@ -46,7 +51,7 @@ const findDominantPath = ({ findings }: { findings: StandardsFinding[] }) => {
  * case: a generated Prisma dir missing from `generated`), so the note names
  * both the directory and the config list that would exclude it.
  */
-export const buildDominantPathNote = ({ findings }: { findings: StandardsFinding[] }): string | undefined => {
+export const buildDominantPathNote = ({ findings }: Params): string | undefined => {
 	const dominant = findDominantPath({ findings });
 
 	return dominant === undefined
