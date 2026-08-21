@@ -4,6 +4,7 @@ import { renderTable } from '#src/cli/common/render/renderTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
+import type { RunStatus } from '#src/contracts/index.ts';
 import type { StepSummary } from '#src/runState/index.ts';
 
 interface Params {
@@ -11,7 +12,7 @@ interface Params {
 	activeMs: number;
 }
 
-const paintCell = ({ text, padded, status }: { text: string; padded: string; status?: string }) => {
+const paintCell = ({ text, padded, status }: { text: string; padded: string; status?: RunStatus }) => {
 	if (text === '—') {
 		return dim(padded);
 	}

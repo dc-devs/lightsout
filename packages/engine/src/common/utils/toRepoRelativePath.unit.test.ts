@@ -13,7 +13,10 @@ test('toRepoRelativePath: an absolute path inside the repo is rewritten relative
 });
 
 test('toRepoRelativePath: the same file named either way comes out the same — the form a guard can compare', () => {
-	expect(toRepoRelativePath({ cwd, path: join(cwd, 'plan.md') })).toBe(toRepoRelativePath({ cwd, path: 'plan.md' }));
+	// pinned to the literal on both sides rather than to each other: two calls
+	// that agree are still both wrong if the function returns a constant
+	expect(toRepoRelativePath({ cwd, path: join(cwd, 'plan.md') })).toBe('plan.md');
+	expect(toRepoRelativePath({ cwd, path: 'plan.md' })).toBe('plan.md');
 });
 
 test('toRepoRelativePath: a path outside the repo stays reachable as a route up and back down', () => {

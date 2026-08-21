@@ -13,7 +13,7 @@ interface Params {
 	/** The rule id claiming this verdict. */
 	rule: string;
 	/** Which unconsumed exports this rule claims — the verdicts are mutually exclusive, so each export lands in at most one rule. */
-	matches: (reachedBy: UnconsumedExport['reachedBy']) => boolean;
+	matches: ({ barrel, test }: UnconsumedExport['reachedBy']) => boolean;
 	/** Completes the sentence "'a', 'b' are …" — e.g. `referenced nowhere else`. */
 	detail: string;
 	guidance: string;

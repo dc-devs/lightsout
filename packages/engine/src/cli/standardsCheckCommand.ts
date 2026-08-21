@@ -1,3 +1,4 @@
+import { formatDuration } from '@lightsout/shared';
 import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import { printFindingGroups } from '#src/cli/common/render/printFindingGroups.ts';
 import { printSectionHeading } from '#src/cli/common/render/printSectionHeading.ts';
@@ -8,7 +9,6 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { loadStandardsLedger } from '#src/cli/loadStandardsLedger.ts';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
-import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { runStandardsCheck, writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
 
@@ -94,7 +94,7 @@ export const standardsCheckCommand = async ({ flags, cwd }: CommandContext): Pro
 		});
 		const ordered = orderBySeverity({ findings: checked.findings });
 
-		printProgress(`✓ Code checks finished in ${formatElapsed({ elapsedMs: Date.now() - startedAt })} — ${describeCodeFindings({ findings: ordered })}`);
+		printProgress(`✓ Code checks finished in ${formatDuration({ ms: Date.now() - startedAt })} — ${describeCodeFindings({ findings: ordered })}`);
 		printSectionResult({ findings: ordered, notes: checked.notes });
 		findings.push(...ordered);
 		notes.push(...checked.notes);

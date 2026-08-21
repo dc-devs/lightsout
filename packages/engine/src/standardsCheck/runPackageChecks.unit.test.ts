@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type FileListInput, type StandardsCheckInput, type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { type FileListInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
 import { runPackageChecks } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
@@ -61,7 +61,7 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedS
 });
 
 /** A check that reports one finding per source file and records what it was handed. */
-const recordingRun = ({ calls }: { calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> }): StandardsCheckRun => {
+const recordingRun = ({ calls }: { calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> }): StandardsCheckFunction => {
 	return ({ input, settings }) => {
 		calls.push({ input, settings });
 
@@ -304,7 +304,7 @@ describe('runPackageChecks', () => {
 
 	test('names the rule when its check returns something that is not a list of findings', async () => {
 		const { cwd } = setupRepo();
-		const brokenRun = (() => 'not findings at all') as unknown as StandardsCheckRun;
+		const brokenRun = (() => 'not findings at all') as unknown as StandardsCheckFunction;
 
 		const error = await getRejectionError({
 			promise: runChecks({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: brokenRun })] }),
@@ -316,7 +316,7 @@ describe('runPackageChecks', () => {
 
 	test('names the offending field when a check returns a finding that is missing one', async () => {
 		const { cwd } = setupRepo();
-		const shortRun = (() => [{ siteKey: 'a-site', files: [{ path: 'src/alpha.ts' }] }]) as unknown as StandardsCheckRun;
+		const shortRun = (() => [{ siteKey: 'a-site', files: [{ path: 'src/alpha.ts' }] }]) as unknown as StandardsCheckFunction;
 
 		const error = await getRejectionError({
 			promise: runChecks({ cwd, rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: shortRun })] }),
@@ -329,7 +329,7 @@ describe('runPackageChecks', () => {
 
 	test('names the rule when its check throws', async () => {
 		const { cwd } = setupRepo();
-		const throwingRun: StandardsCheckRun = () => {
+		const throwingRun: StandardsCheckFunction = () => {
 			throw new Error('cannot parse that');
 		};
 

@@ -1,6 +1,6 @@
-import { formatFindingSite } from '#src/agents/formatFindingSite.ts';
-import { formatFindingText } from '#src/agents/formatFindingText.ts';
 import refactorExecutorPrompt from '#src/agents/prompts/refactorExecutor.md';
+import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
+import { formatFindingText } from '#src/common/findings/formatFindingText.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface Params {

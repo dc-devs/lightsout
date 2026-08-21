@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { RawStandardsFinding, type StandardsCheckInput, type StandardsCheckRun } from '#src/contracts/index.ts';
+import { RawStandardsFinding, type StandardsCheckFunction, type StandardsCheckInput } from '#src/contracts/index.ts';
 
 const rawFindings = z.array(RawStandardsFinding);
 
 interface Params {
 	/** The rule id — named in any failure, since a broken check is a package bug someone has to find. */
 	rule: string;
-	run: StandardsCheckRun;
+	run: StandardsCheckFunction;
 	input: StandardsCheckInput;
 	settings: Record<string, number>;
 }

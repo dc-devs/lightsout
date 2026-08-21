@@ -1,3 +1,4 @@
+import { ImportTargetKind } from '../constants/ImportTargetKind.ts';
 import { getDirectory } from '../paths/getDirectory.ts';
 import { joinPath } from '../paths/joinPath.ts';
 import type { ImportTarget } from '../types/ImportTarget.ts';
@@ -23,7 +24,8 @@ const findFile = ({ base, files }: { base: string; files: Set<string> }): string
  * so what "the run never listed it" means is written once. Spelled out per
  * branch instead, the two copies drift the first time a fourth answer is added.
  */
-const fromProbe = ({ found }: { found: string | undefined }): ImportTarget => (found === undefined ? { kind: 'unknown' } : { kind: 'file', path: found });
+const fromProbe = ({ found }: { found: string | undefined }): ImportTarget =>
+	found === undefined ? { kind: ImportTargetKind.Unknown } : { kind: ImportTargetKind.File, path: found };
 
 /**
  * The portion of a specifier a wildcard pattern captures, or undefined when the
@@ -102,7 +104,7 @@ export const resolveImport = ({ from, specifier, files, aliases }: Params): Impo
 	}
 
 	if (aliases === undefined) {
-		return { kind: 'unknown' };
+		return { kind: ImportTargetKind.Unknown };
 	}
 
 	const matched = matchAlias({ aliases, specifier });
@@ -113,7 +115,7 @@ export const resolveImport = ({ from, specifier, files, aliases }: Params): Impo
 	// and calling it external would leave the barrel looking fully read while a
 	// file it exports looked private.
 	if (matched === undefined) {
-		return isPackageSpecifier({ specifier }) ? { kind: 'external' } : { kind: 'unknown' };
+		return isPackageSpecifier({ specifier }) ? { kind: ImportTargetKind.External } : { kind: ImportTargetKind.Unknown };
 	}
 
 	const bases = matched.targets.map((target) => joinPath({ from: aliases.base, specifier: target.replace('*', matched.captured) }));

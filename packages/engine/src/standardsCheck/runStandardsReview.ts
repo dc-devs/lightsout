@@ -1,5 +1,5 @@
+import { formatDuration } from '@lightsout/shared';
 import { buildStandardsReviewInvocation } from '#src/agents/index.ts';
-import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSeverity } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
@@ -135,7 +135,7 @@ export const runStandardsReview = async ({
 		onEvent: heartbeat.onEvent,
 	}).finally(() => heartbeat.stop());
 
-	const elapsed = formatElapsed({ elapsedMs: heartbeat.elapsedMs() });
+	const elapsed = formatDuration({ ms: heartbeat.elapsedMs() });
 
 	if (!outcome.ok) {
 		onProgress?.(`Agent review stopped after ${elapsed}.`);

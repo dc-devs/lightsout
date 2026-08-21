@@ -23,7 +23,7 @@ const getTokens = ({ name }: { name: string }) =>
 		.map((token) => verbSynonyms[token] ?? token);
 
 interface Params {
-	/** An export name (extension already stripped, e.g. via `nameOf`). */
+	/** An export name (extension already stripped, e.g. via `getExportName`). */
 	name: string;
 }
 
@@ -43,7 +43,7 @@ interface Params {
  * `standards-packages` names, so it cannot reach into the default one. Change
  * one, change the other.
  */
-export const nameKey = ({ name }: Params): string => {
+export const getNameKey = ({ name }: Params): string => {
 	const tokens = getTokens({ name });
 
 	return tokens.includes('to') || tokens.includes('from') ? tokens.join(' ') : [...tokens].sort().join(' ');

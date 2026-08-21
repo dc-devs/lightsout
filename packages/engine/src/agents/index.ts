@@ -9,5 +9,3 @@ export { buildReportReemitterInvocation } from '#src/agents/buildReportReemitter
 export { buildStandardsReviewInvocation } from '#src/agents/buildStandardsReviewInvocation.ts';
 export { buildSupervisorInvocation } from '#src/agents/buildSupervisorInvocation.ts';
 export { buildUnitTestWriterInvocation } from '#src/agents/buildUnitTestWriterInvocation.ts';
-export { formatFindingSite } from '#src/agents/formatFindingSite.ts';
-export { formatFindingText } from '#src/agents/formatFindingText.ts';

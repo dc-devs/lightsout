@@ -3,43 +3,60 @@ import { getNameKey } from './getNameKey.ts';
 
 describe('getNameKey', () => {
 	test.each([
+		{ name: 'getUserData', synonym: 'get' },
 		{ name: 'fetchUserData', synonym: 'fetch' },
 		{ name: 'loadUserData', synonym: 'load' },
 		{ name: 'retrieveUserData', synonym: 'retrieve' },
 		{ name: 'readUserData', synonym: 'read' },
-	])('collapses $synonym onto get, so $name keys the same as getUserData', ({ name }) => {
-		expect(getNameKey({ name })).toBe(getNameKey({ name: 'getUserData' }));
+	])('collapses $synonym onto get, so $name keys as "data get user"', ({ name }) => {
+		const key = getNameKey({ name });
+
+		expect(key).toBe('data get user');
 	});
 
 	test.each([
-		{ name: 'makeReport', canonical: 'createReport' },
-		{ name: 'generateReport', canonical: 'createReport' },
-		{ name: 'produceReport', canonical: 'createReport' },
-		{ name: 'removeSession', canonical: 'deleteSession' },
-		{ name: 'modifySession', canonical: 'updateSession' },
-		{ name: 'verifyToken', canonical: 'validateToken' },
-		{ name: 'checkToken', canonical: 'validateToken' },
-	])('collapses $name onto $canonical', ({ name, canonical }) => {
-		expect(getNameKey({ name })).toBe(getNameKey({ name: canonical }));
+		{ name: 'makeReport', expected: 'create report' },
+		{ name: 'generateReport', expected: 'create report' },
+		{ name: 'produceReport', expected: 'create report' },
+		{ name: 'createReport', expected: 'create report' },
+		{ name: 'removeSession', expected: 'delete session' },
+		{ name: 'deleteSession', expected: 'delete session' },
+		{ name: 'modifySession', expected: 'session update' },
+		{ name: 'updateSession', expected: 'session update' },
+		{ name: 'verifyToken', expected: 'token validate' },
+		{ name: 'checkToken', expected: 'token validate' },
+		{ name: 'validateToken', expected: 'token validate' },
+	])('collapses $name onto "$expected"', ({ name, expected }) => {
+		const key = getNameKey({ name });
+
+		expect(key).toBe(expected);
 	});
 
 	test('ignores word order, so a name reshuffled around its verb keys the same', () => {
-		expect(getNameKey({ name: 'userDataGet' })).toBe(getNameKey({ name: 'getUserData' }));
+		const key = getNameKey({ name: 'userDataGet' });
+
+		expect(key).toBe('data get user');
 	});
 
 	test.each([{ name: 'get-user-data' }, { name: 'get_user_data' }, { name: 'user.data.get' }])('reads $name through its separators', ({ name }) => {
-		expect(getNameKey({ name })).toBe(getNameKey({ name: 'getUserData' }));
+		const key = getNameKey({ name });
+
+		expect(key).toBe('data get user');
 	});
 
-	test('pins word order on a conversion, so opposite directions stay two concepts', () => {
-		expect(getNameKey({ name: 'hexToRgb' })).not.toBe(getNameKey({ name: 'rgbToHex' }));
-	});
+	test.each([
+		{ name: 'hexToRgb', expected: 'hex to rgb' },
+		{ name: 'rgbToHex', expected: 'rgb to hex' },
+		{ name: 'fromHexColor', expected: 'from hex color' },
+	])('pins word order on $name, so opposite directions stay two concepts', ({ name, expected }) => {
+		const key = getNameKey({ name });
 
-	test('pins word order on a from-conversion for the same reason', () => {
-		expect(getNameKey({ name: 'fromHexColor' })).toBe('from hex color');
+		expect(key).toBe(expected);
 	});
 
 	test('leaves two unrelated names apart', () => {
-		expect(getNameKey({ name: 'getUserData' })).not.toBe(getNameKey({ name: 'getUserRoles' }));
+		const key = getNameKey({ name: 'getUserData' });
+
+		expect(key).not.toBe(getNameKey({ name: 'getUserRoles' }));
 	});
 });

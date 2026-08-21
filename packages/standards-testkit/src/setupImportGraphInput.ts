@@ -2,7 +2,6 @@ import type { ImportGraphInput, StandardsCheckInput } from '@lightsout/standards
 import { StandardsInputKind } from '@lightsout/standards-contracts';
 
 interface Params extends Partial<Omit<ImportGraphInput, 'kind'>> {
-	/** Which file imports which. */
 	edges?: Array<{ from: string; to: string }>;
 }
 
@@ -12,7 +11,7 @@ interface Params extends Partial<Omit<ImportGraphInput, 'kind'>> {
  * Both ends of every edge become known files, so a test states the graph once
  * rather than stating it and then separately listing its own participants.
  *
- * @param edges - the import relationships
+ * @param edges - which file imports which
  */
 export const setupImportGraphInput = ({ edges = [], ...overrides }: Params = {}): StandardsCheckInput => {
 	const paths = [...new Set(edges.flatMap(({ from, to }) => [from, to]))];

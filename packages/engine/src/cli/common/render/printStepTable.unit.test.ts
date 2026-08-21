@@ -79,10 +79,23 @@ test('printStepTable: a run with no agent invocations dashes out the agent colum
 	]);
 });
 
-test('printStepTable: a status with no icon of its own falls back to a question mark rather than blanking the cell', () => {
+test('printStepTable: a status this build has no icon for falls back to a question mark rather than blanking the cell', () => {
 	const { steps, logged } = setupStepTable({
+		// Every status in the union has an icon — the table is typed to make sure
+		// of it. This is the case that outlives that guarantee: a manifest written
+		// by a newer build, read back by an older one, carries a status string this
+		// build has never heard of. Cast, because no honest value can express it.
 		steps: [
-			{ id: 'park', status: RunStatus.PausedBudget, attempts: 1, durationMs: undefined, changedFiles: undefined, invocations: 0, outputTokens: 0, costUsd: 0 },
+			{
+				id: 'park',
+				status: 'from-a-later-build' as RunStatus,
+				attempts: 1,
+				durationMs: undefined,
+				changedFiles: undefined,
+				invocations: 0,
+				outputTokens: 0,
+				costUsd: 0,
+			},
 		],
 	});
 

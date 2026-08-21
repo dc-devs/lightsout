@@ -24641,6 +24641,8 @@ var statusIcons = {
   [RunStatus.Running]: "\u2026",
   [RunStatus.Pending]: "\u25CB",
   [RunStatus.PausedRateLimit]: "\u23F8",
+  // stopped and resumable, exactly like the rate-limit pause
+  [RunStatus.PausedBudget]: "\u23F8",
   [RunStatus.Escalated]: "\u2691"
 };
 
@@ -26547,14 +26549,14 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
   };
 };
 
-// src/agents/formatFindingSite.ts
-var formatFindingSite = ({ file: file2 }) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`;
-
-// src/agents/formatFindingText.ts
-var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \u2014 ${finding.guidance}` : finding.detail;
-
 // src/agents/prompts/refactorExecutor.md
 var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer reviewing recently changed files for\nrefactoring opportunities. You work autonomously: the plan and any standards\nare appended to these instructions, while the changed files, standards findings,\nand any verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\n## Scope\n\nReview ONLY the changed files listed in your task. Read them, plus enough\nsurrounding code to judge conventions, then apply improvements that are\nhigh-confidence and behavior-preserving:\n\n- Duplication introduced by the change (extract if the repo has a place for it)\n- Dead code, unused exports, leftover scaffolding from the change\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limit below still governs an advisory: never change behavior or a\n  public API. An advisory whose only available fix would do either is REPORTED\n  as a noted exemption with your reason, never applied.\n- Deleting an export is a public-API change by definition. A dead-export-family\n  advisory (`dead-export`, `test-only-export`, `barrel-only-export`) is\n  therefore reported rather than acted on, unless the finding itself proves\n  nothing consumes the export.\n\n## Hard limits\n\n- Never change behavior, public APIs, or add functionality.\n- Never refactor files outside the listed set (reading is fine; writing is not).\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
+
+// src/common/findings/formatFindingSite.ts
+var formatFindingSite = ({ file: file2 }) => `${file2.path}${file2.startLine ? `:${file2.startLine}${file2.endLine && file2.endLine !== file2.startLine ? `-${file2.endLine}` : ""}` : ""}`;
+
+// src/common/findings/formatFindingText.ts
+var formatFindingText = ({ finding }) => finding.guidance ? `${finding.detail} \u2014 ${finding.guidance}` : finding.detail;
 
 // src/agents/buildRefactorExecutorInvocation.ts
 var advisoryOutcomesSection = [
@@ -40148,14 +40150,6 @@ var runStandardsCheck = async ({
   return { findings: baseline.reported, notes };
 };
 
-// src/common/utils/formatElapsed.ts
-var formatElapsed = ({ elapsedMs }) => {
-  const totalSeconds = Math.round(elapsedMs / 1e3);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return minutes === 0 ? `${seconds}s` : `${minutes}m${String(seconds).padStart(2, "0")}s`;
-};
-
 // src/standardsCheck/common/utils/createAgentHeartbeat.ts
 var AssistantEvent = external_exports.object({
   type: external_exports.literal("assistant"),
@@ -40177,7 +40171,7 @@ var createAgentHeartbeat = ({ label, onProgress, intervalMs = 3e4 }) => {
   const filesRead = /* @__PURE__ */ new Set();
   let stoppedAt;
   const tick = () => {
-    const elapsed = formatElapsed({ elapsedMs: Date.now() - startedAt });
+    const elapsed = formatDuration({ ms: Date.now() - startedAt });
     const activity = filesRead.size === 0 ? "" : ` \xB7 ${filesRead.size} file${filesRead.size === 1 ? "" : "s"} read so far`;
     onProgress(`\u23F3 ${label} still running \xB7 ${elapsed}${activity}`);
   };
@@ -40258,7 +40252,7 @@ var runStandardsReview = async ({
     timeoutMs,
     onEvent: heartbeat.onEvent
   }).finally(() => heartbeat.stop());
-  const elapsed = formatElapsed({ elapsedMs: heartbeat.elapsedMs() });
+  const elapsed = formatDuration({ ms: heartbeat.elapsedMs() });
   if (!outcome.ok) {
     onProgress?.(`Agent review stopped after ${elapsed}.`);
     return { findings: [], notes: [`agent review skipped \u2014 ${outcome.failure}`] };
@@ -41770,10 +41764,14 @@ var PlanRunStatus = {
 // src/plan/detectPriorArtCandidates.ts
 import { readFile as readFile28 } from "node:fs/promises";
 
-// src/common/naming/collapseCasing.ts
-var collapseCasing = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+// src/plan/common/naming/collapseCasing.ts
+var collapseCasing = ({ name }) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-// src/common/naming/nameKey.ts
+// src/plan/common/naming/getExportName.ts
+import { basename as basename5 } from "node:path";
+var getExportName = ({ path }) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
+
+// src/plan/common/naming/getNameKey.ts
 var verbSynonyms = {
   fetch: "get",
   load: "get",
@@ -41788,14 +41786,10 @@ var verbSynonyms = {
   check: "validate"
 };
 var getTokens = ({ name }) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[\s\-_.]+/).filter(Boolean).map((token) => token.toLowerCase()).map((token) => verbSynonyms[token] ?? token);
-var nameKey = ({ name }) => {
+var getNameKey = ({ name }) => {
   const tokens = getTokens({ name });
   return tokens.includes("to") || tokens.includes("from") ? tokens.join(" ") : [...tokens].sort().join(" ");
 };
-
-// src/common/naming/nameOf.ts
-import { basename as basename5 } from "node:path";
-var nameOf = (path) => basename5(path).replace(/\.(m|c)?[jt]sx?$/, "");
 
 // src/plan/common/paths/pathFromLine.ts
 var pathFromLine = ({ line }) => {
@@ -41839,7 +41833,7 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
     }
     for (const createPath of planCreatePaths({ planText })) {
       plannedPaths.add(createPath);
-      const plannedSymbol = nameOf(createPath);
+      const plannedSymbol = getExportName({ path: createPath });
       if (plannedSymbol === "index") {
         continue;
       }
@@ -41850,16 +41844,18 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
     return [];
   }
   const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: config2?.generated });
-  const census = files.filter((file2) => !isTestFile({ path: file2, standardsPackages }) && nameOf(file2) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: nameOf(file2), path: file2 }));
+  const census = files.filter((file2) => !isTestFile({ path: file2, standardsPackages }) && getExportName({ path: file2 }) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: getExportName({ path: file2 }), path: file2 }));
   const buckets = /* @__PURE__ */ new Map();
   for (const entry of census) {
-    const key = nameKey({ name: entry.name });
+    const key = getNameKey({ name: entry.name });
     buckets.set(key, [...buckets.get(key) ?? [], entry]);
   }
   const candidates = [];
   for (const { plannedSymbol, plannedPath } of planned) {
-    const bucket = buckets.get(nameKey({ name: plannedSymbol })) ?? [];
-    const collidesWith = bucket.filter((entry) => entry.name === plannedSymbol || collapseCasing(entry.name) !== collapseCasing(plannedSymbol));
+    const bucket = buckets.get(getNameKey({ name: plannedSymbol })) ?? [];
+    const collidesWith = bucket.filter(
+      (entry) => entry.name === plannedSymbol || collapseCasing({ name: entry.name }) !== collapseCasing({ name: plannedSymbol })
+    );
     if (collidesWith.length > 0) {
       candidates.push({ plannedSymbol, plannedPath, collidesWith });
     }
@@ -44248,7 +44244,7 @@ var standardsCheckCommand = async ({ flags, cwd }) => {
       onProgress: printProgress
     });
     const ordered = orderBySeverity({ findings: checked.findings });
-    printProgress(`\u2713 Code checks finished in ${formatElapsed({ elapsedMs: Date.now() - startedAt })} \u2014 ${describeCodeFindings({ findings: ordered })}`);
+    printProgress(`\u2713 Code checks finished in ${formatDuration({ ms: Date.now() - startedAt })} \u2014 ${describeCodeFindings({ findings: ordered })}`);
     printSectionResult({ findings: ordered, notes: checked.notes });
     findings.push(...ordered);
     notes.push(...checked.notes);

@@ -2,7 +2,6 @@ import type { FileListInput, StandardsCheckInput } from '@lightsout/standards-co
 import { StandardsInputKind } from '@lightsout/standards-contracts';
 
 interface Params extends Partial<Omit<FileListInput, 'kind' | 'dependencies'>> {
-	/** Declared dependency names per package directory, as pairs — `'.'` is the repo root. */
 	dependencies?: Array<[string, string[]]>;
 }
 
@@ -20,7 +19,7 @@ interface Params extends Partial<Omit<FileListInput, 'kind' | 'dependencies'>> {
  * other factories take `contents` and `sources`. A test states data; building
  * the collection is this function's job.
  *
- * @param dependencies - declared dependency names per package directory
+ * @param dependencies - declared dependency names per package directory, as pairs — `'.'` is the repo root
  */
 export const setupFileListInput = ({ files, source, tests = [], dependencies = [], ...overrides }: Params = {}): StandardsCheckInput => ({
 	kind: StandardsInputKind.FileList,

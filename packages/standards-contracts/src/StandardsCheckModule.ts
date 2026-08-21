@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { StandardsCheckRun } from '#src/StandardsCheckRun.ts';
+import type { StandardsCheckFunction } from '#src/StandardsCheckFunction.ts';
 import { StandardsInputKind } from '#src/StandardsInputKind.ts';
 
 /**
@@ -10,7 +10,7 @@ import { StandardsInputKind } from '#src/StandardsInputKind.ts';
  */
 export const StandardsCheckModule = z.object({
 	inputKind: z.enum(StandardsInputKind),
-	run: z.custom<StandardsCheckRun>((value) => typeof value === 'function'),
+	run: z.custom<StandardsCheckFunction>((value) => typeof value === 'function'),
 });
 
 export type StandardsCheckModule = z.infer<typeof StandardsCheckModule>;

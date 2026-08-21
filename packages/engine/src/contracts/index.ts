@@ -9,8 +9,8 @@ export type {
 	FileListInput,
 	FileTextInput,
 	ImportGraphInput,
+	StandardsCheckFunction,
 	StandardsCheckInput,
-	StandardsCheckRun,
 	SyntaxTreeInput,
 	TestFileInput,
 } from '@lightsout/standards-contracts';

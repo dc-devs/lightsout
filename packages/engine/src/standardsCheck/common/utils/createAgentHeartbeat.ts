@@ -1,5 +1,5 @@
+import { formatDuration } from '@lightsout/shared';
 import { z } from 'zod';
-import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 import type { AgentHeartbeat } from '#src/standardsCheck/common/types/AgentHeartbeat.ts';
 
 /**
@@ -52,7 +52,7 @@ export const createAgentHeartbeat = ({ label, onProgress, intervalMs = 30_000 }:
 	let stoppedAt: number | undefined;
 
 	const tick = () => {
-		const elapsed = formatElapsed({ elapsedMs: Date.now() - startedAt });
+		const elapsed = formatDuration({ ms: Date.now() - startedAt });
 		const activity = filesRead.size === 0 ? '' : ` · ${filesRead.size} file${filesRead.size === 1 ? '' : 's'} read so far`;
 
 		onProgress(`⏳ ${label} still running · ${elapsed}${activity}`);

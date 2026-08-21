@@ -5,7 +5,7 @@ import type ts from 'typescript';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import type { StandardsCheckRun, StandardsInputKind } from '#src/contracts/index.ts';
+import type { StandardsCheckFunction, StandardsInputKind } from '#src/contracts/index.ts';
 import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
 import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
 import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
@@ -75,7 +75,7 @@ const checkFixture = async ({
 }: {
 	rule: LoadedStandardsRule;
 	inputKind: StandardsInputKind;
-	run: StandardsCheckRun;
+	run: StandardsCheckFunction;
 	/** The fixture folder to run the check against — also the folder's own name. */
 	side: FixtureSide;
 	compiler?: typeof ts;

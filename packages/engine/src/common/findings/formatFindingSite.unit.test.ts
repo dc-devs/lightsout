@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { formatFindingSite } from '#src/agents/index.ts';
+import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface SetupParams {

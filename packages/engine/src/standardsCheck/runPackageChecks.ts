@@ -1,7 +1,7 @@
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
-import { type StandardsCheckInput, type StandardsCheckRun, type StandardsFinding, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { type StandardsCheckFunction, type StandardsCheckInput, type StandardsFinding, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
 import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
@@ -13,7 +13,7 @@ import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 interface LiveRule {
 	id: string;
 	inputKind: StandardsInputKind;
-	run: StandardsCheckRun;
+	run: StandardsCheckFunction;
 	/** Only the two reporting severities — an `off` rule never becomes a live one. */
 	severity: StandardsFinding['severity'];
 	settings: Record<string, number>;

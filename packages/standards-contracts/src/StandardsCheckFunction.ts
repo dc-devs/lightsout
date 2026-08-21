@@ -6,7 +6,7 @@ import type { StandardsCheckInput } from '#src/StandardsCheckInput.ts';
  * already built and returns the sites it objects to — no filesystem, no
  * severity, no rule id.
  */
-export type StandardsCheckRun = (params: {
+export type StandardsCheckFunction = (params: {
 	input: StandardsCheckInput;
 	/** The rule's resolved numeric settings — front-matter defaults under any config override. */
 	settings: Record<string, number>;

@@ -1,3 +1,4 @@
+import { ImportTargetKind } from '../constants/ImportTargetKind.ts';
 import type { BarrelSurface } from '../types/BarrelSurface.ts';
 import { readBarrelExports } from './readBarrelExports.ts';
 
@@ -30,7 +31,7 @@ export const readBarrelSurface = ({ barrelPath, contents, files }: Params): Barr
 	const exports = readBarrelExports({ barrelPath, contents, files });
 
 	return {
-		targets: new Set(exports.flatMap((entry) => (entry.target.kind === 'file' ? [entry.target.path] : []))),
-		complete: exports.every((entry) => entry.target.kind !== 'unknown'),
+		targets: new Set(exports.flatMap((entry) => (entry.target.kind === ImportTargetKind.File ? [entry.target.path] : []))),
+		complete: exports.every((entry) => entry.target.kind !== ImportTargetKind.Unknown),
 	};
 };

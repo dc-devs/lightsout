@@ -1,4 +1,5 @@
-import { formatFindingSite, formatFindingText } from '#src/agents/index.ts';
+import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
+import { formatFindingText } from '#src/common/findings/formatFindingText.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 
 interface Params {

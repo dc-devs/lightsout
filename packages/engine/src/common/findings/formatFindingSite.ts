@@ -7,8 +7,9 @@ interface Params {
 
 /**
  * One finding location as `path[:start[-end]]` — the shared rendering used
- * wherever findings become text for an agent prompt or an escalation message,
- * so the two can never drift apart.
+ * wherever a finding becomes text: an agent prompt, an escalation message, a
+ * terminal table. Everything that names a site says it the same way, so a
+ * reader moving between them never has to re-learn the format.
  */
 export const formatFindingSite = ({ file }: Params): string =>
 	`${file.path}${file.startLine ? `:${file.startLine}${file.endLine && file.endLine !== file.startLine ? `-${file.endLine}` : ''}` : ''}`;

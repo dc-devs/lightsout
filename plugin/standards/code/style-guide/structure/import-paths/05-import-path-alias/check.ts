@@ -1,5 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import { readFileTexts } from '../../../../../common/checkInput/readFileTexts.ts';
+import { ImportTargetKind } from '../../../../../common/constants/ImportTargetKind.ts';
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 import { findPathAliases } from '../../../../../common/imports/findPathAliases.ts';
 import { resolveImport } from '../../../../../common/imports/resolveImport.ts';
@@ -60,7 +61,7 @@ export const check: StandardsCheckModule = {
 
 				const relative = getSpecifiers({ text: contents.get(file) ?? '' })
 					.filter((specifier) => specifier.startsWith('.'))
-					.filter((specifier) => resolveImport({ from: file, specifier, files: fileSet, aliases }).kind === 'file');
+					.filter((specifier) => resolveImport({ from: file, specifier, files: fileSet, aliases }).kind === ImportTargetKind.File);
 
 				return relative.length === 0
 					? undefined
