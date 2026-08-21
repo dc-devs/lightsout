@@ -4,9 +4,6 @@ import { invokeCoverageAgent } from '#src/coverage/batch/invokeCoverageAgent.ts'
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
 import type { Driver } from '#src/drivers/index.ts';
 
-const standaloneBanner =
-	"Standalone coverage run — there is no feature plan. The files listed below are import-connected groups containing the run's current worst-covered files; raise their unit-test coverage. Change no source file: tests are the only deliverable.";
-
 interface Params {
 	cwd: string;
 	runId: string;
@@ -47,6 +44,9 @@ export const createCoverageInvoker = ({
 	let invocationCount = 0;
 
 	return ({ label, errorContext }) => {
+		const standaloneBanner =
+			"Standalone coverage run — there is no feature plan. The files listed below are import-connected groups containing the run's current worst-covered files; raise their unit-test coverage. Change no source file: tests are the only deliverable.";
+
 		invocationCount += 1;
 
 		return invokeCoverageAgent({

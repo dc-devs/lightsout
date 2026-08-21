@@ -25969,6 +25969,17 @@ var RunState = class {
   async setStep({ record: record2, patch }) {
     await this.update({ patch: { ...patch, currentStep: record2.id, steps: upsertStep({ steps: this.manifest.steps, record: record2 }) } });
   }
+  /**
+   * Persist a step's terminal status and the run's, then announce the halt.
+   * The result a halted run reports is the holder's — this is only the
+   * persist-and-announce half, which every kind of run does the same way.
+   *
+   * @param label - what the announcement calls this run, e.g. `coverage run`
+   */
+  async stop({ record: record2, status, error: error51, label }) {
+    await this.setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
+    this.progress(`${label} stopped at ${record2.id} \u2014 ${status}`);
+  }
   recordUsage({ step, usage: usage2 }) {
     return recordAgentUsage({
       cwd: this.cwd,
@@ -26734,89 +26745,206 @@ var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
 // src/pipeline/common/utils/sourceFiles.ts
 var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile({ path: file2 }) && isTestableSourceFile({ path: file2 }));
 
-// src/common/fileGroups/chunkFileGroup.ts
-var chunkFileGroup = ({ files, max }) => {
-  const sorted = [...files].sort();
-  const chunks = [];
-  for (let start = 0; start < sorted.length; start += max) {
-    chunks.push(sorted.slice(start, start + max));
+// src/coverage/batch/invokeCoverageAgent.ts
+import { mkdir as mkdir6, writeFile as writeFile4 } from "node:fs/promises";
+import { join as join30 } from "node:path";
+var invokeCoverageAgent = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  batchId,
+  invocation,
+  label,
+  invocationCount,
+  agentTimeoutMs,
+  reportedFiles,
+  rationale,
+  recordUsage
+}) => {
+  const agentsDir = join30(getRunDir({ cwd, runId }), "agents");
+  const slug = batchId.replace(/[:/]/g, "_");
+  const streamPath = join30(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
+  await mkdir6(agentsDir, { recursive: true });
+  const outcome = await invokeAgentWithContract({
+    driver,
+    cwd,
+    invocation,
+    contract: WorkReport,
+    model: config2.model,
+    effort: config2.effort,
+    permissions: config2.permissions ?? Permissions.Write,
+    timeoutMs: agentTimeoutMs,
+    allowedCommands: config2["agent-commands"],
+    onEvent: createEventFileSink({ path: streamPath }),
+    onRejectedOutput: async ({ text, attempt }) => {
+      await writeFile4(join30(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+    }
+  });
+  await recordUsage({ step: `${batchId}${label ? ` ${label}` : ""}`, usage: outcome.usage });
+  if (!outcome.ok) {
+    return outcome;
   }
-  return chunks;
+  for (const file2 of outcome.report.changedFiles) {
+    reportedFiles.add(file2.path);
+  }
+  if (outcome.report.friction && outcome.report.friction.length > 0) {
+    await appendFriction({ cwd, runId, step: batchId, friction: outcome.report.friction });
+    rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
+  }
+  return outcome;
 };
 
-// src/coverage/buildCoverageBatch.ts
-var maxWriterGroupFiles = 12;
-var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => {
-  const scope = files[0].scope;
-  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
-  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
-  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
-  const groupOf = ({ component }) => {
-    const candidates = candidatesOf({ members: component });
-    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
-      return { members: component, candidates };
-    }
-    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
-    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
-    return { members: members2, candidates: candidatesOf({ members: members2 }) };
-  };
-  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
-    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
+// src/coverage/batch/checkTestsOnly.ts
+import { dirname as dirname6 } from "node:path";
+
+// src/common/utils/collectBatchChanges.ts
+var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
+  const attributed = new Set(attributedFiles);
+  const isGenerated = ({ file: file2 }) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated({ file: file2 }));
+  return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
+};
+
+// src/coverage/batch/checkTestsOnly.ts
+var isMeasurementOutput = ({ path, coverageDir, packagesDir }) => {
+  const owner = packageOf({ file: path, packagesDir });
+  const withinPackage = owner === void 0 ? path : path.slice(`${packagesDir}/${owner}/`.length);
+  return path.startsWith(`${coverageDir}/`) || withinPackage.startsWith(`${coverageDir}/`);
+};
+var checkTestsOnly = async ({
+  cwd,
+  config: config2,
+  batchId,
+  reportedFiles,
+  attributedFiles
+}) => {
+  const coverageDir = dirname6(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const changedFiles = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
+    (path) => !isMeasurementOutput({ path, coverageDir, packagesDir })
   );
-  const members = [];
-  const tracked = [];
-  for (const group of ranked) {
-    if (tracked.length >= batchSize) {
-      break;
-    }
-    members.push(...group.members);
-    tracked.push(...group.candidates);
-  }
+  const offenders = changedFiles.filter((path) => !isTestFile({ path }));
   return {
-    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
-    scope,
-    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
-    members
+    changedFiles,
+    error: offenders.length === 0 ? void 0 : `${batchId}: this run may change no source file, but these are modified:
+${offenders.map((path) => `  ${path}`).join("\n")}
+The tree is left as it stands \u2014 revert these changes by hand before resuming, since the engine never reverts and a resumed run would measure the contaminated tree.`
   };
 };
 
-// src/coverage/checkChangedFilesExecuted.ts
+// src/coverage/batch/createCoverageInvoker.ts
+var createCoverageInvoker = ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  batch,
+  testStandards,
+  agentTimeoutMs,
+  reportedFiles,
+  rationale,
+  recordUsage
+}) => {
+  let invocationCount = 0;
+  return ({ label, errorContext }) => {
+    const standaloneBanner2 = "Standalone coverage run \u2014 there is no feature plan. The files listed below are import-connected groups containing the run's current worst-covered files; raise their unit-test coverage. Change no source file: tests are the only deliverable.";
+    invocationCount += 1;
+    return invokeCoverageAgent({
+      cwd,
+      runId,
+      driver,
+      config: config2,
+      batchId: batch.id,
+      invocation: buildUnitTestWriterInvocation({
+        planContent: standaloneBanner2,
+        subjects: batch.members,
+        mustExecute: batch.members,
+        standards: testStandards,
+        errorContext
+      }),
+      label,
+      invocationCount,
+      agentTimeoutMs,
+      reportedFiles,
+      rationale,
+      recordUsage
+    });
+  };
+};
+
+// src/coverage/common/constants/CoverageBatchStopKind.ts
+var CoverageBatchStopKind = {
+  Parked: "parked",
+  Failed: "failed",
+  Escalated: "escalated",
+  Done: "done"
+};
+
+// src/coverage/batch/getCoverageAttemptStop.ts
+var unmeasured = ({ batch }) => batch.files.map((file2) => ({ path: file2.path, beforePct: file2.statementsPct, afterPct: file2.statementsPct }));
+var salvage = async ({
+  batchId,
+  failure,
+  rationale,
+  onProgress,
+  testsOnly,
+  measure,
+  gates,
+  finish
+}) => {
+  const violation = await testsOnly();
+  if (violation) {
+    return { kind: CoverageBatchStopKind.Failed, error: violation };
+  }
+  const salvaged = await measure();
+  let stop = { kind: CoverageBatchStopKind.Failed, error: `${batchId}: ${failure}` };
+  if (salvaged.improved && !await gates()) {
+    rationale.push(`[other] salvaged: agent invocation failed (${failure}) but coverage improved and gates are green`);
+    onProgress(`${batchId}: invocation failed but coverage moved on disk \u2014 salvaged as resolved`);
+    stop = finish({ outcome: BatchOutcome.Resolved, files: salvaged.files });
+  }
+  return stop;
+};
+var getCoverageAttemptStop = async ({
+  batchId,
+  batch,
+  attempt,
+  rationale,
+  onProgress,
+  testsOnly,
+  measure,
+  gates,
+  finish
+}) => {
+  if (!attempt.ok) {
+    return attempt.rateLimited ? { kind: CoverageBatchStopKind.Parked } : salvage({ batchId, failure: attempt.failure, rationale, onProgress, testsOnly, measure, gates, finish });
+  }
+  const violation = await testsOnly();
+  const { report } = attempt;
+  let stop;
+  if (violation) {
+    stop = { kind: CoverageBatchStopKind.Failed, error: violation };
+  } else if (report.status === WorkReportStatus.TerminatedScope || report.status === WorkReportStatus.Failed) {
+    const marker = report.status === WorkReportStatus.TerminatedScope ? "scope" : "failed";
+    rationale.push(...report.failures.map((entry) => `[${marker}] ${entry}`));
+    stop = finish({ outcome: BatchOutcome.Declined, files: unmeasured({ batch }) });
+  } else if (report.status !== WorkReportStatus.Complete) {
+    stop = { kind: CoverageBatchStopKind.Escalated, error: `${batchId}: ${report.status} \u2014 ${report.failures.join("; ")}` };
+  }
+  return stop;
+};
+
+// src/coverage/runCoverageCheck.ts
 import { readFile as readFile18 } from "node:fs/promises";
-import { join as join31, relative as relative3 } from "node:path";
-
-// src/common/sourceFiles/isToolingConfigFile.ts
-var isToolingConfigFile = ({ path, packagesDir }) => {
-  const segments = path.split("/");
-  const name = segments.at(-1) ?? "";
-  const folder = segments.slice(0, -1);
-  if (!/\.config\.(c|m)?[jt]s$/i.test(name)) {
-    return false;
-  }
-  return folder.length === 0 || folder.length === 2 && folder[0] === packagesDir;
-};
-
-// src/common/sourceFiles/isUnloadableSourceFile.ts
-var hasModuleScopeAwait = ({ node, compiler }) => {
-  if (compiler.isFunctionLike(node) || compiler.isClassLike(node)) {
-    return false;
-  }
-  if (compiler.isAwaitExpression(node) || compiler.isForOfStatement(node) && node.awaitModifier !== void 0) {
-    return true;
-  }
-  return node.forEachChild((child) => hasModuleScopeAwait({ node: child, compiler })) === true;
-};
-var isUnloadableSourceFile = ({ path, content, compiler }) => {
-  const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
-  const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
-  return source.statements.some((statement) => hasModuleScopeAwait({ node: statement, compiler }));
-};
+import { join as join32, relative as relative3 } from "node:path";
 
 // src/coverage/common/utils/buildMissingSummaryMessage.ts
 var buildMissingSummaryMessage = ({ summaryPath, scope }) => `no readable coverage summary at ${summaryPath} after the ${scope} coverage command ran \u2014 configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing that path, or set coverage-summary-path in lightsout.config.json. \`lightsout doctor\` checks this.`;
 
 // src/coverage/resolveCoverageScopes.ts
 import { readdir as readdir11 } from "node:fs/promises";
-import { join as join30 } from "node:path";
+import { join as join31 } from "node:path";
 var rootScope = "root";
 var listPackageScopes = async ({
   cwd,
@@ -26825,7 +26953,7 @@ var listPackageScopes = async ({
   summaryPath,
   scope
 }) => {
-  const entries = await readdir11(join30(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
+  const entries = await readdir11(join31(cwd, packagesDir), { withFileTypes: true }).catch(() => []);
   const scriptName = extractRunScriptName({ command: template });
   const scopes = [];
   for (const entry of entries.filter((item) => item.isDirectory() && !item.name.startsWith("."))) {
@@ -26839,7 +26967,7 @@ var listPackageScopes = async ({
     scopes.push({
       scope: entry.name,
       command: template.split("{package}").join(manifest.name),
-      summaryPath: join30(packagesDir, entry.name, summaryPath)
+      summaryPath: join31(packagesDir, entry.name, summaryPath)
     });
   }
   return scopes;
@@ -26854,79 +26982,11 @@ var resolveCoverageScopes = async ({ cwd, config: config2, summaryPath, scope })
   return scoped;
 };
 
-// src/coverage/checkChangedFilesExecuted.ts
-var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
-var readExecutionSummary = async ({ cwd, summaryPath }) => {
-  try {
-    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile18(join31(cwd, summaryPath), "utf8")));
-    return new Map(Object.entries(parsed).map(([key, entry]) => [relative3(cwd, key), entry.statements]));
-  } catch {
-    return void 0;
-  }
-};
-var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, compiler }) => {
-  if (changedFiles.length === 0 || compiler === void 0) {
-    return void 0;
-  }
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  const candidates = [];
-  for (const file2 of changedFiles.filter(
-    (changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
-  )) {
-    const content = await readFile18(join31(cwd, file2), "utf8").catch(() => void 0);
-    if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler }) && !isUnloadableSourceFile({ path: file2, content, compiler })) {
-      candidates.push(file2);
-    }
-  }
-  if (candidates.length === 0) {
-    return void 0;
-  }
-  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
-  const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath });
-  const monorepo = config2["package-gates"]?.["test-coverage"] !== void 0;
-  const scopeOf = ({ file: file2 }) => {
-    const packageDir = packageOf({ file: file2, packagesDir });
-    if (monorepo) {
-      return packageDir === void 0 ? void 0 : scopes.find((entry) => entry.scope === packageDir);
-    }
-    return packageDir === void 0 ? scopes[0] : void 0;
-  };
-  const summaries = /* @__PURE__ */ new Map();
-  const unexecuted = [];
-  for (const file2 of candidates) {
-    const scope = scopeOf({ file: file2 });
-    if (scope === void 0) {
-      continue;
-    }
-    if (!summaries.has(scope.scope)) {
-      summaries.set(scope.scope, await readExecutionSummary({ cwd, summaryPath: scope.summaryPath }));
-    }
-    const summary = summaries.get(scope.scope);
-    if (summary === void 0) {
-      return buildMissingSummaryMessage({ summaryPath: scope.summaryPath, scope: scope.scope });
-    }
-    const entry = summary.get(file2);
-    if (entry === void 0 || entry.covered === 0 && entry.total !== 0) {
-      unexecuted.push(file2);
-    }
-  }
-  if (unexecuted.length === 0) {
-    return void 0;
-  }
-  return `changed-file-execution: ${unexecuted.length} changed file(s) never executed under the tests: ${unexecuted.join(", ")} \u2014 cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.`;
-};
-
-// src/coverage/initializeCoverageRun.ts
-import { readFile as readFile20, writeFile as writeFile4 } from "node:fs/promises";
-import { join as join33 } from "node:path";
-
 // src/coverage/runCoverageCheck.ts
-import { readFile as readFile19 } from "node:fs/promises";
-import { join as join32, relative as relative4 } from "node:path";
 var CoverageSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ pct: external_exports.unknown() }) }));
 var readJsonFile = async ({ path }) => {
   try {
-    const parsed = JSON.parse(await readFile19(path, "utf8"));
+    const parsed = JSON.parse(await readFile18(path, "utf8"));
     return parsed;
   } catch {
     return void 0;
@@ -26948,7 +27008,7 @@ var readScopeSummary = async ({ cwd, scope, summaryPath, passed }) => {
       statementsPct = pct;
       continue;
     }
-    files.push({ path: relative4(cwd, key), scope, statementsPct: pct });
+    files.push({ path: relative3(cwd, key), scope, statementsPct: pct });
   }
   return { files, total: { scope, statementsPct, passed } };
 };
@@ -26987,104 +27047,40 @@ var runCoverageCheck = async ({
   };
 };
 
-// src/coverage/initializeCoverageRun.ts
-var initializeCoverageRun = async ({
-  cwd,
-  runId,
-  driver,
-  config: config2,
-  allowDirty = false,
-  existing
-}) => {
-  if (existing) {
-    const pipeline = existing.pipeline ?? "implement";
-    if (pipeline !== "coverage") {
-      const command = pipeline === "refactor" ? "refactor" : "resume";
-      throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
-    }
-    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile20(join33(cwd, existing.plan), "utf8"))) };
-  }
-  if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
-    throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
-  }
-  const dirty = await readGitChangedFiles({ cwd });
-  if (dirty === void 0) {
-    throw new Error("test-coverage-to-threshold requires a git worktree \u2014 without git, changes cannot be attributed or reviewed as one diff.");
-  }
-  if (dirty.length > 0 && !allowDirty) {
-    throw new Error(
-      `test-coverage-to-threshold requires a clean tree \u2014 commit or stash first, or accept the standing changes as baseline with --allow-dirty. Dirty:
-${dirty.map((file2) => `  ${file2}`).join("\n")}`
-    );
-  }
-  const measured = await runCoverageCheck({ cwd, config: config2 });
-  const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
-  const worklistPath = join33(".lightsout", "runs", runId, "worklist.json");
-  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
-  await writeFile4(join33(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
-`, "utf8");
-  return { manifest, worklist };
+// src/coverage/batch/measureCoverageBatch.ts
+var measureCoverageBatch = async ({ cwd, config: config2, runId, batch }) => {
+  const measured = await runCoverageCheck({ cwd, config: config2, scope: batch.scope, runId, step: batch.id });
+  const pctByPath = new Map(measured.files.map((file2) => [file2.path, file2.statementsPct]));
+  const files = batch.files.map((file2) => ({ path: file2.path, beforePct: file2.statementsPct, afterPct: pctByPath.get(file2.path) ?? file2.statementsPct }));
+  return { files, improved: files.some((file2) => file2.afterPct > file2.beforePct) };
 };
 
-// src/coverage/invokeCoverageAgent.ts
-import { mkdir as mkdir6, writeFile as writeFile5 } from "node:fs/promises";
-import { join as join34 } from "node:path";
-var invokeCoverageAgent = async ({
-  cwd,
-  runId,
-  driver,
-  config: config2,
-  batchId,
-  invocation,
-  label,
-  invocationCount,
-  agentTimeoutMs,
-  reportedFiles,
-  rationale,
-  recordUsage
-}) => {
-  const agentsDir = join34(getRunDir({ cwd, runId }), "agents");
-  const slug = batchId.replace(/[:/]/g, "_");
-  const streamPath = join34(agentsDir, `stream-${slug}-${invocationCount}.jsonl`);
-  await mkdir6(agentsDir, { recursive: true });
-  const outcome = await invokeAgentWithContract({
-    driver,
-    cwd,
-    invocation,
-    contract: WorkReport,
-    model: config2.model,
-    effort: config2.effort,
-    permissions: config2.permissions ?? Permissions.Write,
-    timeoutMs: agentTimeoutMs,
-    allowedCommands: config2["agent-commands"],
-    onEvent: createEventFileSink({ path: streamPath }),
-    onRejectedOutput: async ({ text, attempt }) => {
-      await writeFile5(join34(agentsDir, `rejected-${slug}-${invocationCount}-${attempt}.txt`), text, "utf8").catch(() => void 0);
+// src/common/constants/maxCheapFixRetries.ts
+var maxCheapFixRetries = 2;
+
+// src/coverage/batch/settleCoverageGates.ts
+var settleCoverageGates = async ({ batchId, onProgress, invokeFix, testsOnly, gates }) => {
+  let gateError = await gates();
+  let stop;
+  for (let retry = 1; gateError && stop === void 0 && retry <= maxCheapFixRetries; retry += 1) {
+    onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
+    const fix = await invokeFix({ label: `fix-${retry}`, errorContext: gateError });
+    if (!fix.ok && fix.rateLimited) {
+      stop = { kind: CoverageBatchStopKind.Parked };
+    } else {
+      const violation = await testsOnly();
+      if (violation) {
+        stop = { kind: CoverageBatchStopKind.Failed, error: violation };
+      } else {
+        gateError = await gates();
+      }
     }
-  });
-  await recordUsage({ step: `${batchId}${label ? ` ${label}` : ""}`, usage: outcome.usage });
-  if (!outcome.ok) {
-    return outcome;
   }
-  for (const file2 of outcome.report.changedFiles) {
-    reportedFiles.add(file2.path);
+  if (stop === void 0 && gateError) {
+    stop = { kind: CoverageBatchStopKind.Failed, error: `${batchId}: gates still red after ${maxCheapFixRetries} fix attempt(s)
+${gateError}` };
   }
-  if (outcome.report.friction && outcome.report.friction.length > 0) {
-    await appendFriction({ cwd, runId, step: batchId, friction: outcome.report.friction });
-    rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
-  }
-  return outcome;
-};
-
-// src/coverage/runCoverageBatch.ts
-import { dirname as dirname6 } from "node:path";
-
-// src/common/utils/collectBatchChanges.ts
-var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
-  const attributed = new Set(attributedFiles);
-  const isGenerated = ({ file: file2 }) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated({ file: file2 }));
-  return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
+  return stop;
 };
 
 // src/common/config/resolveGates.ts
@@ -27335,14 +27331,7 @@ var runBatchGates = async ({ cwd, config: config2, coverage, runId, step, onProg
   });
 };
 
-// src/coverage/runCoverageBatch.ts
-var maxCheapFixRetries = 2;
-var standaloneBanner = "Standalone coverage run \u2014 there is no feature plan. The files listed below are import-connected groups containing the run's current worst-covered files; raise their unit-test coverage. Change no source file: tests are the only deliverable.";
-var isMeasurementOutput = ({ path, coverageDir, packagesDir }) => {
-  const owner = packageOf({ file: path, packagesDir });
-  const withinPackage = owner === void 0 ? path : path.slice(`${packagesDir}/${owner}/`.length);
-  return path.startsWith(`${coverageDir}/`) || withinPackage.startsWith(`${coverageDir}/`);
-};
+// src/coverage/batch/runCoverageBatch.ts
 var runCoverageBatch = async ({
   cwd,
   runId,
@@ -27358,111 +27347,240 @@ var runCoverageBatch = async ({
   const rationale = [];
   const reportedFiles = /* @__PURE__ */ new Set();
   let changedFiles = [];
-  const coverageDir = dirname6(config2["coverage-summary-path"] ?? defaultCoverageSummaryPath);
-  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
-  let invocationCount = 0;
-  const invoke = ({ label, invocation }) => {
-    invocationCount += 1;
-    return invokeCoverageAgent({
-      cwd,
-      runId,
-      driver,
-      config: config2,
-      batchId: batch.id,
-      invocation,
-      label,
-      invocationCount,
-      agentTimeoutMs,
-      reportedFiles,
-      rationale,
-      recordUsage
-    });
-  };
+  const invoke = createCoverageInvoker({ cwd, runId, driver, config: config2, batch, testStandards, agentTimeoutMs, reportedFiles, rationale, recordUsage });
   const gates = () => runBatchGates({ cwd, config: config2, coverage: false, runId, step: batch.id, onProgress });
   const testsOnly = async () => {
-    changedFiles = (await collectBatchChanges({ cwd, config: config2, reportedFiles, attributedFiles })).filter(
-      (path) => !isMeasurementOutput({ path, coverageDir, packagesDir })
-    );
-    const offenders = changedFiles.filter((path) => !isTestFile({ path }));
-    return {
-      error: offenders.length === 0 ? void 0 : `${batch.id}: this run may change no source file, but these are modified:
-${offenders.map((path) => `  ${path}`).join("\n")}
-The tree is left as it stands \u2014 revert these changes by hand before resuming, since the engine never reverts and a resumed run would measure the contaminated tree.`
-    };
+    const checked = await checkTestsOnly({ cwd, config: config2, batchId: batch.id, reportedFiles, attributedFiles });
+    changedFiles = checked.changedFiles;
+    return checked.error;
   };
+  const measure = () => measureCoverageBatch({ cwd, config: config2, runId, batch });
   const finish = ({ outcome, files }) => ({
-    kind: "done",
+    kind: CoverageBatchStopKind.Done,
     report: { outcome, files, rationale },
     changedFiles
   });
-  const unmeasured = () => batch.files.map((file2) => ({ path: file2.path, beforePct: file2.statementsPct, afterPct: file2.statementsPct }));
-  const measure = async () => {
-    const measured2 = await runCoverageCheck({ cwd, config: config2, scope: batch.scope, runId, step: batch.id });
-    const pctByPath = new Map(measured2.files.map((file2) => [file2.path, file2.statementsPct]));
-    const files = batch.files.map((file2) => ({ path: file2.path, beforePct: file2.statementsPct, afterPct: pctByPath.get(file2.path) ?? file2.statementsPct }));
-    return { files, improved: files.some((file2) => file2.afterPct > file2.beforePct) };
+  const attempt = await invoke({ label: "" });
+  let stop = await getCoverageAttemptStop({ batchId: batch.id, batch, attempt, rationale, onProgress, testsOnly, measure, gates, finish });
+  if (stop === void 0) {
+    stop = await settleCoverageGates({ batchId: batch.id, onProgress, invokeFix: invoke, testsOnly, gates });
+  }
+  if (stop === void 0) {
+    const measured = await measure();
+    stop = finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
+  }
+  return stop;
+};
+
+// src/common/fileGroups/chunkFileGroup.ts
+var chunkFileGroup = ({ files, max }) => {
+  const sorted = [...files].sort();
+  const chunks = [];
+  for (let start = 0; start < sorted.length; start += max) {
+    chunks.push(sorted.slice(start, start + max));
+  }
+  return chunks;
+};
+
+// src/coverage/buildCoverageBatch.ts
+var maxWriterGroupFiles = 12;
+var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => {
+  const scope = files[0].scope;
+  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
+  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
+  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
+  const groupOf = ({ component }) => {
+    const candidates = candidatesOf({ members: component });
+    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
+      return { members: component, candidates };
+    }
+    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
+    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
+    return { members: members2, candidates: candidatesOf({ members: members2 }) };
   };
-  const attempt = await invoke({
-    label: "",
-    invocation: buildUnitTestWriterInvocation({ planContent: standaloneBanner, subjects: batch.members, mustExecute: batch.members, standards: testStandards })
+  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
+    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
+  );
+  const members = [];
+  const tracked = [];
+  for (const group of ranked) {
+    if (tracked.length >= batchSize) {
+      break;
+    }
+    members.push(...group.members);
+    tracked.push(...group.candidates);
+  }
+  return {
+    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
+    scope,
+    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
+    members
+  };
+};
+
+// src/coverage/checkChangedFilesExecuted.ts
+import { readFile as readFile19 } from "node:fs/promises";
+import { join as join33, relative as relative4 } from "node:path";
+
+// src/common/sourceFiles/isToolingConfigFile.ts
+var isToolingConfigFile = ({ path, packagesDir }) => {
+  const segments = path.split("/");
+  const name = segments.at(-1) ?? "";
+  const folder = segments.slice(0, -1);
+  if (!/\.config\.(c|m)?[jt]s$/i.test(name)) {
+    return false;
+  }
+  return folder.length === 0 || folder.length === 2 && folder[0] === packagesDir;
+};
+
+// src/common/sourceFiles/isUnloadableSourceFile.ts
+var hasModuleScopeAwait = ({ node, compiler }) => {
+  if (compiler.isFunctionLike(node) || compiler.isClassLike(node)) {
+    return false;
+  }
+  if (compiler.isAwaitExpression(node) || compiler.isForOfStatement(node) && node.awaitModifier !== void 0) {
+    return true;
+  }
+  return node.forEachChild((child) => hasModuleScopeAwait({ node: child, compiler })) === true;
+};
+var isUnloadableSourceFile = ({ path, content, compiler }) => {
+  const scriptKind = /\.[jt]sx$/.test(path) ? compiler.ScriptKind.TSX : compiler.ScriptKind.TS;
+  const source = compiler.createSourceFile(path, content, compiler.ScriptTarget.Latest, false, scriptKind);
+  return source.statements.some((statement) => hasModuleScopeAwait({ node: statement, compiler }));
+};
+
+// src/coverage/checkChangedFilesExecuted.ts
+var ExecutionSummaryReport = external_exports.record(external_exports.string(), external_exports.looseObject({ statements: external_exports.looseObject({ covered: external_exports.unknown(), total: external_exports.unknown() }) }));
+var readExecutionSummary = async ({ cwd, summaryPath }) => {
+  try {
+    const parsed = ExecutionSummaryReport.parse(JSON.parse(await readFile19(join33(cwd, summaryPath), "utf8")));
+    return new Map(Object.entries(parsed).map(([key, entry]) => [relative4(cwd, key), entry.statements]));
+  } catch {
+    return void 0;
+  }
+};
+var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, compiler }) => {
+  if (changedFiles.length === 0 || compiler === void 0) {
+    return void 0;
+  }
+  const packagesDir = config2["packages-dir"] ?? defaultPackagesDir;
+  const candidates = [];
+  for (const file2 of changedFiles.filter(
+    (changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir })
+  )) {
+    const content = await readFile19(join33(cwd, file2), "utf8").catch(() => void 0);
+    if (content !== void 0 && !isInertSourceFile({ path: file2, content, compiler }) && !isUnloadableSourceFile({ path: file2, content, compiler })) {
+      candidates.push(file2);
+    }
+  }
+  if (candidates.length === 0) {
+    return void 0;
+  }
+  const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
+  const scopes = await resolveCoverageScopes({ cwd, config: config2, summaryPath });
+  const monorepo = config2["package-gates"]?.["test-coverage"] !== void 0;
+  const scopeOf = ({ file: file2 }) => {
+    const packageDir = packageOf({ file: file2, packagesDir });
+    if (monorepo) {
+      return packageDir === void 0 ? void 0 : scopes.find((entry) => entry.scope === packageDir);
+    }
+    return packageDir === void 0 ? scopes[0] : void 0;
+  };
+  const summaries = /* @__PURE__ */ new Map();
+  const unexecuted = [];
+  for (const file2 of candidates) {
+    const scope = scopeOf({ file: file2 });
+    if (scope === void 0) {
+      continue;
+    }
+    if (!summaries.has(scope.scope)) {
+      summaries.set(scope.scope, await readExecutionSummary({ cwd, summaryPath: scope.summaryPath }));
+    }
+    const summary = summaries.get(scope.scope);
+    if (summary === void 0) {
+      return buildMissingSummaryMessage({ summaryPath: scope.summaryPath, scope: scope.scope });
+    }
+    const entry = summary.get(file2);
+    if (entry === void 0 || entry.covered === 0 && entry.total !== 0) {
+      unexecuted.push(file2);
+    }
+  }
+  if (unexecuted.length === 0) {
+    return void 0;
+  }
+  return `changed-file-execution: ${unexecuted.length} changed file(s) never executed under the tests: ${unexecuted.join(", ")} \u2014 cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.`;
+};
+
+// src/coverage/initializeCoverageRun.ts
+import { readFile as readFile20, writeFile as writeFile5 } from "node:fs/promises";
+import { join as join34 } from "node:path";
+var initializeCoverageRun = async ({
+  cwd,
+  runId,
+  driver,
+  config: config2,
+  allowDirty = false,
+  existing
+}) => {
+  if (existing) {
+    const pipeline = existing.pipeline ?? "implement";
+    if (pipeline !== "coverage") {
+      const command = pipeline === "refactor" ? "refactor" : "resume";
+      throw new Error(`run ${existing.runId} belongs to the ${pipeline} pipeline \u2014 resume it with: lightsout ${command} --run ${existing.runId}`);
+    }
+    return { manifest: existing, worklist: CoverageWorklist.parse(JSON.parse(await readFile20(join34(cwd, existing.plan), "utf8"))) };
+  }
+  if (typeof config2.gates["test-coverage"] !== "string" && config2["package-gates"]?.["test-coverage"] === void 0) {
+    throw new Error('the coverage gate is opted out ("test-coverage": false) \u2014 test-coverage-to-threshold has nothing to run');
+  }
+  const dirty = await readGitChangedFiles({ cwd });
+  if (dirty === void 0) {
+    throw new Error("test-coverage-to-threshold requires a git worktree \u2014 without git, changes cannot be attributed or reviewed as one diff.");
+  }
+  if (dirty.length > 0 && !allowDirty) {
+    throw new Error(
+      `test-coverage-to-threshold requires a clean tree \u2014 commit or stash first, or accept the standing changes as baseline with --allow-dirty. Dirty:
+${dirty.map((file2) => `  ${file2}`).join("\n")}`
+    );
+  }
+  const measured = await runCoverageCheck({ cwd, config: config2 });
+  const worklist = { at: (/* @__PURE__ */ new Date()).toISOString(), totals: measured.totals, files: measured.files };
+  const worklistPath = join34(".lightsout", "runs", runId, "worklist.json");
+  const manifest = await createRun({ cwd, runId, plan: worklistPath, pipeline: "coverage", driver: driver.name, config: config2, baselineDirtyFiles: dirty });
+  await writeFile5(join34(cwd, worklistPath), `${JSON.stringify(worklist, void 0, "	")}
+`, "utf8");
+  return { manifest, worklist };
+};
+
+// src/common/utils/runPreflightGate.ts
+var runPreflightGate = async ({ run, coverage, label, redBaselineError }) => {
+  const steps = run.current().steps;
+  if (steps.some((step) => step.id === "pre-flight" && step.status === RunStatus.Passed)) {
+    return void 0;
+  }
+  const record2 = {
+    id: "pre-flight",
+    status: RunStatus.Running,
+    attempts: (steps.find((step) => step.id === "pre-flight")?.attempts ?? 0) + 1
+  };
+  await run.setStep({ record: record2 });
+  run.progress(label);
+  const gateError = await runGates({
+    cwd: run.cwd,
+    config: run.config,
+    coverage,
+    runId: run.current().runId,
+    step: "pre-flight",
+    onProgress: (message) => run.progress(message)
   });
-  if (!attempt.ok) {
-    if (attempt.rateLimited) {
-      return { kind: "parked" };
-    }
-    const violated = await testsOnly();
-    if (violated.error) {
-      return { kind: "failed", error: violated.error };
-    }
-    const salvaged = await measure();
-    if (salvaged.improved && !await gates()) {
-      rationale.push(`[other] salvaged: agent invocation failed (${attempt.failure}) but coverage improved and gates are green`);
-      onProgress(`${batch.id}: invocation failed but coverage moved on disk \u2014 salvaged as resolved`);
-      return finish({ outcome: BatchOutcome.Resolved, files: salvaged.files });
-    }
-    return { kind: "failed", error: `${batch.id}: ${attempt.failure}` };
-  }
-  const checked = await testsOnly();
-  if (checked.error) {
-    return { kind: "failed", error: checked.error };
-  }
-  const { report } = attempt;
-  if (report.status === WorkReportStatus.TerminatedScope || report.status === WorkReportStatus.Failed) {
-    const marker = report.status === WorkReportStatus.TerminatedScope ? "scope" : "failed";
-    rationale.push(...report.failures.map((entry) => `[${marker}] ${entry}`));
-    return finish({ outcome: BatchOutcome.Declined, files: unmeasured() });
-  }
-  if (report.status !== WorkReportStatus.Complete) {
-    return { kind: "escalated", error: `${batch.id}: ${report.status} \u2014 ${report.failures.join("; ")}` };
-  }
-  let gateError = await gates();
-  for (let retry = 1; gateError && retry <= maxCheapFixRetries; retry += 1) {
-    onProgress(`${batch.id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
-    const fix = await invoke({
-      label: `fix-${retry}`,
-      invocation: buildUnitTestWriterInvocation({
-        planContent: standaloneBanner,
-        subjects: batch.members,
-        mustExecute: batch.members,
-        standards: testStandards,
-        errorContext: gateError
-      })
-    });
-    if (!fix.ok && fix.rateLimited) {
-      return { kind: "parked" };
-    }
-    const refixed = await testsOnly();
-    if (refixed.error) {
-      return { kind: "failed", error: refixed.error };
-    }
-    gateError = await gates();
-  }
+  let result;
   if (gateError) {
-    return { kind: "failed", error: `${batch.id}: gates still red after ${maxCheapFixRetries} fix attempt(s)
-${gateError}` };
+    result = await run.stop({ record: record2, status: RunStatus.Failed, error: `${redBaselineError}
+${gateError}` });
+  } else {
+    await run.setStep({ record: { ...record2, status: RunStatus.Passed } });
   }
-  const measured = await measure();
-  return finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
+  return result;
 };
 
 // src/coverage/CoverageRun.ts
@@ -27513,41 +27631,9 @@ var CoverageRun = class {
   }
   /** Persist a step's terminal status (and the run's), announce it, then halt. */
   async stop({ record: record2, status, error: error51 }) {
-    await this.setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
-    this.progress(`coverage run stopped at ${record2.id} \u2014 ${status}`);
+    await this.runState.stop({ record: record2, status, error: error51, label: "coverage run" });
     return this.buildHaltedResult({ error: error51 });
   }
-};
-
-// src/coverage/runCoveragePreflightGate.ts
-var runCoveragePreflightGate = async ({ run }) => {
-  const steps = run.current().steps;
-  if (steps.some((step) => step.id === "pre-flight" && step.status === RunStatus.Passed)) {
-    return void 0;
-  }
-  const record2 = {
-    id: "pre-flight",
-    status: RunStatus.Running,
-    attempts: (steps.find((step) => step.id === "pre-flight")?.attempts ?? 0) + 1
-  };
-  await run.setStep({ record: record2 });
-  run.progress("pre-flight \u2014 types and unit tests before any batch");
-  const gateError = await runGates({
-    cwd: run.cwd,
-    config: run.config,
-    coverage: false,
-    runId: run.current().runId,
-    step: "pre-flight",
-    onProgress: (message) => run.progress(message)
-  });
-  let result;
-  if (gateError) {
-    result = await run.stop({ record: record2, status: RunStatus.Failed, error: `Codebase is not green before raising coverage \u2014 fix this first.
-${gateError}` });
-  } else {
-    await run.setStep({ record: { ...record2, status: RunStatus.Passed } });
-  }
-  return result;
 };
 
 // src/common/fileGroups/groupConnectedFiles.ts
@@ -27617,14 +27703,6 @@ var buildCoverageRound = async ({ cwd, measured, setAside, standardsPackages, co
 
 // src/common/constants/maxConsecutiveDeclines.ts
 var maxConsecutiveDeclines = 3;
-
-// src/coverage/common/constants/CoverageBatchStopKind.ts
-var CoverageBatchStopKind = {
-  Parked: "parked",
-  Failed: "failed",
-  Escalated: "escalated",
-  Done: "done"
-};
 
 // src/coverage/common/constants/maxFileStrikes.ts
 var maxFileStrikes = 3;
@@ -27794,7 +27872,12 @@ var executeCoverage = async ({
   const seeded = seedCoverageResumeState({ manifest });
   const run = new CoverageRun({ cwd, config: config2, manifest, onProgress, setAside: seeded.setAside, before: worklist.totals });
   await run.update({ patch: { status: RunStatus.Running } });
-  const redBaseline = await runCoveragePreflightGate({ run });
+  const redBaseline = await runPreflightGate({
+    run,
+    coverage: false,
+    label: "pre-flight \u2014 types and unit tests before any batch",
+    redBaselineError: "Codebase is not green before raising coverage \u2014 fix this first."
+  });
   if (redBaseline) {
     return redBaseline;
   }
@@ -40784,7 +40867,6 @@ var consultSupervisor = async ({
 };
 
 // src/pipeline/steps/verifyStep.ts
-var maxCheapFixRetries2 = 2;
 var runFix = async ({
   context: { run, gitPrefix, id, coverage, buildFix },
   errorContext,
@@ -40840,10 +40922,10 @@ var verifyStep = ({ run, gitPrefix, planContent, id, coverage, buildFix }) => {
     await run.setStep({ record: record2 });
     run.progress(`step ${id} \u2014 attempt ${record2.attempts}`);
     let error51 = await runVerificationGates({ run, coverage });
-    for (let retry = 1; error51 && retry <= maxCheapFixRetries2; retry += 1) {
+    for (let retry = 1; error51 && retry <= maxCheapFixRetries; retry += 1) {
       record2 = { ...record2, attempts: record2.attempts + 1 };
       await run.setStep({ record: record2 });
-      run.progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries2}`);
+      run.progress(`step ${id}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
       const result = await runFix({ context, errorContext: error51, record: record2 });
       if ("parked" in result) {
         return result.parked;
@@ -43430,7 +43512,7 @@ var SettleKind = {
 };
 
 // src/refactor/batch/common/constants/standaloneBanner.ts
-var standaloneBanner2 = "Standalone refactor run \u2014 there is no feature plan. The standards findings below are the entire work-list; nothing else about the repo is being changed.";
+var standaloneBanner = "Standalone refactor run \u2014 there is no feature plan. The standards findings below are the entire work-list; nothing else about the repo is being changed.";
 
 // src/refactor/batch/buildBatchFixInvocation.ts
 var buildBatchFixInvocation = ({
@@ -43463,7 +43545,7 @@ ${guidance}` : gateError;
 var createFixInvoker = ({ tools, files, workFindings, advisories, standards, testStandards }) => ({ label, gateError, guidance }) => tools.invoke({
   label,
   invocation: buildBatchFixInvocation({
-    planContent: standaloneBanner2,
+    planContent: standaloneBanner,
     files,
     standards,
     testStandards,
@@ -43487,7 +43569,7 @@ var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards
     label: "polish",
     invocation: buildRefactorExecutorInvocation({
       scope: RefactorScope.Standalone,
-      planContent: standaloneBanner2,
+      planContent: standaloneBanner,
       changedFiles: files,
       standards,
       advisories: introduced,
@@ -43625,9 +43707,6 @@ var invokeBatchAgent = async ({
   return outcome;
 };
 
-// src/refactor/batch/common/constants/maxCheapFixRetries.ts
-var maxCheapFixRetries3 = 2;
-
 // src/refactor/batch/superviseBatch.ts
 import { mkdir as mkdir12, writeFile as writeFile13 } from "node:fs/promises";
 import { join as join67 } from "node:path";
@@ -43640,13 +43719,13 @@ var superviseBatch = async ({
   planContent,
   gateError,
   attempts,
-  maxCheapFixRetries: maxCheapFixRetries4,
+  maxCheapFixRetries: maxCheapFixRetries2,
   onProgress,
   recordUsage,
   invokeGuidedFix,
   gates
 }) => {
-  onProgress(`${batchId}: gates red after ${maxCheapFixRetries4} cheap fix attempt(s) \u2014 consulting supervisor`);
+  onProgress(`${batchId}: gates red after ${maxCheapFixRetries2} cheap fix attempt(s) \u2014 consulting supervisor`);
   const agentsDir = join67(getRunDir({ cwd, runId }), "agents");
   const slug = batchId.replace(/[:/]/g, "_");
   await mkdir12(agentsDir, { recursive: true });
@@ -43690,7 +43769,7 @@ ${ruling.guidance}`
 supervisor (${ruling.decision}): ${ruling.diagnosis}` : "";
     return {
       kind: SettleKind.Escalated,
-      error: `${batchId}: gates still red after ${maxCheapFixRetries4} fix attempt(s) and a supervisor consult.${diagnosis}
+      error: `${batchId}: gates still red after ${maxCheapFixRetries2} fix attempt(s) and a supervisor consult.${diagnosis}
 
 ${remainingError}`
     };
@@ -43713,8 +43792,8 @@ var settleBatchGates = async ({
   gates
 }) => {
   let gateError = await gates();
-  for (let retry = 1; gateError && retry <= maxCheapFixRetries3; retry += 1) {
-    onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries3}`);
+  for (let retry = 1; gateError && retry <= maxCheapFixRetries; retry += 1) {
+    onProgress(`${batchId}: gate red \u2014 fix attempt ${retry}/${maxCheapFixRetries}`);
     const fix = await invokeFix({ label: `fix-${retry}`, gateError });
     if (!fix.ok && fix.rateLimited) {
       return { kind: SettleKind.Parked };
@@ -43733,7 +43812,7 @@ var settleBatchGates = async ({
     planContent,
     gateError,
     attempts,
-    maxCheapFixRetries: maxCheapFixRetries3,
+    maxCheapFixRetries,
     onProgress,
     recordUsage,
     invokeGuidedFix: ({ guidance }) => invokeFix({ label: "supervised-fix", gateError, guidance }),
@@ -43800,7 +43879,7 @@ var createBatchTools = ({
     driver,
     config: config2,
     batchId: batch.id,
-    planContent: standaloneBanner2,
+    planContent: standaloneBanner,
     attempts: invocationCount,
     onProgress,
     recordUsage,
@@ -43817,7 +43896,7 @@ var runBatchPass = async ({ tools, batch, pass, workFindings, advisories, standa
     label: pass === 1 ? "" : "requeue",
     invocation: buildRefactorExecutorInvocation({
       scope: RefactorScope.Standalone,
-      planContent: standaloneBanner2,
+      planContent: standaloneBanner,
       changedFiles: files,
       standards,
       findings: workFindings,
@@ -44064,41 +44143,9 @@ var RefactorRun = class {
   }
   /** Persist a step's terminal status (and the run's), announce it, then halt. */
   async stop({ record: record2, status, error: error51 }) {
-    await this.setStep({ record: { ...record2, status, error: error51 }, patch: { status } });
-    this.progress(`refactor run stopped at ${record2.id} \u2014 ${status}`);
+    await this.runState.stop({ record: record2, status, error: error51, label: "refactor run" });
     return this.buildHaltedResult({ error: error51 });
   }
-};
-
-// src/refactor/runPreflightGate.ts
-var runPreflightGate = async ({ run }) => {
-  const steps = run.current().steps;
-  if (steps.some((step) => step.id === "pre-flight" && step.status === RunStatus.Passed)) {
-    return void 0;
-  }
-  const record2 = {
-    id: "pre-flight",
-    status: RunStatus.Running,
-    attempts: (steps.find((step) => step.id === "pre-flight")?.attempts ?? 0) + 1
-  };
-  await run.setStep({ record: record2 });
-  run.progress("pre-flight \u2014 full gates before any batch");
-  const gateError = await runGates({
-    cwd: run.cwd,
-    config: run.config,
-    coverage: true,
-    runId: run.current().runId,
-    step: "pre-flight",
-    onProgress: (message) => run.progress(message)
-  });
-  let result;
-  if (gateError) {
-    result = await run.stop({ record: record2, status: RunStatus.Failed, error: `Codebase is not green before refactoring \u2014 fix this first.
-${gateError}` });
-  } else {
-    await run.setStep({ record: { ...record2, status: RunStatus.Passed } });
-  }
-  return result;
 };
 
 // src/refactor/settleBatchOutcome.ts
@@ -44225,7 +44272,12 @@ var executeRefactor = async ({
     run.progress("refactor: no findings in scope \u2014 nothing to do");
     return { ok: true, manifest: run.current(), declined: run.declined, before: run.before, after: run.before };
   }
-  const redBaseline = await runPreflightGate({ run });
+  const redBaseline = await runPreflightGate({
+    run,
+    coverage: true,
+    label: "pre-flight \u2014 full gates before any batch",
+    redBaselineError: "Codebase is not green before refactoring \u2014 fix this first."
+  });
   if (redBaseline) {
     return redBaseline;
   }

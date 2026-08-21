@@ -84,8 +84,7 @@ export class RefactorRun {
 
 	/** Persist a step's terminal status (and the run's), announce it, then halt. */
 	async stop({ record, status, error }: { record: StepRecord; status: RunStatus; error: string }): Promise<RefactorResult> {
-		await this.setStep({ record: { ...record, status, error }, patch: { status } });
-		this.progress(`refactor run stopped at ${record.id} — ${status}`);
+		await this.runState.stop({ record, status, error, label: 'refactor run' });
 
 		return this.buildHaltedResult({ error });
 	}

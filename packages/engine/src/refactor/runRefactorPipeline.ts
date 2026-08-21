@@ -1,3 +1,4 @@
+import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { closeRefactorRun } from '#src/refactor/closeRefactorRun.ts';
@@ -5,7 +6,6 @@ import { countByRule } from '#src/refactor/countByRule.ts';
 import { initializeRun } from '#src/refactor/initializeRun.ts';
 import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
 import { RefactorRun } from '#src/refactor/RefactorRun.ts';
-import { runPreflightGate } from '#src/refactor/runPreflightGate.ts';
 import { runWorklistBatches } from '#src/refactor/runWorklistBatches.ts';
 import { seedResumeState } from '#src/refactor/seedResumeState.ts';
 import { withRunLock } from '#src/runState/index.ts';
@@ -70,7 +70,12 @@ const executeRefactor = async ({
 		return { ok: true, manifest: run.current(), declined: run.declined, before: run.before, after: run.before };
 	}
 
-	const redBaseline = await runPreflightGate({ run });
+	const redBaseline = await runPreflightGate({
+		run,
+		coverage: true,
+		label: 'pre-flight — full gates before any batch',
+		redBaselineError: 'Codebase is not green before refactoring — fix this first.',
+	});
 
 	if (redBaseline) {
 		return redBaseline;

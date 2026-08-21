@@ -1,11 +1,11 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
+import { runPreflightGate } from '#src/common/utils/runPreflightGate.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
 import { CoverageRun } from '#src/coverage/CoverageRun.ts';
 import { initializeCoverageRun } from '#src/coverage/initializeCoverageRun.ts';
-import { runCoveragePreflightGate } from '#src/coverage/runCoveragePreflightGate.ts';
 import { runCoverageRounds } from '#src/coverage/runCoverageRounds.ts';
 import { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -55,7 +55,15 @@ const executeCoverage = async ({
 
 	await run.update({ patch: { status: RunStatus.Running } });
 
-	const redBaseline = await runCoveragePreflightGate({ run });
+	// Coverage is excluded from this run's pre-flight: its coverage gate is red
+	// by definition here, but a red check or unit suite must not be blamed on a
+	// batch.
+	const redBaseline = await runPreflightGate({
+		run,
+		coverage: false,
+		label: 'pre-flight — types and unit tests before any batch',
+		redBaselineError: 'Codebase is not green before raising coverage — fix this first.',
+	});
 
 	if (redBaseline) {
 		return redBaseline;

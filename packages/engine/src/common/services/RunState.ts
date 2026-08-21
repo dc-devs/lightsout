@@ -1,4 +1,4 @@
-import type { AgentUsage, LightsoutConfig, RunManifest, RunUsage, StepRecord } from '#src/contracts/index.ts';
+import type { AgentUsage, LightsoutConfig, RunManifest, RunStatus, RunUsage, StepRecord } from '#src/contracts/index.ts';
 import { recordAgentUsage, seedUsageTotals, writeManifestWithUsage } from '#src/runState/index.ts';
 
 const upsertStep = ({ steps, record }: { steps: StepRecord[]; record: StepRecord }) => {
@@ -65,6 +65,18 @@ export class RunState {
 
 	async setStep({ record, patch }: { record: StepRecord; patch?: Partial<RunManifest> }): Promise<void> {
 		await this.update({ patch: { ...patch, currentStep: record.id, steps: upsertStep({ steps: this.manifest.steps, record }) } });
+	}
+
+	/**
+	 * Persist a step's terminal status and the run's, then announce the halt.
+	 * The result a halted run reports is the holder's — this is only the
+	 * persist-and-announce half, which every kind of run does the same way.
+	 *
+	 * @param label - what the announcement calls this run, e.g. `coverage run`
+	 */
+	async stop({ record, status, error, label }: { record: StepRecord; status: RunStatus; error: string; label: string }): Promise<void> {
+		await this.setStep({ record: { ...record, status, error }, patch: { status } });
+		this.progress(`${label} stopped at ${record.id} — ${status}`);
 	}
 
 	recordUsage({ step, usage }: { step: string; usage?: AgentUsage }): Promise<void> {
