@@ -1,35 +1,32 @@
 import { describe, expect, test } from '@jest/globals';
-import type { StandardsCheckInput } from '@lightsout/standards-contracts';
-import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupOtherKindInput } from '@lightsout/standards-testkit';
+import { setupOtherKindInput, setupTypeCheckerInput } from '@lightsout/standards-testkit';
 import { check } from './check.ts';
 
-/** A repo as the engine hands it to a file-text rule: every path in scope, with its text. */
-const setupFileTextInput = ({ contents }: { contents: Array<[string, string]> }): StandardsCheckInput => {
-	const files = contents.map(([path]) => path);
+/** A repo as the engine hands it to a type-checker rule, with the test files told apart by name. */
+const setupRepo = ({ sources }: { sources: Array<[string, string]> }) => {
+	const paths = sources.map(([path]) => path);
 
-	return {
-		kind: StandardsInputKind.FileText,
-		cwd: '/repo',
-		source: files.filter((path) => !path.includes('.test.')),
-		tests: files.filter((path) => path.includes('.test.')),
-		files,
-		referenceFiles: [],
-		contents: new Map(contents),
-		standardsPackages: [],
-	};
+	return setupTypeCheckerInput({
+		sources,
+		source: paths.filter((path) => !path.includes('.test.')),
+		tests: paths.filter((path) => path.includes('.test.')),
+		files: paths,
+	});
 };
 
 describe('barrel-dead-entry check', () => {
-	test('asks for file text, since the verdict counts mentions of a name across the repo', () => {
-		expect(check.inputKind).toBe('file-text');
+	test('asks for a type checker, since the verdict turns on which module a name was imported FROM', () => {
+		expect(check.inputKind).toBe('type-checker');
 	});
 
-	test('reports a published name no file outside the module mentions', async () => {
-		const input = setupFileTextInput({
-			contents: [
-				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords';"],
-				['src/ingestion/ingestRecords.ts', "import { normalizeRecord } from './common/utils/normalizeRecord';"],
+	test('reports a published name nothing outside the module imports from the barrel', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				[
+					'src/ingestion/ingestRecords.ts',
+					"import { normalizeRecord } from './common/utils/normalizeRecord.ts';\n\nexport const ingestRecords = (): number => normalizeRecord();",
+				],
 				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
 			],
 		});
@@ -40,16 +37,16 @@ describe('barrel-dead-entry check', () => {
 			{
 				siteKey: 'barrel-dead-entry:src/ingestion/index.ts',
 				files: [{ path: 'src/ingestion/index.ts' }],
-				detail: "'ingestRecords' is exported from src/ingestion/index.ts but no file outside module 'src/ingestion' consumes it",
+				detail: "'ingestRecords' is exported from src/ingestion/index.ts but nothing outside module 'src/ingestion' imports it from there",
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);
 	});
 
 	test('names every unconsumed entry of one barrel in a single finding', async () => {
-		const input = setupFileTextInput({
-			contents: [
-				['src/ingestion/index.ts', ["export { ingestRecords } from './ingestRecords';", "export { parseRows } from './parseRows';"].join('\n')],
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', ["export { ingestRecords } from './ingestRecords.ts';", "export { parseRows } from './parseRows.ts';"].join('\n')],
 				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
 				['src/ingestion/parseRows.ts', 'export const parseRows = (): number => 1;'],
 				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
@@ -58,64 +55,90 @@ describe('barrel-dead-entry check', () => {
 
 		const findings = await check.run({ input, settings: {} });
 
+		expect(findings[0]?.detail).toBe(
+			"'ingestRecords', 'parseRows' are exported from src/ingestion/index.ts but nothing outside module 'src/ingestion' imports them from there",
+		);
+	});
+
+	test('an outside module importing the name through the barrel silences it', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				['src/reporting/buildReport.ts', "import { ingestRecords } from '../ingestion/index.ts';\n\nexport const buildReport = (): number => ingestRecords();"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a name merely mentioned outside the module is not consumption', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				['src/reporting/buildReport.ts', '// superseded by ingestRecords\nexport const buildReport = (): number => 1;'],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// the comment is what the old name-counting version read as a consumer
+		expect(findings).toHaveLength(1);
+	});
+
+	test('an entry publishing a file that carries its own test is left alone — the test standards required that entry', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				['src/ingestion/ingestRecords.unit.test.ts', "import { ingestRecords } from './index.ts';\n\nexport const proof = (): number => ingestRecords();"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a parent barrel passing a name through gets no such allowance — its line points at a barrel, not a tested subject', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/app/index.ts', "export { ingestRecords } from './ingestion/index.ts';"],
+				['src/app/ingestion/index.ts', "export { ingestRecords } from './ingestRecords.ts';"],
+				['src/app/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+				['src/app/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
+				['src/app/ingestion/ingestRecords.unit.test.ts', "import { ingestRecords } from './index.ts';\n\nexport const proof = (): number => ingestRecords();"],
+				['src/app/common/utils/tidy.ts', 'export const tidy = (): number => 1;'],
+				[
+					'src/reporting/buildReport.ts',
+					"import { ingestRecords } from '../app/ingestion/index.ts';\n\nexport const buildReport = (): number => ingestRecords();",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// everyone reaches the child barrel; the parent's pass-through serves nobody
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'barrel-dead-entry:src/ingestion/index.ts',
-				files: [{ path: 'src/ingestion/index.ts' }],
-				detail: "'ingestRecords', 'parseRows' are exported from src/ingestion/index.ts but no file outside module 'src/ingestion' consumes them",
+				siteKey: 'barrel-dead-entry:src/app/index.ts',
+				files: [{ path: 'src/app/index.ts' }],
+				detail: "'ingestRecords' is exported from src/app/index.ts but nothing outside module 'src/app' imports it from there",
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);
 	});
 
-	test('an outside consumer of the name silences it', async () => {
-		const input = setupFileTextInput({
-			contents: [
-				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords';"],
-				['src/ingestion/ingestRecords.ts', "import { normalizeRecord } from './common/utils/normalizeRecord';"],
-				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
-				['src/reporting/buildReport.ts', "import { ingestRecords } from '../ingestion';"],
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([]);
-	});
-
-	test('a co-located test counts as a client of the public surface, wherever it sits', async () => {
-		const input = setupFileTextInput({
-			contents: [
-				['src/ingestion/index.ts', "export { ingestRecords } from './ingestRecords';"],
-				['src/ingestion/ingestRecords.ts', "import { normalizeRecord } from './common/utils/normalizeRecord';"],
-				['src/ingestion/common/utils/normalizeRecord.ts', 'export const normalizeRecord = (): number => 1;'],
-				['src/ingestion/ingestRecords.unit.test.ts', "import { ingestRecords } from './index';"],
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([]);
-	});
-
-	test('skips a name under four characters, which collides with ordinary words too often to measure', async () => {
-		const input = setupFileTextInput({
-			contents: [
-				['src/task/index.ts', "export { run } from './run';"],
-				['src/task/run.ts', 'export const run = (): number => 1;'],
-				['src/task/common/utils/tick.ts', 'export const tick = (): number => 1;'],
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([]);
-	});
-
 	test('says nothing about a barrel that hides nothing — no boundary, so no public-surface claim to answer for', async () => {
-		const input = setupFileTextInput({
-			contents: [
-				['src/feature/index.ts', "export { renderGreeting } from './renderGreeting';"],
+		const input = setupRepo({
+			sources: [
+				['src/feature/index.ts', "export { renderGreeting } from './renderGreeting.ts';"],
 				['src/feature/renderGreeting.ts', "export const renderGreeting = (): string => 'hello';"],
 			],
 		});
