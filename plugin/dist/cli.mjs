@@ -43722,9 +43722,15 @@ var runBatch = async ({
     recordUsage
   });
   const preCheck = await tools.checkLive();
-  if (matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }).length === 0) {
+  const standingKeys = new Set(matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }));
+  if (standingKeys.size === 0) {
     onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
     return { kind: BatchStopKind.Done, report: tools.reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
+  }
+  if (standingKeys.size < batch.blocking.length) {
+    onProgress(
+      `${batch.id}: ${batch.blocking.length - standingKeys.size} of ${batch.blocking.length} site(s) already resolved by earlier work \u2014 working the ${standingKeys.size} still standing`
+    );
   }
   const advisories = await collectBatchAdvisories({
     cwd,
@@ -43739,7 +43745,7 @@ var runBatch = async ({
     onProgress
   });
   const passBudget = 2;
-  let workFindings = batch.blocking;
+  let workFindings = preCheck.findings.filter((finding) => standingKeys.has(finding.siteKey));
   let stop;
   for (let pass = 1; pass <= passBudget && stop === void 0; pass += 1) {
     const passed = await runBatchPass({ tools, batch, pass, workFindings, advisories, standards, testStandards, onProgress });
