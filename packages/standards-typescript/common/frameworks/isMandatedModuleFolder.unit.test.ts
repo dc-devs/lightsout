@@ -17,14 +17,15 @@ const setupCarveOut = ({
 });
 
 describe('isMandatedModuleFolder', () => {
-	test('a folder matching the framework’s shape is mandated, in the repo root package and in a workspace one', () => {
-		expect(isMandatedModuleFolder({ folder: 'src/features/app/screens/RunsIndex', carveOut: setupCarveOut() })).toBe(true);
-		expect(
-			isMandatedModuleFolder({
-				folder: 'packages/web-app/src/features/app/screens/RunsIndex',
-				carveOut: setupCarveOut({ directory: 'packages/web-app' }),
-			}),
-		).toBe(true);
+	test.each([
+		{ placement: 'the repo root package', directory: '.', folder: 'src/features/app/screens/RunsIndex' },
+		{ placement: 'a workspace package', directory: 'packages/web-app', folder: 'packages/web-app/src/features/app/screens/RunsIndex' },
+	])('a folder matching the framework’s shape is mandated in $placement', ({ directory, folder }) => {
+		const carveOut = setupCarveOut({ directory });
+
+		const mandated = isMandatedModuleFolder({ folder, carveOut });
+
+		expect(mandated).toBe(true);
 	});
 
 	test('a `*` matches exactly one segment, so a pattern cannot swallow a subtree', () => {

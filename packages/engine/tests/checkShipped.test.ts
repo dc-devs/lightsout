@@ -143,10 +143,27 @@ test('a standards package that no longer matches its authored source fails, nami
 	expect(output).toMatch(/plugin\/standards\/ does not match packages\/standards-typescript\/ — .*rule\.md differs/);
 });
 
+/**
+ * Any one file the shipped copy holds. Which file is incidental to the claim
+ * under test, and naming one pins this to a folder layout that a burn-down
+ * moves — as one did, after which the deletion threw on a path that was no
+ * longer there and the failure sat behind a cached task result.
+ */
+const findShippedFile = async ({ cwd }: { cwd: string }) => {
+	const root = join(cwd, 'plugin/standards');
+	const entry = (await readdir(root, { recursive: true, withFileTypes: true })).find((candidate) => candidate.isFile() && candidate.name.endsWith('.ts'));
+
+	if (entry === undefined) {
+		throw new Error(`no shipped .ts file under ${root} to delete`);
+	}
+
+	return join(entry.parentPath, entry.name);
+};
+
 test('a rule folder that was never copied into the shipped package is caught, though no file differs', async () => {
 	const cwd = await setupClone();
 
-	await rm(join(cwd, 'plugin/standards/common/utils/collapseCasing.ts'));
+	await rm(await findShippedFile({ cwd }));
 	commitAll({ cwd, message: 'drop a shipped file' });
 
 	const { ok, output } = checkShipped({ cwd, base: 'main' });

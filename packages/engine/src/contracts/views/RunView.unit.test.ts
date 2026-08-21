@@ -95,25 +95,42 @@ describe('RunView', () => {
 		}
 	});
 
-	test('currentStep is nullable but never absent — a finished run states null rather than omitting it', () => {
+	test('currentStep carries the step in flight', () => {
 		const { view } = setupView({ extra: { currentStep: 'write-tests' } });
 
 		const parsed = RunView.parse(view);
 
 		expect(parsed.currentStep).toBe('write-tests');
-		// null is the recorded "no step in flight", which absence could not distinguish
-		// from a payload that failed to assemble
-		expect(RunView.parse(setupView().view).currentStep).toBeNull();
-		expect(RunView.safeParse(setupView({ extra: { currentStep: 7 } }).view).success).toBe(false);
 	});
 
-	test('the nested listing is validated, so the header and the sidebar row cannot disagree', () => {
+	test('a finished run states null rather than omitting currentStep', () => {
+		const { view } = setupView();
+
+		const parsed = RunView.parse(view);
+
+		// null is the recorded "no step in flight", which absence could not distinguish
+		// from a payload that failed to assemble
+		expect(parsed.currentStep).toBeNull();
+	});
+
+	test('a currentStep that is not a step name is refused', () => {
+		const { view } = setupView({ extra: { currentStep: 7 } });
+
+		expect(RunView.safeParse(view).success).toBe(false);
+	});
+
+	test('an unparseable nested listing fails the whole payload', () => {
 		const { view } = setupView({ extra: { listing: { ...listing, resumable: undefined } } });
 
-		// an unparseable row must fail the whole payload rather than reach the page half-built
+		// the header and the sidebar row cannot disagree, so a bad row must fail the
+		// payload rather than reach the page half-built
 		expect(RunView.safeParse(view).success).toBe(false);
-		// the same row with its resume flag intact is what the list renders
-		expect(RunView.safeParse(setupView().view).success).toBe(true);
+	});
+
+	test('the same row with its resume flag intact is what the list renders', () => {
+		const { view } = setupView();
+
+		expect(RunView.safeParse(view).success).toBe(true);
 	});
 
 	test('gate lines are validated element by element', () => {
@@ -123,8 +140,12 @@ describe('RunView', () => {
 		const parsed = RunView.parse(view);
 
 		expect(parsed.gates).toStrictEqual([gate]);
-		// a line missing its timestamp is not gate evidence
-		expect(RunView.safeParse(setupView({ extra: { gates: [{ kind: 'check', group: 'root', command: 'pnpm check' }] } }).view).success).toBe(false);
+	});
+
+	test('a gate line missing its timestamp is not gate evidence', () => {
+		const { view } = setupView({ extra: { gates: [{ kind: 'check', group: 'root', command: 'pnpm check' }] } });
+
+		expect(RunView.safeParse(view).success).toBe(false);
 	});
 
 	test('agent ledger lines are validated element by element', () => {
@@ -144,8 +165,12 @@ describe('RunView', () => {
 		const parsed = RunView.parse(view);
 
 		expect(parsed.agents).toStrictEqual([agent]);
-		// a line with no step attributes its spend to nothing
-		expect(RunView.safeParse(setupView({ extra: { agents: [{ ...agent, step: undefined }] } }).view).success).toBe(false);
+	});
+
+	test('an agent line with no step attributes its spend to nothing, and is refused', () => {
+		const { view } = setupView({ extra: { agents: [{ at: '2026-01-01T00:05:00.000Z', inputTokens: 10, outputTokens: 100, costUsd: 0.5 }] } });
+
+		expect(RunView.safeParse(view).success).toBe(false);
 	});
 
 	test('steps are validated element by element, phase fields included', () => {
@@ -165,8 +190,14 @@ describe('RunView', () => {
 		const parsed = RunView.parse(view);
 
 		expect(parsed.steps).toEqual([step]);
-		// the ledger join is unconditional — a step missing its cost never went through it
-		expect(RunView.safeParse(setupView({ extra: { steps: [{ id: 'implement', status: 'passed', attempts: 1, changedFiles: [] }] } }).view).success).toBe(false);
+	});
+
+	test('a step missing its cost never went through the ledger join, and is refused', () => {
+		const { view } = setupView({ extra: { steps: [{ id: 'implement', status: 'passed', attempts: 1, changedFiles: [] }] } });
+
+		// the join is unconditional, so a step that came out of it without a cost
+		// did not come out of it
+		expect(RunView.safeParse(view).success).toBe(false);
 	});
 
 	test('friction entries are carried whole, with provenance, not reduced to counts', () => {
@@ -222,8 +253,12 @@ describe('RunView', () => {
 		const parsed = RunView.parse(view);
 
 		expect(parsed).toEqual(expect.objectContaining({ usage: totals, cacheReadShare: 0.88 }));
-		// without the invocation count it is one invocation's envelope, not a run total
-		expect(RunView.safeParse(setupView({ extra: { usage: { ...totals, invocations: undefined } } }).view).success).toBe(false);
+	});
+
+	test('usage with no invocation count is one invocation’s envelope, not a run total', () => {
+		const { view } = setupView({ extra: { usage: { inputTokens: 10, outputTokens: 100, cacheReadTokens: 880, cacheCreationTokens: 110, costUsd: 0.5 } } });
+
+		expect(RunView.safeParse(view).success).toBe(false);
 	});
 
 	test('usage and cacheReadShare are both absent for a driver that reports no usage', () => {
@@ -273,7 +308,12 @@ describe('RunView', () => {
 		const parsed = RunView.parse(view);
 
 		expect(parsed).toEqual(expect.objectContaining({ changedFiles: ['src/a.ts', 'src/b.ts'], unreachableChangedFiles: ['src/b.ts'] }));
-		expect(RunView.safeParse(setupView({ extra: { unreachableChangedFiles: [7] } }).view).success).toBe(false);
+	});
+
+	test('a file list holding anything but strings is refused', () => {
+		const { view } = setupView({ extra: { unreachableChangedFiles: [7] } });
+
+		expect(RunView.safeParse(view).success).toBe(false);
 	});
 
 	test('harness and overview must be strings', () => {

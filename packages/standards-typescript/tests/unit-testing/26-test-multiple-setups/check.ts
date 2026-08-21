@@ -2,6 +2,7 @@ import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/stand
 import { readTestFiles } from '../../../common/checkInput/readTestFiles.ts';
 import { buildLineSites } from '../../../common/findings/buildLineSites.ts';
 import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { blankStringsAndComments } from '../../../common/parsing/blankStringsAndComments.ts';
 import { readCallBlocks } from '../../../common/parsing/readCallBlocks.ts';
 import { getTestSubjectName } from '../../../common/paths/getTestSubjectName.ts';
 
@@ -15,8 +16,14 @@ const multipleSetupsFindings = ({ file, text }: { file: string; text: string }) 
 	// In a setup factory's own test file, calling the subject is the ACT, not
 	// arrangement — so it never counts toward the limit.
 	const subject = getTestSubjectName({ test: file });
+	// Counted over a body whose strings and comments are blanked out: a test
+	// asserting on a message that MENTIONS `setup()` — which every rule about
+	// setup factories has to — is not a test that calls one twice. Only the
+	// counted body is blanked, never the text the block titles are read from.
 	const arrangementCalls = (body: string) =>
-		[...body.matchAll(setupCall)].filter((match) => !match[0].startsWith(`${subject}(`) && !match[0].startsWith(`${subject} (`));
+		[...blankStringsAndComments({ text: body }).matchAll(setupCall)].filter(
+			(match) => !match[0].startsWith(`${subject}(`) && !match[0].startsWith(`${subject} (`),
+		);
 	const overArranged = readCallBlocks({ text, callees: ['test', 'it'] }).filter((block) => arrangementCalls(block.body).length > 1);
 
 	return overArranged.length === 0
