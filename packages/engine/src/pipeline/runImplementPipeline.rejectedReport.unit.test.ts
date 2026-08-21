@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -53,7 +53,7 @@ test('a final message that fails the report contract is saved to the run dir bef
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progressLines.push(message),
 	});
@@ -110,7 +110,7 @@ test('two rejected messages in one run are filed under distinct sequence numbers
 		},
 	};
 
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
 

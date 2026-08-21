@@ -1,6 +1,6 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildTreeLineCheck } from '../../../../../common/utils/buildTreeLineCheck.ts';
+import { buildTreeLineCheck } from '../../../../../common/checks/buildTreeLineCheck.ts';
 
 /**
  * The comment forms a project uses to license a bypass. The rule allows a rare,

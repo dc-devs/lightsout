@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -48,7 +48,7 @@ const setupPlanRun = async () => {
 		},
 	};
 
-	return { dir, driver, briefs, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, briefs, config: await readConfig({ cwd: dir }) };
 };
 
 test('an absolute --plan is read from where it points and recorded relative to the repo', async () => {

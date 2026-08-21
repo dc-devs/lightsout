@@ -1,14 +1,10 @@
-import { buildRefactorExecutorInvocation } from '#src/agents/index.ts';
-import { RunStatus, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
-import { invokeRoleOrStop } from '#src/pipeline/common/utils/invokeRoleOrStop.ts';
+import { RunStatus, type StandardsFinding, type StepRecord, type WorkReport } from '#src/contracts/index.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
-import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { describePersistingFindings } from '#src/pipeline/steps/describePersistingFindings.ts';
+import { runExecutorPass } from '#src/pipeline/steps/runExecutorPass.ts';
 import { standardsWorkList } from '#src/pipeline/steps/standardsWorkList.ts';
-import { appendFriction } from '#src/runState/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
 import { type LoadedStandardsPackage, resolveStandardsPackages } from '#src/standardsPackages/index.ts';
@@ -38,6 +34,92 @@ const reviewAdvisories = async ({ run, packages, channels }: { run: PipelineRun;
 	return review.findings;
 };
 
+/**
+ * One pass's standards picture: the machine work-list, plus every advisory the
+ * checks and the agent review between them raised. The judgment-only rules get
+ * read beside the machine checks and their findings join the advisory stream —
+ * they are judgment handed to a judge, never work the gate can hold a run on.
+ */
+const readStandardsGate = async ({ run, packages, channels }: { run: PipelineRun; packages: LoadedStandardsPackage[]; channels: string[] }) => {
+	const check = await standardsWorkList({ run });
+	const advisories = [...check.advisories, ...(await reviewAdvisories({ run, packages, channels }))];
+
+	if (check.workList.length > 0 || advisories.length > 0) {
+		run.progress(`standards gate: ${check.workList.length} blocking + ${advisories.length} advisory on changed files`);
+	}
+
+	return { workList: check.workList, advisories };
+};
+
+/**
+ * Where a pass that changed nothing leaves the loop. A work-list the agent
+ * declines twice running is a stable disagreement — the agent has judged, the
+ * checks cannot hear judgment, and a further pass only re-buys the same answer.
+ */
+const decideNoChangePass = ({
+	run,
+	workList,
+	pass,
+	lastDeclined,
+}: {
+	run: PipelineRun;
+	workList: StandardsFinding[];
+	pass: number;
+	lastDeclined: string | undefined;
+}) => {
+	if (workList.length === 0) {
+		run.progress(`refactor pass ${pass}: no changes — loop complete`);
+
+		return { kind: 'complete' as const };
+	}
+
+	const declined = workList
+		.map((finding) => finding.siteKey)
+		.sort()
+		.join('\n');
+
+	if (declined === lastDeclined && pass < maxRefactorPasses) {
+		run.progress(`refactor pass ${pass}: agent declined the same work-list twice — escalating without spending the remaining pass(es)`);
+	}
+
+	if (pass === maxRefactorPasses || declined === lastDeclined) {
+		return { kind: 'escalate' as const };
+	}
+
+	run.progress(`refactor pass ${pass}: no changes but the checks still report ${workList.length} blocking — another pass`);
+
+	return { kind: 'retry' as const, declined };
+};
+
+/**
+ * The loop can also exhaust its passes while still reporting changes — the gate
+ * must not be escapable through that exit, so the tree is re-checked once more.
+ */
+const readFinalGateStop = async ({ run, record, lastReport }: { run: PipelineRun; record: StepRecord; lastReport: WorkReport | undefined }) => {
+	const final = await standardsWorkList({ run });
+
+	return final.workList.length > 0
+		? run.stop({
+				record: { ...record, report: lastReport },
+				status: RunStatus.Escalated,
+				error: describePersistingFindings({ findings: final.workList, report: lastReport, passes: maxRefactorPasses }),
+			})
+		: undefined;
+};
+
+/**
+ * The standards the agent review reads, resolved once for the whole loop: the
+ * gate must not be able to change its mind about the rules between passes.
+ */
+const resolveReviewStandards = async ({ run }: { run: PipelineRun }) => {
+	const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
+	const channels =
+		run.config['standards-channels'] ??
+		(await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config['packages-dir'] ?? 'packages', packages: run.current().packages }));
+
+	return { packages, channels };
+};
+
 interface Params {
 	run: PipelineRun;
 	gitPrefix?: string;
@@ -49,8 +131,7 @@ interface Params {
  * The standards-gated refactor loop: iterate until a pass reports complete
  * with zero changed files AND the checks report no work-list findings on the
  * changed files — capped at maxRefactorPasses, with a stable-decline early
- * exit (the agent has judged, the checks cannot hear judgment, and a
- * further pass only re-buys the same answer).
+ * exit (see `decideNoChangePass`).
  */
 export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params): PipelineStep['run'] => {
 	return async () => {
@@ -63,109 +144,60 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 		// pass that changes files.
 		let lastDeclined: string | undefined;
 
-		// The standards the agent review reads are the run's, resolved once: the
-		// gate must not be able to change its mind about the rules between passes.
-		const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
-		const channels =
-			run.config['standards-channels'] ??
-			(await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config['packages-dir'] ?? 'packages', packages: run.current().packages }));
+		const { packages, channels } = await resolveReviewStandards({ run });
 
 		for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
 			await run.setStep({ record });
 
-			const check = await standardsWorkList({ run });
-			// The judgment-only rules get read by an agent beside the machine
-			// checks, and its findings join the advisory stream — they are judgment
-			// handed to a judge, never work the gate can hold a run on.
-			const advisories = [...check.advisories, ...(await reviewAdvisories({ run, packages, channels }))];
-
-			if (check.workList.length > 0 || advisories.length > 0) {
-				run.progress(`standards gate: ${check.workList.length} blocking + ${advisories.length} advisory on changed files`);
-			}
+			const { workList, advisories } = await readStandardsGate({ run, packages, channels });
 
 			run.progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 
-			const outcome = await invokeRoleOrStop({
-				run,
-				record,
-				invocation: buildRefactorExecutorInvocation({
-					planContent,
-					changedFiles: sourceFiles({ run }),
-					standards,
-					findings: check.workList,
-					advisories,
-				}),
-				step: 'refactor',
-			});
+			const executed = await runExecutorPass({ run, gitPrefix, planContent, standards, record, findings: workList, advisories });
 
-			if ('stopped' in outcome) {
-				return outcome.stopped;
+			if ('stopped' in executed) {
+				return executed.stopped;
 			}
 
-			const { report } = outcome;
+			const { report } = executed;
 
-			await appendFriction({ cwd: run.cwd, runId: run.current().runId, step: 'refactor', friction: report.friction ?? [] });
-
-			if (report.status !== WorkReportStatus.Complete) {
-				const status = report.status === WorkReportStatus.Failed ? RunStatus.Failed : RunStatus.Escalated;
-
-				return run.stop({ record: { ...record, report }, status, error: `refactor: ${report.status} — ${report.failures.join('; ')}` });
-			}
-
-			record = withStepFiles({ record, reports: [report], gitPrefix });
-
-			await run.setStep({ record: { ...record, report }, patch: await collectChanged({ run, gitPrefix, reports: [report] }) });
+			record = executed.record;
 			lastReport = report;
 
-			if (report.changedFiles.length === 0) {
-				// No changes this pass, so the top-of-pass check still describes
-				// the tree — no re-check needed to judge the gate.
-				if (check.workList.length === 0) {
-					run.progress(`refactor pass ${pass}: no changes — loop complete`);
-					cleanExit = true;
-					break;
-				}
-
-				const declined = check.workList
-					.map((finding) => finding.siteKey)
-					.sort()
-					.join('\n');
-
-				if (declined === lastDeclined && pass < maxRefactorPasses) {
-					run.progress(`refactor pass ${pass}: agent declined the same work-list twice — escalating without spending the remaining pass(es)`);
-				}
-
-				if (pass === maxRefactorPasses || declined === lastDeclined) {
-					return run.stop({
-						record: { ...record, report },
-						status: RunStatus.Escalated,
-						error: describePersistingFindings({ findings: check.workList, report, passes: pass }),
-					});
-				}
-
-				lastDeclined = declined;
-				run.progress(`refactor pass ${pass}: no changes but the checks still report ${check.workList.length} blocking — another pass`);
+			if (report.changedFiles.length > 0) {
+				// The tree changed — the next check is a fresh question, not a repeat.
+				lastDeclined = undefined;
+				run.progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
 				record = { ...record, attempts: record.attempts + 1 };
 				continue;
 			}
 
-			// The tree changed — the next check is a fresh question, not a repeat.
-			lastDeclined = undefined;
-			run.progress(`refactor pass ${pass}: ${report.changedFiles.length} change(s)`);
+			// No changes this pass, so the top-of-pass check still describes the
+			// tree — no re-check needed to judge the gate.
+			const decided = decideNoChangePass({ run, workList, pass, lastDeclined });
+
+			if (decided.kind === 'complete') {
+				cleanExit = true;
+				break;
+			}
+
+			if (decided.kind === 'escalate') {
+				return run.stop({
+					record: { ...record, report },
+					status: RunStatus.Escalated,
+					error: describePersistingFindings({ findings: workList, report, passes: pass }),
+				});
+			}
+
+			lastDeclined = decided.declined;
 			record = { ...record, attempts: record.attempts + 1 };
 		}
 
-		// The loop can also exhaust its passes while still reporting changes —
-		// the gate must not be escapable through that exit.
 		if (!cleanExit) {
-			const final = await standardsWorkList({ run });
+			const stop = await readFinalGateStop({ run, record, lastReport });
 
-			if (final.workList.length > 0) {
-				return run.stop({
-					record: { ...record, report: lastReport },
-					status: RunStatus.Escalated,
-					error: describePersistingFindings({ findings: final.workList, report: lastReport, passes: maxRefactorPasses }),
-				});
+			if (stop) {
+				return stop;
 			}
 		}
 

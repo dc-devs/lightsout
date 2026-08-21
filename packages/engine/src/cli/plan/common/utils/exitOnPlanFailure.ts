@@ -1,4 +1,5 @@
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
+import { PlanRunStatus } from '#src/plan/index.ts';
 
 /** The two outcomes every agent-backed plan runner shares: a hard failure and a parked rate limit. Both print and exit 1. */
 interface PlanRunFailure {
@@ -14,7 +15,7 @@ interface PlanRunFailure {
  * caller below return the narrowed value without asserting it.
  */
 const survivesPlanFailure = <Result extends { status: string }>(result: Result): result is Exclude<Result, PlanRunFailure> =>
-	result.status !== 'failed' && result.status !== 'paused-rate-limit';
+	result.status !== PlanRunStatus.Failed && result.status !== PlanRunStatus.PausedRateLimit;
 
 /**
  * A failure's own message, or a statement of its status when it carries none.

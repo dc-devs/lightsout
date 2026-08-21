@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
 import { formatElapsed } from '#src/common/utils/formatElapsed.ts';
 
-for (const { elapsedMs, expected } of [
+test.each([
 	{ elapsedMs: 0, expected: '0s' },
 	{ elapsedMs: 45_000, expected: '45s' },
 	{ elapsedMs: 59_400, expected: '59s' },
@@ -9,8 +9,8 @@ for (const { elapsedMs, expected } of [
 	{ elapsedMs: 90_000, expected: '1m30s' },
 	{ elapsedMs: 725_000, expected: '12m05s' },
 	{ elapsedMs: 3_600_000, expected: '60m00s' },
-]) {
-	test(`formatElapsed: ${elapsedMs}ms reads as ${expected}`, () => {
-		expect(formatElapsed({ elapsedMs })).toBe(expected);
-	});
-}
+])('formatElapsed: $elapsedMs ms reads as $expected', ({ elapsedMs, expected }) => {
+	const formatted = formatElapsed({ elapsedMs });
+
+	expect(formatted).toBe(expected);
+});

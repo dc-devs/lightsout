@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
@@ -107,7 +107,7 @@ test('write-tests fan-out: every executable-code kind earns a writer; barrels an
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});
@@ -200,7 +200,7 @@ test('write-tests fan-out: a deleted source file is skipped, never sent to a wri
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});
@@ -271,7 +271,7 @@ test('write-tests fan-out: an unreadable file that still exists keeps its writer
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});

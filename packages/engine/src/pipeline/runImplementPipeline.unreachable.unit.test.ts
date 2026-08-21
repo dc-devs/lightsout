@@ -1,7 +1,7 @@
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
@@ -85,7 +85,7 @@ const setupOrphanRun = async ({ scripts, onWriteTests, onRefactor }: SetupParams
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), writerPrompts };
+	return { dir, driver, config: await readConfig({ cwd: dir }), writerPrompts };
 };
 
 test('write-tests: a changed file nothing public reaches earns no writer, is recorded, and finishes the run under a named warning', async () => {
@@ -250,7 +250,7 @@ const setupHiddenChainRun = async () => {
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), writerPrompts };
+	return { dir, driver, config: await readConfig({ cwd: dir }), writerPrompts };
 };
 
 test('a chain of hidden files is unreachable end to end — an importer that is itself unreachable makes no file public', async () => {

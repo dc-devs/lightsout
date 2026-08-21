@@ -45,7 +45,7 @@ const setupCheckRepo = () => {
 	writeFileSync(join(dir, 'src/b/normalizeRecord.ts'), 'export const normalizeRecord = () => 2;\n');
 
 	// structure: multi-export violation, misnamed file, domain-folder candidates
-	writeFileSync(join(dir, 'src/a/config.ts'), 'export const loadConfig = () => 1;\nexport const saveConfig = () => 2;\n');
+	writeFileSync(join(dir, 'src/a/config.ts'), 'export const readConfig = () => 1;\nexport const saveConfig = () => 2;\n');
 	writeFileSync(join(dir, 'src/a/helpers.ts'), 'export const buildLabel = () => 1;\n');
 	writeFileSync(join(dir, 'src/a/utils/formatDate.ts'), 'export const formatDate = () => 1;\n');
 	writeFileSync(join(dir, 'src/a/utils/formatCurrency.ts'), 'export const formatCurrency = () => 1;\n');
@@ -171,7 +171,7 @@ const setupLedgerRepo = ({ ledger }: { ledger?: string } = {}) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-ledger-'));
 
 	mkdirSync(join(dir, 'src/a'), { recursive: true });
-	writeFileSync(join(dir, 'src/a/config.ts'), 'export const loadConfig = () => 1;\nexport const saveConfig = () => 2;\n');
+	writeFileSync(join(dir, 'src/a/config.ts'), 'export const readConfig = () => 1;\nexport const saveConfig = () => 2;\n');
 
 	if (ledger !== undefined) {
 		writeFileSync(join(dir, 'lightsout.standards-baseline.json'), ledger);

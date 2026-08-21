@@ -1,28 +1,17 @@
+import type { GateEvidence } from '#src/contracts/index.ts';
 import { appendRunLog } from '#src/runState/common/utils/appendRunLog.ts';
 
 interface Params {
 	cwd: string;
 	runId: string;
-	record: {
-		at: string;
-		/** Pipeline step in flight when the command ran. */
-		step?: string;
-		/** Gate group: a package directory, or 'root'. */
-		group: string;
-		/** Which gate: generate | check | test | testCoverage | build | format. */
-		kind: string;
-		command: string;
-		/** Absent on skipped records — nothing was executed. */
-		exitCode?: number;
-		durationMs?: number;
-		/** Present only on failure — the tail of combined stdout/stderr. */
-		outputTail?: string;
-		/** The gate never ran — `reason` says why (e.g. no matching script). */
-		skipped?: true;
-		reason?: string;
-	};
+	/**
+	 * The line to append, as the contract defines it. Taken from `GateEvidence`
+	 * rather than restated here: it is `GateResult` plus the two fields only the
+	 * log carries, and a second spelling of it drifts — this one had already lost
+	 * `rerun`, which a flake re-run writes and the run summary counts.
+	 */
+	record: GateEvidence;
 }
-
 /**
  * Append one gate-command execution to the run's `commands.jsonl`. Every
  * command is recorded, passing, failing or skipped — a green gate that

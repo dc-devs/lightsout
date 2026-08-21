@@ -1,5 +1,5 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildHookContentCheck } from '../../../common/utils/buildHookContentCheck.ts';
+import { buildHookContentCheck } from '../../../common/checks/buildHookContentCheck.ts';
 
 /** The manual cleanup a Jest config's `clearMocks`/`restoreMocks` already performs. */
 const manualCleanup = /jest\.(?:clearAllMocks|resetAllMocks|restoreAllMocks)\s*\(|\.mock(?:Clear|Reset)\s*\(/;

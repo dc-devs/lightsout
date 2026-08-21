@@ -1,9 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { readCallBlocks } from '../../../common/utils/readCallBlocks.ts';
-import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
-import { scanTestLines } from '../../../common/utils/scanTestLines.ts';
+import { readTestFiles } from '../../../common/checkInput/readTestFiles.ts';
+import { buildLineSites } from '../../../common/findings/buildLineSites.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { readCallBlocks } from '../../../common/parsing/readCallBlocks.ts';
+import { scanTestLines } from '../../../common/parsing/scanTestLines.ts';
 
 /** A `let` declaration, however it is indented — the enclosing blocks decide whether it is shared state. */
 const letDeclaration = /^\s*let\s+([A-Za-z0-9_$]+)/;

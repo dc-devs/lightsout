@@ -39,7 +39,10 @@ const readEventsWhen = async ({ path, until }: { path: string; until: (events: R
 	throw new Error(`${path} never satisfied the condition`);
 };
 
-const hasCount = (count: number) => (events: Record<string, unknown>[]) => events.length >= count;
+const hasCount =
+	({ count }: { count: number }) =>
+	(events: Record<string, unknown>[]) =>
+		events.length >= count;
 
 describe('createEventFileSink', () => {
 	test('events land in arrival order even though every emit returns synchronously', async () => {
@@ -49,7 +52,7 @@ describe('createEventFileSink', () => {
 			sink({ index });
 		}
 
-		const events = await readEventsWhen({ path, until: hasCount(50) });
+		const events = await readEventsWhen({ path, until: hasCount({ count: 50 }) });
 
 		// The whole point of the promise tail: unserialized appends interleave and
 		// the transcript stops being usable as the run's evidence.
@@ -62,7 +65,7 @@ describe('createEventFileSink', () => {
 		sink({ type: 'assistant', message: 'editing' });
 		sink({ type: 'result', result: 'done' });
 
-		const events = await readEventsWhen({ path, until: hasCount(2) });
+		const events = await readEventsWhen({ path, until: hasCount({ count: 2 }) });
 
 		expect(events).toStrictEqual([
 			{ type: 'assistant', message: 'editing' },
@@ -88,7 +91,7 @@ describe('createEventFileSink', () => {
 		mkdirSync(join(dir, 'agents'), { recursive: true });
 		release();
 
-		const events = await readEventsWhen({ path, until: hasCount(1) });
+		const events = await readEventsWhen({ path, until: hasCount({ count: 1 }) });
 
 		expect(events).toStrictEqual([{ first: true }]);
 	});
@@ -101,7 +104,7 @@ describe('createEventFileSink', () => {
 		sink({ index: 0 });
 		sink({ index: 1 });
 
-		const events = await readEventsWhen({ path, until: hasCount(2) });
+		const events = await readEventsWhen({ path, until: hasCount({ count: 2 }) });
 
 		// A directory the engine failed to create must not wedge the sink or raise
 		// an unhandled rejection — evidence is best-effort, never fatal to a run.

@@ -1,6 +1,5 @@
-import { execSync } from 'node:child_process';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { readRunManifest } from '#src/runState/index.ts';
@@ -12,8 +11,6 @@ import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
 const multiExport = 'export const alpha = 1;\nexport const beta = 2;\n';
-
-const _commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
 /** A driver whose refactor executor actually fixes a multi-export file by splitting it. */
 const fixingDriver = ({ dir }: { dir: string }): Driver => ({
@@ -55,10 +52,62 @@ const decliningDriver: Driver = {
 	}),
 };
 
+/**
+ * A driver that fixes the finding it was pointed at and plants a fresh blocking
+ * one somewhere else — the shape a real refactor takes when an extraction
+ * leaves the extracted file short of the standards.
+ */
+const sloppyDriver = ({ dir }: { dir: string }): Driver => ({
+	name: 'stub',
+	invoke: async ({ prompt }) => {
+		if (roleOf(prompt) === 'standards-review') {
+			return { text: reviewReport(), exitCode: 0 };
+		}
+
+		const target = prompt.match(/- (\S+\.ts)/)?.[1];
+
+		if (target) {
+			writeSource({ dir, path: target, source: 'export const alpha = 1;\n' });
+			writeSource({ dir, path: 'src/extracted.ts', source: multiExport });
+
+			return {
+				text: report({
+					changedFiles: [
+						{ path: target, summary: 'split' },
+						{ path: 'src/extracted.ts', summary: 'extracted' },
+					],
+				}),
+				exitCode: 0,
+			};
+		}
+
+		return { text: report({ changedFiles: [] }), exitCode: 0 };
+	},
+});
+
+test('refactor: a run that trades one finding for a new one fails — a burn-down that burns nothing down is not a pass', async () => {
+	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport } });
+
+	const result = await runRefactorPipeline({ cwd: dir, driver: sloppyDriver({ dir }), config: await readConfig({ cwd: dir }) });
+
+	expect(result.ok).toBe(false);
+	// the run made this one — it was never on the work-list it was handed
+	expect(result.error ?? '').toContain('refactor introduced 1 blocking finding(s) it never set out to fix');
+	expect(result.error ?? '').toContain('multi-export:src/extracted.ts');
+	// the burn-down still rides out: the table is the evidence for what happened
+	expect(result.before['multi-export']).toBe(1);
+	expect(result.after['multi-export']).toBe(1);
+
+	const manifest = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
+
+	expect(manifest.status).toBe('failed');
+	expect(manifest.steps.find((step) => step.id === 'final-check')?.status).toBe('failed');
+});
+
 test('refactor: a batch the executor fixes is resolved, with a burn-down', async () => {
 	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport } });
 
-	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(true);
 	expect(result.declined.length).toBe(0);
@@ -76,7 +125,7 @@ test('refactor: a batch the executor fixes is resolved, with a burn-down', async
 test('refactor: zero changes with persisting clusters is a decline — recorded, run still ok', async () => {
 	const dir = setupConsumerRepo({ sources: { 'src/multi.ts': multiExport } });
 
-	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(true);
 	expect(result.declined.length).toBe(1);
@@ -89,7 +138,7 @@ test('refactor: zero changes with persisting clusters is a decline — recorded,
 test('refactor: three consecutive declines stop the run as systemic', async () => {
 	const dir = setupConsumerRepo({ sources: Object.fromEntries(['alpha', 'beta', 'gamma'].map((folder) => [`${folder}/multi.ts`, multiExport])) });
 
-	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(false);
 	expect(result.error ?? '').toMatch(/consecutive batches declined/);
@@ -102,7 +151,7 @@ test('refactor: a dirty tree is a hard error before any run state exists', async
 
 	writeSource({ dir, path: 'src/uncommitted.ts', source: 'export const later = 1;\n' });
 
-	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await loadConfig({ cwd: dir }) })).rejects.toThrow(/requires a clean tree/);
+	await expect(runRefactorPipeline({ cwd: dir, driver: decliningDriver, config: await readConfig({ cwd: dir }) })).rejects.toThrow(/requires a clean tree/);
 });
 
 test('refactor: --allow-dirty records the standing dirt as baseline and never attributes it to a batch', async () => {
@@ -110,7 +159,7 @@ test('refactor: --allow-dirty records the standing dirt as baseline and never at
 	// the standing dirt: an uncommitted edit to a file no batch touches
 	writeSource({ dir, path: 'src/uncommitted.ts', source: 'export const later = 2;\n' });
 
-	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }), allowDirty: true });
+	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await readConfig({ cwd: dir }), allowDirty: true });
 
 	expect(result.ok).toBe(true);
 	expect(result.after['multi-export'] ?? 0).toBe(0);
@@ -137,7 +186,7 @@ test('refactor: a red pre-flight gate fails the run before any batch', async () 
 		},
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(false);
 	expect(result.error ?? '').toMatch(/not green before refactoring/);
@@ -161,7 +210,7 @@ test('refactor: an empty work-list completes as a verdict, spawning nothing', as
 		},
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(true);
 	expect(invocations.length).toBe(0);
@@ -189,7 +238,7 @@ test('refactor: a rate limit parks the run; resume finishes it', async () => {
 		},
 	};
 
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const parked = await runRefactorPipeline({ cwd: dir, driver: parkThenFix, config });
 
 	expect(parked.ok).toBe(false);
@@ -207,7 +256,7 @@ test('refactor: a rate limit parks the run; resume finishes it', async () => {
 test('refactor: --max-batches parks resumable at the budget ceiling', async () => {
 	const dir = setupConsumerRepo({ sources: Object.fromEntries(['alpha', 'beta'].map((folder) => [`${folder}/multi.ts`, multiExport])) });
 
-	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await loadConfig({ cwd: dir }), maxBatches: 1 });
+	const result = await runRefactorPipeline({ cwd: dir, driver: fixingDriver({ dir }), config: await readConfig({ cwd: dir }), maxBatches: 1 });
 
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('paused-budget');
@@ -255,7 +304,7 @@ test('refactor: declines recorded before a park survive the resume (report, stre
 		},
 	};
 
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const parked = await runRefactorPipeline({ cwd: dir, driver, config });
 
 	expect(parked.manifest.status).toBe('paused-rate-limit');
@@ -304,7 +353,7 @@ test('refactor: terminated:scope is a decline that continues, not a run-ending e
 		},
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	// a scope refusal must not end the run: ${result.error}
 	expect(result.ok).toBe(true);
@@ -335,7 +384,7 @@ test('refactor: an invocation failure whose work is verifiably done is salvaged 
 		},
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	// verified work must be salvaged, not failed: ${result.error}
 	expect(result.ok).toBe(true);

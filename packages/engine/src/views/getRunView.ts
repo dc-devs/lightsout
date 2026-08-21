@@ -1,7 +1,8 @@
 import { access } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import { AgentInvocation, GateEvidence, PhaseReport, PipelineKind, type RunStepView, type RunView, type StepRecord } from '#src/contracts/index.ts';
-import { getRunDir, listRunIds, readFriction, readJsonlRecords, readRunLock, readRunManifest, summarizeRun } from '#src/runState/index.ts';
+import { getRunDir, listRunIds, readFriction, readRunLock, readRunManifest, summarizeRun } from '#src/runState/index.ts';
 import { getRunTitle } from '#src/views/common/utils/getRunTitle.ts';
 import { loadRunListing } from '#src/views/common/utils/loadRunListing.ts';
 

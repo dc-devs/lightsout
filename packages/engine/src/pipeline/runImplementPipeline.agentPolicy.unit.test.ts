@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
@@ -49,7 +49,7 @@ const setupPolicyRun = async ({ config }: { config?: Record<string, unknown> } =
 		},
 	};
 
-	const loaded = await loadConfig({ cwd: dir });
+	const loaded = await readConfig({ cwd: dir });
 	const readLedger = (runId: string) =>
 		readFileSync(join(dir, '.lightsout', 'runs', runId, 'agents.jsonl'), 'utf8')
 			.trim()

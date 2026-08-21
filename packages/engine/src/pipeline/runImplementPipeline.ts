@@ -1,8 +1,8 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
-import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
-import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { prepareRun } from '#src/pipeline/common/utils/prepareRun.ts';

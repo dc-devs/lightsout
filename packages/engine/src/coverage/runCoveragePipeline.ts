@@ -1,8 +1,8 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
-import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
-import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
+import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import {
 	type AgentUsage,
 	BatchOutcome,

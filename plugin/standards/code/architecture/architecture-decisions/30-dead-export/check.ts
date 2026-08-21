@@ -1,5 +1,5 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildUnconsumedExportCheck } from '../../../../common/utils/buildUnconsumedExportCheck.ts';
+import { buildUnconsumedExportCheck } from '../../../../common/checks/buildUnconsumedExportCheck.ts';
 
 // Reached from neither a barrel nor a test: nothing in the repo mentions the
 // name at all. The counting is conservative — a mention in a comment or a

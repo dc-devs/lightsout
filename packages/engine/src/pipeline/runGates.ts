@@ -1,5 +1,5 @@
+import { resolveGates } from '#src/common/config/resolveGates.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { resolveGates } from '#src/common/utils/resolveGates.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateCommands } from '#src/pipeline/common/types/GateCommands.ts';
 import { createGateRunner } from '#src/pipeline/createGateRunner.ts';

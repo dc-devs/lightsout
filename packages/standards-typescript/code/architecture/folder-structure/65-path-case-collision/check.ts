@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { readPathLists } from '../../../../common/utils/readPathLists.ts';
+import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
 
 const sourceExtension = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
 

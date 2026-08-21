@@ -1,8 +1,8 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { getDirectory } from '../../../common/utils/getDirectory.ts';
-import { isUnderSrc } from '../../../common/utils/isUnderSrc.ts';
-import { readPathLists } from '../../../common/utils/readPathLists.ts';
+import { readPathLists } from '../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { getDirectory } from '../../../common/paths/getDirectory.ts';
+import { isUnderSrc } from '../../../common/paths/isUnderSrc.ts';
 
 /**
  * The separate-directory names the rule refuses for a unit test. Outside `src/`

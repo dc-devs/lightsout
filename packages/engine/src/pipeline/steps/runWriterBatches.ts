@@ -1,8 +1,9 @@
 import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
 import { type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
-import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
 import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
+import type { WriterResult } from '#src/pipeline/common/types/WriterResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
+import { drainChains } from '#src/pipeline/steps/drainChains.ts';
 import { appendFriction } from '#src/runState/index.ts';
 
 interface Params {
@@ -12,9 +13,6 @@ interface Params {
 	planContent: string;
 	testStandards?: string;
 }
-
-/** One writer's outcome, tagged with the group it covered. */
-type WriterResult = Awaited<ReturnType<PipelineRun['invokeRole']>> & { group: TestTargetGroup };
 
 /** Spawning one writer for one group, optionally gated on its first stream event. */
 type SpawnWriter = ({ group, onFirstEvent }: { group: TestTargetGroup; onFirstEvent?: () => void }) => Promise<WriterResult>;
@@ -149,15 +147,9 @@ const createWarmSpawn = ({
 
 /**
  * Fan the unit-test writers out over their groups: same-cluster groups run as
- * one serial chain, and chains occupy `testWriterConcurrency` slots that refill
- * the moment one frees. The first chunk is spawned alone as a prompt-cache
- * warm-up (see `createWarmSpawn`) and the rest trail it.
- *
- * Slots refill rather than draining in lockstep because writer durations are
- * wildly uneven — a group of one small module settles in seconds while an
- * oversized component's chunk runs for minutes. Waiting for a whole batch left
- * every other slot idle until its slowest member returned, which on a real
- * fan-out is most of the wall clock.
+ * one serial chain, and chains occupy refilling slots (see `drainChains`). The
+ * first chunk is spawned alone as a prompt-cache warm-up (see
+ * `createWarmSpawn`) and the rest trail it.
  */
 export const runWriterBatches = async ({
 	run,
@@ -208,33 +200,7 @@ export const runWriterBatches = async ({
 		await collectWarm();
 	}
 
-	// A shared cursor is what makes the slots refill: every runner takes the next
-	// unclaimed chain and keeps going until the list is spent or the run parks.
-	let next = 0;
-
-	const runSlot = async (): Promise<void> => {
-		while (next < restChains.length && !aggregate.isParked()) {
-			const chain = restChains[next];
-
-			next += 1;
-
-			if (chain === undefined) {
-				return;
-			}
-
-			const results = await chain();
-
-			if (isSettled()) {
-				await collectWarm();
-			}
-
-			for (const result of results) {
-				await aggregate.collect({ result });
-			}
-		}
-	};
-
-	await Promise.all(Array.from({ length: Math.min(testWriterConcurrency, restChains.length) }, () => runSlot()));
+	await drainChains({ chains: restChains, aggregate, collectWarm, isSettled });
 
 	await collectWarm();
 

@@ -1,3 +1,4 @@
+import type { ImportTargetKind } from '../constants/ImportTargetKind.ts';
 /**
  * What one module specifier points at, once the run's file list and the
  * importing package's path aliases have both been consulted.
@@ -14,4 +15,7 @@
  * resolve this barrel" as "this barrel exports nothing" and report every test
  * in a package as testing a private internal.
  */
-export type ImportTarget = { kind: 'file'; path: string } | { kind: 'external' } | { kind: 'unknown' };
+export type ImportTarget =
+	| { kind: typeof ImportTargetKind.File; path: string }
+	| { kind: typeof ImportTargetKind.External }
+	| { kind: typeof ImportTargetKind.Unknown };

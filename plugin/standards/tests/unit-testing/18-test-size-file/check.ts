@@ -1,5 +1,5 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildTestLimitCheck } from '../../../common/utils/buildTestLimitCheck.ts';
+import { buildTestLimitCheck } from '../../../common/checks/buildTestLimitCheck.ts';
 
 export const check: StandardsCheckModule = buildTestLimitCheck({
 	rule: 'test-size-file',

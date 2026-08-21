@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -56,7 +56,7 @@ const setupBatchPolicy = async ({ config }: { config?: Record<string, unknown> }
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), invocations };
+	return { dir, driver, config: await readConfig({ cwd: dir }), invocations };
 };
 
 /** The distinct effort/permission pairs a run's invocations were spawned at. */

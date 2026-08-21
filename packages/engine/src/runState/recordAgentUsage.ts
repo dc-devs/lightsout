@@ -1,5 +1,5 @@
 import type { AgentUsage, Effort, RunUsage } from '#src/contracts/index.ts';
-import { appendAgentLog } from '#src/runState/appendAgentLog.ts';
+import { appendAgentLog } from '#src/runState/common/utils/appendAgentLog.ts';
 
 interface Params {
 	cwd: string;

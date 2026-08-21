@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
@@ -58,7 +58,7 @@ test('front-matter scope: scoped clean-slate, name substitution, expansion, root
 			};
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	const allGates = readGateLog({ dir });
 	const postImplementGates = allGates.slice(cleanSlateGates.length);
 
@@ -99,7 +99,7 @@ test('no scope anywhere: hard error before any gate or agent', async () => {
 			throw new Error('no agent should be invoked');
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.manifest.status).toBe('failed');
 	expect(result.error ?? '').toMatch(/no package scope/);
@@ -126,7 +126,7 @@ test('--packages flag overrides front-matter; source recorded as flag', async ()
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		packages: ['web'],
 	});
@@ -153,7 +153,7 @@ test('scope derived from concrete plan-body paths when nothing is declared', asy
 			return { text: report({ changedFiles: [{ path: 'packages/api/src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
 	expect(result.manifest.packages).toStrictEqual(['api']);
@@ -170,7 +170,7 @@ test('a declared package without package.json fails its gate group with a clear 
 			throw new Error('no agent should be invoked — clean-slate must fail first');
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.manifest.status).toBe('failed');
 	expect(result.error ?? '').toMatch(/ghost.*no package\.json|no package\.json.*ghost/);
@@ -183,7 +183,7 @@ test('a declared package without package.json fails its gate group with a clear 
  */
 const setupParkedMonorepoRun = async () => {
 	const dir = setupMonorepo();
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const parkOnWrite: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {

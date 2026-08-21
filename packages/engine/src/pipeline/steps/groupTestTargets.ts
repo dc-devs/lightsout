@@ -1,6 +1,6 @@
 import type ts from 'typescript';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
+import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
 import { chunkFileGroup } from '#src/pipeline/chunkFileGroup.ts';
 import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
 import { partitionByPackage } from '#src/pipeline/common/utils/partitionByPackage.ts';

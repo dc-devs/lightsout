@@ -1,9 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
+import { readTestFiles } from '../../../common/checkInput/readTestFiles.ts';
+import { buildLineSites } from '../../../common/findings/buildLineSites.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { readCallBlocks } from '../../../common/parsing/readCallBlocks.ts';
 import type { CallBlock } from '../../../common/types/CallBlock.ts';
-import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { readCallBlocks } from '../../../common/utils/readCallBlocks.ts';
-import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
 
 /** The legacy wrapper the prose names outright: a factory forward typed to discard its arguments. */
 const discardingWrapper = /\(\s*\.\.\.\s*[A-Za-z0-9_$]+\s*:\s*unknown\s*\[\s*\]/;

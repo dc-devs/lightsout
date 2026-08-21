@@ -1,4 +1,4 @@
-import { runCommand } from '#src/common/utils/runCommand.ts';
+import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { probeTimeoutMs } from '#src/doctor/common/constants/probeTimeoutMs.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';

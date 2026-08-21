@@ -1,6 +1,6 @@
+import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { runCommand } from '#src/common/utils/runCommand.ts';
 import type { GateResult } from '#src/contracts/index.ts';
 import type { RunGate } from '#src/pipeline/common/types/RunGate.ts';
 import { appendCommandLog } from '#src/runState/index.ts';

@@ -1,6 +1,6 @@
 ---
 summary: "a discriminant field typed as a raw string literal instead of the `const` object's member"
-checked: false
+checked: true
 severity: advisory
 ---
 

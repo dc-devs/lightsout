@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/pipeline/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
@@ -36,7 +36,7 @@ test('the build gate runs last in the root set, after check and the test run', a
 			build: `${gateLogCommand({ kind: 'build' })} root`,
 		},
 	});
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config });
 
@@ -46,7 +46,7 @@ test('the build gate runs last in the root set, after check and the test run', a
 
 test('a red build fails the set with its exit code and output', async () => {
 	const dir = setupConsumerRepo({ scripts: { build: redGate({ exitCode: 3, message: 'compiler said no' }) } });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config });
 
@@ -61,7 +61,7 @@ test('a red generate short-circuits the gate set — no gate runs behind broken 
 			check: `${gateLogCommand({ kind: 'check' })} root`,
 		},
 	});
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config });
 
@@ -73,7 +73,7 @@ test('a red generate short-circuits the gate set — no gate runs behind broken 
 
 test('a gate that cannot spawn is a red gate, not a crash — and is never re-run', async () => {
 	const dir = setupConsumerRepo();
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const results: GateResult[] = [];
 
 	const error = await runGates({ cwd: join(dir, 'no-such-dir'), config, onGateResult: (result) => results.push(result) });
@@ -93,7 +93,7 @@ test('a gate that cannot spawn is a red gate, not a crash — and is never re-ru
 
 test('a package whose manifest cannot be resolved fails its own group only — the rest of the fan-out still runs', async () => {
 	const dir = setupScopedRepo();
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config, packages: ['api', 'ghost'] });
 

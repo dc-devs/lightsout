@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -50,7 +50,7 @@ const setupParkedWriterRun = async () => {
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
 test('write-tests: a rate-limited writer parks the run, and the writers that already landed keep their work', async () => {

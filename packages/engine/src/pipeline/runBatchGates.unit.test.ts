@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { runBatchGates } from '#src/pipeline/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
@@ -20,7 +20,7 @@ const setupTouched = async ({ files, git = true }: { files: string[]; git?: bool
 		rmSync(join(dir, '.git'), { recursive: true, force: true });
 	}
 
-	return { dir, config: await loadConfig({ cwd: dir }), gates: () => readGateLog({ dir }) };
+	return { dir, config: await readConfig({ cwd: dir }), gates: () => readGateLog({ dir }) };
 };
 
 /**
@@ -43,7 +43,7 @@ const setupConfiguredPackagesDir = async ({ packagesDir, packageCheck }: { packa
 	writeFileSync(join(dir, packagesDir, 'api', 'package.json'), JSON.stringify({ name: '@acme/api' }));
 	writeFileSync(join(dir, packagesDir, 'api', 'src/added.js'), 'export const written = 1;\n');
 
-	return { dir, config: await loadConfig({ cwd: dir }), gates: () => readGateLog({ dir }) };
+	return { dir, config: await readConfig({ cwd: dir }), gates: () => readGateLog({ dir }) };
 };
 
 describe('runBatchGates', () => {

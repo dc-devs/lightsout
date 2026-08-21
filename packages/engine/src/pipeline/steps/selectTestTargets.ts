@@ -1,9 +1,9 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import { isInertSourceFile } from '#src/common/utils/isInertSourceFile.ts';
-import { isToolingConfigFile } from '#src/common/utils/isToolingConfigFile.ts';
-import { isUnloadableSourceFile } from '#src/common/utils/isUnloadableSourceFile.ts';
+import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
+import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
+import { isUnloadableSourceFile } from '#src/common/sourceFiles/isUnloadableSourceFile.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {

@@ -2,6 +2,7 @@ import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { AuthoredFacts, type PlanFacts } from '#src/contracts/index.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { verifyFacts } from '#src/plan/verifyFacts.ts';
@@ -54,8 +55,8 @@ const snapshotNotes = async ({
 };
 
 type RunPlanVerifyFactsResult =
-	| { status: 'complete'; facts: PlanFacts; factsPath: string; workspaceDir: string; error: undefined }
-	| { status: 'failed'; workspaceDir: string; error: string };
+	| { status: typeof PlanRunStatus.Complete; facts: PlanFacts; factsPath: string; workspaceDir: string; error: undefined }
+	| { status: typeof PlanRunStatus.Failed; workspaceDir: string; error: string };
 
 /**
  * Deterministically verify session-authored plan facts and stamp the canonical
@@ -78,7 +79,7 @@ export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: P
 		const snapshot = await snapshotNotes({ cwd, workspaceDir, notesFile, progress });
 
 		if (snapshot.error !== undefined) {
-			return { status: 'failed' as const, workspaceDir, error: snapshot.error };
+			return { status: PlanRunStatus.Failed, workspaceDir, error: snapshot.error };
 		}
 	}
 
@@ -94,7 +95,7 @@ export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: P
 				`no authored facts for plan ${name} at ${filePath} — author facts.json ({ request, areas }), then re-run: lightsout plan verify-facts --name ${name}`,
 		});
 	} catch (error) {
-		return { status: 'failed' as const, workspaceDir, error: messageOf({ error }) };
+		return { status: PlanRunStatus.Failed, workspaceDir, error: messageOf({ error }) };
 	}
 
 	const verification = await verifyFacts({ cwd, facts: authored });
@@ -113,5 +114,5 @@ export const runPlanVerifyFacts = async ({ cwd, name, notesFile, onProgress }: P
 		`plan verify-facts · ${verification.pathsChecked} path(s) verified${missingPart}; ${verification.scriptsChecked} script(s) checked, ${verification.missingScripts.length} missing`,
 	);
 
-	return { status: 'complete' as const, facts, factsPath, workspaceDir, error: undefined };
+	return { status: PlanRunStatus.Complete, facts, factsPath, workspaceDir, error: undefined };
 };

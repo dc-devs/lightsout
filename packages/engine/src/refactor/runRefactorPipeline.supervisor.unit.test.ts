@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -93,7 +93,7 @@ test('refactor: supervisor guidance rescues a red-gated batch', async () => {
 		}),
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	// the guided retry must rescue the batch: ${result.error}
 	expect(result.ok).toBe(true);
@@ -127,7 +127,7 @@ test('refactor: a supervisor escalate verdict ends the run with the diagnosis at
 		}),
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('escalated');
@@ -146,7 +146,7 @@ test('refactor: a rate-limited supervisor parks the run, not fails it', async ()
 		}),
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(false);
 	// rate-limit exhaustion is a pausable state, never an error

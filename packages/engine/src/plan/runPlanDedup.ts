@@ -3,6 +3,7 @@ import { buildPlanDedupInvocation } from '#src/agents/index.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { type DedupFinding, DedupJudgment, type DedupReport, type Effort, type Permissions } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
 import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
@@ -23,9 +24,9 @@ interface Params {
 }
 
 type RunPlanDedupResult =
-	| { status: 'complete'; workspaceDir: string; dedup: DedupReport; dedupPath: string }
-	| { status: 'failed'; workspaceDir: string; error: string }
-	| { status: 'paused-rate-limit'; workspaceDir: string; error: string };
+	| { status: typeof PlanRunStatus.Complete; workspaceDir: string; dedup: DedupReport; dedupPath: string }
+	| { status: typeof PlanRunStatus.Failed; workspaceDir: string; error: string }
+	| { status: typeof PlanRunStatus.PausedRateLimit; workspaceDir: string; error: string };
 
 /**
  * Read-only prior-art detector for the interactive Dedup Review pass:
@@ -53,7 +54,7 @@ export const runPlanDedup = async ({
 	const { workspaceDir, overviewText, files: planFiles, planPaths, config, error } = await getPlanDetectionPass({ cwd, name });
 
 	if (error) {
-		return { status: 'failed' as const, workspaceDir, error };
+		return { status: PlanRunStatus.Failed, workspaceDir, error };
 	}
 
 	const candidates = await detectPriorArtCandidates({ cwd, planPaths, config });
@@ -73,7 +74,7 @@ export const runPlanDedup = async ({
 
 		const { dedup, dedupPath } = await writeReport([]);
 
-		return { status: 'complete' as const, workspaceDir, dedup, dedupPath };
+		return { status: PlanRunStatus.Complete, workspaceDir, dedup, dedupPath };
 	}
 
 	progress(`plan dedup ${name}: ${candidates.length} candidate(s) detected, judging`);
@@ -87,8 +88,8 @@ export const runPlanDedup = async ({
 
 	if (!outcome.ok) {
 		return outcome.rateLimited
-			? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan dedup --name ${name}` }
-			: { status: 'failed' as const, workspaceDir, error: `dedup judge failed: ${outcome.failure}` };
+			? { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan dedup --name ${name}` }
+			: { status: PlanRunStatus.Failed, workspaceDir, error: `dedup judge failed: ${outcome.failure}` };
 	}
 
 	const { report } = outcome;
@@ -98,5 +99,5 @@ export const runPlanDedup = async ({
 
 	progress(`plan dedup ${name}: ${findings.length} duplication(s) to review`);
 
-	return { status: 'complete' as const, workspaceDir, dedup, dedupPath };
+	return { status: PlanRunStatus.Complete, workspaceDir, dedup, dedupPath };
 };

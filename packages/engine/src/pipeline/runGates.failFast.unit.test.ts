@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/pipeline/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
@@ -12,7 +12,7 @@ const red = 'node -e "process.exit(1)"';
 
 test('failFast: false runs every gate and aggregates all failures', async () => {
 	const dir = setupConsumerRepo({ scripts: { check: red, test: red } });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const gates: GateResult[] = [];
 
 	const error = await runGates({ cwd: dir, config, failFast: false, onGateResult: (result) => gates.push(result) });
@@ -31,7 +31,7 @@ test('failFast: false runs every gate and aggregates all failures', async () => 
 
 test('failFast omitted: the first red wins — later gates never execute', async () => {
 	const dir = setupConsumerRepo({ scripts: { check: red, test: red } });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const gates: GateResult[] = [];
 
 	const error = await runGates({ cwd: dir, config, onGateResult: (result) => gates.push(result) });
@@ -64,7 +64,7 @@ test('failFast: false threads into scoped groups — every red gate in a package
 
 	const error = await runGates({
 		cwd: dir,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		packages: ['api'],
 		failFast: false,
 		onGateResult: (result) => gates.push(result),
@@ -103,7 +103,7 @@ test('a scoped skip surfaces through onGateResult as a skipped entry', async () 
 
 	const gates: GateResult[] = [];
 
-	await runGates({ cwd: dir, config: await loadConfig({ cwd: dir }), packages: ['api', 'bare'], onGateResult: (result) => gates.push(result) });
+	await runGates({ cwd: dir, config: await readConfig({ cwd: dir }), packages: ['api', 'bare'], onGateResult: (result) => gates.push(result) });
 
 	const skips = gates.filter((gate) => gate.skipped === true);
 

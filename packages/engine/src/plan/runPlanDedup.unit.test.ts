@@ -332,7 +332,7 @@ test('plan dedup: progress narrates the candidates detected and the duplications
 	expectStatus(result, 'complete');
 	// the human waiting on the judge sees what was detected and what came back,
 	// got: ${messages.join(' | ')}
-	expect(messages).toStrictEqual([expect.stringMatching(/1 candidate\(s\) detected/), expect.stringMatching(/1 duplication\(s\) to review/)]);
+	expect(messages).toEqual([expect.stringMatching(/1 candidate\(s\) detected/), expect.stringMatching(/1 duplication\(s\) to review/)]);
 });
 
 test('plan dedup: the no-candidate path narrates that there is nothing to review', async () => {
@@ -349,7 +349,7 @@ test('plan dedup: the no-candidate path narrates that there is nothing to review
 
 	expectStatus(result, 'complete');
 	// a silent no-op reads as a hang; the narration says the pass ran and found nothing
-	expect(messages).toStrictEqual([expect.stringMatching(/no prior-art candidates/)]);
+	expect(messages).toEqual([expect.stringMatching(/no prior-art candidates/)]);
 });
 
 test('plan dedup: an explicit timeoutMs reaches the judging harness', async () => {

@@ -1,7 +1,7 @@
-import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
+import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts';
+import { resolvePackageGatesConfig } from '#src/common/config/resolvePackageGatesConfig.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { resolvePackageGatesConfig } from '#src/common/utils/resolvePackageGatesConfig.ts';
-import { resolvePackageManifest } from '#src/common/utils/resolvePackageManifest.ts';
+import { readPackageManifest } from '#src/common/workspace/readPackageManifest.ts';
 import type { GateResult, LightsoutConfig } from '#src/contracts/index.ts';
 import type { GateCommands } from '#src/pipeline/common/types/GateCommands.ts';
 import type { RunGate } from '#src/pipeline/common/types/RunGate.ts';
@@ -54,10 +54,10 @@ export const runPackageGates = async ({
 	onGateResult,
 	onProgress,
 }: Params): Promise<string | undefined> => {
-	let manifest: Awaited<ReturnType<typeof resolvePackageManifest>>;
+	let manifest: Awaited<ReturnType<typeof readPackageManifest>>;
 
 	try {
-		manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir });
+		manifest = await readPackageManifest({ cwd, packagesDir, packageDir });
 	} catch (error) {
 		return messageOf({ error });
 	}

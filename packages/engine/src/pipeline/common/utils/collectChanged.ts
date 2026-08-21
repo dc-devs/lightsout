@@ -1,5 +1,5 @@
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { packageOf } from '#src/common/utils/packageOf.ts';
+import { packageOf } from '#src/common/workspace/packageOf.ts';
 import type { WorkReport } from '#src/contracts/index.ts';
 import { consumerRelative } from '#src/pipeline/common/utils/consumerRelative.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';

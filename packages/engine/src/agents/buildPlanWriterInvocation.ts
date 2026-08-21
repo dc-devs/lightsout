@@ -1,7 +1,7 @@
 import { dirname } from 'node:path';
 import planTemplate from '#src/agents/prompts/planTemplate.md';
 import planWriterPrompt from '#src/agents/prompts/planWriter.md';
-import type { DecisionsRecord, PlanFacts, PlanVariant } from '#src/contracts/index.ts';
+import { type DecisionsRecord, type PlanFacts, PlanVariant } from '#src/contracts/index.ts';
 
 interface Params {
 	facts: PlanFacts;
@@ -28,7 +28,7 @@ export const buildPlanWriterInvocation = ({ facts, decisions, outputs, standards
 	// file into one directory — name the directory explicitly so the agent's hard
 	// naming rule (overview.md + phase<N>-<slug>.md) lands where grade looks the
 	// files up by name.
-	const overview = outputs.find((output) => output.variant === 'overview');
+	const overview = outputs.find((output) => output.variant === PlanVariant.Overview);
 
 	if (overview) {
 		sections.push(

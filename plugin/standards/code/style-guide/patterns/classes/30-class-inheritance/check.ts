@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildClassFindings } from '../../../../../common/utils/buildClassFindings.ts';
+import { buildClassFindings } from '../../../../../common/findings/buildClassFindings.ts';
 
 /**
  * The name a heritage expression ends with: `RunState` from `extends RunState`,

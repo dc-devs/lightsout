@@ -1,9 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { getTestSubjectName } from '../../../common/utils/getTestSubjectName.ts';
-import { readCallBlocks } from '../../../common/utils/readCallBlocks.ts';
-import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
+import { readTestFiles } from '../../../common/checkInput/readTestFiles.ts';
+import { buildLineSites } from '../../../common/findings/buildLineSites.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { readCallBlocks } from '../../../common/parsing/readCallBlocks.ts';
+import { getTestSubjectName } from '../../../common/paths/getTestSubjectName.ts';
 
 /** A call to a `setup`-prefixed factory. */
 const setupCall = /\bsetup[A-Za-z0-9_$]*\s*\(/g;

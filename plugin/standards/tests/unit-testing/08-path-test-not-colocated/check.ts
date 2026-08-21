@@ -1,10 +1,10 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { getDirectory } from '../../../common/utils/getDirectory.ts';
-import { getTestSubject } from '../../../common/utils/getTestSubject.ts';
-import { getTestSubjectName } from '../../../common/utils/getTestSubjectName.ts';
-import { isUnderSrc } from '../../../common/utils/isUnderSrc.ts';
-import { readPathLists } from '../../../common/utils/readPathLists.ts';
+import { readPathLists } from '../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { getDirectory } from '../../../common/paths/getDirectory.ts';
+import { getTestSubject } from '../../../common/paths/getTestSubject.ts';
+import { getTestSubjectName } from '../../../common/paths/getTestSubjectName.ts';
+import { isUnderSrc } from '../../../common/paths/isUnderSrc.ts';
 
 export const check: StandardsCheckModule = {
 	inputKind: 'file-list',

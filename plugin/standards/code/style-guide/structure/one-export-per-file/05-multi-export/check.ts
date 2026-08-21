@@ -1,6 +1,6 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
+import { buildFileExportCheck } from '../../../../../common/checks/buildFileExportCheck.ts';
 import type { FileExport } from '../../../../../common/types/FileExport.ts';
-import { buildFileExportCheck } from '../../../../../common/utils/buildFileExportCheck.ts';
 
 /**
  * Exception 4: a `const` object and the union derived from it share one name,

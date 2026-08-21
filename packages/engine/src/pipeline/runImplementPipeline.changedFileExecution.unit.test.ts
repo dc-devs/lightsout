@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
@@ -100,7 +100,7 @@ const setupExecutionRun = async ({ sources = { 'src/feature.ts': 'export const f
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
 describe('runImplementPipeline', () => {
@@ -190,7 +190,7 @@ test('generate runs first in every gate set; generated prefixes earn no attribut
 			};
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	const commands = readCommandLog(dir, result.manifest.runId);
 
 	expect(result.ok).toBe(true);

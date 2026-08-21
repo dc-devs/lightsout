@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -37,7 +37,7 @@ const setupLedgerRun = async ({ config }: { config?: Record<string, unknown> } =
 		}),
 	};
 
-	const loaded = await loadConfig({ cwd: dir });
+	const loaded = await readConfig({ cwd: dir });
 	const readLedger = (runId: string) =>
 		readFileSync(join(dir, '.lightsout', 'runs', runId, 'agents.jsonl'), 'utf8')
 			.trim()

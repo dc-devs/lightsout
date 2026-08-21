@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { runGates } from '#src/pipeline/index.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -12,7 +12,7 @@ const flakyCommand = `node -e "const fs=require('fs'); if (fs.existsSync('flaked
 
 test('a red gate is re-run once — a one-shot flake does not fail the gate set', async () => {
 	const dir = setupConsumerRepo({ scripts: { test: flakyCommand } });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config });
 
@@ -22,7 +22,7 @@ test('a red gate is re-run once — a one-shot flake does not fail the gate set'
 
 test('two consecutive reds are a genuine red, both executions in the command log', async () => {
 	const dir = setupConsumerRepo({ scripts: { test: 'node -e "process.exit(1)"' } });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const error = await runGates({ cwd: dir, config, runId: 'r1', step: 'verify' });
 
@@ -42,7 +42,7 @@ test('two consecutive reds are a genuine red, both executions in the command log
 
 test('coverage replaces the plain test run in gate sets that include it', async () => {
 	const dir = setupMonorepo();
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const withCoverage = await runGates({ cwd: dir, config, packages: ['api'], includeRoot: true, coverage: true });
 
@@ -69,7 +69,7 @@ test('coverage replaces the plain test run in gate sets that include it', async 
 
 test('root group runs after the scoped groups, never concurrently with them', async () => {
 	const dir = setupMonorepo();
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 
 	const error = await runGates({
 		cwd: dir,

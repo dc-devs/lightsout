@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -59,7 +59,7 @@ test('standards gate: findings feed the refactor prompt; a fixing pass clears th
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});
@@ -112,7 +112,7 @@ test('standards gate: two identical declined passes escalate early — the third
 		},
 	};
 
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('escalated');
@@ -179,7 +179,7 @@ test('standards gate: a declined pass that still CHANGED the gating set earns th
 		},
 	};
 
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('escalated');
@@ -209,7 +209,7 @@ test('standards default on when unspecified; false switches them off explicitly'
 			},
 		};
 
-		await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+		await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 		return implementPrompt;
 	};
@@ -240,7 +240,7 @@ test('a declared standards package that cannot be loaded stops the run before an
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});

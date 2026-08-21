@@ -1,5 +1,5 @@
 import type ts from 'typescript';
-import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
+import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
 import { type ImportGraphInput, StandardsInputKind } from '#src/contracts/index.ts';
 
 interface Params {

@@ -1,9 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { getBaseName } from '../../../../../common/utils/getBaseName.ts';
-import { getDirectory } from '../../../../../common/utils/getDirectory.ts';
-import { readBarrelExports } from '../../../../../common/utils/readBarrelExports.ts';
-import { readFileTexts } from '../../../../../common/utils/readFileTexts.ts';
+import { readFileTexts } from '../../../../../common/checkInput/readFileTexts.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { readBarrelExports } from '../../../../../common/modules/readBarrelExports.ts';
+import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
+import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
 
 /**
  * An internal barrel — the only kind this rule judges. A package or repo `src`

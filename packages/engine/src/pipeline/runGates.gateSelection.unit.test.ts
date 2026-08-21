@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { GateResult } from '#src/contracts/index.ts';
 import { runGates } from '#src/pipeline/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
@@ -70,7 +70,7 @@ const setupScopedCustomSuiteRepo = () => {
 describe('runGates', () => {
 	test('a coverage opt-out keeps the plain test gate, even when the run asks for coverage', async () => {
 		const dir = setupOptedOutRepo();
-		const config = await loadConfig({ cwd: dir });
+		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
 		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
@@ -88,7 +88,7 @@ describe('runGates', () => {
 
 	test('the scoped build gate runs last in a package group, after check and the test run', async () => {
 		const dir = setupScopedBuildRepo();
-		const config = await loadConfig({ cwd: dir });
+		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
 		const error = await runGates({ cwd: dir, config, packages: ['api'], onGateResult: (result) => gates.push(result) });
@@ -113,7 +113,7 @@ describe('runGates', () => {
 				build: `${gateLogCommand({ kind: 'build' })} root`,
 			},
 		});
-		const config = await loadConfig({ cwd: dir });
+		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
 		const error = await runGates({ cwd: dir, config, coverage: true, onGateResult: (result) => gates.push(result) });
@@ -126,7 +126,7 @@ describe('runGates', () => {
 
 	test('a red custom suite fails the gate set under its own name', async () => {
 		const dir = setupConsumerRepo({ scripts: { 'test-e2e': 'false' } });
-		const config = await loadConfig({ cwd: dir });
+		const config = await readConfig({ cwd: dir });
 
 		const error = await runGates({ cwd: dir, config, coverage: false });
 
@@ -135,7 +135,7 @@ describe('runGates', () => {
 
 	test('a scoped custom `test-*` suite runs after the package test run and before its build, and coverage never substitutes it', async () => {
 		const dir = setupScopedCustomSuiteRepo();
-		const config = await loadConfig({ cwd: dir });
+		const config = await readConfig({ cwd: dir });
 		const gates: GateResult[] = [];
 
 		const error = await runGates({ cwd: dir, config, packages: ['api'], coverage: true, onGateResult: (result) => gates.push(result) });
@@ -160,7 +160,7 @@ describe('runGates', () => {
 				'test-e2e': `${gateLogCommand({ kind: 'e2e' })} root`,
 			},
 		});
-		const config = await loadConfig({ cwd: dir });
+		const config = await readConfig({ cwd: dir });
 
 		const error = await runGates({ cwd: dir, config });
 

@@ -1,6 +1,6 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
-import { packageOf } from '#src/common/utils/packageOf.ts';
+import { packageOf } from '#src/common/workspace/packageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { runGates } from '#src/pipeline/runGates.ts';
 

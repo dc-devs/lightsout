@@ -1,6 +1,6 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { packageOf } from '#src/common/utils/packageOf.ts';
-import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { packageOf } from '#src/common/workspace/packageOf.ts';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { checkChangedFilesExecuted } from '#src/coverage/index.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';

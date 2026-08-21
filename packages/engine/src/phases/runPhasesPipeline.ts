@@ -1,10 +1,9 @@
-import { dirname, join } from 'node:path';
-import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type LightsoutConfig, PhaseReport, type RunManifest, RunStatus, type RunUsage, type StepRecord } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { initializeSequence } from '#src/phases/initializeSequence.ts';
-import { type PipelineResult, runImplementPipeline } from '#src/pipeline/index.ts';
-import { RunLockError, readRunManifest, writeRunManifest } from '#src/runState/index.ts';
+import { runPhase } from '#src/phases/runPhase.ts';
+import type { PipelineResult } from '#src/pipeline/index.ts';
+import { writeRunManifest } from '#src/runState/index.ts';
 
 interface Params {
 	cwd: string;
@@ -19,55 +18,6 @@ interface Params {
 	skipRefactor?: boolean;
 	onProgress?: (message: string) => void;
 }
-
-/** Replace one step record, merge the coordinator's own fields, and persist — the loop's single write path. */
-const persistStep = ({
-	cwd,
-	manifest,
-	index,
-	record,
-	patch,
-}: {
-	cwd: string;
-	manifest: RunManifest;
-	index: number;
-	record: StepRecord;
-	patch?: Partial<RunManifest>;
-}) => {
-	const steps = manifest.steps.map((step, position) => (position === index ? record : step));
-
-	return writeRunManifest({ cwd, manifest: { ...manifest, ...patch, steps } });
-};
-
-/** What a finished phase leaves on its step: the child's own verdict, the run that reached it, and its real working time. */
-const recordFromChild = ({ step, childResult }: { step: StepRecord; childResult: PipelineResult }) => ({
-	...step,
-	status: childResult.manifest.status,
-	attempts: step.attempts + 1,
-	durationMs: childResult.manifest.steps.reduce((total, childStep) => total + (childStep.durationMs ?? 0), 0),
-	report: { runId: childResult.manifest.runId },
-	error: childResult.error,
-});
-
-/** Field-wise sum of a child run's usage into the sequence total — an absent child usage leaves the total untouched. */
-const addUsage = ({ total, child }: { total?: RunUsage; child?: RunUsage }) => {
-	if (!child) {
-		return total;
-	}
-
-	if (!total) {
-		return child;
-	}
-
-	return {
-		invocations: total.invocations + child.invocations,
-		inputTokens: total.inputTokens + child.inputTokens,
-		outputTokens: total.outputTokens + child.outputTokens,
-		cacheReadTokens: total.cacheReadTokens + child.cacheReadTokens,
-		cacheCreationTokens: total.cacheCreationTokens + child.cacheCreationTokens,
-		costUsd: total.costUsd + child.costUsd,
-	};
-};
 
 /**
  * Run every phase of a phased plan, in the overview's written order, as its own
@@ -107,79 +57,12 @@ export const runPhasesPipeline = async ({
 			continue;
 		}
 
-		const planPath = join(dirname(manifest.plan), step.id);
+		const phase = await runPhase({ cwd, driver, config, manifest, index, step, total, skipRefactor, onProgress });
 
-		onProgress?.(`phase ${index + 1}/${total}: ${step.id}`);
+		manifest = phase.manifest;
 
-		// A step that already names a child run may be a crash between the child
-		// finishing and the coordinator recording it — the child's own manifest
-		// settles which, and a passed child is never re-bought.
-		const recorded = PhaseReport.safeParse(step.report);
-		const childManifest = recorded.success ? await readRunManifest({ cwd, runId: recorded.data.runId }).catch(() => undefined) : undefined;
-
-		if (childManifest?.status === RunStatus.Passed) {
-			manifest = await persistStep({ cwd, manifest, index, record: { ...step, status: RunStatus.Passed } });
-
-			continue;
-		}
-
-		manifest = await persistStep({
-			cwd,
-			manifest,
-			index,
-			record: { ...step, status: RunStatus.Running, error: undefined },
-			patch: { status: RunStatus.Running, currentStep: step.id },
-		});
-
-		let childResult: PipelineResult;
-
-		try {
-			childResult = await runImplementPipeline({
-				cwd,
-				driver,
-				config,
-				planPath,
-				overviewPath: manifest.plan,
-				existing: childManifest,
-				skipRefactor,
-				onProgress,
-			});
-		} catch (error) {
-			if (error instanceof RunLockError) {
-				throw error;
-			}
-
-			const message = messageOf({ error });
-
-			manifest = await persistStep({
-				cwd,
-				manifest,
-				index,
-				record: { ...step, status: RunStatus.Failed, error: message },
-				patch: { status: RunStatus.Failed },
-			});
-
-			return { ok: false, manifest, error: message };
-		}
-
-		const child = childResult.manifest;
-
-		manifest = await persistStep({
-			cwd,
-			manifest,
-			index,
-			record: recordFromChild({ step, childResult }),
-			patch: {
-				status: childResult.ok ? RunStatus.Running : child.status,
-				changedFiles: [...new Set([...manifest.changedFiles, ...child.changedFiles])],
-				usage: addUsage({ total: manifest.usage, child: child.usage }),
-			},
-		});
-
-		if (!childResult.ok) {
-			const stopped = `phase ${index + 1}/${total} (${step.id}) ended ${child.status} — resume with: lightsout resume --run ${manifest.runId}`;
-
-			return { ok: false, manifest, error: childResult.error ? `${stopped}\n${childResult.error}` : stopped };
+		if (phase.result) {
+			return phase.result;
 		}
 	}
 

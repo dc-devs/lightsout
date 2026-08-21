@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildPromptImproverInvocation } from '#src/agents/index.ts';
+import { PromptImprovementStatus } from '#src/common/constants/PromptImprovementStatus.ts';
 import { type Effort, type FrictionRecord, Permissions, WorkReport } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { type AgentOutcome, invokeAgentWithContract } from '#src/invoke/index.ts';
@@ -20,8 +21,8 @@ interface Params {
 }
 
 type PromptImprovementResult =
-	| { status: 'no-friction'; friction: FrictionRecord[] }
-	| { status: 'invoked'; friction: FrictionRecord[]; outcome: AgentOutcome<WorkReport> };
+	| { status: typeof PromptImprovementStatus.NoFriction; friction: FrictionRecord[] }
+	| { status: typeof PromptImprovementStatus.Invoked; friction: FrictionRecord[]; outcome: AgentOutcome<WorkReport> };
 
 /**
  * The self-improvement loop: aggregated friction in, prompt edits out. The
@@ -32,7 +33,7 @@ export const runPromptImprovement = async ({ consumerCwd, engineCwd, driver, mod
 	const friction = await readFriction({ cwd: consumerCwd });
 
 	if (friction.length === 0) {
-		return { status: 'no-friction', friction };
+		return { status: PromptImprovementStatus.NoFriction, friction };
 	}
 
 	const files = await readdir(join(engineCwd, promptsDir));
@@ -50,5 +51,5 @@ export const runPromptImprovement = async ({ consumerCwd, engineCwd, driver, mod
 		timeoutMs: improverTimeoutMs,
 	});
 
-	return { status: 'invoked', friction, outcome };
+	return { status: PromptImprovementStatus.Invoked, friction, outcome };
 };

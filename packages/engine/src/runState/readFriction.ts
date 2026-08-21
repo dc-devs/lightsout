@@ -1,6 +1,6 @@
+import { readJsonlRecords } from '#src/common/utils/readJsonlRecords.ts';
 import { FrictionRecord } from '#src/contracts/index.ts';
 import { getFrictionPath } from '#src/runState/common/paths/getFrictionPath.ts';
-import { readJsonlRecords } from '#src/runState/common/utils/readJsonlRecords.ts';
 
 interface Params {
 	cwd: string;

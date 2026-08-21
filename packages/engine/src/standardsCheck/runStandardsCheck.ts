@@ -1,4 +1,4 @@
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';
 import { applyStandardsBaseline } from '#src/standardsCheck/applyStandardsBaseline.ts';
@@ -50,7 +50,7 @@ export const runStandardsCheck = async ({
 	persist = true,
 	onProgress,
 }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
-	const config = await loadConfig({ cwd }).catch(() => undefined);
+	const config = await readConfig({ cwd }).catch(() => undefined);
 	const packages = await resolveStandardsPackages({ cwd, config });
 	const states = resolvePackageRuleStates({ packages, config });
 	// An empty package scope means the root package.json decides — the same call

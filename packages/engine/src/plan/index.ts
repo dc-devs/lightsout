@@ -1,5 +1,6 @@
 export { checkPlanPaths } from '#src/plan/checkPlanPaths.ts';
 export { checkVerificationScripts } from '#src/plan/checkVerificationScripts.ts';
+export { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 export type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
 export { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 export { estimatePlanScope } from '#src/plan/estimatePlanScope.ts';

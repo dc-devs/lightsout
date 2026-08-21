@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import { isInertSourceFile } from '#src/common/utils/isInertSourceFile.ts';
-import { isTestableSourceFile } from '#src/common/utils/isTestableSourceFile.ts';
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
+import { isTestableSourceFile } from '#src/common/sourceFiles/isTestableSourceFile.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import type { CoverageFile, CoverageTotal } from '#src/contracts/index.ts';
 
 interface Params {
@@ -44,7 +44,7 @@ export const selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, s
 			setAsidePaths.has(file.path) ||
 			file.statementsPct >= 100 ||
 			isTestFile({ path: file.path, standardsPackages }) ||
-			!isTestableSourceFile(file.path)
+			!isTestableSourceFile({ path: file.path })
 		) {
 			continue;
 		}

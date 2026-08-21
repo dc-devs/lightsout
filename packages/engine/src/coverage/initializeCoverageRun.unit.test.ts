@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import { initializeCoverageRun } from '#src/coverage/initializeCoverageRun.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -69,7 +69,7 @@ describe('initializeCoverageRun', () => {
 	test('a config that opted out of the coverage gate is refused before any run state exists', async () => {
 		const cwd = setupConsumerRepo();
 
-		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) }) });
+		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await readConfig({ cwd }) }) });
 
 		// the command has nothing to run, and silently skipping would look like success
 		expect(error.message).toMatch(/opted out \("test-coverage": false\) — test-coverage-to-threshold has nothing to run/);
@@ -78,7 +78,7 @@ describe('initializeCoverageRun', () => {
 	test('a per-package coverage gate keeps the run alive even with the root gate switched off', async () => {
 		const cwd = setupScopedMeasurable();
 
-		const { worklist } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) });
+		const { worklist } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await readConfig({ cwd }) });
 
 		// a monorepo measures per package — the root gate being off is not an opt-out
 		expect(worklist.totals).toStrictEqual([{ scope: 'api', statementsPct: 43, passed: true }]);
@@ -87,7 +87,7 @@ describe('initializeCoverageRun', () => {
 	test('without git the run refuses to start, because its diff could never be attributed', async () => {
 		const cwd = setupMeasurable({ git: false });
 
-		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) }) });
+		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await readConfig({ cwd }) }) });
 
 		expect(error.message).toMatch(/requires a git worktree/);
 	});
@@ -97,7 +97,7 @@ describe('initializeCoverageRun', () => {
 
 		writeFileSync(join(cwd, 'src/uncommitted.js'), 'export const later = 1;\n');
 
-		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) }) });
+		const error = await getRejectionError({ promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await readConfig({ cwd }) }) });
 
 		expect(error.message).toMatch(/requires a clean tree/);
 		expect(error.message).toContain('src/uncommitted.js');
@@ -108,7 +108,7 @@ describe('initializeCoverageRun', () => {
 
 		writeFileSync(join(cwd, 'src/uncommitted.js'), 'export const later = 1;\n');
 
-		const { manifest } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }), allowDirty: true });
+		const { manifest } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await readConfig({ cwd }), allowDirty: true });
 
 		// frozen into the manifest, so batch attribution can never claim it
 		expect(manifest.baselineDirtyFiles).toStrictEqual(['src/uncommitted.js']);
@@ -117,7 +117,7 @@ describe('initializeCoverageRun', () => {
 	test('a fresh run freezes the initial measurement and stamps the manifest as this pipeline', async () => {
 		const cwd = setupMeasurable();
 
-		const { manifest, worklist } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await loadConfig({ cwd }) });
+		const { manifest, worklist } = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config: await readConfig({ cwd }) });
 
 		expect(manifest.pipeline).toBe('coverage');
 		expect(manifest.plan).toBe(join('.lightsout', 'runs', 'run-1', 'worklist.json'));
@@ -128,7 +128,7 @@ describe('initializeCoverageRun', () => {
 
 	test('resume re-reads the frozen measurement rather than measuring again', async () => {
 		const cwd = setupMeasurable();
-		const config = await loadConfig({ cwd });
+		const config = await readConfig({ cwd });
 		const fresh = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config });
 
 		const resumed = await initializeCoverageRun({ cwd, runId: 'run-1', driver, config, existing: { ...fresh.manifest, pipeline: 'coverage' } });
@@ -142,7 +142,7 @@ describe('initializeCoverageRun', () => {
 		{ pipeline: 'refactor', named: 'refactor', command: 'refactor' },
 	])('a $named run is sent back to its own resume door', async ({ pipeline, named, command }) => {
 		const cwd = setupMeasurable();
-		const config = await loadConfig({ cwd });
+		const config = await readConfig({ cwd });
 
 		const error = await getRejectionError({
 			promise: initializeCoverageRun({ cwd, runId: 'run-1', driver, config, existing: manifestWith({ pipeline, config }) }),

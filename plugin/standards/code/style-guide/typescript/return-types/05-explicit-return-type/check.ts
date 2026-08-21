@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 
 /** Whether a statement carries the `export` keyword — the bright line the rule is drawn on. */
 const isExported = ({ statement, compiler }: { statement: ts.Statement; compiler: typeof ts }) =>

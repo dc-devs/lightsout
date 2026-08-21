@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -88,7 +88,7 @@ describe('runCoverageCheck', () => {
 	test('a green root command reports passed, with every measured file relative to the repo', async () => {
 		const dir = setupRootRepo({ files: { 'src/a.ts': 10, 'src/b.ts': 90 } });
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		expect(measured.passed).toBe(true);
 		// report keys are absolute; everything downstream speaks repo-relative
@@ -99,7 +99,7 @@ describe('runCoverageCheck', () => {
 	test('a red root command is the whole done signal — the engine never reads a threshold', async () => {
 		const dir = setupRootRepo({ exitCode: 1 });
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		// the file sits at 10% and the run is not done — but nothing here knows why
 		expect(measured.passed).toBe(false);
@@ -109,7 +109,7 @@ describe('runCoverageCheck', () => {
 	test('files come back worst-first, ties broken by path so two rounds pick the same work', async () => {
 		const dir = setupRootRepo({ files: { 'src/z.ts': 30, 'src/a.ts': 30, 'src/low.ts': 4 } });
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		expect(measured.files.map((file) => file.path)).toStrictEqual(['src/low.ts', 'src/a.ts', 'src/z.ts']);
 	});
@@ -117,7 +117,7 @@ describe('runCoverageCheck', () => {
 	test("a file Istanbul reports as 'Unknown' is skipped rather than ordered as if it were zero", async () => {
 		const dir = setupRootRepo({ files: { 'src/empty.ts': 'Unknown', 'src/a.ts': 10 } });
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		// an empty file has no percentage — it would otherwise head every work-list
 		expect(measured.files.map((file) => file.path)).toStrictEqual(['src/a.ts']);
@@ -126,7 +126,7 @@ describe('runCoverageCheck', () => {
 	test('a summary the coverage run never wrote is a hard error naming the path and the fix', async () => {
 		const dir = setupRootRepo({ summary: false });
 
-		const error = await getRejectionError({ promise: runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) }) });
+		const error = await getRejectionError({ promise: runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) }) });
 
 		expect(error.message).toContain('coverage/coverage-summary.json');
 		expect(error.message).toMatch(/json-summary/);
@@ -140,7 +140,7 @@ describe('runCoverageCheck', () => {
 		// a report written by a reporter that measures something else entirely
 		writeFileSync(join(dir, 'coverage/coverage-summary.json'), JSON.stringify({ total: { lines: { pct: 100 } } }));
 
-		const error = await getRejectionError({ promise: runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) }) });
+		const error = await getRejectionError({ promise: runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) }) });
 
 		expect(error.message).toMatch(/no readable coverage summary/);
 	});
@@ -153,7 +153,7 @@ describe('runCoverageCheck', () => {
 			JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': 'true' }, 'coverage-summary-path': 'reports/summary.json' }),
 		);
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		expect(measured.files.map((file) => file.path)).toStrictEqual(['src/a.ts']);
 	});
@@ -161,7 +161,7 @@ describe('runCoverageCheck', () => {
 	test('naming the root scope re-measures the root command, the way a post-batch re-measure asks for it', async () => {
 		const dir = setupRootRepo();
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }), scope: 'root' });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }), scope: 'root' });
 
 		expect(measured.totals).toStrictEqual([{ scope: 'root', statementsPct: 61.5, passed: true }]);
 	});
@@ -169,7 +169,7 @@ describe('runCoverageCheck', () => {
 	test('naming a package scope in a single-package repo measures nothing — there is no such scope', async () => {
 		const dir = setupRootRepo();
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }), scope: 'api' });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }), scope: 'api' });
 
 		// the root command is not a stand-in for a package that was never configured
 		expect(measured).toStrictEqual({ passed: false, files: [], totals: [] });
@@ -178,7 +178,7 @@ describe('runCoverageCheck', () => {
 	test('monorepo mode measures packages only, merging both summaries into one worst-first list', async () => {
 		const dir = setupScopedRepo();
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		expect(measured.files.map((file) => [file.path, file.scope])).toStrictEqual([
 			['packages/api/src/a.ts', 'api'],
@@ -193,7 +193,7 @@ describe('runCoverageCheck', () => {
 	test('one red package flips only its own scope, so a green package never earns a batch', async () => {
 		const dir = setupScopedRepo({ webPasses: false });
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		expect(measured.passed).toBe(false);
 		expect(measured.totals.map((total) => [total.scope, total.passed])).toStrictEqual([
@@ -205,7 +205,7 @@ describe('runCoverageCheck', () => {
 	test('a package with no coverage script is skipped, exactly as its scoped gate would be', async () => {
 		const dir = setupScopedRepo({ apiScripts: {} });
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		// a package the consumer never hand-tuned has nothing to measure
 		expect(measured.totals.map((total) => total.scope)).toStrictEqual(['web']);
@@ -215,7 +215,7 @@ describe('runCoverageCheck', () => {
 	test('a template naming no script measures every package, since there is nothing to look up', async () => {
 		const dir = setupScopedRepo({ apiScripts: {}, runScript: '' });
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		// the same convention the scoped gates keep: nothing to detect, nothing to skip
 		expect(measured.totals.map((total) => total.scope)).toStrictEqual(['api', 'web']);
@@ -225,7 +225,7 @@ describe('runCoverageCheck', () => {
 		const dir = setupScopedRepo({ webPasses: false });
 		const messages: string[] = [];
 
-		await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }), onProgress: (message) => messages.push(message) });
+		await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }), onProgress: (message) => messages.push(message) });
 
 		// the trailing duration is timing, not contract
 		expect(messages.map((message) => message.split(' (')[0])).toStrictEqual(['coverage [api]: exit 0', 'coverage [web]: exit 1']);
@@ -234,7 +234,7 @@ describe('runCoverageCheck', () => {
 	test('a named scope re-measures that package alone — the rest of the fleet is not re-run', async () => {
 		const dir = setupScopedRepo();
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }), scope: 'api' });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }), scope: 'api' });
 
 		expect(measured.totals.map((total) => total.scope)).toStrictEqual(['api']);
 		expect(readGateLog({ dir })).toStrictEqual(['@acme/api coverage']);
@@ -243,7 +243,7 @@ describe('runCoverageCheck', () => {
 	test('with a run id every measurement leaves a command-log record under the step that asked for it', async () => {
 		const dir = setupRootRepo();
 
-		await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }), runId: 'run-measure', step: 'measure' });
+		await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }), runId: 'run-measure', step: 'measure' });
 
 		const record = JSON.parse(readFileSync(join(dir, '.lightsout', 'runs', 'run-measure', 'commands.jsonl'), 'utf8').trim()) as Record<string, unknown>;
 
@@ -258,7 +258,7 @@ describe('runCoverageCheck', () => {
 
 		writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false } }));
 
-		const measured = await runCoverageCheck({ cwd: dir, config: await loadConfig({ cwd: dir }) });
+		const measured = await runCoverageCheck({ cwd: dir, config: await readConfig({ cwd: dir }) });
 
 		// nothing ran, so nothing is green — the command refuses this config up front
 		expect(measured).toStrictEqual({ passed: false, files: [], totals: [] });

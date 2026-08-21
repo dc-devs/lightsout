@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
@@ -65,7 +65,7 @@ test('write-tests fan-out: files that import each other share ONE writer; unrela
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});
@@ -152,7 +152,7 @@ test('write-tests fan-out: two internals sharing an UNCHANGED public subject gro
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});
@@ -227,7 +227,7 @@ test('write-tests fan-out: an import component above the writer cap splits into 
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		onProgress: (message) => progress.push(message),
 	});

@@ -1,6 +1,6 @@
 import type { CloneSpan, RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { getSiteGroupKey } from '../../../../common/utils/getSiteGroupKey.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { getSiteGroupKey } from '../../../../common/findings/getSiteGroupKey.ts';
 
 /** Every duplicated span between one pair of files, gathered under the identity they share. */
 interface ClonedPair {

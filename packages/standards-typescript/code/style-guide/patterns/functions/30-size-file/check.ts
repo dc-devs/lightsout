@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { getBaseName } from '../../../../../common/utils/getBaseName.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
 
 /**
  * Every file past the cap its extension earns.

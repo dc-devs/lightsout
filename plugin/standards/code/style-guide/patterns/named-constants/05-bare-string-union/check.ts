@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 
 /** Whether a type alias is written as a union of two or more bare string literals — the shape the document's ❌ example has. */
 const isStringLiteralUnion = ({ node, compiler }: { node: ts.TypeAliasDeclaration; compiler: typeof ts }) =>

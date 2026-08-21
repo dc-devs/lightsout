@@ -52,6 +52,7 @@ export { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.
 export {
 	AdvisoryOutcome,
 	AdvisoryResponse,
+	ReviewFindingRecord,
 	StandardsFinding,
 	StandardsReviewReport,
 	StandardsSeverity,

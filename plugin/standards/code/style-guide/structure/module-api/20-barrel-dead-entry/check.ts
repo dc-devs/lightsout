@@ -1,10 +1,10 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { isTestFile } from '../../../../../common/utils/isTestFile.ts';
-import { mapFolderModules } from '../../../../../common/utils/mapFolderModules.ts';
-import { readBarrelExports } from '../../../../../common/utils/readBarrelExports.ts';
-import { readBarrelSurface } from '../../../../../common/utils/readBarrelSurface.ts';
-import { readFileTexts } from '../../../../../common/utils/readFileTexts.ts';
+import { readFileTexts } from '../../../../../common/checkInput/readFileTexts.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
+import { readBarrelExports } from '../../../../../common/modules/readBarrelExports.ts';
+import { readBarrelSurface } from '../../../../../common/modules/readBarrelSurface.ts';
+import { isTestFile } from '../../../../../common/paths/isTestFile.ts';
 
 /**
  * The published names nothing outside the module mentions — `prefix` is the

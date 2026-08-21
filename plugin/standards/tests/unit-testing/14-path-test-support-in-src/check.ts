@@ -1,9 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { collectDirectories } from '../../../common/utils/collectDirectories.ts';
-import { getBaseName } from '../../../common/utils/getBaseName.ts';
-import { isUnderSrc } from '../../../common/utils/isUnderSrc.ts';
-import { readPathLists } from '../../../common/utils/readPathLists.ts';
+import { readPathLists } from '../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { collectDirectories } from '../../../common/paths/collectDirectories.ts';
+import { getBaseName } from '../../../common/paths/getBaseName.ts';
+import { isUnderSrc } from '../../../common/paths/isUnderSrc.ts';
 
 /**
  * The shared test-support folders the rule places outside `src/`. `__mocks__`

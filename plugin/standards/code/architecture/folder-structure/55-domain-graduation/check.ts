@@ -1,9 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { getBaseName } from '../../../../common/utils/getBaseName.ts';
-import { getDirectory } from '../../../../common/utils/getDirectory.ts';
-import { getExportName } from '../../../../common/utils/getExportName.ts';
-import { readPathLists } from '../../../../common/utils/readPathLists.ts';
+import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { getExportName } from '../../../../common/naming/getExportName.ts';
+import { getBaseName } from '../../../../common/paths/getBaseName.ts';
+import { getDirectory } from '../../../../common/paths/getDirectory.ts';
 
 /**
  * Leading verbs that describe how a value is reached rather than what it is

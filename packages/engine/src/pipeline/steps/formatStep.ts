@@ -1,6 +1,6 @@
+import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { runCommand } from '#src/common/utils/runCommand.ts';
 import { RunStatus } from '#src/contracts/index.ts';
 import { runVerificationGates } from '#src/pipeline/common/utils/runVerificationGates.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';

@@ -8,13 +8,13 @@ test('WorkReport priorArt: valid entries parse with matches defaulted; malformed
 		...base,
 		priorArt: [
 			{ symbol: 'formatDate', searches: ['formatDate', 'dateToString'] },
-			{ symbol: 'parseConfig', searches: ['parseConfig'], matches: ['loadConfig'] },
+			{ symbol: 'parseConfig', searches: ['parseConfig'], matches: ['readConfig'] },
 		],
 	});
 
 	// matches defaults to empty — "searched, found nothing" is a valid entry
 	expect(parsed.priorArt?.[0]).toStrictEqual({ symbol: 'formatDate', searches: ['formatDate', 'dateToString'], matches: [] });
-	expect(parsed.priorArt?.[1]?.matches).toStrictEqual(['loadConfig']);
+	expect(parsed.priorArt?.[1]?.matches).toStrictEqual(['readConfig']);
 
 	// field is optional — non-executor roles omit it
 	expect(WorkReport.parse(base).priorArt).toBe(undefined);

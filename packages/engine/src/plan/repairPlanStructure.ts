@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { buildPlanRepairInvocation } from '#src/agents/index.ts';
 import { type Effort, type LightsoutConfig, type Permissions, PlanFixReport, PlanFixStatus, type StructuralFinding } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { lintPlanStructure } from '#src/plan/lintPlanStructure.ts';
 
@@ -27,9 +28,9 @@ interface Params {
 }
 
 type RepairPlanStructureResult =
-	| { status: 'complete'; findings: StructuralFinding[] }
-	| { status: 'failed'; error: string }
-	| { status: 'paused-rate-limit'; error: string };
+	| { status: typeof PlanRunStatus.Complete; findings: StructuralFinding[] }
+	| { status: typeof PlanRunStatus.Failed; error: string }
+	| { status: typeof PlanRunStatus.PausedRateLimit; error: string };
 
 /**
  * The finding set as a comparable multiset key. `location` is deliberately
@@ -88,8 +89,8 @@ export const repairPlanStructure = async ({
 
 		if (!outcome.ok) {
 			return outcome.rateLimited
-				? { status: 'paused-rate-limit' as const, error: `rate limited or overloaded — re-run: lightsout plan draft --name ${name}` }
-				: { status: 'failed' as const, error: outcome.failure };
+				? { status: PlanRunStatus.PausedRateLimit, error: `rate limited or overloaded — re-run: lightsout plan draft --name ${name}` }
+				: { status: PlanRunStatus.Failed, error: outcome.failure };
 		}
 
 		const { report } = outcome;
@@ -128,5 +129,5 @@ export const repairPlanStructure = async ({
 		}
 	}
 
-	return { status: 'complete' as const, findings };
+	return { status: PlanRunStatus.Complete, findings };
 };

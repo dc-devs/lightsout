@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 
 /** PascalCase as the table spells it: an uppercase first letter and nothing but letters and digits after it. */
 const pascalCase = /^[A-Z][A-Za-z0-9]*$/;

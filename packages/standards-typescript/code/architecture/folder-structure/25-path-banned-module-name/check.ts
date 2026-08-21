@@ -1,12 +1,12 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
+import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
 import { commonTypeFolders } from '../../../../common/constants/commonTypeFolders.ts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { collectDirectories } from '../../../../common/utils/collectDirectories.ts';
-import { getBaseName } from '../../../../common/utils/getBaseName.ts';
-import { getFrameworkCarveOuts } from '../../../../common/utils/getFrameworkCarveOuts.ts';
-import { getPathCarveOut } from '../../../../common/utils/getPathCarveOut.ts';
-import { getSourceRoot } from '../../../../common/utils/getSourceRoot.ts';
-import { readPathLists } from '../../../../common/utils/readPathLists.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { getFrameworkCarveOuts } from '../../../../common/frameworks/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../../common/frameworks/getPathCarveOut.ts';
+import { getSourceRoot } from '../../../../common/frameworks/getSourceRoot.ts';
+import { collectDirectories } from '../../../../common/paths/collectDirectories.ts';
+import { getBaseName } from '../../../../common/paths/getBaseName.ts';
 
 /**
  * The banned list's upper tier: a folder is never named for the ROLE of the

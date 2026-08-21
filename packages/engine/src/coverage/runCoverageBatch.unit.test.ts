@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
 import { runCoverageBatch } from '#src/coverage/runCoverageBatch.ts';
 import type { Driver, DriverResult } from '#src/drivers/index.ts';
@@ -92,7 +92,7 @@ const runBatch = async ({ dir, driver, batch = batchOf(), testStandards }: { dir
 		cwd: dir,
 		runId: 'run-1',
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		batch,
 		testStandards,
 		agentTimeoutMs: 60_000,

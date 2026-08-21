@@ -1,8 +1,8 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { readCallBlocks } from '../../../common/utils/readCallBlocks.ts';
-import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
+import { readTestFiles } from '../../../common/checkInput/readTestFiles.ts';
+import { buildLineSites } from '../../../common/findings/buildLineSites.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { readCallBlocks } from '../../../common/parsing/readCallBlocks.ts';
 
 /** The closed nesting exception the rule names: a nested describe titling a condition or a variant. */
 const nestingException = /^(when|for)\s/;

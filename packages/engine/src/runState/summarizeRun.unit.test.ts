@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
+import { type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { summarizeRun } from '#src/runState/index.ts';
@@ -19,9 +20,56 @@ const usage = {
 	costUsd: 0.5,
 };
 
-test('summarizeRun aggregates step durations, per-step usage, files, gates, and friction', async () => {
-	const dir = setupConsumerRepo();
+const manifest = (overrides: Partial<RunManifest> = {}): RunManifest => ({
+	runId: 'run-summary',
+	createdAt: '2026-07-03T00:00:00.000Z',
+	updatedAt: '2026-07-03T00:10:00.000Z',
+	plan: 'plan.md',
+	harness: 'stub',
+	status: RunStatus.Passed,
+	currentStep: null,
+	steps: [],
+	changedFiles: [],
+	packages: [],
+	baselineDirtyFiles: [],
+	testSubjects: [],
+	unreachableChangedFiles: [],
+	...overrides,
+});
 
+interface PlantParams {
+	/** Raw agents.jsonl lines — malformed ones included, to pin ledger tolerance. */
+	agents?: string[];
+	commands?: Record<string, unknown>[];
+	/** File names inside the run's `agents/` directory. */
+	agentFiles?: string[];
+	friction?: Record<string, unknown>[];
+	/** Manifest fields the test turns on; everything else is the baseline shape. */
+	overrides?: Partial<RunManifest>;
+}
+
+/** Write the run's persisted evidence directly — the summary is a view over exactly these files. */
+const plantEvidence = ({ agents = [], commands = [], agentFiles = [], friction = [], overrides = {} }: PlantParams = {}) => {
+	const cwd = setupConsumerRepo({ git: false });
+	const planted = manifest(overrides);
+	const runDir = join(cwd, '.lightsout', 'runs', planted.runId);
+
+	mkdirSync(join(runDir, 'agents'), { recursive: true });
+	writeFileSync(join(runDir, 'agents.jsonl'), agents.map((line) => `${line}\n`).join(''), 'utf8');
+	writeFileSync(join(runDir, 'commands.jsonl'), commands.map((record) => `${JSON.stringify(record)}\n`).join(''), 'utf8');
+
+	for (const name of agentFiles) {
+		writeFileSync(join(runDir, 'agents', name), 'stub\n', 'utf8');
+	}
+
+	writeFileSync(join(cwd, '.lightsout', 'friction.jsonl'), friction.map((record) => `${JSON.stringify(record)}\n`).join(''), 'utf8');
+
+	return { cwd, manifest: planted };
+};
+
+/** Drive a whole implement run with a stub driver, so the summary reads evidence the pipeline itself wrote. */
+const setupPipelineRun = async () => {
+	const cwd = setupConsumerRepo();
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async ({ prompt }) => {
@@ -32,7 +80,7 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 			}
 
 			if (role === 'write-tests') {
-				writeFileSync(join(dir, 'test.feature.test.js'), '// stub\n');
+				writeFileSync(join(cwd, 'test.feature.test.js'), '// stub\n');
 
 				return { text: report({ changedFiles: [{ path: 'test.feature.test.js', summary: 'tests' }] }), exitCode: 0, usage };
 			}
@@ -45,18 +93,24 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 				};
 			}
 
-			writeSource({ dir, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
+			writeSource({ dir: cwd, path: 'src/feature.js', source: 'export const feature = () => 2;\n' });
 
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0, usage };
 		},
 	};
 
-	const config = await loadConfig({ cwd: dir });
-	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
+	const config = await readConfig({ cwd });
+	const result = await runImplementPipeline({ cwd, planPath: 'plan.md', driver, config });
+
+	return { cwd, result };
+};
+
+test('summarizeRun aggregates step durations, per-step usage, files, gates, and friction', async () => {
+	const { cwd, result } = await setupPipelineRun();
 
 	expect(result.ok).toBe(true);
 
-	const summary = await summarizeRun({ cwd: dir, manifest: result.manifest });
+	const summary = await summarizeRun({ cwd, manifest: result.manifest });
 
 	expect(summary.wallMs >= 0).toBeTruthy();
 	// active time summed from step durations
@@ -97,24 +151,9 @@ test('summarizeRun aggregates step durations, per-step usage, files, gates, and 
 });
 
 test('summarizeRun tolerates a run dir with no ledger, no commands, no friction', async () => {
-	const summary = await summarizeRun({
-		cwd: '/nonexistent',
-		manifest: {
-			runId: 'ghost',
-			createdAt: '2026-07-03T00:00:00.000Z',
-			updatedAt: '2026-07-03T00:10:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'failed',
-			currentStep: null,
-			steps: [{ id: 'clean-slate', status: 'failed', attempts: 1 }],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
-		},
-	});
+	const ghost = manifest({ runId: 'ghost', status: RunStatus.Failed, steps: [{ id: 'clean-slate', status: RunStatus.Failed, attempts: 1 }] });
+
+	const summary = await summarizeRun({ cwd: '/nonexistent', manifest: ghost });
 
 	expect(summary.wallMs).toBe(600_000);
 	expect(summary.activeMs).toBe(0);
@@ -129,66 +168,22 @@ test('summarizeRun tolerates a run dir with no ledger, no commands, no friction'
 	]);
 });
 
-/** Write the run's persisted evidence directly — the summary is a view over exactly these files. */
-const plantEvidence = ({ cwd, runId, agents = [], commands = [], agentFiles = [], friction = [] }: PlantParams) => {
-	const runDir = join(cwd, '.lightsout', 'runs', runId);
-
-	mkdirSync(join(runDir, 'agents'), { recursive: true });
-	writeFileSync(join(runDir, 'agents.jsonl'), agents.map((line) => `${line}\n`).join(''), 'utf8');
-	writeFileSync(join(runDir, 'commands.jsonl'), commands.map((record) => `${JSON.stringify(record)}\n`).join(''), 'utf8');
-
-	for (const name of agentFiles) {
-		writeFileSync(join(runDir, 'agents', name), 'stub\n', 'utf8');
-	}
-
-	writeFileSync(join(cwd, '.lightsout', 'friction.jsonl'), friction.map((record) => `${JSON.stringify(record)}\n`).join(''), 'utf8');
-};
-
-interface PlantParams {
-	cwd: string;
-	runId: string;
-	/** Raw agents.jsonl lines — malformed ones included, to pin ledger tolerance. */
-	agents?: string[];
-	commands?: Record<string, unknown>[];
-	/** File names inside the run's `agents/` directory. */
-	agentFiles?: string[];
-	friction?: Record<string, unknown>[];
-}
-
 test('summarizeRun attributes supervisor consultations to the step they supervised', async () => {
-	const cwd = setupConsumerRepo({ git: false });
-
-	plantEvidence({
-		cwd,
-		runId: 'run-summary',
+	const { cwd, manifest: planted } = plantEvidence({
 		agents: [
 			JSON.stringify({ step: 'implement', outputTokens: 100, costUsd: 0.5 }),
 			JSON.stringify({ step: 'implement-supervisor', outputTokens: 20, costUsd: 0.25 }),
 			JSON.stringify({ step: 'write-tests', outputTokens: 8, costUsd: 0.125 }),
 		],
-	});
-
-	const summary = await summarizeRun({
-		cwd,
-		manifest: {
-			runId: 'run-summary',
-			createdAt: '2026-07-03T00:00:00.000Z',
-			updatedAt: '2026-07-03T00:10:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
+		overrides: {
 			steps: [
-				{ id: 'implement', status: 'passed', attempts: 1, durationMs: 1_000 },
-				{ id: 'write-tests', status: 'passed', attempts: 1, durationMs: 500 },
+				{ id: 'implement', status: RunStatus.Passed, attempts: 1, durationMs: 1_000 },
+				{ id: 'write-tests', status: RunStatus.Passed, attempts: 1, durationMs: 500 },
 			],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
 		},
 	});
+
+	const summary = await summarizeRun({ cwd, manifest: planted });
 
 	const byId = new Map(summary.steps.map((step) => [step.id, step]));
 
@@ -202,32 +197,11 @@ test('summarizeRun attributes supervisor consultations to the step they supervis
 });
 
 test('summarizeRun separates gates that ran from re-runs and skips', async () => {
-	const cwd = setupConsumerRepo({ git: false });
-
-	plantEvidence({
-		cwd,
-		runId: 'run-gates',
+	const { cwd, manifest: planted } = plantEvidence({
 		commands: [{ durationMs: 100 }, { durationMs: 50, rerun: true }, { skipped: true }, { durationMs: 25, skipped: true }],
 	});
 
-	const summary = await summarizeRun({
-		cwd,
-		manifest: {
-			runId: 'run-gates',
-			createdAt: '2026-07-03T00:00:00.000Z',
-			updatedAt: '2026-07-03T00:10:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
-			steps: [],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
-		},
-	});
+	const summary = await summarizeRun({ cwd, manifest: planted });
 
 	expect(summary.gates).toStrictEqual({ commands: 2, reruns: 1, skipped: 2 });
 	// every recorded duration counts toward gate time
@@ -235,39 +209,17 @@ test('summarizeRun separates gates that ran from re-runs and skips', async () =>
 });
 
 test('summarizeRun counts the rejected reports that cost a re-emit retry', async () => {
-	const cwd = setupConsumerRepo({ git: false });
-
-	plantEvidence({
-		cwd,
-		runId: 'run-rejected',
+	const { cwd, manifest: planted } = plantEvidence({
 		agentFiles: ['rejected-implement-1.txt', 'rejected-write-tests-1.txt', 'implement-1.txt'],
 	});
 
-	const summary = await summarizeRun({
-		cwd,
-		manifest: {
-			runId: 'run-rejected',
-			createdAt: '2026-07-03T00:00:00.000Z',
-			updatedAt: '2026-07-03T00:10:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
-			steps: [],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
-		},
-	});
+	const summary = await summarizeRun({ cwd, manifest: planted });
 
 	// accepted transcripts are not retries
 	expect(summary.rejectedReports).toBe(2);
 });
 
 test('summarizeRun counts only this run friction, not the repo accumulated history', async () => {
-	const cwd = setupConsumerRepo({ git: false });
 	const entry = (overrides: Record<string, unknown>) => ({
 		kind: 'friction',
 		area: 'plan',
@@ -278,30 +230,12 @@ test('summarizeRun counts only this run friction, not the repo accumulated histo
 		...overrides,
 	});
 
-	plantEvidence({
-		cwd,
-		runId: 'run-friction',
+	const { cwd, manifest: planted } = plantEvidence({
 		friction: [entry({}), entry({ step: 'write-tests' }), entry({ area: 'prompt' }), entry({ runId: 'an-older-run', area: 'environment' })],
+		overrides: { runId: 'run-friction' },
 	});
 
-	const summary = await summarizeRun({
-		cwd,
-		manifest: {
-			runId: 'run-friction',
-			createdAt: '2026-07-03T00:00:00.000Z',
-			updatedAt: '2026-07-03T00:10:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
-			steps: [],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
-		},
-	});
+	const summary = await summarizeRun({ cwd, manifest: planted });
 
 	expect(summary.frictionByArea).toStrictEqual([
 		{ area: 'plan', count: 2 },
@@ -310,36 +244,16 @@ test('summarizeRun counts only this run friction, not the repo accumulated histo
 });
 
 test('summarizeRun skips ledger lines it cannot trust instead of failing the report card', async () => {
-	const cwd = setupConsumerRepo({ git: false });
-
-	plantEvidence({
-		cwd,
-		runId: 'run-torn',
+	const { cwd, manifest: planted } = plantEvidence({
 		agents: [
 			JSON.stringify({ step: 'implement', outputTokens: 100, costUsd: 0.5 }),
 			'{"step":"implement","outputTokens":',
 			JSON.stringify({ step: 'implement', outputTokens: 'lots', costUsd: 0.5 }),
 		],
+		overrides: { steps: [{ id: 'implement', status: RunStatus.Passed, attempts: 1 }] },
 	});
 
-	const summary = await summarizeRun({
-		cwd,
-		manifest: {
-			runId: 'run-torn',
-			createdAt: '2026-07-03T00:00:00.000Z',
-			updatedAt: '2026-07-03T00:10:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
-			steps: [{ id: 'implement', status: 'passed', attempts: 1 }],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
-		},
-	});
+	const summary = await summarizeRun({ cwd, manifest: planted });
 
 	// a torn line bills nothing rather than guessing
 	expect(summary.steps[0]?.invocations).toBe(1);
@@ -347,25 +261,12 @@ test('summarizeRun skips ledger lines it cannot trust instead of failing the rep
 });
 
 test('summarizeRun reports no cache share for a run whose input tokens are all zero', async () => {
-	const summary = await summarizeRun({
-		cwd: '/nonexistent',
-		manifest: {
-			runId: 'run-zero',
-			createdAt: '2026-07-03T00:00:00.000Z',
-			updatedAt: '2026-07-03T00:10:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
-			steps: [],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
-			usage: { invocations: 1, inputTokens: 0, outputTokens: 40, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 },
-		},
+	const zeroInput = manifest({
+		runId: 'run-zero',
+		usage: { invocations: 1, inputTokens: 0, outputTokens: 40, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0 },
 	});
+
+	const summary = await summarizeRun({ cwd: '/nonexistent', manifest: zeroInput });
 
 	// a share of nothing is not zero efficiency
 	expect(summary.cacheReadShare).toBe(undefined);
@@ -374,24 +275,9 @@ test('summarizeRun reports no cache share for a run whose input tokens are all z
 });
 
 test('summarizeRun clamps wall time for a manifest stamped out of order', async () => {
-	const summary = await summarizeRun({
-		cwd: '/nonexistent',
-		manifest: {
-			runId: 'run-clock',
-			createdAt: '2026-07-03T00:10:00.000Z',
-			updatedAt: '2026-07-03T00:00:00.000Z',
-			plan: 'plan.md',
-			harness: 'stub',
-			status: 'passed',
-			currentStep: null,
-			steps: [],
-			changedFiles: [],
-			packages: [],
-			baselineDirtyFiles: [],
-			testSubjects: [],
-			unreachableChangedFiles: [],
-		},
-	});
+	const backwards = manifest({ runId: 'run-clock', createdAt: '2026-07-03T00:10:00.000Z', updatedAt: '2026-07-03T00:00:00.000Z' });
+
+	const summary = await summarizeRun({ cwd: '/nonexistent', manifest: backwards });
 
 	// a clock that ran backwards reports no time, never negative time
 	expect(summary.wallMs).toBe(0);

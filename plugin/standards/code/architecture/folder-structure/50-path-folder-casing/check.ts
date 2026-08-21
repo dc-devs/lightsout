@@ -1,13 +1,13 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { collectDirectories } from '../../../../common/utils/collectDirectories.ts';
-import { getBaseName } from '../../../../common/utils/getBaseName.ts';
-import { getDirectory } from '../../../../common/utils/getDirectory.ts';
-import { getFrameworkCarveOuts } from '../../../../common/utils/getFrameworkCarveOuts.ts';
-import { getPathCarveOut } from '../../../../common/utils/getPathCarveOut.ts';
-import { getSourceRoot } from '../../../../common/utils/getSourceRoot.ts';
-import { isUnderRouterRoot } from '../../../../common/utils/isUnderRouterRoot.ts';
-import { readPathLists } from '../../../../common/utils/readPathLists.ts';
+import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { getFrameworkCarveOuts } from '../../../../common/frameworks/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../../common/frameworks/getPathCarveOut.ts';
+import { getSourceRoot } from '../../../../common/frameworks/getSourceRoot.ts';
+import { isUnderRouterRoot } from '../../../../common/frameworks/isUnderRouterRoot.ts';
+import { collectDirectories } from '../../../../common/paths/collectDirectories.ts';
+import { getBaseName } from '../../../../common/paths/getBaseName.ts';
+import { getDirectory } from '../../../../common/paths/getDirectory.ts';
 
 const camelCase = /^[a-z][A-Za-z0-9]*$/;
 const pascalCase = /^[A-Z][A-Za-z0-9]*$/;

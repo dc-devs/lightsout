@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { runGates } from '#src/pipeline/index.ts';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
@@ -77,7 +77,7 @@ test('a package without a gate script is skipped with narration and a log record
 	const progress: string[] = [];
 	const error = await runGates({
 		cwd: dir,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		packages: ['api', 'bare'],
 		runId: 'run-skip',
 		step: 'clean-slate',
@@ -116,7 +116,7 @@ test('a package missing only the coverage script falls back to its plain test ru
 	const progress: string[] = [];
 	const error = await runGates({
 		cwd: dir,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		packages: ['api', 'semi'],
 		coverage: true,
 		onProgress: (message) => progress.push(message),
@@ -140,7 +140,7 @@ test('a template with no run token always executes — unknown script is not mis
 	const dir = setupScopedRepo({ withRunToken: false });
 	const error = await runGates({
 		cwd: dir,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		packages: ['bare'],
 	});
 
@@ -154,7 +154,7 @@ test('a package missing only the custom suite script skips that suite alone — 
 	const progress: string[] = [];
 	const error = await runGates({
 		cwd: dir,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		packages: ['full', 'partial'],
 		onProgress: (message) => progress.push(message),
 	});

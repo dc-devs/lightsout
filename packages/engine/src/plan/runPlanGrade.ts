@@ -3,6 +3,7 @@ import { buildPlanGapCheckInvocation } from '#src/agents/index.ts';
 import { writeJsonFile } from '#src/common/utils/writeJsonFile.ts';
 import { type Effort, GapCheckReport, type GradeReport, type Permissions, type PlanGap, PlanGrade } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
@@ -23,9 +24,9 @@ interface Params {
 }
 
 type RunPlanGradeResult =
-	| { status: 'complete'; workspaceDir: string; grade: GradeReport; gradePath: string }
-	| { status: 'failed'; workspaceDir: string; error: string }
-	| { status: 'paused-rate-limit'; workspaceDir: string; error: string };
+	| { status: typeof PlanRunStatus.Complete; workspaceDir: string; grade: GradeReport; gradePath: string }
+	| { status: typeof PlanRunStatus.Failed; workspaceDir: string; error: string }
+	| { status: typeof PlanRunStatus.PausedRateLimit; workspaceDir: string; error: string };
 
 /**
  * Read-only detector for a plan's grade: a deterministic structural re-check
@@ -52,7 +53,7 @@ export const runPlanGrade = async ({
 	const { workspaceDir, overviewText, files: phases, planPaths, config, error } = await getPlanDetectionPass({ cwd, name });
 
 	if (error) {
-		return { status: 'failed' as const, workspaceDir, error };
+		return { status: PlanRunStatus.Failed, workspaceDir, error };
 	}
 
 	// Structural re-check covers every plan file, overview included (it has its
@@ -84,8 +85,8 @@ export const runPlanGrade = async ({
 
 		if (!outcome.ok) {
 			return outcome.rateLimited
-				? { status: 'paused-rate-limit' as const, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan grade --name ${name}` }
-				: { status: 'failed' as const, workspaceDir, error: `gap-check failed for ${basename(phase.path)}: ${outcome.failure}` };
+				? { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan grade --name ${name}` }
+				: { status: PlanRunStatus.Failed, workspaceDir, error: `gap-check failed for ${basename(phase.path)}: ${outcome.failure}` };
 		}
 
 		gaps.push(...outcome.report.gaps);
@@ -106,5 +107,5 @@ export const runPlanGrade = async ({
 
 	progress(`plan grade ${name}: ${grade} (${structural.length} structural, ${gaps.length} gap(s))`);
 
-	return { status: 'complete' as const, workspaceDir, grade: report, gradePath };
+	return { status: PlanRunStatus.Complete, workspaceDir, grade: report, gradePath };
 };

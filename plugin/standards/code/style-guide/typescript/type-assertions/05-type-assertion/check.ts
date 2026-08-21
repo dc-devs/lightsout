@@ -1,6 +1,6 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildTreeLineCheck } from '../../../../../common/utils/buildTreeLineCheck.ts';
+import { buildTreeLineCheck } from '../../../../../common/checks/buildTreeLineCheck.ts';
 
 /**
  * Whether an assertion is the `as const` form. That one asserts nothing about a

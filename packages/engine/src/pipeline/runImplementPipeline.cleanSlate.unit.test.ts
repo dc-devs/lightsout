@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -43,7 +43,7 @@ const setupCleanSlateRun = async ({ scripts }: { scripts: Record<string, string 
 		},
 	};
 
-	return { dir, driver, spawned, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, spawned, config: await readConfig({ cwd: dir }) };
 };
 
 test('clean-slate: a red baseline gate fails the run before a single agent is spawned', async () => {

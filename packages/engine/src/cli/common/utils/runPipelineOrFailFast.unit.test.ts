@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, jest, test } from '@jest/globals';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { RunLockError } from '#src/runState/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
@@ -49,7 +49,7 @@ const setupPipelineCall = async ({ lockedByPid }: { lockedByPid?: number } = {})
 		writeFileSync(join(cwd, '.lightsout', 'lock.json'), JSON.stringify({ pid: lockedByPid, runId: 'already-running', startedAt: '2026-01-01T00:00:00.000Z' }));
 	}
 
-	return { cwd, config: await loadConfig({ cwd }), errors, exitCodes };
+	return { cwd, config: await readConfig({ cwd }), errors, exitCodes };
 };
 
 /**
@@ -61,7 +61,7 @@ const setupUnusableCwd = async () => {
 	const { errors, exitCodes } = captureFailFast();
 	const repo = setupConsumerRepo({ git: false });
 
-	return { cwd: join(repo, 'plan.md'), config: await loadConfig({ cwd: repo }), errors, exitCodes };
+	return { cwd: join(repo, 'plan.md'), config: await readConfig({ cwd: repo }), errors, exitCodes };
 };
 
 test('runPipelineOrFailFast: a live run lock is a clean fail-fast — the message on stderr, exit 1, no stack', async () => {

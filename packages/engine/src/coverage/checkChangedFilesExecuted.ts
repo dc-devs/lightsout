@@ -4,12 +4,12 @@ import type ts from 'typescript';
 import { z } from 'zod';
 import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { isInertSourceFile } from '#src/common/utils/isInertSourceFile.ts';
-import { isTestableSourceFile } from '#src/common/utils/isTestableSourceFile.ts';
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
-import { isToolingConfigFile } from '#src/common/utils/isToolingConfigFile.ts';
-import { isUnloadableSourceFile } from '#src/common/utils/isUnloadableSourceFile.ts';
-import { packageOf } from '#src/common/utils/packageOf.ts';
+import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
+import { isTestableSourceFile } from '#src/common/sourceFiles/isTestableSourceFile.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
+import { isToolingConfigFile } from '#src/common/sourceFiles/isToolingConfigFile.ts';
+import { isUnloadableSourceFile } from '#src/common/sourceFiles/isUnloadableSourceFile.ts';
+import { packageOf } from '#src/common/workspace/packageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { CoverageScope } from '#src/coverage/common/types/CoverageScope.ts';
 import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
@@ -60,7 +60,7 @@ export const checkChangedFilesExecuted = async ({ cwd, config, changedFiles, com
 	const candidates: string[] = [];
 
 	for (const file of changedFiles.filter(
-		(changed) => isTestableSourceFile(changed) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir }),
+		(changed) => isTestableSourceFile({ path: changed }) && !isTestFile({ path: changed }) && !isToolingConfigFile({ path: changed, packagesDir }),
 	)) {
 		const content = await readFile(join(cwd, file), 'utf8').catch(() => undefined);
 
