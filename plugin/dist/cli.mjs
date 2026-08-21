@@ -7963,28 +7963,6 @@ var getStringFlag = ({ flags, name }) => {
   return typeof value === "string" ? value : void 0;
 };
 
-// src/cli/common/args/parseFlags.ts
-var parseFlags = ({ args }) => {
-  const flags = /* @__PURE__ */ new Map();
-  let index = 0;
-  while (index < args.length) {
-    const key = args[index];
-    if (!key?.startsWith("--")) {
-      index += 1;
-      continue;
-    }
-    const value = args[index + 1];
-    if (value === void 0 || value.startsWith("--")) {
-      flags.set(key.slice(2), true);
-      index += 1;
-    } else {
-      flags.set(key.slice(2), value);
-      index += 2;
-    }
-  }
-  return flags;
-};
-
 // src/cli/common/constants/usage.ts
 var usage = `lightsout \u2014 deterministic engine for coding agents
 
@@ -8012,6 +7990,43 @@ usage:
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions \u2014 Mac-only)
   lightsout voice hook [--cwd <path>]                 (hook entry for Stop + AskUserQuestion: reads hook JSON on stdin, speaks the question)
 `;
+
+// src/cli/common/args/readCommandFlags.ts
+var commandOf = ({ line }) => /^\s+lightsout\s+(\S+)/.exec(line)?.[1];
+var readCommandFlags = ({ command }) => {
+  const lines = usage.split("\n").filter((line) => commandOf({ line }) === command);
+  const names = lines.flatMap((line) => [...line.matchAll(/--([a-z][a-z\d-]*)/g)].map(([, name]) => name ?? ""));
+  return /* @__PURE__ */ new Set(["cwd", ...names]);
+};
+
+// src/cli/common/args/getUnknownFlagsMessage.ts
+var getUnknownFlagsMessage = ({ command, flags }) => {
+  const accepted = readCommandFlags({ command });
+  const unknown2 = [...flags.keys()].filter((name) => !accepted.has(name));
+  return unknown2.length === 0 ? void 0 : `lightsout ${command}: unknown flag${unknown2.length > 1 ? "s" : ""} ${unknown2.map((name) => `--${name}`).join(", ")}`;
+};
+
+// src/cli/common/args/parseFlags.ts
+var parseFlags = ({ args }) => {
+  const flags = /* @__PURE__ */ new Map();
+  let index = 0;
+  while (index < args.length) {
+    const key = args[index];
+    if (!key?.startsWith("--")) {
+      index += 1;
+      continue;
+    }
+    const value = args[index + 1];
+    if (value === void 0 || value.startsWith("--")) {
+      flags.set(key.slice(2), true);
+      index += 1;
+    } else {
+      flags.set(key.slice(2), value);
+      index += 2;
+    }
+  }
+  return flags;
+};
 
 // src/cli/common/utils/exitCli.ts
 var exitCli = async ({ code }) => {
@@ -44824,11 +44839,14 @@ var main = async () => {
   const flags = parseFlags({ args: rest });
   const cwd = getStringFlag({ flags, name: "cwd" }) ?? process.cwd();
   const run = command === void 0 ? void 0 : commands[command];
-  if (run) {
+  const problem = command === void 0 || run === void 0 ? void 0 : getUnknownFlagsMessage({ command, flags });
+  if (run && problem === void 0) {
     await run({ flags, rest, cwd });
     return;
   }
-  console.error(usage);
+  console.error(problem === void 0 ? usage : `${problem}
+
+${usage}`);
   return exitCli({ code: command === void 0 || command === "help" ? 0 : 1 });
 };
 await main();
