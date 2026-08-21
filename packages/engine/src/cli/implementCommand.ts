@@ -9,7 +9,7 @@ import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarne
 import { resolvePlanTarget } from '#src/cli/common/utils/resolvePlanTarget.ts';
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { getDriver } from '#src/drivers/index.ts';
 
 export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
@@ -62,7 +62,7 @@ export const implementCommand = async ({ flags, cwd }: CommandContext): Promise<
 		return exitCli({ code: 1 });
 	}
 
-	const loaded = await loadConfig({ cwd });
+	const loaded = await readConfig({ cwd });
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command: 'implement' });
 	const driver = getDriver({ name: driverName });
 	const config = { ...loaded, harness: driverName, model, effort };

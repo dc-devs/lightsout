@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type FileTextInput, type StandardsCheckInput, type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { type FileTextInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
 import { runPackageChecks } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
@@ -11,7 +11,7 @@ import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 /** One loaded package holding a single rule of the asked-for kind, plus the recorder of what it was handed. */
 const loadOneRule = ({ inputKind }: { inputKind: StandardsInputKind }) => {
 	const inputs: StandardsCheckInput[] = [];
-	const run: StandardsCheckRun = ({ input }) => {
+	const run: StandardsCheckFunction = ({ input }) => {
 		inputs.push(input);
 
 		return [];

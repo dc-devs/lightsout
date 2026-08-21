@@ -1,8 +1,8 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
-import { resolvePackageManifest } from '#src/common/utils/resolvePackageManifest.ts';
+import { readPackageManifest } from '#src/common/workspace/readPackageManifest.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { CoverageScope } from '#src/coverage/common/types/CoverageScope.ts';
 
@@ -37,7 +37,7 @@ const listPackageScopes = async ({
 			continue;
 		}
 
-		const manifest = await resolvePackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => undefined);
+		const manifest = await readPackageManifest({ cwd, packagesDir, packageDir: entry.name }).catch(() => undefined);
 
 		if (!manifest || (scriptName !== undefined && !Object.hasOwn(manifest.scripts, scriptName))) {
 			continue;

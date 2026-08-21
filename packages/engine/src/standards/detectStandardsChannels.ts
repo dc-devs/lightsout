@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { getDependencyNames } from '#src/common/utils/getDependencyNames.ts';
+import { readDependencyNames } from '#src/common/workspace/readDependencyNames.ts';
 
 /** A channel activates when ANY scoped package depends on one of its signal packages. */
 const channelSignals: Record<string, string[]> = {
@@ -27,7 +27,7 @@ export const detectStandardsChannels = async ({ cwd, packagesDir, packages }: Pa
 	const dependencies = new Set<string>();
 
 	for (const manifestPath of manifestPaths) {
-		for (const name of (await getDependencyNames({ manifestPath })) ?? []) {
+		for (const name of (await readDependencyNames({ manifestPath })) ?? []) {
 			dependencies.add(name);
 		}
 	}

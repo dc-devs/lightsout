@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
-import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
 
@@ -25,7 +25,7 @@ jest.mock('node:module', () => {
 // -------------------------
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
-const bansTheBannedFile: StandardsCheckRun = ({ input }) =>
+const bansTheBannedFile: StandardsCheckFunction = ({ input }) =>
 	(input.kind === StandardsInputKind.FileList ? input.files : [])
 		.filter((file) => file.endsWith('banned.ts'))
 		.map((path) => ({

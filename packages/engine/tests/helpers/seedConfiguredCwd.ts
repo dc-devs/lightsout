@@ -9,7 +9,7 @@ interface Params {
 
 /**
  * A consumer repo with the gate config every mutating command demands, and
- * nothing else — enough for `refactor` to get past loadConfig and reach its own
+ * nothing else — enough for `refactor` to get past readConfig and reach its own
  * argument checks.
  */
 export const seedConfiguredCwd = async ({ config }: Params = {}): Promise<string> => {

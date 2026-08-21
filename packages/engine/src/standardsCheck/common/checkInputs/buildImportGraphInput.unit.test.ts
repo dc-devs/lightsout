@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { buildImportGraphInput } from '#src/standardsCheck/common/checkInputs/buildImportGraphInput.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
 

@@ -1,7 +1,7 @@
 import type { RunListing } from '@lightsout/engine';
+import { formatCost } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
 import { RunStatusBadge } from '#src/common/components/ui/RunStatusBadge.tsx';
-import { formatCost } from '#src/common/formatting/formatCost.ts';
 import { formatRelativeTime } from '#src/common/formatting/formatRelativeTime.ts';
 
 interface Props {

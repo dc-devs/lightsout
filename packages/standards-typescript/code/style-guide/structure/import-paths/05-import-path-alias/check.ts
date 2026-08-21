@@ -1,9 +1,10 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { findPathAliases } from '../../../../../common/utils/findPathAliases.ts';
-import { isUnderSrc } from '../../../../../common/utils/isUnderSrc.ts';
-import { readFileTexts } from '../../../../../common/utils/readFileTexts.ts';
-import { resolveImport } from '../../../../../common/utils/resolveImport.ts';
+import { readFileTexts } from '../../../../../common/checkInput/readFileTexts.ts';
+import { ImportTargetKind } from '../../../../../common/constants/ImportTargetKind.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { findPathAliases } from '../../../../../common/imports/findPathAliases.ts';
+import { resolveImport } from '../../../../../common/imports/resolveImport.ts';
+import { isUnderSrc } from '../../../../../common/paths/isUnderSrc.ts';
 
 /** The specifier of an import or re-export: the one-line form, and the closing line of a wrapped one. */
 const fromClause = /^(?:import|export)\s[^'"]*from\s*['"]([^'"]+)['"]|^\}\s*from\s*['"]([^'"]+)['"]/;
@@ -60,7 +61,7 @@ export const check: StandardsCheckModule = {
 
 				const relative = getSpecifiers({ text: contents.get(file) ?? '' })
 					.filter((specifier) => specifier.startsWith('.'))
-					.filter((specifier) => resolveImport({ from: file, specifier, files: fileSet, aliases }).kind === 'file');
+					.filter((specifier) => resolveImport({ from: file, specifier, files: fileSet, aliases }).kind === ImportTargetKind.File);
 
 				return relative.length === 0
 					? undefined

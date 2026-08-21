@@ -3,6 +3,8 @@ import { usage } from '#src/cli/common/constants/usage.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveConfigAndDriver } from '#src/cli/common/utils/resolveConfigAndDriver.ts';
+import { PromptImprovementStatus } from '#src/common/constants/PromptImprovementStatus.ts';
+import { WorkReportStatus } from '#src/contracts/index.ts';
 import { runPromptImprovement } from '#src/runPromptImprovement.ts';
 
 export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
@@ -16,7 +18,7 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 	const { config, driver } = await resolveConfigAndDriver({ cwd, command: 'improve' });
 	const result = await runPromptImprovement({ consumerCwd: cwd, engineCwd, driver, model: config?.model, effort: config?.effort });
 
-	if (result.status === 'no-friction') {
+	if (result.status === PromptImprovementStatus.NoFriction) {
 		console.log('no friction recorded — nothing to improve from');
 		return exitCli({ code: 0 });
 	}
@@ -39,5 +41,5 @@ export const improveCommand = async ({ flags, cwd }: CommandContext): Promise<vo
 		console.log(`\nreview the diff in ${engineCwd} — the loop proposes, a human ships.`);
 	}
 
-	return exitCli({ code: report.status === 'complete' ? 0 : 1 });
+	return exitCli({ code: report.status === WorkReportStatus.Complete ? 0 : 1 });
 };

@@ -1,7 +1,7 @@
 import { unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
@@ -47,7 +47,7 @@ test('verify failure: cheap retries, then supervisor escalate with diagnosis', a
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.manifest.status).toBe('escalated');
 	expect(result.error ?? '').toMatch(/DIAGNOSIS-SENTINEL/);
@@ -98,7 +98,7 @@ test('supervisor retry-with-guidance heals the run', async () => {
 			return { text: report(), exitCode: 0 };
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
 	expect(result.manifest.steps.find((step) => step.id === 'verify-implement')?.attempts).toBe(4);

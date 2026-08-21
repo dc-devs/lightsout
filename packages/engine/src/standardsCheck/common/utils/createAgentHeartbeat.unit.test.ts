@@ -32,7 +32,7 @@ describe('createAgentHeartbeat', () => {
 
 		jest.advanceTimersByTime(90_000);
 
-		expect(progress).toStrictEqual(['⏳ agent review still running · 30s', '⏳ agent review still running · 1m00s', '⏳ agent review still running · 1m30s']);
+		expect(progress).toStrictEqual(['⏳ agent review still running · 30s', '⏳ agent review still running · 1m 00s', '⏳ agent review still running · 1m 30s']);
 	});
 
 	test('the interval is the caller’s to set', () => {
@@ -98,7 +98,10 @@ describe('createAgentHeartbeat', () => {
 		heartbeat.onEvent(toolUseEvent({ calls: [{ name: 'Read', path: 'src/b.ts' }] }));
 		jest.advanceTimersByTime(30_000);
 
-		expect(progress).toStrictEqual(['⏳ agent review still running · 30s · 1 file read so far', '⏳ agent review still running · 1m00s · 2 files read so far']);
+		expect(progress).toStrictEqual([
+			'⏳ agent review still running · 30s · 1 file read so far',
+			'⏳ agent review still running · 1m 00s · 2 files read so far',
+		]);
 	});
 
 	test('stop ends the ticker — no line is printed after it', () => {

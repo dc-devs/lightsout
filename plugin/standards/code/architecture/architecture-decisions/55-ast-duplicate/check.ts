@@ -1,8 +1,8 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { collectFunctionNodes } from '../../../../common/utils/collectFunctionNodes.ts';
-import { getOwningPackage } from '../../../../common/utils/getOwningPackage.ts';
-import { getSiteGroupKey } from '../../../../common/utils/getSiteGroupKey.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { getSiteGroupKey } from '../../../../common/findings/getSiteGroupKey.ts';
+import { collectFunctionNodes } from '../../../../common/parsing/collectFunctionNodes.ts';
+import { getOwningPackage } from '../../../../common/paths/getOwningPackage.ts';
 import { normalizeFunctionTokens } from './normalizeFunctionTokens.ts';
 
 /** One measured function body: where it sits, and what the finding calls it. */

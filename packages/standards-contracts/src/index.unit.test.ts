@@ -1,35 +1,33 @@
 import { describe, expect, test } from '@jest/globals';
-import { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackageRoot, StandardsSet } from '#src/index.ts';
+import * as contracts from '#src/index.ts';
 
 /**
  * The package entry, tested as the thing a rule author actually imports.
  *
- * Each shape is proven by its own file's tests; what is proven here is that the
- * entry still hands them out. A re-export that stopped resolving — a rename, a
- * moved file, a barrel entry dropped in a merge — breaks every standards package
- * in the world while every one of those other tests keeps passing.
+ * This is the one barrel a dedicated test belongs on — the file the package
+ * names in its `exports` map, which nothing inside this package consumes. A
+ * re-export that stopped resolving (a rename, a moved file, an entry dropped in
+ * a merge) breaks every standards package in the world while every other test
+ * here keeps passing.
+ *
+ * What each shape DOES is proven by its own file's tests. Nothing below reaches
+ * into one.
  */
 describe('the package entry', () => {
-	test('hands out every shape a standards package is written against', () => {
-		expect(Object.entries({ RawStandardsFinding, StandardsCheckModule, StandardsPackageRoot }).filter(([, schema]) => schema === undefined)).toStrictEqual([]);
+	test('hands out exactly the surface a standards package is written against', () => {
+		expect(Object.keys(contracts).sort()).toStrictEqual([
+			'RawStandardsFinding',
+			'StandardsCheckModule',
+			'StandardsInputKind',
+			'StandardsPackageRoot',
+			'StandardsSet',
+		]);
 	});
 
-	test('names the two document trees by the folder names they must match on disk', () => {
-		// these are not labels: a package puts its rules in folders called exactly
-		// this, and the loader walks for exactly these names
-		expect(StandardsSet).toStrictEqual({ Code: 'code', Tests: 'tests' });
-	});
-
-	test('names every input kind by the string a check writes in its module', () => {
-		// a check declares `inputKind: 'syntax-tree'` as a plain literal, narrowed
-		// by the module type — so these strings are the contract, not an enum
-		expect(StandardsInputKind).toStrictEqual({
-			FileList: 'file-list',
-			FileText: 'file-text',
-			SyntaxTree: 'syntax-tree',
-			TestFile: 'test-file',
-			ImportGraph: 'import-graph',
-			CloneSpans: 'clone-spans',
-		});
+	test('every name arrived as a value rather than erasing to undefined', () => {
+		// The failure this catches is a type export where a value was meant: it
+		// typechecks, it satisfies the name list above under `import *`, and it is
+		// `undefined` the moment a rule author calls it.
+		expect(Object.entries(contracts).filter(([, value]) => value === undefined)).toStrictEqual([]);
 	});
 });

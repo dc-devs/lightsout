@@ -34,6 +34,7 @@ packages/web-app/dist/
 # fixture run state
 fixtures/*/.lightsout/runs/
 fixtures/*/.lightsout/friction.jsonl
+fixtures/*/.lightsout/review-findings.jsonl
 
 # own run state (this repo is its own lightsout consumer)
 .lightsout

@@ -5,6 +5,8 @@ export const StandardsInputKind = {
 	FileText: 'file-text',
 	/** The consumer's TypeScript plus one parsed SourceFile per source file. */
 	SyntaxTree: 'syntax-tree',
+	/** The same trees, each paired with a type checker that resolves names across files. */
+	TypeChecker: 'type-checker',
 	/** Test files plus their text. */
 	TestFile: 'test-file',
 	/** Resolved import edges among the files in scope. */

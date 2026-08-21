@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
 import { runPackageChecks } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
@@ -37,7 +37,7 @@ const setupWorkspaceRepo = () => {
 };
 
 /** A check that reports one finding, so an empty note list can be told apart from a rule that never ran. */
-const reportingRun: StandardsCheckRun = ({ input }) => [{ siteKey: `${input.kind}:one`, files: [{ path: 'src/alpha.ts' }], detail: 'one site' }];
+const reportingRun: StandardsCheckFunction = ({ input }) => [{ siteKey: `${input.kind}:one`, files: [{ path: 'src/alpha.ts' }], detail: 'one site' }];
 
 const rule = ({ id, inputKind }: { id: string; inputKind: StandardsInputKind }): LoadedStandardsRule => ({
 	id,

@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 
 /** Whether the token combines numbers arithmetically — the only joins a folded number may use. */
 const isArithmeticOperator = ({ kind, compiler }: { kind: ts.SyntaxKind; compiler: typeof ts }): boolean =>

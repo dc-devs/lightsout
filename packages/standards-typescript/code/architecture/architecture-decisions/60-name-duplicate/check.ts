@@ -1,7 +1,7 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { getExportName } from '../../../../common/utils/getExportName.ts';
-import { readPathLists } from '../../../../common/utils/readPathLists.ts';
+import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { getExportName } from '../../../../common/naming/getExportName.ts';
 
 /**
  * Files in scope grouped by the export name their path implies, tests left out

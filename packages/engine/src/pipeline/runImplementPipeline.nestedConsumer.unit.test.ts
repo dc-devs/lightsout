@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readRunManifest } from '#src/runState/index.ts';
@@ -56,7 +56,7 @@ test('nested consumer: agent-reported repo-root-relative paths normalize to cons
 		},
 	};
 
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
 	// one real module and the caller wiring it in — two writers, not three: the

@@ -2,16 +2,16 @@ import { dirname } from 'node:path';
 import { buildUnitTestWriterInvocation } from '#src/agents/index.ts';
 import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { collectBatchChanges } from '#src/common/utils/collectBatchChanges.ts';
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
-import { packageOf } from '#src/common/utils/packageOf.ts';
+import { packageOf } from '#src/common/workspace/packageOf.ts';
 import { type AgentUsage, BatchOutcome, type CoverageBatchReport, type LightsoutConfig, WorkReportStatus } from '#src/contracts/index.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
 import type { CoverageBatchStop } from '#src/coverage/common/types/CoverageBatchStop.ts';
 import { invokeCoverageAgent } from '#src/coverage/invokeCoverageAgent.ts';
 import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { runBatchGates } from '#src/pipeline/index.ts';
+import { runBatchGates } from '#src/gates/index.ts';
 
 const maxCheapFixRetries = 2;
 const standaloneBanner =

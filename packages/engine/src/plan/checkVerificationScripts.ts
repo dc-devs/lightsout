@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { extractRunScriptName } from '#src/common/utils/extractRunScriptName.ts';
+import { extractRunScriptName } from '#src/common/config/extractRunScriptName.ts';
 import { StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 import { getManifestScriptKeys } from '#src/plan/common/utils/getManifestScriptKeys.ts';

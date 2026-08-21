@@ -64,8 +64,5 @@ export const verifyFacts = async ({ cwd, facts }: Params): Promise<PathVerificat
 		missingPaths,
 		scriptsChecked,
 		missingScripts,
-		// Authored facts carry only modify/mirror paths; create-path checking is
-		// a draft-phase concern. Defined here for Phase 2 reuse; empty for now.
-		createPathsThatExist: [],
 	};
 };

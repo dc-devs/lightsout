@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -39,7 +39,7 @@ const setupBatchRun = async ({ config, invoke }: { config?: Record<string, unkno
 
 	const driver: Driver = { name: 'stub', invoke: invoke(dir) };
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
 /** The run's agent-evidence directory. */

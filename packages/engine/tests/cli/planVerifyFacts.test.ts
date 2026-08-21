@@ -87,7 +87,6 @@ test('cli: plan verify-facts stamps facts.json, warns on misses, and exits 0', a
 		missingPaths: ['src/missing.ts'],
 		scriptsChecked: 2,
 		missingScripts: ['nope'],
-		createPathsThatExist: [],
 	});
 	expect(Number.isNaN(Date.parse(stamped.verifiedAt))).toBeFalsy();
 });

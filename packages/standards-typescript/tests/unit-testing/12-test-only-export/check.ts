@@ -1,5 +1,5 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildUnconsumedExportCheck } from '../../../common/utils/buildUnconsumedExportCheck.ts';
+import { buildUnconsumedExportCheck } from '../../../common/checks/buildUnconsumedExportCheck.ts';
 
 // An export reached from BOTH a barrel and a test is deliberate public API
 // whose contract the tests pin — the prose says so outright — so only the

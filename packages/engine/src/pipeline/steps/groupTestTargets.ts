@@ -1,10 +1,10 @@
 import type ts from 'typescript';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
-import { chunkFileGroup } from '#src/pipeline/chunkFileGroup.ts';
+import { chunkFileGroup } from '#src/common/fileGroups/chunkFileGroup.ts';
+import { groupConnectedFiles } from '#src/common/fileGroups/groupConnectedFiles.ts';
+import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
 import type { TestTargetGroup } from '#src/pipeline/common/types/TestTargetGroup.ts';
 import { partitionByPackage } from '#src/pipeline/common/utils/partitionByPackage.ts';
-import { groupConnectedFiles } from '#src/pipeline/groupConnectedFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 /** Pathological guard: an import component above this splits into sorted chunks — no config knob until live evidence asks for one. */

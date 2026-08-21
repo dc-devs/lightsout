@@ -15,9 +15,6 @@ module.exports = createJestConfig({
 	// which would make the threshold below report a clean number for exactly the
 	// gap it exists to catch.
 	collectCoverageFrom: ['src/**/*.ts', '!src/**/*.unit.test.ts', '!src/**/*.d.ts'],
-	// json-summary is what `lightsout test-coverage-to-threshold` reads. The
-	// default reporters never wrote it, so that command could not run here.
-	coverageReporters: ['text', 'lcov', 'json-summary'],
 	// The gate `pnpm test:unit:coverage` was once decorative: it printed a report
 	// and always exited 0. These make it fail. Loosening any of them is an
 	// explicit edit here, never a silent drift.

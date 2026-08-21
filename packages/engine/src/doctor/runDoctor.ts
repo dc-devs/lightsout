@@ -1,5 +1,5 @@
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
@@ -35,7 +35,7 @@ export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCh
 	let config: LightsoutConfig;
 
 	try {
-		config = await loadConfig({ cwd });
+		config = await readConfig({ cwd });
 	} catch (error) {
 		return [
 			{

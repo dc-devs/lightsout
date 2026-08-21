@@ -1,6 +1,6 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
-import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { RunStatus } from '#src/contracts/index.ts';
 import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';

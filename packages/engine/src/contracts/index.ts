@@ -9,10 +9,11 @@ export type {
 	FileListInput,
 	FileTextInput,
 	ImportGraphInput,
+	StandardsCheckFunction,
 	StandardsCheckInput,
-	StandardsCheckRun,
 	SyntaxTreeInput,
 	TestFileInput,
+	TypeCheckerInput,
 } from '@lightsout/standards-contracts';
 export { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackageRoot, StandardsSet } from '@lightsout/standards-contracts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
@@ -52,6 +53,7 @@ export { StandardsCheckOverrides } from '#src/contracts/StandardsCheckOverrides.
 export {
 	AdvisoryOutcome,
 	AdvisoryResponse,
+	ReviewFindingRecord,
 	StandardsFinding,
 	StandardsReviewReport,
 	StandardsSeverity,

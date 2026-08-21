@@ -1,7 +1,7 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { collectFunctionNodes } from '../../../../../common/utils/collectFunctionNodes.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { collectFunctionNodes } from '../../../../../common/parsing/collectFunctionNodes.ts';
 
 /** One function measured over the cap its name earned, in the words the finding reports it. */
 interface Oversized {

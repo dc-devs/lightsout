@@ -30,7 +30,6 @@ module.exports = createJestConfig({
 	// file compiles to nothing, so it lands at zero statements rather than
 	// going missing.
 	collectCoverageFrom: ['src/**/*.ts', 'src/**/*.tsx', '!src/**/*.unit.test.ts', '!src/**/*.unit.test.tsx'],
-	coverageReporters: ['text', 'lcov', 'json-summary'],
 	coverageThreshold: { global: { statements: 95, branches: 95, functions: 95, lines: 95 } },
 	// The only mappers this package carries, and never for `#src`.
 	// `@tanstack/react-start` and its subpaths publish an `import` condition and

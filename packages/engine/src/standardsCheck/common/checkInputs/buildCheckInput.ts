@@ -6,6 +6,7 @@ import { buildFileTextInput } from '#src/standardsCheck/common/checkInputs/build
 import { buildImportGraphInput } from '#src/standardsCheck/common/checkInputs/buildImportGraphInput.ts';
 import { buildSyntaxTreeInput } from '#src/standardsCheck/common/checkInputs/buildSyntaxTreeInput.ts';
 import { buildTestFileInput } from '#src/standardsCheck/common/checkInputs/buildTestFileInput.ts';
+import { buildTypeCheckerInput } from '#src/standardsCheck/common/checkInputs/buildTypeCheckerInput.ts';
 
 interface Params {
 	/** Which shape to build — the kind a rule's check declared. */
@@ -63,6 +64,7 @@ export const buildCheckInput = async ({
 			return buildCloneSpansInput({ cwd, source, settings, cache });
 
 		case StandardsInputKind.SyntaxTree:
+		case StandardsInputKind.TypeChecker:
 		case StandardsInputKind.ImportGraph: {
 			if (compiler === undefined) {
 				throw new Error(`the ${kind} input needs the consumer's typescript, which did not resolve`);
@@ -70,6 +72,10 @@ export const buildCheckInput = async ({
 
 			if (kind === StandardsInputKind.ImportGraph) {
 				return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler });
+			}
+
+			if (kind === StandardsInputKind.TypeChecker) {
+				return buildTypeCheckerInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, packagesDir });
 			}
 
 			return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, cache, packagesDir });

@@ -7,7 +7,7 @@ import { StandardsSeverity } from '#src/contracts/index.ts';
 import { parseDeclaration } from '#src/standardsPackages/common/parsing/parseDeclaration.ts';
 import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
 import { hasFile } from '#src/standardsPackages/common/utils/hasFile.ts';
-import { loadCheckModule } from '#src/standardsPackages/common/utils/loadCheckModule.ts';
+import { importCheckModule } from '#src/standardsPackages/common/utils/importCheckModule.ts';
 
 interface Params {
 	/** Absolute rule folder path. */
@@ -83,7 +83,7 @@ export const parseRuleFolder = async ({ folderPath, set, documentPath, problems 
 
 	if (declaration?.checked === true && hasCheck) {
 		try {
-			check = await loadCheckModule({ checkPath });
+			check = await importCheckModule({ checkPath });
 		} catch (error) {
 			found.push(`${rulePath}: ${messageOf({ error })}`);
 		}

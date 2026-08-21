@@ -1,5 +1,5 @@
 import { basename } from 'node:path';
-import { formatDuration, formatTokenCount } from '@lightsout/shared';
+import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared';
 import { printStepTable } from '#src/cli/common/render/printStepTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
@@ -36,7 +36,7 @@ export const printResult = async ({ result, cwd }: Params): Promise<void> => {
 			name: 'tokens',
 			value: `in ${formatTokenCount({ count: inputTokens })} · out ${formatTokenCount({ count: outputTokens })} · cache-read ${formatTokenCount({ count: cacheReadTokens })}${share}`,
 		});
-		label({ name: 'cost', value: `$${costUsd.toFixed(2)} API-equivalent · ${invocations} invocation${plural({ count: invocations })}` });
+		label({ name: 'cost', value: `${formatCost({ usd: costUsd })} API-equivalent · ${invocations} invocation${plural({ count: invocations })}` });
 	}
 
 	console.log('');

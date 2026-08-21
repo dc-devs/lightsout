@@ -1,11 +1,11 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildFileExportCheck } from '../../../../../common/utils/buildFileExportCheck.ts';
-import { collapseCasing } from '../../../../../common/utils/collapseCasing.ts';
-import { getExportName } from '../../../../../common/utils/getExportName.ts';
-import { getFrameworkCarveOuts } from '../../../../../common/utils/getFrameworkCarveOuts.ts';
-import { getPathCarveOut } from '../../../../../common/utils/getPathCarveOut.ts';
-import { isUnderRouterRoot } from '../../../../../common/utils/isUnderRouterRoot.ts';
-import { readManifestDependencies } from '../../../../../common/utils/readManifestDependencies.ts';
+import { readManifestDependencies } from '../../../../../common/checkInput/readManifestDependencies.ts';
+import { buildFileExportCheck } from '../../../../../common/checks/buildFileExportCheck.ts';
+import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
+import { isUnderRouterRoot } from '../../../../../common/frameworks/isUnderRouterRoot.ts';
+import { collapseCasing } from '../../../../../common/naming/collapseCasing.ts';
+import { getExportName } from '../../../../../common/naming/getExportName.ts';
 
 /**
  * `events.service` → `['events', 'events.service']`. A framework dot-suffix

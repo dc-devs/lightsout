@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
@@ -67,7 +67,7 @@ const setupSingleGateRed = async ({ gate, flag }: { gate: 'check' | 'test-covera
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), prompts };
+	return { dir, driver, config: await readConfig({ cwd: dir }), prompts };
 };
 
 /** A scoped gate command that exits red only for `pkg`, and only while `flag` exists. */
@@ -133,7 +133,7 @@ const setupMixedRed = async () => {
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), prompts };
+	return { dir, driver, config: await readConfig({ cwd: dir }), prompts };
 };
 
 /**
@@ -182,7 +182,7 @@ const setupAdvisoryGateRed = async () => {
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), prompts };
+	return { dir, driver, config: await readConfig({ cwd: dir }), prompts };
 };
 
 /** The first fix re-invocation's prompt — the one carrying the red gate output. */

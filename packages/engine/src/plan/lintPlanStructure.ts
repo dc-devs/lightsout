@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { type LightsoutConfig, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
 import { checkPlanPaths } from '#src/plan/checkPlanPaths.ts';
 import { checkVerificationScripts } from '#src/plan/checkVerificationScripts.ts';

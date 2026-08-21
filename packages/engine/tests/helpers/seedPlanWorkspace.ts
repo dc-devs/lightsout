@@ -21,7 +21,7 @@ export const seedPlanWorkspace = ({ cwd, name, areas = [], brainstormDecisions }
 		JSON.stringify({
 			request: 'do a thing',
 			areas,
-			verification: { pathsChecked: 0, missingPaths: [], scriptsChecked: 0, missingScripts: [], createPathsThatExist: [] },
+			verification: { pathsChecked: 0, missingPaths: [], scriptsChecked: 0, missingScripts: [] },
 			verifiedAt: '2026-01-01T00:00:00.000Z',
 		}),
 	);

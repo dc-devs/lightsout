@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { z } from 'zod';
 import { defaultCoverageSummaryPath } from '#src/common/constants/defaultCoverageSummaryPath.ts';
-import { runCommand } from '#src/common/utils/runCommand.ts';
+import { runCommand } from '#src/common/processes/runCommand.ts';
 import type { CoverageFile, CoverageTotal, LightsoutConfig } from '#src/contracts/index.ts';
 import { buildMissingSummaryMessage } from '#src/coverage/common/utils/buildMissingSummaryMessage.ts';
 import { resolveCoverageScopes } from '#src/coverage/resolveCoverageScopes.ts';

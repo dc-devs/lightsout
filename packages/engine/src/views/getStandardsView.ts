@@ -1,4 +1,4 @@
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { type StandardsFinding, type StandardsRuleView, StandardsSeverity, type StandardsView } from '#src/contracts/index.ts';
 import {
 	buildStandardsHealth,
@@ -74,7 +74,7 @@ interface Params {
  * @throws {Error} When a declared standards package cannot be loaded, or the config names a rule no package declares.
  */
 export const getStandardsView = async ({ cwd }: Params): Promise<StandardsView> => {
-	const config = await loadConfig({ cwd }).catch(() => undefined);
+	const config = await readConfig({ cwd }).catch(() => undefined);
 	const packages = await resolveStandardsPackages({ cwd, config });
 	const listings = await listStandardsRules({ cwd, config });
 	const health = await buildStandardsHealth({ cwd, packages });

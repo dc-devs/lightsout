@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { mapFolderModules } from '../../../../../common/utils/mapFolderModules.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
 
 const getDepth = ({ path }: { path: string }) => path.split('/').length;
 const isInside = ({ file, folder }: { file: string; folder: string }) => file.startsWith(`${folder}/`);

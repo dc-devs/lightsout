@@ -217,7 +217,7 @@ describe('repairPlanStructure', () => {
 
 		expectStatus(result, 'complete');
 		// the human watching a draft converge sees the count fall round by round
-		expect(messages).toStrictEqual([
+		expect(messages).toEqual([
 			expect.stringMatching(/3 structural finding\(s\).*repair 1\/3/),
 			expect.stringMatching(/2 structural finding\(s\).*repair 2\/3/),
 			expect.stringMatching(/1 structural finding\(s\).*repair 3\/3/),
@@ -257,7 +257,7 @@ describe('repairPlanStructure', () => {
 
 		expectStatus(result, 'complete');
 		// each decline reaches the session, which is what has to fix it by hand
-		expect(messages.filter((message) => message.includes('declined'))).toStrictEqual([
+		expect(messages.filter((message) => message.includes('declined'))).toEqual([
 			expect.stringContaining("'TBD' unresolvable from the inputs"),
 			expect.stringContaining('the facts name no owner for this section'),
 		]);

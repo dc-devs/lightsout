@@ -1,11 +1,11 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
-import { getBaseName } from '../../../../../common/utils/getBaseName.ts';
-import { getDirectory } from '../../../../../common/utils/getDirectory.ts';
-import { getFrameworkCarveOuts } from '../../../../../common/utils/getFrameworkCarveOuts.ts';
-import { getPathCarveOut } from '../../../../../common/utils/getPathCarveOut.ts';
-import { isUnderRouterRoot } from '../../../../../common/utils/isUnderRouterRoot.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
+import { isUnderRouterRoot } from '../../../../../common/frameworks/isUnderRouterRoot.ts';
+import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
+import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
 
 /**
  * Every index file, wherever it stands — a src root barrel holds no code any

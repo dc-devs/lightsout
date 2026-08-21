@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
+import { collectChildOutput } from '#src/common/processes/collectChildOutput.ts';
 import type { CommandResult } from '#src/common/types/CommandResult.ts';
-import { collectChildOutput } from '#src/common/utils/collectChildOutput.ts';
 
 interface Params {
 	command: string;

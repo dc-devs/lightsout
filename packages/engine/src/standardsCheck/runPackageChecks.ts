@@ -1,7 +1,7 @@
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
-import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
-import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
-import { type StandardsCheckInput, type StandardsCheckRun, type StandardsFinding, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
+import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
+import { type StandardsCheckFunction, type StandardsCheckInput, type StandardsFinding, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
 import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
@@ -13,7 +13,7 @@ import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
 interface LiveRule {
 	id: string;
 	inputKind: StandardsInputKind;
-	run: StandardsCheckRun;
+	run: StandardsCheckFunction;
 	/** Only the two reporting severities — an `off` rule never becomes a live one. */
 	severity: StandardsFinding['severity'];
 	settings: Record<string, number>;
@@ -55,6 +55,67 @@ const selectLiveRules = ({
 	}
 
 	return live;
+};
+
+/** Build one rule's input, from the kinds a single shared build can serve and the one that cannot. */
+type BuildInput = (params: { kind: StandardsInputKind; settings: Record<string, number> }) => Promise<StandardsCheckInput>;
+
+/**
+ * Every live rule's findings, walked one input kind at a time so each kind's
+ * expensive build happens once and is handed to every rule that asked for it.
+ *
+ * A kind needing TypeScript when none resolves does not fail the run — its
+ * rules are named as skipped and the rest of the check still reports.
+ */
+const runLiveRules = async ({
+	live,
+	buildInput,
+	compiler,
+	progress,
+}: {
+	live: LiveRule[];
+	buildInput: BuildInput;
+	compiler: ReturnType<typeof resolveConsumerTypescript>;
+	progress: (message: string) => void;
+}) => {
+	const findings: StandardsFinding[] = [];
+	const skipped: string[] = [];
+
+	for (const kind of Object.values(StandardsInputKind)) {
+		const rules = live.filter((rule) => rule.inputKind === kind);
+
+		if (rules.length === 0) {
+			continue;
+		}
+
+		if (compiler === undefined && typescriptInputKinds.has(kind)) {
+			skipped.push(...rules.map((rule) => rule.id));
+			continue;
+		}
+
+		let shared: StandardsCheckInput | undefined;
+
+		for (const rule of rules) {
+			let input: StandardsCheckInput;
+
+			if (kind === StandardsInputKind.CloneSpans) {
+				input = await buildInput({ kind, settings: rule.settings });
+			} else {
+				// Every kind but clone-spans is settings-blind, so one build serves
+				// every rule that asked for it.
+				shared ??= await buildInput({ kind, settings: rule.settings });
+				input = shared;
+			}
+
+			const raw = await runRuleCheck({ rule: rule.id, run: rule.run, input, settings: rule.settings });
+
+			findings.push(...raw.map((finding) => ({ ...finding, rule: rule.id, severity: rule.severity })));
+		}
+
+		progress(`${kind}: done`);
+	}
+
+	return { findings, skipped };
 };
 
 interface Params {
@@ -110,46 +171,12 @@ export const runPackageChecks = async ({
 
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir });
 	const live = selectLiveRules({ packages, states, channels });
-	const findings: StandardsFinding[] = [];
-	const skipped: string[] = [];
 	const cache = new Map<string, string>();
 
-	const inputFor = async ({ kind, settings }: { kind: StandardsInputKind; settings: Record<string, number> }) =>
+	const buildInput: BuildInput = async ({ kind, settings }) =>
 		buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPackages, packagesDir, settings, cache, compiler });
 
-	for (const kind of Object.values(StandardsInputKind)) {
-		const rules = live.filter((rule) => rule.inputKind === kind);
-
-		if (rules.length === 0) {
-			continue;
-		}
-
-		if (compiler === undefined && typescriptInputKinds.has(kind)) {
-			skipped.push(...rules.map((rule) => rule.id));
-			continue;
-		}
-
-		let shared: StandardsCheckInput | undefined;
-
-		for (const rule of rules) {
-			let input: StandardsCheckInput;
-
-			if (kind === StandardsInputKind.CloneSpans) {
-				input = await inputFor({ kind, settings: rule.settings });
-			} else {
-				// Every kind but clone-spans is settings-blind, so one build serves
-				// every rule that asked for it.
-				shared ??= await inputFor({ kind, settings: rule.settings });
-				input = shared;
-			}
-
-			const raw = await runRuleCheck({ rule: rule.id, run: rule.run, input, settings: rule.settings });
-
-			findings.push(...raw.map((finding) => ({ ...finding, rule: rule.id, severity: rule.severity })));
-		}
-
-		progress(`${kind}: done`);
-	}
+	const { findings, skipped } = await runLiveRules({ live, buildInput, compiler, progress });
 
 	if (skipped.length > 0) {
 		notes.push(`${skipped.join(', ')} skipped — no typescript resolvable from the target repo`);

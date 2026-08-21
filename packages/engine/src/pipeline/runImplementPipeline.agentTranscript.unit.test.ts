@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -46,7 +46,7 @@ test('pipeline tees each invocation stream to agents/stream-*.jsonl without narr
 		},
 	};
 
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const progressLines: string[] = [];
 	const result = await runImplementPipeline({
 		cwd: dir,

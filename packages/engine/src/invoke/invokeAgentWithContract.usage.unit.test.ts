@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { WorkReport } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
@@ -180,7 +180,7 @@ test('pipeline writes agents.jsonl per invocation and aggregates usage into the 
 		},
 	};
 
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const progressLines: string[] = [];
 	const result = await runImplementPipeline({
 		cwd: dir,
@@ -242,7 +242,7 @@ test('a driver reporting no usage leaves no ledger and no manifest aggregate', a
 		},
 	};
 
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
 	expect(result.ok).toBe(true);

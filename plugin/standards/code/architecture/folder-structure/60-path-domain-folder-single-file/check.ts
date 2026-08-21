@@ -1,11 +1,11 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
+import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
 import { commonTypeFolders } from '../../../../common/constants/commonTypeFolders.ts';
-import { buildRawFinding } from '../../../../common/utils/buildRawFinding.ts';
-import { collectDirectories } from '../../../../common/utils/collectDirectories.ts';
-import { getBaseName } from '../../../../common/utils/getBaseName.ts';
-import { getDirectory } from '../../../../common/utils/getDirectory.ts';
-import { isTestFile } from '../../../../common/utils/isTestFile.ts';
-import { readPathLists } from '../../../../common/utils/readPathLists.ts';
+import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
+import { collectDirectories } from '../../../../common/paths/collectDirectories.ts';
+import { getBaseName } from '../../../../common/paths/getBaseName.ts';
+import { getDirectory } from '../../../../common/paths/getDirectory.ts';
+import { isTestFile } from '../../../../common/paths/isTestFile.ts';
 
 /** Whether a folder is a graduated domain folder — directly under a `common/`, and not one of its four type folders. */
 const isDomainFolder = ({ directory }: { directory: string }) =>

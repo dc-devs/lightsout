@@ -1,4 +1,4 @@
-import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
 import { getDriver } from '#src/drivers/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';

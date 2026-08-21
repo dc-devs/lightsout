@@ -1,8 +1,8 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -36,7 +36,7 @@ const setupReviewedRun = async ({
 	onReview = () => reviewReport(),
 }: {
 	folders?: string[];
-	onReview?: (params: { ruleIds: string[] }) => string;
+	onReview?: (params: { ruleIds: string[]; files: string[] }) => string;
 } = {}) => {
 	const dir = setupConsumerRepo();
 
@@ -60,16 +60,17 @@ const setupReviewedRun = async ({
 			// contract-shaped report stays unreported instead of being rescued by
 			// the executor branch below.
 			if (prompt.includes('# Re-emit your report')) {
-				return { text: onReview({ ruleIds: ruleIdsOffered({ systemPrompt: systemPrompt ?? '' }) }), exitCode: 0 };
+				return { text: onReview({ ruleIds: ruleIdsOffered({ systemPrompt: systemPrompt ?? '' }), files: filesOffered({ prompt }) }), exitCode: 0 };
 			}
 
 			if (roleOf(prompt) === 'standards-review') {
 				const ruleIds = ruleIdsOffered({ systemPrompt: systemPrompt ?? '' });
+				const files = filesOffered({ prompt });
 
-				reviewScopes.push(filesOffered({ prompt }));
+				reviewScopes.push(files);
 				reviewRuleIds.push(ruleIds);
 
-				return { text: onReview({ ruleIds }), exitCode: 0 };
+				return { text: onReview({ ruleIds, files }), exitCode: 0 };
 			}
 
 			executorPrompts.push(prompt);
@@ -77,7 +78,7 @@ const setupReviewedRun = async ({
 			const folder = prompt.match(/^- (\S+)\/multi\.ts$/m)?.[1] ?? '';
 
 			writeSource({ dir, path: `${folder}/multi.ts`, source: 'export const alphaThing = 1;\n' });
-			writeFileSync(join(dir, folder, 'betaThing.ts'), 'export const betaThing = 2;\n');
+			writeSource({ dir, path: `${folder}/betaThing.ts`, source: 'export const betaThing = 2;\n' });
 
 			return {
 				text: report({
@@ -94,7 +95,7 @@ const setupReviewedRun = async ({
 	return {
 		dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		executorPrompts,
 		reviewScopes,
 		reviewRuleIds,
@@ -127,14 +128,48 @@ describe('runRefactorPipeline agent review', () => {
 		expect(executorPrompts[0] ?? '').toContain('# Report what you did about each advisory');
 	});
 
-	test('each batch is reviewed against its own files', async () => {
+	test('each batch is reviewed against its own files, never the whole repo', async () => {
 		const { dir, driver, config, reviewScopes } = await setupReviewedRun({ folders: ['alpha', 'beta'] });
 
 		await runRefactorPipeline({ cwd: dir, driver, config });
 
 		// a reviewer reading the whole repo per batch would spend the run's budget
 		// re-reading files no one is working on
-		expect(reviewScopes).toStrictEqual([['alpha/multi.ts'], ['beta/multi.ts']]);
+		expect(reviewScopes[0]).toStrictEqual(['alpha/multi.ts']);
+		expect(reviewScopes[2]).toStrictEqual(['beta/multi.ts']);
+	});
+
+	test('each batch is read a second time, against the code it actually wrote', async () => {
+		const { dir, driver, config, reviewScopes } = await setupReviewedRun({ folders: ['alpha', 'beta'] });
+
+		await runRefactorPipeline({ cwd: dir, driver, config });
+
+		// the first read judges the code the batch inherited; nothing would ever
+		// read its output if this second one did not — and the file the executor
+		// created is in scope precisely because the batch is what created it
+		expect(reviewScopes[1]).toContain('alpha/betaThing.ts');
+		expect(reviewScopes[3]).toContain('beta/betaThing.ts');
+		// and one batch's output is never charged to the next
+		expect(reviewScopes[1]?.some((file) => file.startsWith('beta/'))).toBe(false);
+	});
+
+	test('a shape problem the batch itself wrote buys one polish pass, carrying that advisory', async () => {
+		// only the read of the batch's OUTPUT sees the created file, so this finding
+		// cannot be in the pre-edit baseline — which is what makes it introduced
+		const { dir, driver, config, executorPrompts } = await setupReviewedRun({
+			onReview: ({ ruleIds, files }) =>
+				files.includes('src/betaThing.ts')
+					? reviewReport([{ rule: ruleIds[0], files: [{ path: 'src/betaThing.ts' }], detail: 'SHAPE-SENTINEL' }])
+					: reviewReport(),
+		});
+
+		const result = await runRefactorPipeline({ cwd: dir, driver, config });
+
+		expect(result.ok).toBe(true);
+		// the batch's own executor pass came first and knew nothing of it; the
+		// polish pass is the one that is handed it
+		expect(executorPrompts[0] ?? '').not.toContain('SHAPE-SENTINEL');
+		expect(executorPrompts[1] ?? '').toMatch(/Advisory —[\s\S]*src\/betaThing\.ts — SHAPE-SENTINEL/);
 	});
 
 	test('every batch reads the same judgment rules — the run resolves them once', async () => {
@@ -144,7 +179,7 @@ describe('runRefactorPipeline agent review', () => {
 
 		// non-empty first, or two empty lists would agree about nothing
 		expect(reviewRuleIds[0]?.length ?? 0).toBeGreaterThan(0);
-		expect(reviewRuleIds[1]).toStrictEqual(reviewRuleIds[0]);
+		expect(reviewRuleIds[2]).toStrictEqual(reviewRuleIds[0]);
 	});
 
 	test('with the agent review off, no reviewer is invoked and the run says so once', async () => {

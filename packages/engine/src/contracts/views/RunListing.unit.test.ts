@@ -76,15 +76,22 @@ describe('RunListing', () => {
 		}
 	});
 
-	test('costUsd is optional and a run-wide zero survives its own falsy value', () => {
+	test('a run-wide zero cost survives its own falsy value', () => {
 		const { row } = setupListing({ extra: { costUsd: 0 } });
 
 		const parsed = RunListing.parse(row);
 
-		// a driver that reports no usage omits it; a driver that reports nothing spent
-		// records zero, and the two must stay distinguishable
 		expect(parsed.costUsd).toBe(0);
-		expect(RunListing.parse(setupListing().row).costUsd).toBeUndefined();
+	});
+
+	test('costUsd is omitted by a driver that reports no usage', () => {
+		const { row } = setupListing();
+
+		const parsed = RunListing.parse(row);
+
+		// a driver that reports nothing SPENT records zero, and the two must stay
+		// distinguishable
+		expect(parsed.costUsd).toBeUndefined();
 	});
 
 	test('status accepts every run status, including the two pausable ones', () => {

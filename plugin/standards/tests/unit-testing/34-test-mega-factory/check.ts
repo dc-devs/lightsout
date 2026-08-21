@@ -1,7 +1,7 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
-import { buildTestLimitCheck } from '../../../common/utils/buildTestLimitCheck.ts';
-import { getLineNumber } from '../../../common/utils/getLineNumber.ts';
+import { buildTestLimitCheck } from '../../../common/checks/buildTestLimitCheck.ts';
+import { buildLineSites } from '../../../common/findings/buildLineSites.ts';
+import { getLineNumber } from '../../../common/parsing/getLineNumber.ts';
 
 // Only a FLAT destructured parameter list is measured: a nested object in a
 // default value takes the pattern past `[^{}]*` and the factory goes unjudged.

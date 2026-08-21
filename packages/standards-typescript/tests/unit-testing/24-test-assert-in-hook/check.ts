@@ -1,5 +1,5 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
-import { buildHookContentCheck } from '../../../common/utils/buildHookContentCheck.ts';
+import { buildHookContentCheck } from '../../../common/checks/buildHookContentCheck.ts';
 
 /** An assertion. */
 const assertion = /\bexpect\s*\(/;

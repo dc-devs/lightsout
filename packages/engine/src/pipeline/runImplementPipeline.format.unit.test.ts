@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { report } from '#tests/helpers/report.ts';
@@ -44,7 +44,7 @@ const setupFormatRun = async ({ format, test: testCommand = 'true' }: { format: 
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
 test('format: a formatter that exits non-zero fails the run and files its output as evidence', async () => {

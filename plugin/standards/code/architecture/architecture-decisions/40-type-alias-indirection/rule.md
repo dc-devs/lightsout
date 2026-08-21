@@ -1,6 +1,6 @@
 ---
 summary: "a file that exists only to alias another type"
-checked: false
+checked: true
 severity: advisory
 ---
 

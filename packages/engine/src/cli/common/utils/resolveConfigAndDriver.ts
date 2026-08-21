@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
 
@@ -31,7 +31,7 @@ export const resolveConfigAndDriver = async ({ cwd, command }: Params): Promise<
 	// before one exists. A config that IS there and does not parse is a mistake worth
 	// stopping for: continuing would silently discard every setting in it, including
 	// the removed keys' replacements.
-	const loaded = present ? await loadConfig({ cwd }) : undefined;
+	const loaded = present ? await readConfig({ cwd }) : undefined;
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command });
 	const driver = getDriver({ name: driverName });
 	const config = loaded ? { ...loaded, harness: driverName, model, effort } : undefined;

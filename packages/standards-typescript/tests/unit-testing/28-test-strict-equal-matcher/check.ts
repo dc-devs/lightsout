@@ -1,9 +1,9 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
-import { blankStringsAndComments } from '../../../common/utils/blankStringsAndComments.ts';
-import { buildLineSites } from '../../../common/utils/buildLineSites.ts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { readCallBlocks } from '../../../common/utils/readCallBlocks.ts';
-import { readTestFiles } from '../../../common/utils/readTestFiles.ts';
+import { readTestFiles } from '../../../common/checkInput/readTestFiles.ts';
+import { buildLineSites } from '../../../common/findings/buildLineSites.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { blankStringsAndComments } from '../../../common/parsing/blankStringsAndComments.ts';
+import { readCallBlocks } from '../../../common/parsing/readCallBlocks.ts';
 
 /** An asymmetric matcher: with one of these as its argument, `toStrictEqual` runs the matcher and nothing else. */
 const asymmetricMatcher = /expect\.(?:objectContaining|arrayContaining|any|stringContaining|stringMatching)\s*\(/;

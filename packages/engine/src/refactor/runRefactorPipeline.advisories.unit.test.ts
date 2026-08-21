@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { readRunManifest } from '#src/runState/index.ts';
@@ -62,7 +62,7 @@ test('refactor: advisories are recomputed at batch time, not served stale from t
 		},
 	};
 
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const parked = await runRefactorPipeline({ cwd: dir, driver, config });
 
 	expect(parked.manifest.status).toBe('paused-rate-limit');
@@ -114,7 +114,7 @@ test('refactor: every advisory on the batch’s files rides the executor prompt,
 		},
 	};
 
-	const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(true);
 

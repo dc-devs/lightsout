@@ -65,6 +65,31 @@ export interface SyntaxTreeInput {
 	standardsPackages: string[];
 }
 
+export interface TypeCheckerInput {
+	kind: typeof StandardsInputKind.TypeChecker;
+	cwd: string;
+	source: string[];
+	tests: string[];
+	files: string[];
+	referenceFiles: string[];
+	compiler: typeof ts;
+	/**
+	 * One entry per source file the engine could type: the parsed tree, and a
+	 * checker that answers about it.
+	 *
+	 * The checker is handed out per file rather than once for the run because a
+	 * repo has one program per tsconfig, and a type is only meaningful to the
+	 * checker of the program that holds the file. A file no tsconfig covers is
+	 * simply absent — a rule reads what it was given and says nothing about the
+	 * rest, which is the same way it degrades in a repo with no compiler at all.
+	 */
+	typedFiles: Map<string, { sourceFile: ts.SourceFile; checker: ts.TypeChecker }>;
+	/** What each package declares it depends on, keyed by package root (`.` for the repo). A framework carve-out is keyed on what a package DECLARES, so a typed rule needs this to honour one. */
+	dependencies: Map<string, string[]>;
+	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPackages: string[];
+}
+
 export interface TestFileInput {
 	kind: typeof StandardsInputKind.TestFile;
 	cwd: string;
@@ -93,4 +118,4 @@ export interface CloneSpansInput {
 	spans: CloneSpan[];
 }
 
-export type StandardsCheckInput = FileListInput | FileTextInput | SyntaxTreeInput | TestFileInput | ImportGraphInput | CloneSpansInput;
+export type StandardsCheckInput = FileListInput | FileTextInput | SyntaxTreeInput | TypeCheckerInput | TestFileInput | ImportGraphInput | CloneSpansInput;

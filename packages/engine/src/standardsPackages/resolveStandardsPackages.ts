@@ -1,7 +1,7 @@
 import { isAbsolute, resolve } from 'node:path';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { LoadedStandardsPackage } from '#src/standardsPackages/common/types/LoadedStandardsPackage.ts';
-import { loadStandardsPackage } from '#src/standardsPackages/loadStandardsPackage.ts';
+import { readStandardsPackage } from '#src/standardsPackages/readStandardsPackage.ts';
 import { resolveDefaultStandardsPackage } from '#src/standardsPackages/resolveDefaultStandardsPackage.ts';
 
 interface Params {
@@ -65,7 +65,7 @@ export const resolveStandardsPackages = async ({ cwd, config }: Params): Promise
 	const packages: LoadedStandardsPackage[] = [];
 
 	for (const packagePath of roots) {
-		packages.push(await loadStandardsPackage({ packagePath }));
+		packages.push(await readStandardsPackage({ packagePath }));
 	}
 
 	const duplicates = findCrossPackageDuplicates({ packages });

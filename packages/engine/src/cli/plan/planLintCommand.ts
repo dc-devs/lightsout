@@ -6,13 +6,13 @@ import { red } from '#src/cli/common/terminal/red.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { createProgressPrinter } from '#src/cli/common/utils/createProgressPrinter.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { runPlanLint } from '#src/plan/index.ts';
+import { PlanRunStatus, runPlanLint } from '#src/plan/index.ts';
 
 export const planLintCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const name = await getRequiredFlag({ flags, name: 'name' });
 	const result = await runPlanLint({ cwd, name, onProgress: createProgressPrinter() });
 
-	if (result.status === 'failed') {
+	if (result.status === PlanRunStatus.Failed) {
 		console.error(`\n${result.error}`);
 		return exitCli({ code: 1 });
 	}

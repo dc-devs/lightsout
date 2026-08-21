@@ -7,17 +7,17 @@ import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
-import { loadStandardsPackage, resolveDefaultStandardsPackage } from '#src/standardsPackages/index.ts';
+import { readStandardsPackage, resolveDefaultStandardsPackage } from '#src/standardsPackages/index.ts';
 
 /**
  * The package named by `--package`, or the bundled default when the flag is
  * absent. Async so that a default that cannot be located rejects like a package
  * that cannot be read — one failure path for the caller to report.
  */
-const loadRequestedPackage = async ({ requested, cwd }: { requested?: string; cwd: string }) =>
+const readRequestedPackage = async ({ requested, cwd }: { requested?: string; cwd: string }) =>
 	// resolve() leaves an absolute --package alone, so both forms the flag
 	// accepts land here.
-	loadStandardsPackage({ packagePath: requested === undefined ? resolveDefaultStandardsPackage() : resolve(cwd, requested) });
+	readStandardsPackage({ packagePath: requested === undefined ? resolveDefaultStandardsPackage() : resolve(cwd, requested) });
 
 /**
  * `lightsout standards-validate` — run every check in a standards package
@@ -30,7 +30,7 @@ const loadRequestedPackage = async ({ requested, cwd }: { requested?: string; cw
  */
 export const standardsValidateCommand = async ({ flags, cwd }: CommandContext): Promise<void> => {
 	const requested = getStringFlag({ flags, name: 'package' });
-	const pkg = await loadRequestedPackage({ requested, cwd }).catch((error: unknown) => {
+	const pkg = await readRequestedPackage({ requested, cwd }).catch((error: unknown) => {
 		console.error(messageOf({ error }));
 		return exitCli({ code: 1 });
 	});

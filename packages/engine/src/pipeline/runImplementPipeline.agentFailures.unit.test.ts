@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readRunManifest } from '#src/runState/index.ts';
@@ -21,7 +21,7 @@ test('terminated:* report escalates instead of failing', async () => {
 			exitCode: 0,
 		}),
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.manifest.status).toBe('escalated');
 	expect(result.error ?? '').toMatch(/terminated:ambiguity/);
@@ -39,7 +39,7 @@ test('malformed agent output is retried once, then fails the step', async () => 
 			return { text: 'not a json report', exitCode: 0 };
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.manifest.status).toBe('failed');
 	expect(result.error ?? '').toMatch(/did not match contract/);
@@ -86,7 +86,7 @@ test('write-tests aggregates per-file failures; terminated writers escalate', as
 			},
 		};
 
-		return runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+		return runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	};
 
 	const failed = await run({ failingStatus: 'failed' });
@@ -111,7 +111,7 @@ test('a driver exception (timeout, spawn failure) is a recorded failure, never a
 			throw new Error('claude timed out after 3600000ms');
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	const persisted = await readRunManifest({ cwd: dir, runId: result.manifest.runId });
 
 	expect(result.ok).toBe(false);

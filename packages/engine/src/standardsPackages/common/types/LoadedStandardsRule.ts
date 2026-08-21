@@ -1,4 +1,4 @@
-import type { StandardsCheckRun, StandardsInputKind, StandardsSet, StandardsSeverity } from '#src/contracts/index.ts';
+import type { StandardsCheckFunction, StandardsInputKind, StandardsSet, StandardsSeverity } from '#src/contracts/index.ts';
 
 /** One rule folder, read: its prose, its declaration, and its check when it ships one. */
 export interface LoadedStandardsRule {
@@ -20,7 +20,7 @@ export interface LoadedStandardsRule {
 	/** Present iff checked. */
 	inputKind?: StandardsInputKind;
 	/** The validated check, present iff checked. */
-	run?: StandardsCheckRun;
+	run?: StandardsCheckFunction;
 	/** Absolute path of the folder holding pass/ and fail/. */
 	fixturesPath: string;
 }

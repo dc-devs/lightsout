@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readRunManifest } from '#src/runState/index.ts';
@@ -15,7 +15,7 @@ import { writeSource } from '#tests/helpers/writeSource.ts';
 test('rate-limited harness parks the run with resume instructions', async () => {
 	const dir = setupConsumerRepo();
 	const driver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 1, rateLimited: true }) };
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('paused-rate-limit');
@@ -46,7 +46,7 @@ test('resume skips passed steps and continues attempt counts', async () => {
 			return { text: report(), exitCode: 0 };
 		},
 	};
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const parked = await runImplementPipeline({ cwd: dir, driver: parkOnWrite, config, planPath: 'plan.md' });
 
 	expect(parked.manifest.status).toBe('paused-rate-limit');

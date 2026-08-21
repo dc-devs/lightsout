@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { RefactorWorklist } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
@@ -56,7 +56,7 @@ const setupTwoFolderRun = async () => {
 		},
 	};
 
-	return { dir, driver, prompts, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, prompts, config: await readConfig({ cwd: dir }) };
 };
 
 /**
@@ -97,7 +97,7 @@ const setupBaselinedRun = async () => {
 		},
 	};
 
-	return { dir, driver, prompts, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, prompts, config: await readConfig({ cwd: dir }) };
 };
 
 /**
@@ -117,7 +117,7 @@ const setupTwoFindingFolder = async () => {
 		invoke: async () => ({ text: report({ friction: [{ area: 'other', kind: 'decision', detail: 'left as-is: exempt by design' }] }), exitCode: 0 }),
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
 /** A standalone `lightsout standards-check` report already on disk when the run starts. */
@@ -151,7 +151,7 @@ const setupParkedRun = async ({ report }: { report?: string } = {}) => {
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
 /**
@@ -178,7 +178,7 @@ const setupDefaultPackagesRun = async () => {
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }) };
+	return { dir, driver, config: await readConfig({ cwd: dir }) };
 };
 
 /** The frozen work-list the run wrote into its run dir, re-read through its contract. */
@@ -225,7 +225,7 @@ describe('runRefactorPipeline work-list', () => {
 				throw new Error('the budget ceiling must be reached before any agent is spawned');
 			},
 		};
-		const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), maxBatches: 0 });
+		const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), maxBatches: 0 });
 
 		expect(result.manifest.status).toBe('paused-budget');
 
@@ -260,7 +260,7 @@ describe('runRefactorPipeline work-list', () => {
 				throw new Error('the budget ceiling must be reached before any agent is spawned');
 			},
 		};
-		const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), maxBatches: 0 });
+		const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), maxBatches: 0 });
 
 		expect(result.manifest.status).toBe('paused-budget');
 
@@ -378,6 +378,6 @@ describe('runRefactorPipeline work-list', () => {
 			},
 		};
 
-		await expect(runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) })).rejects.toThrow(/requires a git worktree/);
+		await expect(runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) })).rejects.toThrow(/requires a git worktree/);
 	});
 });

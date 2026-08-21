@@ -60,6 +60,19 @@ const buildSubjectActSource = ({ call }: { call: string }) =>
 		'});',
 	].join('\n');
 
+/** One test, one arrangement — and an expected message that quotes `setup()` back. */
+const quotedSetupSource = [
+	"describe('describeRule', () => {",
+	"	test('renders the guidance the rule ships', () => {",
+	'		const { id } = setupRule();',
+	'',
+	'		const described = describeRule({ id });',
+	'',
+	"		expect(described.guidance).toBe('Arrange in a `setup()` factory that returns its locals as consts.');",
+	'	});',
+	'});',
+].join('\n');
+
 describe('test-multiple-setups check', () => {
 	test('asks for test files, the one input kind that carries test text alone', () => {
 		expect(check.inputKind).toBe('test-file');
@@ -98,6 +111,16 @@ describe('test-multiple-setups check', () => {
 			expect(findings).toStrictEqual([]);
 		},
 	);
+
+	test('a `setup()` quoted in an expected message is not a second call', async () => {
+		const input = setupTestFileInput({ contents: [['src/feature/describeRule.unit.test.ts', quotedSetupSource]] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		// every rule about arrangement has to quote the thing it asks for, so a
+		// test pinning that message would otherwise be reported for saying it
+		expect(findings).toStrictEqual([]);
+	});
 
 	test('names every over-arranged test of one file in a single finding', async () => {
 		const input = setupTestFileInput({ contents: [['src/feature/getLabel.unit.test.ts', twoOverArrangedSource]] });

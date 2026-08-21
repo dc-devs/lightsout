@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { Effort, Permissions, WorkReport } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/invokeAgentWithContract.ts';
@@ -306,7 +306,7 @@ test('pipeline persists rejected agent output to the run dir as evidence', async
 		invoke: async () => ({ text: 'prose with no report in it', exitCode: 0 }),
 	};
 
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const result = await runImplementPipeline({ cwd: dir, planPath: 'plan.md', driver, config });
 
 	expect(result.ok).toBe(false);

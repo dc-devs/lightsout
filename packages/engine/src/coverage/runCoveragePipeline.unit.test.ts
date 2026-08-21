@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { RunManifest } from '#src/contracts/index.ts';
 import { runCoveragePipeline } from '#src/coverage/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -164,7 +164,7 @@ const runPipeline = async ({
 	maxBatches?: number;
 	existing?: RunManifest;
 	onProgress?: (message: string) => void;
-}) => runCoveragePipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), maxBatches, existing, onProgress });
+}) => runCoveragePipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), maxBatches, existing, onProgress });
 
 describe('runCoveragePipeline', () => {
 	test('a repo already over its threshold ends green without spawning anything', async () => {

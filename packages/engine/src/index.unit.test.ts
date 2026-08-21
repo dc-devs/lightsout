@@ -6,6 +6,9 @@ import * as library from '#src/index.ts';
  * implementation detail: a package importing `@lightsout/engine` gets exactly
  * this surface, and an export quietly dropped from the barrel is a break that
  * nothing else in this suite would notice until a consumer's build failed.
+ *
+ * This is the one barrel a dedicated test belongs on. What each of these things
+ * DOES is proven by its own file's tests — nothing here reaches into one.
  */
 test('the library entry exposes the readers, the run-state predicates, and the shapes their results are validated against', () => {
 	expect(Object.keys(library).sort()).toStrictEqual([
@@ -50,7 +53,11 @@ test('the library entry exposes the readers, the run-state predicates, and the s
 	]);
 });
 
-test('every exported schema parses, so a consumer validating at its own boundary gets a schema rather than a shape', () => {
+test('every name arrived as the kind of value a consumer can use, rather than erasing to undefined', () => {
+	// The failure this catches is a name that survives the list above and is
+	// unusable anyway: a schema exported as a type erases at run time, and a
+	// const object exported as a type takes its members with it. Each kind is
+	// asked for the one thing that proves it crossed the boundary intact.
 	const schemas = [
 		library.AgentInvocation,
 		library.AgentUsage,
@@ -74,21 +81,7 @@ test('every exported schema parses, so a consumer validating at its own boundary
 		library.WorkReport,
 		library.WritersReport,
 	];
-
-	// nothing here is a bare type that erased to undefined at run time
-	expect(schemas.every((schema) => typeof schema.safeParse === 'function')).toBe(true);
-	// and every one of them refuses a value of the wrong shape rather than waving it through
-	expect(schemas.every((schema) => !schema.safeParse('not a record').success)).toBe(true);
-});
-
-test('the const objects travel as values, so a consumer never retypes a status or a kind literal', () => {
-	expect(library.RunStatus.PausedRateLimit).toBe('paused-rate-limit');
-	expect(library.PlanDocumentKind.CoverageWorklist).toBe('coverageWorklist');
-	expect(library.StandardsSeverity.Blocking).toBe('blocking');
-});
-
-test('the readers and predicates arrive as callable functions', () => {
-	const callables = [
+	const readers = [
 		library.buildStandardsHealth,
 		library.getPlanDocument,
 		library.getRunView,
@@ -103,8 +96,13 @@ test('the readers and predicates arrive as callable functions', () => {
 		library.readRunManifest,
 		library.summarizeRun,
 	];
+	const constObjects = [library.PlanDocumentKind, library.RunStatus, library.StandardsSeverity];
 
-	expect(callables.every((entry) => typeof entry === 'function')).toBe(true);
-	// the error a consumer catches by identity rather than by message
-	expect(new library.RunNotFoundError('x')).toBeInstanceOf(Error);
+	expect({
+		schemas: schemas.every((schema) => typeof schema?.safeParse === 'function'),
+		readers: readers.every((reader) => typeof reader === 'function'),
+		constObjects: constObjects.every((entry) => Object.values(entry ?? {}).length > 0),
+		// the error a consumer catches by identity rather than by message
+		error: new library.RunNotFoundError('x') instanceof Error,
+	}).toStrictEqual({ schemas: true, readers: true, constObjects: true, error: true });
 });

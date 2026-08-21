@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { collapseCasing } from '#src/common/naming/collapseCasing.ts';
-import { nameKey } from '#src/common/naming/nameKey.ts';
-import { nameOf } from '#src/common/naming/nameOf.ts';
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
-import { listSourceFiles } from '#src/common/utils/listSourceFiles.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
+import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import { collapseCasing } from '#src/plan/common/naming/collapseCasing.ts';
+import { getExportName } from '#src/plan/common/naming/getExportName.ts';
+import { getNameKey } from '#src/plan/common/naming/getNameKey.ts';
 import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate.ts';
 import { planCreatePaths } from '#src/plan/planCreatePaths.ts';
 
@@ -17,7 +17,7 @@ interface Params {
 
 /**
  * Deterministic plan-time prior-art detection — no agent. Reuses the standards
- * check's tier-0 comparator (`nameKey`) to check every planned new symbol (each
+ * check's tier-0 comparator (`getNameKey`) to check every planned new symbol (each
  * Files-to-Create basename, `index` excluded) against the repo's existing
  * export census (non-test, non-`index` source files, minus the not-yet-created
  * planned paths).
@@ -41,7 +41,7 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 		for (const createPath of planCreatePaths({ planText })) {
 			plannedPaths.add(createPath);
 
-			const plannedSymbol = nameOf(createPath);
+			const plannedSymbol = getExportName({ path: createPath });
 
 			if (plannedSymbol === 'index') {
 				continue;
@@ -58,14 +58,14 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 	// 2. Existing export census — non-test, non-index, and not a planned (not-yet-created) path.
 	const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: config?.generated });
 	const census = files
-		.filter((file) => !isTestFile({ path: file, standardsPackages }) && nameOf(file) !== 'index' && !plannedPaths.has(file))
-		.map((file) => ({ name: nameOf(file), path: file }));
+		.filter((file) => !isTestFile({ path: file, standardsPackages }) && getExportName({ path: file }) !== 'index' && !plannedPaths.has(file))
+		.map((file) => ({ name: getExportName({ path: file }), path: file }));
 
 	// 3. Bucket the census by name-key.
 	const buckets = new Map<string, Array<{ name: string; path: string }>>();
 
 	for (const entry of census) {
-		const key = nameKey({ name: entry.name });
+		const key = getNameKey({ name: entry.name });
 
 		buckets.set(key, [...(buckets.get(key) ?? []), entry]);
 	}
@@ -74,12 +74,14 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 	const candidates: PriorArtCandidate[] = [];
 
 	for (const { plannedSymbol, plannedPath } of planned) {
-		const bucket = buckets.get(nameKey({ name: plannedSymbol })) ?? [];
+		const bucket = buckets.get(getNameKey({ name: plannedSymbol })) ?? [];
 
 		// A different name that collapses to the same casing key (`GetStarted` vs
 		// `get-started`) is a framework pair, not a duplicate — exempt it. An
 		// exact-name match is a real duplicate and stays.
-		const collidesWith = bucket.filter((entry) => entry.name === plannedSymbol || collapseCasing(entry.name) !== collapseCasing(plannedSymbol));
+		const collidesWith = bucket.filter(
+			(entry) => entry.name === plannedSymbol || collapseCasing({ name: entry.name }) !== collapseCasing({ name: plannedSymbol }),
+		);
 
 		if (collidesWith.length > 0) {
 			candidates.push({ plannedSymbol, plannedPath, collidesWith });

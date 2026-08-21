@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { afterEach, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { PhaseReport, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runPhasesPipeline } from '#src/phases/index.ts';
@@ -132,7 +132,7 @@ test('runPhasesPipeline: a fresh sequence runs every phase in the overview order
 	const result = await runPhasesPipeline({
 		cwd: dir,
 		driver: createPhaseDriver({ dir, seen }),
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		overviewPath,
 		skipRefactor: true,
 		onProgress: (message) => progress.push(message),
@@ -161,7 +161,7 @@ test('runPhasesPipeline: the sequence report carries its phases tokens, cost, an
 	const result = await runPhasesPipeline({
 		cwd: dir,
 		driver: createPhaseDriver({ dir, seen: [], usage: { inputTokens: 100, outputTokens: 20, cacheReadTokens: 7, cacheCreationTokens: 3, costUsd: 0.25 } }),
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		overviewPath,
 		skipRefactor: true,
 	});
@@ -183,7 +183,7 @@ test('runPhasesPipeline: a phase that ends short stops the sequence right there 
 	const result = await runPhasesPipeline({
 		cwd: dir,
 		driver: createPhaseDriver({ dir, seen, failAt: 2 }),
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		overviewPath,
 		skipRefactor: true,
 	});
@@ -205,7 +205,7 @@ test('runPhasesPipeline: --start-phase records the earlier phases as done outsid
 	const result = await runPhasesPipeline({
 		cwd: dir,
 		driver: createPhaseDriver({ dir, seen }),
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		overviewPath,
 		startPhase: 2,
 		skipRefactor: true,
@@ -219,7 +219,7 @@ test('runPhasesPipeline: --start-phase records the earlier phases as done outsid
 
 test('runPhasesPipeline: resume skips the passed phases and continues the interrupted phase in its own run', async () => {
 	const { dir, overviewPath } = setupPhasedRepo({ phases: 2 });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const parked = await runPhasesPipeline({
 		cwd: dir,
 		driver: createPhaseDriver({ dir, seen: [], parkAt: 2 }),
@@ -260,7 +260,7 @@ test('runPhasesPipeline: a live run lock stops the sequence untouched — nothin
 		promise: runPhasesPipeline({
 			cwd: dir,
 			driver: createPhaseDriver({ dir, seen: [] }),
-			config: await loadConfig({ cwd: dir }),
+			config: await readConfig({ cwd: dir }),
 			overviewPath,
 			skipRefactor: true,
 		}),
@@ -280,7 +280,7 @@ test('runPhasesPipeline: a live run lock stops the sequence untouched — nothin
 
 test('runPhasesPipeline: a phase whose own run already passed is adopted on resume, never bought twice', async () => {
 	const { dir, overviewPath } = setupPhasedRepo({ phases: 1 });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const passed = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config, overviewPath, skipRefactor: true });
 	// a crash between the phase finishing and the coordinator recording it: the
 	// step still says running, but the run it names is done
@@ -307,7 +307,7 @@ test('runPhasesPipeline: a phase whose own run already passed is adopted on resu
 
 test('runPhasesPipeline: a step naming a run that is gone re-runs the phase in a new run', async () => {
 	const { dir, overviewPath } = setupPhasedRepo({ phases: 1 });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const passed = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [] }), config, overviewPath, skipRefactor: true });
 	const orphaned = await writeRunManifest({
 		cwd: dir,
@@ -330,7 +330,7 @@ test('runPhasesPipeline: a step naming a run that is gone re-runs the phase in a
 
 testUnlessRoot('runPhasesPipeline: a phase that throws for a reason other than the lock is recorded as that phase failing', async () => {
 	const { dir, overviewPath } = setupPhasedRepo({ phases: 1 });
-	const config = await loadConfig({ cwd: dir });
+	const config = await readConfig({ cwd: dir });
 	const parked = await runPhasesPipeline({ cwd: dir, driver: createPhaseDriver({ dir, seen: [], parkAt: 1 }), config, overviewPath, skipRefactor: true });
 	const stateDir = join(dir, '.lightsout');
 

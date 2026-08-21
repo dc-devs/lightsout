@@ -161,7 +161,7 @@ describe('standardsCheckCommand sections', () => {
 				progress: [
 					'The agent review is now running. claude-code is reading your code against the 62 rules no automated check can judge. This usually takes a few minutes.',
 					'⏳ agent review still running · 30s · 12 files read so far',
-					'✓ Agent review finished in 4m12s — nothing to report',
+					'✓ Agent review finished in 4m 12s — nothing to report',
 				],
 			},
 		});
@@ -174,7 +174,7 @@ describe('standardsCheckCommand sections', () => {
 		expect(logged.slice(heading + 1, heading + 4)).toStrictEqual([
 			'  The agent review is now running. claude-code is reading your code against the 62 rules no automated check can judge. This usually takes a few minutes.',
 			'  ⏳ agent review still running · 30s · 12 files read so far',
-			'  ✓ Agent review finished in 4m12s — nothing to report',
+			'  ✓ Agent review finished in 4m 12s — nothing to report',
 		]);
 	});
 

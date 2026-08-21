@@ -1,5 +1,6 @@
-import { type LightsoutConfig, type RunManifest, RunStatus, StandardsSeverity } from '#src/contracts/index.ts';
+import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import { closeRefactorRun } from '#src/refactor/closeRefactorRun.ts';
 import { countByRule } from '#src/refactor/countByRule.ts';
 import { initializeRun } from '#src/refactor/initializeRun.ts';
 import type { RefactorResult } from '#src/refactor/RefactorResult.ts';
@@ -9,7 +10,6 @@ import { runWorklistBatches } from '#src/refactor/runWorklistBatches.ts';
 import { seedResumeState } from '#src/refactor/seedResumeState.ts';
 import { withRunLock } from '#src/runState/index.ts';
 import { resolveStandards } from '#src/standards/index.ts';
-import { runStandardsCheck } from '#src/standardsCheck/index.ts';
 import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
 
 interface Params {
@@ -101,19 +101,7 @@ const executeRefactor = async ({
 		return halted;
 	}
 
-	const finalCheck = await runStandardsCheck({ cwd, path: worklist.path === '.' ? undefined : worklist.path, all: worklist.all, persist: false });
-
-	await run.update({ patch: { status: RunStatus.Passed, currentStep: null } });
-
-	// Finding severity only, mirroring the worklist filter — the burn-down
-	// compares work against work, never advisories.
-	return {
-		ok: true,
-		manifest: run.current(),
-		declined: run.declined,
-		before: run.before,
-		after: countByRule({ findings: finalCheck.findings.filter((finding) => finding.severity === StandardsSeverity.Blocking) }),
-	};
+	return closeRefactorRun({ run, worklist });
 };
 
 /**

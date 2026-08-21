@@ -51,7 +51,6 @@ test('verifyFacts: present vs missing paths and scripts, counts correct', async 
 	// present 'check' not flagged, absent 'build' is
 	expect(result.missingScripts).toStrictEqual(['build']);
 	// create-path checking is deferred to draft
-	expect(result.createPathsThatExist).toStrictEqual([]);
 });
 
 test('verifyFacts: a script found in an affected package is not a miss', async () => {

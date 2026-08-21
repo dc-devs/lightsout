@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type ts from 'typescript';
+import { collectFolderModules } from '#src/common/moduleGraph/collectFolderModules.ts';
+import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
+import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
+import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import type { FolderModule } from '#src/common/types/FolderModule.ts';
-import { collectFolderModules } from '#src/common/utils/collectFolderModules.ts';
-import { collectImportEdges } from '#src/common/utils/collectImportEdges.ts';
-import { isInertSourceFile } from '#src/common/utils/isInertSourceFile.ts';
-import { isTestFile } from '#src/common/utils/isTestFile.ts';
 import { partitionByPackage } from '#src/pipeline/common/utils/partitionByPackage.ts';
 
 // The rule's own definition of public, restated engine-side: a root-layer

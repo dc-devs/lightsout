@@ -1,7 +1,7 @@
 ---
 summary: "a setup factory grown past its parameter cap"
 checked: true
-severity: advisory
+severity: blocking
 settings:
   maxParams: 6
 ---

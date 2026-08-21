@@ -1,6 +1,6 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
-import { buildRawFinding } from '../../../../../common/utils/buildRawFinding.ts';
+import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 
 /**
  * Every name the file mentions, split by whether the mention sits inside a type

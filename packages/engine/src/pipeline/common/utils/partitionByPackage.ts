@@ -1,4 +1,4 @@
-import { packageOf } from '#src/common/utils/packageOf.ts';
+import { packageOf } from '#src/common/workspace/packageOf.ts';
 
 interface Params {
 	/** Repo-relative files to bucket. */

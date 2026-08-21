@@ -8,7 +8,7 @@ import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
 import { runPhasesOrFailFast } from '#src/cli/common/utils/runPhasesOrFailFast.ts';
 import { runPipelineOrFailFast } from '#src/cli/common/utils/runPipelineOrFailFast.ts';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { RunStatus } from '#src/contracts/index.ts';
 import { getDriver } from '#src/drivers/index.ts';
 import { RunNotFoundError, readRunManifest } from '#src/runState/index.ts';
@@ -50,7 +50,7 @@ export const resumeCommand = async ({ flags, cwd }: CommandContext): Promise<voi
 		return exitCli({ code: 1 });
 	}
 
-	const loaded = await loadConfig({ cwd });
+	const loaded = await readConfig({ cwd });
 	const resolved = resolveCommandHarness({ config: loaded, command: 'implement' });
 	const driver = getDriver({ name: manifest.harness });
 	// Resume truth is the manifest's recorded harness, never the config (decision 6);

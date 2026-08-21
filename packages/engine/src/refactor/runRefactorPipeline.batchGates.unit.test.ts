@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
 import { readGateLog } from '#tests/helpers/readGateLog.ts';
@@ -45,7 +45,7 @@ const setupMonorepoBatch = async () => {
 		},
 	};
 
-	return { dir, driver, config: await loadConfig({ cwd: dir }), batchGates: () => readGateLog({ dir }).slice(preFlightGates.length) };
+	return { dir, driver, config: await readConfig({ cwd: dir }), batchGates: () => readGateLog({ dir }).slice(preFlightGates.length) };
 };
 
 describe('runRefactorPipeline batch gates', () => {

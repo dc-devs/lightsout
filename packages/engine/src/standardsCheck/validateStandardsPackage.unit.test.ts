@@ -2,12 +2,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { type StandardsCheckRun, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
+import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
-const bansTheBannedFile: StandardsCheckRun = ({ input }) =>
+const bansTheBannedFile: StandardsCheckFunction = ({ input }) =>
 	(input.kind === StandardsInputKind.FileList ? input.files : [])
 		.filter((file) => file.endsWith('banned.ts'))
 		.map((path) => ({
@@ -187,7 +187,7 @@ describe('validateStandardsPackage', () => {
 
 	test('a check that throws on a fixture is reported as a problem against that rule, not raised', async () => {
 		const { fixturesPath } = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
-		const throwingRun: StandardsCheckRun = () => {
+		const throwingRun: StandardsCheckFunction = () => {
 			throw new Error('cannot parse that');
 		};
 
@@ -201,7 +201,7 @@ describe('validateStandardsPackage', () => {
 
 	test('validates a rule that needs parsed trees with the engine own typescript', async () => {
 		const { fixturesPath } = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
-		const bansTheBannedTree: StandardsCheckRun = ({ input }) =>
+		const bansTheBannedTree: StandardsCheckFunction = ({ input }) =>
 			(input.kind === StandardsInputKind.SyntaxTree ? [...input.trees.keys()] : [])
 				.filter((path) => path.endsWith('banned.ts'))
 				.map((path) => ({

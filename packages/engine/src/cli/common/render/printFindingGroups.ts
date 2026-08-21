@@ -1,9 +1,9 @@
-import { formatFindingSite } from '#src/agents/index.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { terminalWidth } from '#src/cli/common/terminal/terminalWidth.ts';
 import { yellow } from '#src/cli/common/terminal/yellow.ts';
 import { wrapText } from '#src/cli/common/utils/wrapText.ts';
+import { formatFindingSite } from '#src/common/findings/formatFindingSite.ts';
 import { type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 interface Params {

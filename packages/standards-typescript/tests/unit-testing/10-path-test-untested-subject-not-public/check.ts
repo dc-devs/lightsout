@@ -1,16 +1,16 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
+import { readFileTexts } from '../../../common/checkInput/readFileTexts.ts';
+import { readManifestDependencies } from '../../../common/checkInput/readManifestDependencies.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { getFrameworkCarveOuts } from '../../../common/frameworks/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../common/frameworks/getPathCarveOut.ts';
+import { isMandatedModuleFolder } from '../../../common/frameworks/isMandatedModuleFolder.ts';
+import { mapFolderModules } from '../../../common/modules/mapFolderModules.ts';
+import { readBarrelSurface } from '../../../common/modules/readBarrelSurface.ts';
+import { getBaseName } from '../../../common/paths/getBaseName.ts';
+import { getTestSubject } from '../../../common/paths/getTestSubject.ts';
+import { isUnderSrc } from '../../../common/paths/isUnderSrc.ts';
 import type { FolderModule } from '../../../common/types/FolderModule.ts';
-import { buildRawFinding } from '../../../common/utils/buildRawFinding.ts';
-import { getBaseName } from '../../../common/utils/getBaseName.ts';
-import { getFrameworkCarveOuts } from '../../../common/utils/getFrameworkCarveOuts.ts';
-import { getPathCarveOut } from '../../../common/utils/getPathCarveOut.ts';
-import { getTestSubject } from '../../../common/utils/getTestSubject.ts';
-import { isMandatedModuleFolder } from '../../../common/utils/isMandatedModuleFolder.ts';
-import { isUnderSrc } from '../../../common/utils/isUnderSrc.ts';
-import { mapFolderModules } from '../../../common/utils/mapFolderModules.ts';
-import { readBarrelSurface } from '../../../common/utils/readBarrelSurface.ts';
-import { readFileTexts } from '../../../common/utils/readFileTexts.ts';
-import { readManifestDependencies } from '../../../common/utils/readManifestDependencies.ts';
 
 /**
  * A root-layer `common/` — one sitting directly under `src`, or under a layer

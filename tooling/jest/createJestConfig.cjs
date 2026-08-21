@@ -14,6 +14,15 @@ const toolingDir = __dirname;
  * `isolatedModules: true`, and in ts-jest that is what makes it transpile-only.
  * `pnpm typecheck` is the type gate.
  *
+ * Run these on the Node in `.nvmrc`. On Node 24.11.0 a jest worker segfaults
+ * roughly one full engine run in five — the crash report names
+ * `ClearStaleLeftTrimmedPointerVisitor` inside V8's mark-compact collector, so
+ * it is a garbage-collector bug in the binary and nothing a test did. It
+ * surfaces as `Test suite failed to run … terminated by another process:
+ * signal=SIGSEGV` against whichever suite that worker happened to hold, which
+ * reads like a broken test and is not one. Node 22.22.2 and 24.19.0 both run it
+ * clean.
+ *
  * @param rootDir - the package root; every glob in the returned config anchors to it
  */
 module.exports = ({ rootDir, ...rest }) => ({

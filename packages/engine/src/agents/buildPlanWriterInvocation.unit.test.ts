@@ -6,7 +6,7 @@ import type { DecisionsRecord, PlanFacts } from '#src/contracts/index.ts';
 const facts = (): PlanFacts => ({
 	request: 'add a foo endpoint',
 	areas: [],
-	verification: { pathsChecked: 0, missingPaths: [], scriptsChecked: 0, missingScripts: [], createPathsThatExist: [] },
+	verification: { pathsChecked: 0, missingPaths: [], scriptsChecked: 0, missingScripts: [] },
 	verifiedAt: '2026-07-09T00:00:00.000Z',
 });
 

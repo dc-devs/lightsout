@@ -10,7 +10,7 @@ import { planRunOptions } from '#src/cli/plan/common/utils/planRunOptions.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { PlanVariant } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { runPlanDraft } from '#src/plan/index.ts';
+import { PlanRunStatus, runPlanDraft } from '#src/plan/index.ts';
 
 interface Params {
 	cwd: string;
@@ -26,7 +26,7 @@ export const planDraftCommand = async ({ cwd, driver, name, standards, config, f
 	const scope = scopeFlag === 'phased' ? PlanVariant.Overview : scopeFlag === 'single' ? PlanVariant.Single : undefined;
 	const result = await exitOnPlanFailure({ result: await runPlanDraft({ ...planRunOptions({ cwd, driver, name, standards, config }), scope }) });
 
-	if (result.status === 'facts-error') {
+	if (result.status === PlanRunStatus.FactsError) {
 		console.error(`\n${red('facts error')} — the plan-writer found the facts/decisions do not match the codebase. Re-explore, then re-draft:`);
 
 		for (const discrepancy of result.discrepancies) {
@@ -36,7 +36,7 @@ export const planDraftCommand = async ({ cwd, driver, name, standards, config, f
 		return exitCli({ code: 1 });
 	}
 
-	if (result.status === 'structural-issues') {
+	if (result.status === PlanRunStatus.StructuralIssues) {
 		console.error(`\n${red(`${result.findings.length} structural issue(s)`)} remain after re-drafting — resolve, then re-draft:`);
 
 		for (const finding of result.findings) {

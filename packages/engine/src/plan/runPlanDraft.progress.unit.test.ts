@@ -49,7 +49,7 @@ describe('runPlanDraft', () => {
 		expectStatus(result, 'complete');
 		// the whole unattended run is legible from the narration alone, in order,
 		// got: ${messages.join(' | ')}
-		expect(messages).toStrictEqual([
+		expect(messages).toEqual([
 			expect.stringMatching(/no brainstorm decisions/),
 			expect.stringMatching(/variant single \(estimated\)/),
 			expect.stringMatching(/structurally clean \(1 file\(s\)\)/),

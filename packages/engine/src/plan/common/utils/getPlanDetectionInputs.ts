@@ -1,4 +1,4 @@
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
 
@@ -34,7 +34,7 @@ export const getPlanDetectionInputs = async ({ cwd, name }: Params): Promise<Pla
 
 	const { overviewPath, overviewText, files } = deliverable;
 	const planPaths = [...(overviewPath ? [overviewPath] : []), ...files.map((file) => file.path)];
-	const config = await loadConfig({ cwd }).catch(() => undefined);
+	const config = await readConfig({ cwd }).catch(() => undefined);
 
 	return { overviewText, files, planPaths, config };
 };

@@ -1,9 +1,10 @@
-import { formatDuration, formatTokenCount } from '@lightsout/shared';
+import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared';
 import { statusIcons } from '#src/cli/common/constants/statusIcons.ts';
 import { renderTable } from '#src/cli/common/render/renderTable.ts';
 import { bold } from '#src/cli/common/terminal/bold.ts';
 import { dim } from '#src/cli/common/terminal/dim.ts';
 import { paintStatus } from '#src/cli/common/terminal/paintStatus.ts';
+import type { RunStatus } from '#src/contracts/index.ts';
 import type { StepSummary } from '#src/runState/index.ts';
 
 interface Params {
@@ -11,7 +12,7 @@ interface Params {
 	activeMs: number;
 }
 
-const paintCell = ({ text, padded, status }: { text: string; padded: string; status?: string }) => {
+const paintCell = ({ text, padded, status }: { text: string; padded: string; status?: RunStatus }) => {
 	if (text === '—') {
 		return dim(padded);
 	}
@@ -33,7 +34,7 @@ export const printStepTable = ({ steps, activeMs }: Params): void => {
 			formatDuration({ ms: step.durationMs }),
 			step.invocations > 0 ? `${step.invocations}` : '—',
 			step.invocations > 0 ? formatTokenCount({ count: step.outputTokens }) : '—',
-			step.invocations > 0 ? `$${step.costUsd.toFixed(2)}` : '—',
+			step.invocations > 0 ? formatCost({ usd: step.costUsd }) : '—',
 			step.changedFiles ? `${step.changedFiles.length}` : '—',
 		],
 	}));
@@ -44,7 +45,7 @@ export const printStepTable = ({ steps, activeMs }: Params): void => {
 		activeMs > 0 ? formatDuration({ ms: activeMs }) : '—',
 		invocations > 0 ? `${invocations}` : '—',
 		invocations > 0 ? formatTokenCount({ count: steps.reduce((count, step) => count + step.outputTokens, 0) }) : '—',
-		invocations > 0 ? `$${steps.reduce((total, step) => total + step.costUsd, 0).toFixed(2)}` : '—',
+		invocations > 0 ? formatCost({ usd: steps.reduce((total, step) => total + step.costUsd, 0) }) : '—',
 		`${steps.reduce((count, step) => count + (step.changedFiles?.length ?? 0), 0)}`,
 	];
 	const lines = renderTable({

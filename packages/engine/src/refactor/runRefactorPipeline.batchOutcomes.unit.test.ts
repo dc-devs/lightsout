@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { BatchReport } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
@@ -17,10 +17,10 @@ const multiExport = 'export const alphaThing = 1;\nexport const betaThing = 2;\n
 
 const commitAll = (dir: string) => execSync('git add -A && git -c user.name=t -c user.email=t@t commit -qm fixture', { cwd: dir });
 
-/** Split a multi-export file into two single-export files — the edit that resolves its cluster. */
+/** Split a multi-export file in two, each half with the caller that uses it — an unreferenced half is its own blocking finding. */
 const splitFile = ({ dir, file, first, second }: { dir: string; file: string; first: string; second: string }) => {
-	writeFileSync(join(dir, file), `export const ${first} = 1;\n`);
-	writeFileSync(join(dir, file.replace(/[^/]+\.ts$/, `${second}.ts`)), `export const ${second} = 2;\n`);
+	writeSource({ dir, path: file, source: `export const ${first} = 1;\n` });
+	writeSource({ dir, path: file.replace(/[^/]+\.ts$/, `${second}.ts`), source: `export const ${second} = 2;\n` });
 };
 
 /**
@@ -36,7 +36,7 @@ const setupTwoFindingBatch = async () => {
 
 	const prompts: string[] = [];
 
-	return { dir, prompts, config: await loadConfig({ cwd: dir }) };
+	return { dir, prompts, config: await readConfig({ cwd: dir }) };
 };
 
 /**
@@ -53,7 +53,7 @@ const setupTwoBatchRun = async () => {
 
 	commitAll(dir);
 
-	return { dir, config: await loadConfig({ cwd: dir }) };
+	return { dir, config: await readConfig({ cwd: dir }) };
 };
 
 /**
@@ -89,7 +89,7 @@ const setupRedGateBatch = async () => {
 		};
 	};
 
-	return { dir, prompts, gateBreakingExecutor, config: await loadConfig({ cwd: dir }) };
+	return { dir, prompts, gateBreakingExecutor, config: await readConfig({ cwd: dir }) };
 };
 
 describe('runRefactorPipeline batch outcomes', () => {
@@ -222,7 +222,7 @@ describe('runRefactorPipeline batch outcomes', () => {
 			name: 'stub',
 			invoke: async () => ({ text: 'I thought about it and stopped.', exitCode: 1 }),
 		};
-		const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+		const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 		// unverifiable work is never salvaged
 		expect(result.ok).toBe(false);
@@ -248,7 +248,7 @@ describe('runRefactorPipeline batch outcomes', () => {
 				name: 'stub',
 				invoke: async () => ({ text: report({ status, failures: ['the module boundary is a human call'] }), exitCode: 0 }),
 			};
-			const result = await runRefactorPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+			const result = await runRefactorPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 			expect(result.ok).toBe(false);
 			expect(result.manifest.status).toBe(expected);

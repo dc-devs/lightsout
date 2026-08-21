@@ -1,9 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { testWriterConcurrency } from '#src/pipeline/common/constants/testWriterConcurrency.ts';
 import { runImplementPipeline } from '#src/pipeline/index.ts';
 import { readFriction } from '#src/runState/index.ts';
 import { readCommandLog } from '#tests/helpers/readCommandLog.ts';
@@ -94,7 +93,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		overviewPath: 'overview.md',
 		onProgress: (message) => progress.push(message),
@@ -154,10 +153,10 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 	// agent reports streamed
 	expect(progress.some((line) => line.includes('step implement: agent report complete'))).toBeTruthy();
 	// No consumer TypeScript in this repo → grouping degrades to one file per group.
-	// writer fan-out announced
-	expect(
-		progress.some((line) => line.includes(`4 group(s): 4 subject(s) covering 4 changed file(s), up to ${testWriterConcurrency} writers in parallel`)),
-	).toBeTruthy();
+	// Writer fan-out announced. The ceiling is spelled out rather than
+	// interpolated from the constant: a line built from the same constant the
+	// assertion reads says the same thing whatever the number is.
+	expect(progress.some((line) => line.includes('4 group(s): 4 subject(s) covering 4 changed file(s), up to 10 writers in parallel'))).toBeTruthy();
 	// refactor loop end announced
 	expect(progress.some((line) => line.includes('refactor pass 2: no changes — loop complete'))).toBeTruthy();
 });
@@ -165,7 +164,7 @@ test('happy path: git truth, per-file writers, refactor loop, coverage/format wi
 test('implement that changes nothing fails instead of passing vacuously', async () => {
 	const dir = setupConsumerRepo();
 	const driver: Driver = { name: 'stub', invoke: async () => ({ text: report(), exitCode: 0 }) };
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('failed');
@@ -186,7 +185,7 @@ test('non-git directory degrades to agent-reported files', async () => {
 			return { text: report({ changedFiles: [{ path: 'src/feature.js', summary: 'feature' }] }), exitCode: 0 };
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
 	expect(result.manifest.changedFiles.includes('src/feature.js')).toBeTruthy();
@@ -212,7 +211,7 @@ test('friction lands in friction.jsonl with run/step provenance; decisions keep 
 			};
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 	const entries = await readFriction({ cwd: dir });
 	const entry = entries.find((candidate) => candidate.detail === 'FRICTION-SENTINEL');
 
@@ -239,7 +238,7 @@ test('config timeouts reach the driver; defaults are 60m agent / 15m supervisor'
 			},
 		};
 
-		await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+		await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 		return received;
 	};
@@ -261,7 +260,7 @@ test('missing plan file fails the run before any agent spawns', async () => {
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'ghost.md',
 	});
 
@@ -285,7 +284,7 @@ test('a change with no testable source skips both write-tests and refactor, and 
 			return { text: report({ changedFiles: [{ path: 'docs.md', summary: 'docs' }] }), exitCode: 0 };
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }), planPath: 'plan.md' });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }), planPath: 'plan.md' });
 
 	expect(result.ok).toBe(true);
 	// the doc change is still attributed
@@ -310,7 +309,7 @@ test('missing overview file fails the run before any agent spawns', async () => 
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		overviewPath: 'missing-overview.md',
 	});
@@ -336,7 +335,7 @@ test('--skip-refactor omits the refactor steps; absent format command is skipped
 	const result = await runImplementPipeline({
 		cwd: dir,
 		driver,
-		config: await loadConfig({ cwd: dir }),
+		config: await readConfig({ cwd: dir }),
 		planPath: 'plan.md',
 		skipRefactor: true,
 	});
@@ -358,7 +357,7 @@ test('a run started with no plan path at all fails before any agent spawns', asy
 			throw new Error('no agent should be invoked');
 		},
 	};
-	const result = await runImplementPipeline({ cwd: dir, driver, config: await loadConfig({ cwd: dir }) });
+	const result = await runImplementPipeline({ cwd: dir, driver, config: await readConfig({ cwd: dir }) });
 
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('failed');

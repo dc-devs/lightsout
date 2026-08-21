@@ -2,7 +2,7 @@ import { getStringFlag } from '#src/cli/common/args/getStringFlag.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
 import { resolveCommandHarness } from '#src/cli/common/utils/resolveCommandHarness.ts';
-import { loadConfig } from '#src/common/utils/loadConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig, RunManifest } from '#src/contracts/index.ts';
 import { type Driver, getDriver } from '#src/drivers/index.ts';
@@ -41,7 +41,7 @@ interface Params<Result extends { ok: boolean }> {
 export const runBatchedCommand = async <Result extends { ok: boolean }>({ flags, cwd, command, run, print }: Params<Result>): Promise<void> => {
 	const resumeRunId = getStringFlag({ flags, name: 'run' });
 	const maxBatchesFlag = getStringFlag({ flags, name: 'max-batches' });
-	const loaded = await loadConfig({ cwd });
+	const loaded = await readConfig({ cwd });
 	const { driverName, model, effort } = resolveCommandHarness({ config: loaded, command });
 	const driver = getDriver({ name: driverName });
 	const config = { ...loaded, harness: driverName, model, effort };

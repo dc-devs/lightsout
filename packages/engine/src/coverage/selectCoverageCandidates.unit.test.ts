@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { resolveConsumerTypescript } from '#src/common/utils/resolveConsumerTypescript.ts';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import type { CoverageFile, CoverageTotal } from '#src/contracts/index.ts';
 import { selectCoverageCandidates } from '#src/coverage/selectCoverageCandidates.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
