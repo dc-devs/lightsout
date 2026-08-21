@@ -4,5 +4,6 @@ export { collectBatchAdvisories } from '#src/refactor/batch/collectBatchAdvisori
 export { getAttemptStop } from '#src/refactor/batch/getAttemptStop.ts';
 export { matchRemainingFindings } from '#src/refactor/batch/matchRemainingFindings.ts';
 export { polishBatchOutput } from '#src/refactor/batch/polishBatchOutput.ts';
+export { readStandingWork } from '#src/refactor/batch/readStandingWork.ts';
 export { reviewBatchOutput } from '#src/refactor/batch/reviewBatchOutput.ts';
 export { runBatch } from '#src/refactor/batch/runBatch.ts';

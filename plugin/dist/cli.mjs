@@ -40016,7 +40016,7 @@ var buildTypeCheckerInput = async ({
   packagesDir
 }) => {
   const configOf = /* @__PURE__ */ new Map();
-  for (const path of source) {
+  for (const path of /* @__PURE__ */ new Set([...files, ...referenceFiles])) {
     const configPath = findNearestConfig({ cwd, path, compiler });
     if (configPath !== void 0) {
       configOf.set(path, configPath);
@@ -43372,6 +43372,17 @@ var polishBatchOutput = async ({ tools, batch, baseline, workFindings, standards
   return tools.finish({ outcome: BatchOutcome.Declined, remainingSiteKeys: revived });
 };
 
+// src/refactor/batch/readStandingWork.ts
+var readStandingWork = ({ batch, findings, onProgress }) => {
+  const standing = new Set(matchRemainingFindings({ frozen: batch.blocking, live: findings }));
+  if (standing.size > 0 && standing.size < batch.blocking.length) {
+    onProgress(
+      `${batch.id}: ${batch.blocking.length - standing.size} of ${batch.blocking.length} site(s) already resolved by earlier work \u2014 working the ${standing.size} still standing`
+    );
+  }
+  return findings.filter((finding) => standing.has(finding.siteKey));
+};
+
 // src/refactor/batch/reviewBatchOutput.ts
 var reviewBatchOutput = async ({
   cwd,
@@ -43739,15 +43750,10 @@ var runBatch = async ({
     recordUsage
   });
   const preCheck = await tools.checkLive();
-  const standingKeys = new Set(matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }));
-  if (standingKeys.size === 0) {
+  const standing = readStandingWork({ batch, findings: preCheck.findings, onProgress });
+  if (standing.length === 0) {
     onProgress(`${batch.id}: sites already resolved by earlier work \u2014 no agent spent`);
     return { kind: BatchStopKind.Done, report: tools.reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
-  }
-  if (standingKeys.size < batch.blocking.length) {
-    onProgress(
-      `${batch.id}: ${batch.blocking.length - standingKeys.size} of ${batch.blocking.length} site(s) already resolved by earlier work \u2014 working the ${standingKeys.size} still standing`
-    );
   }
   const advisories = await collectBatchAdvisories({
     cwd,
@@ -43762,7 +43768,7 @@ var runBatch = async ({
     onProgress
   });
   const passBudget = 2;
-  let workFindings = preCheck.findings.filter((finding) => standingKeys.has(finding.siteKey));
+  let workFindings = standing;
   let stop;
   for (let pass = 1; pass <= passBudget && stop === void 0; pass += 1) {
     const passed = await runBatchPass({ tools, batch, pass, workFindings, advisories, standards, testStandards, onProgress });

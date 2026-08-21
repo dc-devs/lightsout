@@ -74,8 +74,15 @@ export interface TypeCheckerInput {
 	referenceFiles: string[];
 	compiler: typeof ts;
 	/**
-	 * One entry per source file the engine could type: the parsed tree, and a
-	 * checker that answers about it.
+	 * One entry per file the engine could type — every path in `files` ∪
+	 * `referenceFiles`, tests included — holding the parsed tree and a checker
+	 * that answers about it.
+	 *
+	 * Wider than `source` on purpose, the same way the file-text input's
+	 * `contents` is: a rule asking "does anything consume this?" needs its
+	 * consumers typed, and a consumer may be a test or a file outside a `--path`
+	 * scope. Which files a rule may REPORT on is a separate question that
+	 * `source`, `tests` and `files` answer.
 	 *
 	 * The checker is handed out per file rather than once for the run because a
 	 * repo has one program per tsconfig, and a type is only meaningful to the

@@ -2,7 +2,7 @@ import { type AgentUsage, BatchOutcome, type LightsoutConfig, type RefactorBatch
 import type { Driver } from '#src/drivers/index.ts';
 import { collectBatchAdvisories } from '#src/refactor/batch/collectBatchAdvisories.ts';
 import { createBatchTools } from '#src/refactor/batch/createBatchTools.ts';
-import { matchRemainingFindings } from '#src/refactor/batch/matchRemainingFindings.ts';
+import { readStandingWork } from '#src/refactor/batch/readStandingWork.ts';
 import { runBatchPass } from '#src/refactor/batch/runBatchPass.ts';
 import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
 import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
@@ -83,18 +83,12 @@ export const runBatch = async ({
 	// batches may have already eliminated these sites — no agent spent) and
 	// FRESH advisories (frozen worklist advisories cite pre-run line numbers).
 	const preCheck = await tools.checkLive();
-	const standingKeys = new Set(matchRemainingFindings({ frozen: batch.blocking, live: preCheck.findings }));
+	const standing = readStandingWork({ batch, findings: preCheck.findings, onProgress });
 
-	if (standingKeys.size === 0) {
+	if (standing.length === 0) {
 		onProgress(`${batch.id}: sites already resolved by earlier work — no agent spent`);
 
 		return { kind: BatchStopKind.Done, report: tools.reportOf({ outcome: BatchOutcome.Resolved, remainingSiteKeys: [] }), changedFiles: [] };
-	}
-
-	if (standingKeys.size < batch.blocking.length) {
-		onProgress(
-			`${batch.id}: ${batch.blocking.length - standingKeys.size} of ${batch.blocking.length} site(s) already resolved by earlier work — working the ${standingKeys.size} still standing`,
-		);
 	}
 
 	const advisories = await collectBatchAdvisories({
@@ -113,13 +107,7 @@ export const runBatch = async ({
 	// Up to two executor passes: the initial batch, then one re-invocation on
 	// whatever sites survived a pass that DID change the tree (a partial).
 	const passBudget = 2;
-	// The LIVE findings for the sites still standing, never the frozen ones. The
-	// work-list is frozen when the run starts, so by the time a later batch is
-	// reached an earlier one may have fixed a site while editing a file outside
-	// its own scope — and the frozen copy also cites pre-run line numbers. Handed
-	// the frozen list, an agent went looking for a finding that no longer existed
-	// and reported the check as broken, which it was not.
-	let workFindings: StandardsFinding[] = preCheck.findings.filter((finding) => standingKeys.has(finding.siteKey));
+	let workFindings: StandardsFinding[] = standing;
 	let stop: BatchStop | undefined;
 
 	for (let pass = 1; pass <= passBudget && stop === undefined; pass += 1) {

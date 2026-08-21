@@ -14,10 +14,11 @@ const toolingDir = __dirname;
  * `isolatedModules: true`, and in ts-jest that is what makes it transpile-only.
  * `pnpm typecheck` is the type gate.
  *
- * `globalSetup` refuses to start on a Node version measured to crash this
- * suite; checkNodeVersion.cjs holds the versions and the evidence. A config
- * that needs its own globalSetup — the e2e one builds a bundle — calls that
- * check itself, so neither path can start on a Node that will fall over.
+ * `globalSetup` refuses to start on a Node version measured to crash this suite
+ * often; checkNodeVersion.cjs holds the versions and the evidence, including
+ * why a rare lone SIGSEGV on a permitted version is still that bug rather than
+ * a test. A config that needs its own globalSetup — the e2e one builds a
+ * bundle — calls that check itself, so neither path skips it.
  *
  * @param rootDir - the package root; every glob in the returned config anchors to it
  */

@@ -67,16 +67,23 @@ const buildPrograms = ({ configPaths, compiler }: { configPaths: Set<string>; co
 };
 
 /**
- * Every source file the engine could type, each with the checker of the program
- * that holds it.
+ * Every file the engine could type, each with the checker of the program that
+ * holds it.
  *
  * The expensive input, and the only one that resolves a name to its
  * declaration: a rule reading this can ask what a value's DECLARED type is,
  * across files, rather than inferring from the characters in front of it. That
  * buys the questions a tree cannot answer — whether a compared literal is a
- * member of a discriminant union, whether an early return produces the
- * function's answer or bails out before computing it — and costs a full
- * type-check of each program, so it is built only when a rule asks for it.
+ * member of a discriminant union, which module's export an imported name really
+ * came from — and costs a full type-check of each program, so it is built only
+ * when a rule asks for it.
+ *
+ * Every file in scope AND every reference file, on the same terms as the
+ * file-text input's `contents`: a rule that asks "does anything consume this?"
+ * needs the consumers typed too, and a consumer may be a test, or a file
+ * outside a `--path` scope. Which of them a rule may REPORT on is a separate
+ * question, answered by `source`, `tests` and `files` — the same separation
+ * every other input draws.
  *
  * A file no program holds is left out rather than guessed at. That covers the
  * ordinary cases — a file excluded by its config, a folder with no tsconfig
@@ -95,7 +102,7 @@ export const buildTypeCheckerInput = async ({
 }: Params): Promise<TypeCheckerInput> => {
 	const configOf = new Map<string, string>();
 
-	for (const path of source) {
+	for (const path of new Set([...files, ...referenceFiles])) {
 		const configPath = findNearestConfig({ cwd, path, compiler });
 
 		if (configPath !== undefined) {
