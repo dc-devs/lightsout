@@ -23450,6 +23450,12 @@ var LightsoutConfig = external_exports.object({
    * dir). Treated like gate artifacts: real files in the diff, but excluded
    * from changed-file attribution — they never earn agent turns and never
    * pollute the manifest. The source that generates them is the change.
+   *
+   * This is also where a repo says its build output lands when the walk
+   * cannot guess it. `listSourceFiles` skips `dist`, `build`, `coverage` and
+   * `out` by name outside a `src` folder; anything else — an output dir with
+   * a house name, or one written inside `src` — is invisible to the engine
+   * until it is named here, and would otherwise be checked as source.
    */
   generated: external_exports.array(external_exports.string()).optional(),
   /**
@@ -25089,14 +25095,14 @@ var readGitChangedFiles = async ({ cwd }) => {
 // src/common/sourceFiles/listSourceFiles.ts
 import { readdir as readdir8 } from "node:fs/promises";
 import { join as join19, relative as relative2 } from "node:path";
-var skippedDirs = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "coverage", "out"]);
+var buildOutputDirs = /* @__PURE__ */ new Set(["dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
   const files = [];
   const standardsPackages = [];
   const standardsPackageRootFile = "lightsout-standards.json";
   const fixturesDir = "fixtures";
-  const walk2 = async (dir, insideStandardsPackage) => {
+  const walk2 = async (dir, insideStandardsPackage, insideSource) => {
     const entries = await readdir8(dir, { withFileTypes: true }).catch(() => []);
     const isPackageRoot = !insideStandardsPackage && entries.some((entry) => entry.name === standardsPackageRootFile);
     const insidePackage = insideStandardsPackage || isPackageRoot;
@@ -25104,7 +25110,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       standardsPackages.push(relative2(cwd, dir));
     }
     for (const entry of entries) {
-      if (entry.name.startsWith(".") || skippedDirs.has(entry.name)) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules" || !insideSource && buildOutputDirs.has(entry.name)) {
         continue;
       }
       const path = join19(dir, entry.name);
@@ -25112,7 +25118,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
         if (insidePackage && entry.name === fixturesDir) {
           continue;
         }
-        await walk2(path, insidePackage);
+        await walk2(path, insidePackage, insideSource || entry.name === "src");
         continue;
       }
       const rel = relative2(cwd, path);
@@ -25125,7 +25131,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       files.push(rel);
     }
   };
-  await walk2(cwd, false);
+  await walk2(cwd, false, false);
   return { files: files.sort(), standardsPackages: standardsPackages.sort() };
 };
 
@@ -25942,13 +25948,13 @@ var RunState = class {
   usageTotals;
   onProgress;
   constructor({ cwd, config: config2, manifest, onProgress }) {
-    const defaultAgentTimeoutMinutes2 = 60;
+    const defaultAgentTimeoutMinutes = 60;
     this.cwd = cwd;
     this.config = config2;
     this.manifest = manifest;
     this.onProgress = onProgress;
     this.usageTotals = seedUsageTotals({ usage: manifest.usage });
-    this.agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4;
+    this.agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4;
   }
   /** The live manifest — reread after any update/setStep, never cached by callers. */
   current() {
@@ -26711,6 +26717,52 @@ var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
 // src/pipeline/common/utils/sourceFiles.ts
 var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile({ path: file2 }) && isTestableSourceFile({ path: file2 }));
 
+// src/common/fileGroups/chunkFileGroup.ts
+var chunkFileGroup = ({ files, max }) => {
+  const sorted = [...files].sort();
+  const chunks = [];
+  for (let start = 0; start < sorted.length; start += max) {
+    chunks.push(sorted.slice(start, start + max));
+  }
+  return chunks;
+};
+
+// src/coverage/buildCoverageBatch.ts
+var maxWriterGroupFiles = 12;
+var buildCoverageBatch = ({ files, components, batchNumber, batchSize = 5 }) => {
+  const scope = files[0].scope;
+  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
+  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
+  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
+  const groupOf = ({ component }) => {
+    const candidates = candidatesOf({ members: component });
+    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
+      return { members: component, candidates };
+    }
+    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
+    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
+    return { members: members2, candidates: candidatesOf({ members: members2 }) };
+  };
+  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
+    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
+  );
+  const members = [];
+  const tracked = [];
+  for (const group of ranked) {
+    if (tracked.length >= batchSize) {
+      break;
+    }
+    members.push(...group.members);
+    tracked.push(...group.candidates);
+  }
+  return {
+    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
+    scope,
+    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
+    members
+  };
+};
+
 // src/coverage/checkChangedFilesExecuted.ts
 import { readFile as readFile18 } from "node:fs/promises";
 import { join as join31, relative as relative3 } from "node:path";
@@ -26847,103 +26899,6 @@ var checkChangedFilesExecuted = async ({ cwd, config: config2, changedFiles, com
   return `changed-file-execution: ${unexecuted.length} changed file(s) never executed under the tests: ${unexecuted.join(", ")} \u2014 cover each through its public subject's tests; a file no test can reach through a public surface is a wiring defect to fix in source.`;
 };
 
-// src/common/fileGroups/groupConnectedFiles.ts
-var groupConnectedFiles = ({ files, edges }) => {
-  const parent = new Map(files.map((file2) => [file2, file2]));
-  const find = (file2) => {
-    const up = parent.get(file2);
-    if (up === void 0 || up === file2) {
-      return file2;
-    }
-    const root = find(up);
-    parent.set(file2, root);
-    return root;
-  };
-  for (const { from, to } of edges) {
-    if (!parent.has(from) || !parent.has(to)) {
-      continue;
-    }
-    const rootFrom = find(from);
-    const rootTo = find(to);
-    if (rootFrom !== rootTo) {
-      parent.set(rootFrom, rootTo);
-    }
-  }
-  const byRoot = /* @__PURE__ */ new Map();
-  for (const file2 of files) {
-    const root = find(file2);
-    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
-  }
-  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
-};
-
-// src/common/fileGroups/chunkFileGroup.ts
-var chunkFileGroup = ({ files, max }) => {
-  const sorted = [...files].sort();
-  const chunks = [];
-  for (let start = 0; start < sorted.length; start += max) {
-    chunks.push(sorted.slice(start, start + max));
-  }
-  return chunks;
-};
-
-// src/coverage/buildCoverageBatch.ts
-var defaultBatchSize = 5;
-var maxWriterGroupFiles = 12;
-var buildCoverageBatch = ({ files, components, batchNumber, batchSize = defaultBatchSize }) => {
-  const scope = files[0].scope;
-  const candidateByPath = new Map(files.map((file2) => [file2.path, file2]));
-  const candidatesOf = ({ members: members2 }) => members2.flatMap((path) => candidateByPath.get(path) ?? []);
-  const worstOf = ({ candidates }) => Math.min(...candidates.map((candidate) => candidate.statementsPct));
-  const groupOf = ({ component }) => {
-    const candidates = candidatesOf({ members: component });
-    if (component.length <= maxWriterGroupFiles || candidates.length === 0) {
-      return { members: component, candidates };
-    }
-    const worst = candidates.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path))[0];
-    const members2 = chunkFileGroup({ files: component, max: maxWriterGroupFiles }).filter((chunk) => chunk.includes(worst.path)).flat();
-    return { members: members2, candidates: candidatesOf({ members: members2 }) };
-  };
-  const ranked = components.map((component) => groupOf({ component })).filter((group) => group.candidates.length > 0).sort(
-    (left, right) => worstOf({ candidates: left.candidates }) - worstOf({ candidates: right.candidates }) || left.members[0].localeCompare(right.members[0])
-  );
-  const members = [];
-  const tracked = [];
-  for (const group of ranked) {
-    if (tracked.length >= batchSize) {
-      break;
-    }
-    members.push(...group.members);
-    tracked.push(...group.candidates);
-  }
-  return {
-    id: `batch-${String(batchNumber).padStart(2, "0")}:${scope}`,
-    scope,
-    files: tracked.sort((left, right) => left.statementsPct - right.statementsPct || left.path.localeCompare(right.path)),
-    members
-  };
-};
-
-// src/coverage/common/constants/maxFileStrikes.ts
-var maxFileStrikes = 3;
-
-// src/coverage/common/utils/updateFileStrikes.ts
-var updateFileStrikes = ({ batchId, files, fileStrikes }) => {
-  const setAside = [];
-  for (const file2 of files) {
-    if (file2.afterPct > file2.beforePct) {
-      fileStrikes.set(file2.path, 0);
-      continue;
-    }
-    const strikes = (fileStrikes.get(file2.path) ?? 0) + 1;
-    fileStrikes.set(file2.path, strikes);
-    if (strikes === maxFileStrikes) {
-      setAside.push({ batchId, files: [file2.path], rationale: [`no improvement across ${maxFileStrikes} batches \u2014 likely needs source changes`] });
-    }
-  }
-  return setAside;
-};
-
 // src/coverage/initializeCoverageRun.ts
 import { readFile as readFile20, writeFile as writeFile4 } from "node:fs/promises";
 import { join as join33 } from "node:path";
@@ -27054,17 +27009,6 @@ ${dirty.map((file2) => `  ${file2}`).join("\n")}`
   return { manifest, worklist };
 };
 
-// src/coverage/runCoverageBatch.ts
-import { dirname as dirname6 } from "node:path";
-
-// src/common/utils/collectBatchChanges.ts
-var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
-  const attributed = new Set(attributedFiles);
-  const isGenerated = ({ file: file2 }) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
-  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated({ file: file2 }));
-  return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
-};
-
 // src/coverage/invokeCoverageAgent.ts
 import { mkdir as mkdir6, writeFile as writeFile5 } from "node:fs/promises";
 import { join as join34 } from "node:path";
@@ -27113,6 +27057,17 @@ var invokeCoverageAgent = async ({
     rationale.push(...outcome.report.friction.map((entry) => `[${entry.area}] ${entry.detail}`));
   }
   return outcome;
+};
+
+// src/coverage/runCoverageBatch.ts
+import { dirname as dirname6 } from "node:path";
+
+// src/common/utils/collectBatchChanges.ts
+var collectBatchChanges = async ({ cwd, config: config2, reportedFiles, attributedFiles }) => {
+  const attributed = new Set(attributedFiles);
+  const isGenerated = ({ file: file2 }) => (config2.generated ?? []).some((prefix) => file2.startsWith(prefix));
+  const fromGit = (await readGitChangedFiles({ cwd }) ?? []).filter((file2) => !attributed.has(file2) && !isGenerated({ file: file2 }));
+  return [.../* @__PURE__ */ new Set([...reportedFiles, ...fromGit])];
 };
 
 // src/common/config/resolveGates.ts
@@ -27493,6 +27448,56 @@ ${gateError}` };
   return finish({ outcome: measured.improved ? BatchOutcome.Resolved : BatchOutcome.Declined, files: measured.files });
 };
 
+// src/common/fileGroups/groupConnectedFiles.ts
+var groupConnectedFiles = ({ files, edges }) => {
+  const parent = new Map(files.map((file2) => [file2, file2]));
+  const find = (file2) => {
+    const up = parent.get(file2);
+    if (up === void 0 || up === file2) {
+      return file2;
+    }
+    const root = find(up);
+    parent.set(file2, root);
+    return root;
+  };
+  for (const { from, to } of edges) {
+    if (!parent.has(from) || !parent.has(to)) {
+      continue;
+    }
+    const rootFrom = find(from);
+    const rootTo = find(to);
+    if (rootFrom !== rootTo) {
+      parent.set(rootFrom, rootTo);
+    }
+  }
+  const byRoot = /* @__PURE__ */ new Map();
+  for (const file2 of files) {
+    const root = find(file2);
+    byRoot.set(root, [...byRoot.get(root) ?? [], file2]);
+  }
+  return [...byRoot.values()].map((group) => [...group].sort()).sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
+};
+
+// src/coverage/common/constants/maxFileStrikes.ts
+var maxFileStrikes = 3;
+
+// src/coverage/common/utils/updateFileStrikes.ts
+var updateFileStrikes = ({ batchId, files, fileStrikes }) => {
+  const setAside = [];
+  for (const file2 of files) {
+    if (file2.afterPct > file2.beforePct) {
+      fileStrikes.set(file2.path, 0);
+      continue;
+    }
+    const strikes = (fileStrikes.get(file2.path) ?? 0) + 1;
+    fileStrikes.set(file2.path, strikes);
+    if (strikes === maxFileStrikes) {
+      setAside.push({ batchId, files: [file2.path], rationale: [`no improvement across ${maxFileStrikes} batches \u2014 likely needs source changes`] });
+    }
+  }
+  return setAside;
+};
+
 // src/coverage/seedCoverageResumeState.ts
 var seedCoverageResumeState = ({ manifest }) => {
   const setAside = [];
@@ -27536,7 +27541,6 @@ var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsP
 };
 
 // src/coverage/runCoveragePipeline.ts
-var defaultAgentTimeoutMinutes = 60;
 var maxConsecutiveDeclines = 3;
 var executeCoverage = async ({
   cwd,
@@ -27587,6 +27591,7 @@ ${gateError}` });
     await setStep({ record: { ...record2, status: RunStatus.Passed } });
   }
   const { testStandards } = await resolveStandards({ cwd, config: config2, packages: [] });
+  const defaultAgentTimeoutMinutes = 60;
   const agentTimeoutMs = (config2.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4;
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir });
   const { standardsPackages } = await listSourceFiles({ cwd });
@@ -44178,7 +44183,7 @@ var resumeCommand = async ({ flags, cwd }) => {
 
 // src/cli/reviewStandards.ts
 var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
-  const defaultAgentTimeoutMinutes2 = 60;
+  const defaultAgentTimeoutMinutes = 60;
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
   const { files: walked } = await listSourceFiles({ cwd, exclude: config2?.generated });
@@ -44189,7 +44194,7 @@ var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
     packages,
     channels,
     files,
-    timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes2) * 6e4,
+    timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4,
     onProgress
   });
 };
