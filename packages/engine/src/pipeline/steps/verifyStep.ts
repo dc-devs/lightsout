@@ -1,3 +1,4 @@
+import { maxCheapFixRetries } from '#src/common/constants/maxCheapFixRetries.ts';
 import { consultSupervisor } from '#src/common/utils/consultSupervisor.ts';
 import { RunStatus, type StepRecord, SupervisorDecision, type SupervisorVerdict, WorkReportStatus } from '#src/contracts/index.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
@@ -7,8 +8,6 @@ import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { appendFriction } from '#src/runState/index.ts';
-
-const maxCheapFixRetries = 2;
 
 interface Params {
 	run: PipelineRun;

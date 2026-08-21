@@ -1,10 +1,10 @@
 import type ts from 'typescript';
 import { RunStatus, type StepRecord } from '#src/contracts/index.ts';
+import { runCoverageBatch } from '#src/coverage/batch/index.ts';
 import { buildCoverageRound } from '#src/coverage/buildCoverageRound.ts';
 import type { CoverageResult } from '#src/coverage/CoverageResult.ts';
 import type { CoverageRun } from '#src/coverage/CoverageRun.ts';
 import type { CoverageBatch } from '#src/coverage/common/types/CoverageBatch.ts';
-import { runCoverageBatch } from '#src/coverage/runCoverageBatch.ts';
 import { runCoverageCheck } from '#src/coverage/runCoverageCheck.ts';
 import type { seedCoverageResumeState } from '#src/coverage/seedCoverageResumeState.ts';
 import { settleCoverageBatch } from '#src/coverage/settleCoverageBatch.ts';

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import type { AgentUsage, LightsoutConfig } from '#src/contracts/index.ts';
-import { invokeCoverageAgent } from '#src/coverage/invokeCoverageAgent.ts';
+import { invokeCoverageAgent } from '#src/coverage/batch/invokeCoverageAgent.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
 import { report } from '#tests/helpers/report.ts';
 
