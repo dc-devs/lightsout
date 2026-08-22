@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { SettingsCard } from '#src/appUI/SettingsCard.tsx';
+import { SettingsCard } from '#src/appUI/panels/SettingsCard.tsx';
 
 const setupSettingsCard = ({ description, action, className }: { description?: string; action?: string; className?: string } = {}) => {
 	render(

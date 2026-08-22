@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { SectionHeader } from '#src/appUI/SectionHeader.tsx';
+import { SectionHeader } from '#src/appUI/headers/SectionHeader.tsx';
 
 const setupSectionHeader = ({ description, action, className }: { description?: string; action?: string; className?: string } = {}) => {
 	render(

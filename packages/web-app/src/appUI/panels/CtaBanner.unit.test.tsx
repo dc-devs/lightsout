@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { CtaBanner } from '#src/appUI/CtaBanner.tsx';
+import { CtaBanner } from '#src/appUI/panels/CtaBanner.tsx';
 
 const setupCtaBanner = ({ description }: { description?: string } = {}) => {
 	const { container } = render(

@@ -18,7 +18,7 @@ const setupFadeIn = ({
 	reducedMotion?: boolean;
 	delayMs?: number;
 } = {}) => {
-	const disconnect = jest.fn();
+	const disconnect = jest.fn<() => void>();
 	const observe = jest.fn<(target: Element) => void>();
 	const mediaQueries: string[] = [];
 

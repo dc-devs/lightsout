@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { CopyButton } from '#src/appUI/CopyButton.tsx';
+import { CopyButton } from '#src/appUI/buttons/CopyButton.tsx';
 
 const setupCopyButton = ({ refused = false }: { refused?: boolean } = {}) => {
 	jest.useFakeTimers();

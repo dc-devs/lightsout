@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { ContentHeader } from '#src/appUI/ContentHeader.tsx';
+import { ContentHeader } from '#src/appUI/headers/ContentHeader.tsx';
 
 // Mocked Imports
 // -------------------------

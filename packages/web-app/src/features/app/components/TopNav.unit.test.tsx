@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { TopNav } from '#src/features/app/components/TopNav.tsx';
+import { TopNav } from '#src/features/app/index.ts';
 import { ThemeProvider } from '#src/theme/index.ts';
 
 // Mocked Imports

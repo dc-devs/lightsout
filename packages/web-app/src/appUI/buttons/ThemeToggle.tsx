@@ -1,5 +1,5 @@
 import { type LucideIcon, Monitor, Moon, Sun } from 'lucide-react';
-import { Button } from '#src/appUI/Button.tsx';
+import { Button } from '#src/appUI/buttons/Button.tsx';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { useTheme } from '#src/theme/index.ts';
 

@@ -5,7 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 
-const sourceRoot = join(__dirname, '..');
+const sourceRoot = join(__dirname, '..', '..', 'src');
 
 /** The literal colours a themed app must never spell, and the token that answers each. */
 const forbidden = [

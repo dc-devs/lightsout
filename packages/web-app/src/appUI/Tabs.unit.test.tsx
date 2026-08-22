@@ -48,7 +48,7 @@ describe('Tabs', () => {
 	});
 
 	test('reports the chosen tab to a caller holding the value itself', () => {
-		const onValueChange = jest.fn();
+		const onValueChange = jest.fn<(value: string) => void>();
 		setupTabs({ value: 'steps', onValueChange });
 
 		chooseTab({ name: 'Gates' });

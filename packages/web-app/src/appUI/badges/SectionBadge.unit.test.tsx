@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { SectionBadge } from '#src/appUI/SectionBadge.tsx';
+import { SectionBadge } from '#src/appUI/badges/SectionBadge.tsx';
 
 const setupSectionBadge = () => {
 	render(<SectionBadge>The proof</SectionBadge>);

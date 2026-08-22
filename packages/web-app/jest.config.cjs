@@ -17,7 +17,10 @@ module.exports = createJestConfig({
 	// ships a browser ESM entry) and breaks the CommonJS loader ts-jest compiles
 	// for. These are the conditions this code actually runs under on a server.
 	testEnvironmentOptions: { customExportConditions: ['require', 'node'] },
-	testMatch: ['<rootDir>/src/**/*.unit.test.ts', '<rootDir>/src/**/*.unit.test.tsx'],
+	// `tests/` is in here alongside `src/`: a suite that polices the source tree
+	// as text names no subject beside it, so it lives in the package's own
+	// tests/ directory rather than pretending to be a file's unit test.
+	testMatch: ['<rootDir>/src/**/*.unit.test.ts', '<rootDir>/src/**/*.unit.test.tsx', '<rootDir>/tests/**/*.unit.test.ts', '<rootDir>/tests/**/*.unit.test.tsx'],
 	// Re-declares the key the factory sets rather than adding to it: the factory
 	// spreads the caller's keys last, so a repeated key replaces instead of
 	// merging, and the shared setup file has to be named again to survive.

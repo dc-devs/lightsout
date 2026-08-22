@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { ScrollText } from 'lucide-react';
-import { PageHeader } from '#src/appUI/PageHeader.tsx';
+import { PageHeader } from '#src/appUI/headers/PageHeader.tsx';
 
 const setupPageHeader = ({ withIcon = false, description, action }: { withIcon?: boolean; description?: string; action?: string } = {}) => {
 	const { container } = render(

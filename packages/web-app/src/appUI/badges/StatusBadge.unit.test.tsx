@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { render, screen } from '@testing-library/react';
-import { StatusBadge } from '#src/appUI/StatusBadge.tsx';
+import { StatusBadge } from '#src/appUI/badges/StatusBadge.tsx';
 import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 
 const setupStatusBadge = ({ status, live }: { status: RunStatus; live?: boolean }) => {

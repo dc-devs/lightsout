@@ -1,4 +1,4 @@
-import { Badge } from '#src/appUI/Badge.tsx';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
 import type { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 
 interface Props<TStatus extends string> {

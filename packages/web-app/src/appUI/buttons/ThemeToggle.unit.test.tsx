@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ThemeToggle } from '#src/appUI/ThemeToggle.tsx';
+import { ThemeToggle } from '#src/appUI/buttons/ThemeToggle.tsx';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { ThemeProvider } from '#src/theme/index.ts';
 

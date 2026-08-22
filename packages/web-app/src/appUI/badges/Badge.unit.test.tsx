@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { Badge } from '#src/appUI/Badge.tsx';
+import { Badge } from '#src/appUI/badges/Badge.tsx';
 import type { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 
 const setupBadge = ({ variant, className }: { variant?: BadgeVariant; className?: string } = {}) => {

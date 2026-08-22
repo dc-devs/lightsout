@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { MetadataTag } from '#src/appUI/MetadataTag.tsx';
+import { MetadataTag } from '#src/appUI/badges/MetadataTag.tsx';
 
 const setupMetadataTag = ({ className, title }: { className?: string; title?: string } = {}) => {
 	render(

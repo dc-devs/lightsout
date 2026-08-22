@@ -37,7 +37,7 @@ const setupThemeProvider = ({ defaultTheme, stored, systemPrefersDark }: { defau
 		localStorage.setItem(themeStorageKey, stored);
 	}
 
-	const removeEventListener = jest.fn();
+	const removeEventListener = jest.fn<(name: string, listener: () => void) => void>();
 	let systemIsDark = systemPrefersDark ?? false;
 	let notifySystemChange = () => {};
 
