@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { drainTasks } from '#src/plan/index.ts';
+import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
 
 /** A promise a test settles by hand, so slot scheduling is exercised without leaning on timers. */
 const createDeferred = <Value>() => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { isPlanSourceFile } from '#src/plan/index.ts';
+import { isPlanSourceFile } from '#src/plan/common/paths/isPlanSourceFile.ts';
 
 describe('isPlanSourceFile', () => {
 	test.each(['src/plan/parsePlan.ts', 'packages/engine/src/cli/main.tsx'])('an ordinary module counts toward a plan size number: %s', (path) => {

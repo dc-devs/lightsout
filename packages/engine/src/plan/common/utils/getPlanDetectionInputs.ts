@@ -1,5 +1,6 @@
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
+import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';
 
 interface Params {
@@ -11,7 +12,7 @@ interface Params {
 interface PlanDetectionInputs {
 	overviewText?: string;
 	/** The judged/graded files: the single plan, or every phase (overview excluded). */
-	files: Awaited<ReturnType<typeof resolvePlanDeliverable>>['files'];
+	files: DeliverableFile[];
 	/** Every plan path (overview included) fed to the deterministic detectors. */
 	planPaths: string[];
 	config?: LightsoutConfig;

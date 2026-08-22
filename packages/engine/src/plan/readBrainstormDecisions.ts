@@ -1,6 +1,6 @@
-import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BrainstormDecisions } from '#src/contracts/index.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
 import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
@@ -21,10 +21,7 @@ interface Params {
  */
 export const readBrainstormDecisions = async ({ cwd, name }: Params): Promise<BrainstormDecisions | undefined> => {
 	const filePath = join(planWorkspaceDir({ cwd, name }), brainstormDecisionsFile);
-	const present = await access(filePath).then(
-		() => true,
-		() => false,
-	);
+	const present = await pathExists({ path: filePath });
 
 	if (!present) {
 		return undefined;

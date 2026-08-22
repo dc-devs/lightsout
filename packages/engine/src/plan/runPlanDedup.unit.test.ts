@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { DedupReport, Effort, Permissions } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import { runPlanDedup } from '#src/plan/index.ts';
+import { runPlanDedup } from '#src/plan/runPlanDedup.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 
 /** A temp repo holding the given existing source files, each a one-export module. */

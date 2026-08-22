@@ -1,3 +1,5 @@
+import { isPathToken } from '#src/plan/common/paths/isPathToken.ts';
+
 interface Params {
 	line: string;
 }
@@ -7,7 +9,7 @@ export const pathFromLine = ({ line }: Params): string | undefined => {
 	for (const match of line.matchAll(/`([^`]+)`/g)) {
 		const token = match[1].trim().split(/\s+/)[0];
 
-		if (token.includes('/') && /\.[A-Za-z0-9]+$/.test(token)) {
+		if (isPathToken({ token })) {
 			return token;
 		}
 	}

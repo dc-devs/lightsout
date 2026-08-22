@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { FindingSeverity, StructuralCheck, type StructuralFinding } from '#src/contracts/index.ts';
-import { getBlockingFindings } from '#src/plan/index.ts';
+import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 
 /** One finding per severity given, each identifiable by its issue text so order is assertable. */
 const setupFindings = ({ severities }: { severities: FindingSeverity[] }) => {

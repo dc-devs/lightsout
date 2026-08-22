@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { Effort, GapCheckLens, GradeReport, Permissions } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation } from '#src/drivers/index.ts';
-import { runPlanGrade } from '#src/plan/index.ts';
+import { runPlanGrade } from '#src/plan/runPlanGrade.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';

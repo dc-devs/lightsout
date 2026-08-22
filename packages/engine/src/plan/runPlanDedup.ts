@@ -11,6 +11,7 @@ import type { PriorArtCandidate } from '#src/plan/common/types/PriorArtCandidate
 import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
 import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
+import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
 import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
 
@@ -115,7 +116,7 @@ const foldDedupResults = ({ results }: { results: Array<DedupResult | undefined>
 		findings.push(...matchDedupVerdicts({ candidates: result.group.candidates, verdicts: result.outcome.report.verdicts }));
 	}
 
-	return { findings, failures, rateLimited: results.some((result) => result !== undefined && !result.outcome.ok && result.outcome.rateLimited) };
+	return { findings, failures, rateLimited: results.some((result) => isRateLimited({ result })) };
 };
 
 /**

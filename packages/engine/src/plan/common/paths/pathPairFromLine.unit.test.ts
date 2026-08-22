@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { pathPairFromLine } from '#src/plan/index.ts';
+import { pathPairFromLine } from '#src/plan/common/paths/pathPairFromLine.ts';
 
 describe('pathPairFromLine', () => {
 	test('a well-formed move heading yields its source and destination in order', () => {

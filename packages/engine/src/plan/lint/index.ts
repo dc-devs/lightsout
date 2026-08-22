@@ -1,0 +1,10 @@
+export { checkFileProvenance } from '#src/plan/lint/checkFileProvenance.ts';
+export { checkPhaseBreakdown } from '#src/plan/lint/checkPhaseBreakdown.ts';
+export { checkPhaseCount } from '#src/plan/lint/checkPhaseCount.ts';
+export { checkPhaseDeclarations } from '#src/plan/lint/checkPhaseDeclarations.ts';
+export { checkPhaseHandoffs } from '#src/plan/lint/checkPhaseHandoffs.ts';
+export { checkPlanPaths } from '#src/plan/lint/checkPlanPaths.ts';
+export { checkVerificationScripts } from '#src/plan/lint/checkVerificationScripts.ts';
+export { lintPlanCrossPhase } from '#src/plan/lint/lintPlanCrossPhase.ts';
+export { lintPlanStructure } from '#src/plan/lint/lintPlanStructure.ts';
+export { scanPlaceholders } from '#src/plan/lint/scanPlaceholders.ts';

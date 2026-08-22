@@ -11,9 +11,10 @@ import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRun
 import { drainTasks } from '#src/plan/common/utils/drainTasks.ts';
 import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { getPlanDetectionPass } from '#src/plan/common/utils/getPlanDetectionPass.ts';
+import { isRateLimited } from '#src/plan/common/utils/isRateLimited.ts';
 import { selectPhaseFiles } from '#src/plan/common/utils/selectPhaseFiles.ts';
 import { detectPriorArtCandidates } from '#src/plan/detectPriorArtCandidates.ts';
-import { lintPlanStructure } from '#src/plan/lintPlanStructure.ts';
+import { lintPlanStructure } from '#src/plan/lint/index.ts';
 
 interface Params {
 	cwd: string;
@@ -45,9 +46,6 @@ interface GapResult {
 
 /** Every lens, in declaration order — the fan-out's width per plan file. */
 const gapCheckLenses = Object.values(GapCheckLens);
-
-/** Whether a settled checker hit the harness rate-limit wall — the one outcome that stops the fan-out feeding it. */
-const isRateLimited = ({ result }: { result: GapResult | undefined }) => result !== undefined && !result.outcome.ok && result.outcome.rateLimited;
 
 /**
  * Fold every checker's outcome in one pass, after all have settled, so one
