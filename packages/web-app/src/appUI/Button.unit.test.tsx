@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { Button } from '#src/common/components/ui/Button.tsx';
+import { Button } from '#src/appUI/Button.tsx';
 
 const setupButton = ({
 	variant,

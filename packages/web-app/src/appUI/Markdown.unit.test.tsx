@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { Markdown } from '#src/common/components/ui/Markdown.tsx';
+import { Markdown } from '#src/appUI/Markdown.tsx';
 
 const setupMarkdown = ({ text }: { text: string }) => {
 	render(<Markdown text={text} />);

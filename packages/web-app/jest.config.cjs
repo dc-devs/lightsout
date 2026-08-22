@@ -22,14 +22,21 @@ module.exports = createJestConfig({
 	// spreads the caller's keys last, so a repeated key replaces instead of
 	// merging, and the shared setup file has to be named again to survive.
 	setupFilesAfterEnv: [join(__dirname, '..', '..', 'tooling', 'jest', 'setupTestEnvironment.ts'), join(__dirname, 'tests', 'config', 'jest.setup.ts')],
-	// Measure EVERY source file, not just the ones a test happens to import, and
-	// exclude nothing but the tests themselves. A file left out of the report is
+	// Measure EVERY source file this app writes, not just the ones a test
+	// happens to import. A file left out of the report is
 	// indistinguishable from a file no test ever loaded — the entries and the
 	// route modules each have a test reaching them, and the report is where that
 	// is visible. `src/markdownAsText.d.ts` is in here too: a declaration
 	// file compiles to nothing, so it lands at zero statements rather than
 	// going missing.
-	collectCoverageFrom: ['src/**/*.ts', 'src/**/*.tsx', '!src/**/*.unit.test.ts', '!src/**/*.unit.test.tsx'],
+	//
+	// The one exception is `src/common/components/ui/` — shadcn/ui components,
+	// written by their CLI rather than by this app. They are listed under
+	// `vendored` in lightsout.config.json, which stops the engine writing tests
+	// for them; measuring them here would then hold the threshold against code
+	// nothing is allowed to cover. Components this app authors live in
+	// `src/appUI/` and are measured like everything else.
+	collectCoverageFrom: ['src/**/*.ts', 'src/**/*.tsx', '!src/**/*.unit.test.ts', '!src/**/*.unit.test.tsx', '!src/common/components/ui/**'],
 	coverageThreshold: { global: { statements: 95, branches: 95, functions: 95, lines: 95 } },
 	// The only mappers this package carries, and never for `#src`.
 	// `@tanstack/react-start` and its subpaths publish an `import` condition and

@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { DefinitionList } from '#src/common/components/ui/DefinitionList.tsx';
+import { DefinitionList } from '#src/appUI/DefinitionList.tsx';
 
 const setupDefinitionList = ({ entries = [['severity', 'blocking']], className }: { entries?: [string, ReactNode][]; className?: string } = {}) => {
 	render(<DefinitionList entries={entries} className={className} />);

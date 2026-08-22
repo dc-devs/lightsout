@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { Separator } from '#src/common/components/ui/Separator.tsx';
+import { Separator } from '#src/appUI/Separator.tsx';
 
 const setupSeparator = ({ orientation, decorative, className }: { orientation?: 'vertical'; decorative?: boolean; className?: string } = {}) => {
 	render(<Separator orientation={orientation} decorative={decorative} className={className} data-testid="separator" />);

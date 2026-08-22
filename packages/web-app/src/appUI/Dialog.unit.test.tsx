@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { Dialog } from '#src/common/components/ui/Dialog.tsx';
+import { Dialog } from '#src/appUI/Dialog.tsx';
 
 const setupDialog = ({ open = true }: { open?: boolean } = {}) => {
 	const mockOnOpenChange = jest.fn<(open: boolean) => void>();

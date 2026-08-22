@@ -1,7 +1,7 @@
 import type { RunStepView } from '@lightsout/engine';
 import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
-import { RunStatusBadge } from '#src/common/components/ui/RunStatusBadge.tsx';
+import { RunStatusBadge } from '#src/appUI/index.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { summarizeStepReport } from '#src/features/runDetail/common/utils/summarizeStepReport.ts';
 import { FailureNotice } from '#src/features/runDetail/screens/RunDetail/components/FailureNotice.tsx';

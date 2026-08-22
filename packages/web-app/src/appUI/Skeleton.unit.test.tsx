@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
-import { Skeleton } from '#src/common/components/ui/Skeleton.tsx';
+import { Skeleton } from '#src/appUI/Skeleton.tsx';
 
 const setupSkeleton = ({ className }: { className?: string } = {}) => {
 	render(<Skeleton className={className} data-testid="skeleton" />);

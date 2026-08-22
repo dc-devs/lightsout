@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Card } from '#src/common/components/ui/Card.tsx';
+import { Card } from '#src/appUI/index.ts';
 import { runQueryOptions } from '#src/features/runDetail/queries/runQueryOptions.ts';
 import { AgentCostPanel } from '#src/features/runDetail/screens/RunDetail/components/AgentCostPanel.tsx';
 import { ChangedFilesPanel } from '#src/features/runDetail/screens/RunDetail/components/ChangedFilesPanel.tsx';

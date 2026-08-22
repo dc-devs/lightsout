@@ -1,7 +1,5 @@
 import type { StandardsRuleView } from '@lightsout/engine';
-import { DefinitionList } from '#src/common/components/ui/DefinitionList.tsx';
-import { Dialog } from '#src/common/components/ui/Dialog.tsx';
-import { Markdown } from '#src/common/components/ui/Markdown.tsx';
+import { DefinitionList, Dialog, Markdown } from '#src/appUI/index.ts';
 import type { DefinitionEntry } from '#src/common/types/DefinitionEntry.ts';
 
 /** How this repo runs the rule, in the order a reader asks: who says so, then how loudly, then with what numbers. */

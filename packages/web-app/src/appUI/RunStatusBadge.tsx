@@ -1,5 +1,5 @@
 import { RunStatus } from '@lightsout/engine/contracts';
-import { Badge } from '#src/common/components/ui/Badge.tsx';
+import { Badge } from '#src/appUI/Badge.tsx';
 import { runStatusFamilies } from '#src/common/constants/runStatusFamilies.ts';
 
 const statusLabels = {

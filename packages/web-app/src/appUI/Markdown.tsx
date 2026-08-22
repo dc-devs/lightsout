@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { DefinitionList } from '#src/common/components/ui/DefinitionList.tsx';
+import { DefinitionList } from '#src/appUI/DefinitionList.tsx';
 import type { DefinitionEntry } from '#src/common/types/DefinitionEntry.ts';
 
 /** Where a plan may link: the web, a repo-relative path, or an anchor in the document itself. */

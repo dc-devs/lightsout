@@ -1,6 +1,6 @@
 import { Check, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '#src/common/components/ui/Button.tsx';
+import { Button } from '#src/appUI/Button.tsx';
 
 interface Props {
 	/** The text the clipboard receives. */
