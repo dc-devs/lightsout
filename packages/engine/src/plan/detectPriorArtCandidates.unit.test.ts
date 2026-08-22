@@ -120,3 +120,37 @@ test('detectPriorArtCandidates: a collision inside a configured generated path i
 	// generated output is not prior art
 	expect(candidates).toStrictEqual([]);
 });
+
+test('detectPriorArtCandidates: a shuffled word order is the same concept, so it is a candidate', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/userDataGet.ts'], creates: ['src/getUserData.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith.some((collision) => collision.name === 'userDataGet')).toBeTruthy();
+});
+
+test('detectPriorArtCandidates: a from/to inverse is not a candidate', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/dtoFromEntity.ts'], creates: ['src/entityFromDto.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	expect(candidates).toStrictEqual([]);
+});
+
+test('detectPriorArtCandidates: a from-conversion keeps its order, so a synonym twin of it is still a candidate', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/loadRowsFromDisk.ts'], creates: ['src/fetchRowsFromDisk.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith.some((collision) => collision.path === 'src/loadRowsFromDisk.ts')).toBeTruthy();
+});
+
+test.each([{ existing: 'src/remove-stale-entry.ts' }, { existing: 'src/remove_stale_entry.ts' }])(
+	'detectPriorArtCandidates: $existing collides with a camelCase synonym twin',
+	async ({ existing }) => {
+		const { cwd, planPaths } = setup({ existing: [existing], creates: ['src/deleteStaleEntry.ts'] });
+		const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+		expect(candidates.length).toBe(1);
+		expect(candidates[0]?.collidesWith.some((collision) => collision.path === existing)).toBeTruthy();
+	},
+);

@@ -1,7 +1,7 @@
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { StandardsRuleListing } from '#src/standardsCheck/common/types/StandardsRuleListing.ts';
 import { resolvePackageRuleStates } from '#src/standardsCheck/resolvePackageRuleStates.ts';
-import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -9,7 +9,7 @@ interface Params {
 }
 
 /**
- * Every rule the repo's standards packages bring, with the document that states
+ * Every rule the repo's standards packs bring, with the document that states
  * it, its summary, and the state it runs at here — sorted by rule id, so
  * `--list` output diffs cleanly.
  *
@@ -17,17 +17,17 @@ interface Params {
  * answers "what does this repo enforce?", and a rule nobody can find out about
  * is a rule nobody follows.
  *
- * @param cwd - the repo whose packages and config are read
- * @param config - the repo's config; absent means the bundled default package at its own defaults
- * @throws {Error} When a declared standards package cannot be loaded, or the config names a rule no package declares.
+ * @param cwd - the repo whose packs and config are read
+ * @param config - the repo's config; absent means the bundled default pack at its own defaults
+ * @throws {Error} When a declared standards pack cannot be loaded, or the config names a rule no pack declares.
  */
 export const listStandardsRules = async ({ cwd, config }: Params): Promise<StandardsRuleListing[]> => {
-	const packages = await resolveStandardsPackages({ cwd, config });
-	const states = resolvePackageRuleStates({ packages, config });
+	const packs = await resolveStandardsPacks({ cwd, config });
+	const states = resolvePackageRuleStates({ packs, config });
 	const listings: StandardsRuleListing[] = [];
 
-	for (const pkg of packages) {
-		for (const rule of pkg.rules) {
+	for (const pack of packs) {
+		for (const rule of pack.rules) {
 			const state = states.get(rule.id);
 
 			// Every loaded rule gets a state resolved for it, so this skips nothing
@@ -39,7 +39,7 @@ export const listStandardsRules = async ({ cwd, config }: Params): Promise<Stand
 
 			listings.push({
 				rule: rule.id,
-				doc: `${pkg.name}: ${rule.documentPath}`,
+				doc: `${pack.name}: ${rule.documentPath}`,
 				summary: rule.summary,
 				checked: rule.checked,
 				severity: state.severity,

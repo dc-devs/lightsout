@@ -36,10 +36,10 @@ interface Params {
  *
  * The mirror is deliberate and the two must stay in step, so that the modules
  * the engine picks test subjects from are the same ones the rules judge.
- * Neither copy can import the other: a standards package ships as a bare
+ * Neither copy can import the other: a standards pack ships as a bare
  * directory beside the engine, with no manifest and no `node_modules`, so
  * every value it imports has to resolve inside its own tree, and the engine
- * runs against whatever package `standards-packages` names rather than the
+ * runs against whatever pack `standards-packs` names rather than the
  * default one. Change one, change the other.
  */
 export const collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }: Params): Promise<Map<string, FolderModule>> => {

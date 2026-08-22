@@ -2,10 +2,10 @@ import type { StandardsCheckFunction, StandardsInputKind, StandardsSet, Standard
 
 /** One rule folder, read: its prose, its declaration, and its check when it ships one. */
 export interface LoadedStandardsRule {
-	/** Folder name minus the numeric prefix — unique package-wide. */
+	/** Folder name minus the numeric prefix — unique pack-wide. */
 	id: string;
 	set: StandardsSet;
-	/** Package-relative document folder path, e.g. 'code/style-guide/patterns/functions'. */
+	/** Pack-relative document folder path, e.g. 'code/style-guide/patterns/functions'. */
 	documentPath: string;
 	/** One line from rule.md front matter — what the rule catches. */
 	summary: string;

@@ -5,18 +5,19 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { reviewStandards } from '#src/cli/reviewStandards.ts';
 import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
 // -------------------------
 // The review runner spawns a harness and has its own tests; what this resolver
-// owns is everything it hands over — packages, channels, file scope, driver,
+// owns is everything it hands over — packs, channels, file scope, driver,
 // time bound — all observable with the runner stubbed.
 
 interface RunStandardsReviewParams {
 	cwd: string;
 	driver: Driver;
-	packages: unknown[];
+	packs: LoadedStandardsPack[];
 	channels: string[];
 	files: string[];
 	timeoutMs?: number;
@@ -28,13 +29,29 @@ const mockRunStandardsReview = jest.fn<(params: RunStandardsReviewParams) => Pro
 jest.mock('#src/standardsCheck/index.ts', () => ({
 	runStandardsReview: (params: RunStandardsReviewParams) => mockRunStandardsReview(params),
 }));
-jest.mock('#src/standardsPackages/index.ts', () => ({ resolveStandardsPackages: async () => [] }));
+// -------------------------
+const mockResolveStandardsPacks = jest.fn<(params: { cwd: string; config?: LightsoutConfig }) => Promise<LoadedStandardsPack[]>>();
+
+jest.mock('#src/standardsPacks/index.ts', () => ({
+	resolveStandardsPacks: (params: { cwd: string; config?: LightsoutConfig }) => mockResolveStandardsPacks(params),
+}));
 // -------------------------
 
 const gates: LightsoutConfig['gates'] = { check: 'true', test: 'true', 'test-coverage': false };
 
+/** A loaded pack as the resolver hands one back — only the fields a caller carrying it through can see. */
+const loadedPack = (): LoadedStandardsPack => ({ name: 'acme', formatVersion: 1, rootPath: '/packs/acme', documents: [], rules: [] });
+
 /** A repo the review reads its own answers off: source files, and a manifest whose dependencies decide the channels. */
-const setupRepo = ({ dependencies = {}, sources = ['src/index.ts'] }: { dependencies?: Record<string, string>; sources?: string[] } = {}) => {
+const setupRepo = ({
+	dependencies = {},
+	packs = [],
+	sources = ['src/index.ts'],
+}: {
+	dependencies?: Record<string, string>;
+	packs?: LoadedStandardsPack[];
+	sources?: string[];
+} = {}) => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-review-'));
 
 	for (const source of sources) {
@@ -43,6 +60,7 @@ const setupRepo = ({ dependencies = {}, sources = ['src/index.ts'] }: { dependen
 	}
 
 	writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'consumer', dependencies }));
+	mockResolveStandardsPacks.mockResolvedValue(packs);
 	mockRunStandardsReview.mockResolvedValue({ findings: [], notes: [] });
 
 	return cwd;
@@ -58,6 +76,18 @@ describe('reviewStandards', () => {
 
 		expect(reviewParams()).toEqual(expect.objectContaining({ timeoutMs: 60 * 60_000 }));
 		expect(reviewParams()?.driver.name).toBe('claude-code');
+	});
+
+	test('the packs the resolver loaded for this config are the ones the review runs against', async () => {
+		const pack = loadedPack();
+		const cwd = setupRepo({ packs: [pack] });
+		const config: LightsoutConfig = { gates, 'standards-packs': ['standards'] };
+
+		await reviewStandards({ cwd, config });
+
+		// the repo's own config decides which packs are loaded, and every one loaded is judged
+		expect(mockResolveStandardsPacks).toHaveBeenCalledWith({ cwd, config });
+		expect(reviewParams()?.packs).toStrictEqual([pack]);
 	});
 
 	test('a repo that never named its channels has them read off its own manifest', async () => {

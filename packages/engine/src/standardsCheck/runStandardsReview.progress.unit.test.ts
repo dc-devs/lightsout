@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { StandardsSeverity } from '#src/contracts/index.ts';
 import type { Driver, DriverResult } from '#src/drivers/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 
 // What the caller hears while the review runs: the opening line, the heartbeat
@@ -22,7 +22,7 @@ const judgmentRule = ({ id }: { id: string }): LoadedStandardsRule => ({
 	fixturesPath: `/packages/acme/${id}/fixtures`,
 });
 
-const packageOf = ({ ruleIds }: { ruleIds: string[] }): LoadedStandardsPackage => ({
+const packOf = ({ ruleIds }: { ruleIds: string[] }): LoadedStandardsPack => ({
 	name: 'acme',
 	formatVersion: 1,
 	rootPath: '/packages/acme',
@@ -66,7 +66,7 @@ describe('runStandardsReview progress', () => {
 		await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ ruleIds: ['common-placement', 'one-export'] })],
+			packs: [packOf({ ruleIds: ['common-placement', 'one-export'] })],
 			channels: [],
 			files: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
 			onProgress,
@@ -82,15 +82,38 @@ describe('runStandardsReview progress', () => {
 			result: { text: reviewReport([{ rule: 'common-placement', files: [{ path: 'src/a.ts' }], detail: 'moved too early' }]), exitCode: 0 },
 		});
 
-		await runStandardsReview({ cwd: '/repo', driver, packages: [packageOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
+		await runStandardsReview({ cwd: '/repo', driver, packs: [packOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
 
 		expect(progress.at(-1)).toMatch(/^✓ Agent review finished in \d+s — 1 advisory to look at$/);
+	});
+
+	test('a review that found more than one advisory says so in the plural', async () => {
+		const { driver, progress, onProgress } = setupDriver({
+			result: {
+				text: reviewReport([
+					{ rule: 'common-placement', files: [{ path: 'src/a.ts' }], detail: 'moved too early' },
+					{ rule: 'one-export', files: [{ path: 'src/b.ts' }], detail: 'a second export' },
+				]),
+				exitCode: 0,
+			},
+		});
+
+		await runStandardsReview({
+			cwd: '/repo',
+			driver,
+			packs: [packOf({ ruleIds: ['common-placement', 'one-export'] })],
+			channels: [],
+			files: ['src/a.ts', 'src/b.ts'],
+			onProgress,
+		});
+
+		expect(progress.at(-1)).toMatch(/^✓ Agent review finished in \d+s — 2 advisories to look at$/);
 	});
 
 	test('a skipped review still says how long the agent ran before it stopped', async () => {
 		const { driver, progress, onProgress } = setupDriver({ result: { text: 'not a report', exitCode: 1 } });
 
-		await runStandardsReview({ cwd: '/repo', driver, packages: [packageOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
+		await runStandardsReview({ cwd: '/repo', driver, packs: [packOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
 
 		expect(progress.at(-1)).toMatch(/^Agent review stopped after \d+s\.$/);
 	});
@@ -101,7 +124,7 @@ describe('runStandardsReview progress', () => {
 		await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ ruleIds: ['common-placement'] })],
+			packs: [packOf({ ruleIds: ['common-placement'] })],
 			channels: [],
 			files: ['src/a.ts'],
 			timeoutMs: 60 * 60_000,
@@ -120,7 +143,7 @@ describe('runStandardsReview progress', () => {
 	test('the heartbeat stops with the agent — a finished review prints no further lines', async () => {
 		const { driver, progress, onProgress } = setupDriver({ result: { text: reviewReport(), exitCode: 0 }, runForMs: 30_000 });
 
-		await runStandardsReview({ cwd: '/repo', driver, packages: [packageOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
+		await runStandardsReview({ cwd: '/repo', driver, packs: [packOf({ ruleIds: ['common-placement'] })], channels: [], files: ['src/a.ts'], onProgress });
 		jest.advanceTimersByTime(120_000);
 
 		expect(progress.filter((line) => line.includes('still running'))).toHaveLength(1);

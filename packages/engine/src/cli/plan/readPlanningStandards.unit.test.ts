@@ -6,7 +6,7 @@ import { readPlanningStandards } from '#src/cli/plan/index.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
-/** A one-rule standards package to write inside the repo, in the code tree unless told otherwise. */
+/** A one-rule standards pack to write inside the repo, in the code tree unless told otherwise. */
 interface StandardsPackage {
 	at: string;
 	name: string;
@@ -69,7 +69,7 @@ test('readPlanningStandards: with no config it loads the shipped default package
 test('readPlanningStandards: standards turned off explicitly loads nothing at all', async () => {
 	const { cwd, logged } = setupStandards();
 
-	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packages': false }) });
+	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packs': false }) });
 
 	expect(standards).toBe(undefined);
 	expect(logged).toStrictEqual([]);
@@ -107,7 +107,7 @@ test('readPlanningStandards: several declared packages all reach the plan, in co
 		],
 	});
 
-	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['standards/house', 'standards/team'] }) });
+	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packs': ['standards/house', 'standards/team'] }) });
 
 	// the second package's text picks up where the first one ends, a blank line on
 	expect(standards ?? '').toContain('<!-- house: code/demo -->');
@@ -121,21 +121,21 @@ test('readPlanningStandards: a package carrying only a test tree contributes not
 		packages: [{ at: 'standards/tests-only', name: 'tests-only', ruleId: 'mock-prefix', prose: 'Name mocks so they read as mocks.', set: 'tests' }],
 	});
 
-	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['standards/tests-only'] }) });
+	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packs': ['standards/tests-only'] }) });
 
 	// the package loaded fine — it simply has no code set, so planning gets nothing and nothing is narrated
 	expect(standards).toBe(undefined);
 	expect(logged).toStrictEqual([]);
 });
 
-test('readPlanningStandards: a declared standards package that does not exist is non-fatal — it narrates and returns nothing', async () => {
+test('readPlanningStandards: a declared standards pack that does not exist is non-fatal — it narrates and returns nothing', async () => {
 	const { cwd, logged, errors } = setupStandards();
 
-	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packages': ['missing-standards'] }) });
+	const standards = await readPlanningStandards({ cwd, config: configWith({ 'standards-packs': ['missing-standards'] }) });
 
 	// planning continues without standards rather than dying on them
 	expect(standards).toBe(undefined);
 	expect(logged.length).toBe(1);
-	expect(logged[0] ?? '').toMatch(/^standards not loaded \(non-fatal\): standards package root file not found: .*missing-standards/);
+	expect(logged[0] ?? '').toMatch(/^standards not loaded \(non-fatal\): standards pack root file not found: .*missing-standards/);
 	expect(errors).toStrictEqual([]);
 });

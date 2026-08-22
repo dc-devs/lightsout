@@ -31,11 +31,11 @@ shape because the shape is declared once, in
 [`@lightsout/standards-contracts`](../standards-contracts).
 
 It also does not run a rule against its `fixtures/pass` and `fixtures/fail`
-folders. That is a whole-package question rather than a single-rule one, and it
+folders. That is a whole-pack question rather than a single-rule one, and it
 already ships as a command:
 
 ```
-lightsout standards-validate --package <path to your package>
+lightsout standards-validate --pack <path to your pack>
 ```
 
 Every rule is run against both sides of its own example pair, and a rule whose

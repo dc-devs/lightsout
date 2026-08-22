@@ -12,5 +12,5 @@ export { runPackageChecks } from '#src/standardsCheck/runPackageChecks.ts';
 export { runStandardsCheck } from '#src/standardsCheck/runStandardsCheck.ts';
 export { runStandardsReview } from '#src/standardsCheck/runStandardsReview.ts';
 export { selectStandardsFindings } from '#src/standardsCheck/selectStandardsFindings.ts';
-export { validateStandardsPackage } from '#src/standardsCheck/validateStandardsPackage.ts';
+export { validateStandardsPack } from '#src/standardsCheck/validateStandardsPack.ts';
 export { writeStandardsSnapshot } from '#src/standardsCheck/writeStandardsSnapshot.ts';

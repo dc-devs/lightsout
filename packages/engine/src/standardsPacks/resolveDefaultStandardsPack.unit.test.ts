@@ -2,11 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { resolveDefaultStandardsPackage } from '#src/standardsPackages/index.ts';
+import { resolveDefaultStandardsPack } from '#src/standardsPacks/index.ts';
 
 /**
  * Every other suite runs with LIGHTSOUT_DEFAULT_STANDARDS set, because the walk
- * this file tests can only reach the built copy of the package and those suites
+ * this file tests can only reach the built copy of the pack and those suites
  * want the authored one (see tests/config/setupTestEnvironment.ts). Left in
  * place, the override would short-circuit every case below and they would pass
  * without the walk ever running.
@@ -17,7 +17,7 @@ beforeEach(() => {
 
 /** A temp tree with a packaged standards folder at `packagedAt`, and a deep directory to start the walk from. */
 const setupTree = ({ packagedAt }: { packagedAt?: string } = {}) => {
-	const root = mkdtempSync(join(tmpdir(), 'lightsout-default-package-'));
+	const root = mkdtempSync(join(tmpdir(), 'lightsout-default-pack-'));
 	const startDir = join(root, 'plugin', 'dist', 'chunks');
 
 	mkdirSync(startDir, { recursive: true });
@@ -48,50 +48,50 @@ const setupWalkWithNoStartDir = ({ standingOn }: { standingOn: 'invokedPath' | '
 	return { root };
 };
 
-describe('resolveDefaultStandardsPackage', () => {
+describe('resolveDefaultStandardsPack', () => {
 	test('finds the standards folder shipped beside the bundled program', () => {
 		const { root, startDir } = setupTree({ packagedAt: 'plugin/standards' });
 
-		const packagePath = resolveDefaultStandardsPackage({ startDir });
+		const packPath = resolveDefaultStandardsPack({ startDir });
 
 		// the installed layout: <plugin>/dist/ beside <plugin>/standards/
-		expect(packagePath).toBe(join(root, 'plugin', 'standards'));
+		expect(packPath).toBe(join(root, 'plugin', 'standards'));
 	});
 
 	test("finds this repo's dev layout, where the standards folder sits under plugin/", () => {
 		const { root } = setupTree({ packagedAt: 'plugin/standards' });
 
-		const packagePath = resolveDefaultStandardsPackage({ startDir: root });
+		const packPath = resolveDefaultStandardsPack({ startDir: root });
 
 		// a repo root has no standards/ of its own — plugin/standards/ is the dev layout's home
-		expect(packagePath).toBe(join(root, 'plugin', 'standards'));
+		expect(packPath).toBe(join(root, 'plugin', 'standards'));
 	});
 
 	test('starts from the bundle it was invoked as when the caller names no starting directory', () => {
 		const { root } = setupWalkWithNoStartDir({ standingOn: 'invokedPath' });
 
-		const packagePath = resolveDefaultStandardsPackage();
+		const packPath = resolveDefaultStandardsPack();
 
 		// invoked as <root>/plugin/dist/cli.mjs, so the walk begins in <root>/plugin/dist
-		expect(packagePath).toBe(join(root, 'plugin', 'standards'));
+		expect(packPath).toBe(join(root, 'plugin', 'standards'));
 	});
 
 	test('falls back to the working directory when nothing recorded how the program was invoked', () => {
 		const { root } = setupWalkWithNoStartDir({ standingOn: 'workingDirectory' });
 
-		const packagePath = resolveDefaultStandardsPackage();
+		const packPath = resolveDefaultStandardsPack();
 
-		expect(packagePath).toBe(join(root, 'plugin', 'standards'));
+		expect(packPath).toBe(join(root, 'plugin', 'standards'));
 	});
 
 	test('says plainly that the engine has no standards beside it when the walk reaches the filesystem root', () => {
 		const { startDir } = setupTree();
 
 		// no standards folder anywhere above the start — a plain sentence, not a stack of paths
-		expect(() => resolveDefaultStandardsPackage({ startDir })).toThrow('bundled default standards not found next to the engine');
+		expect(() => resolveDefaultStandardsPack({ startDir })).toThrow('bundled default standards not found next to the engine');
 	});
 
-	test('takes the package the environment names ahead of anything the walk would find', () => {
+	test('takes the pack the environment names ahead of anything the walk would find', () => {
 		const { root, startDir } = setupTree({ packagedAt: 'plugin/standards' });
 		const authored = join(root, 'packages', 'standards-typescript');
 
@@ -101,18 +101,18 @@ describe('resolveDefaultStandardsPackage', () => {
 
 		// both exist, so this proves precedence rather than mere resolution — the
 		// walk would have answered plugin/standards, the built copy
-		expect(resolveDefaultStandardsPackage({ startDir })).toBe(authored);
+		expect(resolveDefaultStandardsPack({ startDir })).toBe(authored);
 	});
 
-	test('refuses a named package that is not one, rather than quietly walking on to another', () => {
+	test('refuses a named pack that is not one, rather than quietly walking on to another', () => {
 		const { root, startDir } = setupTree({ packagedAt: 'plugin/standards' });
-		const empty = join(root, 'not-a-package');
+		const empty = join(root, 'not-a-pack');
 
 		mkdirSync(empty, { recursive: true });
 		process.env.LIGHTSOUT_DEFAULT_STANDARDS = empty;
 
 		// falling through would hand back plugin/standards and the run would check
-		// a different package than the one asked for, looking correct throughout
-		expect(() => resolveDefaultStandardsPackage({ startDir })).toThrow('LIGHTSOUT_DEFAULT_STANDARDS');
+		// a different pack than the one asked for, looking correct throughout
+		expect(() => resolveDefaultStandardsPack({ startDir })).toThrow('LIGHTSOUT_DEFAULT_STANDARDS');
 	});
 });

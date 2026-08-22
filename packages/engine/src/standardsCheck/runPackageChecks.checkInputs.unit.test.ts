@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type FileTextInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
 import { runPackageChecks } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 
 /** One loaded package holding a single rule of the asked-for kind, plus the recorder of what it was handed. */
@@ -30,10 +30,10 @@ const loadOneRule = ({ inputKind }: { inputKind: StandardsInputKind }) => {
 		inputKind,
 		run,
 	};
-	const packages: LoadedStandardsPackage[] = [{ name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules: [rule] }];
+	const packs: LoadedStandardsPack[] = [{ name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules: [rule] }];
 	const states = new Map<string, ResolvedRuleState>([['a-rule', { severity: StandardsSeverity.Advisory, settings: {}, fromConfig: false }]]);
 
-	return { inputs, packages, states };
+	return { inputs, packs, states };
 };
 
 /** A repo holding one source file and one test file, checked by a rule that declared the test-file kind. */
@@ -84,9 +84,9 @@ const fileTextInput = ({ inputs }: { inputs: StandardsCheckInput[] }): FileTextI
 
 describe('runPackageChecks', () => {
 	test('hands a file-text rule both alias sources above a file — the package manifest and the tsconfig', async () => {
-		const { cwd, inputs, packages, states } = setupFileTextRun();
+		const { cwd, inputs, packs, states } = setupFileTextRun();
 
-		await runPackageChecks({ cwd, packages, states, channels: [] });
+		await runPackageChecks({ cwd, packs, states, channels: [] });
 
 		const input = fileTextInput({ inputs });
 
@@ -98,9 +98,9 @@ describe('runPackageChecks', () => {
 	});
 
 	test('probes for a manifest in every folder above a file, not the repo root alone', async () => {
-		const { cwd, inputs, packages, states } = setupFileTextRun();
+		const { cwd, inputs, packs, states } = setupFileTextRun();
 
-		await runPackageChecks({ cwd, packages, states, channels: [] });
+		await runPackageChecks({ cwd, packs, states, channels: [] });
 
 		const input = fileTextInput({ inputs });
 
@@ -113,9 +113,9 @@ describe('runPackageChecks', () => {
 	});
 
 	test('hands a test-file rule the test files and their text, and nothing the run read for another kind', async () => {
-		const { cwd, inputs, packages, states } = setupTestFileRun();
+		const { cwd, inputs, packs, states } = setupTestFileRun();
 
-		await runPackageChecks({ cwd, packages, states, channels: [] });
+		await runPackageChecks({ cwd, packs, states, channels: [] });
 
 		// a test-shape rule reaching a source file would be checking something its
 		// declared kind does not claim
@@ -128,9 +128,9 @@ describe('runPackageChecks', () => {
 	});
 
 	test('hands an import-graph rule the edges resolved among the repo files', async () => {
-		const { cwd, inputs, packages, states } = setupImportGraphRun();
+		const { cwd, inputs, packs, states } = setupImportGraphRun();
 
-		const { notes } = await runPackageChecks({ cwd, packages, states, channels: [] });
+		const { notes } = await runPackageChecks({ cwd, packs, states, channels: [] });
 
 		// an empty note list is what says the compiler resolved: the kind needs one,
 		// and a run without it skips the rule instead of building this

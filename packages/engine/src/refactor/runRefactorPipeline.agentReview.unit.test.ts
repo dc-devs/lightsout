@@ -1,10 +1,11 @@
 import { execSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runRefactorPipeline } from '#src/refactor/index.ts';
+import { resolveDefaultStandardsPack } from '#src/standardsPacks/index.ts';
 import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
@@ -25,6 +26,29 @@ const filesOffered = ({ prompt }: { prompt: string }) =>
 		.map((line) => line.slice(2));
 
 /**
+ * A one-rule standards pack under `standards/house`, so a run can be pointed at
+ * a pack the plugin does not ship. Its only rule is judgment-only (no
+ * `check.ts`), which is the half of a pack the batch review reads — and a pack
+ * that declares no check contributes no findings, so it is listed alongside the
+ * bundled pack rather than instead of it: something has to raise the finding the
+ * batch under review is built from.
+ */
+const writeHousePack = ({ dir }: { dir: string }) => {
+	const files: Record<string, string> = {
+		'lightsout-standards.json': '{ "name": "house", "formatVersion": 1 }\n',
+		'code/demo/document.md': '# Demo\n\nThe document the rule argues under.\n',
+		'code/demo/01-house-rule/rule.md': '---\nsummary: a rule only the house pack declares\n---\n\nThe rule prose.\n',
+	};
+
+	for (const [path, content] of Object.entries(files)) {
+		const absolutePath = join(dir, 'standards/house', path);
+
+		mkdirSync(dirname(absolutePath), { recursive: true });
+		writeFileSync(absolutePath, content);
+	}
+};
+
+/**
  * A refactor run over one multi-export finding per named folder — one batch
  * each — whose executor always resolves its batch's finding, leaving the
  * standards reviewer, answered by `onReview`, as the only thing under test.
@@ -33,12 +57,19 @@ const filesOffered = ({ prompt }: { prompt: string }) =>
  */
 const setupReviewedRun = async ({
 	folders = ['src'],
+	housePack = false,
 	onReview = () => reviewReport(),
 }: {
 	folders?: string[];
+	/** Plant a one-rule pack and name it in `standards-packs`, after the bundled pack. */
+	housePack?: boolean;
 	onReview?: (params: { ruleIds: string[]; files: string[] }) => string;
 } = {}) => {
-	const dir = setupConsumerRepo();
+	const dir = setupConsumerRepo(housePack ? { config: { 'standards-packs': [resolveDefaultStandardsPack(), 'standards/house'] } } : undefined);
+
+	if (housePack) {
+		writeHousePack({ dir });
+	}
 
 	for (const folder of folders) {
 		mkdirSync(join(dir, folder), { recursive: true });
@@ -180,6 +211,17 @@ describe('runRefactorPipeline agent review', () => {
 		// non-empty first, or two empty lists would agree about nothing
 		expect(reviewRuleIds[0]?.length ?? 0).toBeGreaterThan(0);
 		expect(reviewRuleIds[2]).toStrictEqual(reviewRuleIds[0]);
+	});
+
+	test('the judgment rules come from every pack the config names, not the bundled one alone', async () => {
+		const { dir, driver, config, reviewRuleIds } = await setupReviewedRun({ housePack: true });
+
+		await runRefactorPipeline({ cwd: dir, driver, config });
+
+		// a rule no shipped pack declares, so it can only have come from the root
+		// the config named — and the packs stack rather than replace each other
+		expect(reviewRuleIds[0]).toContain('house-rule');
+		expect(reviewRuleIds[0]?.length ?? 0).toBeGreaterThan(1);
 	});
 
 	test('with the agent review off, no reviewer is invoked and the run says so once', async () => {

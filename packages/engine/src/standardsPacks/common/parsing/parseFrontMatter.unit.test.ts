@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { parseFrontMatter } from '#src/standardsPackages/common/parsing/parseFrontMatter.ts';
+import { parseFrontMatter } from '#src/standardsPacks/common/parsing/parseFrontMatter.ts';
 
 describe('parseFrontMatter', () => {
 	test('splits a leading block into declarations and the prose that follows', () => {

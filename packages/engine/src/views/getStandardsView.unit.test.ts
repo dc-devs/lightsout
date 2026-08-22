@@ -7,7 +7,7 @@ import { writeStandardsSnapshot } from '#src/standardsCheck/index.ts';
 import { getStandardsView } from '#src/views/index.ts';
 import { seedRunDir } from '#tests/helpers/seedRunDir.ts';
 
-/** Write a set of package-relative files, creating the folders they need. */
+/** Write a set of pack-relative files, creating the folders they need. */
 const writeTree = async ({ dir, files }: { dir: string; files: Record<string, string> }) => {
 	for (const [rel, content] of Object.entries(files)) {
 		await mkdir(dirname(join(dir, rel)), { recursive: true });
@@ -15,12 +15,12 @@ const writeTree = async ({ dir, files }: { dir: string; files: Record<string, st
 	}
 };
 
-/** A standards package of somebody's own: one checked rule and one judgment-only rule. */
-const writeStandardsPackage = async () => {
-	const packagePath = await mkdtemp(join(tmpdir(), 'lightsout-view-standards-'));
+/** A standards pack of somebody's own: one checked rule and one judgment-only rule. */
+const writeStandardsPack = async () => {
+	const packPath = await mkdtemp(join(tmpdir(), 'lightsout-view-standards-'));
 
 	await writeTree({
-		dir: packagePath,
+		dir: packPath,
 		files: {
 			'lightsout-standards.json': '{ "name": "acme", "formatVersion": 1 }\n',
 			'code/house/document.md': '# House Style\n\nWhat this shop agrees on.\n',
@@ -35,11 +35,11 @@ const writeStandardsPackage = async () => {
 		},
 	});
 
-	return packagePath;
+	return packPath;
 };
 
-/** A repo on that package, optionally overriding one rule's state in its own config. */
-const seedStandardsRepo = async ({ overrides, packages }: { overrides?: Record<string, unknown>; packages?: string[] | false } = {}) => {
+/** A repo on that pack, optionally overriding one rule's state in its own config. */
+const seedStandardsRepo = async ({ overrides, packs }: { overrides?: Record<string, unknown>; packs?: string[] | false } = {}) => {
 	const cwd = await mkdtemp(join(tmpdir(), 'lightsout-view-repo-'));
 
 	await writeTree({
@@ -48,7 +48,7 @@ const seedStandardsRepo = async ({ overrides, packages }: { overrides?: Record<s
 			'src/loose.ts': 'export const loose = 1;\n',
 			'lightsout.config.json': JSON.stringify({
 				gates: { check: 'true', test: 'true', 'test-coverage': false },
-				'standards-packages': packages ?? [await writeStandardsPackage()],
+				'standards-packs': packs ?? [await writeStandardsPack()],
 				...(overrides ? { 'standards-checks': overrides } : {}),
 			}),
 		},
@@ -85,7 +85,7 @@ test('a repo with no config at all is described by the standards that ship with 
 	const cwd = await mkdtemp(join(tmpdir(), 'lightsout-view-bare-'));
 	const view = await getStandardsView({ cwd });
 
-	// the bundled package travels with the engine, so a repo that has configured
+	// the bundled pack travels with the engine, so a repo that has configured
 	// nothing still gets an honest account of what it is held to
 	expect(view.totals.rules > 0).toBe(true);
 	expect(view.rules.every((rule) => rule.doc.startsWith('lightsout-defaults: '))).toBe(true);
@@ -137,7 +137,7 @@ test('a rule row carries what the rule says, how this repo runs it, and how many
 	expect(view.totals).toStrictEqual({ rules: 2, checked: 1, judgment: 1, blocking: 2, advisory: 1, orphans: 0 });
 });
 
-test('a finding whose rule no package loads is counted as an orphan, and lands on no rule row', async () => {
+test('a finding whose rule no pack loads is counted as an orphan, and lands on no rule row', async () => {
 	const cwd = await seedStandardsRepo();
 
 	await writeStandardsSnapshot({
@@ -152,7 +152,7 @@ test('a finding whose rule no package loads is counted as an orphan, and lands o
 
 	const view = await getStandardsView({ cwd });
 
-	// a package removed or renamed since the scan leaves findings nothing explains
+	// a pack removed or renamed since the scan leaves findings nothing explains
 	expect(view.totals.orphans).toBe(1);
 	expect(view.rules.map((rule) => rule.findingCount)).toStrictEqual([1, 0]);
 	// the finding is still reported — hiding it would be a number the reader cannot reconcile
@@ -305,8 +305,8 @@ test('every history count and reason lands in its own column, on the rule it bel
 	});
 });
 
-test('a repo that declares no standards packages still reports the findings its last check left', async () => {
-	const cwd = await seedStandardsRepo({ packages: false });
+test('a repo that declares no standards packs still reports the findings its last check left', async () => {
+	const cwd = await seedStandardsRepo({ packs: false });
 
 	await writeStandardsSnapshot({
 		cwd,
@@ -326,15 +326,15 @@ test('a repo that declares no standards packages still reports the findings its 
 	expect(view.findings.map((entry) => entry.siteKey)).toStrictEqual(['house-loose-file:src/loose.ts', 'name:src/loose.ts']);
 });
 
-test('a declared standards package that cannot be loaded fails the view rather than describing half a repo', async () => {
-	const cwd = await seedStandardsRepo({ packages: ['./standards-that-were-never-installed'] });
+test('a declared standards pack that cannot be loaded fails the view rather than describing half a repo', async () => {
+	const cwd = await seedStandardsRepo({ packs: ['./standards-that-were-never-installed'] });
 
-	await expect(getStandardsView({ cwd })).rejects.toThrow(/standards package root file not found/);
+	await expect(getStandardsView({ cwd })).rejects.toThrow(/standards pack root file not found/);
 });
 
-test('a config naming a rule no package declares fails the view', async () => {
+test('a config naming a rule no pack declares fails the view', async () => {
 	const cwd = await seedStandardsRepo({ overrides: { 'house-loose-flie': 'off' } });
 
 	// the typo is caught where the valid ids are known, not silently ignored
-	await expect(getStandardsView({ cwd })).rejects.toThrow(/no loaded standards package declares/);
+	await expect(getStandardsView({ cwd })).rejects.toThrow(/no loaded standards pack declares/);
 });

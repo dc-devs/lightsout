@@ -6,44 +6,44 @@ import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { standardsHealthCommand } from '#src/cli/standardsHealthCommand.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { StandardsHealth } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 // Mocked Imports
 // -------------------------
-// Loading a package off disk and aggregating a repo's run history are other
+// Loading a pack off disk and aggregating a repo's run history are other
 // modules' entry points, each with its own tests. What this command owns is what
 // it hands them, that it renders the result, and how it ends.
 
 interface BuildStandardsHealthParams {
 	cwd: string;
-	packages: LoadedStandardsPackage[];
+	packs: LoadedStandardsPack[];
 }
 
 const mockBuildStandardsHealth = jest.fn<(params: BuildStandardsHealthParams) => Promise<StandardsHealth>>();
 
-interface ResolveStandardsPackagesParams {
+interface ResolveStandardsPacksParams {
 	cwd: string;
 	config?: LightsoutConfig;
 }
 
-const mockResolveStandardsPackages = jest.fn<(params: ResolveStandardsPackagesParams) => Promise<LoadedStandardsPackage[]>>();
+const mockResolveStandardsPacks = jest.fn<(params: ResolveStandardsPacksParams) => Promise<LoadedStandardsPack[]>>();
 
 jest.mock('#src/standardsCheck/index.ts', () => ({ buildStandardsHealth: (params: BuildStandardsHealthParams) => mockBuildStandardsHealth(params) }));
-jest.mock('#src/standardsPackages/index.ts', () => ({
-	resolveStandardsPackages: (params: ResolveStandardsPackagesParams) => mockResolveStandardsPackages(params),
+jest.mock('#src/standardsPacks/index.ts', () => ({
+	resolveStandardsPacks: (params: ResolveStandardsPacksParams) => mockResolveStandardsPacks(params),
 }));
 // -------------------------
 
-const loadedPackage: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules: [] };
+const loadedPack: LoadedStandardsPack = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules: [] };
 
 /** The command over a repo on disk — one holding the given config, or one holding none. */
 const setupCommand = ({ health, config }: { health?: StandardsHealth; config?: Record<string, unknown> } = {}) => {
 	const captured = captureCommandOutput();
 	const cwd = config === undefined ? mkdtempSync(join(tmpdir(), 'lightsout-test-')) : setupConsumerRepo({ git: false, config });
 
-	mockResolveStandardsPackages.mockResolvedValue([loadedPackage]);
+	mockResolveStandardsPacks.mockResolvedValue([loadedPack]);
 	mockBuildStandardsHealth.mockResolvedValue(
 		health ?? {
 			rules: [
@@ -90,31 +90,31 @@ describe('standardsHealthCommand', () => {
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test("the repo's own config decides which packages the report has rows for", async () => {
-		const { context, cwd } = setupCommand({ config: { 'standards-packages': ['standards/house-rules'] } });
+	test("the repo's own config decides which packs the report has rows for", async () => {
+		const { context, cwd } = setupCommand({ config: { 'standards-packs': ['standards/house-rules'] } });
 
 		await expect(standardsHealthCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockResolveStandardsPackages.mock.calls[0]?.[0]).toEqual(
-			expect.objectContaining({ cwd, config: expect.objectContaining({ 'standards-packages': ['standards/house-rules'] }) }),
+		expect(mockResolveStandardsPacks.mock.calls[0]?.[0]).toEqual(
+			expect.objectContaining({ cwd, config: expect.objectContaining({ 'standards-packs': ['standards/house-rules'] }) }),
 		);
-		// and the run history read is this repo's, beside those packages
-		expect(mockBuildStandardsHealth.mock.calls[0]?.[0]).toStrictEqual({ cwd, packages: [loadedPackage] });
+		// and the run history read is this repo's, beside those packs
+		expect(mockBuildStandardsHealth.mock.calls[0]?.[0]).toStrictEqual({ cwd, packs: [loadedPack] });
 	});
 
-	test('a repo with no config still gets an answer — the package lightsout ships, every rule at its default', async () => {
+	test('a repo with no config still gets an answer — the pack lightsout ships, every rule at its default', async () => {
 		const { context } = setupCommand();
 
 		await expect(standardsHealthCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockResolveStandardsPackages.mock.calls[0]?.[0]?.config).toBe(undefined);
+		expect(mockResolveStandardsPacks.mock.calls[0]?.[0]?.config).toBe(undefined);
 	});
 
-	test('packages that cannot be loaded stop the command rather than printing an empty report', async () => {
+	test('packs that cannot be loaded stop the command rather than printing an empty report', async () => {
 		const { context, logged, exitCodes } = setupCommand();
-		mockResolveStandardsPackages.mockRejectedValue(new Error('standards package "acme" could not be loaded'));
+		mockResolveStandardsPacks.mockRejectedValue(new Error('standards pack "acme" could not be loaded'));
 
-		await expect(standardsHealthCommand(context)).rejects.toThrow('standards package "acme" could not be loaded');
+		await expect(standardsHealthCommand(context)).rejects.toThrow('standards pack "acme" could not be loaded');
 
 		expect(logged).toStrictEqual([]);
 		expect(exitCodes).toStrictEqual([]);

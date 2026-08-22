@@ -12,7 +12,7 @@ const plainRepo: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test
 const monorepo: LightsoutConfig = {
 	...plainRepo,
 	'package-gates': { check: 'pnpm --filter {package} check', test: 'pnpm --filter {package} test' },
-	'standards-packages': false,
+	'standards-packs': false,
 };
 
 const idleDriver: Driver = { name: 'stub', invoke: async () => ({ text: '', exitCode: 0 }) };
@@ -73,8 +73,8 @@ describe('prepareRun', () => {
 		expect('error' in prepared && prepared.error).toContain('plan file not found');
 	});
 
-	test('a declared standards package that is missing is reported the same way', async () => {
-		const config: LightsoutConfig = { ...plainRepo, 'standards-packages': ['standards/ghost'] };
+	test('a declared standards pack that is missing is reported the same way', async () => {
+		const config: LightsoutConfig = { ...plainRepo, 'standards-packs': ['standards/ghost'] };
 		const { run, cwd } = await setupRun({ config });
 
 		write({ cwd, path: 'plan.md', content: '# Plan\n' });
@@ -82,7 +82,7 @@ describe('prepareRun', () => {
 		const prepared = await prepareRun({ run, cwd, config, packages: undefined });
 
 		// loading standards throws; the run has to end with a truthful manifest
-		expect('error' in prepared && prepared.error).toContain('standards package root file not found');
+		expect('error' in prepared && prepared.error).toContain('standards pack root file not found');
 	});
 
 	test('loads the standards the roles write against, announcing where the channels came from', async () => {

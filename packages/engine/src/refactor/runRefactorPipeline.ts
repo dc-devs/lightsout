@@ -10,7 +10,7 @@ import { runWorklistBatches } from '#src/refactor/runWorklistBatches.ts';
 import { seedResumeState } from '#src/refactor/seedResumeState.ts';
 import { withRunLock } from '#src/runState/index.ts';
 import { resolveStandards } from '#src/standards/index.ts';
-import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -85,9 +85,9 @@ const executeRefactor = async ({
 	// repo root manifest.
 	const { standards, testStandards, channels } = await resolveStandards({ cwd, config, packages: [] });
 	// Resolved once for the whole run: every batch's agent review reads the same
-	// judgment rules, and re-walking the package tree per batch would only invite
+	// judgment rules, and re-walking the pack tree per batch would only invite
 	// two batches to disagree about what the standards are.
-	const packages = await resolveStandardsPackages({ cwd, config });
+	const packs = await resolveStandardsPacks({ cwd, config });
 
 	if (!agentReview) {
 		run.progress('code checks only — the per-batch agent review is off for this run');
@@ -97,7 +97,7 @@ const executeRefactor = async ({
 		run,
 		driver,
 		worklist,
-		batchInputs: { packages, channels, standards, testStandards, agentReview },
+		batchInputs: { packs, channels, standards, testStandards, agentReview },
 		maxBatches,
 		declineStreak: seeded.declineStreak,
 	});

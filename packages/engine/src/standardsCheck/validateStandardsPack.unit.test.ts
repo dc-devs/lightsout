@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
-import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import { validateStandardsPack } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
 const bansTheBannedFile: StandardsCheckFunction = ({ input }) =>
@@ -73,12 +73,12 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPa
 });
 
 const validate = ({ rules, built }: { rules: LoadedStandardsRule[]; built?: true }) => {
-	const pkg: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, built, rootPath: '/packages/acme', documents: [], rules };
+	const pack: LoadedStandardsPack = { name: 'acme', formatVersion: 1, built, rootPath: '/packages/acme', documents: [], rules };
 
-	return validateStandardsPackage({ pkg });
+	return validateStandardsPack({ pack });
 };
 
-describe('validateStandardsPackage', () => {
+describe('validateStandardsPack', () => {
 	test('a check that flags its fail fixture and leaves its pass fixture alone reports no problem', async () => {
 		const { fixturesPath } = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
 
@@ -110,7 +110,7 @@ describe('validateStandardsPackage', () => {
 		expect(problems).toStrictEqual(['no-banned-file: the pass fixture produced 1 finding(s) — the check flags code the rule allows']);
 	});
 
-	test('a built package is one problem about the package, not a missing pair charged to every rule it holds', async () => {
+	test('a built pack is one problem about the pack, not a missing pair charged to every rule it holds', async () => {
 		const { fixturesPath } = setupWithoutFixtures();
 
 		const { problems, notes } = await validate({
@@ -124,7 +124,7 @@ describe('validateStandardsPackage', () => {
 		// two rules, both stripped, and neither named: the build took the fixtures,
 		// so there is nothing here either author could have done differently
 		expect(problems).toStrictEqual([
-			'acme is a built package — its fixtures were left behind when it was built, so there is nothing here to validate. Point --package at the authored source.',
+			'acme is a built pack — its fixtures were left behind when it was built, so there is nothing here to validate. Point --pack at the authored source.',
 		]);
 		expect(notes).toStrictEqual([]);
 	});
@@ -219,7 +219,7 @@ describe('validateStandardsPackage', () => {
 		expect(notes).toStrictEqual([]);
 	});
 
-	test('validates every rule in the package, whatever channel it sits on', async () => {
+	test('validates every rule in the pack, whatever channel it sits on', async () => {
 		const { catching, blind } = setupTwoRuleFixtures();
 
 		const { problems } = await validate({

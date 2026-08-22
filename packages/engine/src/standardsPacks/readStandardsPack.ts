@@ -2,15 +2,15 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { StandardsPackageRoot, StandardsSet } from '#src/contracts/index.ts';
-import { parseDocumentFolder } from '#src/standardsPackages/common/parsing/parseDocumentFolder.ts';
-import type { LoadedStandardsDocument } from '#src/standardsPackages/common/types/LoadedStandardsDocument.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/common/types/LoadedStandardsPackage.ts';
-import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
-import { formatSchemaIssues } from '#src/standardsPackages/common/utils/formatSchemaIssues.ts';
+import { parseDocumentFolder } from '#src/standardsPacks/common/parsing/parseDocumentFolder.ts';
+import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
+import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchemaIssues.ts';
 
 interface Params {
-	/** Absolute package root. */
-	packagePath: string;
+	/** Absolute pack root. */
+	packPath: string;
 }
 
 interface WalkParams {
@@ -27,7 +27,7 @@ interface WalkParams {
  * subtree stops there — everything below it is that document's rule folders.
  * The marker is matched by name alone, so a folder that got the name wrong is
  * reported as an unreadable document rather than silently walked past.
- * Folders with no marker file (a package's own `common/` helpers, grouping
+ * Folders with no marker file (a pack's own `common/` helpers, grouping
  * folders) are simply passed through.
  */
 const walk = async ({ folderPath, documentPath, set, problems, documents, rules }: WalkParams) => {
@@ -56,7 +56,7 @@ const walk = async ({ folderPath, documentPath, set, problems, documents, rules 
 	}
 };
 
-/** Package-wide id collisions — two folders claiming one rule id would make config overrides and site keys ambiguous. */
+/** Pack-wide id collisions — two folders claiming one rule id would make config overrides and site keys ambiguous. */
 const findDuplicateIds = ({ rules }: { rules: LoadedStandardsRule[] }) => {
 	const owners = new Map<string, string>();
 	const duplicates: string[] = [];
@@ -75,7 +75,7 @@ const findDuplicateIds = ({ rules }: { rules: LoadedStandardsRule[] }) => {
 };
 
 /**
- * Read a standards package off disk: its root file, its `code/` and `tests/`
+ * Read a standards pack off disk: its root file, its `code/` and `tests/`
  * document trees, and every rule folder under them.
  *
  * Load-time validation is structure and the honesty rule only — whether each
@@ -83,18 +83,18 @@ const findDuplicateIds = ({ rules }: { rules: LoadedStandardsRule[] }) => {
  * catches what it claims is a different question, answered by
  * `lightsout standards-validate` against the rule's own fixtures.
  *
- * Every problem found across the whole walk is thrown together, so a package
+ * Every problem found across the whole walk is thrown together, so a pack
  * author fixes one list rather than replaying load-fix-load per fault.
  *
- * @param packagePath - absolute package root (the folder holding lightsout-standards.json)
+ * @param packPath - absolute pack root (the folder holding lightsout-standards.json)
  * @throws {Error} When the root file is missing or invalid, or the tree has any structural or honesty problem.
  */
-export const readStandardsPackage = async ({ packagePath }: Params): Promise<LoadedStandardsPackage> => {
-	const rootFilePath = join(packagePath, 'lightsout-standards.json');
+export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedStandardsPack> => {
+	const rootFilePath = join(packPath, 'lightsout-standards.json');
 	const rootText = await readFile(rootFilePath, 'utf8').catch(() => undefined);
 
 	if (rootText === undefined) {
-		throw new Error(`standards package root file not found: ${rootFilePath}`);
+		throw new Error(`standards pack root file not found: ${rootFilePath}`);
 	}
 
 	let rootData: unknown;
@@ -102,13 +102,13 @@ export const readStandardsPackage = async ({ packagePath }: Params): Promise<Loa
 	try {
 		rootData = JSON.parse(rootText);
 	} catch (error) {
-		throw new Error(`standards package root file is not valid JSON (${rootFilePath}): ${messageOf({ error })}`);
+		throw new Error(`standards pack root file is not valid JSON (${rootFilePath}): ${messageOf({ error })}`);
 	}
 
 	const root = StandardsPackageRoot.safeParse(rootData);
 
 	if (!root.success) {
-		throw new Error(`standards package root file is invalid (${rootFilePath}): ${formatSchemaIssues({ issues: root.error.issues, subject: 'root file' })}`);
+		throw new Error(`standards pack root file is invalid (${rootFilePath}): ${formatSchemaIssues({ issues: root.error.issues, subject: 'root file' })}`);
 	}
 
 	const problems: string[] = [];
@@ -116,24 +116,24 @@ export const readStandardsPackage = async ({ packagePath }: Params): Promise<Loa
 	const rules: LoadedStandardsRule[] = [];
 
 	for (const set of [StandardsSet.Code, StandardsSet.Tests]) {
-		await walk({ folderPath: join(packagePath, set), documentPath: set, set, problems, documents, rules });
+		await walk({ folderPath: join(packPath, set), documentPath: set, set, problems, documents, rules });
 	}
 
 	if (documents.length === 0) {
-		problems.push('package declares no documents — code/ and tests/ hold no folder with a document.md');
+		problems.push('pack declares no documents — code/ and tests/ hold no folder with a document.md');
 	}
 
 	problems.push(...findDuplicateIds({ rules }));
 
 	if (problems.length > 0) {
-		throw new Error(`standards package failed to load (${packagePath}):\n${problems.map((problem) => `- ${problem}`).join('\n')}`);
+		throw new Error(`standards pack failed to load (${packPath}):\n${problems.map((problem) => `- ${problem}`).join('\n')}`);
 	}
 
 	return {
 		name: root.data.name,
 		formatVersion: root.data.formatVersion,
 		built: root.data.built,
-		rootPath: packagePath,
+		rootPath: packPath,
 		documents,
 		rules,
 	};

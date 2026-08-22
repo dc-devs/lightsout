@@ -2,16 +2,16 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { StandardsSet } from '#src/contracts/index.ts';
-import { parseDeclaration } from '#src/standardsPackages/common/parsing/parseDeclaration.ts';
-import { parseRuleFolder } from '#src/standardsPackages/common/parsing/parseRuleFolder.ts';
-import type { LoadedStandardsDocument } from '#src/standardsPackages/common/types/LoadedStandardsDocument.ts';
-import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
-import { hasFile } from '#src/standardsPackages/common/utils/hasFile.ts';
+import { parseDeclaration } from '#src/standardsPacks/common/parsing/parseDeclaration.ts';
+import { parseRuleFolder } from '#src/standardsPacks/common/parsing/parseRuleFolder.ts';
+import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
+import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
 
 interface Params {
 	/** Absolute document folder path (contains document.md). */
 	folderPath: string;
-	/** Package-relative path of the folder. */
+	/** Pack-relative path of the folder. */
 	documentPath: string;
 	set: StandardsSet;
 	problems: string[];
@@ -53,7 +53,7 @@ const listRuleFolders = async ({ folderPath }: { folderPath: string }) => {
  * in play while the document that argues for it is not.
  *
  * @param folderPath - absolute path of the folder holding document.md
- * @param documentPath - that folder's package-relative path
+ * @param documentPath - that folder's pack-relative path
  * @param set - which document tree the folder sits in
  * @param problems - sink the loader throws as one batch
  */

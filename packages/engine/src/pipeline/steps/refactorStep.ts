@@ -7,7 +7,7 @@ import { runExecutorPass } from '#src/pipeline/steps/runExecutorPass.ts';
 import { standardsWorkList } from '#src/pipeline/steps/standardsWorkList.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import { type LoadedStandardsPackage, resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { type LoadedStandardsPack, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 const maxRefactorPasses = 3;
 
@@ -16,11 +16,11 @@ const maxRefactorPasses = 3;
  * A review that could not run narrates why and contributes nothing — the
  * machine gate is the real gate, and it must not wait on an opinion.
  */
-const reviewAdvisories = async ({ run, packages, channels }: { run: PipelineRun; packages: LoadedStandardsPackage[]; channels: string[] }) => {
+const reviewAdvisories = async ({ run, packs, channels }: { run: PipelineRun; packs: LoadedStandardsPack[]; channels: string[] }) => {
 	const review = await runStandardsReview({
 		cwd: run.cwd,
 		driver: run.driver,
-		packages,
+		packs,
 		channels,
 		files: sourceFiles({ run }),
 		timeoutMs: run.agentTimeoutMs,
@@ -40,9 +40,9 @@ const reviewAdvisories = async ({ run, packages, channels }: { run: PipelineRun;
  * read beside the machine checks and their findings join the advisory stream —
  * they are judgment handed to a judge, never work the gate can hold a run on.
  */
-const readStandardsGate = async ({ run, packages, channels }: { run: PipelineRun; packages: LoadedStandardsPackage[]; channels: string[] }) => {
+const readStandardsGate = async ({ run, packs, channels }: { run: PipelineRun; packs: LoadedStandardsPack[]; channels: string[] }) => {
 	const check = await standardsWorkList({ run });
-	const advisories = [...check.advisories, ...(await reviewAdvisories({ run, packages, channels }))];
+	const advisories = [...check.advisories, ...(await reviewAdvisories({ run, packs, channels }))];
 
 	if (check.workList.length > 0 || advisories.length > 0) {
 		run.progress(`standards gate: ${check.workList.length} blocking + ${advisories.length} advisory on changed files`);
@@ -123,12 +123,12 @@ const readFinalGateStop = async ({ run, record, lastReport }: { run: PipelineRun
  * gate must not be able to change its mind about the rules between passes.
  */
 const resolveReviewStandards = async ({ run }: { run: PipelineRun }) => {
-	const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
+	const packs = await resolveStandardsPacks({ cwd: run.cwd, config: run.config });
 	const channels =
 		run.config['standards-channels'] ??
 		(await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config['packages-dir'] ?? 'packages', packages: run.current().packages }));
 
-	return { packages, channels };
+	return { packs, channels };
 };
 
 interface Params {
@@ -157,12 +157,12 @@ export const refactorStep = ({ run, gitPrefix, planContent, overviewContent, sta
 		// pass that changes files.
 		let lastDeclined: string | undefined;
 
-		const { packages, channels } = await resolveReviewStandards({ run });
+		const { packs, channels } = await resolveReviewStandards({ run });
 
 		for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
 			await run.setStep({ record });
 
-			const { workList, advisories } = await readStandardsGate({ run, packages, channels });
+			const { workList, advisories } = await readStandardsGate({ run, packs, channels });
 
 			run.progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 

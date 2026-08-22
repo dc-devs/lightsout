@@ -4,12 +4,12 @@ import { Permissions, type StandardsFinding, StandardsReviewReport, StandardsSev
 import type { Driver } from '#src/drivers/index.ts';
 import { invokeAgentWithContract } from '#src/invoke/index.ts';
 import { createAgentHeartbeat } from '#src/standardsCheck/common/utils/createAgentHeartbeat.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
 	driver: Driver;
-	packages: LoadedStandardsPackage[];
+	packs: LoadedStandardsPack[];
 	/** Active framework channels — judgment rules on inactive channels are not reviewed. */
 	channels: string[];
 	/** Files in scope — changed files at the gate, batch files in refactor, the path scope in the CLI. */
@@ -23,15 +23,15 @@ interface Params {
  * declared judgment-only whose document is in play for this repo. Channel
  * gating is all-or-nothing per document, exactly as it is for the checks.
  */
-const collectJudgmentRules = ({ packages, channels }: { packages: LoadedStandardsPackage[]; channels: string[] }) =>
-	packages
-		.flatMap((pkg) => pkg.rules)
+const collectJudgmentRules = ({ packs, channels }: { packs: LoadedStandardsPack[]; channels: string[] }) =>
+	packs
+		.flatMap((pack) => pack.rules)
 		.filter((rule) => !rule.checked && (rule.channel === 'base' || channels.includes(rule.channel)))
 		.map((rule) => ({ id: rule.id, documentPath: rule.documentPath, prose: rule.prose }));
 
 /**
  * The agent's report as engine findings: advisory by construction, sited by the
- * engine, and only for rules a loaded package actually declares. Everything
+ * engine, and only for rules a loaded pack actually declares. Everything
  * dropped is counted and stated — a silent drop would read as a clean review.
  */
 const toFindings = ({ reported, known }: { reported: StandardsReviewReport['findings']; known: Set<string> }) => {
@@ -88,7 +88,7 @@ const toFindings = ({ reported, known }: { reported: StandardsReviewReport['find
  * reported, and a repo whose harness is absent is not a repo in violation.
  *
  * Site keys are derived here rather than asked for, and a finding naming a rule
- * no loaded package declares is dropped — an id an agent invented must not be
+ * no loaded pack declares is dropped — an id an agent invented must not be
  * able to enter the findings stream.
  *
  * @param files - repo-relative files in scope; an empty list reviews nothing
@@ -97,13 +97,13 @@ const toFindings = ({ reported, known }: { reported: StandardsReviewReport['find
 export const runStandardsReview = async ({
 	cwd,
 	driver,
-	packages,
+	packs,
 	channels,
 	files,
 	timeoutMs,
 	onProgress,
 }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
-	const rules = collectJudgmentRules({ packages, channels });
+	const rules = collectJudgmentRules({ packs, channels });
 
 	// Nothing to read, or nothing to read it against: no agent is spent saying so.
 	if (rules.length === 0 || files.length === 0) {

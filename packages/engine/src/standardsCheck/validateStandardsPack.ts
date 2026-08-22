@@ -9,10 +9,10 @@ import { type StandardsCheckFunction, StandardsInputKind } from '#src/contracts/
 import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
 import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
 import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 
 interface Params {
-	pkg: LoadedStandardsPackage;
+	pack: LoadedStandardsPack;
 }
 
 /**
@@ -30,7 +30,7 @@ type FixtureSide = (typeof fixtureSides)[number];
  * pulling the whole ~8MB compiler into the shipped program — the cost the
  * engine borrows the consumer's compiler to avoid. An install that has none
  * (the plugin without a TypeScript beside it) simply cannot validate those
- * rules, which is a note, not a fault in the package.
+ * rules, which is a note, not a fault in the pack.
  */
 const getEngineTypescript = () => {
 	let compiler: typeof ts | undefined;
@@ -47,9 +47,9 @@ const getEngineTypescript = () => {
 };
 
 /**
- * The fixture sides a rule fails to ship. Loading accepts a package without
- * them — a shipped package carries no evidence, the way a bundle carries no
- * tests — so this is where the pair is demanded, of the person authoring it.
+ * The fixture sides a rule fails to ship. Loading accepts a pack without them —
+ * a shipped pack carries no evidence, the way a bundle carries no tests — so
+ * this is where the pair is demanded, of the person authoring it.
  */
 const missingFixtureSides = async ({ fixturesPath }: { fixturesPath: string }) => {
 	const missing: FixtureSide[] = [];
@@ -89,7 +89,7 @@ const checkFixture = async ({
 		tests: files.filter((file) => isTestFile({ path: file })),
 		files,
 		referenceFiles: files,
-		// A fixture side is a miniature repo of its own; it declares no package.
+		// A fixture side is a miniature repo of its own; it declares no pack.
 		standardsPackages: [],
 		packagesDir: 'packages',
 		settings: rule.defaultSettings,
@@ -109,9 +109,9 @@ const checkFixture = async ({
 };
 
 /**
- * Run every check in a package against its own fixtures.
+ * Run every check in a pack against its own fixtures.
  *
- * This is the question load time deliberately does not ask. Loading a package
+ * This is the question load time deliberately does not ask. Loading a pack
  * validates its structure and its honesty — that a rule claiming a check ships
  * one — because those are what break at run time. Whether the check catches
  * what the rule's prose describes is authoring work, answered on demand by
@@ -123,30 +123,30 @@ const checkFixture = async ({
  * exists to parse with. Channels are ignored — authoring covers every channel,
  * whatever the machine doing the authoring happens to run.
  */
-export const validateStandardsPackage = async ({ pkg }: Params): Promise<{ problems: string[]; notes: string[] }> => {
-	// A built package was stripped of every fixture on the way out, so each of
-	// its rules would report the same two missing sides — hundreds of faults
-	// standing for one fact, and none of them the author's to fix. The package
-	// says which it is, rather than this inferring it from the absence: an
-	// authored package that genuinely ships no fixtures yet is a real authoring
-	// gap, and it has to keep reading as one.
-	if (pkg.built) {
+export const validateStandardsPack = async ({ pack }: Params): Promise<{ problems: string[]; notes: string[] }> => {
+	// A built pack was stripped of every fixture on the way out, so each of its
+	// rules would report the same two missing sides — hundreds of faults standing
+	// for one fact, and none of them the author's to fix. The pack says which it
+	// is, rather than this inferring it from the absence: an authored pack that
+	// genuinely ships no fixtures yet is a real authoring gap, and it has to keep
+	// reading as one.
+	if (pack.built) {
 		return {
 			problems: [
-				`${pkg.name} is a built package — its fixtures were left behind when it was built, so there is nothing here to validate. Point --package at the authored source.`,
+				`${pack.name} is a built pack — its fixtures were left behind when it was built, so there is nothing here to validate. Point --pack at the authored source.`,
 			],
 			notes: [],
 		};
 	}
 
-	// Resolving TypeScript means loading a multi-megabyte module; a package whose
+	// Resolving TypeScript means loading a multi-megabyte module; a pack whose
 	// rules never ask for a parsed tree should not pay for it.
-	const hasParsingRule = pkg.rules.some((rule) => rule.inputKind !== undefined && typescriptInputKinds.has(rule.inputKind));
+	const hasParsingRule = pack.rules.some((rule) => rule.inputKind !== undefined && typescriptInputKinds.has(rule.inputKind));
 	const compiler = hasParsingRule ? getEngineTypescript() : undefined;
 	const problems: string[] = [];
 	const notes: string[] = [];
 
-	for (const rule of pkg.rules) {
+	for (const rule of pack.rules) {
 		const { run, inputKind } = rule;
 		const missing = await missingFixtureSides({ fixturesPath: rule.fixturesPath });
 

@@ -4,10 +4,10 @@ import { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { StandardsCheckModule, StandardsSet } from '#src/contracts/index.ts';
 import { StandardsSeverity } from '#src/contracts/index.ts';
-import { parseDeclaration } from '#src/standardsPackages/common/parsing/parseDeclaration.ts';
-import type { LoadedStandardsRule } from '#src/standardsPackages/common/types/LoadedStandardsRule.ts';
-import { hasFile } from '#src/standardsPackages/common/utils/hasFile.ts';
-import { importCheckModule } from '#src/standardsPackages/common/utils/importCheckModule.ts';
+import { parseDeclaration } from '#src/standardsPacks/common/parsing/parseDeclaration.ts';
+import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
+import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
+import { importCheckModule } from '#src/standardsPacks/common/utils/importCheckModule.ts';
 
 interface Params {
 	/** Absolute rule folder path. */
@@ -43,13 +43,13 @@ const getRuleDeclaration = async ({ folderPath, rulePath, found }: { folderPath:
  * Read one rule folder — its id, its declaration, its prose, and its check.
  *
  * Every structural and honesty problem is pushed to `problems` rather than
- * thrown, so one load reports every fault in the package at once. A rule with
+ * thrown, so one load reports every fault in the pack at once. A rule with
  * any problem is dropped whole: a partial rule would be a check that silently
  * stopped running, or prose that silently stopped being injected.
  *
  * @param folderPath - absolute path of the `<NN>-<rule-id>` folder
  * @param set - which document tree the rule belongs to
- * @param documentPath - package-relative path of the owning document folder
+ * @param documentPath - pack-relative path of the owning document folder
  * @param problems - sink the loader throws as one batch
  */
 export const parseRuleFolder = async ({ folderPath, set, documentPath, problems }: Params): Promise<LoadedStandardsRule | undefined> => {
@@ -74,7 +74,7 @@ export const parseRuleFolder = async ({ folderPath, set, documentPath, problems 
 		found.push(`${rulePath}: ships a check.ts but does not declare checked: true`);
 	}
 
-	// Recorded, never required: a shipped package may carry rules without the
+	// Recorded, never required: a shipped pack may carry rules without the
 	// fixtures that proved them, the way a bundle ships without its tests.
 	// `standards-validate` is where the pair is demanded.
 	const fixturesPath = join(folderPath, 'fixtures');

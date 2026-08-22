@@ -1,14 +1,14 @@
 import { StandardsSet } from '#src/contracts/index.ts';
-import type { LoadedStandardsDocument } from '#src/standardsPackages/common/types/LoadedStandardsDocument.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/common/types/LoadedStandardsPackage.ts';
+import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 
 interface Params {
-	pkg: LoadedStandardsPackage;
+	pack: LoadedStandardsPack;
 	/** Active framework channels; base documents always apply. */
 	channels: string[];
 }
 
-/** Lexicographic by package-relative path — assembly order within one channel group. Comparator shape is the caller's. */
+/** Lexicographic by pack-relative path — assembly order within one channel group. Comparator shape is the caller's. */
 const byPath = (left: LoadedStandardsDocument, right: LoadedStandardsDocument) => (left.path === right.path ? 0 : left.path > right.path ? 1 : -1);
 
 /** A document as an agent reads it: a header naming where it came from, its intro, then its rules in folder order. */
@@ -19,26 +19,26 @@ const renderDocument = ({ name, document, proseById }: { name: string; document:
 };
 
 /**
- * Assemble a package's documents for inlining into agent invocations — done at
+ * Assemble a pack's documents for inlining into agent invocations — done at
  * load time, from the rule folders themselves, so there is no pre-built copy
  * anywhere that can drift from the prose it was built from.
  *
  * Base-channel documents come first, then each active channel's in the order
- * given; within a group, documents sort by their package-relative path. A set
+ * given; within a group, documents sort by their pack-relative path. A set
  * with nothing in play is absent rather than empty.
  *
- * @param pkg - the loaded package
+ * @param pack - the loaded pack
  * @param channels - framework channels active for the repo being worked on
  */
-export const buildStandardsDocuments = ({ pkg, channels }: Params): { code?: string; tests?: string } => {
-	const proseById = new Map<string, string>(pkg.rules.map((rule) => [rule.id, rule.prose]));
+export const buildStandardsDocuments = ({ pack, channels }: Params): { code?: string; tests?: string } => {
+	const proseById = new Map<string, string>(pack.rules.map((rule) => [rule.id, rule.prose]));
 
 	const renderSet = ({ set }: { set: StandardsSet }) => {
-		const inSet = pkg.documents.filter((document) => document.set === set);
+		const inSet = pack.documents.filter((document) => document.set === set);
 		const inChannel = ({ channel }: { channel: string }) => inSet.filter((document) => document.channel === channel).sort(byPath);
 		const ordered = [...inChannel({ channel: 'base' }), ...channels.flatMap((channel) => inChannel({ channel }))];
 
-		return ordered.length === 0 ? undefined : ordered.map((document) => renderDocument({ name: pkg.name, document, proseById })).join('\n\n');
+		return ordered.length === 0 ? undefined : ordered.map((document) => renderDocument({ name: pack.name, document, proseById })).join('\n\n');
 	};
 
 	const code = renderSet({ set: StandardsSet.Code });

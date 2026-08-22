@@ -233,9 +233,9 @@ describe('standardsCheckCommand', () => {
 
 	test('a ledger that cannot be built stops the command before any check runs', async () => {
 		const { context, exitCodes } = setupCheck();
-		mockListStandardsRules.mockRejectedValue(new Error('standards package "acme" could not be loaded'));
+		mockListStandardsRules.mockRejectedValue(new Error('standards pack "acme" could not be loaded'));
 
-		await expect(standardsCheckCommand(context)).rejects.toThrow('standards package "acme" could not be loaded');
+		await expect(standardsCheckCommand(context)).rejects.toThrow('standards pack "acme" could not be loaded');
 
 		// a repo whose configured packages cannot load must not half-run: no check,
 		// and no exit code claiming the repo came back clean

@@ -247,7 +247,7 @@ test('implementCommand: a repo that declared no opt-ins gets no lines for them �
 	// an unset coverage gate and an unset standards list read as two different
 	// silences, and the banner says which is which
 	expect(logged).toContain('  gates (root): check=[true] test=[true] coverage=[off (explicit)]');
-	expect(logged).toContain('  standards packages: lightsout-defaults (none configured — set to false to disable, or list package roots)');
+	expect(logged).toContain('  standards packs: lightsout-defaults (none configured — set to false to disable, or list pack roots)');
 	expect(logged).toContain('  timeouts: agent 60m · supervisor 15m');
 	expect(logged.some((line) => /^ {2}(generate|agent commands|generated|format|gates \((root, opt-in|per package)\))/.test(line))).toBe(false);
 	expect(exitCodes).toStrictEqual([1]);
@@ -280,12 +280,34 @@ test('implementCommand: a command entry that only names a model keeps the global
 	expect(logged).toContain('  harness: claude-code · model: implement-model · effort: harness default · permissions: write');
 });
 
-test('implementCommand: standards packages turned off explicitly say so, rather than reading as the unconfigured default', async () => {
-	const { context, logged } = setupImplement({ args: ['--plan', 'ghost.md'], config: { 'standards-packages': false } });
+test('implementCommand: standards packs turned off explicitly say so, rather than reading as the unconfigured default', async () => {
+	const { context, logged } = setupImplement({ args: ['--plan', 'ghost.md'], config: { 'standards-packs': false } });
 
 	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
 
-	expect(logged).toContain('  standards packages: none (explicit)');
+	expect(logged).toContain('  standards packs: none (explicit)');
+});
+
+test('implementCommand: configured pack roots ride the banner verbatim, in the order the config declared them', async () => {
+	const { context, logged } = setupImplement({
+		args: ['--plan', 'ghost.md'],
+		config: { 'standards-packs': ['standards/house', '/opt/acme-standards'] },
+	});
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	// the banner is what a reader checks the run against, so the roots are
+	// echoed exactly as configured — neither reordered nor resolved to absolute
+	expect(logged).toContain('  standards packs: standards/house, /opt/acme-standards');
+});
+
+test('implementCommand: an empty pack list is still a configured list — the banner never falls back to the defaults wording', async () => {
+	const { context, logged } = setupImplement({ args: ['--plan', 'ghost.md'], config: { 'standards-packs': [] } });
+
+	await expect(implementCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(logged).toContain('  standards packs: ');
+	expect(logged.some((line) => line.includes('lightsout-defaults'))).toBe(false);
 });
 
 test('implementCommand: a finished run ends on its report card — the plan it ran, its timings, and where the evidence landed', async () => {

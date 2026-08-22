@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import type { LoadedStandardsDocument, LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
-import { buildStandardsDocuments } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsDocument, LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { buildStandardsDocuments } from '#src/standardsPacks/index.ts';
 
 const buildRule = ({ id, prose, channel = 'base' }: { id: string; prose: string; channel?: string }): LoadedStandardsRule => ({
 	id,
@@ -29,8 +29,8 @@ const buildDocument = ({
 	channel?: string;
 }): LoadedStandardsDocument => ({ set, path, channel, intro, ruleIds });
 
-/** A package with a base and a react code document, plus one tests document. */
-const setupPackage = (): LoadedStandardsPackage => ({
+/** A pack with a base and a react code document, plus one tests document. */
+const setupPack = (): LoadedStandardsPack => ({
 	name: 'lightsout defaults',
 	formatVersion: 1,
 	rootPath: '/pkg',
@@ -53,11 +53,11 @@ const setupPackage = (): LoadedStandardsPackage => ({
 
 describe('buildStandardsDocuments', () => {
 	test('assembles each document as a header, its intro, then its rule prose in order', () => {
-		const pkg = setupPackage();
+		const pack = setupPack();
 
-		const { code, tests } = buildStandardsDocuments({ pkg, channels: [] });
+		const { code, tests } = buildStandardsDocuments({ pack, channels: [] });
 
-		// the header names the package and the document folder it came from
+		// the header names the pack and the document folder it came from
 		expect(code).toContain('<!-- lightsout defaults: code/architecture -->\n# Architecture\n\nA concept earns its folder.');
 		// rule prose follows the intro in ruleIds order, joined by a blank line
 		expect(code).toContain('<!-- lightsout defaults: code/style/patterns -->\n# Patterns\n\nUse arrow functions.\n\nDefault to functions.');
@@ -70,9 +70,9 @@ describe('buildStandardsDocuments', () => {
 	});
 
 	test('omits documents whose channel is not active, and orders active channels after the base ones', () => {
-		const pkg = setupPackage();
+		const pack = setupPack();
 
-		const { code } = buildStandardsDocuments({ pkg, channels: ['tanstack', 'react'] });
+		const { code } = buildStandardsDocuments({ pack, channels: ['tanstack', 'react'] });
 		const paths = (code ?? '').split('\n').filter((line) => line.startsWith('<!--'));
 
 		// base documents first in path order, then each active channel in the order given
@@ -83,14 +83,14 @@ describe('buildStandardsDocuments', () => {
 			'<!-- lightsout defaults: code/frameworks/react -->',
 		]);
 		// an inactive channel's prose is not injected at all
-		expect(buildStandardsDocuments({ pkg, channels: ['react'] }).code).not.toContain('Routes are file-based.');
+		expect(buildStandardsDocuments({ pack, channels: ['react'] }).code).not.toContain('Routes are file-based.');
 	});
 
 	test('leaves a set out entirely when no document is in play for it', () => {
-		const pkg = setupPackage();
-		const codeOnly: LoadedStandardsPackage = { ...pkg, documents: pkg.documents.filter((document) => document.set === 'code') };
+		const pack = setupPack();
+		const codeOnly: LoadedStandardsPack = { ...pack, documents: pack.documents.filter((document) => document.set === 'code') };
 
-		const assembled = buildStandardsDocuments({ pkg: codeOnly, channels: [] });
+		const assembled = buildStandardsDocuments({ pack: codeOnly, channels: [] });
 
 		// absent, not an empty string — nothing to inline is not the same as inlining nothing
 		expect(assembled.tests).toBe(undefined);
@@ -98,10 +98,10 @@ describe('buildStandardsDocuments', () => {
 	});
 
 	test('leaves the code set out when only the tests set has a document in play', () => {
-		const pkg = setupPackage();
-		const testsOnly: LoadedStandardsPackage = { ...pkg, documents: pkg.documents.filter((document) => document.set === 'tests') };
+		const pack = setupPack();
+		const testsOnly: LoadedStandardsPack = { ...pack, documents: pack.documents.filter((document) => document.set === 'tests') };
 
-		const assembled = buildStandardsDocuments({ pkg: testsOnly, channels: [] });
+		const assembled = buildStandardsDocuments({ pack: testsOnly, channels: [] });
 
 		expect(assembled.code).toBe(undefined);
 		expect('code' in assembled).toBeFalsy();
@@ -109,9 +109,9 @@ describe('buildStandardsDocuments', () => {
 	});
 
 	test('sorts documents by path and keeps two documents sharing a path in the order given', () => {
-		const pkg = setupPackage();
-		const scrambled: LoadedStandardsPackage = {
-			...pkg,
+		const pack = setupPack();
+		const scrambled: LoadedStandardsPack = {
+			...pack,
 			documents: [
 				buildDocument({ path: 'code/b', intro: '# B', ruleIds: ['functions'] }),
 				buildDocument({ path: 'code/a', intro: '# A', ruleIds: ['classes'] }),
@@ -119,7 +119,7 @@ describe('buildStandardsDocuments', () => {
 			],
 		};
 
-		const { code } = buildStandardsDocuments({ pkg: scrambled, channels: [] });
+		const { code } = buildStandardsDocuments({ pack: scrambled, channels: [] });
 
 		// 'code/a' moves ahead of both 'code/b' documents; the tied pair holds its original order
 		expect(code).toBe(
@@ -127,28 +127,28 @@ describe('buildStandardsDocuments', () => {
 		);
 	});
 
-	test('skips a rule id the package has no rule for rather than leaving a gap', () => {
-		const pkg = setupPackage();
-		const dangling: LoadedStandardsPackage = {
-			...pkg,
+	test('skips a rule id the pack has no rule for rather than leaving a gap', () => {
+		const pack = setupPack();
+		const dangling: LoadedStandardsPack = {
+			...pack,
 			documents: [buildDocument({ path: 'code/dangling', intro: '# Dangling', ruleIds: ['missing', 'graduation'] })],
 		};
 
-		const { code } = buildStandardsDocuments({ pkg: dangling, channels: [] });
+		const { code } = buildStandardsDocuments({ pack: dangling, channels: [] });
 
 		// the unknown id contributes nothing — no blank line, no placeholder
 		expect(code).toBe('<!-- lightsout defaults: code/dangling -->\n# Dangling\n\nA concept earns its folder.');
 	});
 
 	test('drops empty prose rather than opening a document with blank lines', () => {
-		const pkg = setupPackage();
-		const sparse: LoadedStandardsPackage = {
-			...pkg,
+		const pack = setupPack();
+		const sparse: LoadedStandardsPack = {
+			...pack,
 			documents: [buildDocument({ path: 'code/sparse', intro: '', ruleIds: ['blank', 'graduation'] })],
 			rules: [buildRule({ id: 'blank', prose: '' }), buildRule({ id: 'graduation', prose: 'A concept earns its folder.' })],
 		};
 
-		const { code } = buildStandardsDocuments({ pkg: sparse, channels: [] });
+		const { code } = buildStandardsDocuments({ pack: sparse, channels: [] });
 
 		// an intro-less document starts at its first rule, with no leading blank line
 		expect(code).toBe('<!-- lightsout defaults: code/sparse -->\nA concept earns its folder.');

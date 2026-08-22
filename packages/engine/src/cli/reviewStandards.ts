@@ -4,7 +4,7 @@ import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts'
 import { getDriver } from '#src/drivers/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -18,12 +18,12 @@ interface Params {
 /**
  * The agent's read of the judgment-only rules, over the same scope the machine
  * half checked. Everything the review needs is resolved here rather than by
- * the runner — packages, channels, file scope, harness, time bound — so a run
- * that never asks for the review never loads a package or a harness for it.
+ * the runner — packs, channels, file scope, harness, time bound — so a run
+ * that never asks for the review never loads a pack or a harness for it.
  */
 export const reviewStandards = async ({ cwd, config, path, onProgress }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
 	const defaultAgentTimeoutMinutes = 60;
-	const packages = await resolveStandardsPackages({ cwd, config });
+	const packs = await resolveStandardsPacks({ cwd, config });
 	// No package scope on a standalone command, so the root package.json decides
 	// the channels — the same call the machine half makes.
 	const channels =
@@ -34,7 +34,7 @@ export const reviewStandards = async ({ cwd, config, path, onProgress }: Params)
 	return runStandardsReview({
 		cwd,
 		driver: getDriver({ name: config?.harness ?? 'claude-code' }),
-		packages,
+		packs,
 		channels,
 		files,
 		timeoutMs: (config?.timeouts?.['agent-minutes'] ?? defaultAgentTimeoutMinutes) * 60_000,

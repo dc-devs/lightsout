@@ -28,7 +28,7 @@ test('printRunHeader: a minimal config renders exactly the always-present lines,
 
 	expect(logged).toStrictEqual([
 		'  cwd: /repo',
-		'  standards packages: lightsout-defaults (none configured — set to false to disable, or list package roots)',
+		'  standards packs: lightsout-defaults (none configured — set to false to disable, or list pack roots)',
 		'  harness: claude-code · model: harness default · effort: harness default · permissions: write',
 		'  timeouts: agent 60m · supervisor 15m',
 		'  gates (root): check=[pnpm check] test=[pnpm test:unit] coverage=[pnpm test:coverage]',
@@ -44,29 +44,29 @@ test('printRunHeader: the harness line names the resolved harness, model, effort
 });
 
 test('printRunHeader: an explicit package list is printed verbatim, in config order', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packages': ['standards/house', '/opt/acme-standards'] } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packs': ['standards/house', '/opt/acme-standards'] } });
 
 	printRunHeader({ config, driver, cwd });
 
-	expect(lineFor({ logged, label: 'standards packages' })).toBe('  standards packages: standards/house, /opt/acme-standards');
+	expect(lineFor({ logged, label: 'standards packs' })).toBe('  standards packs: standards/house, /opt/acme-standards');
 });
 
 test('printRunHeader: standards turned off explicitly are announced as such', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packages': false } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packs': false } });
 
 	printRunHeader({ config, driver, cwd });
 
-	expect(lineFor({ logged, label: 'standards packages' })).toBe('  standards packages: none (explicit)');
+	expect(lineFor({ logged, label: 'standards packs' })).toBe('  standards packs: none (explicit)');
 });
 
 test('printRunHeader: an empty package list is still a configured list — the line prints with nothing after the label', () => {
-	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packages': [] } });
+	const { config, driver, cwd, logged } = setupHeader({ config: { 'standards-packs': [] } });
 
 	printRunHeader({ config, driver, cwd });
 
 	// an empty array is a list, not an absent key — it must not fall through to
 	// the unset wording that promises the bundled defaults
-	expect(lineFor({ logged, label: 'standards packages' })).toBe('  standards packages: ');
+	expect(lineFor({ logged, label: 'standards packs' })).toBe('  standards packs: ');
 });
 
 test('printRunHeader: configured timeouts replace the 60m/15m defaults', () => {

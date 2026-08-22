@@ -7,11 +7,11 @@ interface Params {
 }
 
 /**
- * A development override: the package to treat as the default, as an absolute or
+ * A development override: the pack to treat as the default, as an absolute or
  * working-directory-relative path.
  *
  * This repo sets it for its own suites, because the walk below can only find the
- * BUILT copy under `plugin/standards/` — the authored package lives beside the
+ * BUILT copy under `plugin/standards/` — the authored pack lives beside the
  * engine in `packages/`, which the walk deliberately does not look for. Without
  * the override, every test touching the default would pass or fail on whether
  * someone had run `pnpm bundle`.
@@ -19,14 +19,14 @@ interface Params {
 const overrideVariable = 'LIGHTSOUT_DEFAULT_STANDARDS';
 
 /**
- * Locate the default standards package the plugin ships — a real folder next to
- * the bundled program, loaded from disk exactly like a third-party package, so
+ * Locate the default standards pack the plugin ships — a real folder next to
+ * the bundled program, loaded from disk exactly like a third-party pack, so
  * "the defaults load through the same path" is literally true.
  *
  * Walks up from the running program, accepting the installed layout
  * (`<plugin>/dist/` beside `<plugin>/standards/`) and this repo's dev layout
  * (`<repo>/plugin/standards/`, the committed copy `pnpm bundle` writes). Both
- * candidates are the SHIPPED shape; the authored package is reached through the
+ * candidates are the SHIPPED shape; the authored pack is reached through the
  * override above, never by the walk. Searching a repo's own folders for one would
  * be worse than useless — a consumer that happened to keep its house rules in a
  * folder of the right name would have them silently adopted as the engine's
@@ -36,16 +36,16 @@ const overrideVariable = 'LIGHTSOUT_DEFAULT_STANDARDS';
  * invoked as `node <plugin>/dist/cli.mjs`, so that is the bundle's own path.
  *
  * @param startDir - override the walk's starting directory
- * @throws {Error} When the override names a directory that is not a standards package, or no packaged standards folder exists above the starting directory.
+ * @throws {Error} When the override names a directory that is not a standards pack, or no bundled standards folder exists above the starting directory.
  */
-export const resolveDefaultStandardsPackage = ({ startDir }: Params = {}): string => {
+export const resolveDefaultStandardsPack = ({ startDir }: Params = {}): string => {
 	const override = process.env[overrideVariable];
 
 	if (override !== undefined) {
 		const overridden = resolve(override);
 
 		// Thrown rather than fallen through to the walk: an override that silently
-		// missed would hand back a different package than the one asked for, and
+		// missed would hand back a different pack than the one asked for, and
 		// the run would look correct while checking the wrong rules.
 		if (!existsSync(join(overridden, 'lightsout-standards.json'))) {
 			throw new Error(`${overrideVariable} points at ${overridden}, which holds no lightsout-standards.json`);

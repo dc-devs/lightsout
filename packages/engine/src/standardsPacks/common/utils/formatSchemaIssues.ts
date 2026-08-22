@@ -9,7 +9,7 @@ interface Params {
 
 /**
  * Render every complaint a schema raised as one line, each named by the key it
- * lands on. A package author fixes a file once rather than reloading per field,
+ * lands on. A pack author fixes a file once rather than reloading per field,
  * which is the same reason the loader batches its problems.
  *
  * @param issues - the failed parse's complaints

@@ -1,7 +1,7 @@
 import { type LightsoutConfig, StandardsSet } from '#src/contracts/index.ts';
 import { detectStandardsChannels } from '#src/standards/detectStandardsChannels.ts';
 import type { ResolvedStandards } from '#src/standards/ResolvedStandards.ts';
-import { buildStandardsDocuments, resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { buildStandardsDocuments, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -11,11 +11,11 @@ interface Params {
 }
 
 /**
- * Resolve both standards sets for a run: which packages the config asks for,
+ * Resolve both standards sets for a run: which packs the config asks for,
  * which framework channels apply, and the assembled text of each set.
  *
  * Assembly happens here, from the rule folders themselves, so no pre-built copy
- * exists anywhere to drift from the prose it was built from. Several packages
+ * exists anywhere to drift from the prose it was built from. Several packs
  * stack in the order the config lists them, each contributing to whichever sets
  * it carries. Both pipelines resolve standards the same way, and a rule this
  * easy to state slightly differently in two places is a rule that drifts.
@@ -26,12 +26,12 @@ interface Params {
  * @param cwd - the consumer repo
  * @param config - the consumer's config
  * @param packages - the run's package scope, which channel detection reads
- * @throws {Error} When a declared standards package cannot be loaded.
+ * @throws {Error} When a declared standards pack cannot be loaded.
  */
 export const resolveStandards = async ({ cwd, config, packages }: Params): Promise<ResolvedStandards> => {
-	const loaded = await resolveStandardsPackages({ cwd, config });
+	const loaded = await resolveStandardsPacks({ cwd, config });
 	const channels = config['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir: config['packages-dir'] ?? 'packages', packages }));
-	const assembled = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }));
+	const assembled = loaded.map((pack) => buildStandardsDocuments({ pack, channels }));
 
 	const stack = ({ set }: { set: StandardsSet }) => {
 		const texts = assembled.map((documents) => documents[set]).filter((text) => text !== undefined);

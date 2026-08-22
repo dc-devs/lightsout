@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type AdvisoryOutcome, type BatchReport, type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { buildStandardsHealth } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedStandardsRule => ({
 	set: 'code',
@@ -23,7 +23,7 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedS
 	...overrides,
 });
 
-const packageOf = ({ name = 'acme', rules }: { name?: string; rules: LoadedStandardsRule[] }): LoadedStandardsPackage => ({
+const packOf = ({ name = 'acme', rules }: { name?: string; rules: LoadedStandardsRule[] }): LoadedStandardsPack => ({
 	name,
 	formatVersion: 1,
 	rootPath: `/packages/${name}`,
@@ -138,7 +138,7 @@ describe('buildStandardsHealth advice counting', () => {
 
 		const health = await buildStandardsHealth({
 			cwd,
-			packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'path-aliases' })] })],
+			packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'path-aliases' })] })],
 		});
 
 		expect(rowFor({ rules: health.rules, id: 'path-aliases' })).toEqual(
@@ -162,7 +162,7 @@ describe('buildStandardsHealth advice counting', () => {
 			},
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'path-aliases' })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'path-aliases' })] })] });
 
 		// counting it as applied would credit the rule with advice nobody acted
 		// on; counting it as declined would blame it for a rejection nobody made
@@ -182,7 +182,7 @@ describe('buildStandardsHealth advice counting', () => {
 			},
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'path-aliases' })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'path-aliases' })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'path-aliases' })).toEqual(expect.objectContaining({ adviceApplied: 0, adviceDeclined: 1, reasons: [] }));
 	});

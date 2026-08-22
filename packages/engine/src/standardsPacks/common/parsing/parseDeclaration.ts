@@ -1,14 +1,14 @@
 import type { z } from 'zod';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { parseFrontMatter } from '#src/standardsPackages/common/parsing/parseFrontMatter.ts';
-import { formatSchemaIssues } from '#src/standardsPackages/common/utils/formatSchemaIssues.ts';
+import { parseFrontMatter } from '#src/standardsPacks/common/parsing/parseFrontMatter.ts';
+import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchemaIssues.ts';
 
 interface Params<Shape> {
 	/** The whole markdown file. */
 	text: string;
 	/** What this kind of file may declare in its front matter. */
 	schema: z.ZodType<Shape>;
-	/** Package-relative path of the file — names it in any problem reported against it. */
+	/** Pack-relative path of the file — names it in any problem reported against it. */
 	filePath: string;
 	/** Sink for problems — the loader throws them as one batch. */
 	problems: string[];
@@ -28,7 +28,7 @@ interface Params<Shape> {
  *
  * @param text - the whole markdown file
  * @param schema - what this kind of file may declare
- * @param filePath - package-relative path, printed in any problem
+ * @param filePath - pack-relative path, printed in any problem
  * @param problems - sink the loader throws as one batch
  */
 export const parseDeclaration = <Shape>({ text, schema, filePath, problems }: Params<Shape>): { declaration?: Shape; body: string } => {

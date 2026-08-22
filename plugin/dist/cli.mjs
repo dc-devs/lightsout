@@ -7974,7 +7974,7 @@ usage:
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
-  lightsout standards-validate [--package <path>] [--cwd <path>]   (run every check against its own fixtures)
+  lightsout standards-validate [--pack <path>] [--cwd <path>]      (run every check against its own fixtures)
   lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>] [--code-checks] [--allow-dirty]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)
@@ -8361,7 +8361,7 @@ var checkJestMocks = async ({ cwd, packageDirs }) => {
 import { readdir as readdir2, readFile as readFile2 } from "node:fs/promises";
 import { join as join4 } from "node:path";
 var checkLintRules = async ({ config: config2, packageDirs }) => {
-  if (config2["standards-packages"] === false) {
+  if (config2["standards-packs"] === false) {
     return void 0;
   }
   const lintFindings = [];
@@ -23492,23 +23492,25 @@ var LightsoutConfig = external_exports.object({
   /** Removed — renamed to `package-gates`. Same reason. */
   packageGates: renamedKey({ from: "packageGates", to: "package-gates" }),
   /**
-   * Standards packages a run works against. Unspecified = the package the
-   * plugin ships (announced in the run header); `false` = explicitly none; an
-   * array = exactly these, where each entry is the root folder of a standards
-   * package — the folder holding `lightsout-standards.json` — repo-relative or
-   * absolute. One key, not two: a package carries both the code and the test
-   * document trees, so a second key could only disagree with this one about
-   * which package is loaded. A root that cannot be loaded is a hard error.
+   * Standards packs a run works against. Unspecified = the pack the plugin
+   * ships (announced in the run header); `false` = explicitly none; an array =
+   * exactly these, where each entry is the root folder of a standards pack —
+   * the folder holding `lightsout-standards.json` — repo-relative or absolute.
+   * One key, not two: a pack carries both the code and the test document
+   * trees, so a second key could only disagree with this one about which pack
+   * is loaded. A root that cannot be loaded is a hard error.
    */
-  "standards-packages": external_exports.union([external_exports.array(external_exports.string()), external_exports.literal(false)]).optional(),
-  /** Removed — renamed to `standards-packages`. Declared only so a stale key fails loudly instead of being silently stripped. */
-  standardsPackages: renamedKey({ from: "standardsPackages", to: "standards-packages" }),
-  /** Removed — replaced by `standards-packages`. Same reason. */
-  standards: external_exports.never("`standards` was replaced by `standards-packages` \u2014 standards now load as packages").optional(),
-  /** Removed — the test tree ships inside a standards package. Same reason. */
-  testStandards: external_exports.never("`testStandards` was replaced by `standards-packages` \u2014 standards now load as packages").optional(),
+  "standards-packs": external_exports.union([external_exports.array(external_exports.string()), external_exports.literal(false)]).optional(),
+  /** Removed — renamed to `standards-packs`. Declared only so a stale key fails loudly instead of being silently stripped. */
+  "standards-packages": renamedKey({ from: "standards-packages", to: "standards-packs" }),
+  /** Removed — renamed to `standards-packs`. Same reason. */
+  standardsPackages: renamedKey({ from: "standardsPackages", to: "standards-packs" }),
+  /** Removed — replaced by `standards-packs`. Same reason. */
+  standards: external_exports.never("`standards` was replaced by `standards-packs` \u2014 standards now load as packs").optional(),
+  /** Removed — the test tree ships inside a standards pack. Same reason. */
+  testStandards: external_exports.never("`testStandards` was replaced by `standards-packs` \u2014 standards now load as packs").optional(),
   /**
-   * Framework channels of the loaded standards packages (e.g. 'react',
+   * Framework channels of the loaded standards packs (e.g. 'react',
    * 'tanstack'). Unspecified = detected per run from the scoped packages'
    * package.json dependencies; an array REPLACES detection (empty = base
    * docs only).
@@ -24852,19 +24854,19 @@ ${error51}`);
 };
 
 // src/cli/common/render/printRunHeader.ts
-var describeStandardsPackages = ({ value }) => {
+var describeStandardsPacks = ({ value }) => {
   if (value === false) {
     return "none (explicit)";
   }
   if (value === void 0) {
-    return "lightsout-defaults (none configured \u2014 set to false to disable, or list package roots)";
+    return "lightsout-defaults (none configured \u2014 set to false to disable, or list pack roots)";
   }
   return value.join(", ");
 };
 var printRunHeader = ({ config: config2, driver, cwd }) => {
   const coverage = config2.gates["test-coverage"] === false ? "off (explicit)" : config2.gates["test-coverage"];
   console.log(`  cwd: ${cwd}`);
-  console.log(`  standards packages: ${describeStandardsPackages({ value: config2["standards-packages"] })}`);
+  console.log(`  standards packs: ${describeStandardsPacks({ value: config2["standards-packs"] })}`);
   console.log(
     `  harness: ${driver.name} \xB7 model: ${config2.model ?? "harness default"} \xB7 effort: ${config2.effort ?? "harness default"} \xB7 permissions: ${config2.permissions ?? Permissions.Write}`
   );
@@ -25283,20 +25285,20 @@ var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
   return Object.entries(channelSignals).filter(([, signals]) => signals.some((signal) => dependencies.has(signal))).map(([channel]) => channel);
 };
 
-// src/standardsPackages/buildStandardsDocuments.ts
+// src/standardsPacks/buildStandardsDocuments.ts
 var byPath = (left, right) => left.path === right.path ? 0 : left.path > right.path ? 1 : -1;
 var renderDocument = ({ name, document, proseById }) => {
   const parts = [document.intro, ...document.ruleIds.map((id) => proseById.get(id) ?? "")].filter((part) => part.length > 0);
   return `<!-- ${name}: ${document.path} -->
 ${parts.join("\n\n")}`;
 };
-var buildStandardsDocuments = ({ pkg, channels }) => {
-  const proseById = new Map(pkg.rules.map((rule) => [rule.id, rule.prose]));
+var buildStandardsDocuments = ({ pack, channels }) => {
+  const proseById = new Map(pack.rules.map((rule) => [rule.id, rule.prose]));
   const renderSet = ({ set: set2 }) => {
-    const inSet = pkg.documents.filter((document) => document.set === set2);
+    const inSet = pack.documents.filter((document) => document.set === set2);
     const inChannel = ({ channel }) => inSet.filter((document) => document.channel === channel).sort(byPath);
     const ordered = [...inChannel({ channel: "base" }), ...channels.flatMap((channel) => inChannel({ channel }))];
-    return ordered.length === 0 ? void 0 : ordered.map((document) => renderDocument({ name: pkg.name, document, proseById })).join("\n\n");
+    return ordered.length === 0 ? void 0 : ordered.map((document) => renderDocument({ name: pack.name, document, proseById })).join("\n\n");
   };
   const code = renderSet({ set: StandardsSet.Code });
   const tests = renderSet({ set: StandardsSet.Tests });
@@ -25310,15 +25312,15 @@ var buildStandardsDocuments = ({ pkg, channels }) => {
   return assembled;
 };
 
-// src/standardsPackages/readStandardsPackage.ts
+// src/standardsPacks/readStandardsPack.ts
 import { readdir as readdir10, readFile as readFile14 } from "node:fs/promises";
 import { join as join24 } from "node:path";
 
-// src/standardsPackages/common/parsing/parseDocumentFolder.ts
+// src/standardsPacks/common/parsing/parseDocumentFolder.ts
 import { readdir as readdir9, readFile as readFile13 } from "node:fs/promises";
 import { join as join23 } from "node:path";
 
-// src/standardsPackages/common/parsing/parseFrontMatter.ts
+// src/standardsPacks/common/parsing/parseFrontMatter.ts
 var import_yaml = __toESM(require_dist(), 1);
 var frontMatterBlock = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -25341,10 +25343,10 @@ var parseFrontMatter = ({ text }) => {
   return { data, body };
 };
 
-// src/standardsPackages/common/utils/formatSchemaIssues.ts
+// src/standardsPacks/common/utils/formatSchemaIssues.ts
 var formatSchemaIssues = ({ issues, subject }) => issues.map((issue2) => `${issue2.path.join(".") || subject} ${issue2.message}`).join("; ");
 
-// src/standardsPackages/common/parsing/parseDeclaration.ts
+// src/standardsPacks/common/parsing/parseDeclaration.ts
 var parseDeclaration = ({ text, schema, filePath, problems }) => {
   let declaration;
   let body = "";
@@ -25363,18 +25365,18 @@ var parseDeclaration = ({ text, schema, filePath, problems }) => {
   return { declaration, body };
 };
 
-// src/standardsPackages/common/parsing/parseRuleFolder.ts
+// src/standardsPacks/common/parsing/parseRuleFolder.ts
 import { readFile as readFile12 } from "node:fs/promises";
 import { basename as basename2, join as join22 } from "node:path";
 
-// src/standardsPackages/common/utils/hasFile.ts
+// src/standardsPacks/common/utils/hasFile.ts
 import { stat as stat4 } from "node:fs/promises";
 var hasFile = async ({ path }) => stat4(path).then(
   () => true,
   () => false
 );
 
-// src/standardsPackages/common/utils/importCheckModule.ts
+// src/standardsPacks/common/utils/importCheckModule.ts
 import { pathToFileURL } from "node:url";
 var importCheckModule = async ({ checkPath }) => {
   const imported = await import(
@@ -25390,7 +25392,7 @@ var importCheckModule = async ({ checkPath }) => {
   return parsed.data;
 };
 
-// src/standardsPackages/common/parsing/parseRuleFolder.ts
+// src/standardsPacks/common/parsing/parseRuleFolder.ts
 var ruleDeclaration = external_exports.object({
   summary: external_exports.string().min(1),
   checked: external_exports.boolean().default(false),
@@ -25453,7 +25455,7 @@ var parseRuleFolder = async ({ folderPath, set: set2, documentPath, problems }) 
   return rule;
 };
 
-// src/standardsPackages/common/parsing/parseDocumentFolder.ts
+// src/standardsPacks/common/parsing/parseDocumentFolder.ts
 var documentDeclaration = external_exports.object({
   channel: external_exports.string().min(1).default("base")
 });
@@ -25503,7 +25505,7 @@ var parseDocumentFolder = async ({
   return parsedDocument;
 };
 
-// src/standardsPackages/readStandardsPackage.ts
+// src/standardsPacks/readStandardsPack.ts
 var walk = async ({ folderPath, documentPath, set: set2, problems, documents, rules }) => {
   const entries = await readdir10(folderPath, { withFileTypes: true }).catch(() => void 0);
   if (entries === void 0) {
@@ -25535,51 +25537,51 @@ var findDuplicateIds = ({ rules }) => {
   }
   return duplicates;
 };
-var readStandardsPackage = async ({ packagePath }) => {
-  const rootFilePath = join24(packagePath, "lightsout-standards.json");
+var readStandardsPack = async ({ packPath }) => {
+  const rootFilePath = join24(packPath, "lightsout-standards.json");
   const rootText = await readFile14(rootFilePath, "utf8").catch(() => void 0);
   if (rootText === void 0) {
-    throw new Error(`standards package root file not found: ${rootFilePath}`);
+    throw new Error(`standards pack root file not found: ${rootFilePath}`);
   }
   let rootData;
   try {
     rootData = JSON.parse(rootText);
   } catch (error51) {
-    throw new Error(`standards package root file is not valid JSON (${rootFilePath}): ${messageOf({ error: error51 })}`);
+    throw new Error(`standards pack root file is not valid JSON (${rootFilePath}): ${messageOf({ error: error51 })}`);
   }
   const root = StandardsPackageRoot.safeParse(rootData);
   if (!root.success) {
-    throw new Error(`standards package root file is invalid (${rootFilePath}): ${formatSchemaIssues({ issues: root.error.issues, subject: "root file" })}`);
+    throw new Error(`standards pack root file is invalid (${rootFilePath}): ${formatSchemaIssues({ issues: root.error.issues, subject: "root file" })}`);
   }
   const problems = [];
   const documents = [];
   const rules = [];
   for (const set2 of [StandardsSet.Code, StandardsSet.Tests]) {
-    await walk({ folderPath: join24(packagePath, set2), documentPath: set2, set: set2, problems, documents, rules });
+    await walk({ folderPath: join24(packPath, set2), documentPath: set2, set: set2, problems, documents, rules });
   }
   if (documents.length === 0) {
-    problems.push("package declares no documents \u2014 code/ and tests/ hold no folder with a document.md");
+    problems.push("pack declares no documents \u2014 code/ and tests/ hold no folder with a document.md");
   }
   problems.push(...findDuplicateIds({ rules }));
   if (problems.length > 0) {
-    throw new Error(`standards package failed to load (${packagePath}):
+    throw new Error(`standards pack failed to load (${packPath}):
 ${problems.map((problem) => `- ${problem}`).join("\n")}`);
   }
   return {
     name: root.data.name,
     formatVersion: root.data.formatVersion,
     built: root.data.built,
-    rootPath: packagePath,
+    rootPath: packPath,
     documents,
     rules
   };
 };
 
-// src/standardsPackages/resolveDefaultStandardsPackage.ts
+// src/standardsPacks/resolveDefaultStandardsPack.ts
 import { existsSync } from "node:fs";
 import { dirname as dirname4, join as join25, resolve as resolve5 } from "node:path";
 var overrideVariable = "LIGHTSOUT_DEFAULT_STANDARDS";
-var resolveDefaultStandardsPackage = ({ startDir } = {}) => {
+var resolveDefaultStandardsPack = ({ startDir } = {}) => {
   const override = process.env[overrideVariable];
   if (override !== void 0) {
     const overridden = resolve5(override);
@@ -25603,51 +25605,51 @@ var resolveDefaultStandardsPackage = ({ startDir } = {}) => {
   return found;
 };
 
-// src/standardsPackages/resolveStandardsPackages.ts
+// src/standardsPacks/resolveStandardsPacks.ts
 import { isAbsolute, resolve as resolve6 } from "node:path";
-var resolveRoots = ({ cwd, standardsPackages }) => {
-  if (standardsPackages === false) {
+var resolveRoots = ({ cwd, standardsPacks }) => {
+  if (standardsPacks === false) {
     return [];
   }
-  if (standardsPackages === void 0) {
-    return [resolveDefaultStandardsPackage()];
+  if (standardsPacks === void 0) {
+    return [resolveDefaultStandardsPack()];
   }
-  return standardsPackages.map((entry) => isAbsolute(entry) ? entry : resolve6(cwd, entry));
+  return standardsPacks.map((entry) => isAbsolute(entry) ? entry : resolve6(cwd, entry));
 };
-var findCrossPackageDuplicates = ({ packages }) => {
+var findCrossPackDuplicates = ({ packs }) => {
   const owners = /* @__PURE__ */ new Map();
   const duplicates = [];
-  for (const pkg of packages) {
-    for (const rule of pkg.rules) {
+  for (const pack of packs) {
+    for (const rule of pack.rules) {
       const owner = owners.get(rule.id);
       if (owner === void 0) {
-        owners.set(rule.id, pkg);
+        owners.set(rule.id, pack);
       } else {
-        duplicates.push(`duplicate rule id "${rule.id}": claimed by ${owner.name} (${owner.rootPath}) and ${pkg.name} (${pkg.rootPath})`);
+        duplicates.push(`duplicate rule id "${rule.id}": claimed by ${owner.name} (${owner.rootPath}) and ${pack.name} (${pack.rootPath})`);
       }
     }
   }
   return duplicates;
 };
-var resolveStandardsPackages = async ({ cwd, config: config2 }) => {
-  const roots = resolveRoots({ cwd, standardsPackages: config2?.["standards-packages"] });
-  const packages = [];
-  for (const packagePath of roots) {
-    packages.push(await readStandardsPackage({ packagePath }));
+var resolveStandardsPacks = async ({ cwd, config: config2 }) => {
+  const roots = resolveRoots({ cwd, standardsPacks: config2?.["standards-packs"] });
+  const packs = [];
+  for (const packPath of roots) {
+    packs.push(await readStandardsPack({ packPath }));
   }
-  const duplicates = findCrossPackageDuplicates({ packages });
+  const duplicates = findCrossPackDuplicates({ packs });
   if (duplicates.length > 0) {
-    throw new Error(`standards packages disagree about rule ids:
+    throw new Error(`standards packs disagree about rule ids:
 ${duplicates.map((duplicate) => `- ${duplicate}`).join("\n")}`);
   }
-  return packages;
+  return packs;
 };
 
 // src/standards/resolveStandards.ts
 var resolveStandards = async ({ cwd, config: config2, packages }) => {
-  const loaded = await resolveStandardsPackages({ cwd, config: config2 });
+  const loaded = await resolveStandardsPacks({ cwd, config: config2 });
   const channels = config2["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2["packages-dir"] ?? "packages", packages });
-  const assembled = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }));
+  const assembled = loaded.map((pack) => buildStandardsDocuments({ pack, channels }));
   const stack = ({ set: set2 }) => {
     const texts = assembled.map((documents) => documents[set2]).filter((text) => text !== void 0);
     return texts.length === 0 ? void 0 : texts.join("\n\n");
@@ -28299,7 +28301,7 @@ var countAdvice = ({ tallies, outcomes }) => {
     }
   }
 };
-var buildStandardsHealth = async ({ cwd, packages }) => {
+var buildStandardsHealth = async ({ cwd, packs }) => {
   const tallies = /* @__PURE__ */ new Map();
   for (const runId of await listRunIds({ cwd })) {
     const run = await readRefactorRun({ cwd, runId }).catch(() => void 0);
@@ -28313,7 +28315,7 @@ var buildStandardsHealth = async ({ cwd, packages }) => {
       countAdvice({ tallies, outcomes: report?.advisoryOutcomes ?? [] });
     }
   }
-  const rules = packages.flatMap((pkg) => pkg.rules).map((rule) => ({
+  const rules = packs.flatMap((pack) => pack.rules).map((rule) => ({
     id: rule.id,
     set: rule.set,
     documentPath: rule.documentPath,
@@ -28325,23 +28327,23 @@ var buildStandardsHealth = async ({ cwd, packages }) => {
 };
 
 // src/standardsCheck/resolvePackageRuleStates.ts
-var resolvePackageRuleStates = ({ packages, config: config2 }) => {
+var resolvePackageRuleStates = ({ packs, config: config2 }) => {
   const states = /* @__PURE__ */ new Map();
   const owners = /* @__PURE__ */ new Map();
-  for (const pkg of packages) {
-    for (const rule of pkg.rules) {
+  for (const pack of packs) {
+    for (const rule of pack.rules) {
       const owner = owners.get(rule.id);
       if (owner !== void 0) {
-        throw new Error(`duplicate rule id "${rule.id}": claimed by standards packages "${owner}" and "${pkg.name}"`);
+        throw new Error(`duplicate rule id "${rule.id}": claimed by standards packs "${owner}" and "${pack.name}"`);
       }
-      owners.set(rule.id, pkg.name);
+      owners.set(rule.id, pack.name);
       states.set(rule.id, { severity: rule.defaultSeverity, settings: { ...rule.defaultSettings }, fromConfig: false });
     }
   }
   for (const [id, override] of Object.entries(config2?.["standards-checks"] ?? {})) {
     const state = states.get(id);
     if (state === void 0) {
-      throw new Error(`standards-checks names "${id}", which no loaded standards package declares \u2014 valid rule ids: ${[...states.keys()].sort().join(", ")}`);
+      throw new Error(`standards-checks names "${id}", which no loaded standards pack declares \u2014 valid rule ids: ${[...states.keys()].sort().join(", ")}`);
     }
     const object2 = typeof override === "object" ? override : void 0;
     states.set(id, {
@@ -28355,18 +28357,18 @@ var resolvePackageRuleStates = ({ packages, config: config2 }) => {
 
 // src/standardsCheck/listStandardsRules.ts
 var listStandardsRules = async ({ cwd, config: config2 }) => {
-  const packages = await resolveStandardsPackages({ cwd, config: config2 });
-  const states = resolvePackageRuleStates({ packages, config: config2 });
+  const packs = await resolveStandardsPacks({ cwd, config: config2 });
+  const states = resolvePackageRuleStates({ packs, config: config2 });
   const listings = [];
-  for (const pkg of packages) {
-    for (const rule of pkg.rules) {
+  for (const pack of packs) {
+    for (const rule of pack.rules) {
       const state = states.get(rule.id);
       if (state === void 0) {
         continue;
       }
       listings.push({
         rule: rule.id,
-        doc: `${pkg.name}: ${rule.documentPath}`,
+        doc: `${pack.name}: ${rule.documentPath}`,
         summary: rule.summary,
         checked: rule.checked,
         severity: state.severity,
@@ -40404,13 +40406,9 @@ var runRuleCheck = async ({ rule, run, input, settings }) => {
 };
 
 // src/standardsCheck/runPackageChecks.ts
-var selectLiveRules = ({
-  packages,
-  states,
-  channels
-}) => {
+var selectLiveRules = ({ packs, states, channels }) => {
   const live2 = [];
-  for (const rule of packages.flatMap((pkg) => pkg.rules)) {
+  for (const rule of packs.flatMap((pack) => pack.rules)) {
     const state = states.get(rule.id);
     if (rule.run === void 0 || rule.inputKind === void 0 || state === void 0) {
       continue;
@@ -40460,7 +40458,7 @@ var runLiveRules = async ({
 };
 var runPackageChecks = async ({
   cwd,
-  packages,
+  packs,
   states,
   channels,
   packagesDir = "packages",
@@ -40476,7 +40474,7 @@ var runPackageChecks = async ({
   const notes = [];
   progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
   const compiler = resolveConsumerTypescript({ cwd, packagesDir });
-  const live2 = selectLiveRules({ packages, states, channels });
+  const live2 = selectLiveRules({ packs, states, channels });
   const cache = /* @__PURE__ */ new Map();
   const buildInput = async ({ kind, settings }) => buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPackages, packagesDir, settings, cache, compiler });
   const { findings, skipped } = await runLiveRules({ live: live2, buildInput, compiler, progress });
@@ -40515,12 +40513,12 @@ var runStandardsCheck = async ({
   onProgress
 }) => {
   const config2 = await readConfig({ cwd }).catch(() => void 0);
-  const packages = await resolveStandardsPackages({ cwd, config: config2 });
-  const states = resolvePackageRuleStates({ packages, config: config2 });
+  const packs = await resolveStandardsPacks({ cwd, config: config2 });
+  const states = resolvePackageRuleStates({ packs, config: config2 });
   const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
   const checked = await runPackageChecks({
     cwd,
-    packages,
+    packs,
     states,
     channels,
     packagesDir: config2?.["packages-dir"],
@@ -40584,7 +40582,7 @@ var createAgentHeartbeat = ({ label, onProgress, intervalMs = 3e4 }) => {
 };
 
 // src/standardsCheck/runStandardsReview.ts
-var collectJudgmentRules = ({ packages, channels }) => packages.flatMap((pkg) => pkg.rules).filter((rule) => !rule.checked && (rule.channel === "base" || channels.includes(rule.channel))).map((rule) => ({ id: rule.id, documentPath: rule.documentPath, prose: rule.prose }));
+var collectJudgmentRules = ({ packs, channels }) => packs.flatMap((pack) => pack.rules).filter((rule) => !rule.checked && (rule.channel === "base" || channels.includes(rule.channel))).map((rule) => ({ id: rule.id, documentPath: rule.documentPath, prose: rule.prose }));
 var toFindings = ({ reported, known }) => {
   const findings = [];
   const unknownRules = [];
@@ -40620,13 +40618,13 @@ var toFindings = ({ reported, known }) => {
 var runStandardsReview = async ({
   cwd,
   driver,
-  packages,
+  packs,
   channels,
   files,
   timeoutMs,
   onProgress
 }) => {
-  const rules = collectJudgmentRules({ packages, channels });
+  const rules = collectJudgmentRules({ packs, channels });
   if (rules.length === 0 || files.length === 0) {
     return { findings: [], notes: [] };
   }
@@ -40667,7 +40665,7 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
   };
 };
 
-// src/standardsCheck/validateStandardsPackage.ts
+// src/standardsCheck/validateStandardsPack.ts
 import { readdir as readdir13 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 import { join as join44 } from "node:path";
@@ -40707,7 +40705,7 @@ var checkFixture = async ({
     tests: files.filter((file2) => isTestFile({ path: file2 })),
     files,
     referenceFiles: files,
-    // A fixture side is a miniature repo of its own; it declares no package.
+    // A fixture side is a miniature repo of its own; it declares no pack.
     standardsPackages: [],
     packagesDir: "packages",
     settings: rule.defaultSettings,
@@ -40719,20 +40717,20 @@ var checkFixture = async ({
   }
   return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
 };
-var validateStandardsPackage = async ({ pkg }) => {
-  if (pkg.built) {
+var validateStandardsPack = async ({ pack }) => {
+  if (pack.built) {
     return {
       problems: [
-        `${pkg.name} is a built package \u2014 its fixtures were left behind when it was built, so there is nothing here to validate. Point --package at the authored source.`
+        `${pack.name} is a built pack \u2014 its fixtures were left behind when it was built, so there is nothing here to validate. Point --pack at the authored source.`
       ],
       notes: []
     };
   }
-  const hasParsingRule = pkg.rules.some((rule) => rule.inputKind !== void 0 && typescriptInputKinds.has(rule.inputKind));
+  const hasParsingRule = pack.rules.some((rule) => rule.inputKind !== void 0 && typescriptInputKinds.has(rule.inputKind));
   const compiler = hasParsingRule ? getEngineTypescript() : void 0;
   const problems = [];
   const notes = [];
-  for (const rule of pkg.rules) {
+  for (const rule of pack.rules) {
     const { run, inputKind } = rule;
     const missing = await missingFixtureSides({ fixturesPath: rule.fixturesPath });
     if (missing.length > 0) {
@@ -40772,11 +40770,11 @@ var standardsWorkList = async ({ run }) => {
 
 // src/pipeline/steps/refactorStep.ts
 var maxRefactorPasses = 3;
-var reviewAdvisories = async ({ run, packages, channels }) => {
+var reviewAdvisories = async ({ run, packs, channels }) => {
   const review = await runStandardsReview({
     cwd: run.cwd,
     driver: run.driver,
-    packages,
+    packs,
     channels,
     files: sourceFiles({ run }),
     timeoutMs: run.agentTimeoutMs,
@@ -40787,9 +40785,9 @@ var reviewAdvisories = async ({ run, packages, channels }) => {
   }
   return review.findings;
 };
-var readStandardsGate = async ({ run, packages, channels }) => {
+var readStandardsGate = async ({ run, packs, channels }) => {
   const check2 = await standardsWorkList({ run });
-  const advisories = [...check2.advisories, ...await reviewAdvisories({ run, packages, channels })];
+  const advisories = [...check2.advisories, ...await reviewAdvisories({ run, packs, channels })];
   if (check2.workList.length > 0 || advisories.length > 0) {
     run.progress(`standards gate: ${check2.workList.length} blocking + ${advisories.length} advisory on changed files`);
   }
@@ -40829,9 +40827,9 @@ var readFinalGateStop = async ({ run, record: record2, lastReport }) => {
   }) : void 0;
 };
 var resolveReviewStandards = async ({ run }) => {
-  const packages = await resolveStandardsPackages({ cwd: run.cwd, config: run.config });
+  const packs = await resolveStandardsPacks({ cwd: run.cwd, config: run.config });
   const channels = run.config["standards-channels"] ?? await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config["packages-dir"] ?? "packages", packages: run.current().packages });
-  return { packages, channels };
+  return { packs, channels };
 };
 var refactorStep = ({ run, gitPrefix, planContent, overviewContent, standards }) => {
   return async () => {
@@ -40839,10 +40837,10 @@ var refactorStep = ({ run, gitPrefix, planContent, overviewContent, standards })
     let lastReport;
     let cleanExit = false;
     let lastDeclined;
-    const { packages, channels } = await resolveReviewStandards({ run });
+    const { packs, channels } = await resolveReviewStandards({ run });
     for (let pass = 1; pass <= maxRefactorPasses; pass += 1) {
       await run.setStep({ record: record2 });
-      const { workList, advisories } = await readStandardsGate({ run, packages, channels });
+      const { workList, advisories } = await readStandardsGate({ run, packs, channels });
       run.progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
       const executed = await runExecutorPass({ run, gitPrefix, planContent, overviewContent, standards, record: record2, findings: workList, advisories });
       if ("stopped" in executed) {
@@ -43191,8 +43189,8 @@ var readPlanningStandards = async ({ cwd, config: config2 }) => {
   let standards;
   try {
     const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir, packages: [] });
-    const loaded = await resolveStandardsPackages({ cwd, config: config2 });
-    const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== void 0);
+    const loaded = await resolveStandardsPacks({ cwd, config: config2 });
+    const texts = loaded.map((pack) => buildStandardsDocuments({ pack, channels }).code).filter((text) => text !== void 0);
     standards = texts.length === 0 ? void 0 : texts.join("\n\n");
   } catch (error51) {
     console.log(dim(`standards not loaded (non-fatal): ${messageOf({ error: error51 })}`));
@@ -43462,7 +43460,7 @@ var runBatchReview = async ({
   runId,
   driver,
   batch,
-  packages,
+  packs,
   channels,
   files,
   agentReview,
@@ -43475,7 +43473,7 @@ var runBatchReview = async ({
   const review = await runStandardsReview({
     cwd,
     driver,
-    packages,
+    packs,
     channels,
     files,
     timeoutMs,
@@ -43494,7 +43492,7 @@ var collectBatchAdvisories = async ({
   runId,
   driver,
   batch,
-  packages,
+  packs,
   channels,
   findings,
   agentReview,
@@ -43503,7 +43501,7 @@ var collectBatchAdvisories = async ({
 }) => {
   const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file2) => file2.path)));
   const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file2) => batchFiles.has(file2.path)));
-  const reviewed = await runBatchReview({ cwd, runId, driver, batch, packages, channels, files: [...batchFiles], agentReview, timeoutMs, onProgress });
+  const reviewed = await runBatchReview({ cwd, runId, driver, batch, packs, channels, files: [...batchFiles], agentReview, timeoutMs, onProgress });
   return [...machine, ...reviewed];
 };
 
@@ -43662,7 +43660,7 @@ var reviewBatchOutput = async ({
   runId,
   driver,
   batch,
-  packages,
+  packs,
   channels,
   baseline,
   changedFiles,
@@ -43673,7 +43671,7 @@ var reviewBatchOutput = async ({
   if (changedFiles.length === 0) {
     return [];
   }
-  const reviewed = await runBatchReview({ cwd, runId, driver, batch, packages, channels, files: changedFiles, agentReview, timeoutMs, onProgress });
+  const reviewed = await runBatchReview({ cwd, runId, driver, batch, packs, channels, files: changedFiles, agentReview, timeoutMs, onProgress });
   return findIntroducedFindings({ frozen: baseline, live: reviewed, severity: StandardsSeverity.Advisory });
 };
 
@@ -43881,7 +43879,7 @@ var createBatchTools = ({
   driver,
   config: config2,
   batch,
-  packages,
+  packs,
   channels,
   agentReview,
   checkPath,
@@ -43918,7 +43916,7 @@ var createBatchTools = ({
     runId,
     driver,
     batch,
-    packages,
+    packs,
     channels,
     agentReview,
     baseline,
@@ -43998,7 +43996,7 @@ var runBatch = async ({
   driver,
   config: config2,
   batch,
-  packages,
+  packs,
   channels,
   checkPath,
   checkAll,
@@ -44016,7 +44014,7 @@ var runBatch = async ({
     driver,
     config: config2,
     batch,
-    packages,
+    packs,
     channels,
     agentReview,
     checkPath,
@@ -44037,7 +44035,7 @@ var runBatch = async ({
     runId,
     driver,
     batch,
-    packages,
+    packs,
     channels,
     findings: preCheck.findings,
     agentReview,
@@ -44336,7 +44334,7 @@ var executeRefactor = async ({
     return redBaseline;
   }
   const { standards, testStandards, channels } = await resolveStandards({ cwd, config: config2, packages: [] });
-  const packages = await resolveStandardsPackages({ cwd, config: config2 });
+  const packs = await resolveStandardsPacks({ cwd, config: config2 });
   if (!agentReview) {
     run.progress("code checks only \u2014 the per-batch agent review is off for this run");
   }
@@ -44344,7 +44342,7 @@ var executeRefactor = async ({
     run,
     driver,
     worklist,
-    batchInputs: { packages, channels, standards, testStandards, agentReview },
+    batchInputs: { packs, channels, standards, testStandards, agentReview },
     maxBatches,
     declineStreak: seeded.declineStreak
   });
@@ -44429,14 +44427,14 @@ var resumeCommand = async ({ flags, cwd }) => {
 // src/cli/reviewStandards.ts
 var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
   const defaultAgentTimeoutMinutes = 60;
-  const packages = await resolveStandardsPackages({ cwd, config: config2 });
+  const packs = await resolveStandardsPacks({ cwd, config: config2 });
   const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
   const { files: walked } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config: config2 }) });
   const files = walked.filter((file2) => !path || file2.startsWith(path));
   return runStandardsReview({
     cwd,
     driver: getDriver({ name: config2?.harness ?? "claude-code" }),
-    packages,
+    packs,
     channels,
     files,
     timeoutMs: (config2?.timeouts?.["agent-minutes"] ?? defaultAgentTimeoutMinutes) * 6e4,
@@ -44743,40 +44741,40 @@ var printStandardsHealth = ({ health }) => {
 // src/cli/standardsHealthCommand.ts
 var standardsHealthCommand = async ({ cwd }) => {
   const config2 = await readConfig({ cwd }).catch(() => void 0);
-  const packages = await resolveStandardsPackages({ cwd, config: config2 });
-  const health = await buildStandardsHealth({ cwd, packages });
+  const packs = await resolveStandardsPacks({ cwd, config: config2 });
+  const health = await buildStandardsHealth({ cwd, packs });
   printStandardsHealth({ health });
   return exitCli({ code: 0 });
 };
 
 // src/cli/standardsValidateCommand.ts
 import { resolve as resolve9 } from "node:path";
-var readRequestedPackage = async ({ requested, cwd }) => (
-  // resolve() leaves an absolute --package alone, so both forms the flag
-  // accepts land here.
-  readStandardsPackage({ packagePath: requested === void 0 ? resolveDefaultStandardsPackage() : resolve9(cwd, requested) })
+var readRequestedPack = async ({ requested, cwd }) => (
+  // resolve() leaves an absolute --pack alone, so both forms the flag accepts
+  // land here.
+  readStandardsPack({ packPath: requested === void 0 ? resolveDefaultStandardsPack() : resolve9(cwd, requested) })
 );
 var standardsValidateCommand = async ({ flags, cwd }) => {
-  const requested = getStringFlag({ flags, name: "package" });
-  const pkg = await readRequestedPackage({ requested, cwd }).catch((error51) => {
+  const requested = getStringFlag({ flags, name: "pack" });
+  const pack = await readRequestedPack({ requested, cwd }).catch((error51) => {
     console.error(messageOf({ error: error51 }));
     return exitCli({ code: 1 });
   });
-  const { problems, notes } = await validateStandardsPackage({ pkg });
+  const { problems, notes } = await validateStandardsPack({ pack });
   for (const note of notes) {
     console.log(`${dim("\u2139")} ${dim(note)}`);
   }
   for (const problem of problems) {
     console.log(`${red("\u2717")} ${problem}`);
   }
-  const checked = pkg.rules.filter((rule) => rule.checked).length;
-  const judgment = pkg.rules.length - checked;
+  const checked = pack.rules.filter((rule) => rule.checked).length;
+  const judgment = pack.rules.length - checked;
   console.log("");
   if (problems.length > 0) {
-    console.log(`${pkg.name} \u2014 ${problems.length} problem(s) across ${checked} checked rule(s)`);
+    console.log(`${pack.name} \u2014 ${problems.length} problem(s) across ${checked} checked rule(s)`);
     return exitCli({ code: 1 });
   }
-  console.log(green(`${pkg.name} \u2014 ${checked} checked rule(s) validated, ${judgment} judgment-only rule(s)`));
+  console.log(green(`${pack.name} \u2014 ${checked} checked rule(s) validated, ${judgment} judgment-only rule(s)`));
   return exitCli({ code: 0 });
 };
 

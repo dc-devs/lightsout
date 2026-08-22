@@ -38,12 +38,12 @@ The minimal configuration uses lightsout’s bundled JavaScript and TypeScript s
 
 ### Use your own standards
 
-Point `standards-packages` at one or more standards packages. Each entry is the
+Point `standards-packs` at one or more standards packs. Each entry is the
 folder holding a `lightsout-standards.json` file:
 
 ```json
 {
-  "standards-packages": ["standards/house-rules"],
+  "standards-packs": ["standards/house-rules"],
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
@@ -103,13 +103,13 @@ This is the smallest complete configuration. Everything else is optional.
 
 ## Adding your standards
 
-Standards arrive as **standards packages**. A package is a folder holding a
+Standards arrive as **standards packs**. A pack is a folder holding a
 `lightsout-standards.json` file, a `code/` tree of documents for the agents that
 write code, and a `tests/` tree for the agent that writes tests. Every rule is a
 folder inside a document: its prose, the check that enforces it when one is
 possible, and the example files that prove the check works.
 
-Lightsout ships one such package and loads it when you say nothing. Its base
+Lightsout ships one such pack and loads it when you say nothing. Its base
 documents always apply, while the framework-specific documents for React and
 TanStack are added automatically when those frameworks are detected in the
 packages involved in the run.
@@ -118,7 +118,7 @@ To use your own instead, list its root folder:
 
 ```json
 {
-  "standards-packages": ["standards/house-rules"],
+  "standards-packs": ["standards/house-rules"],
   "gates": {
     "check": "pnpm check",
     "test": "pnpm test:unit",
@@ -129,21 +129,21 @@ To use your own instead, list its root folder:
 
 Entries load in the order you list them, and each may be a path relative to the
 root of your repository or an absolute path. Listing several stacks their
-documents; two packages that claim the same rule id fail the run rather than
+documents; two packs that claim the same rule id fail the run rather than
 letting an override mean two things. A root with no `lightsout-standards.json`
 in it fails the run too.
 
-Set `standards-packages` to `false` to run with no standards at all.
+Set `standards-packs` to `false` to run with no standards at all.
 
-### Commands for working with a package
+### Commands for working with a pack
 
-`lightsout standards-validate [--package <path>]` runs every check in a package
-against its own pass and fail fixtures. Without the flag it validates the
-package lightsout ships. This is the gate to run while writing a rule: a check
-that lets its fail fixture through catches nothing, and one that flags its pass
-fixture cries wolf. Neither is visible when the package loads, and both are
-exactly what an author needs told. It validates every rule regardless of
-channel, because authoring covers every channel.
+`lightsout standards-validate [--pack <path>]` runs every check in a pack
+against its own pass and fail fixtures. Without the flag it validates the pack
+lightsout ships. This is the gate to run while writing a rule: a check that lets
+its fail fixture through catches nothing, and one that flags its pass fixture
+cries wolf. Neither is visible when the pack loads, and both are exactly what an
+author needs told. It validates every rule regardless of channel, because
+authoring covers every channel.
 
 `lightsout standards-health` reports on the rules rather than on your code: per
 rule, whether code checks it or an agent has to judge it, and how often agents
@@ -187,8 +187,9 @@ failure.
 | `coverage-summary-path`       |       no | Where your coverage tooling writes its JSON summary (`coverage-summary.json`, the `json-summary` reporter's output), which `lightsout test-coverage-to-threshold` reads for per-file percentages. Defaults to `coverage/coverage-summary.json` — relative to the repository root, or to each package in monorepo mode.                                                                           |
 | `package-gates`               |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](monorepos.md).                                                                                                                                                                                                                                |
 | `packages-dir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                                                                                                                                  |
-| `standards-packages`          |       no | The standards packages a run works against. When omitted, the package lightsout ships is used. Set to `false` to run with no standards at all, or provide an array of package roots — each the folder holding a `lightsout-standards.json` file, relative to your repository root or absolute. One package carries both the code and the test documents, which is why there is a single key rather than two. |
-| `standards-channels`          |       no | Controls which framework-specific documents of the loaded packages are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                                                                                                                              |
+| `standards-packs`             |       no | The standards packs a run works against. When omitted, the pack lightsout ships is used. Set to `false` to run with no standards at all, or provide an array of pack roots — each the folder holding a `lightsout-standards.json` file, relative to your repository root or absolute. One pack carries both the code and the test documents, which is why there is a single key rather than two. |
+| `standards-packages`, `standardsPackages` | — | Removed spellings of `standards-packs`. A config still carrying either one fails to parse, with a message naming the key that replaced it. |
+| `standards-channels`          |       no | Controls which framework-specific documents of the loaded packs are used, such as `react`. When omitted, channels are detected from the packages involved in the run. Providing an array replaces automatic detection. Use `[]` to load only the base documents.                                                                                                                              |
 | `standards-checks`            |       no | Per-rule overrides for `lightsout standards-check`, keyed by rule id. A rule you do not name keeps its own default. See [Standards check rules](#standards-check-rules).                                                                                                                                                                                                                         |
 
 ### Standards check rules
@@ -250,8 +251,8 @@ The following example shows how the optional configuration fields fit together:
     },
   },
 
-  // Standards packages, and which framework documents apply
-  "standards-packages": ["standards/house-rules"],
+  // Standards packs, and which framework documents apply
+  "standards-packs": ["standards/house-rules"],
   "standards-channels": [],
 
   // Repository-wide gates

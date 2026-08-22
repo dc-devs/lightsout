@@ -221,14 +221,14 @@ test('standards default on when unspecified; false switches them off explicitly'
 	// bundled defaults inlined
 	expect(defaulted.includes('One Export Per File')).toBeTruthy();
 
-	const disabled = await run({ config: { 'standards-packages': false } });
+	const disabled = await run({ config: { 'standards-packs': false } });
 
 	// false → no standards section
 	expect(disabled.includes('# Standards\n\nThese rules are binding')).toBeFalsy();
 });
 
-test('a declared standards package that cannot be loaded stops the run before any agent spawns', async () => {
-	const dir = setupConsumerRepo({ config: { 'standards-packages': ['standards/ghost'] } });
+test('a declared standards pack that cannot be loaded stops the run before any agent spawns', async () => {
+	const dir = setupConsumerRepo({ config: { 'standards-packs': ['standards/ghost'] } });
 	const driver: Driver = {
 		name: 'stub',
 		invoke: async () => {
@@ -250,7 +250,7 @@ test('a declared standards package that cannot be loaded stops the run before an
 	// would leave the run with no record of why it ended
 	expect(result.ok).toBe(false);
 	expect(result.manifest.status).toBe('failed');
-	expect(result.error ?? '').toMatch(/standards package root file not found/);
+	expect(result.error ?? '').toMatch(/standards pack root file not found/);
 
 	const cleanSlate = result.manifest.steps.find((step) => step.id === 'clean-slate');
 
@@ -259,4 +259,69 @@ test('a declared standards package that cannot be loaded stops the run before an
 	expect(cleanSlate?.status).toBe('failed');
 	expect(cleanSlate?.attempts).toBe(0);
 	expect(progress.some((line) => line.startsWith('run stopped at clean-slate'))).toBeTruthy();
+});
+
+/**
+ * A run whose implement step lands one clean source file and whose refactor
+ * pass declines, so the config is the only thing left deciding what the
+ * standards half of the gate does. The reviewer's system prompt is collected —
+ * it carries the rules the pack and channel resolution selected, so it is where
+ * a config the gate failed to honor shows up — and an empty list of prompts is
+ * a review that was never bought at all.
+ */
+const setupStandardsConfigRun = async ({ config }: { config: Record<string, unknown> }) => {
+	const dir = setupConsumerRepo({ config });
+	const reviewSystemPrompts: string[] = [];
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt, systemPrompt }) => {
+			const role = roleOf(prompt);
+
+			if (role === 'standards-review') {
+				reviewSystemPrompts.push(systemPrompt ?? '');
+
+				return { text: reviewReport(), exitCode: 0 };
+			}
+
+			if (role === 'write-tests') {
+				mkdirSync(join(dir, 'test'), { recursive: true });
+				writeFileSync(join(dir, 'test/subject.test.js'), '// stub\n');
+
+				return { text: report({ changedFiles: [{ path: 'test/subject.test.js', summary: 'tests' }] }), exitCode: 0 };
+			}
+
+			if (role === 'refactor') {
+				return { text: report({ changedFiles: [] }), exitCode: 0 };
+			}
+
+			writeSource({ dir, path: 'src/subject.js', source: 'export const subject = () => 1;\n' });
+
+			return { text: report({ changedFiles: [{ path: 'src/subject.js', summary: 'feature' }] }), exitCode: 0 };
+		},
+	};
+
+	return { dir, driver, config: await readConfig({ cwd: dir }), reviewSystemPrompts };
+};
+
+test('standards packs off: the refactor gate loads no pack, spends no reviewer, and the loop still completes', async () => {
+	const { dir, driver, config, reviewSystemPrompts } = await setupStandardsConfigRun({ config: { 'standards-packs': false } });
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// no pack means no judgment rule to read, so no agent is spent saying so —
+	// and the machine half having nothing to report is what lets the loop finish
+	expect(reviewSystemPrompts).toStrictEqual([]);
+	expect(result.ok).toBe(true);
+	expect(result.manifest.steps.find((step) => step.id === 'refactor')?.status).toBe('passed');
+});
+
+test('standards channels configured: the refactor gate hands the reviewer the named channel rather than what it would detect', async () => {
+	const { dir, driver, config, reviewSystemPrompts } = await setupStandardsConfigRun({ config: { 'standards-channels': ['react'] } });
+
+	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// the fixture repo carries no manifest at all, so detection would have found
+	// no channel and left both of these documents out of the review entirely
+	expect(reviewSystemPrompts[0] ?? '').toContain('## code/architecture/react');
+	expect(reviewSystemPrompts[0] ?? '').toContain('## tests/unit-testing-react-components');
 });

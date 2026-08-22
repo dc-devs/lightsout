@@ -1,7 +1,7 @@
 import { type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { runBatchReview } from '#src/refactor/batch/runBatchReview.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -9,8 +9,8 @@ interface Params {
 	runId: string;
 	driver: Driver;
 	batch: RefactorBatch;
-	/** The run's standards packages — the judgment rules the agent review reads. */
-	packages: LoadedStandardsPackage[];
+	/** The run's standards packs — the judgment rules the agent review reads. */
+	packs: LoadedStandardsPack[];
 	/** Active framework channels; a document out of play is not reviewed. */
 	channels: string[];
 	/** A live check's findings, which the machine advisories are filtered out of. */
@@ -44,7 +44,7 @@ export const collectBatchAdvisories = async ({
 	runId,
 	driver,
 	batch,
-	packages,
+	packs,
 	channels,
 	findings,
 	agentReview,
@@ -54,7 +54,7 @@ export const collectBatchAdvisories = async ({
 	const batchFiles = new Set(batch.blocking.flatMap((finding) => finding.files.map((file) => file.path)));
 	const machine = findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && finding.files.some((file) => batchFiles.has(file.path)));
 
-	const reviewed = await runBatchReview({ cwd, runId, driver, batch, packages, channels, files: [...batchFiles], agentReview, timeoutMs, onProgress });
+	const reviewed = await runBatchReview({ cwd, runId, driver, batch, packs, channels, files: [...batchFiles], agentReview, timeoutMs, onProgress });
 
 	return [...machine, ...reviewed];
 };

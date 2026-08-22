@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { StandardsSeverity } from '#src/contracts/index.ts';
 import type { Driver, DriverInvocation, DriverResult } from '#src/drivers/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedStandardsRule => ({
 	set: 'code',
@@ -17,7 +17,7 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedS
 	...overrides,
 });
 
-const packageOf = ({ rules }: { rules: LoadedStandardsRule[] }): LoadedStandardsPackage => ({
+const packOf = ({ rules }: { rules: LoadedStandardsRule[] }): LoadedStandardsPack => ({
 	name: 'acme',
 	formatVersion: 1,
 	rootPath: '/packages/acme',
@@ -58,7 +58,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -84,7 +84,7 @@ describe('runStandardsReview', () => {
 		const { findings } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -107,7 +107,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts', 'src/b.ts'],
 		});
@@ -122,7 +122,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -137,7 +137,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -153,7 +153,7 @@ describe('runStandardsReview', () => {
 		const { notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -167,7 +167,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })],
+			packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -183,7 +183,7 @@ describe('runStandardsReview', () => {
 		await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: [],
 		});
@@ -197,7 +197,7 @@ describe('runStandardsReview', () => {
 		await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'react-hook-order', channel: 'react' })] })],
+			packs: [packOf({ rules: [rule({ id: 'react-hook-order', channel: 'react' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -211,7 +211,7 @@ describe('runStandardsReview', () => {
 		await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'react-hook-order', channel: 'react' }), rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'react-hook-order', channel: 'react' }), rule({ id: 'common-placement' })] })],
 			channels: ['react'],
 			files: ['src/a.ts'],
 		});
@@ -228,7 +228,7 @@ describe('runStandardsReview', () => {
 		const { findings } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -248,7 +248,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -271,7 +271,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
 		});
@@ -295,7 +295,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts', 'src/b.ts'],
 		});
@@ -313,7 +313,7 @@ describe('runStandardsReview', () => {
 		await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] }), packageOf({ rules: [rule({ id: 'one-export' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] }), packOf({ rules: [rule({ id: 'one-export' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});
@@ -328,7 +328,7 @@ describe('runStandardsReview', () => {
 		await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 			timeoutMs: 90_000,
@@ -348,7 +348,7 @@ describe('runStandardsReview', () => {
 		const { findings, notes } = await runStandardsReview({
 			cwd: '/repo',
 			driver,
-			packages: [packageOf({ rules: [rule({ id: 'common-placement' })] })],
+			packs: [packOf({ rules: [rule({ id: 'common-placement' })] })],
 			channels: [],
 			files: ['src/a.ts'],
 		});

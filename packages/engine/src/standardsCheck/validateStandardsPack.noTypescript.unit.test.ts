@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, jest, test } from '@jest/globals';
 import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
-import { validateStandardsPackage } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import { validateStandardsPack } from '#src/standardsCheck/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 
 // Mocked Imports
 // -------------------------
@@ -35,11 +35,11 @@ const bansTheBannedFile: StandardsCheckFunction = ({ input }) =>
 		}));
 
 /**
- * A package holding one rule that needs parsed trees and one that does not,
+ * A pack holding one rule that needs parsed trees and one that does not,
  * both pointed at a real fixture pair: the fail side holds the banned file, the
  * pass side does not.
  */
-const setupPackage = () => {
+const setupPack = () => {
 	const fixturesPath = join(mkdtempSync(join(tmpdir(), 'lightsout-validate-no-ts-')), 'fixtures');
 
 	for (const [side, name] of [
@@ -64,7 +64,7 @@ const setupPackage = () => {
 		...overrides,
 	});
 
-	const pkg: LoadedStandardsPackage = {
+	const pack: LoadedStandardsPack = {
 		name: 'acme',
 		formatVersion: 1,
 		rootPath: '/packages/acme',
@@ -72,17 +72,17 @@ const setupPackage = () => {
 		rules: [rule({ id: 'dead-export', inputKind: StandardsInputKind.SyntaxTree }), rule({ id: 'no-banned-file', inputKind: StandardsInputKind.FileList })],
 	};
 
-	return { pkg };
+	return { pack };
 };
 
-describe('validateStandardsPackage', () => {
+describe('validateStandardsPack', () => {
 	test('notes the rules it cannot parse fixtures for and still validates the rest', async () => {
-		const { pkg } = setupPackage();
+		const { pack } = setupPack();
 
-		const { problems, notes } = await validateStandardsPackage({ pkg });
+		const { problems, notes } = await validateStandardsPack({ pack });
 
 		expect(notes).toStrictEqual(['dead-export: not validated — its syntax-tree input needs a typescript this install does not have']);
-		// a missing compiler is this machine's shortcoming, not the package's, so
+		// a missing compiler is this machine's shortcoming, not the pack's, so
 		// the rule that needs none is still held to its fixtures
 		expect(problems).toStrictEqual([]);
 	});

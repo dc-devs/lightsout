@@ -26,3 +26,9 @@ test('readCommandFlags: gathers every subcommand flags under the command that di
 test('readCommandFlags: a name the usage text never mentions accepts nothing beyond --cwd', () => {
 	expect(readCommandFlags({ command: 'nonesuch' })).toStrictEqual(new Set(['cwd']));
 });
+
+test('readCommandFlags: standards-validate accepts --pack, and the removed --package spelling is not in the set', () => {
+	const flags = readCommandFlags({ command: 'standards-validate' });
+
+	expect([...flags].sort()).toStrictEqual(['cwd', 'pack']);
+});

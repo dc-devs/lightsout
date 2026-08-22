@@ -120,3 +120,52 @@ test('collectFolderModules: an index.tsx barrel counts as one, and a file that i
 	expect([...modules.keys()]).toStrictEqual(['src/tray']);
 	expect(modules.get('src/tray')?.barrelPath).toBe('src/tray/index.tsx');
 });
+
+test('collectFolderModules: a framework-mandated folder is a module however its barrel looks, and a folder the callback declines still answers the omission test alone', async () => {
+	const files = [
+		'src/screens/RunsIndex/index.ts',
+		'src/screens/RunsIndex/RunsIndex.ts',
+		'src/screens/plain/index.ts',
+		'src/screens/plain/plain.ts',
+		'src/screens/hides/index.ts',
+		'src/screens/hides/hides.ts',
+		'src/screens/hides/helper.ts',
+	];
+	const cwd = setupRepo({
+		files: {
+			// exports its only file, so the omission test says no — the mandate says yes anyway
+			'src/screens/RunsIndex/index.ts': "export { RunsIndex } from './RunsIndex';",
+			'src/screens/RunsIndex/RunsIndex.ts': 'export const RunsIndex = 1;',
+			// exports its only file and the callback declines it → not a module
+			'src/screens/plain/index.ts': "export { plain } from './plain';",
+			'src/screens/plain/plain.ts': 'export const plain = 1;',
+			// declined too, but hides helper.ts → the omission test marks it alone
+			'src/screens/hides/index.ts': "export { hides } from './hides';",
+			'src/screens/hides/hides.ts': 'export const hides = 1;',
+			'src/screens/hides/helper.ts': 'export const helper = 1;',
+		},
+	});
+
+	const modules = await collectFolderModules({ cwd, files, compiler: ts, isMandatedModule: ({ folder }) => folder === 'src/screens/RunsIndex' });
+
+	expect([...modules.keys()].sort()).toStrictEqual(['src/screens/RunsIndex', 'src/screens/hides']);
+	expect(modules.get('src/screens/RunsIndex')).toStrictEqual({
+		barrelPath: 'src/screens/RunsIndex/index.ts',
+		exportedTargets: new Set(['src/screens/RunsIndex/RunsIndex.ts']),
+	});
+});
+
+test('collectFolderModules: a mandate cannot invent a boundary from a barrel whose surface could not be read', async () => {
+	const files = ['src/mandated/index.ts', 'src/mandated/main.ts'];
+	const cwd = setupRepo({
+		files: {
+			// a specifier that resolves nowhere leaves the surface incomplete — silence outranks the mandate
+			'src/mandated/index.ts': "export { ghost } from './ghost';",
+			'src/mandated/main.ts': 'export const main = 1;',
+		},
+	});
+
+	const modules = await collectFolderModules({ cwd, files, compiler: ts, isMandatedModule: () => true });
+
+	expect([...modules.keys()]).toStrictEqual([]);
+});
