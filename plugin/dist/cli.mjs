@@ -8054,9 +8054,23 @@ var red = paint({ code: "31" });
 // src/cli/common/terminal/yellow.ts
 var yellow = paint({ code: "33" });
 
-// src/doctor/checkCoverageSummary.ts
+// src/doctor/checkConfiguredPaths.ts
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
+var checkConfiguredPaths = async ({ cwd, id, paths, fix }) => {
+  if (!paths) {
+    return void 0;
+  }
+  const absent = [];
+  for (const prefix of paths) {
+    await stat(join(cwd, prefix)).catch(() => absent.push(prefix));
+  }
+  return absent.length === 0 ? { id, status: "pass", detail: `${paths.length} ${id} path(s) exist` } : { id, status: "warn", detail: `not found: ${absent.join(", ")}`, fix };
+};
+
+// src/doctor/checkCoverageSummary.ts
+import { stat as stat2 } from "node:fs/promises";
+import { join as join2 } from "node:path";
 
 // src/common/constants/defaultCoverageSummaryPath.ts
 var defaultCoverageSummaryPath = "coverage/coverage-summary.json";
@@ -8070,35 +8084,16 @@ var checkCoverageSummary = async ({ config: config2, packageDirs }) => {
   }
   const summaryPath = config2["coverage-summary-path"] ?? defaultCoverageSummaryPath;
   const scopes = scoped ? packageDirs.filter((entry) => entry.label !== "root") : packageDirs.filter((entry) => entry.label === "root");
-  const expected = scopes.map((entry) => ({ label: entry.label, path: join(entry.dir, summaryPath) }));
+  const expected = scopes.map((entry) => ({ label: entry.label, path: join2(entry.dir, summaryPath) }));
   const absent = [];
   for (const entry of expected) {
-    await stat(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
+    await stat2(entry.path).catch(() => absent.push(`${entry.label}: ${summaryPath}`));
   }
   return absent.length === 0 ? { id: "coverage-summary", status: "pass", detail: `coverage summary found for ${expected.length} scope(s)` } : {
     id: "coverage-summary",
     status: "warn",
     detail: `not found: ${absent.join(", ")}`,
     fix: `configure a json-summary coverage reporter (jest: coverageReporters ['json-summary']) writing ${summaryPath}, run the coverage script once, or set coverage-summary-path`
-  };
-};
-
-// src/doctor/checkGenerated.ts
-import { stat as stat2 } from "node:fs/promises";
-import { join as join2 } from "node:path";
-var checkGenerated = async ({ cwd, config: config2 }) => {
-  if (!config2.generated) {
-    return void 0;
-  }
-  const absent = [];
-  for (const prefix of config2.generated) {
-    await stat2(join2(cwd, prefix)).catch(() => absent.push(prefix));
-  }
-  return absent.length === 0 ? { id: "generated", status: "pass", detail: `${config2.generated.length} generated path(s) exist` } : {
-    id: "generated",
-    status: "warn",
-    detail: `not found: ${absent.join(", ")}`,
-    fix: "run the generator once, or remove stale entries from `generated`"
   };
 };
 
@@ -23459,6 +23454,25 @@ var LightsoutConfig = external_exports.object({
    */
   generated: external_exports.array(external_exports.string()).optional(),
   /**
+   * Path prefixes of third-party code the repo vendors in rather than writes
+   * (e.g. a shadcn/ui component folder a generator drops in and the app then
+   * edits). Excluded from the source walk exactly as `generated` is, so its
+   * conventions are never judged against this repo's standards, it never
+   * becomes a test subject, and it never shows up as prior art.
+   *
+   * It differs from `generated` in the one way that matters: a vendored file
+   * IS attributed when it changes. Generated output is excluded from
+   * attribution because the source that produced it is the real change;
+   * vendored code has no such source in the repo, so an edit inside it is the
+   * change and must earn its agent turn like any other.
+   *
+   * The engine's exclusion stops the engine's own checks and nothing else. A
+   * repo whose coverage threshold covers the vendored path must exclude it
+   * there too — that gate is the repo's test runner, which the engine only
+   * invokes.
+   */
+  vendored: external_exports.array(external_exports.string()).optional(),
+  /**
    * Path to the JSON coverage summary the coverage tooling writes (default
    * `coverage/coverage-summary.json`) — repo-relative in single-package
    * repos, package-relative in monorepo mode. `lightsout
@@ -24185,6 +24199,10 @@ var resolvePackageDirs = async ({ cwd, config: config2, packagesDir }) => {
 
 // src/doctor/runDoctor.ts
 var severityRank = { pass: 0, note: 1, warn: 2, fail: 3 };
+var configuredPathAudits = ({ config: config2 }) => [
+  { id: "generated", paths: config2.generated, fix: "run the generator once, or remove stale entries from `generated`" },
+  { id: "vendored", paths: config2.vendored, fix: "restore the third-party code, or remove stale entries from `vendored`" }
+];
 var runDoctor = async ({ cwd, probeHarness }) => {
   const checks = [];
   let config2;
@@ -24224,9 +24242,11 @@ var runDoctor = async ({ cwd, probeHarness }) => {
   if (lintRules) {
     checks.push(lintRules);
   }
-  const generated = await checkGenerated({ cwd, config: config2 });
-  if (generated) {
-    checks.push(generated);
+  for (const audit of configuredPathAudits({ config: config2 })) {
+    const check2 = await checkConfiguredPaths({ cwd, ...audit });
+    if (check2) {
+      checks.push(check2);
+    }
   }
   const coverageSummary = await checkCoverageSummary({ config: config2, packageDirs });
   if (coverageSummary) {
@@ -24859,6 +24879,9 @@ var printRunHeader = ({ config: config2, driver, cwd }) => {
   if (config2.generated) {
     console.log(`  generated (never attributed): ${config2.generated.join(", ")}`);
   }
+  if (config2.vendored) {
+    console.log(`  vendored (never checked, still attributed): ${config2.vendored.join(", ")}`);
+  }
   if (config2.gates.build) {
     console.log(`  gates (root, opt-in): build=[${config2.gates.build}]`);
   }
@@ -25091,6 +25114,9 @@ var readGitChangedFiles = async ({ cwd }) => {
     return renameTarget.replace(/^"|"$/g, "");
   }).map((path) => root && path.startsWith(root) ? path.slice(root.length) : path).filter((path) => !path.startsWith(".lightsout/"));
 };
+
+// src/common/sourceFiles/excludedSourcePaths.ts
+var excludedSourcePaths = ({ config: config2 }) => [...config2?.generated ?? [], ...config2?.vendored ?? []];
 
 // src/common/sourceFiles/listSourceFiles.ts
 import { readdir as readdir8 } from "node:fs/promises";
@@ -26367,6 +26393,7 @@ var advisoryLine = (finding) => `${findingLine(finding)} (siteKey: \`${finding.s
 var buildRefactorExecutorInvocation = ({
   scope,
   planContent,
+  overviewContent,
   changedFiles,
   standards,
   findings,
@@ -26374,9 +26401,19 @@ var buildRefactorExecutorInvocation = ({
   reportAdvisoryOutcomes,
   errorContext
 }) => {
-  const roleSections = [refactorExecutor_default, scopePrompt({ scope }), `# Plan (context for what these changes were for)
+  const roleSections = [refactorExecutor_default, scopePrompt({ scope })];
+  if (overviewContent) {
+    roleSections.push(
+      `# Overview (high-level context)
 
-${planContent}`];
+The plan below is one phase of this larger effort. Later phases consume what this one builds, so a thing with no caller yet is not necessarily dead.
+
+${overviewContent}`
+    );
+  }
+  roleSections.push(`# Plan (context for what these changes were for)
+
+${planContent}`);
   if (standards) {
     roleSections.push(`# Standards
 
@@ -26743,7 +26780,10 @@ ${text}`, "utf8");
 var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
 
 // src/pipeline/common/utils/sourceFiles.ts
-var sourceFiles = ({ run }) => run.current().changedFiles.filter((file2) => !isTestFile({ path: file2 }) && isTestableSourceFile({ path: file2 }));
+var sourceFiles = ({ run }) => {
+  const vendored = run.config.vendored ?? [];
+  return run.current().changedFiles.filter((file2) => !isTestFile({ path: file2 }) && isTestableSourceFile({ path: file2 }) && !vendored.some((prefix) => file2.startsWith(prefix)));
+};
 
 // src/coverage/batch/invokeCoverageAgent.ts
 import { mkdir as mkdir6, writeFile as writeFile4 } from "node:fs/promises";
@@ -28060,6 +28100,7 @@ var runExecutorPass = async ({
   run,
   gitPrefix,
   planContent,
+  overviewContent,
   standards,
   record: record2,
   findings,
@@ -28071,6 +28112,7 @@ var runExecutorPass = async ({
     invocation: buildRefactorExecutorInvocation({
       scope: RefactorScope.Feature,
       planContent,
+      overviewContent,
       changedFiles: sourceFiles({ run }),
       standards,
       findings,
@@ -40480,7 +40522,7 @@ var runStandardsCheck = async ({
     channels,
     packagesDir: config2?.["packages-dir"],
     path,
-    exclude: config2?.generated,
+    exclude: excludedSourcePaths({ config: config2 }),
     onProgress
   });
   const findings = checked.findings;
@@ -40787,7 +40829,7 @@ var resolveReviewStandards = async ({ run }) => {
   const channels = run.config["standards-channels"] ?? await detectStandardsChannels({ cwd: run.cwd, packagesDir: run.config["packages-dir"] ?? "packages", packages: run.current().packages });
   return { packages, channels };
 };
-var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
+var refactorStep = ({ run, gitPrefix, planContent, overviewContent, standards }) => {
   return async () => {
     let record2 = run.nextRecord({ id: "refactor" });
     let lastReport;
@@ -40798,7 +40840,7 @@ var refactorStep = ({ run, gitPrefix, planContent, standards }) => {
       await run.setStep({ record: record2 });
       const { workList, advisories } = await readStandardsGate({ run, packages, channels });
       run.progress(`step refactor \u2014 pass ${pass}/${maxRefactorPasses}`);
-      const executed = await runExecutorPass({ run, gitPrefix, planContent, standards, record: record2, findings: workList, advisories });
+      const executed = await runExecutorPass({ run, gitPrefix, planContent, overviewContent, standards, record: record2, findings: workList, advisories });
       if ("stopped" in executed) {
         return executed.stopped;
       }
@@ -41251,7 +41293,7 @@ var writeTestsStep = ({ run, gitPrefix, planContent, testStandards }) => {
         `write-tests: ${unreachable.length} file(s) skipped \u2014 real code no unit test can run (a tool's own settings file, or a module-scope await the runner cannot load): ${unreachable.join(", ")}`
       );
     }
-    const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
+    const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
     const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
     if (orphans.length > 0) {
       run.progress(
@@ -41293,7 +41335,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
     {
       id: "refactor",
       skip: () => sourceFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
-      run: refactorStep({ run, gitPrefix, planContent, standards })
+      run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
     },
     {
       id: "verify-refactor",
@@ -41303,7 +41345,14 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
         planContent,
         id: "verify-refactor",
         coverage: true,
-        buildFix: (errorContext) => buildRefactorExecutorInvocation({ scope: RefactorScope.Feature, planContent, changedFiles: sourceFiles({ run }), standards, errorContext })
+        buildFix: (errorContext) => buildRefactorExecutorInvocation({
+          scope: RefactorScope.Feature,
+          planContent,
+          overviewContent,
+          changedFiles: sourceFiles({ run }),
+          standards,
+          errorContext
+        })
       })
     }
   ];
@@ -41371,7 +41420,7 @@ var recheckUnreachable = async ({ run }) => {
   }
   const packagesDir = run.config["packages-dir"] ?? defaultPackagesDir;
   const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-  const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
+  const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
   const targets = recorded.filter((file2) => universe.includes(file2));
   const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
   await run.update({ patch: { unreachableChangedFiles: orphans } });
@@ -42174,7 +42223,7 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   if (planned.length === 0) {
     return [];
   }
-  const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: config2?.generated });
+  const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config: config2 }) });
   const census = files.filter((file2) => !isTestFile({ path: file2, standardsPackages }) && getExportName({ path: file2 }) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: getExportName({ path: file2 }), path: file2 }));
   const buckets = /* @__PURE__ */ new Map();
   for (const entry of census) {
@@ -44377,7 +44426,7 @@ var reviewStandards = async ({ cwd, config: config2, path, onProgress }) => {
   const defaultAgentTimeoutMinutes = 60;
   const packages = await resolveStandardsPackages({ cwd, config: config2 });
   const channels = config2?.["standards-channels"] ?? await detectStandardsChannels({ cwd, packagesDir: config2?.["packages-dir"] ?? "packages", packages: [] });
-  const { files: walked } = await listSourceFiles({ cwd, exclude: config2?.generated });
+  const { files: walked } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config: config2 }) });
   const files = walked.filter((file2) => !path || file2.startsWith(path));
   return runStandardsReview({
     cwd,
