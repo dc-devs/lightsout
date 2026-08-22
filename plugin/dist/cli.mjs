@@ -26779,11 +26779,14 @@ ${text}`, "utf8");
 // src/common/sourceFiles/isTestableSourceFile.ts
 var isTestableSourceFile = ({ path }) => /\.(m|c)?[jt]sx?$/i.test(path);
 
-// src/pipeline/common/utils/sourceFiles.ts
-var sourceFiles = ({ run }) => {
+// src/pipeline/common/utils/standardsScopeFiles.ts
+var standardsScopeFiles = ({ run }) => {
   const vendored = run.config.vendored ?? [];
-  return run.current().changedFiles.filter((file2) => !isTestFile({ path: file2 }) && isTestableSourceFile({ path: file2 }) && !vendored.some((prefix) => file2.startsWith(prefix)));
+  return run.current().changedFiles.filter((file2) => isTestableSourceFile({ path: file2 }) && !vendored.some((prefix) => file2.startsWith(prefix)));
 };
+
+// src/pipeline/common/utils/sourceFiles.ts
+var sourceFiles = ({ run }) => standardsScopeFiles({ run }).filter((file2) => !isTestFile({ path: file2 }));
 
 // src/coverage/batch/invokeCoverageAgent.ts
 import { mkdir as mkdir6, writeFile as writeFile4 } from "node:fs/promises";
@@ -28113,7 +28116,7 @@ var runExecutorPass = async ({
       scope: RefactorScope.Feature,
       planContent,
       overviewContent,
-      changedFiles: sourceFiles({ run }),
+      changedFiles: standardsScopeFiles({ run }),
       standards,
       findings,
       advisories
@@ -40656,7 +40659,8 @@ var runStandardsReview = async ({
 // src/standardsCheck/selectStandardsFindings.ts
 var selectStandardsFindings = ({ findings, changedFiles }) => {
   const changed = new Set(changedFiles);
-  const touchesChanged = (finding) => finding.files.some((file2) => changed.has(file2.path));
+  const isChanged = (path) => changed.has(path) || changedFiles.some((file2) => file2.startsWith(`${path}/`));
+  const touchesChanged = (finding) => finding.files.some((file2) => isChanged(file2.path));
   return {
     workList: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking && touchesChanged(finding)),
     advisories: findings.filter((finding) => finding.severity === StandardsSeverity.Advisory && touchesChanged(finding))
@@ -40763,7 +40767,7 @@ var validateStandardsPackage = async ({ pkg }) => {
 // src/pipeline/steps/standardsWorkList.ts
 var standardsWorkList = async ({ run }) => {
   const { findings } = await runStandardsCheck({ cwd: run.cwd, persist: false });
-  return selectStandardsFindings({ findings, changedFiles: sourceFiles({ run }) });
+  return selectStandardsFindings({ findings, changedFiles: standardsScopeFiles({ run }) });
 };
 
 // src/pipeline/steps/refactorStep.ts
@@ -41334,7 +41338,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
   const refactorSteps = skipRefactor ? [] : [
     {
       id: "refactor",
-      skip: () => sourceFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
+      skip: () => standardsScopeFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
       run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
     },
     {
@@ -41349,7 +41353,7 @@ var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, tes
           scope: RefactorScope.Feature,
           planContent,
           overviewContent,
-          changedFiles: sourceFiles({ run }),
+          changedFiles: standardsScopeFiles({ run }),
           standards,
           errorContext
         })

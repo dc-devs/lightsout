@@ -1,5 +1,5 @@
-import { isTestableSourceFile } from '#src/common/sourceFiles/isTestableSourceFile.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
+import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 
 interface Params {
@@ -7,22 +7,20 @@ interface Params {
 }
 
 /**
- * The run's changed files that earn agent attention: testable source, never
- * tests, never vendored third-party code.
+ * The run's changed files that earn agent attention: source this repo owns,
+ * never tests.
  *
- * Vendored paths are dropped HERE rather than from the changed-file list
- * itself, and the split is the whole point. Editing a vendored file is a real
- * change that belongs in the manifest and the report — the attribution keeps
- * it. What it must not do is enter an agent's work: it is not this repo's code
- * to restructure, its conventions are not this repo's standards, and nobody
- * writes tests for it. Every agent-facing use of the changed-file list runs
- * through this function, so one filter covers the refactor work-list, the
- * standards review, the test targets, and the coverage gate alike.
+ * One filter on top of `standardsScopeFiles` rather than its own copy of the
+ * same conditions — the two lists differ by exactly this, and stating the
+ * difference in one place is what keeps them from drifting.
+ *
+ * Dropping tests is right for every caller here: a test writer must not be
+ * handed a test as a subject, and a refactor pass reviews the code rather than
+ * the suite pinning it. It is wrong for the standards gate, which is why that
+ * gate reads the wider list directly.
+ *
+ * Vendored code is already gone by this point. It is a real change worth
+ * recording in the manifest — the attribution keeps it — but it is not this
+ * repo's code to restructure, and nobody writes tests for it.
  */
-export const sourceFiles = ({ run }: Params): string[] => {
-	const vendored = run.config.vendored ?? [];
-
-	return run
-		.current()
-		.changedFiles.filter((file) => !isTestFile({ path: file }) && isTestableSourceFile({ path: file }) && !vendored.some((prefix) => file.startsWith(prefix)));
-};
+export const sourceFiles = ({ run }: Params): string[] => standardsScopeFiles({ run }).filter((file) => !isTestFile({ path: file }));

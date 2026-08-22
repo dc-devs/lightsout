@@ -3,7 +3,7 @@ import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { RunStatus, type StandardsFinding, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { invokeRoleOrStop } from '#src/pipeline/common/utils/invokeRoleOrStop.ts';
-import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
@@ -48,7 +48,7 @@ export const runExecutorPass = async ({
 			scope: RefactorScope.Feature,
 			planContent,
 			overviewContent,
-			changedFiles: sourceFiles({ run }),
+			changedFiles: standardsScopeFiles({ run }),
 			standards,
 			findings,
 			advisories,

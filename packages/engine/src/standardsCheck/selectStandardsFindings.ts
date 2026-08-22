@@ -21,7 +21,18 @@ interface Params {
  */
 export const selectStandardsFindings = ({ findings, changedFiles }: Params): { workList: StandardsFinding[]; advisories: StandardsFinding[] } => {
 	const changed = new Set(changedFiles);
-	const touchesChanged = (finding: StandardsFinding) => finding.files.some((file) => changed.has(file.path));
+
+	// A finding's site is usually a file, and then equality is the whole
+	// question. Some rules judge a FOLDER instead — `folder-census` reports on
+	// `src/appUI`, not on anything inside it — and a changed-file list holds
+	// files, so such a site could never equal an entry and the rule could never
+	// gate a run however blocking it was declared. A folder counts as changed
+	// when the run changed a file under it.
+	//
+	// The `/` matters: it makes this containment rather than string prefixing,
+	// so `src/app` never claims a change inside `src/appUI`.
+	const isChanged = (path: string) => changed.has(path) || changedFiles.some((file) => file.startsWith(`${path}/`));
+	const touchesChanged = (finding: StandardsFinding) => finding.files.some((file) => isChanged(file.path));
 
 	return {
 		workList: findings.filter((finding) => finding.severity === StandardsSeverity.Blocking && touchesChanged(finding)),

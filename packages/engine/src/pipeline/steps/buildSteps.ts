@@ -1,6 +1,7 @@
 import { buildFeatureExecutorInvocation, buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { cleanSlateStep } from '#src/pipeline/steps/cleanSlateStep.ts';
@@ -31,7 +32,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 		: [
 				{
 					id: 'refactor',
-					skip: () => (sourceFiles({ run }).length === 0 ? 'no changed source files to review' : undefined),
+					skip: () => (standardsScopeFiles({ run }).length === 0 ? 'no changed source files to review' : undefined),
 					run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards }),
 				},
 				{
@@ -47,7 +48,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 								scope: RefactorScope.Feature,
 								planContent,
 								overviewContent,
-								changedFiles: sourceFiles({ run }),
+								changedFiles: standardsScopeFiles({ run }),
 								standards,
 								errorContext,
 							}),
