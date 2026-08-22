@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity, LightsoutConfig, StructuralCheck } from '#src/contracts/index.ts';
 import { lintPlanStructure } from '#src/plan/index.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -173,22 +173,24 @@ An overview without the constraints section.
 	).toBeTruthy();
 });
 
-test('lintPlanStructure: a 60-file plan trips ScopeWithinGuardrail', async () => {
-	const cwd = setupConsumerRepo();
-	const creates = Array.from({ length: 60 }, (_, index) => `### \`src/gen${index}.ts\`\n\nGenerated module ${index}.\n`).join('\n');
-	const path = writePlan({
-		cwd,
-		name: 'too-big.md',
-		body: `# Plan
+/** A plan whose Files-to-Create section names `count` new modules, plus any extra sections. */
+const sizedPlan = ({ count, extra = '' }: { count: number; extra?: string }) => {
+	const creates = Array.from({ length: count }, (_, index) => `### \`src/gen${index}.ts\`\n\nGenerated module ${index}.\n`).join('\n');
+
+	return `# Plan
 
 ## Prerequisites
+
+- None
+
+## Global Constraints
 
 - None
 
 ## Files to Create
 
 ${creates}
-
+${extra}
 ## Scope Boundaries
 
 **Do NOT:** wander.
@@ -200,13 +202,76 @@ ${creates}
 ## What Next Plan Expects
 
 None.
-`,
-	});
+`;
+};
+
+test('lintPlanStructure: a 60-file plan trips both size numbers — the created ceiling blocks, the touched count only notes', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writePlan({ cwd, name: 'too-big.md', body: sizedPlan({ count: 60 }) });
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+	const ceiling = findings.find((finding) => finding.check === StructuralCheck.CreatedFilesWithinCeiling);
+	const guardrail = findings.find((finding) => finding.check === StructuralCheck.ScopeWithinGuardrail);
+
+	// 60 created files is more than a phase can specify — that one is a defect
+	expect(ceiling?.severity).toBe(FindingSeverity.Blocking);
+	expect(ceiling?.issue).toMatch(/creates 60 source files, over the 30-file ceiling/);
+	// the touched count is a note about where the implementing agent stops, not a
+	// defect: a 60-file mechanical phase has to stay legal
+	expect(guardrail?.severity).toBe(FindingSeverity.Advisory);
+	expect(guardrail?.issue).toMatch(/touches 60 source files, over the 50-file limit from the configured executor-file-limit/);
+});
+
+test('lintPlanStructure: a plan creating exactly 30 files sits on the ceiling rather than over it', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writePlan({ cwd, name: 'thirty.md', body: sizedPlan({ count: 30 }) });
 
 	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
 
-	// the oversized plan is flagged
-	expect(findings.some((finding) => finding.check === StructuralCheck.ScopeWithinGuardrail)).toBeTruthy();
+	// the ceiling is 30, not 29, got: ${JSON.stringify(findings)}
+	expect(findings).toStrictEqual([]);
+});
+
+test('lintPlanStructure: a plan declaring its own File Budget silences the touched-file note it covers', async () => {
+	const cwd = setupConsumerRepo();
+	const modifies = Array.from({ length: 60 }, (_, index) => `### \`src/index.js\`\n\nRename an import (${index}).\n`).join('\n');
+	const declared = writePlan({
+		cwd,
+		name: 'declared.md',
+		body: sizedPlan({ count: 3, extra: `\n## File Budget\n\n80\n\n## Files to Modify\n\n${modifies}\n` }),
+	});
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [declared] });
+
+	// a phase that creates three files and edits one import everywhere is
+	// legitimate work no repo-wide number can express, got:
+	// ${JSON.stringify(findings)}
+	expect(findings).toStrictEqual([]);
+});
+
+test('lintPlanStructure: the configured executor-file-limit moves the advisory off its default', async () => {
+	const cwd = setupConsumerRepo();
+	const config = LightsoutConfig.parse({ gates: { check: 'true', test: 'true', 'test-coverage': false }, 'executor-file-limit': 10 });
+	const path = writePlan({ cwd, name: 'configured-limit.md', body: sizedPlan({ count: 12 }) });
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path], config });
+
+	expect(findings.map((finding) => finding.issue)).toStrictEqual([
+		'plan touches 12 source files, over the 10-file limit from the configured executor-file-limit',
+	]);
+});
+
+test('lintPlanStructure: a Files to Move heading naming one path is a blocking finding at its line', async () => {
+	const cwd = setupConsumerRepo();
+	const path = writePlan({ cwd, name: 'bad-move.md', body: sizedPlan({ count: 1, extra: '\n## Files to Move\n\n### `src/index.js`\n\nTo where?\n' }) });
+
+	const findings = await lintPlanStructure({ cwd, planPaths: [path] });
+	const move = findings.find((finding) => finding.check === StructuralCheck.MoveWellFormed);
+
+	// a half-written move heading loses a file silently — the line number is what
+	// the writer is pointed at
+	expect(move?.severity).toBe(FindingSeverity.Blocking);
+	expect(move?.location).toMatch(/^bad-move\.md:\d+$/);
 });
 
 test('lintPlanStructure: a clean plan returns no findings', async () => {
@@ -310,6 +375,7 @@ test('lintPlanStructure: an overview.md basename is the overview variant on its 
 	// the filename alone selects the overview section set
 	expect(sections.map((finding) => finding.issue)).toStrictEqual([
 		"missing required section '## Phases' (overview plan)",
+		"missing required section '## Phase Declarations' (overview plan)",
 		"missing required section '## Cross-Phase Dependencies' (overview plan)",
 	]);
 });

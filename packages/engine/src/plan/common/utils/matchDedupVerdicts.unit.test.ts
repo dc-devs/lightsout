@@ -6,6 +6,7 @@ import { matchDedupVerdicts } from '#src/plan/common/utils/matchDedupVerdicts.ts
 const candidate = (overrides: Partial<PriorArtCandidate> = {}): PriorArtCandidate => ({
 	plannedSymbol: 'formatDate',
 	plannedPath: 'src/plan/common/utils/formatDate.ts',
+	phase: 'phase2-cross-phase-checks.md',
 	collidesWith: [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }],
 	...overrides,
 });
@@ -27,6 +28,7 @@ describe('matchDedupVerdicts', () => {
 			{
 				plannedSymbol: 'formatDate',
 				plannedPath: 'src/plan/common/utils/formatDate.ts',
+				phase: 'phase2-cross-phase-checks.md',
 				collidesWith: [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }],
 				recommendation: DedupResolution.Reuse,
 				rationale: 'the planned symbol restates an existing utility',
@@ -67,6 +69,14 @@ describe('matchDedupVerdicts', () => {
 			['first', 'first rationale'],
 			['second', 'second rationale'],
 		]);
+	});
+
+	test('labels the finding with the plan file that planned it, so the skill edits the right phase', () => {
+		const findings = matchDedupVerdicts({ candidates: [candidate({ phase: 'phase4-grade-fanout.md' })], verdicts: [verdict()] });
+
+		// `plannedPath` is where the symbol would live in the repo, which says
+		// nothing about which phase file to open
+		expect(findings[0]?.phase).toBe('phase4-grade-fanout.md');
 	});
 
 	test('carries the extract resolution through with its target location and callers to migrate', () => {

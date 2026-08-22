@@ -79,7 +79,9 @@ test('planDedupCommand: a confirmed duplicate prints its recommendation, what it
 	// the judge ruled on the detected candidate
 	expect(calls.count).toBe(1);
 	expect(printed[0] ?? '').toMatch(/^\nplan dedup demo — 1 duplication\(s\) to review \(reviewed \d{4}-\d\d-\d\dT/);
-	expect(printed[1] ?? '').toMatch(/^⧉ getUser \[reuse\] collides with \S*fetchUser\.ts$/);
+	// the finding leads with the plan file that planned it, so the skill edits the
+	// right phase rather than `plan.md` by default
+	expect(printed[1] ?? '').toMatch(/^⧉ plan\.md · getUser \[reuse\] collides with \S*fetchUser\.ts$/);
 	expect(printed[2]).toBe('   fetchUser already does this');
 	expect(printed[3]).toBe(`\ndedup: ${join(cwd, '.lightsout', 'plans', 'demo', 'dedup.json')}`);
 	expect(exitCodes).toStrictEqual([0]);
@@ -116,12 +118,17 @@ test('planDedupCommand: an unresolvable deliverable reports the error on stderr 
 	expect(exitCodes).toStrictEqual([1]);
 });
 
-test('planDedupCommand: a rate-limited harness prints the exact re-run command and exits 1 rather than reporting an empty review', async () => {
+test('planDedupCommand: a rate-limited harness prints the exact re-run command and marks the partial scan incomplete rather than reporting an empty review', async () => {
 	const { cwd, name, logged, errors, exitCodes } = setupDedup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 
 	await expect(planDedupCommand({ cwd, driver: rateLimitedDriver(), name, standards: undefined, config: undefined })).rejects.toThrow(/process\.exit/);
 
-	expect(printedLines({ logged })).toStrictEqual([]);
+	const printed = printedLines({ logged });
+
 	expect(errors[0] ?? '').toMatch(/rate limited or overloaded — re-run: lightsout plan dedup --name demo$/);
+	// "no duplication found" under an unfinished scan is the one reading this must
+	// never allow, so the partial report says what it is before it says what it found
+	expect(printed[0] ?? '').toMatch(/^\nincomplete scan — plan\.md: rate limited or overloaded/);
+	expect(printed[1] ?? '').toMatch(/^\nplan dedup demo — no duplication found/);
 	expect(exitCodes).toStrictEqual([1]);
 });

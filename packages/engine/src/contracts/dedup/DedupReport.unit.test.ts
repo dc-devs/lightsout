@@ -5,6 +5,7 @@ const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const finding = {
 		plannedSymbol: 'formatDate',
 		plannedPath: 'src/plan/common/utils/formatDate.ts',
+		phase: 'phase2-cross-phase-checks.md',
 		recommendation: 'extract',
 		rationale: 'the planned symbol restates an existing utility',
 		collidesWith: [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }],
@@ -28,10 +29,12 @@ describe('DedupReport', () => {
 		expect(parsed).toStrictEqual({
 			planName: 'packages-to-src',
 			reviewedAt: '2026-08-04T00:00:00.000Z',
+			complete: true,
 			findings: [
 				{
 					plannedSymbol: 'formatDate',
 					plannedPath: 'src/plan/common/utils/formatDate.ts',
+					phase: 'phase2-cross-phase-checks.md',
 					recommendation: 'extract',
 					rationale: 'the planned symbol restates an existing utility',
 					collidesWith: [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }],
@@ -49,6 +52,22 @@ describe('DedupReport', () => {
 		expect(parsed.findings).toStrictEqual([]);
 	});
 
+	test('a report that never says otherwise is a finished scan', () => {
+		const parsed = DedupReport.parse({ planName: 'packages-to-src', reviewedAt: '2026-08-04T00:00:00.000Z' });
+
+		expect(parsed.complete).toBe(true);
+		expect(parsed.incompleteReason).toBe(undefined);
+	});
+
+	test('a partial scan carries the judge that was lost, so an empty findings list is not read as clean', () => {
+		const { report } = setupReport({ findings: [], complete: false, incompleteReason: 'phase3-two-stage-draft.md: rate limited or overloaded' });
+
+		const parsed = DedupReport.parse(report);
+
+		expect(parsed.complete).toBe(false);
+		expect(parsed.incompleteReason).toBe('phase3-two-stage-draft.md: rate limited or overloaded');
+	});
+
 	test('an explicitly empty findings array parses', () => {
 		const { report } = setupReport({ findings: [] });
 
@@ -60,7 +79,13 @@ describe('DedupReport', () => {
 	test('nested finding defaults are applied when dedup.json is read back', () => {
 		const { report } = setupReport({
 			findings: [
-				{ plannedSymbol: 'formatDate', plannedPath: 'src/plan/formatDate.ts', recommendation: 'reuse', rationale: 'an identical utility already exists' },
+				{
+					plannedSymbol: 'formatDate',
+					plannedPath: 'src/plan/formatDate.ts',
+					phase: 'plan.md',
+					recommendation: 'reuse',
+					rationale: 'an identical utility already exists',
+				},
 			],
 		});
 
@@ -70,6 +95,7 @@ describe('DedupReport', () => {
 		expect(parsed.findings[0]).toStrictEqual({
 			plannedSymbol: 'formatDate',
 			plannedPath: 'src/plan/formatDate.ts',
+			phase: 'plan.md',
 			recommendation: 'reuse',
 			rationale: 'an identical utility already exists',
 			collidesWith: [],
@@ -111,7 +137,9 @@ describe('DedupReport', () => {
 	});
 
 	test('one malformed finding rejects the whole report', () => {
-		const { report } = setupReport({ findings: [{ plannedSymbol: 'formatDate', recommendation: 'extract', rationale: 'this entry has no plannedPath' }] });
+		const { report } = setupReport({
+			findings: [{ plannedSymbol: 'formatDate', phase: 'plan.md', recommendation: 'extract', rationale: 'this entry has no plannedPath' }],
+		});
 
 		const result = DedupReport.safeParse(report);
 

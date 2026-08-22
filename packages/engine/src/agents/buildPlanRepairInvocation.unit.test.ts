@@ -5,6 +5,8 @@ import type { StructuralFinding } from '#src/contracts/index.ts';
 /** A full StructuralFinding with per-test overrides. */
 const finding = (overrides: Partial<StructuralFinding> = {}): StructuralFinding => ({
 	check: 'no-placeholders',
+	severity: 'blocking',
+	phase: 'plan.md',
 	issue: 'unresolved TBD marker',
 	location: 'Files to Create',
 	fix: 'resolve the TBD from the verified facts',

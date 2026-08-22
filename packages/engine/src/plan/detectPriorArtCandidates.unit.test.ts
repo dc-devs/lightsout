@@ -35,7 +35,25 @@ test('detectPriorArtCandidates: a synonym name-collision is a candidate', async 
 	expect(candidates.length).toBe(1);
 	expect(candidates[0]?.plannedSymbol).toBe('getUser');
 	expect(candidates[0]?.plannedPath).toBe('src/getUser.ts');
+	// the candidate carries the plan file that declared it, which is what the dedup
+	// fan-out groups by
+	expect(candidates[0]?.phase).toBe('plan.md');
 	expect(candidates[0]?.collidesWith.some((collision) => collision.name === 'fetchUser')).toBeTruthy();
+});
+
+test('detectPriorArtCandidates: a phased plan tags each candidate with the phase file that declared it', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/fetchUser.ts', 'src/fetchOrder.ts'], creates: ['src/getUser.ts'] });
+	const second = join(cwd, '.lightsout', 'plans', 'p', 'phase2-orders.md');
+
+	writeFileSync(second, '# Plan\n\n## Files to Create\n\n### `src/getOrder.ts`\n\nnew.\n');
+
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths: [...planPaths, second] });
+
+	// the dedup fan-out groups by this label, and `plannedPath` cannot supply it
+	expect(candidates.map(({ plannedSymbol, phase }) => ({ plannedSymbol, phase }))).toStrictEqual([
+		{ plannedSymbol: 'getUser', phase: 'plan.md' },
+		{ plannedSymbol: 'getOrder', phase: 'phase2-orders.md' },
+	]);
 });
 
 test('detectPriorArtCandidates: an exact name-collision is a candidate', async () => {

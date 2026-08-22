@@ -1,4 +1,6 @@
+import { applyPromptTokens } from '#src/agents/common/utils/applyPromptTokens.ts';
 import featureExecutorPrompt from '#src/agents/prompts/featureExecutor.md';
+import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 
 interface Params {
 	/** Full plan content, inlined — the agent never loads its own context. */
@@ -13,6 +15,8 @@ interface Params {
 	changedFiles?: string[];
 	/** Consumer-granted command prefixes (config `agent-commands`) — the executor may run these, and only these. */
 	allowedCommands?: string[];
+	/** The executor's own source-file stop. The plan's own `## File Budget` when it declares one, else `executor-file-limit`, else `defaultExecutorFileLimit`. */
+	fileLimit?: number;
 }
 
 /**
@@ -31,8 +35,9 @@ export const buildFeatureExecutorInvocation = ({
 	errorContext,
 	changedFiles,
 	allowedCommands,
+	fileLimit,
 }: Params): { systemPrompt: string; prompt: string } => {
-	const roleSections = [featureExecutorPrompt];
+	const roleSections = [applyPromptTokens({ text: featureExecutorPrompt, tokens: { fileLimit: fileLimit ?? defaultExecutorFileLimit } })];
 
 	if (overviewContent) {
 		roleSections.push(

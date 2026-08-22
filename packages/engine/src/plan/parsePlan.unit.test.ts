@@ -90,4 +90,57 @@ describe('parsePlan', () => {
 		// a bare symbol name is not a path and is never stat-ed
 		expect(plan.createPaths).toStrictEqual([]);
 	});
+
+	test('the earlier-phase modify section is its own path list, not part of Files to Modify', () => {
+		const content =
+			'# Plan\n\n## Files to Modify\n\n### `src/here.ts`\n\n## Files to Modify from Earlier Phases\n\n### `src/from-phase-one.ts`\n\nExtend it.\n';
+		const plan = parse({ content });
+
+		// the two headings mean opposite things about disk — one path must exist,
+		// the other must not — so they can never share a list
+		expect(plan.modifyPaths).toStrictEqual(['src/here.ts']);
+		expect(plan.earlierPhaseModifyPaths).toStrictEqual(['src/from-phase-one.ts']);
+	});
+
+	test('collects the delete paths from the subheadings that name them', () => {
+		const plan = parse({ content: '# Plan\n\n## Files to Delete\n\n### `src/gone.ts`\n\nno longer called\n' });
+
+		expect(plan.deletePaths).toStrictEqual(['src/gone.ts']);
+	});
+
+	test('a move heading yields its source and destination in written order', () => {
+		const plan = parse({ content: '# Plan\n\n## Files to Move\n\n### `src/old/thing.ts` → `src/new/thing.ts`\n\nrelocated\n' });
+
+		expect(plan.movePaths).toStrictEqual([{ from: 'src/old/thing.ts', to: 'src/new/thing.ts' }]);
+		expect(plan.malformedMoveLines).toStrictEqual([]);
+	});
+
+	test('a move heading naming one path is recorded by line number rather than parsed as a one-path move', () => {
+		const plan = parse({ content: '# Plan\n\n## Files to Move\n\n### `src/old/thing.ts`\n\nto where?\n' });
+
+		// guessing a destination would silently lose a file the plan meant to move;
+		// the line number is what the lint points the writer at
+		expect(plan.movePaths).toStrictEqual([]);
+		expect(plan.malformedMoveLines).toStrictEqual([5]);
+	});
+
+	test('a `###` heading in the section after Files to Move is neither a move nor a malformed one', () => {
+		const content = '# Plan\n\n## Files to Move\n\n### `src/a.ts` → `src/b.ts`\n\nmoved\n\n## Files to Modify\n\n### `src/c.ts`\n\nchanged\n';
+		const plan = parse({ content });
+
+		// the move scan closes at the next `##`, so an ordinary modify subheading is
+		// never reported as a half-written move
+		expect({ movePaths: plan.movePaths, malformedMoveLines: plan.malformedMoveLines }).toStrictEqual({
+			movePaths: [{ from: 'src/a.ts', to: 'src/b.ts' }],
+			malformedMoveLines: [],
+		});
+	});
+
+	test('the file budget is the first integer in its section, and absent when the section is', () => {
+		expect(parse({ content: '# Plan\n\n## File Budget\n\n120\n' }).fileBudget).toBe(120);
+		// a plan declaring nothing takes the configured default
+		expect(parse({ content: '# Plan\n\n## Files to Modify\n' }).fileBudget).toBeUndefined();
+		// a section with prose and no number declares nothing either
+		expect(parse({ content: '# Plan\n\n## File Budget\n\nas many as it takes\n' }).fileBudget).toBeUndefined();
+	});
 });

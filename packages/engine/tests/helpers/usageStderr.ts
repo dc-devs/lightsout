@@ -9,7 +9,8 @@
 // 2026-08-08 for `standards-validate`, 2026-08-09 for the `standards-check`
 // half-selectors and `standards-health`, 2026-08-09 for `voice`, 2026-08-09
 // for `test-coverage-to-threshold`, 2026-08-21 for the exit-code table,
-// 2026-08-22 for `standards-validate --package` becoming `--pack`.)
+// 2026-08-22 for `standards-validate --package` becoming `--pack`, 2026-08-22
+// for `plan grade --phase`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -30,7 +31,7 @@ usage:
   lightsout plan draft --name <n> [--scope single|phased] [--cwd <path>]
   lightsout plan lint --name <n> [--cwd <path>]
   lightsout plan dedup --name <n> [--cwd <path>]
-  lightsout plan grade --name <n> [--cwd <path>]
+  lightsout plan grade --name <n> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)

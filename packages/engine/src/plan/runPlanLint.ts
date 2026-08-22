@@ -1,5 +1,6 @@
 import type { StructuralFinding } from '#src/contracts/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { getBlockingFindings } from '#src/plan/common/utils/getBlockingFindings.ts';
 import { getPlanDetectionInputs } from '#src/plan/common/utils/getPlanDetectionInputs.ts';
 import { lintPlanStructure } from '#src/plan/lintPlanStructure.ts';
 
@@ -30,7 +31,11 @@ export const runPlanLint = async ({ cwd, name, onProgress }: Params): Promise<Ru
 
 	const findings = await lintPlanStructure({ cwd, planPaths: inputs.planPaths, config: inputs.config });
 
-	progress(`plan lint ${name}: ${findings.length} structural finding(s) across ${inputs.planPaths.length} file(s)`);
+	const blocking = getBlockingFindings({ findings });
+
+	progress(
+		`plan lint ${name}: ${blocking.length} blocking, ${findings.length - blocking.length} advisory finding(s) across ${inputs.planPaths.length} file(s)`,
+	);
 
 	return { status: PlanRunStatus.Complete, findings, planPaths: inputs.planPaths };
 };

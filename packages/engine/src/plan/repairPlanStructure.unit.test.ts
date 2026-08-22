@@ -1,8 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
+import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { repairPlanStructure } from '#src/plan/repairPlanStructure.ts';
+import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { cleanPlanBody } from '#tests/helpers/cleanPlanBody.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -20,6 +22,15 @@ const setupDraft = ({ body }: { body: string }) => {
 	writeFileSync(planPath, body);
 
 	return { cwd, workspaceDir, planPath };
+};
+
+/** A drafted plan whose 51 touched source files raise the advisory note, with the modules it edits planted so nothing else fires. */
+const setupAdvisoryDraft = ({ body = advisoryPlanBody() }: { body?: string } = {}) => {
+	const draft = setupDraft({ body });
+
+	plantAdvisoryTouchedFiles({ cwd: draft.cwd });
+
+	return draft;
 };
 
 /** A repairer that rewrites the plan with successive bodies — or hands the call to `respond` when given. */
@@ -90,6 +101,35 @@ describe('repairPlanStructure', () => {
 		expectStatus(result, 'complete');
 		expect('findings' in result && result.findings).toStrictEqual([]);
 		expect(calls).toBe(1);
+	});
+
+	test('an advisory finding spends no repair and still comes back on the result', async () => {
+		const draft = setupAdvisoryDraft();
+		let calls = 0;
+
+		const result = await run({ ...draft, driver: repairDriver({ onCall: () => (calls += 1) }) });
+
+		expectStatus(result, 'complete');
+		// an advisory is not a defect: spending one of the three attempts on it
+		// would buy nothing and could cost the plan a real repair
+		expect(calls).toBe(0);
+		// and it still rides the complete result, because the caller prints it
+		expect('findings' in result && result.findings.map(({ check, severity }) => ({ check, severity }))).toStrictEqual([
+			{ check: StructuralCheck.ScopeWithinGuardrail, severity: FindingSeverity.Advisory },
+		]);
+	});
+
+	test('a blocking finding beside an advisory sends only the blocking one to the repairer', async () => {
+		const draft = setupAdvisoryDraft({ body: advisoryPlanBody().replace('A new module exporting', 'TBD — a new module exporting') });
+		const prompts: string[] = [];
+
+		const result = await run({ ...draft, driver: repairDriver({ bodies: [advisoryPlanBody()], onCall: (prompt) => prompts.push(prompt) }) });
+
+		expectStatus(result, 'complete');
+		expect(prompts[0]).toContain(`[${StructuralCheck.NoPlaceholders}]`);
+		// telling the repairer to fix the size note would have it edit a plan that
+		// has nothing wrong with it
+		expect(prompts[0]).not.toContain(`[${StructuralCheck.ScopeWithinGuardrail}]`);
 	});
 
 	test('repairs that shrink but never clear the findings exhaust the three-repair budget', async () => {

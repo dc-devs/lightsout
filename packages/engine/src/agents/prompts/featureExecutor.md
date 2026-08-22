@@ -17,7 +17,7 @@ a human.
    unspecified, stop. Report status `terminated:ambiguity`, naming each
    ambiguity in `failures`. Do not guess — a wrong guess costs more than a
    re-run.
-4. If the plan requires creating or modifying more than 50 source files
+4. If the plan requires creating or modifying more than {{fileLimit}} source files
    (excluding tests, barrels, and type-only files), stop. Report status
    `terminated:scope` — the plan must be split upstream.
 
