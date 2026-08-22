@@ -8,7 +8,7 @@ const setupButton = ({
 	asChild = false,
 	className,
 }: {
-	variant?: 'ghost' | 'outline';
+	variant?: 'default' | 'ghost' | 'outline' | 'brand';
 	size?: 'sm' | 'icon';
 	asChild?: boolean;
 	className?: string;
@@ -86,5 +86,21 @@ describe('Button', () => {
 
 		expect(classes).toEqual(expect.arrayContaining(['bg-transparent']));
 		expect(classes).not.toContain('bg-primary');
+	});
+
+	test('paints the call to action with the one brand gradient rather than a colour of its own', () => {
+		setupButton({ variant: 'brand' });
+
+		const button = screen.getByRole('button', { name: 'Open' });
+
+		expect(button.className).toContain('bg-[image:var(--brand-gradient)]');
+	});
+
+	test.each<{ variant: 'default' | 'outline' }>([{ variant: 'default' }, { variant: 'outline' }])('leaves the $variant button flat', ({ variant }) => {
+		setupButton({ variant });
+
+		const classes = screen.getByRole('button', { name: 'Open' }).className.split(' ');
+
+		expect(classes).not.toContain('shadow-xs');
 	});
 });

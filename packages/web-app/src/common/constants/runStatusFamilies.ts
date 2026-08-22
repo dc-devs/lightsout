@@ -1,4 +1,5 @@
 import { RunStatus } from '@lightsout/engine/contracts';
+import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 
 /**
  * The colour family every run status belongs to — the one table both the status
@@ -10,12 +11,12 @@ import { RunStatus } from '@lightsout/engine/contracts';
  * still says which wall it hit — and `pending` is neutral because a run that has
  * not started has no state to signal.
  */
-export const runStatusFamilies = {
-	[RunStatus.Pending]: 'neutral',
-	[RunStatus.Running]: 'running',
-	[RunStatus.Passed]: 'passed',
-	[RunStatus.Failed]: 'failed',
-	[RunStatus.PausedRateLimit]: 'paused',
-	[RunStatus.PausedBudget]: 'paused',
-	[RunStatus.Escalated]: 'escalated',
-} as const;
+export const runStatusFamilies: Record<RunStatus, BadgeVariant> = {
+	[RunStatus.Pending]: BadgeVariant.Neutral,
+	[RunStatus.Running]: BadgeVariant.Running,
+	[RunStatus.Passed]: BadgeVariant.Passed,
+	[RunStatus.Failed]: BadgeVariant.Failed,
+	[RunStatus.PausedRateLimit]: BadgeVariant.Paused,
+	[RunStatus.PausedBudget]: BadgeVariant.Paused,
+	[RunStatus.Escalated]: BadgeVariant.Escalated,
+};

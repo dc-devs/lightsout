@@ -9,65 +9,68 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as StandardsRouteImport } from './routes/standards'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RunsRunIdRouteImport } from './routes/runs.$runId'
+import { Route as RepoStandardsRouteImport } from './routes/repo.standards'
+import { Route as RepoRunsRouteImport } from './routes/repo.runs'
+import { Route as RepoRunsRunIdRouteImport } from './routes/repo.runs_.$runId'
 
-const StandardsRoute = StandardsRouteImport.update({
-  id: '/standards',
-  path: '/standards',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RunsRunIdRoute = RunsRunIdRouteImport.update({
-  id: '/runs/$runId',
-  path: '/runs/$runId',
+const RepoStandardsRoute = RepoStandardsRouteImport.update({
+  id: '/repo/standards',
+  path: '/repo/standards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepoRunsRoute = RepoRunsRouteImport.update({
+  id: '/repo/runs',
+  path: '/repo/runs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepoRunsRunIdRoute = RepoRunsRunIdRouteImport.update({
+  id: '/repo/runs_/$runId',
+  path: '/repo/runs/$runId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/standards': typeof StandardsRoute
-  '/runs/$runId': typeof RunsRunIdRoute
+  '/repo/runs': typeof RepoRunsRoute
+  '/repo/standards': typeof RepoStandardsRoute
+  '/repo/runs/$runId': typeof RepoRunsRunIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/standards': typeof StandardsRoute
-  '/runs/$runId': typeof RunsRunIdRoute
+  '/repo/runs': typeof RepoRunsRoute
+  '/repo/standards': typeof RepoStandardsRoute
+  '/repo/runs/$runId': typeof RepoRunsRunIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/standards': typeof StandardsRoute
-  '/runs/$runId': typeof RunsRunIdRoute
+  '/repo/runs': typeof RepoRunsRoute
+  '/repo/standards': typeof RepoStandardsRoute
+  '/repo/runs_/$runId': typeof RepoRunsRunIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/standards' | '/runs/$runId'
+  fullPaths: '/' | '/repo/runs' | '/repo/standards' | '/repo/runs/$runId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/standards' | '/runs/$runId'
-  id: '__root__' | '/' | '/standards' | '/runs/$runId'
+  to: '/' | '/repo/runs' | '/repo/standards' | '/repo/runs/$runId'
+  id: '__root__' | '/' | '/repo/runs' | '/repo/standards' | '/repo/runs_/$runId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  StandardsRoute: typeof StandardsRoute
-  RunsRunIdRoute: typeof RunsRunIdRoute
+  RepoRunsRoute: typeof RepoRunsRoute
+  RepoStandardsRoute: typeof RepoStandardsRoute
+  RepoRunsRunIdRoute: typeof RepoRunsRunIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/standards': {
-      id: '/standards'
-      path: '/standards'
-      fullPath: '/standards'
-      preLoaderRoute: typeof StandardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -75,11 +78,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/runs/$runId': {
-      id: '/runs/$runId'
-      path: '/runs/$runId'
-      fullPath: '/runs/$runId'
-      preLoaderRoute: typeof RunsRunIdRouteImport
+    '/repo/standards': {
+      id: '/repo/standards'
+      path: '/repo/standards'
+      fullPath: '/repo/standards'
+      preLoaderRoute: typeof RepoStandardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repo/runs': {
+      id: '/repo/runs'
+      path: '/repo/runs'
+      fullPath: '/repo/runs'
+      preLoaderRoute: typeof RepoRunsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repo/runs_/$runId': {
+      id: '/repo/runs_/$runId'
+      path: '/repo/runs/$runId'
+      fullPath: '/repo/runs/$runId'
+      preLoaderRoute: typeof RepoRunsRunIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -87,8 +104,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  StandardsRoute: StandardsRoute,
-  RunsRunIdRoute: RunsRunIdRoute,
+  RepoRunsRoute: RepoRunsRoute,
+  RepoStandardsRoute: RepoStandardsRoute,
+  RepoRunsRunIdRoute: RepoRunsRunIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

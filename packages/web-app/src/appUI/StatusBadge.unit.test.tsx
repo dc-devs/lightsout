@@ -1,15 +1,16 @@
 import { describe, expect, test } from '@jest/globals';
 import { RunStatus } from '@lightsout/engine/contracts';
 import { render, screen } from '@testing-library/react';
-import { RunStatusBadge } from '#src/appUI/RunStatusBadge.tsx';
+import { StatusBadge } from '#src/appUI/StatusBadge.tsx';
+import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 
-const setupRunStatusBadge = ({ status, live }: { status: RunStatus; live?: boolean }) => {
-	const { container } = render(<RunStatusBadge status={status} live={live} />);
+const setupStatusBadge = ({ status, live }: { status: RunStatus; live?: boolean }) => {
+	const { container } = render(<StatusBadge status={status} config={statusBadgeConfig} live={live} />);
 
 	return { container };
 };
 
-describe('RunStatusBadge', () => {
+describe('StatusBadge', () => {
 	test.each([
 		{ status: RunStatus.Pending, label: 'pending', token: 'bg-muted' },
 		{ status: RunStatus.Running, label: 'running', token: 'text-status-running' },
@@ -19,7 +20,7 @@ describe('RunStatusBadge', () => {
 		{ status: RunStatus.PausedBudget, label: 'paused · budget', token: 'text-status-paused' },
 		{ status: RunStatus.Escalated, label: 'escalated', token: 'text-status-escalated' },
 	])('names $label and reaches its colour token', ({ status, label, token }) => {
-		setupRunStatusBadge({ status });
+		setupStatusBadge({ status });
 
 		const badge = screen.getByText(label);
 
@@ -27,7 +28,7 @@ describe('RunStatusBadge', () => {
 	});
 
 	test('shows a pulsing dot while a live process stands behind the run', () => {
-		const { container } = setupRunStatusBadge({ status: RunStatus.Running, live: true });
+		const { container } = setupStatusBadge({ status: RunStatus.Running, live: true });
 
 		const dot = container.querySelector('[aria-hidden="true"]');
 
@@ -35,7 +36,7 @@ describe('RunStatusBadge', () => {
 	});
 
 	test('shows no dot when no process is live', () => {
-		const { container } = setupRunStatusBadge({ status: RunStatus.Running });
+		const { container } = setupStatusBadge({ status: RunStatus.Running });
 
 		const dot = container.querySelector('[aria-hidden="true"]');
 

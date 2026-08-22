@@ -59,7 +59,7 @@ describe('getRouter', () => {
 
 		const router = getRouter();
 
-		expect(Object.keys(router.routesById).sort()).toStrictEqual(['/', '/runs/$runId', '/standards', '__root__']);
+		expect(Object.keys(router.routesById).sort()).toStrictEqual(['/', '/repo/runs', '/repo/runs_/$runId', '/repo/standards', '__root__']);
 	});
 
 	test("hands the routes' loaders a query client to prefetch through", () => {

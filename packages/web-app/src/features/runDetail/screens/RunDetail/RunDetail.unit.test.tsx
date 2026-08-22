@@ -97,7 +97,7 @@ describe('RunDetail', () => {
 
 		const back = screen.getByRole('link', { name: 'web-app' });
 
-		expect(back).toHaveAttribute('href', '/runs/ffff0000ffff1111');
+		expect(back).toHaveAttribute('href', '/repo/runs/ffff0000ffff1111');
 	});
 
 	test('offers the overview beside the plan when the run has one', () => {

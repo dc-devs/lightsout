@@ -11,9 +11,11 @@ const buttonVariants = cva(
 	{
 		variants: {
 			variant: {
-				default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover',
+				default: 'bg-primary text-primary-foreground hover:bg-primary-hover',
 				ghost: 'hover:bg-accent hover:text-accent-foreground',
-				outline: 'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground',
+				outline: 'border bg-background hover:bg-accent hover:text-accent-foreground',
+				// The primary call to action, and one of the three places the brand gradient is spent.
+				brand: 'bg-[image:var(--brand-gradient)] text-background hover:opacity-90',
 			},
 			size: {
 				default: 'h-9 px-4 py-2',

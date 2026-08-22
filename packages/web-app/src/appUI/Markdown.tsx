@@ -61,10 +61,10 @@ const styled = ({ tag, className }: { tag: string; className: string }) => {
  * `dangerouslySetInnerHTML`.
  */
 const components: Components = {
-	h1: styled({ tag: 'h1', className: 'mt-6 mb-3 font-semibold text-xl first:mt-0' }),
-	h2: styled({ tag: 'h2', className: 'mt-6 mb-2 font-semibold text-lg first:mt-0' }),
-	h3: styled({ tag: 'h3', className: 'mt-5 mb-2 font-semibold text-base' }),
-	h4: styled({ tag: 'h4', className: 'mt-4 mb-1 font-semibold text-sm' }),
+	h1: styled({ tag: 'h1', className: 'mt-6 mb-3 font-semibold text-foreground text-xl first:mt-0' }),
+	h2: styled({ tag: 'h2', className: 'mt-6 mb-2 font-semibold text-foreground text-lg first:mt-0' }),
+	h3: styled({ tag: 'h3', className: 'mt-5 mb-2 font-semibold text-base text-foreground' }),
+	h4: styled({ tag: 'h4', className: 'mt-4 mb-1 font-semibold text-foreground text-sm' }),
 	p: styled({ tag: 'p', className: 'my-3 text-sm leading-6' }),
 	ul: styled({ tag: 'ul', className: 'my-3 list-disc space-y-1 pl-6 text-sm' }),
 	ol: styled({ tag: 'ol', className: 'my-3 list-decimal space-y-1 pl-6 text-sm' }),
@@ -80,7 +80,7 @@ const components: Components = {
 	hr: styled({ tag: 'hr', className: 'my-6 border-border border-t' }),
 	a: ({ href, children }) =>
 		href !== undefined && safeHref.test(href) ? (
-			<a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
+			<a href={href} target="_blank" rel="noreferrer" className="text-brand-to underline underline-offset-4">
 				{children}
 			</a>
 		) : (

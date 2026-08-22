@@ -1,17 +1,23 @@
 import type { RunStepView } from '@lightsout/engine';
 import { formatDuration } from '@lightsout/shared';
+import { BadgeVariant } from '#src/common/constants/BadgeVariant.ts';
 import { runStatusFamilies } from '#src/common/constants/runStatusFamilies.ts';
 
 // The background for each colour family. Spelled out rather than interpolated
-// because Tailwind only emits classes it can read in the source.
-const segmentColors = {
-	neutral: 'bg-muted',
-	running: 'bg-status-running',
-	passed: 'bg-status-passed',
-	failed: 'bg-status-failed',
-	paused: 'bg-status-paused',
-	escalated: 'bg-status-escalated',
-} as const;
+// because Tailwind only emits classes it can read in the source. Every family
+// is listed, not only the six a run status can reach, so the table stays a
+// total answer for the type rather than one a new variant would silently break.
+const segmentColors: Record<BadgeVariant, string> = {
+	[BadgeVariant.Neutral]: 'bg-muted',
+	[BadgeVariant.Running]: 'bg-status-running',
+	[BadgeVariant.Passed]: 'bg-status-passed',
+	[BadgeVariant.Failed]: 'bg-status-failed',
+	[BadgeVariant.Paused]: 'bg-status-paused',
+	[BadgeVariant.Escalated]: 'bg-status-escalated',
+	[BadgeVariant.Blocking]: 'bg-severity-blocking',
+	[BadgeVariant.Advisory]: 'bg-severity-advisory',
+	[BadgeVariant.Brand]: 'bg-[image:var(--brand-gradient)]',
+};
 
 interface Props {
 	steps: RunStepView[];

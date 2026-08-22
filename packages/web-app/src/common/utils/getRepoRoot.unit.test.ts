@@ -7,7 +7,17 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { getRepoRoot } from '#src/common/utils/getRepoRoot.ts';
 
-const setupRepo = ({ nested = false, marker = true, env }: { nested?: boolean; marker?: boolean; env?: string } = {}) => {
+const setupRepo = ({
+	nested = false,
+	marker = true,
+	env,
+	publicBuild = false,
+}: {
+	nested?: boolean;
+	marker?: boolean;
+	env?: string;
+	publicBuild?: boolean;
+} = {}) => {
 	// realpath-insensitive: macOS resolves /var to /private/var, and cwd is read
 	// back through the same call the subject uses, so both sides agree.
 	const root = mkdtempSync(join(tmpdir(), 'lightsout-repo-root-'));
@@ -27,11 +37,18 @@ const setupRepo = ({ nested = false, marker = true, env }: { nested?: boolean; m
 		process.env.LIGHTSOUT_REPO = env;
 	}
 
+	if (publicBuild) {
+		process.env.LIGHTSOUT_PUBLIC = '1';
+	} else {
+		delete process.env.LIGHTSOUT_PUBLIC;
+	}
+
 	return { root, working };
 };
 
 afterEach(() => {
 	delete process.env.LIGHTSOUT_REPO;
+	delete process.env.LIGHTSOUT_PUBLIC;
 });
 
 describe('getRepoRoot', () => {
@@ -77,6 +94,14 @@ describe('getRepoRoot', () => {
 
 	test('falls back to the working directory when no ancestor holds the marker', () => {
 		const { working } = setupRepo({ nested: true, marker: false });
+
+		const repoRoot = getRepoRoot();
+
+		expect(repoRoot).toBe(working);
+	});
+
+	test('falls back to the working directory on a public deployment, even one started inside a checkout', () => {
+		const { working } = setupRepo({ publicBuild: true });
 
 		const repoRoot = getRepoRoot();
 

@@ -31,6 +31,14 @@ describe('Dialog', () => {
 		expect(body).toBeInTheDocument();
 	});
 
+	test('sits on the card surface token rather than the page background, so the panel reads as a raised layer', () => {
+		setupDialog();
+
+		const drawer = screen.getByRole('dialog', { name: '.lightsout/plans/add-search.md' });
+
+		expect(drawer.className).toContain('bg-card');
+	});
+
 	test('carries the action it was handed beside the close control', () => {
 		setupDialog();
 

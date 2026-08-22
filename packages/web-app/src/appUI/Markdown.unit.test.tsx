@@ -78,6 +78,22 @@ describe('Markdown', () => {
 		expect(link).toHaveAttribute('rel', 'noreferrer');
 	});
 
+	test('paints a followable link with the theme tokens rather than a colour of its own', () => {
+		setupMarkdown({ text: 'See [the docs](https://example.com/plans).' });
+
+		const classes = screen.getByRole('link', { name: 'the docs' }).className.split(' ');
+
+		expect(classes).toEqual(expect.arrayContaining(['text-brand-to', 'underline', 'underline-offset-4']));
+	});
+
+	test('leaves a link no reader can follow in the muted token, so it never reads as followable', () => {
+		setupMarkdown({ text: 'See [the trap](javascript:alert(1)).' });
+
+		const classes = screen.getByText('the trap').className.split(' ');
+
+		expect(classes).toEqual(expect.arrayContaining(['text-muted-foreground-strong']));
+	});
+
 	test('shows a quoted front-matter value without the quotes it was written with', () => {
 		setupMarkdown({ text: '---\nphase: 4\ntitle: "Run detail"\n---\nWhat the page shows.\n' });
 

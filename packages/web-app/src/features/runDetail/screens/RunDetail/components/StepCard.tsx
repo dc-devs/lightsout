@@ -1,7 +1,8 @@
 import type { RunStepView } from '@lightsout/engine';
 import { formatCost, formatDuration, formatTokenCount } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
-import { RunStatusBadge } from '#src/appUI/index.ts';
+import { StatusBadge } from '#src/appUI/index.ts';
+import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { summarizeStepReport } from '#src/features/runDetail/common/utils/summarizeStepReport.ts';
 import { FailureNotice } from '#src/features/runDetail/screens/RunDetail/components/FailureNotice.tsx';
@@ -29,7 +30,7 @@ export const StepCard = ({ step, onOpenPlan }: Props) => {
 			<header className="flex flex-wrap items-center justify-between gap-3 border-border border-b px-4 py-3">
 				<div className="flex min-w-0 items-center gap-3">
 					<span className="truncate font-medium font-mono text-sm">{step.id}</span>
-					<RunStatusBadge status={step.status} />
+					<StatusBadge status={step.status} config={statusBadgeConfig} />
 				</div>
 				<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 					<span>{formatDuration({ ms: step.durationMs })}</span>
@@ -50,7 +51,7 @@ export const StepCard = ({ step, onOpenPlan }: Props) => {
 				{step.childRunId === undefined ? null : (
 					<p className="text-muted-foreground text-xs">
 						implemented by run{' '}
-						<Link to="/runs/$runId" params={{ runId: step.childRunId }} className="font-mono text-primary underline underline-offset-2">
+						<Link to="/repo/runs/$runId" params={{ runId: step.childRunId }} className="font-mono text-primary underline underline-offset-2">
 							{step.childRunId.slice(0, 8)}
 						</Link>
 					</p>

@@ -22,11 +22,11 @@ interface Props {
 export const Dialog = ({ open, onOpenChange, title, action, children }: Props) => (
 	<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
 		<DialogPrimitive.Portal>
-			<DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/20 data-[state=open]:animate-in data-[state=open]:fade-in" />
+			<DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in" />
 			{/* No description element: the drawer's body is the content, and Radix warns unless the absence is stated. */}
 			<DialogPrimitive.Content
 				aria-describedby={undefined}
-				className="fixed inset-y-0 right-0 z-50 flex w-full max-w-3xl flex-col border-border border-l bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-right"
+				className="fixed inset-y-0 right-0 z-50 flex w-full max-w-3xl flex-col border-border border-l bg-card shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-right"
 			>
 				<header className="flex items-center justify-between gap-3 border-border border-b px-5 py-3">
 					<DialogPrimitive.Title className="min-w-0 truncate font-mono text-sm">{title}</DialogPrimitive.Title>

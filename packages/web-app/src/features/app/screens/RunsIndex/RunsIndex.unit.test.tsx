@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { RunListing } from '@lightsout/engine';
 import { screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { RunsIndex } from '#src/features/app/screens/RunsIndex/RunsIndex.tsx';
 import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
@@ -16,8 +17,22 @@ jest.mock('#src/lightsout/index.ts', () => ({
 	getReader: () => ({ listRuns: () => Promise.resolve([]) }),
 }));
 // -------------------------
+// Only the link, which needs a live router around it to resolve a path.
+jest.mock('@tanstack/react-router', () => ({
+	Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
+		<a href={to} className={className}>
+			{children}
+		</a>
+	),
+}));
+// -------------------------
 
-const setupRunsIndex = ({ runs = [buildRunListing()], repoRoot = '/repos/lightsout' }: { runs?: RunListing[]; repoRoot?: string } = {}) => {
+// `repoRoot` is read rather than destructured with a default, because an
+// explicit `undefined` is the no-repo case a default parameter would swallow.
+const setupRunsIndex = (params: { runs?: RunListing[]; repoRoot?: string } = {}) => {
+	const { runs = [buildRunListing()] } = params;
+	const repoRoot = Object.hasOwn(params, 'repoRoot') ? params.repoRoot : '/repos/lightsout';
+
 	renderWithQueryClient({
 		ui: <RunsIndex />,
 		seed: [
@@ -44,11 +59,35 @@ describe('RunsIndex', () => {
 		expect(summary.textContent).toContain('1 run found in');
 	});
 
-	test('points the reader at the sidebar, since nothing is open yet', () => {
+	test('says this repo has run state, since the list is a page of its own now', () => {
 		setupRunsIndex();
 
-		const prompt = screen.getByRole('heading', { name: 'Pick a run on the left.' });
+		const prompt = screen.getByRole('heading', { name: 'This repo has run state.' });
 
 		expect(prompt).toBeInTheDocument();
+	});
+
+	test('offers the way into that list', () => {
+		setupRunsIndex();
+
+		const open = screen.getByRole('link', { name: 'Open the runs list' });
+
+		expect(open).toHaveAttribute('href', '/repo/runs');
+	});
+
+	test('says no repo was found rather than counting runs that came from nowhere', () => {
+		setupRunsIndex({ repoRoot: undefined, runs: [] });
+
+		const prompt = screen.getByRole('heading', { name: 'No lightsout repo found above this directory.' });
+
+		expect(prompt).toBeInTheDocument();
+	});
+
+	test('names the two ways of pointing the app at a repo', () => {
+		setupRunsIndex({ repoRoot: undefined, runs: [] });
+
+		const advice = screen.getByText(/start the app from inside one/);
+
+		expect(advice.textContent).toContain('LIGHTSOUT_REPO');
 	});
 });

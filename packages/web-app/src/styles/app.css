@@ -8,6 +8,8 @@
 @import "@fontsource/be-vietnam-pro/600.css";
 @import "@fontsource/be-vietnam-pro/700.css";
 @import "@fontsource/be-vietnam-pro/800.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -15,7 +17,14 @@
 	/* ========================================
 	   BRAND COLORS - Single source of truth
 	   ======================================== */
-	--brand: oklch(0.5 0.26 263.83);
+	/* The two stops of the lightsout gradient, cyan to violet, and the single
+	   colour every solid brand surface uses. The light theme takes the flow
+	   graphic's own darker pair, because white text has to read on them; the
+	   dark theme keeps the neon pair from the README infographics. */
+	--brand-from: oklch(0.58 0.11 210); /* #0e93ad */
+	--brand-to: oklch(0.55 0.25 293); /* #7c3aed */
+	--brand: var(--brand-to);
+	--brand-gradient: linear-gradient(90deg, var(--brand-from), var(--brand-to));
 	--brand-lighter: oklch(from var(--brand) l c h / 90%);
 	--brand-semi-light: oklch(from var(--brand) l c h / 5%);
 	--brand-light: oklch(from var(--brand) l c h / 3%);
@@ -94,13 +103,69 @@
 	--sidebar-ring: var(--ring);
 }
 
+/* Dark is this app's default: the server sends this class, and the inline
+   script in the root document is what lets a viewer who chose light out of it
+   before first paint. Only the values that differ are restated — every token
+   spelled `var(--something)` in :root follows its source automatically. */
+.dark {
+	--brand-from: oklch(0.79 0.135 202); /* #35d6e8 */
+	--brand-to: oklch(0.66 0.209 305); /* #b06bf5 */
+	--brand: var(--brand-from);
+
+	/* White on the neon cyan is about 1.3:1, so the solid-brand surface takes
+	   the ground colour for its text here rather than white. */
+	--primary-foreground: var(--background);
+
+	--background: oklch(0.16 0.019 258);
+	--foreground: oklch(0.89 0.017 253);
+
+	--card: oklch(0.19 0.02 258);
+	--surface: oklch(0.19 0.02 258);
+	--popover: oklch(0.19 0.02 258);
+
+	--muted: oklch(0.22 0.02 258);
+	--muted-foreground: oklch(0.68 0.02 253);
+	--muted-foreground-strong: oklch(0.78 0.02 253);
+
+	--border: oklch(0.27 0.02 258);
+
+	/* One rule off the five hues above: a status tint is that hue at the
+	   lightness a dark surface needs, so a new status family never has to have
+	   its two tints picked by hand. */
+	--status-running-light: oklch(from var(--status-running) 0.24 c h);
+	--status-running-border: oklch(from var(--status-running) 0.38 c h);
+
+	--status-passed-light: oklch(from var(--status-passed) 0.24 c h);
+	--status-passed-border: oklch(from var(--status-passed) 0.38 c h);
+
+	--status-failed-light: oklch(from var(--status-failed) 0.24 c h);
+	--status-failed-border: oklch(from var(--status-failed) 0.38 c h);
+
+	--status-paused-light: oklch(from var(--status-paused) 0.24 c h);
+	--status-paused-border: oklch(from var(--status-paused) 0.38 c h);
+
+	--status-escalated-light: oklch(from var(--status-escalated) 0.24 c h);
+	--status-escalated-border: oklch(from var(--status-escalated) 0.38 c h);
+}
+
 @theme inline {
 	--font-sans:
 		"Plus Jakarta Sans", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+	/* Mono is reserved for machine truth — ids, paths, commands — so the face is
+	   vendored rather than left to whatever each machine calls monospace. */
+	--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
 	--radius-lg: var(--radius);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-sm: calc(var(--radius) - 4px);
+
+	--color-brand-from: var(--brand-from);
+	--color-brand-to: var(--brand-to);
+
+	/* A finding's severity is its own thing, never the brand accent: blocking
+	   borrows the failed hue and advisory the running one. */
+	--color-severity-blocking: var(--status-failed);
+	--color-severity-advisory: var(--status-running);
 
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);

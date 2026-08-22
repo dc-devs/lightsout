@@ -1,5 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { RunStepView } from '@lightsout/engine';
+import { RunStatus } from '@lightsout/engine/contracts';
 import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
@@ -60,6 +61,22 @@ describe('RunDetail timeline', () => {
 		const segment = screen.getByRole('link', { name: 'implement' });
 
 		expect(segment).toHaveStyle({ width: '3%' });
+	});
+
+	test.each([
+		{ status: RunStatus.Pending, token: 'bg-muted' },
+		{ status: RunStatus.Running, token: 'bg-status-running' },
+		{ status: RunStatus.Passed, token: 'bg-status-passed' },
+		{ status: RunStatus.Failed, token: 'bg-status-failed' },
+		{ status: RunStatus.PausedRateLimit, token: 'bg-status-paused' },
+		{ status: RunStatus.PausedBudget, token: 'bg-status-paused' },
+		{ status: RunStatus.Escalated, token: 'bg-status-escalated' },
+	])('colours a $status segment from the one table the badge reads too', ({ status, token }) => {
+		setupTimeline({ steps: [buildRunStep({ overrides: { id: 'implement', status } })] });
+
+		const segment = screen.getByRole('link', { name: 'implement' });
+
+		expect(segment.className).toContain(token);
 	});
 
 	test("points at the step's own card, so clicking a segment goes to its evidence", () => {
