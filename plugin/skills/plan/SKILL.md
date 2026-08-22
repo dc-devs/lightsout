@@ -205,6 +205,15 @@ Pass `--scope single|phased` only to override the engine's estimate. On
 remaining `structural issue(s)` → relay them. On success → note the written
 `plan.md` path.
 
+A phased draft runs in two stages: one agent authors `overview.md`, the engine
+checks the phase breakdown it declares against the created-file ceiling, and
+then one agent per declared phase authors its `phase<N>-<slug>.md`
+concurrently. So `structural issue(s)` on a phased plan may name the overview's
+**phase breakdown** rather than a phase file: a phase that creates more files
+than one implementing agent may. The fix there is to resplit the phases — edit
+the overview's `## Phases` table and its `## Phase Declarations` to spread the
+creates across more phases — and re-run `plan draft`.
+
 **5. Grill** — push past conscious knowledge against the *drafted* plan
 (interactive, unbounded):
 - Relentless: generate the full stream of edge-case questions against the
@@ -259,22 +268,44 @@ subcommand's; you only conduct the review and apply the chosen edits.
     (logged debt).
   - **distinct** → record the justification in `## Prior Art`.
   Append a `Decision Log` row `Source = Dedup` for each resolution.
+- Each finding carries the `phase` it was planned in — the plan file's
+  basename. Apply the resolution to **that** file, not to `plan.md`.
+- `"complete": false` means a judge failed or hit the rate-limit wall. The
+  findings present are real, but the scan is partial — resolve them, then
+  re-run `plan dedup` before moving on.
 
 **7. Grade + converge.** Run:
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/dist/cli.mjs" plan grade --name <name>
 ```
 Read `.lightsout/plans/<name>/grade.json`:
-- `"passed": true` → go to handoff.
+- `"passed": true` **and** `"complete": true` → go to handoff.
 - `"passed": false` with `gaps` → surface each gap in the Question format
-  (at most 2 per message, recommended-first). Resolve each by
-  **editing `plan.md` in place via Edit** (+ a `Decision Log` row,
-  `Source = Converge`; mirror the resolution into `decisions.json`). Then re-run
-  `plan grade`. Repeat until `passed` or the user calls it. **Do NOT re-run
-  `plan draft`** — a re-draft regenerates `plan.md` and would clobber the Grill
-  edits already folded in.
+  (at most 2 per message, recommended-first), **grouped by the gap's `phase`**.
+  Resolve each by **editing the plan file its `phase` names** in place via Edit
+  — `plan.md` for a single plan, that `phase<N>-<slug>.md` for a phased one
+  (+ a `Decision Log` row, `Source = Converge`; mirror the resolution into
+  `decisions.json`). Then re-run `plan grade`. Repeat until `passed` or the user
+  calls it. **Do NOT re-run `plan draft`** — a re-draft regenerates the plan
+  files and would clobber the Grill edits already folded in.
+- Every gap also carries the `lens` that found it (`surface`, `wiring`,
+  `decisions`) — three differently-briefed checkers read every phase, so two
+  gaps with the same text and different lenses are two lenses agreeing, not
+  noise.
+- While resolving, re-check a single phase you just edited with
+  `lightsout plan grade --name <name> --phase <n>` — three checkers and about
+  three minutes instead of a full pass. The final grade before handoff is
+  **always** a full run with no `--phase`.
+- **A grade whose `"complete"` is false, or whose `phasesChecked` does not list
+  every phase file in the plan folder, is not a clean bill whatever its
+  verdict.** Its gaps are real and worth fixing, but the unlisted phases were
+  not looked at — say so to the user and re-grade once the fixes are in.
+  (`overview.md` is deliberately never gap-checked and never appears in
+  `phasesChecked`; it is checked deterministically instead.)
 - `structural` findings present (rare) → apply each finding's exact `fix` to
-  `plan.md` via Edit, then re-grade.
+  the plan file named by its `phase`, via Edit, then re-grade. A finding
+  printed as `note` rather than `⚠` is **advisory**: information for you and
+  the user, not work to do.
 
 **8. Handoff.** Relay the final grade and:
 ```

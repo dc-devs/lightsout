@@ -10,6 +10,7 @@ import { refactorStep } from '#src/pipeline/steps/refactorStep.ts';
 import { verifyStep } from '#src/pipeline/steps/verifyStep.ts';
 import { workStep } from '#src/pipeline/steps/workStep.ts';
 import { writeTestsStep } from '#src/pipeline/steps/writeTestsStep.ts';
+import { parsePlan } from '#src/plan/index.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -18,20 +19,6 @@ interface Params {
 	overviewContent?: string;
 	standards?: string;
 	testStandards?: string;
-	skipRefactor?: boolean;
-}
-
-/**
- * The pipeline's step sequence, assembled: clean-slate → implement → verify →
- * write-tests → verify → refactor loop → verify → format, with the refactor
- * pair dropped when skipRefactor asks for it.
- */
-interface RefactorPairParams {
-	run: PipelineRun;
-	gitPrefix?: string;
-	planContent: string;
-	overviewContent?: string;
-	standards?: string;
 	skipRefactor?: boolean;
 }
 
@@ -49,7 +36,7 @@ interface RefactorPairParams {
  * allowed to write them, and a run whose only changed files are tests still has
  * standards to answer for.
  */
-const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor }: RefactorPairParams): PipelineStep[] =>
+const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor }: Omit<Params, 'testStandards'>): PipelineStep[] =>
 	skipRefactor
 		? []
 		: [
@@ -79,8 +66,19 @@ const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards,
 				},
 			];
 
+/**
+ * The pipeline's step sequence, assembled: clean-slate → implement → verify →
+ * write-tests → verify → refactor loop → verify → format, with the refactor
+ * pair dropped when skipRefactor asks for it.
+ */
 export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }: Params): PipelineStep[] => {
 	const refactorSteps = refactorPair({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor });
+	// The number the plan graded against is the number it is run against: a phase
+	// that renames an import across two hundred files declares its own budget,
+	// and one repo-wide setting cannot express that without weakening the
+	// guardrail for every other plan. `base` is a variant hint only, and the
+	// content here is always an implementable plan — never an overview.
+	const fileLimit = parsePlan({ content: planContent, base: 'plan.md' }).fileBudget ?? run.config['executor-file-limit'];
 
 	return [
 		{ id: 'clean-slate', run: cleanSlateStep({ run }) },
@@ -91,7 +89,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				gitPrefix,
 				id: 'implement',
 				requireChanges: true,
-				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config['agent-commands'] }),
+				build: () => buildFeatureExecutorInvocation({ planContent, overviewContent, standards, allowedCommands: run.config['agent-commands'], fileLimit }),
 			}),
 		},
 		{
@@ -109,6 +107,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 						errorContext,
 						changedFiles: run.current().changedFiles,
 						allowedCommands: run.config['agent-commands'],
+						fileLimit,
 					}),
 			}),
 		},

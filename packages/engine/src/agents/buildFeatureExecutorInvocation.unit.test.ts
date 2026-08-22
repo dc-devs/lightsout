@@ -158,3 +158,32 @@ test('buildFeatureExecutorInvocation: the command ban names what is banned and l
 	// the old blanket ban is gone — on Codex it read as "you cannot read or edit files"
 	expect(prose).not.toContain('Do not run shell commands');
 });
+
+test('buildFeatureExecutorInvocation: the resolved file limit is substituted into the executor stop rule rather than hard-coded in it', () => {
+	const { systemPrompt } = buildFeatureExecutorInvocation({ planContent, fileLimit: 200 });
+
+	// the plan's own budget is the number the executor is held to
+	expect(systemPrompt.includes('more than 200 source files')).toBeTruthy();
+	// the number the prompt used to hard-code is gone
+	expect(systemPrompt.includes('more than 50 source files')).toBeFalsy();
+	// no token survives into what the agent reads
+	expect(systemPrompt.includes('{{')).toBeFalsy();
+});
+
+test('buildFeatureExecutorInvocation: an absent file limit falls back to the engine default', () => {
+	const { systemPrompt } = buildFeatureExecutorInvocation({ planContent });
+
+	// a run with neither a plan budget nor a configured limit still states a number
+	expect(systemPrompt.includes('more than 50 source files')).toBeTruthy();
+	expect(systemPrompt.includes('{{fileLimit}}')).toBeFalsy();
+});
+
+test('buildFeatureExecutorInvocation: a different file limit is the only thing the substitution changes', () => {
+	const lower = buildFeatureExecutorInvocation({ planContent, fileLimit: 12 });
+	const higher = buildFeatureExecutorInvocation({ planContent, fileLimit: 200 });
+
+	// the two role prompts differ only where the token stood
+	expect(lower.systemPrompt.replace('more than 12 source files', 'more than 200 source files')).toBe(higher.systemPrompt);
+	// and the user prompt is untouched by the limit
+	expect(lower.prompt).toBe(higher.prompt);
+});

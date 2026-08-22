@@ -1,3 +1,4 @@
+import { getListFlag } from '#src/cli/common/args/getListFlag.ts';
 import { getPositionals } from '#src/cli/common/args/getPositionals.ts';
 import { getRequiredFlag } from '#src/cli/common/args/getRequiredFlag.ts';
 import { usage } from '#src/cli/common/constants/usage.ts';
@@ -41,7 +42,12 @@ export const planCommand = async ({ flags, rest, cwd }: CommandContext): Promise
 			return;
 		}
 
-		await planGradeCommand({ cwd, driver, name, standards, config });
+		// A `--phase` present but yielding no values reaches the runner as an empty
+		// list, which it refuses — the "graded less than you asked and said
+		// nothing" failure this work exists to remove.
+		const phases = getListFlag({ flags, name: 'phase' });
+
+		await planGradeCommand({ cwd, driver, name, standards, config, phases });
 		return;
 	}
 

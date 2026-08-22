@@ -25,7 +25,7 @@ test('planLintCommand: a clean plan reports clean with its file count and exits 
 
 	await expect(planLintCommand(context)).rejects.toThrow(/process\.exit/);
 
-	expect(logged[0] ?? '').toMatch(/^\[\+\d+:\d\d\] plan lint demo: 0 structural finding\(s\) across 1 file\(s\)$/);
+	expect(logged[0] ?? '').toMatch(/^\[\+\d+:\d\d\] plan lint demo: 0 blocking, 0 advisory finding\(s\) across 1 file\(s\)$/);
 	expect(logged[1]).toBe('\nplan lint demo — clean (1 file(s))');
 	// a clean plan prints no finding lines, got: ${JSON.stringify(logged)}
 	expect(logged.length).toBe(2);
@@ -41,8 +41,8 @@ test('planLintCommand: a placeholder in the plan prints the finding with its fix
 
 	await expect(planLintCommand(context)).rejects.toThrow(/process\.exit/);
 
-	expect(logged[1]).toBe('\nplan lint demo — 1 structural finding(s) (1 file(s))');
-	expect(logged[2] ?? '').toMatch(/^⚠ \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present$/);
+	expect(logged[1]).toBe('\nplan lint demo — 1 blocking finding(s) (1 file(s))');
+	expect(logged[2] ?? '').toMatch(/^⚠ plan\.md \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present$/);
 	expect(logged[3] ?? '').toMatch(/^ {3}fix: resolve 'TBD'/);
 	expect(exitCodes).toStrictEqual([1]);
 });
@@ -73,4 +73,31 @@ test('planLintCommand: without --name it prints the usage text on stderr and exi
 
 	expect(errors[0] ?? '').toMatch(/^lightsout — deterministic engine for coding agents/);
 	expect(exitCodes).toStrictEqual([1]);
+});
+
+/**
+ * A clean plan grown past the touched-file limit by 55 earlier-phase modifies —
+ * paths a predecessor writes, so absent from disk and never a path-exists defect.
+ * One create plus those 55 is 56 touched source files (`src/index.js` is a barrel
+ * and counts toward neither), well under the 30-file created ceiling.
+ */
+const mechanicalPlanBody = () => {
+	const entries = Array.from({ length: 55 }, (_, index) => `### \`src/renamed${index}.ts\`\n\nRename one import.\n`).join('\n');
+
+	return `${cleanPlanBody()}\n## Files to Modify from Earlier Phases\n\n${entries}\n`;
+};
+
+test('planLintCommand: a touched-file advisory prints as a note beside a clean headline and leaves the exit code at 0', async () => {
+	const { context, logged, errors, exitCodes } = setupLint({ body: mechanicalPlanBody(), args: ['--name', 'demo'] });
+
+	await expect(planLintCommand(context)).rejects.toThrow(/process\.exit/);
+
+	expect(logged[0] ?? '').toMatch(/^\[\+\d+:\d\d\] plan lint demo: 0 blocking, 1 advisory finding\(s\) across 1 file\(s\)$/);
+	expect(logged[1]).toBe('\nplan lint demo — clean, 1 advisory finding(s) (1 file(s))');
+	expect(logged[2] ?? '').toMatch(/^note plan\.md \[scope-within-guardrail\] plan\.md — plan touches 56 source files, over the 50-file limit/);
+	expect(logged[3] ?? '').toMatch(/^ {3}fix: legal, but the implementing agent stops at 50 files/);
+	expect(errors).toStrictEqual([]);
+	// an advisory informs; only a blocking finding moves the signal the self-lint
+	// loop reads
+	expect(exitCodes).toStrictEqual([0]);
 });

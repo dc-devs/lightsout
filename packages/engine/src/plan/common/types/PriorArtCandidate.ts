@@ -8,5 +8,7 @@ export interface PriorArtCandidate {
 	plannedSymbol: string;
 	/** Repo-relative Files-to-Create path the symbol would be created at. */
 	plannedPath: string;
+	/** Basename of the plan file whose `## Files to Create` declares this symbol. */
+	phase: string;
 	collidesWith: Array<{ name: string; path: string }>;
 }

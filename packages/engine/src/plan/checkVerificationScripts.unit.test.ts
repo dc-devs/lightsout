@@ -6,13 +6,29 @@ import { checkVerificationScripts } from '#src/plan/checkVerificationScripts.ts'
 import type { ParsedPlan } from '#src/plan/common/types/ParsedPlan.ts';
 
 /** A parsed plan carrying only what this check reads. */
-const planWith = ({ commands, paths = [] }: { commands: string[]; paths?: string[] }): ParsedPlan => ({
+const planWith = ({
+	commands,
+	paths = [],
+	earlierPhaseModifyPaths = [],
+	deletePaths = [],
+	movePaths = [],
+}: {
+	commands: string[];
+	paths?: string[];
+	earlierPhaseModifyPaths?: string[];
+	deletePaths?: string[];
+	movePaths?: { from: string; to: string }[];
+}): ParsedPlan => ({
 	base: 'demo',
 	title: 'Demo',
 	variant: 'implementable',
 	sections: new Map(),
 	createPaths: paths,
 	modifyPaths: [],
+	earlierPhaseModifyPaths,
+	deletePaths,
+	movePaths,
+	malformedMoveLines: [],
 	mirrorPaths: [],
 	verificationCommands: commands,
 	lines: [],
@@ -35,12 +51,14 @@ const check = ({
 	planPath,
 	plan,
 	configCommands = new Set<string>(),
+	declaredScripts = new Set<string>(),
 }: {
 	cwd: string;
 	planPath: string;
 	plan: ParsedPlan;
 	configCommands?: Set<string>;
-}) => checkVerificationScripts({ plan, cwd, planPath, packagesDir: 'packages', configCommands });
+	declaredScripts?: Set<string>;
+}) => checkVerificationScripts({ plan, cwd, planPath, phase: 'plan.md', packagesDir: 'packages', configCommands, declaredScripts });
 
 const rootManifest = (scripts: Record<string, string>) => ({ 'package.json': JSON.stringify({ name: 'root', scripts }) });
 
@@ -172,5 +190,56 @@ describe('checkVerificationScripts', () => {
 		// the override set holds the gate commands themselves, so a different
 		// command still resolves as a package script and is flagged
 		expect(findings.some((finding) => finding.issue.includes("'phantom'"))).toBe(true);
+	});
+
+	test('a phase whose only package-touching work is a move, a delete or an earlier-phase modify still resolves that package manifest', async () => {
+		const { cwd, planPath } = setupRepo({
+			manifests: {
+				...rootManifest({}),
+				'packages/api/package.json': JSON.stringify({ name: 'api', scripts: { 'check:api': 'tsc' } }),
+				'packages/web/package.json': JSON.stringify({ name: 'web', scripts: { 'check:web': 'tsc' } }),
+				'packages/cli/package.json': JSON.stringify({ name: 'cli', scripts: { 'check:cli': 'tsc' } }),
+			},
+		});
+		const plan = planWith({
+			commands: ['pnpm check:api', 'pnpm check:web', 'pnpm check:cli'],
+			movePaths: [{ from: 'packages/api/src/old.ts', to: 'packages/api/src/new.ts' }],
+			deletePaths: ['packages/web/src/gone.ts'],
+			earlierPhaseModifyPaths: ['packages/cli/src/later.ts'],
+		});
+
+		// a relocation names no created or modified file, so a check reading only
+		// those two collections would miss the package entirely and flag its script
+		expect(await check({ cwd, planPath, plan })).toStrictEqual([]);
+	});
+
+	test('a script an earlier-or-same phase declares it adds resolves before any package.json has it', async () => {
+		const { cwd, planPath } = setupRepo({ manifests: rootManifest({}) });
+
+		const findings = await check({
+			cwd,
+			planPath,
+			plan: planWith({ commands: ['pnpm check:new'] }),
+			declaredScripts: new Set(['check:new']),
+		});
+
+		// the plan is what adds the script, so judging it against today's manifests
+		// would refuse a phase for work it is itself specifying
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a declared script covers only its own name, never every command in the plan', async () => {
+		const { cwd, planPath } = setupRepo({ manifests: rootManifest({}) });
+
+		const findings = await check({
+			cwd,
+			planPath,
+			plan: planWith({ commands: ['pnpm check:new', 'pnpm check:other'] }),
+			declaredScripts: new Set(['check:new']),
+		});
+
+		expect(findings.map((finding) => finding.issue)).toStrictEqual([
+			"verification command 'pnpm check:other' references package script 'check:other' which is not in any target package.json",
+		]);
 	});
 });

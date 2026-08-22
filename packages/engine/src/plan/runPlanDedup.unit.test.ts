@@ -80,9 +80,10 @@ const setupUnwritableEvidence = () => {
 	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	const workspaceDir = join(cwd, '.lightsout', 'plans', name);
 
-	// one per attempt: the first judgment and its single re-emit retry
-	mkdirSync(join(workspaceDir, 'dedup-rejected-1.txt'));
-	mkdirSync(join(workspaceDir, 'dedup-rejected-2.txt'));
+	// one per attempt: the first judgment and its single re-emit retry, under the
+	// per-plan-file step the fan-out names each judge's evidence with
+	mkdirSync(join(workspaceDir, 'dedup-plan-rejected-1.txt'));
+	mkdirSync(join(workspaceDir, 'dedup-plan-rejected-2.txt'));
 
 	return { cwd, name, workspaceDir };
 };
@@ -139,7 +140,7 @@ test('plan dedup: an isDuplicate:false verdict is dropped', async () => {
 	expect(result.dedup.findings).toStrictEqual([]);
 });
 
-test('plan dedup: a phased plan is judged once, every phase together with the overview as context', async () => {
+test('plan dedup: a phased plan is judged one agent per plan file, each given only its own file and its own collisions', async () => {
 	const { cwd, name } = setupPhased({
 		existing: ['src/fetchUser.ts', 'src/fetchOrder.ts'],
 		phases: [['src/getUser.ts'], ['src/getOrder.ts']],
@@ -152,15 +153,22 @@ test('plan dedup: a phased plan is judged once, every phase together with the ov
 	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations, verdicts), name });
 
 	expectStatus(result, 'complete');
-	// a phased plan is one plan: every phase in the folder is judged in a single
-	// spawn, not one spawn per phase
-	expect(invocations.length).toBe(1);
-	// both phases' planned symbols reached the judge and came back as findings
-	expect(result.dedup.findings.map(({ plannedSymbol }) => plannedSymbol)).toStrictEqual(['getUser', 'getOrder']);
-	// the overview rides the system prompt as context, never the text under judgment,
-	// got: ${invocations[0]?.prompt}
-	expect((invocations[0].systemPrompt ?? '').includes(overviewMarker)).toBeTruthy();
-	expect(invocations[0].prompt.includes(overviewMarker)).toBeFalsy();
+	// one judge per plan file — gluing every phase into one prompt is the
+	// single-agent-whole-plan shape this fan-out replaces
+	expect(invocations.length).toBe(2);
+	// and each judge sees exactly one file's collisions
+	expect(invocations.map(({ prompt }) => [prompt.includes('getUser'), prompt.includes('getOrder')])).toStrictEqual([
+		[true, false],
+		[false, true],
+	]);
+	// both phases' planned symbols came back as findings, in plan-file order
+	expect(result.dedup.findings.map(({ plannedSymbol, phase }) => [plannedSymbol, phase])).toStrictEqual([
+		['getUser', 'phase1-part.md'],
+		['getOrder', 'phase2-part.md'],
+	]);
+	// the overview rides every system prompt as context, never the text under judgment
+	expect(invocations.every(({ systemPrompt }) => (systemPrompt ?? '').includes(overviewMarker))).toBeTruthy();
+	expect(invocations.some(({ prompt }) => prompt.includes(overviewMarker))).toBeFalsy();
 	// the report lands in the plan's own folder, beside the phases it judged
 	expect(result.dedupPath).toBe(join(cwd, '.lightsout', 'plans', name, 'dedup.json'));
 });
@@ -255,7 +263,7 @@ test('plan dedup: no deliverable on disk fails before any detection or judging',
 	expect('error' in result && /no plan found for 'ghost'/.test(result.error ?? '')).toBeTruthy();
 });
 
-test('plan dedup: a rate-limited judge parks the run and writes no report', async () => {
+test('plan dedup: a rate-limited judge parks the run and writes an incomplete report rather than discarding the scan', async () => {
 	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	let calls = 0;
 	const driver: Driver = {
@@ -273,11 +281,21 @@ test('plan dedup: a rate-limited judge parks the run and writes no report', asyn
 	expect(calls).toBe(1);
 	// the error carries the re-run command, got: ${result.error}
 	expect('error' in result && (result.error ?? '').includes(`lightsout plan dedup --name ${name}`)).toBeTruthy();
-	// a parked run leaves no findings behind
-	expect(existsSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json'))).toBeFalsy();
+
+	const dedupPath = join(cwd, '.lightsout', 'plans', name, 'dedup.json');
+
+	// the report IS written, marked incomplete — an empty findings list from a
+	// parked scan must never read as "no duplication found"
+	expect(existsSync(dedupPath)).toBeTruthy();
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(dedupPath, 'utf8')));
+
+	expect(persisted.findings).toStrictEqual([]);
+	expect(persisted.complete).toBe(false);
+	expect(persisted.incompleteReason ?? '').toMatch(/plan\.md: rate limited or overloaded/);
 });
 
-test('plan dedup: a judge whose output never satisfies the contract fails and writes no report', async () => {
+test('plan dedup: a judge whose output never satisfies the contract fails, keeping the scan marked incomplete', async () => {
 	const { cwd, name } = setup({ existing: ['src/fetchUser.ts'], creates: ['src/getUser.ts'] });
 	let calls = 0;
 	const driver: Driver = {
@@ -293,10 +311,13 @@ test('plan dedup: a judge whose output never satisfies the contract fails and wr
 	expectStatus(result, 'failed');
 	// the rejected report bought exactly one re-emit retry
 	expect(calls).toBe(2);
-	// the failure names the judging step, got: ${result.error}
-	expect('error' in result && /dedup judge failed/.test(result.error ?? '')).toBeTruthy();
-	// no report is written for a failed judgment
-	expect(existsSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json'))).toBeFalsy();
+	// the failure names the plan file whose judge died, got: ${result.error}
+	expect('error' in result && /dedup judge failed for plan\.md/.test(result.error ?? '')).toBeTruthy();
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json'), 'utf8')));
+
+	// what finished is kept, marked incomplete
+	expect(persisted.complete).toBe(false);
 });
 
 test('plan dedup: evidence that cannot be saved never replaces the judging failure it was recording', async () => {
@@ -319,7 +340,10 @@ test('plan dedup: evidence that cannot be saved never replaces the judging failu
 	// than rejecting with the filesystem error
 	expect(calls).toBe(2);
 	expect('error' in result && /dedup judge failed/.test(result.error ?? '')).toBeTruthy();
-	expect(existsSync(join(workspaceDir, 'dedup.json'))).toBeFalsy();
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(join(workspaceDir, 'dedup.json'), 'utf8')));
+
+	expect(persisted.complete).toBe(false);
 });
 
 test('plan dedup: progress narrates the candidates detected and the duplications to review', async () => {
@@ -332,7 +356,10 @@ test('plan dedup: progress narrates the candidates detected and the duplications
 	expectStatus(result, 'complete');
 	// the human waiting on the judge sees what was detected and what came back,
 	// got: ${messages.join(' | ')}
-	expect(messages).toEqual([expect.stringMatching(/1 candidate\(s\) detected/), expect.stringMatching(/1 duplication\(s\) to review/)]);
+	expect(messages).toEqual([
+		expect.stringMatching(/1 candidate\(s\) detected across 1 plan file\(s\), judging/),
+		expect.stringMatching(/1 duplication\(s\) to review/),
+	]);
 });
 
 test('plan dedup: the no-candidate path narrates that there is nothing to review', async () => {
@@ -372,4 +399,54 @@ test('plan dedup: an omitted timeoutMs falls back to the thirty-minute ceiling',
 	expectStatus(result, 'complete');
 	// a judging spawn is never left to run forever just because no ceiling was given
 	expect(invocations.map(({ timeoutMs }) => timeoutMs)).toStrictEqual([30 * 60 * 1000]);
+});
+
+test('plan dedup: a plan file with no collisions spawns no judge, while its sibling still gets one', async () => {
+	const { cwd, name } = setupPhased({
+		existing: ['src/fetchUser.ts'],
+		phases: [['src/getUser.ts'], ['src/brandNewWidget.ts']],
+	});
+	const invocations: DriverInvocation[] = [];
+	const verdicts = [{ plannedSymbol: 'getUser', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchUser already does this' }];
+	const result = await runPlanDedup({ cwd, driver: recordingJudgeDriver(invocations, verdicts), name });
+
+	expectStatus(result, 'complete');
+	// the no-candidates-no-agent rule is now per plan file rather than per plan
+	expect(invocations.length).toBe(1);
+	expect(invocations[0]?.prompt.includes('getUser')).toBeTruthy();
+	expect(invocations[0]?.prompt.includes('brandNewWidget')).toBeFalsy();
+	expect(result.dedup.findings.map(({ plannedSymbol, phase }) => [plannedSymbol, phase])).toStrictEqual([['getUser', 'phase1-part.md']]);
+	// nothing failed, so the scan speaks for the whole plan
+	expect(result.dedup.complete).toBe(true);
+});
+
+test('plan dedup: one failed judge never discards what the other plan files returned', async () => {
+	const { cwd, name } = setupPhased({
+		existing: ['src/fetchUser.ts', 'src/fetchOrder.ts'],
+		phases: [['src/getUser.ts'], ['src/getOrder.ts']],
+	});
+	const verdict = { plannedSymbol: 'getOrder', isDuplicate: true, recommendation: 'reuse', rationale: 'fetchOrder already does this' };
+	// Only phase 1's judge never satisfies the contract — and neither does its
+	// re-emit retry, whose prompt carries the rejected text back rather than the
+	// plan file that earned it.
+	const stumped = 'phase 1 has me stumped';
+	const driver: Driver = {
+		name: 'stub',
+		invoke: async ({ prompt }) =>
+			prompt.includes('getUser') || prompt.includes(stumped) ? { text: stumped, exitCode: 0 } : { text: JSON.stringify({ verdicts: [verdict] }), exitCode: 0 },
+	};
+	const result = await runPlanDedup({ cwd, driver, name });
+
+	expectStatus(result, 'failed');
+	// the failure names only the plan file whose judge died, got: ${result.error}
+	expect('error' in result && (result.error ?? '')).toMatch(/dedup judge failed for phase1-part\.md:/);
+	expect('error' in result && (result.error ?? '')).not.toMatch(/phase2-part\.md/);
+
+	const persisted = DedupReport.parse(JSON.parse(readFileSync(join(cwd, '.lightsout', 'plans', name, 'dedup.json'), 'utf8')));
+
+	// the surviving judge's finding is kept — a partial scan is persisted rather
+	// than thrown away, and marked for what it is
+	expect(persisted.findings.map(({ plannedSymbol, phase }) => [plannedSymbol, phase])).toStrictEqual([['getOrder', 'phase2-part.md']]);
+	expect(persisted.complete).toBe(false);
+	expect(persisted.incompleteReason ?? '').toMatch(/^phase1-part\.md: /);
 });

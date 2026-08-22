@@ -110,20 +110,33 @@ provided, confirm the plan's placements and naming conform to it.
 
 ## Phased plans — hard naming rule
 
-When an output file's variant is `overview`, you author **one overview plus all
-phase files** into that file's directory:
+A phased plan is drafted in two stages, and the task message tells you which
+stage you are in.
 
-- The overview goes to `overview.md`.
-- Each phase goes to `phase<N>-<slug>.md` (e.g. `phase1-contracts.md`) in the
-  same directory, where `<N>` is the phase number and `<slug>` is a short kebab
-  name.
+- **Overview only** (a `## Overview only` section is present) — author
+  `overview.md` and nothing else. Its `## Phases` table and its
+  `## Phase Declarations` blocks are what the phase writers are given, so a
+  phase you do not declare is never authored at all.
+- **Phase authoring** (a `## Phase authoring` section is present) — author
+  exactly one `phase<N>-<slug>.md`, against the settled overview and the
+  declaration row you are handed. Satisfy that declaration exactly: create every
+  path it names, export every name it names, add every script it names. Do NOT
+  re-decide the breakdown, renumber anything, or write another phase's file.
+  Every sibling phase is being authored concurrently, so none of them is on disk
+  for you to read — the declarations you are given are the whole of what you may
+  rely on.
 
-These names are **required**, not stylistic — `plan grade` finds the files **by
-name**: `overview.md` is read as context, and each `phase<N>-<slug>.md` is
+The file names are **required**, not stylistic — `plan grade` finds the files
+**by name**: `overview.md` is read as context, and each `phase<N>-<slug>.md` is
 graded. That directory also holds the plan's working files (notes, facts,
-decisions, records), so anything not matching those names is ignored. Choose the
-phase breakdown and slugs yourself, and report **every** written path in
+decisions, records), so anything not matching those names is ignored. The engine
+dictates the exact output path in both modes; report **every** written path in
 `filesWritten`.
+
+A phase spawn is given no `## Self-lint` section, and that is deliberate rather
+than an oversight: its sibling phases are not on disk yet, so a lint run there
+would report provenance and hand-off findings that are artefacts of when it
+looked, not defects. The engine lints and converges the finished set afterwards.
 
 ## Report — your entire final message is one JSON object
 

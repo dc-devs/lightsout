@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
@@ -44,10 +44,12 @@ test('plan draft: writes plan.md and returns a valid PlanDraftReport — with no
 	expectStatus(result, 'complete');
 	// plan.md written into the plan's own folder, beside its workspace files
 	expect(existsSync(join(planDir, 'plan.md'))).toBeTruthy();
-	expect('report' in result && result.report).toBeTruthy();
+	// one spawn, one report: the array is how a phased draft returns one per
+	// phase without merging several agents' assumptions into a single object
+	expect('reports' in result && result.reports.length === 1).toBeTruthy();
 	// the writer's report comes back whole — parse throws on a shape violation,
 	// and the values pin what the caller actually reads off it
-	expect(PlanDraftReport.parse(result.report)).toStrictEqual({
+	expect(PlanDraftReport.parse(result.reports[0])).toStrictEqual({
 		status: 'drafted',
 		filesWritten: [{ path: join(planDir, 'plan.md'), variant: 'single', scope: 'single' }],
 		decisionsApplied: 0,
@@ -222,7 +224,7 @@ test('plan draft: a report.status of error returns facts-error and writes no pla
 	expect(existsSync(join(cwd, '.lightsout', 'plans', 'bad-facts', 'plan.md'))).toBeFalsy();
 });
 
-/** A structurally clean overview file — the overview variant's own required section set. */
+/** A structurally clean overview file — the overview variant's own required section set, its counts equal to what its one phase file lists. */
 const cleanOverview = () => `# Drafted Plan — Overview
 
 ## Global Constraints
@@ -231,27 +233,94 @@ const cleanOverview = () => `# Drafted Plan — Overview
 
 ## Phases
 
-| # | File | Scope |
-|---|------|-------|
-| 1 | \`phase1-core.md\` | the core |
+| # | File | Scope | Creates | Touches |
+|---|------|-------|---------|---------|
+| 1 | \`phase1-core.md\` | the core | 1 | 1 |
+
+## Phase Declarations
+
+### Phase 1 — \`phase1-core.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
 
 ## Cross-Phase Dependencies
 
 - None.
 `;
 
+/**
+ * The phased writer stub, answering both stages of the two-stage draft: an
+ * overview spawn writes `overview.md` alone, and each phase spawn writes the one
+ * phase file its prompt names. Which stage it is in is read off the brief the
+ * builder emitted, exactly as a real writer would.
+ */
+const phasedDraftDriver = ({ onCall }: { onCall?: (prompt: string) => void } = {}): Driver => ({
+	name: 'stub',
+	invoke: async ({ prompt }) => {
+		onCall?.(prompt);
+
+		const path = /- (\S+\.md)/.exec(prompt)?.[1];
+
+		// the engine dictates one output path per spawn
+		expectDefined(path);
+
+		const phase = prompt.includes('## Phase authoring');
+
+		writeFileSync(path, phase ? cleanPlanBody() : cleanOverview());
+
+		return {
+			text: JSON.stringify({
+				status: 'drafted',
+				filesWritten: [{ path, variant: phase ? PlanVariant.Phase : PlanVariant.Overview, scope: phase ? 'the core' : 'phased' }],
+				decisionsApplied: 0,
+				assumptions: [],
+				discrepancies: [],
+			}),
+			exitCode: 0,
+		};
+	},
+});
+
 test('plan draft: facts touching more paths than the phased threshold draft the overview variant', async () => {
 	const cwd = setupConsumerRepo();
 
 	seedPlanWorkspace({ cwd, name: 'big', areas: [areaTouching({ modify: paths(41) })] });
 
-	const result = await runPlanDraft({ cwd, driver: createDraftDriver({ bodies: [cleanOverview()] }), name: 'big' });
+	const prompts: string[] = [];
+	const result = await runPlanDraft({ cwd, driver: phasedDraftDriver({ onCall: (prompt) => prompts.push(prompt) }), name: 'big' });
 
 	expectStatus(result, 'complete');
 	expect('variant' in result).toBeTruthy();
 	expect(result.variant).toBe('overview');
 	// the phased deliverable is authored into the plan's own folder
 	expect(existsSync(join(cwd, '.lightsout', 'plans', 'big', 'overview.md'))).toBeTruthy();
+	// and its one declared phase was authored by its own spawn, not by the
+	// overview's — the split that keeps a ten-phase draft inside its timeout
+	expect(existsSync(join(cwd, '.lightsout', 'plans', 'big', 'phase1-core.md'))).toBeTruthy();
+	expect(prompts.map((prompt) => (prompt.includes('## Phase authoring') ? 'phase' : 'overview'))).toStrictEqual(['overview', 'phase']);
+	// the overview spawn is never handed a self-lint: no phase file exists yet,
+	// so the command it would run always answers "no plan found"
+	expect(prompts[0].includes('## Self-lint')).toBeFalsy();
+	// one report per spawn, the overview's first
+	expect('reports' in result && result.reports.length).toBe(2);
+});
+
+test('plan draft: the overview\u2019s declared counts are re-stamped from what the phase files actually list', async () => {
+	const cwd = setupConsumerRepo();
+
+	seedPlanWorkspace({ cwd, name: 'stamped', areas: [areaTouching({ modify: paths(41) })] });
+
+	const result = await runPlanDraft({ cwd, driver: phasedDraftDriver(), name: 'stamped' });
+
+	expectStatus(result, 'complete');
+
+	const overview = readFileSync(join(cwd, '.lightsout', 'plans', 'stamped', 'overview.md'), 'utf8');
+
+	// the estimate the overview agent wrote is replaced by the count the phase
+	// file proves, so the consistency check never spends a repair on arithmetic
+	expect(overview).toContain('| 1 | `phase1-core.md` | the core | 1 | 1 |');
 });
 
 test('plan draft: an explicit scope flag overrides the estimate', async () => {

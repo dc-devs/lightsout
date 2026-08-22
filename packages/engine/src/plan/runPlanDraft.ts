@@ -1,28 +1,18 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { buildPlanWriterInvocation } from '#src/agents/index.ts';
 import { readConfig } from '#src/common/config/readConfig.ts';
-import {
-	type DecisionsRecord,
-	type Effort,
-	type Permissions,
-	PlanDraftReport,
-	PlanDraftStatus,
-	type PlanVariant,
-	type StructuralFinding,
-} from '#src/contracts/index.ts';
+import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
+import { type DecisionsRecord, type Effort, type Permissions, PlanVariant } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
-import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
-import { planDraftOutputs } from '#src/plan/common/paths/planDraftOutputs.ts';
-import { verifyDraftedFiles } from '#src/plan/common/paths/verifyDraftedFiles.ts';
-import { buildPlanLintCommand } from '#src/plan/common/utils/buildPlanLintCommand.ts';
-import { createPlanAgentRunner } from '#src/plan/common/utils/createPlanAgentRunner.ts';
+import type { DraftContext } from '#src/plan/common/types/DraftContext.ts';
+import type { RunPlanDraftResult } from '#src/plan/common/types/RunPlanDraftResult.ts';
+import { draftPhasedPlan } from '#src/plan/draftPhasedPlan.ts';
+import { draftSinglePlan } from '#src/plan/draftSinglePlan.ts';
 import { estimatePlanScope } from '#src/plan/estimatePlanScope.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 import { readDecisions } from '#src/plan/readDecisions.ts';
 import { readPlanFacts } from '#src/plan/readPlanFacts.ts';
-import { repairPlanStructure } from '#src/plan/repairPlanStructure.ts';
 
 interface Params {
 	cwd: string;
@@ -39,13 +29,6 @@ interface Params {
 	timeoutMs?: number;
 	onProgress?: (message: string) => void;
 }
-
-type RunPlanDraftResult =
-	| { status: typeof PlanRunStatus.Complete; workspaceDir: string; planPaths: string[]; variant: PlanVariant; report: PlanDraftReport }
-	| { status: typeof PlanRunStatus.Failed; workspaceDir: string; error: string }
-	| { status: typeof PlanRunStatus.PausedRateLimit; workspaceDir: string; error: string }
-	| { status: typeof PlanRunStatus.FactsError; workspaceDir: string; discrepancies: string[] }
-	| { status: typeof PlanRunStatus.StructuralIssues; workspaceDir: string; findings: StructuralFinding[]; planPaths: string[] };
 
 /**
  * The rows the plan writer renders, with brainstorm's settled ones first: they
@@ -67,82 +50,24 @@ const readMergedDecisions = async ({ cwd, name, progress }: { cwd: string; name:
 	return { merged, brainstorm };
 };
 
-interface AuthorParams {
-	cwd: string;
-	driver: Driver;
-	name: string;
-	workspaceDir: string;
-	facts: Awaited<ReturnType<typeof readPlanFacts>>;
-	decisions: DecisionsRecord;
-	outputs: ReturnType<typeof planDraftOutputs>;
-	standards?: string;
-	model?: string;
-	effort?: Effort;
-	permissions?: Permissions;
-	timeoutMs: number;
-}
-
 /**
- * The plan-writer spawn and everything that can end the draft with it: an agent
- * that failed or rate-limited, a facts/decisions discrepancy the agent found
- * (not a drafting bug — the inputs are wrong, so surface it and never loop), or
- * files it claimed but did not write.
- */
-const authorPlanFiles = async ({
-	cwd,
-	driver,
-	name,
-	workspaceDir,
-	facts,
-	decisions,
-	outputs,
-	standards,
-	model,
-	effort,
-	permissions,
-	timeoutMs,
-}: AuthorParams): Promise<{ stop: RunPlanDraftResult } | { planPaths: string[]; report: PlanDraftReport }> => {
-	const lint = buildPlanLintCommand({ cwd, name });
-	const invokePlanAgent = createPlanAgentRunner({ cwd, driver, workspaceDir, step: 'draft', model, effort, permissions, timeoutMs });
-	const outcome = await invokePlanAgent({
-		invocation: buildPlanWriterInvocation({ facts, decisions, outputs, standards, lintCommand: lint.command }),
-		contract: PlanDraftReport,
-		allowedCommands: [lint.prefix],
-	});
-
-	if (!outcome.ok) {
-		return {
-			stop: outcome.rateLimited
-				? { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: `rate limited or overloaded — re-run: lightsout plan draft --name ${name}` }
-				: { status: PlanRunStatus.Failed, workspaceDir, error: outcome.failure },
-		};
-	}
-
-	const { report } = outcome;
-
-	if (report.status === PlanDraftStatus.Error) {
-		return { stop: { status: PlanRunStatus.FactsError, workspaceDir, discrepancies: report.discrepancies } };
-	}
-
-	const drafted = await verifyDraftedFiles({ cwd, filesWritten: report.filesWritten });
-
-	if ('error' in drafted) {
-		return { stop: { status: PlanRunStatus.Failed, workspaceDir, error: drafted.error } };
-	}
-
-	return { planPaths: drafted.planPaths, report };
-};
-
-/**
- * Draft a structurally clean plan: a plan-writer agent authors the file(s) to
- * disk at the paths named in its prompt — once — then `repairPlanStructure`
- * lints the structure and converges any failures; survivors return as
- * `structural-issues` with the draft path intact. The engine owns the *path*
- * (told to the agent) and *verifies* the write; the agent owns the content. A
- * phased plan is a single spawn that authors `overview.md` plus every
- * `phase<N>-<slug>.md` into `.lightsout/plans/<name>/` — the same folder the
- * plan's workspace files live in (the agent chooses the breakdown; the engine
- * reads the paths back from the report and verifies each).
+ * Draft a structurally clean plan. The engine owns the *path* (told to the
+ * agent) and *verifies* the write; the agent owns the content.
+ *
+ * A single plan is one spawn writing `plan.md`, converged by
+ * `repairPlanStructure`. A phased plan is drafted in **two stages**: one spawn
+ * authors `overview.md` alone — including the machine-readable per-phase
+ * declaration — and then one spawn per declared phase runs concurrently against
+ * that declaration. The single all-files spawn this replaces was killed at its
+ * thirty-minute ceiling mid-draft on a ten-phase plan; the declaration is what
+ * makes the phase agents safe to run at once, because none of them has to read
+ * another's unfinished text, and the deterministic cross-phase lint catches the
+ * provenance and hand-off mismatches a parallel drafter could introduce.
+ *
+ * Between the two stages sits a deterministic door check on the declared phase
+ * sizes, with a bounded reshape loop behind it: the cheapest moment to refuse an
+ * unbuildable phase is before any phase file has been paid for.
+ *
  * `plan draft` overwrites an existing deliverable — it is the from-scratch
  * authoring step, never re-run mid-convergence. Brainstorm's settled rows are
  * merged in at read time, so the plan's own `decisions.json` stays plan-owned.
@@ -167,58 +92,28 @@ export const runPlanDraft = async ({
 	const facts = await readPlanFacts({ cwd, name });
 	const { merged, brainstorm } = await readMergedDecisions({ cwd, name, progress });
 	const config = await readConfig({ cwd }).catch(() => undefined);
-	const variant = scope ?? estimatePlanScope({ facts });
+	const executorFileLimit = config?.['executor-file-limit'] ?? defaultExecutorFileLimit;
+	const variant = scope ?? estimatePlanScope({ facts, executorFileLimit });
 
 	progress(`plan draft ${name}: variant ${variant} (${scope ? 'scope flag' : 'estimated'})`);
 
-	const authored = await authorPlanFiles({
+	const context: DraftContext = {
 		cwd,
 		driver,
 		name,
 		workspaceDir,
 		facts,
 		decisions: merged,
-		outputs: planDraftOutputs({ cwd, name, variant }),
+		brainstormDecisionsPath: brainstorm ? join(workspaceDir, 'brainstorm-decisions.json') : undefined,
+		config,
+		executorFileLimit,
 		standards,
 		model,
 		effort,
 		permissions,
 		timeoutMs,
-	});
-
-	if ('stop' in authored) {
-		return authored.stop;
-	}
-
-	const { planPaths, report } = authored;
-	const repaired = await repairPlanStructure({
-		cwd,
-		driver,
-		name,
-		planPaths,
-		workspaceDir,
-		brainstormDecisionsPath: brainstorm ? join(workspaceDir, 'brainstorm-decisions.json') : undefined,
-		config,
-		model,
-		effort,
-		permissions,
-		timeoutMs,
 		progress,
-	});
+	};
 
-	if (repaired.status === PlanRunStatus.PausedRateLimit) {
-		return { status: PlanRunStatus.PausedRateLimit, workspaceDir, error: repaired.error };
-	}
-
-	if (repaired.status === PlanRunStatus.Failed) {
-		return { status: PlanRunStatus.Failed, workspaceDir, error: repaired.error };
-	}
-
-	if (repaired.findings.length > 0) {
-		return { status: PlanRunStatus.StructuralIssues, workspaceDir, findings: repaired.findings, planPaths };
-	}
-
-	progress(`plan draft ${name}: structurally clean (${planPaths.length} file(s))`);
-
-	return { status: PlanRunStatus.Complete, workspaceDir, planPaths, variant, report };
+	return variant === PlanVariant.Single ? draftSinglePlan({ context }) : draftPhasedPlan({ context, step: 'draft' });
 };

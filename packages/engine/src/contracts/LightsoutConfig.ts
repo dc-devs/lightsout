@@ -118,6 +118,17 @@ export const LightsoutConfig = z.object({
 	'coverage-summary-path': z.string().optional(),
 	/** Removed — renamed to `coverage-summary-path`. Declared only so a stale key fails loudly instead of being silently stripped. */
 	coverageSummaryPath: renamedKey({ from: 'coverageSummaryPath', to: 'coverage-summary-path' }),
+	/**
+	 * How many source files one plan or phase may create or modify before the
+	 * feature executor refuses it. Default 50 (`defaultExecutorFileLimit`).
+	 *
+	 * It is one key rather than a number per reader because the plan lint's
+	 * advisory size warning, the phased-versus-single scope estimate, the plan
+	 * template and the executor's own stop rule must agree by construction: a
+	 * plan graded against a softer number and then refused at implement time
+	 * costs a whole run to learn what the lint already knew.
+	 */
+	'executor-file-limit': z.number().positive().optional(),
 	/** Directory holding workspace packages, for monorepo scoped gates. Default 'packages'. */
 	'packages-dir': z.string().optional(),
 	/** Removed — renamed to `packages-dir`. Same reason. */

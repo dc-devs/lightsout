@@ -28,7 +28,7 @@ test('cli: plan lint on a clean plan reports clean and exits 0', async () => {
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
-	expect(stdout).toMatch(/plan lint demo: 0 structural finding\(s\) across 1 file\(s\)/);
+	expect(stdout).toMatch(/plan lint demo: 0 blocking, 0 advisory finding\(s\) across 1 file\(s\)/);
 	expect(stdout).toMatch(/plan lint demo — clean \(1 file\(s\)\)/);
 	// a clean plan prints no finding lines
 	expect(stdout.includes('⚠')).toBeFalsy();
@@ -41,8 +41,8 @@ test('cli: plan lint on a plan with a placeholder prints the finding and exits 1
 	const { stdout, stderr, code } = await runCli({ args: ['plan', 'lint', '--name', 'demo', '--cwd', cwd] });
 
 	expect(stderr).toBe('');
-	expect(stdout).toMatch(/plan lint demo — 1 structural finding\(s\) \(1 file\(s\)\)/);
-	expect(stdout).toMatch(/⚠ \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present/);
+	expect(stdout).toMatch(/plan lint demo — 1 blocking finding\(s\) \(1 file\(s\)\)/);
+	expect(stdout).toMatch(/⚠ plan\.md \[no-placeholders\] plan\.md:\d+ — unresolved placeholder 'TBD' present/);
 	expect(stdout).toMatch(/fix: resolve 'TBD'/);
 	expect(code).toBe(1);
 });

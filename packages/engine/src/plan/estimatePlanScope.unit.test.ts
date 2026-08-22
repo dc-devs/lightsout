@@ -25,15 +25,21 @@ const paths = (count: number) => Array.from({ length: count }, (_, index) => `sr
 
 describe('estimatePlanScope', () => {
 	test('facts touching more paths than the phased threshold estimate the overview variant', () => {
-		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(41) }) })).toBe('overview');
+		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(41) }), executorFileLimit: 50 })).toBe('overview');
 	});
 
 	test('facts at the phased threshold stay single — the buffer under the executor guardrail is the line', () => {
-		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(40) }) })).toBe('single');
+		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(40) }), executorFileLimit: 50 })).toBe('single');
+	});
+
+	test('a configured file limit moves the threshold with it — the estimate never restates the number', () => {
+		// four fifths of 20 is 16: the same buffer, derived rather than typed
+		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(17) }), executorFileLimit: 20 })).toBe('overview');
+		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(16) }), executorFileLimit: 20 })).toBe('single');
 	});
 
 	test('a path both modified and mirrored counts once', () => {
 		// 41 entries over 40 distinct paths stay under the threshold
-		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(40), mirror: ['src/mod0.ts'] }) })).toBe('single');
+		expect(estimatePlanScope({ facts: factsTouching({ modify: paths(40), mirror: ['src/mod0.ts'] }), executorFileLimit: 50 })).toBe('single');
 	});
 });

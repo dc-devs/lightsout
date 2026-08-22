@@ -35,6 +35,7 @@ export const matchDedupVerdicts = ({ candidates, verdicts }: Params): DedupFindi
 			{
 				plannedSymbol: candidate.plannedSymbol,
 				plannedPath: candidate.plannedPath,
+				phase: candidate.phase,
 				collidesWith: candidate.collidesWith,
 				recommendation: verdict.recommendation,
 				rationale: verdict.rationale,

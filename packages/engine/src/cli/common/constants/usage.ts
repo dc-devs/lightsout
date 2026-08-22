@@ -18,7 +18,7 @@ usage:
   lightsout plan draft --name <n> [--scope single|phased] [--cwd <path>]
   lightsout plan lint --name <n> [--cwd <path>]
   lightsout plan dedup --name <n> [--cwd <path>]
-  lightsout plan grade --name <n> [--cwd <path>]
+  lightsout plan grade --name <n> [--phase <n[,n]>] [--cwd <path>]   (--phase grades only those phases, and always marks the result incomplete)
   lightsout friction [--cwd <path>]
   lightsout improve --engine <lightsout-repo-path> [--cwd <path>]
   lightsout voice on|off [--cwd <path>]               (toggle spoken read-out of interview questions — Mac-only)

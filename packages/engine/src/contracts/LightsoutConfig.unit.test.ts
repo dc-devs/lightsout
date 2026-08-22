@@ -121,6 +121,39 @@ test('LightsoutConfig: coverage-summary-path is optional and parses as the path 
 	expect(LightsoutConfig.safeParse({ ...base, 'coverage-summary-path': 42 }).success).toBe(false);
 });
 
+test('LightsoutConfig: executor-file-limit is optional and parses as the file ceiling the feature executor refuses past', () => {
+	// a repo that wants a tighter or looser bound than the shipped default of 50
+	// states it here, and the planning checks and the executor then read one number
+	expect(LightsoutConfig.parse({ ...base, 'executor-file-limit': 80 })['executor-file-limit']).toBe(80);
+	// absent means the engine's own default — every existing config stays valid
+	expect(LightsoutConfig.parse(base)['executor-file-limit']).toBe(undefined);
+	// and absence leaves no key on the parsed config, unlike an explicit value
+	expect('executor-file-limit' in LightsoutConfig.parse(base)).toBe(false);
+});
+
+test.each([
+	{ label: 'an executor-file-limit of 0', value: 0 },
+	{ label: 'a negative executor-file-limit', value: -1 },
+	{ label: 'an executor-file-limit given as a string', value: '50' },
+	{ label: 'a null executor-file-limit', value: null },
+	{ label: 'an executor-file-limit object', value: { max: 50 } },
+])('LightsoutConfig: $label fails parsing', ({ value }) => {
+	// a non-positive ceiling would refuse every plan before it created a single
+	// file, and a non-number would be compared against a file count as something
+	// other than a number — both are caught when config is read, not mid-run
+	expect(LightsoutConfig.safeParse({ ...base, 'executor-file-limit': value }).success).toBe(false);
+});
+
+test('LightsoutConfig: the camelCase executorFileLimit is stripped rather than refused by name', () => {
+	const parsed = LightsoutConfig.parse({ ...base, executorFileLimit: 80 });
+
+	// unlike every renamed key beside it, this one is new: there is no earlier
+	// spelling to migrate from, so no refusal is declared and the unknown key is
+	// simply dropped the way zod drops any other
+	expect('executorFileLimit' in parsed).toBe(false);
+	expect(parsed['executor-file-limit']).toBe(undefined);
+});
+
 test('LightsoutConfig: the removed scripts and packageScripts keys are refused with a message naming their new name', () => {
 	const scriptsResult = LightsoutConfig.safeParse({ scripts: { check: 'c', test: 't', 'test-coverage': false } });
 	const packageScriptsResult = LightsoutConfig.safeParse({ ...base, packageScripts: { check: 'c {package}', test: 't {package}' } });

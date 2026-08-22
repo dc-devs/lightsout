@@ -5,6 +5,7 @@ const setupFinding = (overrides: Record<string, unknown> = {}) => {
 	const finding = {
 		plannedSymbol: 'formatDate',
 		plannedPath: 'src/plan/common/utils/formatDate.ts',
+		phase: 'phase2-cross-phase-checks.md',
 		recommendation: 'extract',
 		rationale: 'the planned symbol restates an existing utility',
 		...overrides,
@@ -26,6 +27,7 @@ describe('DedupFinding', () => {
 		expect(parsed).toStrictEqual({
 			plannedSymbol: 'formatDate',
 			plannedPath: 'src/plan/common/utils/formatDate.ts',
+			phase: 'phase2-cross-phase-checks.md',
 			recommendation: 'extract',
 			rationale: 'the planned symbol restates an existing utility',
 			collidesWith: [{ name: 'formatDate', path: 'src/common/utils/formatDate.ts' }],
@@ -90,13 +92,14 @@ describe('DedupFinding', () => {
 	});
 
 	test('rejects a finding missing any required field', () => {
-		for (const field of ['plannedSymbol', 'plannedPath', 'recommendation', 'rationale']) {
+		for (const field of ['plannedSymbol', 'plannedPath', 'phase', 'recommendation', 'rationale']) {
 			const { finding } = setupFinding({ [field]: undefined });
 
 			const result = DedupFinding.safeParse(finding);
 
 			// ${field} is required — omitting isDuplicate loosens nothing else, and
-			// plannedPath is what points the human at the plan line to edit
+			// phase plus plannedPath are what point the human at the plan file and the
+			// line in it to edit
 			expect(result.success).toBe(false);
 		}
 	});

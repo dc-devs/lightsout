@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { StructuralCheck } from '#src/contracts/index.ts';
+import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
 import { runPlanLint } from '#src/plan/index.ts';
+import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
@@ -14,8 +15,8 @@ const writePlan = ({ cwd, name, body }: { cwd: string; name: string; body: strin
 	writeFileSync(join(dir, 'plan.md'), body);
 };
 
-/** A structurally clean single plan whose paths resolve against setupConsumerRepo. */
-const cleanPlan = () => `# Clean Plan
+/** A structurally clean single plan whose paths resolve against setupConsumerRepo. `createPath` is per-file: two phases creating one path is a real cross-phase defect. */
+const cleanPlan = ({ createPath = 'src/new-thing.ts' }: { createPath?: string } = {}) => `# Clean Plan
 
 ## Context
 
@@ -31,7 +32,7 @@ A tiny clean plan for the structural lint.
 
 ## Files to Create
 
-### \`src/new-thing.ts\`
+### \`${createPath}\`
 
 A new module exporting \`newThing\`.
 
@@ -100,9 +101,27 @@ test('plan lint: the progress line reports the finding count and how many files 
 	const result = await runPlanLint({ cwd, name: 'progress', onProgress: (message) => messages.push(message) });
 
 	expectStatus(result, 'complete');
-	// one progress line per lint pass
+	// one progress line per lint pass, and it separates what gates from what only
+	// informs
 	expect(messages.length).toBe(1);
-	expect(messages[0]).toMatch(/progress.*1 structural finding\(s\).*1 file\(s\)/);
+	expect(messages[0]).toMatch(/progress.*1 blocking, 0 advisory finding\(s\).*1 file\(s\)/);
+});
+
+test('plan lint: the progress line counts advisories apart from what gates, and both come back', async () => {
+	const cwd = setupConsumerRepo();
+
+	plantAdvisoryTouchedFiles({ cwd });
+	writePlan({ cwd, name: 'noted', body: advisoryPlanBody() });
+
+	const messages: string[] = [];
+	const result = await runPlanLint({ cwd, name: 'noted', onProgress: (message) => messages.push(message) });
+
+	expectStatus(result, 'complete');
+	// nothing gates, so the exit code stays clean while the note still prints
+	expect(messages[0]).toMatch(/noted: 0 blocking, 1 advisory finding\(s\)/);
+	expect(result.findings.map(({ check, severity }) => ({ check, severity }))).toStrictEqual([
+		{ check: StructuralCheck.ScopeWithinGuardrail, severity: FindingSeverity.Advisory },
+	]);
 });
 
 test('plan lint: no deliverable on disk returns failed', async () => {
@@ -118,8 +137,8 @@ test('plan lint: no deliverable on disk returns failed', async () => {
 	expect('error' in result && result.error.includes(join(cwd, '.lightsout', 'plans', 'ghost')) && result.error.includes('phase<N>-<slug>.md')).toBeTruthy();
 });
 
-/** A structurally clean overview file — the overview variant's own required section set. */
-const cleanOverview = () => `# Phased Plan — Overview
+/** A structurally clean overview file — the overview variant's own required section set. Its phase rows must name exactly the phase files written beside it, or the declaration is inconsistent with the deliverable. */
+const cleanOverview = ({ phaseCount = 2 }: { phaseCount?: number } = {}) => `# Phased Plan — Overview
 
 ## Global Constraints
 
@@ -127,11 +146,18 @@ const cleanOverview = () => `# Phased Plan — Overview
 
 ## Phases
 
-| # | File | Scope |
-|---|------|-------|
-| 1 | \`phase1-core.md\` | the core |
-| 2 | \`phase2-extra.md\` | the rest |
+| # | File | Scope | Creates | Touches |
+|---|------|-------|---------|---------|
+| 1 | \`phase1-core.md\` | the core | 1 | 1 |${phaseCount > 1 ? '\n| 2 | `phase2-extra.md` | the rest | 1 | 1 |' : ''}
 
+## Phase Declarations
+
+### Phase 1 — \`phase1-core.md\`
+
+- **Creates:** none
+- **Exports:** none
+- **Scripts:** none
+${phaseCount > 1 ? '\n### Phase 2 — `phase2-extra.md`\n\n- **Creates:** none\n- **Exports:** none\n- **Scripts:** none\n' : ''}
 ## Cross-Phase Dependencies
 
 - Phase 2 follows phase 1.
@@ -157,8 +183,8 @@ test('plan lint: a phased deliverable lints the overview first, then each phase,
 		name: 'phased',
 		files: {
 			'overview.md': cleanOverview(),
-			'phase1-core.md': cleanPlan(),
-			'phase2-extra.md': cleanPlan(),
+			'phase1-core.md': cleanPlan({ createPath: 'src/core.ts' }),
+			'phase2-extra.md': cleanPlan({ createPath: 'src/extra.ts' }),
 			'notes.txt': 'scratch notes, not a plan',
 		},
 	});
@@ -186,7 +212,7 @@ test('plan lint: a stray markdown file in the plan folder is not linted as a pha
 		cwd,
 		name: 'strays',
 		files: {
-			'overview.md': cleanOverview(),
+			'overview.md': cleanOverview({ phaseCount: 1 }),
 			'phase1-core.md': cleanPlan(),
 			'notes.md': scratchNotes(),
 			'phases.md': scratchNotes(),

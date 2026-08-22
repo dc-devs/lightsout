@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
@@ -24,11 +25,12 @@ interface Params {
  * planned paths).
  * A planned symbol whose name-key bucket holds a real match — same name, or a
  * synonym/word-order twin, but excluding a pure component+route casing pair — is
- * a candidate. Pure and unit-testable; the doctrine's "grep, not the agent's
+ * a candidate, tagged with the plan file that declared it so the dedup fan-out
+ * can group by phase. Pure and unit-testable; the doctrine's "grep, not the agent's
  * claim" is what makes enforcement real.
  */
 export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Params): Promise<PriorArtCandidate[]> => {
-	const planned: Array<{ plannedSymbol: string; plannedPath: string }> = [];
+	const planned: Array<{ plannedSymbol: string; plannedPath: string; phase: string }> = [];
 	const plannedPaths = new Set<string>();
 
 	for (const planPath of planPaths) {
@@ -47,7 +49,7 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 				continue;
 			}
 
-			planned.push({ plannedSymbol, plannedPath: createPath });
+			planned.push({ plannedSymbol, plannedPath: createPath, phase: basename(planPath) });
 		}
 	}
 
@@ -70,7 +72,7 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 
 	const candidates: PriorArtCandidate[] = [];
 
-	for (const { plannedSymbol, plannedPath } of planned) {
+	for (const { plannedSymbol, plannedPath, phase } of planned) {
 		const bucket = buckets.get(getNameKey({ name: plannedSymbol })) ?? [];
 
 		// A different name that collapses to the same casing key (`GetStarted` vs
@@ -81,7 +83,7 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 		);
 
 		if (collidesWith.length > 0) {
-			candidates.push({ plannedSymbol, plannedPath, collidesWith });
+			candidates.push({ plannedSymbol, plannedPath, phase, collidesWith });
 		}
 	}
 

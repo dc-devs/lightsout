@@ -111,6 +111,35 @@ describe('planCommand', () => {
 		expect(mockPlanDedupCommand).not.toHaveBeenCalled();
 	});
 
+	test('grade with no --phase asks for the whole plan', async () => {
+		const { context } = setupPlan({ args: ['grade', '--name', 'demo'] });
+
+		await planCommand(context);
+
+		// absent, not empty: an empty list is a request the runner refuses
+		expect(argsOf(mockPlanGradeCommand)?.phases).toBe(undefined);
+	});
+
+	test('grade splits a comma-separated --phase into trimmed values', async () => {
+		const { context } = setupPlan({ args: ['grade', '--name', 'demo', '--phase', '1, phase3-fanout.md ,'] });
+
+		await planCommand(context);
+
+		// a trailing comma contributes nothing; repeats are not collected, because
+		// `parseFlags` would silently overwrite the first `--phase`
+		expect(argsOf(mockPlanGradeCommand)?.phases).toStrictEqual(['1', 'phase3-fanout.md']);
+	});
+
+	test('a --phase that yields no values reaches the runner as an empty list, which it refuses', async () => {
+		const { context } = setupPlan({ args: ['grade', '--name', 'demo', '--phase', ','] });
+
+		await planCommand(context);
+
+		// never undefined — that would silently widen a narrowed request to the
+		// whole plan
+		expect(argsOf(mockPlanGradeCommand)?.phases).toStrictEqual([]);
+	});
+
 	test('an unknown subcommand prints the usage text and exits 1', async () => {
 		const { context, errors, exitCodes } = setupPlan({ args: ['sideways'] });
 
