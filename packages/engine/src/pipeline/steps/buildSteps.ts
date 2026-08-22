@@ -32,7 +32,7 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 				{
 					id: 'refactor',
 					skip: () => (sourceFiles({ run }).length === 0 ? 'no changed source files to review' : undefined),
-					run: refactorStep({ run, gitPrefix, planContent, standards }),
+					run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards }),
 				},
 				{
 					id: 'verify-refactor',
@@ -43,7 +43,14 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 						id: 'verify-refactor',
 						coverage: true,
 						buildFix: (errorContext) =>
-							buildRefactorExecutorInvocation({ scope: RefactorScope.Feature, planContent, changedFiles: sourceFiles({ run }), standards, errorContext }),
+							buildRefactorExecutorInvocation({
+								scope: RefactorScope.Feature,
+								planContent,
+								overviewContent,
+								changedFiles: sourceFiles({ run }),
+								standards,
+								errorContext,
+							}),
 					}),
 				},
 			];

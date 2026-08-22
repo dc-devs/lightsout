@@ -13,6 +13,8 @@ interface Params {
 	run: PipelineRun;
 	gitPrefix?: string;
 	planContent: string;
+	/** Overview text for a phased run — see `buildRefactorExecutorInvocation`. */
+	overviewContent?: string;
 	standards?: string;
 	record: StepRecord;
 	/** The blocking work-list this pass hands the executor. */
@@ -33,6 +35,7 @@ export const runExecutorPass = async ({
 	run,
 	gitPrefix,
 	planContent,
+	overviewContent,
 	standards,
 	record,
 	findings,
@@ -44,6 +47,7 @@ export const runExecutorPass = async ({
 		invocation: buildRefactorExecutorInvocation({
 			scope: RefactorScope.Feature,
 			planContent,
+			overviewContent,
 			changedFiles: sourceFiles({ run }),
 			standards,
 			findings,

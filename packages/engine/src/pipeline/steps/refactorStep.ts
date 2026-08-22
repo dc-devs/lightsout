@@ -135,6 +135,8 @@ interface Params {
 	run: PipelineRun;
 	gitPrefix?: string;
 	planContent: string;
+	/** Overview text for a phased run — see `buildRefactorExecutorInvocation`. */
+	overviewContent?: string;
 	standards?: string;
 }
 
@@ -144,7 +146,7 @@ interface Params {
  * changed files — capped at maxRefactorPasses, with a stable-decline early
  * exit (see `decideNoChangePass`).
  */
-export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params): PipelineStep['run'] => {
+export const refactorStep = ({ run, gitPrefix, planContent, overviewContent, standards }: Params): PipelineStep['run'] => {
 	return async () => {
 		let record = run.nextRecord({ id: 'refactor' });
 		let lastReport: WorkReport | undefined;
@@ -164,7 +166,7 @@ export const refactorStep = ({ run, gitPrefix, planContent, standards }: Params)
 
 			run.progress(`step refactor — pass ${pass}/${maxRefactorPasses}`);
 
-			const executed = await runExecutorPass({ run, gitPrefix, planContent, standards, record, findings: workList, advisories });
+			const executed = await runExecutorPass({ run, gitPrefix, planContent, overviewContent, standards, record, findings: workList, advisories });
 
 			if ('stopped' in executed) {
 				return executed.stopped;

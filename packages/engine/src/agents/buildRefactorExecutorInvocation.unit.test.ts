@@ -346,3 +346,34 @@ test('buildRefactorExecutorInvocation: the work-list heading matches what the fi
 	expect(feature.prompt.startsWith('# Changed files to review')).toBeTruthy();
 	expect(standalone.prompt.startsWith('# Files the findings name')).toBeTruthy();
 });
+
+test('buildRefactorExecutorInvocation: a phased run carries the overview ahead of the plan, so "no caller yet" reads as early rather than dead', () => {
+	const { systemPrompt } = buildRefactorExecutorInvocation({
+		scope,
+		planContent,
+		overviewContent: '# Ten phases\n\nOVERVIEW-SENTINEL',
+		changedFiles: ['src/widget.ts'],
+	});
+
+	expect(systemPrompt).toContain('OVERVIEW-SENTINEL');
+	// the overview reframes the plan, so it has to arrive first
+	expect(systemPrompt.indexOf('OVERVIEW-SENTINEL')).toBeLessThan(systemPrompt.indexOf('PLAN-SENTINEL'));
+	expect(systemPrompt).toContain('a thing with no caller yet is not necessarily dead');
+});
+
+test('buildRefactorExecutorInvocation: a single-phase run has no overview section at all', () => {
+	const { systemPrompt } = buildRefactorExecutorInvocation({ scope, planContent, changedFiles: ['src/widget.ts'] });
+
+	expect(systemPrompt).not.toContain('# Overview (high-level context)');
+});
+
+test('buildRefactorExecutorInvocation: the overview rides the cached system prompt, never the per-pass user prompt', () => {
+	const { prompt } = buildRefactorExecutorInvocation({
+		scope,
+		planContent,
+		overviewContent: '# Ten phases\n\nOVERVIEW-SENTINEL',
+		changedFiles: ['src/widget.ts'],
+	});
+
+	expect(prompt).not.toContain('OVERVIEW-SENTINEL');
+});
