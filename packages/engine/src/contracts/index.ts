@@ -1,5 +1,5 @@
 // Re-exported from the shared package rather than declared here. These are the
-// shapes a standards package implements, so they belong to something a package
+// shapes a standards pack implements, so they belong to something a pack
 // author can install — the engine is one consumer of them among others, not
 // their owner. Passing them through this barrel keeps engine code saying
 // `#src/contracts/index.ts` for every contract it uses, whoever declares it.
@@ -15,7 +15,7 @@ export type {
 	TestFileInput,
 	TypeCheckerInput,
 } from '@lightsout/standards-contracts';
-export { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackageRoot, StandardsSet } from '@lightsout/standards-contracts';
+export { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackRoot, StandardsSet } from '@lightsout/standards-contracts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
 export { CoverageBatchReport, CoverageFile, CoverageTotal, CoverageWorklist } from '#src/contracts/coverage/index.ts';

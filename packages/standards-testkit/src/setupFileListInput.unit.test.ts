@@ -7,6 +7,21 @@ describe('setupFileListInput', () => {
 		expect(setupFileListInput().kind).toBe(StandardsInputKind.FileList);
 	});
 
+	test('called bare, every field defaults to the empty shape a check can read', () => {
+		const input = setupFileListInput();
+
+		expect(input).toStrictEqual({
+			kind: StandardsInputKind.FileList,
+			cwd: '/repo',
+			source: [],
+			tests: [],
+			files: [],
+			referenceFiles: [],
+			dependencies: new Map(),
+			standardsPacks: [],
+		});
+	});
+
 	test('given files, takes them as the source too', () => {
 		const input = setupFileListInput({ files: ['src/app.ts'] });
 
@@ -38,9 +53,9 @@ describe('setupFileListInput', () => {
 	});
 
 	test('any field can be overridden outright', () => {
-		expect(setupFileListInput({ cwd: '/elsewhere', standardsPackages: ['vendor/acme'] })).toMatchObject({
+		expect(setupFileListInput({ cwd: '/elsewhere', standardsPacks: ['vendor/acme'] })).toMatchObject({
 			cwd: '/elsewhere',
-			standardsPackages: ['vendor/acme'],
+			standardsPacks: ['vendor/acme'],
 		});
 	});
 });

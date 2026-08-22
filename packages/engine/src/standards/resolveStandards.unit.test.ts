@@ -30,7 +30,7 @@ const ruleFiles = ({ path, summary }: { path: string; summary: string }) => ({
 });
 
 /**
- * A standards package under `at` in the consumer repo, carrying one base
+ * A standards pack under `at` in the consumer repo, carrying one base
  * document per set plus a react-channel code document — enough to tell the two
  * sets apart and to watch channel gating decide what loads. Rule ids carry the
  * package name so two of these can be loaded side by side.
@@ -46,7 +46,7 @@ const packageFiles = ({ at, name }: { at: string; name: string }) => ({
 });
 
 /**
- * A standards package under `at` carrying a code set and no tests set at all —
+ * A standards pack under `at` carrying a code set and no tests set at all —
  * a package is free to ship one set, and the stack has to notice the gap rather
  * than paper over it.
  */
@@ -68,9 +68,9 @@ describe('resolveStandards', () => {
 		expect(resolved.requested).toBe(true);
 	});
 
-	test('loads nothing when standards packages are explicitly disabled', async () => {
+	test('loads nothing when standards packs are explicitly disabled', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': false };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packs': false };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -82,7 +82,7 @@ describe('resolveStandards', () => {
 
 	test('assembles both sets from exactly the package the consumer declared', async () => {
 		const { cwd } = setupRepo({ files: packageFiles({ at: 'standards/house', name: 'house' }) });
-		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house'], 'standards-channels': [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packs': ['standards/house'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -97,7 +97,7 @@ describe('resolveStandards', () => {
 		const { cwd } = setupRepo({
 			files: { ...packageFiles({ at: 'standards/house', name: 'house' }), ...packageFiles({ at: 'standards/team', name: 'team' }) },
 		});
-		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/team', 'standards/house'], 'standards-channels': [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packs': ['standards/team', 'standards/house'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -105,13 +105,15 @@ describe('resolveStandards', () => {
 		expect(resolved.standards ?? '').toContain('<!-- team: code/house-style -->');
 		expect(resolved.standards ?? '').toContain('<!-- house: code/house-style -->');
 		expect((resolved.standards ?? '').indexOf('<!-- team:')).toBeLessThan((resolved.standards ?? '').indexOf('<!-- house:'));
+		// the two packs are joined by exactly one blank line — the separator is this unit's own contribution to the text
+		expect(resolved.standards ?? '').toContain("indent with tabs — the rule's prose.\n\n<!-- house: code/house-style -->");
 	});
 
 	test('a package carrying one set leaves the other set out of the stack rather than gapping it', async () => {
 		const { cwd } = setupRepo({
 			files: { ...packageFiles({ at: 'standards/house', name: 'house' }), ...codeOnlyPackageFiles({ at: 'standards/lint', name: 'lint' }) },
 		});
-		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house', 'standards/lint'], 'standards-channels': [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packs': ['standards/house', 'standards/lint'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -124,7 +126,7 @@ describe('resolveStandards', () => {
 
 	test('a set no loaded package carries is absent even though standards were asked for', async () => {
 		const { cwd } = setupRepo({ files: codeOnlyPackageFiles({ at: 'standards/lint', name: 'lint' }) });
-		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/lint'], 'standards-channels': [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packs': ['standards/lint'], 'standards-channels': [] };
 
 		const resolved = await resolveStandards({ cwd, config, packages: [] });
 
@@ -136,7 +138,7 @@ describe('resolveStandards', () => {
 
 	test('channel detection reads the packages folder the config names', async () => {
 		const { cwd } = setupRepo({ files: { 'apps/web/package.json': JSON.stringify({ name: 'web', dependencies: { react: '^19.0.0' } }) } });
-		const config: LightsoutConfig = { ...baseConfig, 'packages-dir': 'apps', 'standards-packages': false };
+		const config: LightsoutConfig = { ...baseConfig, 'packages-dir': 'apps', 'standards-packs': false };
 
 		const resolved = await resolveStandards({ cwd, config, packages: ['web'] });
 
@@ -147,7 +149,7 @@ describe('resolveStandards', () => {
 
 	test('an inactive channel keeps its document out of the assembled text', async () => {
 		const { cwd } = setupRepo({ files: packageFiles({ at: 'standards/house', name: 'house' }) });
-		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/house'], 'standards-channels': [] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packs': ['standards/house'], 'standards-channels': [] };
 
 		const withoutReact = await resolveStandards({ cwd, config, packages: [] });
 		const withReact = await resolveStandards({ cwd, config: { ...config, 'standards-channels': ['react'] }, packages: [] });
@@ -178,10 +180,10 @@ describe('resolveStandards', () => {
 
 	test('a declared package that does not exist is a hard error rather than a silent skip', async () => {
 		const { cwd } = setupRepo();
-		const config: LightsoutConfig = { ...baseConfig, 'standards-packages': ['standards/ghost'] };
+		const config: LightsoutConfig = { ...baseConfig, 'standards-packs': ['standards/ghost'] };
 
 		const error = await getRejectionError({ promise: resolveStandards({ cwd, config, packages: [] }) });
 
-		expect(error.message).toContain('standards package root file not found');
+		expect(error.message).toContain('standards pack root file not found');
 	});
 });

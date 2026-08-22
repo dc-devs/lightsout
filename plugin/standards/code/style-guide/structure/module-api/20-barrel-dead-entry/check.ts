@@ -102,10 +102,8 @@ const isTestedSubject = ({
 		return false;
 	}
 
-	// Only the file's OWN module earns the allowance. The test standards ask
-	// that a tested file be published by the module it belongs to; a barrel
-	// further up passing the same name through is not what they asked for, and
-	// sparing it would hide exactly the pass-through this rule exists to find.
+	// `moduleFolders` is sorted longest-first, so the first match is the module
+	// the file belongs to rather than any ancestor holding it.
 	if (moduleFolders.find((candidate) => file.startsWith(`${candidate}/`)) !== folder) {
 		return false;
 	}
@@ -154,7 +152,7 @@ const buildFindings = ({ input }: { input: TypeCheckerInput }) => {
 		};
 	};
 
-	const modules = [...mapFolderModules({ files: input.files, getSurface, standardsPackages: input.standardsPackages })];
+	const modules = [...mapFolderModules({ files: input.files, getSurface, standardsPacks: input.standardsPacks })];
 	// Longest first, so the first match for a file is the module it belongs to
 	// rather than one of its ancestors.
 	const moduleFolders = modules.map(([folder]) => folder).sort((left, right) => right.length - left.length);

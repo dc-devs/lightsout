@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Card } from '#src/common/components/ui/Card.tsx';
+import { Card } from '#src/appUI/index.ts';
 import { standardsQueryOptions } from '#src/features/standards/queries/standardsQueryOptions.ts';
 import { FindingList } from '#src/features/standards/screens/StandardsPage/components/FindingList.tsx';
 import { FolderBreakdown } from '#src/features/standards/screens/StandardsPage/components/FolderBreakdown.tsx';

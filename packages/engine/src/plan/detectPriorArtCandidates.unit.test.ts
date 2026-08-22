@@ -120,3 +120,50 @@ test('detectPriorArtCandidates: a collision inside a configured generated path i
 	// generated output is not prior art
 	expect(candidates).toStrictEqual([]);
 });
+
+test('detectPriorArtCandidates: a shuffled word order is the same concept, so it is a candidate', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/userDataGet.ts'], creates: ['src/getUserData.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith.some((collision) => collision.name === 'userDataGet')).toBeTruthy();
+});
+
+test('detectPriorArtCandidates: a from/to inverse is not a candidate', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/dtoFromEntity.ts'], creates: ['src/entityFromDto.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	expect(candidates).toStrictEqual([]);
+});
+
+test('detectPriorArtCandidates: a from-conversion keeps its order, so a synonym twin of it is still a candidate', async () => {
+	const { cwd, planPaths } = setup({ existing: ['src/loadRowsFromDisk.ts'], creates: ['src/fetchRowsFromDisk.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith.some((collision) => collision.path === 'src/loadRowsFromDisk.ts')).toBeTruthy();
+});
+
+test.each([{ existing: 'src/remove-stale-entry.ts' }, { existing: 'src/remove_stale_entry.ts' }])(
+	'detectPriorArtCandidates: $existing collides with a camelCase synonym twin',
+	async ({ existing }) => {
+		const { cwd, planPaths } = setup({ existing: [existing], creates: ['src/deleteStaleEntry.ts'] });
+		const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+		expect(candidates.length).toBe(1);
+		expect(candidates[0]?.collidesWith.some((collision) => collision.path === existing)).toBeTruthy();
+	},
+);
+
+test('detectPriorArtCandidates: inside a standards pack a tests/ document set is source, so a check under it is prior art', async () => {
+	const existing = ['standards/lightsout-standards.json', 'standards/tests/unit-testing/05-rule/scanRule.ts', 'standards/common/utils/scanRule.unit.test.ts'];
+	const { cwd, planPaths } = setup({ existing, creates: ['src/scanRule.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	// the census is built from the pack roots the walk reported: under one,
+	// `tests/` names a document set and the checks in it are ordinary source —
+	// while the pack's own `.unit.test.ts` says what it is in its filename and
+	// stays out
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith).toStrictEqual([{ name: 'scanRule', path: 'standards/tests/unit-testing/05-rule/scanRule.ts' }]);
+});

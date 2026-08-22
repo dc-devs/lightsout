@@ -10,7 +10,7 @@ interface Params {
 	driver: Driver;
 	worklist: RefactorWorklist;
 	/** Per-run inputs every batch shares, forwarded to runBatch unchanged. */
-	batchInputs: Pick<Parameters<typeof runBatch>[0], 'packages' | 'channels' | 'standards' | 'testStandards' | 'agentReview'>;
+	batchInputs: Pick<Parameters<typeof runBatch>[0], 'packs' | 'channels' | 'standards' | 'testStandards' | 'agentReview'>;
 	/** Stop (parked, resumable) after this many batches this run — budget control. */
 	maxBatches?: number;
 	/** Consecutive declines carried in from persisted steps on resume. */

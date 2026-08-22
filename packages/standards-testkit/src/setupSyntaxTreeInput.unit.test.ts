@@ -42,4 +42,24 @@ describe('setupSyntaxTreeInput', () => {
 
 		expect(input).toMatchObject({ source: ['src/a.ts', 'src/b.ts'], files: ['src/a.ts', 'src/b.ts'] });
 	});
+
+	test('names no standards pack roots unless the test asks for one', () => {
+		const input = setupTrees({ sources: [['src/app.ts', '']] });
+
+		// the field the contract names on every arm: a rule reading it out of the
+		// box sees an empty list, not undefined
+		expect(input).toMatchObject({ standardsPacks: [], referenceFiles: [], tests: [], cwd: '/repo' });
+	});
+
+	test('any field can be overridden outright, standards pack roots included', () => {
+		const input = setupSyntaxTreeInput({ cwd: '/elsewhere', standardsPacks: ['vendor/acme'] });
+
+		expect(input).toMatchObject({ cwd: '/elsewhere', standardsPacks: ['vendor/acme'] });
+	});
+
+	test('dependency pairs become the map the contract declares', () => {
+		const input = setupSyntaxTreeInput({ dependencies: [['.', ['zod']]] }) as SyntaxTreeInput;
+
+		expect(input.dependencies).toEqual(new Map([['.', ['zod']]]));
+	});
 });

@@ -1,6 +1,6 @@
 import type { StandardsFinding } from '@lightsout/engine';
 import { useState } from 'react';
-import { Button } from '#src/common/components/ui/Button.tsx';
+import { Button } from '#src/appUI/index.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { groupFindingsByFolder } from '#src/features/standards/common/utils/groupFindingsByFolder.ts';
 

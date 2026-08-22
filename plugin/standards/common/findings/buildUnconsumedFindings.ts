@@ -8,8 +8,8 @@ interface Params {
 	files: string[];
 	/** Text for every file in scope and every reference file. */
 	contents: Map<string, string>;
-	/** Repo-relative standards package roots, forwarded to the reference counting. */
-	standardsPackages: string[];
+	/** Repo-relative standards pack roots, forwarded to the reference counting. */
+	standardsPacks: string[];
 	/** The rule id claiming this verdict. */
 	rule: string;
 	/** Which unconsumed exports this rule claims — the verdicts are mutually exclusive, so each export lands in at most one rule. */
@@ -30,10 +30,10 @@ interface Params {
  * verdict it disagrees with — a deliberate public API is not a defect — while
  * keeping the others.
  */
-export const buildUnconsumedFindings = ({ files, contents, standardsPackages, rule, matches, detail, guidance }: Params): RawStandardsFinding[] => {
+export const buildUnconsumedFindings = ({ files, contents, standardsPacks, rule, matches, detail, guidance }: Params): RawStandardsFinding[] => {
 	const byFile = new Map<string, string[]>();
 
-	for (const { file, name, reachedBy } of getUnconsumedExports({ files, contents, standardsPackages })) {
+	for (const { file, name, reachedBy } of getUnconsumedExports({ files, contents, standardsPacks })) {
 		if (matches(reachedBy)) {
 			byFile.set(file, [...(byFile.get(file) ?? []), name]);
 		}

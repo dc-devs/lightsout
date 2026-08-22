@@ -3,8 +3,8 @@ import { RunStatus } from '@lightsout/engine/contracts';
 import { formatCost, formatDuration } from '@lightsout/shared';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { CopyButton } from '#src/common/components/ui/CopyButton.tsx';
-import { RunStatusBadge } from '#src/common/components/ui/RunStatusBadge.tsx';
+import { CopyButton, StatusBadge } from '#src/appUI/index.ts';
+import { statusBadgeConfig } from '#src/common/constants/statusBadgeConfig.ts';
 import { FailureNotice } from '#src/features/runDetail/screens/RunDetail/components/FailureNotice.tsx';
 import { PlanPathButton } from '#src/features/runDetail/screens/RunDetail/components/PlanPathButton.tsx';
 
@@ -41,7 +41,7 @@ export const RunHeader = ({ view, onOpenPlan }: Props) => {
 		<header className="flex flex-col gap-4">
 			<div className="flex flex-wrap items-center gap-3">
 				<h1 className="font-semibold text-2xl">{listing.title}</h1>
-				<RunStatusBadge status={listing.status} live={listing.live} />
+				<StatusBadge status={listing.status} config={statusBadgeConfig} live={listing.live} />
 				{listing.status === RunStatus.Running && view.currentStep !== null ? (
 					<span className="text-muted-foreground text-sm">
 						at <span className="font-mono">{view.currentStep}</span>
@@ -67,7 +67,7 @@ export const RunHeader = ({ view, onOpenPlan }: Props) => {
 			{view.parent === undefined ? null : (
 				<p className="text-muted-foreground text-xs">
 					phase <span className="font-mono">{view.parent.step}</span> of{' '}
-					<Link to="/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
+					<Link to="/repo/runs/$runId" params={{ runId: view.parent.runId }} className="text-primary underline underline-offset-2">
 						{view.parent.title}
 					</Link>
 				</p>

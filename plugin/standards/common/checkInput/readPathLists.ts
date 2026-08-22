@@ -15,7 +15,7 @@ interface Params {
  * handed another, so refusing loudly would describe a situation that cannot
  * arise.
  */
-export const readPathLists = ({ input }: Params): { files: string[]; tests: string[]; standardsPackages: string[] } =>
+export const readPathLists = ({ input }: Params): { files: string[]; tests: string[]; standardsPacks: string[] } =>
 	input.kind === 'file-list' || input.kind === 'file-text'
-		? { files: input.files, tests: input.tests, standardsPackages: input.standardsPackages }
-		: { files: [], tests: [], standardsPackages: [] };
+		? { files: input.files, tests: input.tests, standardsPacks: input.standardsPacks }
+		: { files: [], tests: [], standardsPacks: [] };

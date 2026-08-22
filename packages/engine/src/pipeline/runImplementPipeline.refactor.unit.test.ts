@@ -353,3 +353,33 @@ test('refactor: a loop that spends every pass on a tree the checks find clean pa
 	// the full pass budget was spent, and the post-loop check let the run through
 	expect(passesRun()).toBe(3);
 });
+
+test('refactor: a blocking finding whose only site is a test file the run wrote gates the run', async () => {
+	// `src/__tests__/helper.js` is a test file by path and nothing else names it,
+	// so before the gate read a changed-file view that keeps tests, this finding
+	// could not be matched and the run reported zero blocking with it standing.
+	const { dir, driver, config } = await setupRefactorRun({
+		source: 'export const subject = () => 1;\n',
+		extraSources: { 'src/__tests__/helper.js': 'export const helper = () => 1;\n' },
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	expect(result.ok).toBe(false);
+	expect(result.error ?? '').toMatch(/path-test-in-tests-folder/);
+});
+
+test('refactor: the executor may write the test files its findings name, or it is handed work it cannot do', async () => {
+	const { dir, driver, config, refactorPrompts } = await setupRefactorRun({
+		source: 'export const subject = () => 1;\n',
+		extraSources: { 'src/__tests__/helper.js': 'export const helper = () => 1;\n' },
+		onRefactor: () => report({ changedFiles: [] }),
+	});
+
+	await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
+
+	// the scope section is the executor's write permission — a finding on a file
+	// missing from it is a blocking demand the role prompt forbids acting on
+	expect(refactorPrompts[0] ?? '').toContain('src/__tests__/helper.js');
+});

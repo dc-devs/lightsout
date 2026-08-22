@@ -5,7 +5,15 @@ import { setupOtherKindInput } from '@lightsout/standards-testkit';
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a file-text rule: every path in scope, with its text beside it. */
-const setupFileTextInput = ({ contents, tests = [] }: { contents: Array<[string, string]>; tests?: string[] }): StandardsCheckInput => {
+const setupFileTextInput = ({
+	contents,
+	tests = [],
+	standardsPacks = [],
+}: {
+	contents: Array<[string, string]>;
+	tests?: string[];
+	standardsPacks?: string[];
+}): StandardsCheckInput => {
 	const files = contents.map(([path]) => path);
 
 	return {
@@ -16,7 +24,7 @@ const setupFileTextInput = ({ contents, tests = [] }: { contents: Array<[string,
 		files,
 		referenceFiles: [],
 		contents: new Map(contents),
-		standardsPackages: [],
+		standardsPacks,
 	};
 };
 
@@ -29,7 +37,7 @@ const setupMissingTextInput = (): StandardsCheckInput => ({
 	files: ['src/billing/chargeInvoice.ts'],
 	referenceFiles: [],
 	contents: new Map<string, string>(),
-	standardsPackages: [],
+	standardsPacks: [],
 });
 
 /** One file's doc comment, wrapped in the block the rule reads. */
@@ -200,6 +208,34 @@ describe('brittle-doc-tags check', () => {
 		const input = setupFileTextInput({
 			contents: [['src/billing/chargeInvoice.unit.test.ts', '/**\n * @todo cover the declined path\n */\nexport const setup = (): number => 1;']],
 			tests: ['src/billing/chargeInvoice.unit.test.ts'],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('inside a declared pack, a rule under tests/ is ordinary source and answers for its tags', async () => {
+		const input = setupFileTextInput({
+			contents: [['standards/tests/unit-testing/10-rule/check.ts', '/**\n * @author Ada Lovelace\n */\nexport const checkRule = (): number => 1;']],
+			standardsPacks: ['standards'],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'brittle-doc-tags:standards/tests/unit-testing/10-rule/check.ts',
+				files: [{ path: 'standards/tests/unit-testing/10-rule/check.ts' }],
+				detail: '@author in a doc comment',
+				guidance: 'Delete the tag — git, TypeScript and the issue tracker already own what it records.',
+			},
+		]);
+	});
+
+	test('the same path with no pack declared above it is a tests/ directory the test standards govern', async () => {
+		const input = setupFileTextInput({
+			contents: [['standards/tests/unit-testing/10-rule/check.ts', '/**\n * @author Ada Lovelace\n */\nexport const checkRule = (): number => 1;']],
 		});
 
 		const findings = await check.run({ input, settings: {} });

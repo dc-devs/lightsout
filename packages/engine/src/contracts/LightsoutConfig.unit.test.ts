@@ -135,64 +135,88 @@ test('LightsoutConfig: the removed scripts and packageScripts keys are refused w
 	expect(packageScriptsResult.error?.message ?? '').toMatch(/renamed to `package-gates`/);
 });
 
-test('LightsoutConfig: standards-packages accepts relative and absolute package roots, in config order', () => {
-	const standardsPackages = ['standards/house', '/opt/acme-standards'];
+test('LightsoutConfig: standards-packs accepts relative and absolute pack roots, in config order', () => {
+	const standardsPacks = ['standards/house', '/opt/acme-standards'];
 
-	const parsed = LightsoutConfig.parse({ ...base, 'standards-packages': standardsPackages });
+	const parsed = LightsoutConfig.parse({ ...base, 'standards-packs': standardsPacks });
 
 	// entries are plain strings either way — the schema carries no path-kind
-	// discrimination, and order is the order packages stack in
-	expect(parsed['standards-packages']).toStrictEqual(standardsPackages);
+	// discrimination, and order is the order packs stack in
+	expect(parsed['standards-packs']).toStrictEqual(standardsPacks);
 });
 
-test('LightsoutConfig: standards-packages accepts false and absence', () => {
-	const parsed = LightsoutConfig.parse({ ...base, 'standards-packages': false });
+test('LightsoutConfig: standards-packs accepts false and absence', () => {
+	const parsed = LightsoutConfig.parse({ ...base, 'standards-packs': false });
 
 	// false is the explicit opt-out, distinct from an absent field
-	expect(parsed['standards-packages']).toBe(false);
-	// the field stays optional — an absent field means the shipped default package loads
+	expect(parsed['standards-packs']).toBe(false);
+	// the field stays optional — an absent field means the shipped default pack loads
 	expect(LightsoutConfig.safeParse(base).success).toBe(true);
 });
 
-test('LightsoutConfig: a non-string standards-packages entry fails parsing', () => {
+test('LightsoutConfig: a non-string standards-packs entry fails parsing', () => {
 	// entries are plain strings — an object entry is a hard error
-	expect(LightsoutConfig.safeParse({ ...base, 'standards-packages': [{ path: 'standards/house' }] }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, 'standards-packs': [{ path: 'standards/house' }] }).success).toBe(false);
 	// a bare string in place of the array is a hard error
-	expect(LightsoutConfig.safeParse({ ...base, 'standards-packages': 'standards/house' }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, 'standards-packs': 'standards/house' }).success).toBe(false);
 });
 
-test('LightsoutConfig: an empty standards-packages array parses and stays empty', () => {
-	const parsed = LightsoutConfig.parse({ ...base, 'standards-packages': [] });
+test('LightsoutConfig: an empty standards-packs array parses and stays empty', () => {
+	const parsed = LightsoutConfig.parse({ ...base, 'standards-packs': [] });
 
 	// an array says "exactly these", so an empty one says "exactly none" and must
 	// survive parsing as itself — collapsing it to absence would load the shipped
-	// default package the config just declined
-	expect(parsed['standards-packages']).toStrictEqual([]);
+	// default pack the config just declined
+	expect(parsed['standards-packs']).toStrictEqual([]);
 	// and it is a present key, unlike an absent field
-	expect('standards-packages' in parsed).toBe(true);
+	expect('standards-packs' in parsed).toBe(true);
 });
 
 test.each([
-	{ label: 'a standards-packages of true', 'standards-packages': true },
-	{ label: 'a standards-packages of null', 'standards-packages': null },
-	{ label: 'a standards-packages of 0', 'standards-packages': 0 },
-	{ label: 'a standards-packages object', 'standards-packages': { roots: ['standards/house'] } },
-])('LightsoutConfig: $label fails parsing', ({ 'standards-packages': standardsPackages }) => {
+	{ label: 'a standards-packs of true', 'standards-packs': true },
+	{ label: 'a standards-packs of null', 'standards-packs': null },
+	{ label: 'a standards-packs of 0', 'standards-packs': 0 },
+	{ label: 'a standards-packs object', 'standards-packs': { roots: ['standards/house'] } },
+])('LightsoutConfig: $label fails parsing', ({ 'standards-packs': standardsPacks }) => {
 	// the opt-out is the literal false and nothing else — a truthy or nullish value
 	// near it would otherwise read as an opt-out and silently drop every standard
-	expect(LightsoutConfig.safeParse({ ...base, 'standards-packages': standardsPackages }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, 'standards-packs': standardsPacks }).success).toBe(false);
 });
 
-test('LightsoutConfig: the removed standards and testStandards keys are refused with a message naming standards-packages', () => {
+test('LightsoutConfig: the removed standards-packages spelling is refused with a message naming standards-packs', () => {
+	const result = LightsoutConfig.safeParse({ ...base, 'standards-packages': ['standards/house'] });
+
+	// the top level is not strict, so the old kebab spelling would otherwise be
+	// stripped silently and the repo would run the defaults it thought it replaced
+	expect(result.success).toBe(false);
+	expect(result.error?.message ?? '').toMatch(/`standards-packages` was renamed to `standards-packs`/);
+	// the rejection is about the key, not its contents: even the opt-out value fails
+	expect(LightsoutConfig.safeParse({ ...base, 'standards-packages': false }).success).toBe(false);
+});
+
+test('LightsoutConfig: a half-migrated config carrying the new key beside a stale spelling still fails', () => {
+	const kebabResult = LightsoutConfig.safeParse({ ...base, 'standards-packs': ['standards/house'], 'standards-packages': ['standards/old'] });
+	const camelResult = LightsoutConfig.safeParse({ ...base, 'standards-packs': ['standards/house'], standardsPackages: ['standards/old'] });
+
+	// a correct new key beside a stale one is the likeliest half-done migration, and
+	// the refusal must still fire: otherwise the stale roots are stripped in silence
+	// and the config reads as if it had asked for both
+	expect(kebabResult.success).toBe(false);
+	expect(kebabResult.error?.message ?? '').toMatch(/`standards-packages` was renamed to `standards-packs`/);
+	expect(camelResult.success).toBe(false);
+	expect(camelResult.error?.message ?? '').toMatch(/`standardsPackages` was renamed to `standards-packs`/);
+});
+
+test('LightsoutConfig: the removed standards and testStandards keys are refused with a message naming standards-packs', () => {
 	const codeResult = LightsoutConfig.safeParse({ ...base, standards: ['docs/style.md'] });
 	const testResult = LightsoutConfig.safeParse({ ...base, testStandards: ['docs/tests.md'] });
 
 	// the top level is not strict, so a retired key must be refused explicitly or a
 	// repo's standards would be silently dropped and the defaults used instead
 	expect(codeResult.success).toBe(false);
-	expect(codeResult.error?.message ?? '').toMatch(/replaced by `standards-packages`/);
+	expect(codeResult.error?.message ?? '').toMatch(/replaced by `standards-packs`/);
 	expect(testResult.success).toBe(false);
-	expect(testResult.error?.message ?? '').toMatch(/replaced by `standards-packages`/);
+	expect(testResult.error?.message ?? '').toMatch(/replaced by `standards-packs`/);
 	// the rejection is about the key, not its contents: even the old opt-out value fails
 	expect(LightsoutConfig.safeParse({ ...base, standards: false }).success).toBe(false);
 });
@@ -214,7 +238,7 @@ test.each([
 	{ key: 'coverageSummaryPath', value: 'reports/summary.json', to: 'coverage-summary-path' },
 	{ key: 'packagesDir', value: 'apps', to: 'packages-dir' },
 	{ key: 'packageGates', value: { check: 'c {package}', test: 't {package}' }, to: 'package-gates' },
-	{ key: 'standardsPackages', value: false, to: 'standards-packages' },
+	{ key: 'standardsPackages', value: false, to: 'standards-packs' },
 	{ key: 'standardsChannels', value: ['react'], to: 'standards-channels' },
 	{ key: 'standardsChecks', value: { clone: 'off' }, to: 'standards-checks' },
 ])('LightsoutConfig: the camelCase $key is refused with a message naming $to', ({ key, value, to }) => {

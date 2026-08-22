@@ -17,5 +17,5 @@ interface Params {
  */
 export const readFileTexts = ({ input }: Params): FileTexts =>
 	input.kind === 'file-text'
-		? { files: input.files, tests: input.tests, referenceFiles: input.referenceFiles, contents: input.contents, standardsPackages: input.standardsPackages }
-		: { files: [], tests: [], referenceFiles: [], contents: new Map<string, string>(), standardsPackages: [] };
+		? { files: input.files, tests: input.tests, referenceFiles: input.referenceFiles, contents: input.contents, standardsPacks: input.standardsPacks }
+		: { files: [], tests: [], referenceFiles: [], contents: new Map<string, string>(), standardsPacks: [] };

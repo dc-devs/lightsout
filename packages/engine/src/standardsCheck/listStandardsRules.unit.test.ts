@@ -9,20 +9,20 @@ import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 const baseConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false as const } };
 
 /**
- * The repo the listing is read for — the shipped package answers regardless,
+ * The repo the listing is read for — the shipped pack answers regardless,
  * since it travels with the engine.
  *
  * The workspace root rather than the working directory: this suite runs from
  * inside the engine package, and one case below looks up a document inside the
- * standards package, which is a sibling rather than a child.
+ * standards pack, which is a sibling rather than a child.
  */
 const cwd = join(__dirname, '..', '..', '..', '..');
 
 /**
- * The rule ids that predate the package format. A repo's baseline keys, its
+ * The rule ids that predate the pack format. A repo's baseline keys, its
  * config overrides and its frozen refactor work-lists are all written in these
  * strings, so one of them going missing is a silent break in persisted data —
- * which is why they are restated here rather than read back off the package.
+ * which is why they are restated here rather than read back off the pack.
  */
 const durableRuleIds = [
 	'ast-duplicate',
@@ -67,15 +67,15 @@ const durableRuleIds = [
 /** The file-placement rules code checks — `path-aliases` shares the prefix but is prose an agent has to judge. */
 const durablePathRules = durableRuleIds.filter((id) => id.startsWith('path-'));
 
-/** 'lightsout-defaults: code/…' split back into the package name and the document folder the row names. */
+/** 'lightsout-defaults: code/…' split back into the pack name and the document folder the row names. */
 const docPartsOf = ({ doc }: { doc: string }) => {
 	const [name, path] = doc.split(': ');
 
 	return { name: name ?? '', path: path ?? '' };
 };
 
-interface PackageSpec {
-	/** Repo-relative folder the package is written under. */
+interface PackSpec {
+	/** Repo-relative folder the pack is written under. */
 	at: string;
 	name: string;
 	ruleId: string;
@@ -84,13 +84,13 @@ interface PackageSpec {
 }
 
 /**
- * A judgment-only standards package written under `at`, holding one rule that
+ * A judgment-only standards pack written under `at`, holding one rule that
  * declares whatever the caller passes. Nothing here is shipped by the engine,
- * so a row read back off it proves the listing carries the package author's own
+ * so a row read back off it proves the listing carries the pack author's own
  * words rather than the defaults.
  */
-const writePackage = ({ cwd, at, name, ruleId, severity = StandardsSeverity.Advisory, settings = {} }: PackageSpec & { cwd: string }) => {
-	const packagePath = join(cwd, at);
+const writePack = ({ cwd, at, name, ruleId, severity = StandardsSeverity.Advisory, settings = {} }: PackSpec & { cwd: string }) => {
+	const packPath = join(cwd, at);
 	const rulePath = `code/demo/01-${ruleId}`;
 	const settingLines = Object.entries(settings).map(([key, value]) => `  ${key}: ${value}`);
 	const settingsBlock = settingLines.length === 0 ? '' : `settings:\n${settingLines.join('\n')}\n`;
@@ -103,26 +103,26 @@ const writePackage = ({ cwd, at, name, ruleId, severity = StandardsSeverity.Advi
 	};
 
 	for (const [path, content] of Object.entries(files)) {
-		const absolutePath = join(packagePath, path);
+		const absolutePath = join(packPath, path);
 
 		mkdirSync(dirname(absolutePath), { recursive: true });
 		writeFileSync(absolutePath, content);
 	}
 };
 
-/** A temp consumer repo holding the given packages — the listing reads exactly the packages its config declares. */
-const setupRepo = ({ packages = [] }: { packages?: PackageSpec[] } = {}) => {
+/** A temp consumer repo holding the given packs — the listing reads exactly the packs its config declares. */
+const setupRepo = ({ packs = [] }: { packs?: PackSpec[] } = {}) => {
 	const repoCwd = mkdtempSync(join(tmpdir(), 'lightsout-list-rules-'));
 
-	for (const spec of packages) {
-		writePackage({ cwd: repoCwd, ...spec });
+	for (const spec of packs) {
+		writePack({ cwd: repoCwd, ...spec });
 	}
 
 	return { cwd: repoCwd };
 };
 
 describe('listStandardsRules', () => {
-	test('lists every rule the loaded packages declare, sorted by id', async () => {
+	test('lists every rule the loaded packs declare, sorted by id', async () => {
 		const rules = await listStandardsRules({ cwd });
 
 		// --list is the enforcement ledger: a rule missing from it is a rule
@@ -149,11 +149,11 @@ describe('listStandardsRules', () => {
 		expect(rules.some((rule) => rule.checked)).toBe(true);
 		expect(rules.some((rule) => !rule.checked)).toBe(true);
 		// and every one of the durable ids is a rule code checks — they are the
-		// rules that had a check before the package format existed
+		// rules that had a check before the pack format existed
 		expect(rules.filter((rule) => durableRuleIds.includes(rule.rule) && !rule.checked).map((rule) => rule.rule)).toStrictEqual([]);
 	});
 
-	test('every rule names the package that states it and a document folder inside that package', async () => {
+	test('every rule names the pack that states it and a document folder inside that pack', async () => {
 		const rules = await listStandardsRules({ cwd });
 
 		// the doc column is what makes the output actionable — a row naming a
@@ -297,14 +297,14 @@ describe('listStandardsRules', () => {
 		expect(error.message).toContain('clone');
 	});
 
-	test('a row restates what the package author declared, down to the numbers', async () => {
+	test('a row restates what the pack author declared, down to the numbers', async () => {
 		const { cwd: repo } = setupRepo({
-			packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule', severity: StandardsSeverity.Blocking, settings: { maxLines: 40 } }],
+			packs: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule', severity: StandardsSeverity.Blocking, settings: { maxLines: 40 } }],
 		});
 
-		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': ['standards/house'] }) });
+		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, 'standards-packs': ['standards/house'] }) });
 
-		// nothing in this package ships with the engine, so the row can only have
+		// nothing in this pack ships with the engine, so the row can only have
 		// come from the rule's own front matter — including that no code checks it
 		expect(rules).toStrictEqual([
 			{
@@ -319,9 +319,9 @@ describe('listStandardsRules', () => {
 		]);
 	});
 
-	test('rules from several packages are one ledger sorted by id, each row naming the package it came from', async () => {
+	test('rules from several packs are one ledger sorted by id, each row naming the pack it came from', async () => {
 		const { cwd: repo } = setupRepo({
-			packages: [
+			packs: [
 				{ at: 'standards/house', name: 'house', ruleId: 'zebra-rule' },
 				{ at: 'standards/team', name: 'team', ruleId: 'aardvark-rule' },
 			],
@@ -329,35 +329,35 @@ describe('listStandardsRules', () => {
 
 		const rules = await listStandardsRules({
 			cwd: repo,
-			config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': ['standards/house', 'standards/team'] }),
+			config: LightsoutConfig.parse({ ...baseConfig, 'standards-packs': ['standards/house', 'standards/team'] }),
 		});
 
 		// a reader looking a rule up scans one alphabetical list, not one list per
-		// package — and still sees which package to argue with about each rule
+		// pack — and still sees which pack to argue with about each rule
 		expect(rules.map((rule) => `${rule.rule} → ${rule.doc}`)).toStrictEqual(['aardvark-rule → team: code/demo', 'zebra-rule → house: code/demo']);
 	});
 
-	test('a repo that turned standards packages off lists nothing rather than the defaults', async () => {
+	test('a repo that turned standards packs off lists nothing rather than the defaults', async () => {
 		const { cwd: repo } = setupRepo();
 
-		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': false }) });
+		const rules = await listStandardsRules({ cwd: repo, config: LightsoutConfig.parse({ ...baseConfig, 'standards-packs': false }) });
 
 		// listing the shipped rules here would advertise a policy this repo opted out of
 		expect(rules).toStrictEqual([]);
 	});
 
-	test('a declared package that cannot load refuses the listing instead of printing a shorter one', async () => {
-		const { cwd: repo } = setupRepo({ packages: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule' }] });
+	test('a declared pack that cannot load refuses the listing instead of printing a shorter one', async () => {
+		const { cwd: repo } = setupRepo({ packs: [{ at: 'standards/house', name: 'house', ruleId: 'house-rule' }] });
 
 		const error = await getRejectionError({
 			promise: listStandardsRules({
 				cwd: repo,
-				config: LightsoutConfig.parse({ ...baseConfig, 'standards-packages': ['standards/house', 'standards/ghost'] }),
+				config: LightsoutConfig.parse({ ...baseConfig, 'standards-packs': ['standards/house', 'standards/ghost'] }),
 			}),
 		});
 
 		// a ledger missing the half that failed to load reads as a repo that enforces less than it does
-		expect(error.message).toContain('standards package root file not found');
+		expect(error.message).toContain('standards pack root file not found');
 		expect(error.message).toContain(join(repo, 'standards/ghost', 'lightsout-standards.json'));
 	});
 });

@@ -23,7 +23,7 @@ export const setupImportGraphInput = ({ edges = [], ...overrides }: Params = {})
 		tests: [],
 		files: paths,
 		referenceFiles: [],
-		standardsPackages: [],
+		standardsPacks: [],
 		edges,
 		...overrides,
 	};

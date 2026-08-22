@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { collectBatchAdvisories } from '#src/refactor/batch/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 const finding = (overrides: Partial<StandardsFinding> = {}): StandardsFinding => ({
@@ -35,7 +35,7 @@ const judgmentRule: LoadedStandardsRule = {
 	fixturesPath: '/packages/acme/path-aliases/fixtures',
 };
 
-const packageOf = ({ rules }: { rules: LoadedStandardsRule[] }): LoadedStandardsPackage => ({
+const packOf = ({ rules }: { rules: LoadedStandardsRule[] }): LoadedStandardsPack => ({
 	name: 'acme',
 	formatVersion: 1,
 	rootPath: '/packages/acme',
@@ -59,7 +59,7 @@ describe('collectBatchAdvisories', () => {
 			runId: 'run-01',
 			driver,
 			batch: batch({ paths: ['src/a.ts'] }),
-			packages: [],
+			packs: [],
 			channels: [],
 			findings: [
 				finding(),
@@ -87,7 +87,7 @@ describe('collectBatchAdvisories', () => {
 			runId: 'run-01',
 			driver,
 			batch: batch({ paths: ['src/a.ts'] }),
-			packages: [packageOf({ rules: [judgmentRule] })],
+			packs: [packOf({ rules: [judgmentRule] })],
 			channels: [],
 			findings: [finding()],
 			agentReview: true,
@@ -113,7 +113,7 @@ describe('collectBatchAdvisories', () => {
 			runId: 'run-01',
 			driver,
 			batch: batch({ paths: ['src/a.ts'] }),
-			packages: [packageOf({ rules: [judgmentRule] })],
+			packs: [packOf({ rules: [judgmentRule] })],
 			channels: [],
 			findings: [finding()],
 			agentReview: false,
@@ -132,7 +132,7 @@ describe('collectBatchAdvisories', () => {
 			runId: 'run-01',
 			driver,
 			batch: batch({ paths: ['src/a.ts'] }),
-			packages: [packageOf({ rules: [judgmentRule] })],
+			packs: [packOf({ rules: [judgmentRule] })],
 			channels: [],
 			findings: [],
 			agentReview: true,

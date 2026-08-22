@@ -7,8 +7,8 @@ interface Params {
 	tests: string[];
 	files: string[];
 	referenceFiles: string[];
-	/** Repo-relative standards package roots, from the walk that listed the files. */
-	standardsPackages: string[];
+	/** Repo-relative standards pack roots, from the walk that listed the files. */
+	standardsPacks: string[];
 	/** Monorepo package parent dir (config `packages-dir`, default 'packages'). */
 	packagesDir: string;
 }
@@ -21,8 +21,8 @@ interface Params {
  *
  * @param packagesDir - monorepo package parent dir; each child holding a package.json becomes an entry
  */
-export const buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir }: Params): Promise<FileListInput> => {
+export const buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPacks, packagesDir }: Params): Promise<FileListInput> => {
 	const dependencies = await readPackageDependencies({ cwd, packagesDir });
 
-	return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies, standardsPackages };
+	return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies, standardsPacks };
 };

@@ -1,7 +1,6 @@
 import type { StandardsFinding } from '@lightsout/engine';
 import { StandardsSeverity } from '@lightsout/engine/contracts';
-import { Badge } from '#src/common/components/ui/Badge.tsx';
-import { CopyButton } from '#src/common/components/ui/CopyButton.tsx';
+import { Badge, CopyButton } from '#src/appUI/index.ts';
 
 interface Props {
 	finding: StandardsFinding;

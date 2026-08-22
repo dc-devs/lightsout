@@ -152,7 +152,7 @@ describe('discriminant-const-object check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('a rule check may not import a value from outside its own standards package, so its literal stands', async () => {
+	test('a rule check may not import a value from outside its own standards pack, so its literal stands', async () => {
 		const input = setupTypeCheckerInput({
 			sources: [
 				['src/common/constants/InputKind.ts', "export const InputKind = { FileList: 'file-list' } as const;\n"],
@@ -161,13 +161,182 @@ describe('discriminant-const-object check', () => {
 					"import type { InputKind } from '../../../../src/common/constants/InputKind.ts';\n\nexport const run = (input: { kind: InputKind }): boolean => input.kind === 'file-list';\n",
 				],
 			],
-			standardsPackages: ['standards'],
+			standardsPacks: ['standards'],
 		});
 
 		const findings = await check.run({ input, settings: {} });
 
 		// A package ships as a bare directory with no node_modules, so every value
 		// a check imports has to resolve inside it. The literal is not a choice.
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a check narrowing against a const object inside its own standards pack is reported, since it may import it', async () => {
+		// The other half of the reachability question: the family is declared in
+		// the pack the check lives in, so referencing it costs the check nothing
+		// and the spelled-out literal is a choice. The identical string declared
+		// outside the pack is beside the point.
+		const input = setupTypeCheckerInput({
+			sources: [
+				[
+					'standards/common/constants/RuleKind.ts',
+					"export const RuleKind = {\n\tFileList: 'file-list',\n\tFileText: 'file-text',\n} as const;\n\nexport type RuleKind = (typeof RuleKind)[keyof typeof RuleKind];\n",
+				],
+				['src/common/constants/InputKind.ts', "export const InputKind = { FileList: 'file-list' } as const;\n"],
+				[
+					'standards/code/rules/05-example/check.ts',
+					"import type { RuleKind } from '../../../common/constants/RuleKind.ts';\n\nexport const run = (rule: { kind: RuleKind }): boolean => rule.kind === 'file-list';\n",
+				],
+			],
+			standardsPacks: ['standards'],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'discriminant-const-object:standards/code/rules/05-example/check.ts',
+				files: [{ path: 'standards/code/rules/05-example/check.ts' }],
+				detail: 'RuleKind narrowed against a raw string literal at line 3',
+				guidance: "Reference the family's `const` object — `kind: typeof SyncEventKind.FileAdded`, and `SyncEventKind.FileAdded` at every narrowing site.",
+			},
+		]);
+	});
+
+	test('a source path the engine could not type is passed over, and the rest of the run still reports', async () => {
+		const input = setupTypeCheckerInput({
+			sources: [['src/common/types/SyncEvent.ts', "export interface FileAddedEvent {\n\tkind: 'file-added';\n}\n"]],
+			source: ['src/common/types/Missing.ts', 'src/common/types/SyncEvent.ts'],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'discriminant-const-object:src/common/types/SyncEvent.ts',
+				files: [{ path: 'src/common/types/SyncEvent.ts' }],
+				detail: 'field typed as a raw string literal at line 2',
+				guidance: "Reference the family's `const` object — `kind: typeof SyncEventKind.FileAdded`, and `SyncEventKind.FileAdded` at every narrowing site.",
+			},
+		]);
+	});
+
+	test('an inequality retypes the literal exactly as an equality does, and counts', async () => {
+		const input = setupTypeCheckerInput({
+			sources: [
+				...family(),
+				[
+					'src/sync/skip.ts',
+					"import type { SyncEvent } from '../common/types/SyncEvent.ts';\n\nexport const skip = (event: SyncEvent): boolean => event.kind !== 'file-added';\n",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.detail).toBe('SyncEventKind narrowed against a raw string literal at line 3');
+	});
+
+	test('the literal counts on either side of the comparison', async () => {
+		const input = setupTypeCheckerInput({
+			sources: [
+				...family(),
+				[
+					'src/sync/isAdded.ts',
+					"import type { SyncEvent } from '../common/types/SyncEvent.ts';\n\nexport const isAdded = (event: SyncEvent): boolean => 'file-added' === event.kind;\n",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.detail).toBe('SyncEventKind narrowed against a raw string literal at line 3');
+	});
+
+	test('a comparison of two fields, and a literal joined by a non-equality operator, are not narrowing sites', async () => {
+		const input = setupTypeCheckerInput({
+			sources: [
+				...family(),
+				[
+					'src/sync/compare.ts',
+					"import type { SyncEvent } from '../common/types/SyncEvent.ts';\n\nexport const same = (a: SyncEvent, b: SyncEvent): boolean => a.kind === b.kind;\n\nexport const label = (event: SyncEvent): string => event.kind + '-done';\n",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('only a string-valued property of an `as const` object literal puts a member in the run', async () => {
+		// Everything here spells `as const` or holds the string, and none of it
+		// declares a family a narrowing site could reference instead.
+		const input = setupTypeCheckerInput({
+			sources: [
+				[
+					'src/common/constants/Odd.ts',
+					"const base = { Loose: 'file-added' };\n\nexport const Counts = { Retries: 3 } as const;\n\nexport const Modes = ['file-added'] as const;\n\nexport const Spread = { ...base } as const;\n\nexport let pending;\n",
+				],
+				['src/sync/handle.ts', "export const handle = (kind: 'file-added' | 'record-parsed'): boolean => kind === 'file-added';\n"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a field typed as anything but a string literal is not the declaration half', async () => {
+		const input = setupTypeCheckerInput({
+			sources: [['src/common/types/Job.ts', 'export interface Job {\n\tretries: 3;\n\tname: string;\n\tkind;\n}\n']],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('names a family with no alias by its printed type, and reports both halves of one file as one job', async () => {
+		const input = setupTypeCheckerInput({
+			sources: [...family(), ['src/sync/peek.ts', "export const peek = (event: { kind: 'file-added' }): boolean => event.kind === 'file-added';\n"]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings[0]?.detail).toBe('field typed as a raw string literal at line 1; "file-added" narrowed against a raw string literal at line 1');
+	});
+
+	test('a type that is not wholly string literals, and a literal the family does not admit, are not narrowings', async () => {
+		// `stray` compares against a literal outside its own type — code the
+		// compiler already rejects. What matters is that this check does not add
+		// a second, wrong complaint on top of that one.
+		const input = setupTypeCheckerInput({
+			sources: [
+				...family(),
+				['src/sync/mixed.ts', "export const mixed = (kind: 'file-added' | 1): boolean => kind === 'file-added';\n"],
+				['src/sync/stray.ts', "export const stray = (mode: 'fast' | 'slow'): boolean => mode === 'file-added';\n"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a switch already referencing the const object is the shape the rule asks for', async () => {
+		const input = setupTypeCheckerInput({
+			sources: [
+				...family(),
+				[
+					'src/sync/dispatch.ts',
+					"import { SyncEventKind } from '../common/constants/SyncEventKind.ts';\nimport type { SyncEvent } from '../common/types/SyncEvent.ts';\n\nexport const dispatch = (event: SyncEvent): string => {\n\tswitch (event.kind) {\n\t\tcase SyncEventKind.FileAdded:\n\t\t\treturn 'added';\n\t\tdefault:\n\t\t\treturn 'other';\n\t}\n};\n",
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
 		expect(findings).toStrictEqual([]);
 	});
 

@@ -1,4 +1,5 @@
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';
 import { applyStandardsBaseline } from '#src/standardsCheck/applyStandardsBaseline.ts';
@@ -6,7 +7,7 @@ import { buildDominantPathNote } from '#src/standardsCheck/buildDominantPathNote
 import { resolvePackageRuleStates } from '#src/standardsCheck/resolvePackageRuleStates.ts';
 import { runPackageChecks } from '#src/standardsCheck/runPackageChecks.ts';
 import { writeStandardsSnapshot } from '#src/standardsCheck/writeStandardsSnapshot.ts';
-import { resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -23,7 +24,7 @@ interface Params {
 
 /**
  * The structural standards-check suite: detection is code — agents never get
- * asked to "go find problems". The rules come from the standards packages the
+ * asked to "go find problems". The rules come from the standards packs the
  * repo loads, each rule bringing its own check, so what a repo enforces and
  * what a repo is told are the same document. Severity and settings come from
  * the resolved rule states, which is what makes `lightsout standards-check
@@ -40,7 +41,7 @@ interface Params {
  * baseline.xml — and later runs report only findings whose site key is not in
  * it (`all` overrides).
  *
- * @throws {Error} When a declared standards package cannot be loaded, or a check misbehaves — a repo that asked for standards and did not get them must not run.
+ * @throws {Error} When a declared standards pack cannot be loaded, or a check misbehaves — a repo that asked for standards and did not get them must not run.
  */
 export const runStandardsCheck = async ({
 	cwd,
@@ -51,8 +52,8 @@ export const runStandardsCheck = async ({
 	onProgress,
 }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
 	const config = await readConfig({ cwd }).catch(() => undefined);
-	const packages = await resolveStandardsPackages({ cwd, config });
-	const states = resolvePackageRuleStates({ packages, config });
+	const packs = await resolveStandardsPacks({ cwd, config });
+	const states = resolvePackageRuleStates({ packs, config });
 	// An empty package scope means the root package.json decides — the same call
 	// the prompt side makes, so prose and checks never disagree about which
 	// frameworks this repo is in.
@@ -60,12 +61,12 @@ export const runStandardsCheck = async ({
 		config?.['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir: config?.['packages-dir'] ?? 'packages', packages: [] }));
 	const checked = await runPackageChecks({
 		cwd,
-		packages,
+		packs,
 		states,
 		channels,
 		packagesDir: config?.['packages-dir'],
 		path,
-		exclude: config?.generated,
+		exclude: excludedSourcePaths({ config }),
 		onProgress,
 	});
 	const findings = checked.findings;

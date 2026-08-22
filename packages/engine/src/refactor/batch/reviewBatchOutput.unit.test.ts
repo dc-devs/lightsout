@@ -3,7 +3,7 @@ import { type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#s
 import type { Driver } from '#src/drivers/index.ts';
 import { reviewBatchOutput } from '#src/refactor/batch/index.ts';
 import { readReviewFindings } from '#src/runState/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 import { freshCwd } from '#tests/helpers/freshCwd.ts';
 
 const advisory = (overrides: Partial<StandardsFinding> & { siteKey: string }): StandardsFinding => ({
@@ -37,7 +37,7 @@ const judgmentRules: LoadedStandardsRule[] = ['size-function', 'single-return'].
 	fixturesPath: `/packages/acme/${id}/fixtures`,
 }));
 
-const packages: LoadedStandardsPackage[] = [{ name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules: judgmentRules }];
+const packs: LoadedStandardsPack[] = [{ name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules: judgmentRules }];
 
 /** A reviewer that reports whatever the test says it saw, and a progress sink to read back. */
 const setupReview = async ({ reported }: { reported: { rule: string; files: { path: string }[]; detail: string }[] }) => {
@@ -51,7 +51,7 @@ const setupReview = async ({ reported }: { reported: { rule: string; files: { pa
 			runId: 'run-01',
 			driver,
 			batch,
-			packages,
+			packs,
 			channels: [],
 			baseline,
 			changedFiles,
@@ -137,7 +137,7 @@ describe('reviewBatchOutput', () => {
 			runId: 'run-01',
 			driver,
 			batch,
-			packages,
+			packs,
 			channels: [],
 			baseline: [],
 			changedFiles: ['src/a.ts'],
@@ -164,7 +164,7 @@ describe('reviewBatchOutput', () => {
 			runId: 'run-01',
 			driver,
 			batch,
-			packages,
+			packs,
 			channels: [],
 			baseline: [],
 			changedFiles: [],
@@ -186,7 +186,7 @@ describe('reviewBatchOutput', () => {
 			runId: 'run-01',
 			driver,
 			batch,
-			packages,
+			packs,
 			channels: [],
 			baseline: [],
 			changedFiles: ['src/a.ts'],

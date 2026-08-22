@@ -7,13 +7,13 @@ interface Params {
 	cwd: string;
 }
 
-const describeStandardsPackages = ({ value }: { value: string[] | false | undefined }) => {
+const describeStandardsPacks = ({ value }: { value: string[] | false | undefined }) => {
 	if (value === false) {
 		return 'none (explicit)';
 	}
 
 	if (value === undefined) {
-		return 'lightsout-defaults (none configured — set to false to disable, or list package roots)';
+		return 'lightsout-defaults (none configured — set to false to disable, or list pack roots)';
 	}
 
 	return value.join(', ');
@@ -23,7 +23,7 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 	const coverage = config.gates['test-coverage'] === false ? 'off (explicit)' : config.gates['test-coverage'];
 
 	console.log(`  cwd: ${cwd}`);
-	console.log(`  standards packages: ${describeStandardsPackages({ value: config['standards-packages'] })}`);
+	console.log(`  standards packs: ${describeStandardsPacks({ value: config['standards-packs'] })}`);
 	console.log(
 		`  harness: ${driver.name} · model: ${config.model ?? 'harness default'} · effort: ${config.effort ?? 'harness default'} · permissions: ${config.permissions ?? Permissions.Write}`,
 	);
@@ -40,6 +40,10 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 
 	if (config.generated) {
 		console.log(`  generated (never attributed): ${config.generated.join(', ')}`);
+	}
+
+	if (config.vendored) {
+		console.log(`  vendored (never checked, still attributed): ${config.vendored.join(', ')}`);
 	}
 
 	if (config.gates.build) {

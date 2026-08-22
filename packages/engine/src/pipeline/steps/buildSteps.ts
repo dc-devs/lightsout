@@ -1,6 +1,7 @@
 import { buildFeatureExecutorInvocation, buildRefactorExecutorInvocation, buildUnitTestWriterInvocation } from '#src/agents/index.ts';
 import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { cleanSlateStep } from '#src/pipeline/steps/cleanSlateStep.ts';
@@ -25,14 +26,37 @@ interface Params {
  * write-tests → verify → refactor loop → verify → format, with the refactor
  * pair dropped when skipRefactor asks for it.
  */
-export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }: Params): PipelineStep[] => {
-	const refactorSteps: PipelineStep[] = skipRefactor
+interface RefactorPairParams {
+	run: PipelineRun;
+	gitPrefix?: string;
+	planContent: string;
+	overviewContent?: string;
+	standards?: string;
+	skipRefactor?: boolean;
+}
+
+/**
+ * The refactor pair: the standards-gated loop and the verification that follows
+ * it, or nothing when the caller asked to skip them.
+ *
+ * Lifted out of `buildSteps` because it is the one part of that list with a
+ * condition and a nested invocation builder of its own — the rest is a flat
+ * sequence of step literals, and mixing the two made the function read as
+ * though every step needed this much saying.
+ *
+ * Both entries scope on `standardsScopeFiles` rather than `sourceFiles`: the
+ * gate judges findings on the test files a run wrote, so the executor has to be
+ * allowed to write them, and a run whose only changed files are tests still has
+ * standards to answer for.
+ */
+const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor }: RefactorPairParams): PipelineStep[] =>
+	skipRefactor
 		? []
 		: [
 				{
 					id: 'refactor',
-					skip: () => (sourceFiles({ run }).length === 0 ? 'no changed source files to review' : undefined),
-					run: refactorStep({ run, gitPrefix, planContent, standards }),
+					skip: () => (standardsScopeFiles({ run }).length === 0 ? 'no changed source files to review' : undefined),
+					run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards }),
 				},
 				{
 					id: 'verify-refactor',
@@ -43,10 +67,20 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 						id: 'verify-refactor',
 						coverage: true,
 						buildFix: (errorContext) =>
-							buildRefactorExecutorInvocation({ scope: RefactorScope.Feature, planContent, changedFiles: sourceFiles({ run }), standards, errorContext }),
+							buildRefactorExecutorInvocation({
+								scope: RefactorScope.Feature,
+								planContent,
+								overviewContent,
+								changedFiles: standardsScopeFiles({ run }),
+								standards,
+								errorContext,
+							}),
 					}),
 				},
 			];
+
+export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }: Params): PipelineStep[] => {
+	const refactorSteps = refactorPair({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor });
 
 	return [
 		{ id: 'clean-slate', run: cleanSlateStep({ run }) },

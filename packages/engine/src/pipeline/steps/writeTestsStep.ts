@@ -1,4 +1,5 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
+import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { RunStatus } from '#src/contracts/index.ts';
@@ -45,7 +46,7 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 			);
 		}
 
-		const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
+		const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
 		const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
 
 		if (orphans.length > 0) {

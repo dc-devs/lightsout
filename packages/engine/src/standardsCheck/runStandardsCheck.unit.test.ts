@@ -231,19 +231,19 @@ const writeTree = ({ dir, files }: { dir: string; files: Record<string, string> 
 };
 
 /**
- * A standards package of somebody's own: one document, one rule, one check that
- * flags every source file it is handed. The check is written the way a package
+ * A standards pack of somebody's own: one document, one rule, one check that
+ * flags every source file it is handed. The check is written the way a pack
  * author writes one — a `check` export naming its input kind, and no engine
  * import at run time.
  *
- * It sits outside the repo it checks, so the package's own files never show up
+ * It sits outside the repo it checks, so the pack's own files never show up
  * in that repo's file list.
  */
-const writeOwnPackage = () => {
-	const packagePath = mkdtempSync(join(tmpdir(), 'lightsout-house-standards-'));
+const writeOwnPack = () => {
+	const packPath = mkdtempSync(join(tmpdir(), 'lightsout-house-standards-'));
 
 	writeTree({
-		dir: packagePath,
+		dir: packPath,
 		files: {
 			'lightsout-standards.json': '{ "name": "acme", "formatVersion": 1 }\n',
 			'code/house/document.md': '# House Style\n\nWhat this shop agrees on.\n',
@@ -259,11 +259,11 @@ const writeOwnPackage = () => {
 		},
 	});
 
-	return packagePath;
+	return packPath;
 };
 
-/** A repo whose config brings the house package instead of the bundled defaults. */
-const setupOwnPackageRepo = () => {
+/** A repo whose config brings the house pack instead of the bundled defaults. */
+const setupOwnPackRepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-own-'));
 
 	writeTree({
@@ -273,7 +273,7 @@ const setupOwnPackageRepo = () => {
 			'src/beta.ts': 'export const beta = 2;\n',
 			'lightsout.config.json': JSON.stringify({
 				gates: { check: 'true', test: 'true', 'test-coverage': false },
-				'standards-packages': [writeOwnPackage()],
+				'standards-packs': [writeOwnPack()],
 			}),
 		},
 	});
@@ -281,8 +281,8 @@ const setupOwnPackageRepo = () => {
 	return dir;
 };
 
-test("a repo's own standards package supplies the rules, and the bundled defaults do not run beside them", async () => {
-	const dir = setupOwnPackageRepo();
+test("a repo's own standards pack supplies the rules, and the bundled defaults do not run beside them", async () => {
+	const dir = setupOwnPackRepo();
 
 	const { findings } = await runStandardsCheck({ cwd: dir, persist: false });
 
@@ -294,7 +294,7 @@ test("a repo's own standards package supplies the rules, and the bundled default
 	]);
 });
 
-/** A repo on the house package whose source spans a nested folder, so a scope has something to bite on. */
+/** A repo on the house pack whose source spans a nested folder, so a scope has something to bite on. */
 const setupScopedRepo = () => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-standards-scope-'));
 
@@ -303,7 +303,7 @@ const setupScopedRepo = () => {
 		files: {
 			'src/keep.ts': 'export const keep = 1;\n',
 			'src/core/inner.ts': 'export const inner = 2;\n',
-			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, 'standards-packages': [writeOwnPackage()] }),
+			'lightsout.config.json': JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false }, 'standards-packs': [writeOwnPack()] }),
 		},
 	});
 
@@ -337,12 +337,12 @@ const houseRuleFiles = ({ documentPath, ruleId }: { documentPath: string; ruleId
 	[`${documentPath}/05-${ruleId}/fixtures/fail/src/loose.ts`]: 'export const loose = 1;\n',
 });
 
-/** A package whose second document is framework-scoped — the channel gate needs a rule on each side of it. */
-const writeChannelPackage = () => {
-	const packagePath = mkdtempSync(join(tmpdir(), 'lightsout-channel-standards-'));
+/** A pack whose second document is framework-scoped — the channel gate needs a rule on each side of it. */
+const writeChannelPack = () => {
+	const packPath = mkdtempSync(join(tmpdir(), 'lightsout-channel-standards-'));
 
 	writeTree({
-		dir: packagePath,
+		dir: packPath,
 		files: {
 			'lightsout-standards.json': '{ "name": "acme-channels", "formatVersion": 1 }\n',
 			'code/house/document.md': '# House Style\n\nWhat this shop agrees on everywhere.\n',
@@ -352,7 +352,7 @@ const writeChannelPackage = () => {
 		},
 	});
 
-	return packagePath;
+	return packPath;
 };
 
 /** A repo with one source file, whose root manifest and config between them decide which framework channels are in play. */
@@ -366,7 +366,7 @@ const setupChannelRepo = ({ dependencies = {}, standardsChannels }: { dependenci
 			'src/alpha.ts': 'export const alpha = 1;\n',
 			'lightsout.config.json': JSON.stringify({
 				gates: { check: 'true', test: 'true', 'test-coverage': false },
-				'standards-packages': [writeChannelPackage()],
+				'standards-packs': [writeChannelPack()],
 				...(standardsChannels ? { 'standards-channels': standardsChannels } : {}),
 			}),
 		},

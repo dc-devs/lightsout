@@ -2,10 +2,10 @@ import { describe, expect, test } from '@jest/globals';
 import { getUnconsumedExports } from './getUnconsumedExports.ts';
 
 /** A repo as a file-text rule receives it: the files being judged, and text for everything that may reference them. */
-const setupRepo = ({ scope, contents }: { scope?: string[]; contents: Array<[string, string]> }) => ({
+const setupRepo = ({ scope, contents, standardsPacks = [] }: { scope?: string[]; contents: Array<[string, string]>; standardsPacks?: string[] }) => ({
 	files: scope ?? contents.map(([path]) => path),
 	contents: new Map(contents),
-	standardsPackages: [],
+	standardsPacks,
 });
 
 describe('getUnconsumedExports', () => {
@@ -101,6 +101,41 @@ describe('getUnconsumedExports', () => {
 
 		// vendorExport is unconsumed too, but out of scope and so not this run's business
 		expect(found).toStrictEqual([{ file: 'src/ingestion/ingestRecords.ts', name: 'ingestRecords', reachedBy: { barrel: false, test: false } }]);
+	});
+
+	test('inside a declared pack, a rule under tests/ declares an export like any other source file', () => {
+		const found = getUnconsumedExports(
+			setupRepo({
+				contents: [['standards/tests/unit-testing/10-rule/check.ts', 'export const checkRule = (): number => 1;']],
+				standardsPacks: ['standards'],
+			}),
+		);
+
+		expect(found).toStrictEqual([{ file: 'standards/tests/unit-testing/10-rule/check.ts', name: 'checkRule', reachedBy: { barrel: false, test: false } }]);
+	});
+
+	test('the same path with no pack declared above it is a test, whose helpers are its own', () => {
+		const found = getUnconsumedExports(
+			setupRepo({ contents: [['standards/tests/unit-testing/10-rule/check.ts', 'export const checkRule = (): number => 1;']] }),
+		);
+
+		expect(found).toStrictEqual([]);
+	});
+
+	test('a reference from inside a declared pack’s tests/ is an ordinary source reference, not a test reaching it', () => {
+		const found = getUnconsumedExports(
+			setupRepo({
+				contents: [
+					['src/ingestion/ingestRecords.ts', 'export const ingestRecords = (): number => 1;'],
+					['standards/tests/unit-testing/10-rule/check.ts', 'ingestRecords();'],
+				],
+				standardsPacks: ['standards'],
+			}),
+		);
+
+		// with no pack declared the same file would count as a test, and the export
+		// would be reported as reached by tests alone
+		expect(found).toStrictEqual([]);
 	});
 
 	test('a mention in a comment counts as a reference, which is what keeps the verdict rare', () => {

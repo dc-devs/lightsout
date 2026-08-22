@@ -25,7 +25,7 @@ describe('buildImportGraphInput', () => {
 
 		expectDefined(compiler);
 
-		const input = await buildImportGraphInput({ cwd, source: files, tests: [], files, referenceFiles: files, standardsPackages: [], compiler });
+		const input = await buildImportGraphInput({ cwd, source: files, tests: [], files, referenceFiles: files, standardsPacks: [], compiler });
 
 		expect(input.kind).toBe('import-graph');
 		expect(input.edges).toStrictEqual([{ from: 'src/consumer.ts', to: 'src/feature/internal.ts' }]);
@@ -42,7 +42,7 @@ describe('buildImportGraphInput', () => {
 			tests: [],
 			files: ['src/feature/internal.ts'],
 			referenceFiles: ['src/consumer.ts', 'src/feature/internal.ts'],
-			standardsPackages: [],
+			standardsPacks: [],
 			compiler,
 		});
 

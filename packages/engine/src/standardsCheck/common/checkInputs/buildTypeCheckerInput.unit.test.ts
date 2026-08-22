@@ -33,7 +33,7 @@ const compiler = resolveConsumerTypescript({ cwd: process.cwd() });
 const buildInput = ({ cwd, source }: { cwd: string; source: string[] }) => {
 	expectDefined(compiler);
 
-	return buildTypeCheckerInput({ cwd, source, tests: [], files: source, referenceFiles: source, standardsPackages: [], compiler, packagesDir: 'packages' });
+	return buildTypeCheckerInput({ cwd, source, tests: [], files: source, referenceFiles: source, standardsPacks: [], compiler, packagesDir: 'packages' });
 };
 
 describe('buildTypeCheckerInput', () => {

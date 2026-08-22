@@ -10,7 +10,20 @@ import { roleOf } from '#tests/helpers/roleOf.ts';
 import { reachabilityRulesOff, setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 
 test('write-tests fan-out: files under __tests__/ are test files, never writer targets', async () => {
-	const dir = setupConsumerRepo({ config: reachabilityRulesOff });
+	// The fixture below plants a helper inside `src/__tests__/`, which is the
+	// whole point of the case and is also two path-rule violations. Those rules
+	// now reach the gate (a finding whose only site is a test file used to be
+	// unmatchable), so they are switched off here rather than allowed to
+	// escalate a run this test is not about.
+	const dir = setupConsumerRepo({
+		config: {
+			'standards-checks': {
+				...reachabilityRulesOff['standards-checks'],
+				'path-test-in-tests-folder': 'off',
+				'path-test-not-colocated': 'off',
+			},
+		},
+	});
 	const writerTargets: string[] = [];
 
 	const driver: Driver = {

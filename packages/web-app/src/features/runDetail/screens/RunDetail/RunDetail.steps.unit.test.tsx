@@ -39,6 +39,18 @@ describe('RunDetail steps', () => {
 		expect(card).toHaveTextContent(/2 attempts.*1 file.*3 invocations.*out 12\.4k.*\$1\.50/);
 	});
 
+	test.each([
+		{ status: RunStatus.Running, label: 'running', token: 'text-status-running' },
+		{ status: RunStatus.PausedBudget, label: 'paused · budget', token: 'text-status-paused' },
+		{ status: RunStatus.Escalated, label: 'escalated', token: 'text-status-escalated' },
+	])('says a step ended $label, in the colour that status wears everywhere else', ({ status, label, token }) => {
+		setupStep({ overrides: { status } });
+
+		const badge = screen.getByText(label);
+
+		expect(badge.className).toContain(token);
+	});
+
 	test('shows the error a failed step recorded', () => {
 		setupStep({ overrides: { status: RunStatus.Failed, error: 'the check gate came back non-zero' } });
 
@@ -60,7 +72,7 @@ describe('RunDetail steps', () => {
 
 		const links = screen.getAllByRole('link', { name: 'ffff0000' });
 
-		expect(links.map((link) => link.getAttribute('href'))).toStrictEqual(['/runs/ffff0000ffff1111', '/runs/ffff0000ffff1111']);
+		expect(links.map((link) => link.getAttribute('href'))).toStrictEqual(['/repo/runs/ffff0000ffff1111', '/repo/runs/ffff0000ffff1111']);
 	});
 
 	test("offers a coordinator's phase file to the plan drawer", () => {

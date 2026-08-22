@@ -3,7 +3,7 @@ import { RefactorScope } from '#src/common/constants/RefactorScope.ts';
 import { RunStatus, type StandardsFinding, type StepRecord, type WorkReport, WorkReportStatus } from '#src/contracts/index.ts';
 import { collectChanged } from '#src/pipeline/common/utils/collectChanged.ts';
 import { invokeRoleOrStop } from '#src/pipeline/common/utils/invokeRoleOrStop.ts';
-import { sourceFiles } from '#src/pipeline/common/utils/sourceFiles.ts';
+import { standardsScopeFiles } from '#src/pipeline/common/utils/standardsScopeFiles.ts';
 import { withStepFiles } from '#src/pipeline/common/utils/withStepFiles.ts';
 import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import type { PipelineRun } from '#src/pipeline/PipelineRun.ts';
@@ -13,6 +13,8 @@ interface Params {
 	run: PipelineRun;
 	gitPrefix?: string;
 	planContent: string;
+	/** Overview text for a phased run — see `buildRefactorExecutorInvocation`. */
+	overviewContent?: string;
 	standards?: string;
 	record: StepRecord;
 	/** The blocking work-list this pass hands the executor. */
@@ -33,6 +35,7 @@ export const runExecutorPass = async ({
 	run,
 	gitPrefix,
 	planContent,
+	overviewContent,
 	standards,
 	record,
 	findings,
@@ -44,7 +47,8 @@ export const runExecutorPass = async ({
 		invocation: buildRefactorExecutorInvocation({
 			scope: RefactorScope.Feature,
 			planContent,
-			changedFiles: sourceFiles({ run }),
+			overviewContent,
+			changedFiles: standardsScopeFiles({ run }),
 			standards,
 			findings,
 			advisories,

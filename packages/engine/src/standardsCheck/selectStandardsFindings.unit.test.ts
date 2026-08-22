@@ -126,3 +126,41 @@ test('selectStandardsFindings selects nothing when the run changed no files', ()
 	// an empty changed-file set touches nothing
 	expect(selected).toStrictEqual({ workList: [], advisories: [] });
 });
+
+test('selectStandardsFindings: a folder site counts as changed when the run changed a file under it', () => {
+	const findings = [finding({ rule: 'folder-census', siteKey: 'folder-census:src/appUI', files: [{ path: 'src/appUI' }] })];
+
+	// a changed-file list holds files, so equality alone would never match a
+	// folder and the rule could never gate a run
+	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/appUI/Badge.tsx'] });
+
+	expect(workList).toHaveLength(1);
+});
+
+test('selectStandardsFindings: a folder site the run did not touch stays out', () => {
+	const findings = [finding({ rule: 'folder-census', siteKey: 'folder-census:src/appUI', files: [{ path: 'src/appUI' }] })];
+
+	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/features/runs/RunList.tsx'] });
+
+	expect(workList).toStrictEqual([]);
+});
+
+test('selectStandardsFindings: a folder site matches by containment, so a name-prefix sibling never claims it', () => {
+	const findings = [finding({ rule: 'folder-census', siteKey: 'folder-census:src/app', files: [{ path: 'src/app' }] })];
+
+	// 'src/appUI/Badge.tsx' starts with 'src/app' as a string but sits in a
+	// different folder — only 'src/app/' would be containment
+	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/appUI/Badge.tsx'] });
+
+	expect(workList).toStrictEqual([]);
+});
+
+test('selectStandardsFindings: a finding whose only site is a changed test file is gated like any other', () => {
+	const findings = [
+		finding({ rule: 'test-mock-untyped', siteKey: 'test-mock-untyped:src/appUI/FadeIn.unit.test.tsx', files: [{ path: 'src/appUI/FadeIn.unit.test.tsx' }] }),
+	];
+
+	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/appUI/FadeIn.unit.test.tsx'] });
+
+	expect(workList).toHaveLength(1);
+});

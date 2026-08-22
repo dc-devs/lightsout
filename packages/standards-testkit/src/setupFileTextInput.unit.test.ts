@@ -29,6 +29,37 @@ describe('setupFileTextInput', () => {
 	});
 
 	test('with nothing passed, every list is empty rather than invented', () => {
-		expect(setupFileTextInput()).toMatchObject({ files: [], source: [], tests: [], contents: new Map() });
+		expect(setupFileTextInput()).toMatchObject({
+			files: [],
+			source: [],
+			tests: [],
+			referenceFiles: [],
+			standardsPacks: [],
+			contents: new Map(),
+		});
+	});
+
+	test('the pack roots are carried under the name the contract gives them', () => {
+		const input = setupFileTextInput({ standardsPacks: ['vendor/acme'] });
+
+		expect(input).toMatchObject({ standardsPacks: ['vendor/acme'] });
+	});
+
+	test('any field can be overridden outright', () => {
+		const input = setupFileTextInput({
+			contents: [['src/app.ts', 'export const a = 1;']],
+			cwd: '/elsewhere',
+			source: ['src/other.ts'],
+			tests: ['src/app.unit.test.ts'],
+			referenceFiles: ['docs/rule.md'],
+		});
+
+		expect(input).toMatchObject({
+			cwd: '/elsewhere',
+			source: ['src/other.ts'],
+			tests: ['src/app.unit.test.ts'],
+			referenceFiles: ['docs/rule.md'],
+			files: ['src/app.ts'],
+		});
 	});
 });

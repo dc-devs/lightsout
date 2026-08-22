@@ -242,7 +242,7 @@ describe('ast-duplicate check', () => {
 
 		expect(findings).toStrictEqual([]);
 	});
-	test('never pairs a standards package with the repo around it, since neither copy can import the other', async () => {
+	test('never pairs a standards pack with the repo around it, since neither copy can import the other', async () => {
 		const body = (name: string) =>
 			`export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
 		const input = setupSyntaxTreeInput({
@@ -250,17 +250,17 @@ describe('ast-duplicate check', () => {
 				['src/common/naming/tokensOf.ts', body('tokensOf')],
 				['standards/common/utils/getTokens.ts', body('getTokens')],
 			],
-			standardsPackages: ['standards'],
+			standardsPacks: ['standards'],
 		});
 
 		const findings = await check.run({ input, settings: { minBodyTokens: 10 } });
 
-		// a package installs where the rest of this repo is absent, so deleting
+		// a pack installs where the rest of this repo is absent, so deleting
 		// either copy leaves one side importing what is not there
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('still reports a duplicate pair inside one standards package', async () => {
+	test('still reports a duplicate pair inside one standards pack', async () => {
 		const body = (name: string) =>
 			`export const ${name} = ({ text }: { text: string }): string[] =>\n\ttext\n\t\t.replace(/([a-z0-9])([A-Z])/g, '$1 $2')\n\t\t.split(/[\\s\\-_.]+/)\n\t\t.filter(Boolean)\n\t\t.map((token) => token.toLowerCase());\n`;
 		const input = setupSyntaxTreeInput({
@@ -268,7 +268,7 @@ describe('ast-duplicate check', () => {
 				['standards/common/utils/getTokens.ts', body('getTokens')],
 				['standards/common/utils/splitWords.ts', body('splitWords')],
 			],
-			standardsPackages: ['standards'],
+			standardsPacks: ['standards'],
 		});
 
 		const findings = await check.run({ input, settings: { minBodyTokens: 10 } });

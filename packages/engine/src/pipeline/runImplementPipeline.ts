@@ -1,6 +1,7 @@
 import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { readGitChangedFiles } from '#src/common/git/readGitChangedFiles.ts';
 import { readGitPrefix } from '#src/common/git/readGitPrefix.ts';
+import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { type LightsoutConfig, type RunManifest, RunStatus } from '#src/contracts/index.ts';
@@ -27,7 +28,7 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 
 	const packagesDir = run.config['packages-dir'] ?? defaultPackagesDir;
 	const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
-	const universe = (await listSourceFiles({ cwd: run.cwd, exclude: run.config.generated })).files;
+	const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
 	const targets = recorded.filter((file) => universe.includes(file));
 	const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
 

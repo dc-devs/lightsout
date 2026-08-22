@@ -8,7 +8,7 @@ import {
 	type StandardsHealthRule,
 	type StandardsRuleListing,
 } from '#src/standardsCheck/index.ts';
-import { type LoadedStandardsRule, resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { type LoadedStandardsRule, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 /** Open findings per rule id, counted once so no row has to scan the snapshot for itself. */
 const countByRule = ({ findings }: { findings: StandardsFinding[] }) => {
@@ -71,17 +71,17 @@ interface Params {
  * no snapshot yet still answers the first question, which is why the absence is
  * a normal state rather than a failure.
  *
- * @param cwd - the repo whose config, packages, run history and snapshots are read
- * @throws {Error} When a declared standards package cannot be loaded, or the config names a rule no package declares.
+ * @param cwd - the repo whose config, packs, run history and snapshots are read
+ * @throws {Error} When a declared standards pack cannot be loaded, or the config names a rule no pack declares.
  */
 export const getStandardsView = async ({ cwd }: Params): Promise<StandardsView> => {
 	const config = await readConfig({ cwd }).catch(() => undefined);
-	const packages = await resolveStandardsPackages({ cwd, config });
+	const packs = await resolveStandardsPacks({ cwd, config });
 	const listings = await listStandardsRules({ cwd, config });
-	const health = await buildStandardsHealth({ cwd, packages });
+	const health = await buildStandardsHealth({ cwd, packs });
 	const snapshot = await readStandardsSnapshot({ cwd });
 	const findings = snapshot?.findings ?? [];
-	const loaded = new Map(packages.flatMap((pkg) => pkg.rules).map((rule) => [rule.id, rule]));
+	const loaded = new Map(packs.flatMap((pack) => pack.rules).map((rule) => [rule.id, rule]));
 	const counts = countByRule({ findings });
 	const rules: StandardsRuleView[] = [];
 
@@ -89,7 +89,7 @@ export const getStandardsView = async ({ cwd }: Params): Promise<StandardsView> 
 		const rule = loaded.get(listing.rule);
 		const ruleHealth = health.rules.find((entry) => entry.id === listing.rule);
 
-		// Every listed rule was loaded from a package and given a health row, so
+		// Every listed rule was loaded from a pack and given a health row, so
 		// this skips nothing in practice — it is what keeps a row from ever being
 		// built out of half an answer.
 		if (rule === undefined || ruleHealth === undefined) {

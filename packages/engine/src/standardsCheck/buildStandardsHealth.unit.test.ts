@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { type AdvisoryOutcome, type BatchReport, type RefactorBatch, type StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 import { buildStandardsHealth } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedStandardsRule => ({
 	set: 'code',
@@ -19,7 +19,7 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string }): LoadedS
 	...overrides,
 });
 
-const packageOf = ({ name = 'acme', rules }: { name?: string; rules: LoadedStandardsRule[] }): LoadedStandardsPackage => ({
+const packOf = ({ name = 'acme', rules }: { name?: string; rules: LoadedStandardsRule[] }): LoadedStandardsPack => ({
 	name,
 	formatVersion: 1,
 	rootPath: `/packages/${name}`,
@@ -126,7 +126,7 @@ describe('buildStandardsHealth', () => {
 
 		const health = await buildStandardsHealth({
 			cwd,
-			packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'path-aliases' })] })],
+			packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'path-aliases' })] })],
 		});
 
 		expect(health.totals).toStrictEqual({ rules: 2, checked: 1, judgment: 1 });
@@ -147,7 +147,7 @@ describe('buildStandardsHealth', () => {
 			},
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(
 			expect.objectContaining({ attempted: 2, resolved: 1, declined: 1, untracked: 0, reasons: ['[plan] splitting would break the barrel'] }),
@@ -160,7 +160,7 @@ describe('buildStandardsHealth', () => {
 			reports: { 'batch-01': report({ outcome: 'resolved', remainingSiteKeys: ['multi-export:src/a.ts'], rationale: [] }) },
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 0, declined: 0, untracked: 1 }));
 	});
@@ -168,7 +168,7 @@ describe('buildStandardsHealth', () => {
 	test('a batch with no parseable report is attempted only — a failed batch is not a decline', async () => {
 		const cwd = setupRun({ batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'multi-export', path: 'src/a.ts' })] })] });
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 0, declined: 0, untracked: 1 }));
 	});
@@ -192,7 +192,7 @@ describe('buildStandardsHealth', () => {
 
 		const health = await buildStandardsHealth({
 			cwd,
-			packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'module-boundary', checked: true })] })],
+			packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'module-boundary', checked: true })] })],
 		});
 
 		// the rationale is recorded per batch, so both rules carry it
@@ -207,7 +207,7 @@ describe('buildStandardsHealth', () => {
 			reports: { 'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/a.ts'] }) },
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 0, declined: 0 }));
 	});
@@ -219,12 +219,12 @@ describe('buildStandardsHealth', () => {
 			reports: { 'batch-01': report({ outcome: 'declined', remainingSiteKeys: ['multi-export:src/a.ts'] }) },
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 0, declined: 0, untracked: 0 }));
 	});
 
-	test('a rule the run recorded but no loaded package names gets no row — the packages decide what the report has rows for', async () => {
+	test('a rule the run recorded but no loaded pack names gets no row — the packs decide what the report has rows for', async () => {
 		const cwd = setupRun({
 			batches: [batch({ id: 'batch-01', blocking: [finding({ rule: 'retired-rule', path: 'src/a.ts' })] })],
 			reports: {
@@ -236,7 +236,7 @@ describe('buildStandardsHealth', () => {
 			},
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(health.rules.map((entry) => entry.id)).toStrictEqual(['multi-export']);
 		expect(health.totals).toStrictEqual({ rules: 1, checked: 1, judgment: 0 });
@@ -258,7 +258,7 @@ describe('buildStandardsHealth', () => {
 			],
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		// one corrupt run directory must not take the whole account down with it
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, declined: 1 }));
@@ -280,7 +280,7 @@ describe('buildStandardsHealth', () => {
 			],
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 1, declined: 0, untracked: 0 }));
 	});
@@ -291,7 +291,7 @@ describe('buildStandardsHealth', () => {
 			unrecordedBatchIds: ['batch-01'],
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 0, declined: 0, untracked: 1 }));
 	});
@@ -314,22 +314,19 @@ describe('buildStandardsHealth', () => {
 			],
 		});
 
-		const health = await buildStandardsHealth({ cwd, packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
+		const health = await buildStandardsHealth({ cwd, packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true })] })] });
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(
 			expect.objectContaining({ attempted: 2, resolved: 1, declined: 1, untracked: 0, reasons: ['[other] deliberate'] }),
 		);
 	});
 
-	test('every loaded package contributes rows, sorted by id across the packages together', async () => {
-		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-health-packages-'));
+	test('every loaded pack contributes rows, sorted by id across the packs together', async () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-health-packs-'));
 
 		const health = await buildStandardsHealth({
 			cwd,
-			packages: [
-				packageOf({ name: 'zeta', rules: [rule({ id: 'path-aliases' })] }),
-				packageOf({ name: 'alpha', rules: [rule({ id: 'multi-export', checked: true })] }),
-			],
+			packs: [packOf({ name: 'zeta', rules: [rule({ id: 'path-aliases' })] }), packOf({ name: 'alpha', rules: [rule({ id: 'multi-export', checked: true })] })],
 		});
 
 		expect(health.rules.map((entry) => entry.id)).toStrictEqual(['multi-export', 'path-aliases']);
@@ -348,7 +345,7 @@ describe('buildStandardsHealth', () => {
 
 		const health = await buildStandardsHealth({
 			cwd,
-			packages: [packageOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'module-boundary', checked: true })] })],
+			packs: [packOf({ rules: [rule({ id: 'multi-export', checked: true }), rule({ id: 'module-boundary', checked: true })] })],
 		});
 
 		expect(rowFor({ rules: health.rules, id: 'multi-export' })).toEqual(expect.objectContaining({ attempted: 1, resolved: 0, untracked: 1 }));

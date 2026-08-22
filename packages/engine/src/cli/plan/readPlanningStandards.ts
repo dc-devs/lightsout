@@ -2,7 +2,7 @@ import { dim } from '#src/cli/common/terminal/dim.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';
-import { buildStandardsDocuments, resolveStandardsPackages } from '#src/standardsPackages/index.ts';
+import { buildStandardsDocuments, resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -19,8 +19,8 @@ export const readPlanningStandards = async ({ cwd, config }: Params): Promise<st
 
 	try {
 		const channels = config?.['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir, packages: [] }));
-		const loaded = await resolveStandardsPackages({ cwd, config });
-		const texts = loaded.map((pkg) => buildStandardsDocuments({ pkg, channels }).code).filter((text) => text !== undefined);
+		const loaded = await resolveStandardsPacks({ cwd, config });
+		const texts = loaded.map((pack) => buildStandardsDocuments({ pack, channels }).code).filter((text) => text !== undefined);
 
 		standards = texts.length === 0 ? undefined : texts.join('\n\n');
 	} catch (error) {

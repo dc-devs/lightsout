@@ -6,7 +6,7 @@ import { readStandingWork } from '#src/refactor/batch/readStandingWork.ts';
 import { runBatchPass } from '#src/refactor/batch/runBatchPass.ts';
 import { BatchStopKind } from '#src/refactor/common/constants/BatchStopKind.ts';
 import type { BatchStop } from '#src/refactor/common/types/BatchStop.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -14,8 +14,8 @@ interface Params {
 	driver: Driver;
 	config: LightsoutConfig;
 	batch: RefactorBatch;
-	/** The run's standards packages, resolved once by the pipeline — the judgment rules the agent review reads come from here. */
-	packages: LoadedStandardsPackage[];
+	/** The run's standards packs, resolved once by the pipeline — the judgment rules the agent review reads come from here. */
+	packs: LoadedStandardsPack[];
 	/** Active framework channels, resolved once by the pipeline. */
 	channels: string[];
 	/** Check scope of the run's worklist, threaded into the per-batch re-check. */
@@ -50,7 +50,7 @@ export const runBatch = async ({
 	driver,
 	config,
 	batch,
-	packages,
+	packs,
 	channels,
 	checkPath,
 	checkAll,
@@ -68,7 +68,7 @@ export const runBatch = async ({
 		driver,
 		config,
 		batch,
-		packages,
+		packs,
 		channels,
 		agentReview,
 		checkPath,
@@ -96,7 +96,7 @@ export const runBatch = async ({
 		runId,
 		driver,
 		batch,
-		packages,
+		packs,
 		channels,
 		findings: preCheck.findings,
 		agentReview,

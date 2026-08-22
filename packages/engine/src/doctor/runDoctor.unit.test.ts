@@ -226,7 +226,7 @@ test('a repo that measures coverage and generates code gets both of those checks
 });
 
 test('a repo that opted out of standards entirely gets no lint-rules line at all', async () => {
-	const dir = setupConsumerRepo({ git: false, config: { 'standards-packages': false } });
+	const dir = setupConsumerRepo({ git: false, config: { 'standards-packs': false } });
 
 	const checks = byId(await runDoctor({ cwd: dir, probeHarness: passingProbe }));
 

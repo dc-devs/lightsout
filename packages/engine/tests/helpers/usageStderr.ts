@@ -8,7 +8,8 @@
 // removal of `verify`, 2026-08-08 for the plan-folder form of `implement`,
 // 2026-08-08 for `standards-validate`, 2026-08-09 for the `standards-check`
 // half-selectors and `standards-health`, 2026-08-09 for `voice`, 2026-08-09
-// for `test-coverage-to-threshold`, 2026-08-21 for the exit-code table.)
+// for `test-coverage-to-threshold`, 2026-08-21 for the exit-code table,
+// 2026-08-22 for `standards-validate --package` becoming `--pack`.)
 const usage = `lightsout — deterministic engine for coding agents
 
 usage:
@@ -19,7 +20,7 @@ usage:
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
-  lightsout standards-validate [--package <path>] [--cwd <path>]   (run every check against its own fixtures)
+  lightsout standards-validate [--pack <path>] [--cwd <path>]      (run every check against its own fixtures)
   lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>] [--code-checks] [--allow-dirty]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)

@@ -28,7 +28,7 @@ export const setupFileTextInput = ({ contents = [], ...overrides }: Params = {})
 		tests: [],
 		files: paths,
 		referenceFiles: [],
-		standardsPackages: [],
+		standardsPacks: [],
 		contents: new Map(contents),
 		...overrides,
 	};

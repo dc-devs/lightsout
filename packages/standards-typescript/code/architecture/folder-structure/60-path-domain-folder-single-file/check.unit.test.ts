@@ -76,6 +76,22 @@ describe('path-domain-folder-single-file check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('inside a declared pack, a domain folder under tests/ holds a production file and is judged', async () => {
+		const input = setupFileListInput({ files: ['standards/tests/common/scanning/scanLines.ts'], standardsPacks: ['standards'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['path-domain-folder-single-file:standards/tests/common/scanning']);
+	});
+
+	test('the same folder with no pack declared above it is test code, so it holds no production file to move', async () => {
+		const input = setupFileListInput({ files: ['standards/tests/common/scanning/scanLines.ts'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
 	test('reports every such folder separately, in path order', async () => {
 		const input = setupFileListInput({ files: ['src/pay/common/rounding/round.ts', 'src/bill/common/formatting/formatDate.ts'] });
 

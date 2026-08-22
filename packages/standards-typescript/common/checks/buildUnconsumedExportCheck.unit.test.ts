@@ -44,6 +44,34 @@ describe('buildUnconsumedExportCheck', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('inside a declared pack, a rule under tests/ declares an export the verdict can reach', async () => {
+		const input = setupFileTextInput({
+			contents: [['standards/tests/unit-testing/10-rule/check.ts', 'export const checkRule = (): number => 1;']],
+			standardsPacks: ['standards'],
+		});
+
+		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => !barrel && !byTest }).run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'barrel-only-export:standards/tests/unit-testing/10-rule/check.ts',
+				files: [{ path: 'standards/tests/unit-testing/10-rule/check.ts' }],
+				detail: "'checkRule' is exported through a barrel but no module consumes it",
+				guidance: 'Deliberate public API, or dead?',
+			},
+		]);
+	});
+
+	test('the same path with no pack declared above it is test code, whose own helpers are nobody’s public API', async () => {
+		const input = setupFileTextInput({
+			contents: [['standards/tests/unit-testing/10-rule/check.ts', 'export const checkRule = (): number => 1;']],
+		});
+
+		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => !barrel && !byTest }).run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
 	test('returns nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await buildCheck({ matches: () => true }).run({ input: setupOtherKindInput(), settings: {} });
 

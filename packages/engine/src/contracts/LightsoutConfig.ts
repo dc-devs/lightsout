@@ -89,6 +89,25 @@ export const LightsoutConfig = z.object({
 	 */
 	generated: z.array(z.string()).optional(),
 	/**
+	 * Path prefixes of third-party code the repo vendors in rather than writes
+	 * (e.g. a shadcn/ui component folder a generator drops in and the app then
+	 * edits). Excluded from the source walk exactly as `generated` is, so its
+	 * conventions are never judged against this repo's standards, it never
+	 * becomes a test subject, and it never shows up as prior art.
+	 *
+	 * It differs from `generated` in the one way that matters: a vendored file
+	 * IS attributed when it changes. Generated output is excluded from
+	 * attribution because the source that produced it is the real change;
+	 * vendored code has no such source in the repo, so an edit inside it is the
+	 * change and must earn its agent turn like any other.
+	 *
+	 * The engine's exclusion stops the engine's own checks and nothing else. A
+	 * repo whose coverage threshold covers the vendored path must exclude it
+	 * there too — that gate is the repo's test runner, which the engine only
+	 * invokes.
+	 */
+	vendored: z.array(z.string()).optional(),
+	/**
 	 * Path to the JSON coverage summary the coverage tooling writes (default
 	 * `coverage/coverage-summary.json`) — repo-relative in single-package
 	 * repos, package-relative in monorepo mode. `lightsout
@@ -108,23 +127,25 @@ export const LightsoutConfig = z.object({
 	/** Removed — renamed to `package-gates`. Same reason. */
 	packageGates: renamedKey({ from: 'packageGates', to: 'package-gates' }),
 	/**
-	 * Standards packages a run works against. Unspecified = the package the
-	 * plugin ships (announced in the run header); `false` = explicitly none; an
-	 * array = exactly these, where each entry is the root folder of a standards
-	 * package — the folder holding `lightsout-standards.json` — repo-relative or
-	 * absolute. One key, not two: a package carries both the code and the test
-	 * document trees, so a second key could only disagree with this one about
-	 * which package is loaded. A root that cannot be loaded is a hard error.
+	 * Standards packs a run works against. Unspecified = the pack the plugin
+	 * ships (announced in the run header); `false` = explicitly none; an array =
+	 * exactly these, where each entry is the root folder of a standards pack —
+	 * the folder holding `lightsout-standards.json` — repo-relative or absolute.
+	 * One key, not two: a pack carries both the code and the test document
+	 * trees, so a second key could only disagree with this one about which pack
+	 * is loaded. A root that cannot be loaded is a hard error.
 	 */
-	'standards-packages': z.union([z.array(z.string()), z.literal(false)]).optional(),
-	/** Removed — renamed to `standards-packages`. Declared only so a stale key fails loudly instead of being silently stripped. */
-	standardsPackages: renamedKey({ from: 'standardsPackages', to: 'standards-packages' }),
-	/** Removed — replaced by `standards-packages`. Same reason. */
-	standards: z.never('`standards` was replaced by `standards-packages` — standards now load as packages').optional(),
-	/** Removed — the test tree ships inside a standards package. Same reason. */
-	testStandards: z.never('`testStandards` was replaced by `standards-packages` — standards now load as packages').optional(),
+	'standards-packs': z.union([z.array(z.string()), z.literal(false)]).optional(),
+	/** Removed — renamed to `standards-packs`. Declared only so a stale key fails loudly instead of being silently stripped. */
+	'standards-packages': renamedKey({ from: 'standards-packages', to: 'standards-packs' }),
+	/** Removed — renamed to `standards-packs`. Same reason. */
+	standardsPackages: renamedKey({ from: 'standardsPackages', to: 'standards-packs' }),
+	/** Removed — replaced by `standards-packs`. Same reason. */
+	standards: z.never('`standards` was replaced by `standards-packs` — standards now load as packs').optional(),
+	/** Removed — the test tree ships inside a standards pack. Same reason. */
+	testStandards: z.never('`testStandards` was replaced by `standards-packs` — standards now load as packs').optional(),
 	/**
-	 * Framework channels of the loaded standards packages (e.g. 'react',
+	 * Framework channels of the loaded standards packs (e.g. 'react',
 	 * 'tanstack'). Unspecified = detected per run from the scoped packages'
 	 * package.json dependencies; an array REPLACES detection (empty = base
 	 * docs only).

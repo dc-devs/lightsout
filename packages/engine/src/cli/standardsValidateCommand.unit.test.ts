@@ -1,27 +1,27 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { parseFlags } from '#src/cli/common/args/parseFlags.ts';
 import { standardsValidateCommand } from '#src/cli/standardsValidateCommand.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 import { captureCommandOutput } from '#tests/helpers/captureCommandOutput.ts';
 
 // Mocked Imports
 // -------------------------
-// Loading a package off disk and running its checks against fixtures are two
+// Loading a pack off disk and running its checks against fixtures are two
 // other modules' entry points, each covered by its own tests. What this command
-// owns is which package path it resolves, the order it prints in, and how it
+// owns is which pack path it resolves, the order it prints in, and how it
 // ends — all observable with both stubbed.
 
-const mockLoadStandardsPackage = jest.fn<(params: { packagePath: string }) => Promise<LoadedStandardsPackage>>();
-const mockResolveDefaultStandardsPackage = jest.fn<() => string>();
-const mockValidateStandardsPackage = jest.fn<(params: { pkg: LoadedStandardsPackage }) => Promise<{ problems: string[]; notes: string[] }>>();
+const mockLoadStandardsPack = jest.fn<(params: { packPath: string }) => Promise<LoadedStandardsPack>>();
+const mockResolveDefaultStandardsPack = jest.fn<() => string>();
+const mockValidateStandardsPack = jest.fn<(params: { pack: LoadedStandardsPack }) => Promise<{ problems: string[]; notes: string[] }>>();
 
-jest.mock('#src/standardsPackages/index.ts', () => ({
-	readStandardsPackage: (params: { packagePath: string }) => mockLoadStandardsPackage(params),
-	resolveDefaultStandardsPackage: () => mockResolveDefaultStandardsPackage(),
+jest.mock('#src/standardsPacks/index.ts', () => ({
+	readStandardsPack: (params: { packPath: string }) => mockLoadStandardsPack(params),
+	resolveDefaultStandardsPack: () => mockResolveDefaultStandardsPack(),
 }));
 
 jest.mock('#src/standardsCheck/index.ts', () => ({
-	validateStandardsPackage: (params: { pkg: LoadedStandardsPackage }) => mockValidateStandardsPackage(params),
+	validateStandardsPack: (params: { pack: LoadedStandardsPack }) => mockValidateStandardsPack(params),
 }));
 // -------------------------
 
@@ -50,43 +50,43 @@ const setupValidate = ({
 	notes?: string[];
 } = {}) => {
 	const captured = captureCommandOutput();
-	const pkg: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
+	const pack: LoadedStandardsPack = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
 
-	mockResolveDefaultStandardsPackage.mockReturnValue('/plugin/standards');
-	mockLoadStandardsPackage.mockResolvedValue(pkg);
-	mockValidateStandardsPackage.mockResolvedValue({ problems, notes });
+	mockResolveDefaultStandardsPack.mockReturnValue('/plugin/standards');
+	mockLoadStandardsPack.mockResolvedValue(pack);
+	mockValidateStandardsPack.mockResolvedValue({ problems, notes });
 
-	return { context: { flags: parseFlags({ args }), rest: [], cwd: '/repo' }, pkg, ...captured };
+	return { context: { flags: parseFlags({ args }), rest: [], cwd: '/repo' }, pack, ...captured };
 };
 
 describe('standardsValidateCommand', () => {
-	test('validates the bundled default package when no --package is given', async () => {
-		const { context, pkg, logged, exitCodes } = setupValidate();
+	test('validates the bundled default pack when no --pack is given', async () => {
+		const { context, pack, logged, exitCodes } = setupValidate();
 
 		await expect(standardsValidateCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockLoadStandardsPackage).toHaveBeenCalledWith({ packagePath: '/plugin/standards' });
-		// the package that was loaded is the one validated — not a second read
-		expect(mockValidateStandardsPackage).toHaveBeenCalledWith({ pkg });
+		expect(mockLoadStandardsPack).toHaveBeenCalledWith({ packPath: '/plugin/standards' });
+		// the pack that was loaded is the one validated — not a second read
+		expect(mockValidateStandardsPack).toHaveBeenCalledWith({ pack });
 		// the tally separates what was validated from what nothing could validate
 		expect(logged).toContain('acme — 1 checked rule(s) validated, 1 judgment-only rule(s)');
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('resolves a repo-relative --package against the cwd', async () => {
-		const { context } = setupValidate({ args: ['--package', 'plugin/standards'] });
+	test('resolves a repo-relative --pack against the cwd', async () => {
+		const { context } = setupValidate({ args: ['--pack', 'plugin/standards'] });
 
 		await expect(standardsValidateCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockLoadStandardsPackage).toHaveBeenCalledWith({ packagePath: '/repo/plugin/standards' });
+		expect(mockLoadStandardsPack).toHaveBeenCalledWith({ packPath: '/repo/plugin/standards' });
 	});
 
-	test('takes an absolute --package as it stands', async () => {
-		const { context } = setupValidate({ args: ['--package', '/elsewhere/standards'] });
+	test('takes an absolute --pack as it stands', async () => {
+		const { context } = setupValidate({ args: ['--pack', '/elsewhere/standards'] });
 
 		await expect(standardsValidateCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(mockLoadStandardsPackage).toHaveBeenCalledWith({ packagePath: '/elsewhere/standards' });
+		expect(mockLoadStandardsPack).toHaveBeenCalledWith({ packPath: '/elsewhere/standards' });
 	});
 
 	test('prints the notes and then the problems, and ends red when any problem remains', async () => {
@@ -110,21 +110,21 @@ describe('standardsValidateCommand', () => {
 
 		await expect(standardsValidateCommand(context)).rejects.toThrow(/process\.exit/);
 
-		// a rule nothing could validate is reported, not counted against the package
+		// a rule nothing could validate is reported, not counted against the pack
 		expect(logged[0]).toBe('ℹ multi-export: fixtures skipped — no typescript resolvable');
 		expect(logged).toContain('acme — 1 checked rule(s) validated, 1 judgment-only rule(s)');
 		expect(exitCodes).toStrictEqual([0]);
 	});
 
-	test('reports a package it cannot load and never runs the validation', async () => {
+	test('reports a pack it cannot load and never runs the validation', async () => {
 		const { context, errors, exitCodes } = setupValidate();
 
-		mockLoadStandardsPackage.mockRejectedValue(new Error('standards package root file not found: /plugin/standards/lightsout-standards.json'));
+		mockLoadStandardsPack.mockRejectedValue(new Error('standards pack root file not found: /plugin/standards/lightsout-standards.json'));
 
 		await expect(standardsValidateCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(errors).toStrictEqual(['standards package root file not found: /plugin/standards/lightsout-standards.json']);
-		expect(mockValidateStandardsPackage).not.toHaveBeenCalled();
+		expect(errors).toStrictEqual(['standards pack root file not found: /plugin/standards/lightsout-standards.json']);
+		expect(mockValidateStandardsPack).not.toHaveBeenCalled();
 		expect(exitCodes).toStrictEqual([1]);
 	});
 });

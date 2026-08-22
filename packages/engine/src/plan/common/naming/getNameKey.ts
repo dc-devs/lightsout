@@ -34,13 +34,13 @@ interface Params {
  * `hexToRgb` and `rgbToHex` are deliberate opposites, not one concept — so a
  * `to`/`from` token pins word order instead of sorting.
  *
- * A deliberate mirror of `getNameKey` in the default standards package, kept
+ * A deliberate mirror of `getNameKey` in the default standards pack, kept
  * identical so plan-time prior-art detection and the `name-synonym` rule never
  * disagree about whether two names are one concept. Neither copy can import
- * the other: a standards package ships as a bare directory beside the engine,
+ * the other: a standards pack ships as a bare directory beside the engine,
  * with no manifest and no `node_modules`, so every value it imports has to
- * resolve inside its own tree — and the engine runs against whatever package
- * `standards-packages` names, so it cannot reach into the default one. Change
+ * resolve inside its own tree — and the engine runs against whatever pack
+ * `standards-packs` names, so it cannot reach into the default one. Change
  * one, change the other.
  *
  * @mirrors packages/standards-typescript/common/naming/getNameKey.ts

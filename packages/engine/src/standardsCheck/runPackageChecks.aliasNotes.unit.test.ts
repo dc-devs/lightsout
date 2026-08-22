@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
 import { runPackageChecks } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 
 /** A repo that declares its path aliases nowhere: no tsconfig above anything, and a manifest only when one is asked for. */
 const setupUndeclaredRepo = ({ manifest, folders = ['src', 'src/feature'] }: { manifest?: string; folders?: string[] } = {}) => {
@@ -56,12 +56,12 @@ const rule = ({ id, inputKind }: { id: string; inputKind: StandardsInputKind }):
 
 /** Runs the given rules as one loaded package, at the severities a repo's config would have resolved for them. */
 const runChecks = ({ rules, cwd }: { rules: LoadedStandardsRule[]; cwd: string }) => {
-	const pkg: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
+	const pkg: LoadedStandardsPack = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
 	const states = new Map<string, ResolvedRuleState>(
 		rules.map((entry) => [entry.id, { severity: entry.defaultSeverity, settings: entry.defaultSettings, fromConfig: false }]),
 	);
 
-	return runPackageChecks({ cwd, packages: [pkg], states, channels: [] });
+	return runPackageChecks({ cwd, packs: [pkg], states, channels: [] });
 };
 
 describe('runPackageChecks', () => {

@@ -8,7 +8,7 @@ usage:
   lightsout doctor [--cwd <path>]
   lightsout standards-check [--cwd <path>] [--path <subdir>] [--all] [--baseline] [--code-checks | --agent-review]
   lightsout standards-check --list [--cwd <path>]     (print the enforcement ledger)
-  lightsout standards-validate [--package <path>] [--cwd <path>]   (run every check against its own fixtures)
+  lightsout standards-validate [--pack <path>] [--cwd <path>]      (run every check against its own fixtures)
   lightsout standards-health [--cwd <path>]           (per-rule coverage and how often agents decline it)
   lightsout refactor [--cwd <path>] [--path <subdir>] [--all] [--max-batches <n>] [--code-checks] [--allow-dirty]
   lightsout refactor --run <id> [--cwd <path>]        (resume a parked refactor run)

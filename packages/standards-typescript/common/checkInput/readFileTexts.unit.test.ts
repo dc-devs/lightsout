@@ -14,11 +14,13 @@ const setupFileTextInput = ({
 		['src/feature/getLabel.unit.test.ts', 'describe("getLabel", () => {});'],
 		['src/app/runApp.ts', 'import { getLabel } from "../feature/getLabel";'],
 	] as Array<[string, string]>,
+	standardsPacks = [],
 }: {
 	files?: string[];
 	tests?: string[];
 	referenceFiles?: string[];
 	contents?: Array<[string, string]>;
+	standardsPacks?: string[];
 } = {}): StandardsCheckInput => ({
 	kind: StandardsInputKind.FileText,
 	cwd: '/repo',
@@ -27,7 +29,7 @@ const setupFileTextInput = ({
 	files,
 	referenceFiles,
 	contents: new Map(contents),
-	standardsPackages: [],
+	standardsPacks,
 });
 
 describe('readFileTexts', () => {
@@ -45,7 +47,7 @@ describe('readFileTexts', () => {
 				['src/feature/getLabel.unit.test.ts', 'describe("getLabel", () => {});'],
 				['src/app/runApp.ts', 'import { getLabel } from "../feature/getLabel";'],
 			]),
-			standardsPackages: [],
+			standardsPacks: [],
 		});
 	});
 
@@ -54,12 +56,20 @@ describe('readFileTexts', () => {
 
 		const texts = readFileTexts({ input });
 
-		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map(), standardsPackages: [] });
+		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map(), standardsPacks: [] });
+	});
+
+	test('carries the pack roots the input declares, rather than a fixed empty list', () => {
+		const input = setupFileTextInput({ standardsPacks: ['standards', 'vendor/acme-standards'] });
+
+		const texts = readFileTexts({ input });
+
+		expect(texts.standardsPacks).toStrictEqual(['standards', 'vendor/acme-standards']);
 	});
 
 	test('an input of any other kind yields an empty scope rather than refusing', () => {
 		const texts = readFileTexts({ input: setupOtherKindInput() });
 
-		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map(), standardsPackages: [] });
+		expect(texts).toStrictEqual({ files: [], tests: [], referenceFiles: [], contents: new Map(), standardsPacks: [] });
 	});
 });

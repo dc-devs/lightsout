@@ -2,7 +2,7 @@ import type { RefactorBatch, StandardsFinding } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
 import { appendReviewFindings } from '#src/runState/index.ts';
 import { runStandardsReview } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	cwd: string;
@@ -10,8 +10,8 @@ interface Params {
 	runId: string;
 	driver: Driver;
 	batch: RefactorBatch;
-	/** The run's standards packages — the judgment rules the agent reads. */
-	packages: LoadedStandardsPackage[];
+	/** The run's standards packs — the judgment rules the agent reads. */
+	packs: LoadedStandardsPack[];
 	/** Active framework channels; a document out of play is not reviewed. */
 	channels: string[];
 	/** The files this read covers: the batch's own before it works, the ones it wrote after. */
@@ -47,7 +47,7 @@ export const runBatchReview = async ({
 	runId,
 	driver,
 	batch,
-	packages,
+	packs,
 	channels,
 	files,
 	agentReview,
@@ -61,7 +61,7 @@ export const runBatchReview = async ({
 	const review = await runStandardsReview({
 		cwd,
 		driver,
-		packages,
+		packs,
 		channels,
 		files,
 		timeoutMs,

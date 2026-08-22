@@ -151,6 +151,32 @@ describe('resumeCommand', () => {
 		expect(exitCodes).toStrictEqual([1]);
 	});
 
+	test('the resumed run’s banner names the pack roots the config declares, in config order', async () => {
+		const { context, logged } = setupResume({
+			args: ['--run', runId],
+			manifest: manifestOf({ pipeline: 'implement' }),
+			config: { 'standards-packs': ['standards/house', '/opt/acme-standards'] },
+		});
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		// a resumed run reads its standards from the config as it stands now, so
+		// the banner has to say which packs the continuation will work against
+		expect(logged).toContain('  standards packs: standards/house, /opt/acme-standards');
+	});
+
+	test('standards turned off explicitly are announced as such on the resume banner', async () => {
+		const { context, logged } = setupResume({
+			args: ['--run', runId],
+			manifest: manifestOf({ pipeline: 'implement' }),
+			config: { 'standards-packs': false },
+		});
+
+		await expect(resumeCommand(context)).rejects.toThrow(/process\.exit/);
+
+		expect(logged).toContain('  standards packs: none (explicit)');
+	});
+
 	test('the harness the run started with wins over the config, and that config harness keeps its model to itself', async () => {
 		const { context, logged } = setupResume({
 			args: ['--run', runId],

@@ -4,7 +4,7 @@ import { type AdvisoryOutcome, AdvisoryResponse, BatchOutcome, BatchReport, Refa
 import { listRunIds, readRunManifest } from '#src/runState/index.ts';
 import type { StandardsHealth } from '#src/standardsCheck/common/types/StandardsHealth.ts';
 import type { StandardsHealthRule } from '#src/standardsCheck/common/types/StandardsHealthRule.ts';
-import type { LoadedStandardsPackage } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 
 /** The running counts for one rule: every field of its report row except the ones the rule itself supplies. */
 type Tally = Omit<StandardsHealthRule, 'id' | 'set' | 'documentPath' | 'checked'>;
@@ -123,12 +123,12 @@ const countAdvice = ({ tallies, outcomes }: { tallies: Map<string, Tally>; outco
 
 interface Params {
 	cwd: string;
-	packages: LoadedStandardsPackage[];
+	packs: LoadedStandardsPack[];
 }
 
 /**
- * The package-health report: which rules code checks and which are judgment,
- * counted from the package's own folders, and how often agents declined each
+ * The pack-health report: which rules code checks and which are judgment,
+ * counted from the pack's own folders, and how often agents declined each
  * rule's findings, aggregated from this repo's persisted refactor runs.
  *
  * The two questions are deliberately separate from `standards-check`. That
@@ -140,9 +140,9 @@ interface Params {
  * take the whole account down with it.
  *
  * @param cwd - the repo whose `.lightsout/runs` history is read
- * @param packages - the loaded standards packages, which supply every rule the report has a row for
+ * @param packs - the loaded standards packs, which supply every rule the report has a row for
  */
-export const buildStandardsHealth = async ({ cwd, packages }: Params): Promise<StandardsHealth> => {
+export const buildStandardsHealth = async ({ cwd, packs }: Params): Promise<StandardsHealth> => {
 	const tallies = new Map<string, Tally>();
 
 	for (const runId of await listRunIds({ cwd })) {
@@ -161,8 +161,8 @@ export const buildStandardsHealth = async ({ cwd, packages }: Params): Promise<S
 		}
 	}
 
-	const rules: StandardsHealthRule[] = packages
-		.flatMap((pkg) => pkg.rules)
+	const rules: StandardsHealthRule[] = packs
+		.flatMap((pack) => pack.rules)
 		.map((rule) => ({
 			id: rule.id,
 			set: rule.set,

@@ -73,12 +73,12 @@ const executeCoverage = async ({
 	// Resolved once for the run: without a consumer TypeScript, grouping degrades
 	// to one file per batch component, exactly like the implement fan-out.
 	const compiler = resolveConsumerTypescript({ cwd, packagesDir: config['packages-dir'] ?? defaultPackagesDir });
-	// Also once for the run: standards-package roots make the test-file question
-	// answerable — a rule check under a package's `tests/` document set is
+	// Also once for the run: standards-pack roots make the test-file question
+	// answerable — a rule check under a pack's `tests/` document set is
 	// source, and filtering without them excludes it everywhere.
-	const { standardsPackages } = await listSourceFiles({ cwd });
+	const { standardsPacks } = await listSourceFiles({ cwd });
 
-	return runCoverageRounds({ run, driver, batchInputs: { testStandards, compiler, standardsPackages }, maxBatches, resumed: seeded });
+	return runCoverageRounds({ run, driver, batchInputs: { testStandards, compiler, standardsPacks }, maxBatches, resumed: seeded });
 };
 
 /**

@@ -2,14 +2,6 @@ import type ts from 'typescript';
 import type { CloneSpan } from '#src/CloneSpan.ts';
 import type { StandardsInputKind } from '#src/StandardsInputKind.ts';
 
-/**
- * The inputs a check may declare, one interface per kind. A check never opens a
- * file: it says which shape it needs and the engine builds that shape once per
- * run from one shared content cache, so every file is read exactly once no
- * matter how many rules want it.
- *
- * The set is closed for now — a package cannot ship its own reader.
- */
 export interface FileListInput {
 	kind: typeof StandardsInputKind.FileList;
 	cwd: string;
@@ -19,8 +11,8 @@ export interface FileListInput {
 	referenceFiles: string[];
 	/** Declared dependency names per package dir ('.' for the repo root) — engine-read from each package.json. */
 	dependencies: Map<string, string[]>;
-	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
-	standardsPackages: string[];
+	/** Repo-relative roots of the standards packs in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPacks: string[];
 }
 
 export interface FileTextInput {
@@ -45,8 +37,8 @@ export interface FileTextInput {
 	 * file.
 	 */
 	contents: Map<string, string>;
-	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
-	standardsPackages: string[];
+	/** Repo-relative roots of the standards packs in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPacks: string[];
 }
 
 export interface SyntaxTreeInput {
@@ -61,8 +53,8 @@ export interface SyntaxTreeInput {
 	trees: Map<string, ts.SourceFile>;
 	/** What each package declares it depends on, keyed by package root (`.` for the repo). A framework carve-out is keyed on what a package DECLARES, so an AST rule needs this to honour one. */
 	dependencies: Map<string, string[]>;
-	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
-	standardsPackages: string[];
+	/** Repo-relative roots of the standards packs in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPacks: string[];
 }
 
 export interface TypeCheckerInput {
@@ -93,8 +85,8 @@ export interface TypeCheckerInput {
 	typedFiles: Map<string, { sourceFile: ts.SourceFile; checker: ts.TypeChecker }>;
 	/** What each package declares it depends on, keyed by package root (`.` for the repo). A framework carve-out is keyed on what a package DECLARES, so a typed rule needs this to honour one. */
 	dependencies: Map<string, string[]>;
-	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
-	standardsPackages: string[];
+	/** Repo-relative roots of the standards packs in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPacks: string[];
 }
 
 export interface TestFileInput {
@@ -114,8 +106,8 @@ export interface ImportGraphInput {
 	referenceFiles: string[];
 	/** Edges as `collectImportEdges` resolves them: repo-relative from/to pairs. */
 	edges: Array<{ from: string; to: string }>;
-	/** Repo-relative roots of the standards packages in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
-	standardsPackages: string[];
+	/** Repo-relative roots of the standards packs in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
+	standardsPacks: string[];
 }
 
 export interface CloneSpansInput {
@@ -125,4 +117,12 @@ export interface CloneSpansInput {
 	spans: CloneSpan[];
 }
 
+/**
+ * The inputs a check may declare, one interface per kind. A check never opens a
+ * file: it says which shape it needs and the engine builds that shape once per
+ * run from one shared content cache, so every file is read exactly once no
+ * matter how many rules want it.
+ *
+ * The set is closed for now — a pack cannot ship its own reader.
+ */
 export type StandardsCheckInput = FileListInput | FileTextInput | SyntaxTreeInput | TypeCheckerInput | TestFileInput | ImportGraphInput | CloneSpansInput;

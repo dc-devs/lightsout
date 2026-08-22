@@ -14,6 +14,8 @@ interface Params {
 	 */
 	scope: RefactorScope;
 	planContent: string;
+	/** Overview text when this plan is one phase of a larger effort — context for judging whether an unconsumed thing is dead or merely early. */
+	overviewContent?: string;
 	/**
 	 * The files to work on. In feature scope these are the only files the
 	 * executor may modify; in standalone scope they are where the findings are,
@@ -79,6 +81,7 @@ const advisoryLine = (finding: StandardsFinding) => `${findingLine(finding)} (si
 export const buildRefactorExecutorInvocation = ({
 	scope,
 	planContent,
+	overviewContent,
 	changedFiles,
 	standards,
 	findings,
@@ -86,7 +89,21 @@ export const buildRefactorExecutorInvocation = ({
 	reportAdvisoryOutcomes,
 	errorContext,
 }: Params): { systemPrompt: string; prompt: string } => {
-	const roleSections = [refactorExecutorPrompt, scopePrompt({ scope }), `# Plan (context for what these changes were for)\n\n${planContent}`];
+	const roleSections = [refactorExecutorPrompt, scopePrompt({ scope })];
+
+	// Before the plan, because it reframes what the plan means. A phase-1 tree
+	// is full of things nothing consumes yet, and without the overview the only
+	// honest reading of "no caller" is "dead". The findings themselves are
+	// unaffected — detection is code, and the gate re-reads the tree after this
+	// agent reports — but every judgment call around them improves: which
+	// advisory to decline, and which "unused" export to leave standing.
+	if (overviewContent) {
+		roleSections.push(
+			`# Overview (high-level context)\n\nThe plan below is one phase of this larger effort. Later phases consume what this one builds, so a thing with no caller yet is not necessarily dead.\n\n${overviewContent}`,
+		);
+	}
+
+	roleSections.push(`# Plan (context for what these changes were for)\n\n${planContent}`);
 
 	if (standards) {
 		roleSections.push(`# Standards\n\nThese rules are binding:\n\n${standards}`);

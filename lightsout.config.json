@@ -34,5 +34,6 @@
 		"size-function": "blocking"
 	},
 	"agent-commands": ["pnpm", "python3", "rsvg-convert"],
-	"generated": ["plugin/dist/", "plugin/standards/", "packages/web-app/src/routeTree.gen.ts"]
+	"generated": ["plugin/dist/", "plugin/standards/", "packages/web-app/src/routeTree.gen.ts"],
+	"vendored": ["packages/web-app/src/common/components/ui/"]
 }

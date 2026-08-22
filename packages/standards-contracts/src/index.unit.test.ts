@@ -7,19 +7,19 @@ import * as contracts from '#src/index.ts';
  * This is the one barrel a dedicated test belongs on — the file the package
  * names in its `exports` map, which nothing inside this package consumes. A
  * re-export that stopped resolving (a rename, a moved file, an entry dropped in
- * a merge) breaks every standards package in the world while every other test
+ * a merge) breaks every standards pack in the world while every other test
  * here keeps passing.
  *
  * What each shape DOES is proven by its own file's tests. Nothing below reaches
  * into one.
  */
 describe('the package entry', () => {
-	test('hands out exactly the surface a standards package is written against', () => {
+	test('hands out exactly the surface a standards pack is written against', () => {
 		expect(Object.keys(contracts).sort()).toStrictEqual([
 			'RawStandardsFinding',
 			'StandardsCheckModule',
 			'StandardsInputKind',
-			'StandardsPackageRoot',
+			'StandardsPackRoot',
 			'StandardsSet',
 		]);
 	});

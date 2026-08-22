@@ -1,9 +1,6 @@
 import type { PlanDocument } from '@lightsout/engine';
 import { useQuery } from '@tanstack/react-query';
-import { CopyButton } from '#src/common/components/ui/CopyButton.tsx';
-import { Dialog } from '#src/common/components/ui/Dialog.tsx';
-import { Markdown } from '#src/common/components/ui/Markdown.tsx';
-import { Skeleton } from '#src/common/components/ui/Skeleton.tsx';
+import { CopyButton, Dialog, Markdown, Skeleton } from '#src/appUI/index.ts';
 import { planQueryOptions } from '#src/features/runDetail/queries/planQueryOptions.ts';
 import { WorklistView } from '#src/features/runDetail/screens/RunDetail/components/WorklistView.tsx';
 

@@ -5,7 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type FileListInput, type StandardsCheckFunction, type StandardsCheckInput, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
 import { runPackageChecks } from '#src/standardsCheck/index.ts';
-import type { LoadedStandardsPackage, LoadedStandardsRule } from '#src/standardsPackages/index.ts';
+import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 import { linkTypescript } from '#tests/helpers/linkTypescript.ts';
 
@@ -100,12 +100,12 @@ const runChecks = ({
 	exclude?: string[];
 	onProgress?: (message: string) => void;
 }) => {
-	const pkg: LoadedStandardsPackage = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
+	const pkg: LoadedStandardsPack = { name: 'acme', formatVersion: 1, rootPath: '/packages/acme', documents: [], rules };
 	const states = new Map<string, ResolvedRuleState>(
 		rules.map((entry) => [entry.id, { severity: severities[entry.id] ?? entry.defaultSeverity, settings: entry.defaultSettings, fromConfig: false }]),
 	);
 
-	return runPackageChecks({ cwd, packages: [pkg], states, channels, packagesDir, path, exclude, onProgress });
+	return runPackageChecks({ cwd, packs: [pkg], states, channels, packagesDir, path, exclude, onProgress });
 };
 
 describe('runPackageChecks', () => {
@@ -343,7 +343,7 @@ describe('runPackageChecks', () => {
 	test('leaves a rule out when the run was handed no resolved state for it', async () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
-		const pkg: LoadedStandardsPackage = {
+		const pkg: LoadedStandardsPack = {
 			name: 'acme',
 			formatVersion: 1,
 			rootPath: '/packages/acme',
@@ -351,7 +351,7 @@ describe('runPackageChecks', () => {
 			rules: [rule({ id: 'multi-export', inputKind: StandardsInputKind.FileText, run: recordingRun({ calls }) })],
 		};
 
-		const { findings } = await runPackageChecks({ cwd, packages: [pkg], states: new Map(), channels: [] });
+		const { findings } = await runPackageChecks({ cwd, packs: [pkg], states: new Map(), channels: [] });
 
 		// severity is policy; with none resolved there is nothing to report at
 		expect(findings).toStrictEqual([]);

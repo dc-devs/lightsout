@@ -75,7 +75,7 @@ describe('RunList', () => {
 
 		const row = screen.getByRole('link');
 
-		expect(row).toHaveAttribute('href', '/runs/abcdef0123456789');
+		expect(row).toHaveAttribute('href', '/repo/runs/abcdef0123456789');
 	});
 
 	test('a row carries the status badge, with the live dot when a process stands behind the run', () => {

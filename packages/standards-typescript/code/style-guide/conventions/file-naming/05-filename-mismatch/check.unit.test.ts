@@ -16,7 +16,7 @@ const setupFileTextInput = ({ contents, tests = [] }: { contents: Array<[string,
 		files,
 		referenceFiles: [],
 		contents: new Map(contents),
-		standardsPackages: [],
+		standardsPacks: [],
 	};
 };
 
@@ -29,7 +29,7 @@ const setupUnreadableFileInput = ({ path }: { path: string }): StandardsCheckInp
 	files: [path],
 	referenceFiles: [],
 	contents: new Map<string, string>(),
-	standardsPackages: [],
+	standardsPacks: [],
 });
 
 describe('filename-mismatch check', () => {

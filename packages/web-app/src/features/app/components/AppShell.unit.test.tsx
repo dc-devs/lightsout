@@ -1,114 +1,130 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { RunListing, StandardsView } from '@lightsout/engine';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { AppShell } from '#src/features/app/index.ts';
-import { buildRunListing } from '#tests/helpers/buildRunListing.ts';
-import { buildStandardsView } from '#tests/helpers/buildStandardsView.ts';
+import { ThemeProvider } from '#src/theme/index.ts';
 import { renderWithQueryClient } from '#tests/helpers/renderWithQueryClient.tsx';
 
 // Mocked Imports
 // -------------------------
 jest.mock('@tanstack/react-router', () => ({
-	Link: ({ to, params, children }: { to: string; params?: Record<string, string>; children: ReactNode }) => (
-		<a href={Object.entries(params ?? {}).reduce((path, [name, value]) => path.replace(`$${name}`, value), to)}>{children}</a>
+	Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
+		<a href={to} className={className}>
+			{children}
+		</a>
 	),
 	Outlet: () => <p>the open route</p>,
 }));
 // -------------------------
-// The reader behind the standards server function, reached only by the test
-// that leaves the standards cache empty on purpose: under Jest the Start stub
-// hands `handler()` straight back, so an unseeded key would otherwise send a
-// real read at the engine's package loader.
-const mockGetStandards = jest.fn<() => Promise<StandardsView>>();
 
-jest.mock('#src/lightsout/index.ts', () => ({
-	getReader: () => ({ getStandards: () => mockGetStandards() }),
-}));
-// -------------------------
+// `repoRoot` is read rather than destructured with a default, because an
+// explicit `undefined` is the no-repo case a default parameter would swallow.
+const setupAppShell = (params: { repoRoot?: string } = {}) => {
+	const repoRoot = Object.hasOwn(params, 'repoRoot') ? params.repoRoot : '/repos/lightsout';
 
-// The standards view is seeded like every other key the shell reads: the
-// sidebar subscribes to it for its badge. Passing `null` instead seeds nothing,
-// which is the repo that has never run a check or whose packages will not load.
-const setupAppShell = ({
-	runs = [buildRunListing()],
-	repoRoot = '/repos/lightsout',
-	standards = buildStandardsView(),
-}: {
-	runs?: RunListing[];
-	repoRoot?: string;
-	standards?: StandardsView | null;
-} = {}) => {
-	jest.useFakeTimers();
-	jest.setSystemTime(new Date('2026-01-01T00:03:00.000Z'));
-	mockGetStandards.mockRejectedValue(new Error('no standards package could be loaded'));
 	renderWithQueryClient({
-		ui: <AppShell />,
-		seed: [
-			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } },
-			{ queryKey: [QueryKey.Runs], data: runs },
-			...(standards === null ? [] : [{ queryKey: [QueryKey.Standards], data: standards }]),
-		],
+		ui: (
+			<ThemeProvider>
+				<AppShell />
+			</ThemeProvider>
+		),
+		seed: [{ queryKey: [QueryKey.RepoRoot], data: { repoRoot } }],
 	});
 };
 
 describe('AppShell', () => {
-	test('names the repo whose run state the app is reading', () => {
+	test('carries the site bar on every page', () => {
+		setupAppShell();
+
+		const site = screen.getByRole('navigation', { name: 'Site' });
+
+		expect(site).toBeInTheDocument();
+	});
+
+	test('offers the local zone when a repo was found, and names it', () => {
 		setupAppShell({ repoRoot: '/repos/other-project' });
 
-		const root = screen.getByText('/repos/other-project');
+		const zone = screen.getByRole('navigation', { name: 'Your repo' });
 
-		expect(root).toBeInTheDocument();
+		expect(zone).toBeInTheDocument();
 	});
 
-	test('offers a way into the standards tab', () => {
-		setupAppShell();
+	test('leaves the local zone out entirely when no repo was found, which is what a public build renders', () => {
+		setupAppShell({ repoRoot: undefined });
 
-		const standards = screen.getByRole('link', { name: 'Standards' });
+		const zone = screen.queryByRole('navigation', { name: 'Your repo' });
 
-		expect(standards).toHaveAttribute('href', '/standards');
+		expect(zone).not.toBeInTheDocument();
 	});
 
-	test('carries the count of blocking findings into that link, so debt is visible from every page', () => {
-		setupAppShell({ standards: buildStandardsView({ overrides: { totals: { rules: 1, checked: 1, judgment: 0, blocking: 4, advisory: 2, orphans: 0 } } }) });
-
-		const standards = screen.getByRole('link', { name: 'Standards 4' });
-
-		expect(standards).toBeInTheDocument();
-	});
-
-	test('shows no badge on a repo with nothing blocking, rather than a zero', () => {
-		setupAppShell();
-
-		const standards = screen.getByRole('link', { name: 'Standards' });
-
-		expect(standards.querySelector('[data-slot="badge"]')).not.toBeInTheDocument();
-	});
-
-	test('leaves the link uncounted and the runs list readable when the standards view cannot be read at all', async () => {
-		setupAppShell({ standards: null, runs: [buildRunListing({ runId: 'ffff0000ffff', title: 'raise coverage' })] });
-
-		const standards = await screen.findByRole('link', { name: 'Standards' });
-		const runs = screen.getByRole('navigation', { name: 'Runs' });
-
-		expect(standards).toBeInTheDocument();
-		expect(runs.textContent).toContain('raise coverage');
-	});
-
-	test('fills the sidebar with the runs list', () => {
-		setupAppShell({ runs: [buildRunListing(), buildRunListing({ runId: 'ffff0000ffff', title: 'raise coverage' })] });
-
-		const runs = screen.getByRole('navigation', { name: 'Runs' });
-
-		expect(runs.textContent).toContain('raise coverage');
-	});
-
-	test('renders the open route beside the sidebar', () => {
+	test('renders the open route beside that navigation', () => {
 		setupAppShell();
 
 		const outlet = screen.getByText('the open route');
 
 		expect(outlet).toBeInTheDocument();
+	});
+
+	test('sends the wordmark back to the landing page', () => {
+		setupAppShell();
+
+		const wordmark = screen.getByRole('link', { name: 'lightsout' });
+
+		expect(wordmark).toHaveAttribute('href', '/');
+	});
+
+	test('names a page that has no route yet without linking to it, so no reader is navigated into the not-found panel', () => {
+		setupAppShell();
+
+		const upcoming = screen.getByText('Commands');
+
+		expect(upcoming).toHaveAttribute('aria-disabled', 'true');
+		expect(screen.queryByRole('link', { name: 'Commands' })).not.toBeInTheDocument();
+	});
+
+	test('opens the site pages in a sheet when the menu button is pressed, which is how a narrow screen reaches them', () => {
+		setupAppShell();
+
+		const menuButton = screen.getByRole('button', { name: 'Open menu' });
+		fireEvent.click(menuButton);
+
+		const sheet = screen.getByRole('navigation', { name: 'Site pages' });
+
+		expect(sheet).toHaveTextContent('Commands');
+	});
+
+	test('leaves the sheet closed until the menu button is pressed', () => {
+		setupAppShell();
+
+		const sheet = screen.queryByRole('navigation', { name: 'Site pages' });
+
+		expect(sheet).not.toBeInTheDocument();
+	});
+
+	test('says which repo the local zone reads, and keeps the full path as a tooltip because the column truncates it', () => {
+		setupAppShell({ repoRoot: '/repos/other-project' });
+
+		const path = screen.getByText('/repos/other-project');
+
+		expect(path).toHaveAttribute('title', '/repos/other-project');
+	});
+
+	test('points the local zone at the repo pages, which now live under /repo', () => {
+		setupAppShell();
+
+		const runs = screen.getByRole('link', { name: 'Runs' });
+		const standards = screen.getByRole('link', { name: 'Standards' });
+
+		expect([runs.getAttribute('href'), standards.getAttribute('href')]).toEqual(['/repo/runs', '/repo/standards']);
+	});
+
+	test('offers the source repository as an outward link that leaves the app', () => {
+		setupAppShell();
+
+		const github = screen.getByRole('link', { name: 'GitHub' });
+
+		expect(github).toHaveAttribute('href', 'https://github.com/dc-devs/lightsout');
+		expect(github).toHaveAttribute('target', '_blank');
 	});
 });

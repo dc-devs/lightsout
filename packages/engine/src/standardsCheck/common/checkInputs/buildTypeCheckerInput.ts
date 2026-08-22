@@ -9,8 +9,8 @@ interface Params {
 	tests: string[];
 	files: string[];
 	referenceFiles: string[];
-	/** Repo-relative standards package roots, from the walk that listed the files. */
-	standardsPackages: string[];
+	/** Repo-relative standards pack roots, from the walk that listed the files. */
+	standardsPacks: string[];
 	/** The consumer's TypeScript — the engine never bundles a compiler of its own. */
 	compiler: typeof ts;
 	/** Monorepo package parent dir (config `packages-dir`, default 'packages'). */
@@ -96,7 +96,7 @@ export const buildTypeCheckerInput = async ({
 	tests,
 	files,
 	referenceFiles,
-	standardsPackages,
+	standardsPacks,
 	compiler,
 	packagesDir,
 }: Params): Promise<TypeCheckerInput> => {
@@ -129,7 +129,7 @@ export const buildTypeCheckerInput = async ({
 		tests,
 		files,
 		referenceFiles,
-		standardsPackages,
+		standardsPacks,
 		compiler,
 		typedFiles,
 		dependencies: await readPackageDependencies({ cwd, packagesDir }),

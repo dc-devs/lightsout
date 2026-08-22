@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
-import { Card } from '#src/common/components/ui/Card.tsx';
+import { Card } from '#src/appUI/index.ts';
 import { groupBy } from '#src/features/runDetail/screens/RunDetail/components/common/utils/groupBy.ts';
 
 /** The first two segments of a path — the package, then the area within it, which is the blast radius a reader reads first. */

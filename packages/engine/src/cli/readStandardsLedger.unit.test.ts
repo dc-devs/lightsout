@@ -65,8 +65,8 @@ describe('readStandardsLedger', () => {
 	});
 
 	test('a ledger that cannot be built refuses, carrying the loader’s own message', async () => {
-		mockListStandardsRules.mockRejectedValue(new Error('standards package "acme" could not be loaded'));
+		mockListStandardsRules.mockRejectedValue(new Error('standards pack "acme" could not be loaded'));
 
-		await expect(readStandardsLedger({ cwd: '/repo' })).rejects.toThrow('standards package "acme" could not be loaded');
+		await expect(readStandardsLedger({ cwd: '/repo' })).rejects.toThrow('standards pack "acme" could not be loaded');
 	});
 });

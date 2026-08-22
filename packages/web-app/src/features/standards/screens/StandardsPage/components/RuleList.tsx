@@ -1,5 +1,5 @@
 import type { StandardsRuleView } from '@lightsout/engine';
-import { Button } from '#src/common/components/ui/Button.tsx';
+import { Button } from '#src/appUI/index.ts';
 import { cn } from '#src/common/utils/cn.ts';
 
 /** How this repo runs one rule, in the three words a row has space for. */
