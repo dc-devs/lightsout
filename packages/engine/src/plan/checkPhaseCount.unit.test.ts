@@ -17,9 +17,9 @@ describe('checkPhaseCount', () => {
 				check: StructuralCheck.PhaseCount,
 				severity: FindingSeverity.Advisory,
 				phase: 'overview.md',
-				issue: expect.stringContaining('9 phases'),
+				issue: 'this plan has 9 phases, so one grading pass runs 27 gap-check agents — three lenses per phase',
 				location: 'overview.md → Phases',
-				fix: expect.stringContaining('27'),
+				fix: 'legal, and no phase count is refused — but every one of those 27 checkers can raise gaps you have to decide in one sitting',
 			},
 		]);
 	});
