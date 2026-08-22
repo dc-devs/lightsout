@@ -1,6 +1,6 @@
 # @lightsout/standards-contracts
 
-The shapes a standards package implements. A rule's `check.ts` imports its types
+The shapes a standards pack implements. A rule's `check.ts` imports its types
 from here and needs nothing else lightsout knows.
 
 ## What is in it
@@ -11,12 +11,12 @@ from here and needs nothing else lightsout knows.
   severity itself, because a check that could name them could also name them wrong.
 - `StandardsCheckInput` and the six input kinds — what a check may ask to be
   given. A check never opens a file; it is handed what it asked for.
-- `StandardsPackageRoot` — the shape of `lightsout-standards.json`.
+- `StandardsPackRoot` — the shape of `lightsout-standards.json`.
 - `StandardsSet` — the two document trees, `code` and `tests`.
 
 ## Import types, never values
 
-A shipped standards package has **no runtime dependencies**. That is not an
+A shipped standards pack has **no runtime dependencies**. That is not an
 accident of packaging: lightsout loads a rule's `check.ts` directly under Node's
 type stripping, from a plugin install where no `node_modules` exists anywhere
 above it. Type imports vanish before Node ever resolves them; a value import

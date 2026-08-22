@@ -16,8 +16,8 @@ interface Params {
 	 * and neither opens a file.
 	 */
 	getSurface: ({ barrelPath }: { barrelPath: string }) => BarrelSurface;
-	/** Repo-relative standards package roots, so a package's `tests/` document set is not read as test code. */
-	standardsPackages: string[];
+	/** Repo-relative standards pack roots, so a pack's `tests/` document set is not read as test code. */
+	standardsPacks: string[];
 	/**
 	 * Whether a framework mandates this folder as a module, answered by the
 	 * caller for the same reason `getSurface` is: only it knows what its input
@@ -60,7 +60,7 @@ interface Params {
  * with no manifest and no `node_modules`, so every value it imports has to
  * resolve inside its own tree. Change one, change the other.
  */
-export const mapFolderModules = ({ files, getSurface, standardsPackages, isMandatedModule }: Params): Map<string, FolderModule> => {
+export const mapFolderModules = ({ files, getSurface, standardsPacks, isMandatedModule }: Params): Map<string, FolderModule> => {
 	const barrelDirs = new Map<string, string>();
 
 	for (const file of files) {
@@ -82,7 +82,7 @@ export const mapFolderModules = ({ files, getSurface, standardsPackages, isManda
 			(file) =>
 				file.startsWith(prefix) &&
 				!isBarrelFile({ path: file }) &&
-				!isTestFile({ path: file, standardsPackages }) &&
+				!isTestFile({ path: file, standardsPacks }) &&
 				/\.tsx?$/.test(file) &&
 				!nestedModuleDirs.some((other) => other !== folder && other.startsWith(prefix) && file.startsWith(`${other}/`)),
 		);

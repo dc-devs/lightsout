@@ -78,7 +78,7 @@ test('listSourceFiles: the exclude list drops matching paths, with or without a 
 	expect(files).toStrictEqual(['src/keep.ts']);
 });
 
-test('listSourceFiles: a standards package fixture is rule data, not source, and is never listed', async () => {
+test('listSourceFiles: a standards pack fixture is rule data, not source, and is never listed', async () => {
 	const { cwd } = setupRepo({
 		files: [
 			'src/keep.ts',
@@ -98,12 +98,12 @@ test('listSourceFiles: a standards package fixture is rule data, not source, and
 	expect(files).toStrictEqual(['src/keep.ts', 'standards/code/architecture/10-dead-export/check.ts', 'standards/common/utils/readTestFiles.ts']);
 });
 
-test('listSourceFiles: a fixtures folder outside any standards package is ordinary source', async () => {
+test('listSourceFiles: a fixtures folder outside any standards pack is ordinary source', async () => {
 	const { cwd } = setupRepo({ files: ['src/keep.ts', 'tests/fixtures/buildUser.ts'] });
 
 	const { files } = await listSourceFiles({ cwd });
 
-	// nothing here declares a package, so `fixtures` is just a folder name
+	// nothing here declares a pack, so `fixtures` is just a folder name
 	expect(files).toStrictEqual(['src/keep.ts', 'tests/fixtures/buildUser.ts']);
 });
 
@@ -117,7 +117,7 @@ test('listSourceFiles: walking from inside a fixture side still lists it, which 
 	expect(files).toStrictEqual(['src/orphan.ts']);
 });
 
-test('listSourceFiles: the standards package roots the walk passed are reported with the files', async () => {
+test('listSourceFiles: the standards pack roots the walk passed are reported with the files', async () => {
 	const { cwd } = setupRepo({
 		files: [
 			'src/keep.ts',
@@ -128,28 +128,28 @@ test('listSourceFiles: the standards package roots the walk passed are reported 
 		],
 	});
 
-	const { standardsPackages } = await listSourceFiles({ cwd });
+	const { standardsPacks } = await listSourceFiles({ cwd });
 
 	// every root, repo-relative — a consumer may hold several packages, and each
 	// one names its own document sets
-	expect(standardsPackages).toStrictEqual(['standards', 'vendor/acme-standards']);
+	expect(standardsPacks).toStrictEqual(['standards', 'vendor/acme-standards']);
 });
 
-test('listSourceFiles: a package root inside another is not reported twice', async () => {
+test('listSourceFiles: a pack root inside another is not reported twice', async () => {
 	const { cwd } = setupRepo({ files: ['standards/lightsout-standards.json', 'standards/nested/lightsout-standards.json', 'standards/nested/check.ts'] });
 
-	const { standardsPackages } = await listSourceFiles({ cwd });
+	const { standardsPacks } = await listSourceFiles({ cwd });
 
 	// the outer root already covers everything beneath it
-	expect(standardsPackages).toStrictEqual(['standards']);
+	expect(standardsPacks).toStrictEqual(['standards']);
 });
 
-test('listSourceFiles: a repo with no standards package reports none', async () => {
+test('listSourceFiles: a repo with no standards pack reports none', async () => {
 	const { cwd } = setupRepo({ files: ['src/keep.ts'] });
 
-	const { standardsPackages } = await listSourceFiles({ cwd });
+	const { standardsPacks } = await listSourceFiles({ cwd });
 
-	expect(standardsPackages).toStrictEqual([]);
+	expect(standardsPacks).toStrictEqual([]);
 });
 
 test('listSourceFiles: an unreadable directory yields no files rather than throwing', async () => {
@@ -158,4 +158,14 @@ test('listSourceFiles: an unreadable directory yields no files rather than throw
 	const { files } = await listSourceFiles({ cwd: join(cwd, 'not-there') });
 
 	expect(files).toStrictEqual([]);
+});
+
+test('listSourceFiles: a build-output name inside a src folder is source — position is what marks output, not the name', async () => {
+	const { cwd } = setupRepo({ files: ['src/coverage/runRounds.ts', 'src/dist/emit.ts', 'coverage/lcov.js', 'dist/bundle.js'] });
+
+	const { files } = await listSourceFiles({ cwd });
+
+	// a build tool writes beside `src`, never inside it — skipping these names
+	// everywhere once hid a whole pipeline from every standards rule, silently
+	expect(files).toStrictEqual(['src/coverage/runRounds.ts', 'src/dist/emit.ts']);
 });

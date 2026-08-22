@@ -16,6 +16,16 @@ const bansTheBannedFile: StandardsCheckFunction = ({ input }) =>
 			detail: 'a file the rule bans',
 		}));
 
+/** The same ban, asked of the files the engine could type rather than of the path list. */
+const bansTheBannedTypedFile: StandardsCheckFunction = ({ input }) =>
+	(input.kind === StandardsInputKind.TypeChecker ? [...input.typedFiles.keys()] : [])
+		.filter((path) => path.endsWith('banned.ts'))
+		.map((path) => ({
+			siteKey: `banned:${path}`,
+			files: [{ path }],
+			detail: 'a file the rule bans',
+		}));
+
 /**
  * A rule folder's fixture pair on disk. Each side is a miniature repo the check
  * runs against as if it were the whole thing.
@@ -32,6 +42,21 @@ const setupFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) => {
 		for (const name of files) {
 			writeFileSync(join(fixturesPath, side, 'src', name), 'export const value = 1;\n');
 		}
+	}
+
+	return { fixturesPath };
+};
+
+/**
+ * A fixture pair whose sides each carry a tsconfig of their own. A type-checker
+ * rule needs one on the side it is run against: a fixture side is a miniature
+ * repo, and a program has nothing to type its files with otherwise.
+ */
+const setupTypedFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) => {
+	const { fixturesPath } = setupFixtures({ pass, fail });
+
+	for (const side of ['pass', 'fail'] as const) {
+		writeFileSync(join(fixturesPath, side, 'tsconfig.json'), '{ "compilerOptions": { "strict": true, "noEmit": true }, "include": ["src"] }\n');
 	}
 
 	return { fixturesPath };
@@ -217,6 +242,32 @@ describe('validateStandardsPack', () => {
 		// the fixtures live in the engine's own repo, so the compiler is right there
 		expect(problems).toStrictEqual([]);
 		expect(notes).toStrictEqual([]);
+	});
+
+	test('validates a rule that needs a type checker against fixture sides that carry a tsconfig', async () => {
+		const { fixturesPath } = setupTypedFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
+
+		const { problems, notes } = await validate({
+			rules: [rule({ id: 'discriminant-const-object', fixturesPath, inputKind: StandardsInputKind.TypeChecker, run: bansTheBannedTypedFile })],
+		});
+
+		expect(problems).toStrictEqual([]);
+		expect(notes).toStrictEqual([]);
+	});
+
+	test('a type-checker fixture side with no tsconfig is named as such, not reported as a check that catches nothing', async () => {
+		const { fixturesPath } = setupFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
+
+		const { problems } = await validate({
+			rules: [rule({ id: 'discriminant-const-object', fixturesPath, inputKind: StandardsInputKind.TypeChecker, run: bansTheBannedTypedFile })],
+		});
+
+		// a side the engine could type nothing in hands the check nothing, and the
+		// silence that follows would otherwise send the author to the check
+		expect(problems).toStrictEqual([
+			"discriminant-const-object: the fail fixture could not be checked — no tsconfig.json in fixtures/fail/, so none of its 1 file(s) could be typed — a type-checker rule's fixtures need one",
+			"discriminant-const-object: the pass fixture could not be checked — no tsconfig.json in fixtures/pass/, so none of its 1 file(s) could be typed — a type-checker rule's fixtures need one",
+		]);
 	});
 
 	test('validates every rule in the pack, whatever channel it sits on', async () => {

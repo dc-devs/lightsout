@@ -13,10 +13,12 @@ const setupImportGraphInput = ({
 	paths,
 	edges,
 	scope,
+	standardsPacks = [],
 }: {
 	paths: string[];
 	edges: Array<{ from: string; to: string }>;
 	scope?: string[];
+	standardsPacks?: string[];
 }): StandardsCheckInput => ({
 	kind: StandardsInputKind.ImportGraph,
 	cwd: '/repo',
@@ -24,7 +26,7 @@ const setupImportGraphInput = ({
 	tests: [],
 	files: scope ?? paths,
 	referenceFiles: paths,
-	standardsPackages: [],
+	standardsPacks,
 	edges,
 });
 
@@ -203,6 +205,53 @@ describe('module-boundary check', () => {
 				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
 				{ from: 'src/reporting/buildReport.ts', to: 'src/ingestion/index.ts' },
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('inside a declared pack, a folder under tests/ is a module whose internals can be reached past', async () => {
+		const input = setupImportGraphInput({
+			paths: [
+				'standards/code/buildReport.ts',
+				'standards/tests/unit-testing/index.ts',
+				'standards/tests/unit-testing/check.ts',
+				'standards/tests/unit-testing/rule.ts',
+			],
+			edges: [
+				{ from: 'standards/tests/unit-testing/index.ts', to: 'standards/tests/unit-testing/check.ts' },
+				{ from: 'standards/code/buildReport.ts', to: 'standards/tests/unit-testing/rule.ts' },
+			],
+			standardsPacks: ['standards'],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'module-boundary:standards/code/buildReport.ts|standards/tests/unit-testing/rule.ts',
+				files: [{ path: 'standards/code/buildReport.ts' }, { path: 'standards/tests/unit-testing/rule.ts' }],
+				detail:
+					"deep-imports 'standards/tests/unit-testing/rule.ts' — an internal of module 'standards/tests/unit-testing'; import from its barrel 'standards/tests/unit-testing/index.ts' instead",
+				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+			},
+		]);
+	});
+
+	test('the same graph with no pack declared above it maps no module there, so the crossing is nobody’s boundary', async () => {
+		const input = setupImportGraphInput({
+			paths: [
+				'standards/code/buildReport.ts',
+				'standards/tests/unit-testing/index.ts',
+				'standards/tests/unit-testing/check.ts',
+				'standards/tests/unit-testing/rule.ts',
+			],
+			edges: [
+				{ from: 'standards/tests/unit-testing/index.ts', to: 'standards/tests/unit-testing/check.ts' },
+				{ from: 'standards/code/buildReport.ts', to: 'standards/tests/unit-testing/rule.ts' },
 			],
 		});
 

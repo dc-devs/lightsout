@@ -54,7 +54,7 @@ const fileListInput = ({ files }: { files: string[] }): StandardsCheckInput => (
 	files,
 	referenceFiles: [],
 	dependencies: new Map(),
-	standardsPackages: [],
+	standardsPacks: [],
 });
 
 describe('readStandardsPack', () => {

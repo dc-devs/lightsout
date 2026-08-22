@@ -23,7 +23,7 @@ const buildInput = ({ cwd }: { cwd: string }) =>
 		tests: ['src/alpha.unit.test.ts'],
 		files: ['src/alpha.ts', 'src/alpha.unit.test.ts'],
 		referenceFiles: ['src/alpha.ts', 'src/alpha.unit.test.ts', 'src/outside.ts'],
-		standardsPackages: [],
+		standardsPacks: [],
 		packagesDir: 'packages',
 	});
 

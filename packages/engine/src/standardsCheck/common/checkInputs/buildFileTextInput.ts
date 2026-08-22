@@ -7,8 +7,8 @@ interface Params {
 	tests: string[];
 	files: string[];
 	referenceFiles: string[];
-	/** Repo-relative standards package roots, from the walk that listed the files. */
-	standardsPackages: string[];
+	/** Repo-relative standards pack roots, from the walk that listed the files. */
+	standardsPacks: string[];
 	/** The run's shared cache — read-through: a path is read from disk at most once per run. */
 	cache: Map<string, string>;
 }
@@ -73,7 +73,7 @@ const aliasSourceCandidates = ({ files }: { files: string[] }) => {
  *
  * @param cache - the run's shared cache, filled in place and returned as the input's contents
  */
-export const buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, cache }: Params): Promise<FileTextInput> => {
+export const buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, standardsPacks, cache }: Params): Promise<FileTextInput> => {
 	const inScope = [...new Set([...files, ...referenceFiles])];
 
 	await readIntoCache({ cwd, paths: inScope, cache });
@@ -82,5 +82,5 @@ export const buildFileTextInput = async ({ cwd, source, tests, files, referenceF
 	// every folder cheaper than deciding in advance which ones are packages.
 	await readIntoCache({ cwd, paths: aliasSourceCandidates({ files: inScope }), cache });
 
-	return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache, standardsPackages };
+	return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache, standardsPacks };
 };

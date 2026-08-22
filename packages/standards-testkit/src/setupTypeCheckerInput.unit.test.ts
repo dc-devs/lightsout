@@ -67,4 +67,22 @@ describe('setupTypeCheckerInput', () => {
 
 		expect(input).toMatchObject({ source: ['src/a.ts', 'src/b.ts'], files: ['src/a.ts', 'src/b.ts'] });
 	});
+
+	test('names no standards pack roots, and no tests or reference files, until a rule asks for them', () => {
+		const input = setupTyped({ sources: [['src/app.ts', 'export const total = 1;\n']] });
+
+		expect(input).toMatchObject({ cwd: '/repo', standardsPacks: [], tests: [], referenceFiles: [] });
+	});
+
+	test('a pack root given as an override reaches the check that reads it', () => {
+		const input = setupTypeCheckerInput({ sources: [['src/app.ts', '']], cwd: '/elsewhere', standardsPacks: ['vendor/acme'] }) as TypeCheckerInput;
+
+		expect(input).toMatchObject({ cwd: '/elsewhere', standardsPacks: ['vendor/acme'] });
+	});
+
+	test('dependency pairs become the map the contract declares', () => {
+		const input = setupTypeCheckerInput({ dependencies: [['.', ['zod']]] }) as TypeCheckerInput;
+
+		expect(input.dependencies).toStrictEqual(new Map([['.', ['zod']]]));
+	});
 });

@@ -42,7 +42,7 @@ export const check: StandardsCheckModule = {
 			return [];
 		}
 
-		const { files, referenceFiles, edges, standardsPackages } = input;
+		const { files, referenceFiles, edges, standardsPacks } = input;
 		const targetsByFile = mapTargetsByFile({ edges });
 		// Mapped over the whole repo rather than the scope, so a run narrowed to a
 		// handful of files still knows where every module's boundary sits.
@@ -53,7 +53,7 @@ export const check: StandardsCheckModule = {
 			// it re-exports nothing — as opposed to the file-text readers, which can
 			// be handed a barrel whose aliases they were never given.
 			getSurface: ({ barrelPath }) => ({ targets: targetsByFile.get(barrelPath) ?? new Set<string>(), complete: true }),
-			standardsPackages,
+			standardsPacks,
 		});
 		const moduleFolders = [...modules.keys()];
 		const scope = new Set(files);

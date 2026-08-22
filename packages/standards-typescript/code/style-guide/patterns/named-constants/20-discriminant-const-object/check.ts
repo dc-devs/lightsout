@@ -1,6 +1,7 @@
 import type { RawStandardsFinding, StandardsCheckModule, TypeCheckerInput } from '@lightsout/standards-contracts';
 import type ts from 'typescript';
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { getOwningPack } from '../../../../../common/paths/getOwningPack.ts';
 
 /** The 1-based line a node starts on. */
 const lineOf = ({ sourceFile, node }: { sourceFile: ts.SourceFile; node: ts.Node }) => sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
@@ -62,17 +63,6 @@ const declarationLines = ({ sourceFile, compiler }: { sourceFile: ts.SourceFile;
 
 	return lines;
 };
-
-/**
- * The standards package a path sits inside, or undefined for ordinary source.
- *
- * A rule's check ships as a bare directory beside the engine, with no manifest
- * and no `node_modules`, so every VALUE it imports has to resolve inside its own
- * package. A discriminant declared anywhere else is a value it may not name —
- * which is why every `check.ts` in the world writes `input.kind !== 'syntax-tree'`
- * with the literal spelled out, and why doing so is not this rule's finding.
- */
-const packageOf = ({ path, standardsPackages }: { path: string; standardsPackages: string[] }) => standardsPackages.find((root) => path.startsWith(`${root}/`));
 
 /**
  * The family a compared expression belongs to, when it belongs to one: the name
@@ -169,8 +159,7 @@ const narrowingSites = ({
 	return sites;
 };
 
-/** Completes "…at line 3" / "…at lines 3, 7". */
-const at = ({ lines }: { lines: number[] }) => `at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`;
+const formatLineList = ({ lines }: { lines: number[] }) => `at ${lines.length > 1 ? 'lines' : 'line'} ${lines.join(', ')}`;
 
 // Asks for the checker, not just the tree. The declaration half is decidable
 // from syntax alone — `kind: 'file-added'` and a default value spelled the same
@@ -199,20 +188,26 @@ export const check: StandardsCheckModule = {
 			}
 
 			const { sourceFile, checker } = typed;
-			const home = packageOf({ path, standardsPackages: input.standardsPackages });
+			// A rule's check ships as a bare directory beside the engine, with no
+			// manifest and no `node_modules`, so every VALUE it imports has to resolve
+			// inside its own pack. A discriminant declared anywhere else is a value it
+			// may not name — which is why every `check.ts` in the world writes
+			// `input.kind !== 'syntax-tree'` with the literal spelled out, and why
+			// doing so is not this rule's finding.
+			const home = getOwningPack({ path, standardsPacks: input.standardsPacks });
 			const declarations = declarationLines({ sourceFile, compiler: input.compiler });
 			const narrowings = narrowingSites({
 				sourceFile,
 				checker,
 				compiler: input.compiler,
 				constStrings,
-				reachable: ({ declaringPath }) => home === undefined || packageOf({ path: declaringPath, standardsPackages: input.standardsPackages }) === home,
+				reachable: ({ declaringPath }) => home === '.' || getOwningPack({ path: declaringPath, standardsPacks: input.standardsPacks }) === home,
 			});
 			const families = [...new Set(narrowings.map((site) => site.family))];
 			const detail = [
-				...(declarations.length > 0 ? [`field typed as a raw string literal ${at({ lines: declarations })}`] : []),
+				...(declarations.length > 0 ? [`field typed as a raw string literal ${formatLineList({ lines: declarations })}`] : []),
 				...(narrowings.length > 0
-					? [`${families.join(', ')} narrowed against a raw string literal ${at({ lines: narrowings.map((site) => site.line) })}`]
+					? [`${families.join(', ')} narrowed against a raw string literal ${formatLineList({ lines: narrowings.map((site) => site.line) })}`]
 					: []),
 			].join('; ');
 

@@ -1,5 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { standardsPackRootFile } from '#src/common/constants/standardsPackRootFile.ts';
 
 /**
  * Names a build tool writes its output under, skipped only OUTSIDE a `src`
@@ -34,36 +35,34 @@ interface Params {
  * Build output is skipped by name only outside a `src` folder — see
  * `buildOutputDirs` for what that cost when it was skipped everywhere.
  *
- * A standards package's fixtures are skipped too. Inside a package — a tree
- * rooted at `lightsout-standards.json` — a `fixtures/` folder holds the
- * deliberately-shaped samples a check is run against, and the failing side is
- * written to violate the very rule it proves. Listing them as source makes a
- * package's own counter-examples read as the repo's faults, and there is no
+ * A standards pack's fixtures are skipped too. Inside a pack — a tree rooted at
+ * `lightsout-standards.json` — a `fixtures/` folder holds the deliberately-
+ * shaped samples a check is run against, and the failing side is written to
+ * violate the very rule it proves. Listing them as source makes a pack's own
+ * counter-examples read as the repo's faults, and there is no
  * prefix a consumer could exclude them with: they sit one folder deep inside
  * every rule. The pruning is by directory, so a walk that starts inside a
  * fixture side still lists it — which is how `standards-validate` runs a
  * check against one.
  *
- * The package roots the walk passed are reported alongside the files, because
+ * The pack roots the walk passed are reported alongside the files, because
  * finding them is what the walk already did and no caller can cheaply repeat
- * it: `isTestFile` needs them to know that a `tests/` folder inside a package
+ * it: `isTestFile` needs them to know that a `tests/` folder inside a pack
  * names a document set rather than a directory of tests.
  */
-export const listSourceFiles = async ({ cwd, exclude = [] }: Params): Promise<{ files: string[]; standardsPackages: string[] }> => {
+export const listSourceFiles = async ({ cwd, exclude = [] }: Params): Promise<{ files: string[]; standardsPacks: string[] }> => {
 	const files: string[] = [];
-	const standardsPackages: string[] = [];
-	// The file whose presence declares a folder a standards package root.
-	const standardsPackageRootFile = 'lightsout-standards.json';
-	// Inside such a package, the folder holding a rule's pass/fail samples.
+	const standardsPacks: string[] = [];
+	// Inside a standards pack, the folder holding a rule's pass/fail samples.
 	const fixturesDir = 'fixtures';
 
-	const walk = async (dir: string, insideStandardsPackage: boolean, insideSource: boolean) => {
+	const walk = async (dir: string, insideStandardsPack: boolean, insideSource: boolean) => {
 		const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-		const isPackageRoot = !insideStandardsPackage && entries.some((entry) => entry.name === standardsPackageRootFile);
-		const insidePackage = insideStandardsPackage || isPackageRoot;
+		const isPackRoot = !insideStandardsPack && entries.some((entry) => entry.name === standardsPackRootFile);
+		const insidePack = insideStandardsPack || isPackRoot;
 
-		if (isPackageRoot) {
-			standardsPackages.push(relative(cwd, dir));
+		if (isPackRoot) {
+			standardsPacks.push(relative(cwd, dir));
 		}
 
 		for (const entry of entries) {
@@ -75,11 +74,11 @@ export const listSourceFiles = async ({ cwd, exclude = [] }: Params): Promise<{ 
 			const path = join(dir, entry.name);
 
 			if (entry.isDirectory()) {
-				if (insidePackage && entry.name === fixturesDir) {
+				if (insidePack && entry.name === fixturesDir) {
 					continue;
 				}
 
-				await walk(path, insidePackage, insideSource || entry.name === 'src');
+				await walk(path, insidePack, insideSource || entry.name === 'src');
 				continue;
 			}
 
@@ -99,5 +98,5 @@ export const listSourceFiles = async ({ cwd, exclude = [] }: Params): Promise<{ 
 
 	await walk(cwd, false, false);
 
-	return { files: files.sort(), standardsPackages: standardsPackages.sort() };
+	return { files: files.sort(), standardsPacks: standardsPacks.sort() };
 };

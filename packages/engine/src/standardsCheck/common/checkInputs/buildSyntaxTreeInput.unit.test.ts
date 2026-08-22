@@ -28,7 +28,7 @@ const buildInput = ({ cwd, source, cache }: { cwd: string; source: string[]; cac
 		tests: [],
 		files: source,
 		referenceFiles: source,
-		standardsPackages: [],
+		standardsPacks: [],
 		compiler,
 		cache,
 		packagesDir: 'packages',

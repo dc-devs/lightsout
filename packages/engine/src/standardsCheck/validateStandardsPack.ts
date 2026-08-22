@@ -2,6 +2,7 @@ import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type ts from 'typescript';
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
@@ -20,9 +21,12 @@ interface Params {
  * closed pair rather than a loose string, so the folder name and the
  * expectation read from it can never drift apart.
  */
-const fixtureSides = ['fail', 'pass'] as const;
+const FixtureSide = {
+	Fail: 'fail',
+	Pass: 'pass',
+} as const;
 
-type FixtureSide = (typeof fixtureSides)[number];
+type FixtureSide = (typeof FixtureSide)[keyof typeof FixtureSide];
 
 /**
  * The engine's own TypeScript, for parsing fixtures. Resolved through `require`
@@ -54,7 +58,7 @@ const getEngineTypescript = () => {
 const missingFixtureSides = async ({ fixturesPath }: { fixturesPath: string }) => {
 	const missing: FixtureSide[] = [];
 
-	for (const side of fixtureSides) {
+	for (const side of Object.values(FixtureSide)) {
 		const entries = await readdir(join(fixturesPath, side)).catch(() => undefined);
 
 		if (entries === undefined || entries.length === 0) {
@@ -90,8 +94,8 @@ const checkFixture = async ({
 		files,
 		referenceFiles: files,
 		// A fixture side is a miniature repo of its own; it declares no pack.
-		standardsPackages: [],
-		packagesDir: 'packages',
+		standardsPacks: [],
+		packagesDir: defaultPackagesDir,
 		settings: rule.defaultSettings,
 		cache: new Map<string, string>(),
 		compiler,
@@ -167,15 +171,15 @@ export const validateStandardsPack = async ({ pack }: Params): Promise<{ problem
 			continue;
 		}
 
-		for (const side of fixtureSides) {
+		for (const side of Object.values(FixtureSide)) {
 			try {
 				const found = await checkFixture({ rule, inputKind, run, side, compiler });
 
-				if (side === 'fail' && found.length === 0) {
+				if (side === FixtureSide.Fail && found.length === 0) {
 					problems.push(`${rule.id}: the fail fixture produced no finding — the check does not catch what the rule describes`);
 				}
 
-				if (side === 'pass' && found.length > 0) {
+				if (side === FixtureSide.Pass && found.length > 0) {
 					problems.push(`${rule.id}: the pass fixture produced ${found.length} finding(s) — the check flags code the rule allows`);
 				}
 			} catch (error) {

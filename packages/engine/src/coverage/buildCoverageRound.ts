@@ -14,8 +14,8 @@ interface Params {
 	measured: { files: CoverageFile[]; totals: CoverageTotal[] };
 	/** Files already routed to a human — excluded from both the candidates and the writer's members. */
 	setAside: CoverageSetAside[];
-	/** Repo-relative standards-package roots, resolved once for the run. */
-	standardsPackages: string[];
+	/** Repo-relative standards-pack roots, resolved once for the run. */
+	standardsPacks: string[];
 	/** The consumer's TypeScript module, or undefined — without one, grouping degrades to one file per component. */
 	compiler: typeof ts | undefined;
 	/** 1-based sequential batch number across the run. */
@@ -32,9 +32,9 @@ interface Params {
  * can answer, and a scope whose candidates its own member pool refuses is an
  * engine bug to surface rather than an empty assignment to spend on.
  */
-export const buildCoverageRound = async ({ cwd, measured, setAside, standardsPackages, compiler, batchNumber }: Params): Promise<CoverageRound> => {
+export const buildCoverageRound = async ({ cwd, measured, setAside, standardsPacks, compiler, batchNumber }: Params): Promise<CoverageRound> => {
 	const setAsidePaths = new Set(setAside.flatMap((entry) => entry.files));
-	const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPackages, compiler });
+	const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPacks, compiler });
 
 	if (candidates.length === 0) {
 		return {
@@ -47,7 +47,7 @@ export const buildCoverageRound = async ({ cwd, measured, setAside, standardsPac
 	// already green never appears among the candidates at all.
 	const scope = candidates[0].scope;
 	const memberPool = measured.files
-		.filter((file) => file.scope === scope && !setAsidePaths.has(file.path) && !isTestFile({ path: file.path, standardsPackages }))
+		.filter((file) => file.scope === scope && !setAsidePaths.has(file.path) && !isTestFile({ path: file.path, standardsPacks }))
 		.map((file) => file.path);
 	const components = compiler
 		? groupConnectedFiles({ files: memberPool, edges: await collectImportEdges({ cwd, files: memberPool, compiler }) })

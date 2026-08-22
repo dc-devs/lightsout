@@ -1,3 +1,4 @@
+import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
@@ -147,16 +148,16 @@ export const runPackageChecks = async ({
 	packs,
 	states,
 	channels,
-	packagesDir = 'packages',
+	packagesDir = defaultPackagesDir,
 	path,
 	exclude,
 	onProgress,
 }: Params): Promise<{ findings: StandardsFinding[]; notes: string[] }> => {
 	const progress = onProgress ?? (() => undefined);
-	const { files: repoFiles, standardsPackages } = await listSourceFiles({ cwd, exclude });
+	const { files: repoFiles, standardsPacks } = await listSourceFiles({ cwd, exclude });
 	const allFiles = repoFiles.filter((file) => !path || file.startsWith(path));
-	const source = allFiles.filter((file) => !isTestFile({ path: file, standardsPackages }));
-	const tests = allFiles.filter((file) => isTestFile({ path: file, standardsPackages }));
+	const source = allFiles.filter((file) => !isTestFile({ path: file, standardsPacks }));
+	const tests = allFiles.filter((file) => isTestFile({ path: file, standardsPacks }));
 	const notes: string[] = [];
 
 	progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
@@ -166,7 +167,7 @@ export const runPackageChecks = async ({
 	const cache = new Map<string, string>();
 
 	const buildInput: BuildInput = async ({ kind, settings }) =>
-		buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPackages, packagesDir, settings, cache, compiler });
+		buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPacks, packagesDir, settings, cache, compiler });
 
 	const { findings, skipped } = await runLiveRules({ live, buildInput, compiler, progress });
 

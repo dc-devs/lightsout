@@ -28,7 +28,6 @@ interface Params {
  * claim" is what makes enforcement real.
  */
 export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Params): Promise<PriorArtCandidate[]> => {
-	// 1. Planned new symbols from every plan's Files to Create.
 	const planned: Array<{ plannedSymbol: string; plannedPath: string }> = [];
 	const plannedPaths = new Set<string>();
 
@@ -56,13 +55,11 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 		return [];
 	}
 
-	// 2. Existing export census — non-test, non-index, and not a planned (not-yet-created) path.
-	const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config }) });
+	const { files, standardsPacks } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config }) });
 	const census = files
-		.filter((file) => !isTestFile({ path: file, standardsPackages }) && getExportName({ path: file }) !== 'index' && !plannedPaths.has(file))
+		.filter((file) => !isTestFile({ path: file, standardsPacks }) && getExportName({ path: file }) !== 'index' && !plannedPaths.has(file))
 		.map((file) => ({ name: getExportName({ path: file }), path: file }));
 
-	// 3. Bucket the census by name-key.
 	const buckets = new Map<string, Array<{ name: string; path: string }>>();
 
 	for (const entry of census) {
@@ -71,7 +68,6 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 		buckets.set(key, [...(buckets.get(key) ?? []), entry]);
 	}
 
-	// 4. Each planned symbol whose bucket holds a real (non-casing-pair) match is a candidate.
 	const candidates: PriorArtCandidate[] = [];
 
 	for (const { plannedSymbol, plannedPath } of planned) {

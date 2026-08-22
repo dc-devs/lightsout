@@ -154,3 +154,16 @@ test.each([{ existing: 'src/remove-stale-entry.ts' }, { existing: 'src/remove_st
 		expect(candidates[0]?.collidesWith.some((collision) => collision.path === existing)).toBeTruthy();
 	},
 );
+
+test('detectPriorArtCandidates: inside a standards pack a tests/ document set is source, so a check under it is prior art', async () => {
+	const existing = ['standards/lightsout-standards.json', 'standards/tests/unit-testing/05-rule/scanRule.ts', 'standards/common/utils/scanRule.unit.test.ts'];
+	const { cwd, planPaths } = setup({ existing, creates: ['src/scanRule.ts'] });
+	const candidates = await detectPriorArtCandidates({ cwd, planPaths });
+
+	// the census is built from the pack roots the walk reported: under one,
+	// `tests/` names a document set and the checks in it are ordinary source —
+	// while the pack's own `.unit.test.ts` says what it is in its filename and
+	// stays out
+	expect(candidates.length).toBe(1);
+	expect(candidates[0]?.collidesWith).toStrictEqual([{ name: 'scanRule', path: 'standards/tests/unit-testing/05-rule/scanRule.ts' }]);
+});

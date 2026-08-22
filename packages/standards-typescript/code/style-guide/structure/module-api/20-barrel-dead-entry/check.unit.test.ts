@@ -3,7 +3,7 @@ import { setupOtherKindInput, setupTypeCheckerInput } from '@lightsout/standards
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a type-checker rule, with the test files told apart by name. */
-const setupRepo = ({ sources }: { sources: Array<[string, string]> }) => {
+const setupRepo = ({ sources, standardsPacks = [] }: { sources: Array<[string, string]>; standardsPacks?: string[] }) => {
 	const paths = sources.map(([path]) => path);
 
 	return setupTypeCheckerInput({
@@ -11,6 +11,7 @@ const setupRepo = ({ sources }: { sources: Array<[string, string]> }) => {
 		source: paths.filter((path) => !path.includes('.test.')),
 		tests: paths.filter((path) => path.includes('.test.')),
 		files: paths,
+		standardsPacks,
 	});
 };
 
@@ -133,6 +134,43 @@ describe('barrel-dead-entry check', () => {
 				guidance: 'Deliberate public API, or dead? Only the author knows.',
 			},
 		]);
+	});
+
+	test('inside a declared pack, a folder under tests/ is a module whose barrel answers for its entries', async () => {
+		const input = setupRepo({
+			sources: [
+				['standards/tests/unit-testing/index.ts', "export { checkRule } from './check.ts';"],
+				['standards/tests/unit-testing/check.ts', 'export const checkRule = (): number => 1;'],
+				['standards/tests/unit-testing/rule.ts', 'export const ruleText = (): number => 1;'],
+			],
+			standardsPacks: ['standards'],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'barrel-dead-entry:standards/tests/unit-testing/index.ts',
+				files: [{ path: 'standards/tests/unit-testing/index.ts' }],
+				detail:
+					"'checkRule' is exported from standards/tests/unit-testing/index.ts but nothing outside module 'standards/tests/unit-testing' imports it from there",
+				guidance: 'Deliberate public API, or dead? Only the author knows.',
+			},
+		]);
+	});
+
+	test('the same repo with no pack declared above it holds only test files, which map no module at all', async () => {
+		const input = setupRepo({
+			sources: [
+				['standards/tests/unit-testing/index.ts', "export { checkRule } from './check.ts';"],
+				['standards/tests/unit-testing/check.ts', 'export const checkRule = (): number => 1;'],
+				['standards/tests/unit-testing/rule.ts', 'export const ruleText = (): number => 1;'],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
 	});
 
 	test('says nothing about a barrel that hides nothing — no boundary, so no public-surface claim to answer for', async () => {

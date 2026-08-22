@@ -43,11 +43,26 @@ const writeSummary = ({ dir, scopeDir = '.', files }: { dir: string; scopeDir?: 
 const readSummary = ({ dir, scopeDir = '.' }: { dir: string; scopeDir?: string }) =>
 	JSON.parse(readFileSync(join(dir, scopeDir, 'coverage/coverage-summary.json'), 'utf8')) as Record<string, { statements: { pct: number } }>;
 
-/** A single-package consumer whose measured files start at the given percentages. */
-const setupRepo = ({ files, check = 'true', contents = {} }: { files: Record<string, number>; check?: string; contents?: Record<string, string> }) => {
+/** A single-package consumer whose measured files start at the given percentages. `plant` writes files the summary never mentions. */
+const setupRepo = ({
+	files,
+	check = 'true',
+	contents = {},
+	plant = {},
+}: {
+	files: Record<string, number>;
+	check?: string;
+	contents?: Record<string, string>;
+	plant?: Record<string, string>;
+}) => {
 	const dir = setupConsumerRepo({ git: false, scripts: { check, 'test-coverage': 'node coverageGate.cjs' }, config: { 'standards-packs': false } });
 
 	writeFileSync(join(dir, 'coverageGate.cjs'), coverageGate);
+
+	for (const [file, source] of Object.entries(plant)) {
+		mkdirSync(join(dir, file, '..'), { recursive: true });
+		writeFileSync(join(dir, file), source);
+	}
 
 	for (const file of Object.keys(files)) {
 		mkdirSync(join(dir, file, '..'), { recursive: true });
@@ -263,5 +278,21 @@ describe('runCoveragePipeline gates and scoping', () => {
 		// untestable files sit at the bottom of a statements ordering and would
 		// fill every early batch with guaranteed declines
 		expect(listedFiles({ prompt: prompts[0] ?? '' })).toStrictEqual(['src/real.ts']);
+	});
+
+	test('inside a standards pack a tests/ document set is source, so its checks are the ones handed to a writer', async () => {
+		const dir = setupRepo({
+			files: { 'standards/tests/unit-testing/05-rule/check.ts': 10, 'standards/common/utils/scan.unit.test.ts': 100, 'src/real.ts': 100 },
+			plant: { 'standards/lightsout-standards.json': '{ "name": "acme", "formatVersion": 1 }\n' },
+		});
+		const { driver, prompts } = stubWriter({ dir });
+
+		const result = await runPipeline({ dir, driver });
+
+		// the pack roots the walk found travel the whole run: without them the
+		// check under `tests/` reads as test code, no candidate is left, and the
+		// round escalates instead of spending a writer
+		expect(result.ok).toBe(true);
+		expect(listedFiles({ prompt: prompts[0] ?? '' })).toStrictEqual(['standards/tests/unit-testing/05-rule/check.ts']);
 	});
 });

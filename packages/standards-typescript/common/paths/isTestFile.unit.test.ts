@@ -28,31 +28,31 @@ describe('isTestFile', () => {
 		expect(isTestFile({ path: 'src/common/utils/formatRate.ts' })).toBe(false);
 	});
 
-	test('inside a standards package, a tests/ directory names a document set rather than test code', () => {
-		const standardsPackages = ['standards'];
+	test('inside a standards pack, a tests/ directory names a document set rather than test code', () => {
+		const standardsPacks = ['standards'];
 
 		// a rule about how to write tests — its implementation is ordinary source,
 		// and must answer to the source rules like any other file
-		expect(isTestFile({ path: 'standards/tests/unit-testing/40-test-mock-untyped/check.ts', standardsPackages })).toBe(false);
+		expect(isTestFile({ path: 'standards/tests/unit-testing/40-test-mock-untyped/check.ts', standardsPacks })).toBe(false);
 		// the same path with no package declared above it is test code
 		expect(isTestFile({ path: 'standards/tests/unit-testing/40-test-mock-untyped/check.ts' })).toBe(true);
 	});
 
-	test('a real test inside a standards package is still test code, by its name', () => {
-		const standardsPackages = ['standards'];
+	test('a real test inside a standards pack is still test code, by its name', () => {
+		const standardsPacks = ['standards'];
 
-		expect(isTestFile({ path: 'standards/common/utils/scanTestLines.unit.test.ts', standardsPackages })).toBe(true);
+		expect(isTestFile({ path: 'standards/common/utils/scanTestLines.unit.test.ts', standardsPacks })).toBe(true);
 	});
 
-	test('inside a standards package, __tests__, __mocks__ and e2e still mark test code', () => {
-		const standardsPackages = ['standards'];
+	test('inside a standards pack, __tests__, __mocks__ and e2e still mark test code', () => {
+		const standardsPacks = ['standards'];
 
 		// only `tests/` collides with a document set name
-		expect(isTestFile({ path: 'standards/common/__mocks__/fs.ts', standardsPackages })).toBe(true);
-		expect(isTestFile({ path: 'standards/e2e/login.ts', standardsPackages })).toBe(true);
+		expect(isTestFile({ path: 'standards/common/__mocks__/fs.ts', standardsPacks })).toBe(true);
+		expect(isTestFile({ path: 'standards/e2e/login.ts', standardsPacks })).toBe(true);
 	});
 
-	test('a package root covers only paths beneath it, never one that merely starts with its name', () => {
-		expect(isTestFile({ path: 'standards-archive/tests/check.ts', standardsPackages: ['standards'] })).toBe(true);
+	test('a pack root covers only paths beneath it, never one that merely starts with its name', () => {
+		expect(isTestFile({ path: 'standards-archive/tests/check.ts', standardsPacks: ['standards'] })).toBe(true);
 	});
 });

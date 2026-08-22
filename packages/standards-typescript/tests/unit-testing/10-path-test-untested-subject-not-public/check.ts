@@ -54,7 +54,7 @@ const notPublicFinding = ({ test, files, moduleFolders }: { test: string; files:
 export const check: StandardsCheckModule = {
 	inputKind: 'file-text',
 	run: ({ input }): RawStandardsFinding[] => {
-		const { files, tests, contents, standardsPackages } = readFileTexts({ input });
+		const { files, tests, contents, standardsPacks } = readFileTexts({ input });
 		const fileSet = new Set(files);
 		// Longest folder first, so a subject's FIRST ancestor here is its nearest
 		// owning module — the one whose barrel it would be promoted into.
@@ -63,7 +63,7 @@ export const check: StandardsCheckModule = {
 			...mapFolderModules({
 				files,
 				getSurface: ({ barrelPath }) => readBarrelSurface({ barrelPath, contents, files: fileSet }),
-				standardsPackages,
+				standardsPacks,
 				isMandatedModule: ({ folder }) => isMandatedModuleFolder({ folder, carveOut: getPathCarveOut({ carveOuts, path: folder }) }),
 			}),
 		].sort(([first], [second]) => second.length - first.length);

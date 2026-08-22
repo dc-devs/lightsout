@@ -27,7 +27,7 @@ const buildInput = ({ kind, cwd, withCompiler = true }: { kind: StandardsInputKi
 		tests: ['src/alpha.unit.test.ts'],
 		files: ['src/alpha.ts', 'src/alpha.unit.test.ts'],
 		referenceFiles: ['src/alpha.ts', 'src/alpha.unit.test.ts'],
-		standardsPackages: [],
+		standardsPacks: [],
 		packagesDir: 'packages',
 		settings: { minTokens: 50 },
 		cache: new Map<string, string>(),

@@ -43,10 +43,10 @@ export const check: StandardsCheckModule = {
 	// are left out for the same reason the rest of the code standards leave them
 	// to the test standards.
 	run: ({ input }): RawStandardsFinding[] => {
-		const { files, contents, standardsPackages } = readFileTexts({ input });
+		const { files, contents, standardsPacks } = readFileTexts({ input });
 
 		return files
-			.filter((file) => /\.tsx?$/.test(file) && !isTestFile({ path: file, standardsPackages }))
+			.filter((file) => /\.tsx?$/.test(file) && !isTestFile({ path: file, standardsPacks }))
 			.map((file) => {
 				const tags = getBrittleTags({ text: contents.get(file) ?? '' });
 

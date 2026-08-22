@@ -2,7 +2,7 @@ import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from 
 import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
 import { getSiteGroupKey } from '../../../../common/findings/getSiteGroupKey.ts';
 import { collectFunctionNodes } from '../../../../common/parsing/collectFunctionNodes.ts';
-import { getOwningPackage } from '../../../../common/paths/getOwningPackage.ts';
+import { getOwningPack } from '../../../../common/paths/getOwningPack.ts';
 import { normalizeFunctionTokens } from './normalizeFunctionTokens.ts';
 
 /** One measured function body: where it sits, and what the finding calls it. */
@@ -32,7 +32,7 @@ const groupByBody = ({ input, minBodyTokens }: { input: SyntaxTreeInput; minBody
 			const tokens = normalizeFunctionTokens({ node: body, compiler: input.compiler });
 
 			if (tokens.length >= minBodyTokens) {
-				const key = `${getOwningPackage({ path, standardsPackages: input.standardsPackages })}:${tokens.join(',')}`;
+				const key = `${getOwningPack({ path, standardsPacks: input.standardsPacks })}:${tokens.join(',')}`;
 
 				byBody.set(key, [...(byBody.get(key) ?? []), { name, path, startLine, endLine, tokenCount: tokens.length }]);
 			}

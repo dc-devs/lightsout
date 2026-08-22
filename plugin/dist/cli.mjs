@@ -23015,18 +23015,18 @@ var StandardsCheckModule = external_exports.object({
   run: external_exports.custom((value) => typeof value === "function")
 });
 
-// ../standards-contracts/src/StandardsPackageRoot.ts
-var StandardsPackageRoot = external_exports.object({
-  /** Names the package in the assembled documents' header lines. */
+// ../standards-contracts/src/StandardsPackRoot.ts
+var StandardsPackRoot = external_exports.object({
+  /** Names the pack in the assembled documents' header lines. */
   name: external_exports.string().min(1),
   formatVersion: external_exports.literal(1),
   /**
-   * Stamped by the bundler on a built package, and absent from every authored
+   * Stamped by the bundler on a built pack, and absent from every authored
    * one. Building leaves the fixture pairs and unit tests behind — they prove
-   * the package rather than run it — so a built package cannot answer the
+   * the pack rather than run it — so a built pack cannot answer the
    * question `lightsout standards-validate` asks. Without this, that command
    * reads every stripped fixture as a rule its author forgot, and reports a
-   * fault in each of them instead of one fact about the package.
+   * fault in each of them instead of one fact about the pack.
    */
   built: external_exports.literal(true).optional()
 });
@@ -25123,19 +25123,23 @@ var excludedSourcePaths = ({ config: config2 }) => [...config2?.generated ?? [],
 // src/common/sourceFiles/listSourceFiles.ts
 import { readdir as readdir8 } from "node:fs/promises";
 import { join as join19, relative as relative2 } from "node:path";
+
+// src/common/constants/standardsPackRootFile.ts
+var standardsPackRootFile = "lightsout-standards.json";
+
+// src/common/sourceFiles/listSourceFiles.ts
 var buildOutputDirs = /* @__PURE__ */ new Set(["dist", "build", "coverage", "out"]);
 var sourceExtension = /\.(m|c)?[jt]sx?$/;
 var listSourceFiles = async ({ cwd, exclude = [] }) => {
   const files = [];
-  const standardsPackages = [];
-  const standardsPackageRootFile = "lightsout-standards.json";
+  const standardsPacks = [];
   const fixturesDir = "fixtures";
-  const walk2 = async (dir, insideStandardsPackage, insideSource) => {
+  const walk2 = async (dir, insideStandardsPack, insideSource) => {
     const entries = await readdir8(dir, { withFileTypes: true }).catch(() => []);
-    const isPackageRoot = !insideStandardsPackage && entries.some((entry) => entry.name === standardsPackageRootFile);
-    const insidePackage = insideStandardsPackage || isPackageRoot;
-    if (isPackageRoot) {
-      standardsPackages.push(relative2(cwd, dir));
+    const isPackRoot = !insideStandardsPack && entries.some((entry) => entry.name === standardsPackRootFile);
+    const insidePack = insideStandardsPack || isPackRoot;
+    if (isPackRoot) {
+      standardsPacks.push(relative2(cwd, dir));
     }
     for (const entry of entries) {
       if (entry.name.startsWith(".") || entry.name === "node_modules" || !insideSource && buildOutputDirs.has(entry.name)) {
@@ -25143,10 +25147,10 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
       }
       const path = join19(dir, entry.name);
       if (entry.isDirectory()) {
-        if (insidePackage && entry.name === fixturesDir) {
+        if (insidePack && entry.name === fixturesDir) {
           continue;
         }
-        await walk2(path, insidePackage, insideSource || entry.name === "src");
+        await walk2(path, insidePack, insideSource || entry.name === "src");
         continue;
       }
       const rel = relative2(cwd, path);
@@ -25160,7 +25164,7 @@ var listSourceFiles = async ({ cwd, exclude = [] }) => {
     }
   };
   await walk2(cwd, false, false);
-  return { files: files.sort(), standardsPackages: standardsPackages.sort() };
+  return { files: files.sort(), standardsPacks: standardsPacks.sort() };
 };
 
 // src/common/workspace/resolveConsumerTypescript.ts
@@ -25538,7 +25542,7 @@ var findDuplicateIds = ({ rules }) => {
   return duplicates;
 };
 var readStandardsPack = async ({ packPath }) => {
-  const rootFilePath = join24(packPath, "lightsout-standards.json");
+  const rootFilePath = join24(packPath, standardsPackRootFile);
   const rootText = await readFile14(rootFilePath, "utf8").catch(() => void 0);
   if (rootText === void 0) {
     throw new Error(`standards pack root file not found: ${rootFilePath}`);
@@ -25549,7 +25553,7 @@ var readStandardsPack = async ({ packPath }) => {
   } catch (error51) {
     throw new Error(`standards pack root file is not valid JSON (${rootFilePath}): ${messageOf({ error: error51 })}`);
   }
-  const root = StandardsPackageRoot.safeParse(rootData);
+  const root = StandardsPackRoot.safeParse(rootData);
   if (!root.success) {
     throw new Error(`standards pack root file is invalid (${rootFilePath}): ${formatSchemaIssues({ issues: root.error.issues, subject: "root file" })}`);
   }
@@ -25823,11 +25827,11 @@ var isInertSourceFile = ({ path, content, compiler }) => {
 
 // src/common/sourceFiles/isTestFile.ts
 var testDirectory = /(^|\/)(tests?|__tests__|__mocks__|e2e)\//;
-var testDirectoryInStandardsPackage = /(^|\/)(__tests__|__mocks__|e2e)\//;
+var testDirectoryInStandardsPack = /(^|\/)(__tests__|__mocks__|e2e)\//;
 var testFileName = /\.(test|spec)\./;
-var isTestFile = ({ path, standardsPackages = [] }) => {
-  const inStandardsPackage = standardsPackages.some((root) => path.startsWith(`${root}/`));
-  const directory = inStandardsPackage ? testDirectoryInStandardsPackage : testDirectory;
+var isTestFile = ({ path, standardsPacks = [] }) => {
+  const inStandardsPack = standardsPacks.some((root) => path.startsWith(`${root}/`));
+  const directory = inStandardsPack ? testDirectoryInStandardsPack : testDirectory;
   return directory.test(path) || testFileName.test(path);
 };
 
@@ -27714,11 +27718,11 @@ var groupConnectedFiles = ({ files, edges }) => {
 // src/coverage/selectCoverageCandidates.ts
 import { readFile as readFile21 } from "node:fs/promises";
 import { join as join35 } from "node:path";
-var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPackages, compiler }) => {
+var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsPacks, compiler }) => {
   const failingScopes = new Set(measured.totals.filter((total) => !total.passed).map((total) => total.scope));
   const candidates = [];
   for (const file2 of measured.files) {
-    if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPackages }) || !isTestableSourceFile({ path: file2.path })) {
+    if (!failingScopes.has(file2.scope) || setAsidePaths.has(file2.path) || file2.statementsPct >= 100 || isTestFile({ path: file2.path, standardsPacks }) || !isTestableSourceFile({ path: file2.path })) {
       continue;
     }
     const content = compiler === void 0 ? void 0 : await readFile21(join35(cwd, file2.path), "utf8").catch(() => void 0);
@@ -27731,16 +27735,16 @@ var selectCoverageCandidates = async ({ cwd, measured, setAsidePaths, standardsP
 };
 
 // src/coverage/buildCoverageRound.ts
-var buildCoverageRound = async ({ cwd, measured, setAside, standardsPackages, compiler, batchNumber }) => {
+var buildCoverageRound = async ({ cwd, measured, setAside, standardsPacks, compiler, batchNumber }) => {
   const setAsidePaths = new Set(setAside.flatMap((entry) => entry.files));
-  const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPackages, compiler });
+  const candidates = await selectCoverageCandidates({ cwd, measured, setAsidePaths, standardsPacks, compiler });
   if (candidates.length === 0) {
     return {
       error: "coverage gate is red but no improvable file remains \u2014 set-aside files need source changes, or the threshold binds on a metric other than statements (branches/functions/lines); human required"
     };
   }
   const scope = candidates[0].scope;
-  const memberPool = measured.files.filter((file2) => file2.scope === scope && !setAsidePaths.has(file2.path) && !isTestFile({ path: file2.path, standardsPackages })).map((file2) => file2.path);
+  const memberPool = measured.files.filter((file2) => file2.scope === scope && !setAsidePaths.has(file2.path) && !isTestFile({ path: file2.path, standardsPacks })).map((file2) => file2.path);
   const components = compiler ? groupConnectedFiles({ files: memberPool, edges: await collectImportEdges({ cwd, files: memberPool, compiler }) }) : memberPool.map((file2) => [file2]);
   const batch = buildCoverageBatch({ files: candidates.filter((file2) => file2.scope === scope), components, batchNumber });
   return batch.members.length === 0 ? { error: `scope '${scope}' has candidates but the member pool excludes them all \u2014 candidate selection and member filtering disagree; human required` } : { batch };
@@ -27837,7 +27841,7 @@ var runRoundBatch = async ({
   return settleCoverageBatch({ run, batch, record: record2, outcome, declineStreak, fileStrikes });
 };
 var runCoverageRounds = async ({ run, driver, batchInputs, maxBatches, resumed }) => {
-  const { testStandards, compiler, standardsPackages } = batchInputs;
+  const { testStandards, compiler, standardsPacks } = batchInputs;
   let declineStreak = resumed.declineStreak;
   let batchCount = resumed.batchCount;
   let processed = 0;
@@ -27864,7 +27868,7 @@ var runCoverageRounds = async ({ run, driver, batchInputs, maxBatches, resumed }
       continue;
     }
     batchCount += 1;
-    const round = await buildCoverageRound({ cwd: run.cwd, measured, setAside: run.setAside, standardsPackages, compiler, batchNumber: batchCount });
+    const round = await buildCoverageRound({ cwd: run.cwd, measured, setAside: run.setAside, standardsPacks, compiler, batchNumber: batchCount });
     if ("error" in round) {
       await run.update({ patch: { status: RunStatus.Escalated, currentStep: null } });
       run.progress(`coverage run escalated \u2014 ${round.error}`);
@@ -27928,8 +27932,8 @@ var executeCoverage = async ({
   }
   const { testStandards } = await resolveStandards({ cwd, config: config2, packages: [] });
   const compiler = resolveConsumerTypescript({ cwd, packagesDir: config2["packages-dir"] ?? defaultPackagesDir });
-  const { standardsPackages } = await listSourceFiles({ cwd });
-  return runCoverageRounds({ run, driver, batchInputs: { testStandards, compiler, standardsPackages }, maxBatches, resumed: seeded });
+  const { standardsPacks } = await listSourceFiles({ cwd });
+  return runCoverageRounds({ run, driver, batchInputs: { testStandards, compiler, standardsPacks }, maxBatches, resumed: seeded });
 };
 var runCoveragePipeline = (params) => withRunLock({ params, run: executeCoverage });
 
@@ -40176,9 +40180,9 @@ var readPackageDependencies = async ({ cwd, packagesDir }) => {
 };
 
 // src/standardsCheck/common/checkInputs/buildFileListInput.ts
-var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir }) => {
+var buildFileListInput = async ({ cwd, source, tests, files, referenceFiles, standardsPacks, packagesDir }) => {
   const dependencies = await readPackageDependencies({ cwd, packagesDir });
-  return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies, standardsPackages };
+  return { kind: StandardsInputKind.FileList, cwd, source, tests, files, referenceFiles, dependencies, standardsPacks };
 };
 
 // src/standardsCheck/common/checkInputs/buildFileTextInput.ts
@@ -40197,17 +40201,17 @@ var aliasSourceCandidates = ({ files }) => {
   }
   return ["tsconfig.json", "package.json", ...[...folders].flatMap((folder) => [`${folder}/tsconfig.json`, `${folder}/package.json`])];
 };
-var buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, cache }) => {
+var buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, standardsPacks, cache }) => {
   const inScope = [.../* @__PURE__ */ new Set([...files, ...referenceFiles])];
   await readIntoCache({ cwd, paths: inScope, cache });
   await readIntoCache({ cwd, paths: aliasSourceCandidates({ files: inScope }), cache });
-  return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache, standardsPackages };
+  return { kind: StandardsInputKind.FileText, cwd, source, tests, files, referenceFiles, contents: cache, standardsPacks };
 };
 
 // src/standardsCheck/common/checkInputs/buildImportGraphInput.ts
-var buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler }) => {
+var buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler }) => {
   const edges = await collectImportEdges({ cwd, files: referenceFiles, compiler });
-  return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, standardsPackages, edges };
+  return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, standardsPacks, edges };
 };
 
 // src/standardsCheck/common/checkInputs/buildSyntaxTreeInput.ts
@@ -40217,7 +40221,7 @@ var buildSyntaxTreeInput = async ({
   tests,
   files,
   referenceFiles,
-  standardsPackages,
+  standardsPacks,
   compiler,
   cache,
   packagesDir
@@ -40228,7 +40232,7 @@ var buildSyntaxTreeInput = async ({
   for (const [path, text] of texts) {
     trees.set(path, compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true));
   }
-  return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPackages, compiler, trees, dependencies };
+  return { kind: StandardsInputKind.SyntaxTree, cwd, source, tests, files, referenceFiles, standardsPacks, compiler, trees, dependencies };
 };
 
 // src/standardsCheck/common/checkInputs/buildTestFileInput.ts
@@ -40268,7 +40272,7 @@ var buildTypeCheckerInput = async ({
   tests,
   files,
   referenceFiles,
-  standardsPackages,
+  standardsPacks,
   compiler,
   packagesDir
 }) => {
@@ -40295,7 +40299,7 @@ var buildTypeCheckerInput = async ({
     tests,
     files,
     referenceFiles,
-    standardsPackages,
+    standardsPacks,
     compiler,
     typedFiles,
     dependencies: await readPackageDependencies({ cwd, packagesDir })
@@ -40310,7 +40314,7 @@ var buildCheckInput = async ({
   tests,
   files,
   referenceFiles,
-  standardsPackages,
+  standardsPacks,
   packagesDir,
   settings,
   cache,
@@ -40318,9 +40322,9 @@ var buildCheckInput = async ({
 }) => {
   switch (kind) {
     case StandardsInputKind.FileList:
-      return buildFileListInput({ cwd, source, tests, files, referenceFiles, standardsPackages, packagesDir });
+      return buildFileListInput({ cwd, source, tests, files, referenceFiles, standardsPacks, packagesDir });
     case StandardsInputKind.FileText:
-      return buildFileTextInput({ cwd, source, tests, files, referenceFiles, standardsPackages, cache });
+      return buildFileTextInput({ cwd, source, tests, files, referenceFiles, standardsPacks, cache });
     case StandardsInputKind.TestFile:
       return buildTestFileInput({ cwd, tests, cache });
     case StandardsInputKind.CloneSpans:
@@ -40332,12 +40336,12 @@ var buildCheckInput = async ({
         throw new Error(`the ${kind} input needs the consumer's typescript, which did not resolve`);
       }
       if (kind === StandardsInputKind.ImportGraph) {
-        return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler });
+        return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler });
       }
       if (kind === StandardsInputKind.TypeChecker) {
-        return buildTypeCheckerInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, packagesDir });
+        return buildTypeCheckerInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler, packagesDir });
       }
-      return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPackages, compiler, cache, packagesDir });
+      return buildSyntaxTreeInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler, cache, packagesDir });
     }
   }
 };
@@ -40461,22 +40465,22 @@ var runPackageChecks = async ({
   packs,
   states,
   channels,
-  packagesDir = "packages",
+  packagesDir = defaultPackagesDir,
   path,
   exclude,
   onProgress
 }) => {
   const progress = onProgress ?? (() => void 0);
-  const { files: repoFiles, standardsPackages } = await listSourceFiles({ cwd, exclude });
+  const { files: repoFiles, standardsPacks } = await listSourceFiles({ cwd, exclude });
   const allFiles = repoFiles.filter((file2) => !path || file2.startsWith(path));
-  const source = allFiles.filter((file2) => !isTestFile({ path: file2, standardsPackages }));
-  const tests = allFiles.filter((file2) => isTestFile({ path: file2, standardsPackages }));
+  const source = allFiles.filter((file2) => !isTestFile({ path: file2, standardsPacks }));
+  const tests = allFiles.filter((file2) => isTestFile({ path: file2, standardsPacks }));
   const notes = [];
   progress(`checking ${source.length} source file(s) and ${tests.length} test file(s)`);
   const compiler = resolveConsumerTypescript({ cwd, packagesDir });
   const live2 = selectLiveRules({ packs, states, channels });
   const cache = /* @__PURE__ */ new Map();
-  const buildInput = async ({ kind, settings }) => buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPackages, packagesDir, settings, cache, compiler });
+  const buildInput = async ({ kind, settings }) => buildCheckInput({ kind, cwd, source, tests, files: allFiles, referenceFiles: repoFiles, standardsPacks, packagesDir, settings, cache, compiler });
   const { findings, skipped } = await runLiveRules({ live: live2, buildInput, compiler, progress });
   if (skipped.length > 0) {
     notes.push(`${skipped.join(", ")} skipped \u2014 no typescript resolvable from the target repo`);
@@ -40669,7 +40673,10 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 import { readdir as readdir13 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 import { join as join44 } from "node:path";
-var fixtureSides = ["fail", "pass"];
+var FixtureSide = {
+  Fail: "fail",
+  Pass: "pass"
+};
 var getEngineTypescript = () => {
   let compiler;
   try {
@@ -40681,7 +40688,7 @@ var getEngineTypescript = () => {
 };
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
-  for (const side of fixtureSides) {
+  for (const side of Object.values(FixtureSide)) {
     const entries = await readdir13(join44(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
@@ -40706,8 +40713,8 @@ var checkFixture = async ({
     files,
     referenceFiles: files,
     // A fixture side is a miniature repo of its own; it declares no pack.
-    standardsPackages: [],
-    packagesDir: "packages",
+    standardsPacks: [],
+    packagesDir: defaultPackagesDir,
     settings: rule.defaultSettings,
     cache: /* @__PURE__ */ new Map(),
     compiler
@@ -40745,13 +40752,13 @@ var validateStandardsPack = async ({ pack }) => {
       notes.push(`${rule.id}: not validated \u2014 its ${inputKind} input needs a typescript this install does not have`);
       continue;
     }
-    for (const side of fixtureSides) {
+    for (const side of Object.values(FixtureSide)) {
       try {
         const found = await checkFixture({ rule, inputKind, run, side, compiler });
-        if (side === "fail" && found.length === 0) {
+        if (side === FixtureSide.Fail && found.length === 0) {
           problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
         }
-        if (side === "pass" && found.length > 0) {
+        if (side === FixtureSide.Pass && found.length > 0) {
           problems.push(`${rule.id}: the pass fixture produced ${found.length} finding(s) \u2014 the check flags code the rule allows`);
         }
       } catch (error51) {
@@ -42226,8 +42233,8 @@ var detectPriorArtCandidates = async ({ cwd, planPaths, config: config2 }) => {
   if (planned.length === 0) {
     return [];
   }
-  const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config: config2 }) });
-  const census = files.filter((file2) => !isTestFile({ path: file2, standardsPackages }) && getExportName({ path: file2 }) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: getExportName({ path: file2 }), path: file2 }));
+  const { files, standardsPacks } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config: config2 }) });
+  const census = files.filter((file2) => !isTestFile({ path: file2, standardsPacks }) && getExportName({ path: file2 }) !== "index" && !plannedPaths.has(file2)).map((file2) => ({ name: getExportName({ path: file2 }), path: file2 }));
   const buckets = /* @__PURE__ */ new Map();
   for (const entry of census) {
     const key = getNameKey({ name: entry.name });

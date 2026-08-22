@@ -44,6 +44,30 @@ describe('buildFileExportCheck', () => {
 		]);
 	});
 
+	test('inside a declared pack, a rule under tests/ is ordinary source and is judged like any other file', async () => {
+		const input = setupFileTextInput({
+			contents: [['standards/tests/unit-testing/10-rule/check.ts', 'export const one = 1;\nexport const two = 2;\n']],
+			standardsPacks: ['standards'],
+		});
+
+		expect(await check.run({ input, settings: {} })).toStrictEqual([
+			{
+				siteKey: 'demo-exports:standards/tests/unit-testing/10-rule/check.ts',
+				files: [{ path: 'standards/tests/unit-testing/10-rule/check.ts' }],
+				detail: '2 exports',
+				guidance: 'the remedy line',
+			},
+		]);
+	});
+
+	test('the same path with no pack declared above it is a tests/ directory, and goes unjudged', async () => {
+		const input = setupFileTextInput({
+			contents: [['standards/tests/unit-testing/10-rule/check.ts', 'export const one = 1;\nexport const two = 2;\n']],
+		});
+
+		expect(await check.run({ input, settings: {} })).toStrictEqual([]);
+	});
+
 	test('a barrel and a test file are exempt — one declares nothing of its own, the other belongs to the test standards', async () => {
 		const input = setupFileTextInput({
 			contents: [

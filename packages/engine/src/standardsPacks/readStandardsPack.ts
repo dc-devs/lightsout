@@ -1,7 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { standardsPackRootFile } from '#src/common/constants/standardsPackRootFile.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { StandardsPackageRoot, StandardsSet } from '#src/contracts/index.ts';
+import { StandardsPackRoot, StandardsSet } from '#src/contracts/index.ts';
 import { parseDocumentFolder } from '#src/standardsPacks/common/parsing/parseDocumentFolder.ts';
 import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/LoadedStandardsDocument.ts';
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
@@ -90,7 +91,7 @@ const findDuplicateIds = ({ rules }: { rules: LoadedStandardsRule[] }) => {
  * @throws {Error} When the root file is missing or invalid, or the tree has any structural or honesty problem.
  */
 export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedStandardsPack> => {
-	const rootFilePath = join(packPath, 'lightsout-standards.json');
+	const rootFilePath = join(packPath, standardsPackRootFile);
 	const rootText = await readFile(rootFilePath, 'utf8').catch(() => undefined);
 
 	if (rootText === undefined) {
@@ -105,7 +106,7 @@ export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedSta
 		throw new Error(`standards pack root file is not valid JSON (${rootFilePath}): ${messageOf({ error })}`);
 	}
 
-	const root = StandardsPackageRoot.safeParse(rootData);
+	const root = StandardsPackRoot.safeParse(rootData);
 
 	if (!root.success) {
 		throw new Error(`standards pack root file is invalid (${rootFilePath}): ${formatSchemaIssues({ issues: root.error.issues, subject: 'root file' })}`);
