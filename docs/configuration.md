@@ -183,6 +183,7 @@ failure.
 | `timeouts.supervisor-minutes` |       no | The maximum runtime for the read-only supervisor, in minutes. Defaults to `15`.                                                                                                                                                                                                                                                                                                                  |
 | `agent-commands`              |       no | Command prefixes that implementation agents are allowed to run when producing deliverables that cannot be created another way. These commands are never used for verification; lightsout runs all gates itself.                                                                                                                                                                                  |
 | `generated`                   |       no | Path prefixes for generated output. These remain real files in the diff but are excluded from changed-file attribution.                                                                                                                                                                                                                                                                          |
+| `vendored`                    |       no | Path prefixes for third-party code the repository vendors in rather than writes, such as a shadcn/ui component folder. Excluded from the source walk exactly as `generated` is, so the standards never judge it, no test is written for it, and no refactor pass touches it. Unlike `generated`, a change inside it is still attributed — vendored code has no generating source in the repository, so editing it is the change. Excluding it from a coverage threshold is your test runner's job, not the engine's. |
 | `coverage-summary-path`       |       no | Where your coverage tooling writes its JSON summary (`coverage-summary.json`, the `json-summary` reporter's output), which `lightsout test-coverage-to-threshold` reads for per-file percentages. Defaults to `coverage/coverage-summary.json` — relative to the repository root, or to each package in monorepo mode.                                                                           |
 | `package-gates`               |       no | Enables monorepo-aware gates. Each command template runs once per affected package, with `{package}` replaced by the package name. See [Monorepos](monorepos.md).                                                                                                                                                                                                                                |
 | `packages-dir`                |       no | The workspace packages directory used in monorepo mode. Defaults to `packages`.                                                                                                                                                                                                                                                                                                                  |
@@ -277,6 +278,9 @@ The following example shows how the optional configuration fields fit together:
 
   // Generated files excluded from changed-file attribution
   "generated": ["src/generated/", "src/schema.gql"],
+
+  // Third-party code the repo vendors: never checked, still attributed
+  "vendored": ["src/common/components/ui/"],
 
   // Agent and supervisor limits
   "timeouts": {

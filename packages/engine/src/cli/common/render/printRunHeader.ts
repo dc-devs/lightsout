@@ -42,6 +42,10 @@ export const printRunHeader = ({ config, driver, cwd }: Params): void => {
 		console.log(`  generated (never attributed): ${config.generated.join(', ')}`);
 	}
 
+	if (config.vendored) {
+		console.log(`  vendored (never checked, still attributed): ${config.vendored.join(', ')}`);
+	}
+
 	if (config.gates.build) {
 		console.log(`  gates (root, opt-in): build=[${config.gates.build}]`);
 	}

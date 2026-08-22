@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
@@ -56,7 +57,7 @@ export const detectPriorArtCandidates = async ({ cwd, planPaths, config }: Param
 	}
 
 	// 2. Existing export census — non-test, non-index, and not a planned (not-yet-created) path.
-	const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: config?.generated });
+	const { files, standardsPackages } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config }) });
 	const census = files
 		.filter((file) => !isTestFile({ path: file, standardsPackages }) && getExportName({ path: file }) !== 'index' && !plannedPaths.has(file))
 		.map((file) => ({ name: getExportName({ path: file }), path: file }));

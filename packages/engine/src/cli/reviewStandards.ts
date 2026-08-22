@@ -1,3 +1,4 @@
+import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import type { LightsoutConfig, StandardsFinding } from '#src/contracts/index.ts';
 import { getDriver } from '#src/drivers/index.ts';
@@ -27,7 +28,7 @@ export const reviewStandards = async ({ cwd, config, path, onProgress }: Params)
 	// the channels — the same call the machine half makes.
 	const channels =
 		config?.['standards-channels'] ?? (await detectStandardsChannels({ cwd, packagesDir: config?.['packages-dir'] ?? 'packages', packages: [] }));
-	const { files: walked } = await listSourceFiles({ cwd, exclude: config?.generated });
+	const { files: walked } = await listSourceFiles({ cwd, exclude: excludedSourcePaths({ config }) });
 	const files = walked.filter((file) => !path || file.startsWith(path));
 
 	return runStandardsReview({

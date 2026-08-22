@@ -1,5 +1,5 @@
+export { checkConfiguredPaths } from '#src/doctor/checkConfiguredPaths.ts';
 export { checkCoverageSummary } from '#src/doctor/checkCoverageSummary.ts';
-export { checkGenerated } from '#src/doctor/checkGenerated.ts';
 export { checkGitignore } from '#src/doctor/checkGitignore.ts';
 export { checkHarness } from '#src/doctor/checkHarness.ts';
 export { checkJestMocks } from '#src/doctor/checkJestMocks.ts';

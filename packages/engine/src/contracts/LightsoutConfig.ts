@@ -89,6 +89,25 @@ export const LightsoutConfig = z.object({
 	 */
 	generated: z.array(z.string()).optional(),
 	/**
+	 * Path prefixes of third-party code the repo vendors in rather than writes
+	 * (e.g. a shadcn/ui component folder a generator drops in and the app then
+	 * edits). Excluded from the source walk exactly as `generated` is, so its
+	 * conventions are never judged against this repo's standards, it never
+	 * becomes a test subject, and it never shows up as prior art.
+	 *
+	 * It differs from `generated` in the one way that matters: a vendored file
+	 * IS attributed when it changes. Generated output is excluded from
+	 * attribution because the source that produced it is the real change;
+	 * vendored code has no such source in the repo, so an edit inside it is the
+	 * change and must earn its agent turn like any other.
+	 *
+	 * The engine's exclusion stops the engine's own checks and nothing else. A
+	 * repo whose coverage threshold covers the vendored path must exclude it
+	 * there too — that gate is the repo's test runner, which the engine only
+	 * invokes.
+	 */
+	vendored: z.array(z.string()).optional(),
+	/**
 	 * Path to the JSON coverage summary the coverage tooling writes (default
 	 * `coverage/coverage-summary.json`) — repo-relative in single-package
 	 * repos, package-relative in monorepo mode. `lightsout

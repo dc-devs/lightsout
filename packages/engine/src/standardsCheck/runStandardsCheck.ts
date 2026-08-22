@@ -1,4 +1,5 @@
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';
 import { applyStandardsBaseline } from '#src/standardsCheck/applyStandardsBaseline.ts';
@@ -65,7 +66,7 @@ export const runStandardsCheck = async ({
 		channels,
 		packagesDir: config?.['packages-dir'],
 		path,
-		exclude: config?.generated,
+		exclude: excludedSourcePaths({ config }),
 		onProgress,
 	});
 	const findings = checked.findings;
