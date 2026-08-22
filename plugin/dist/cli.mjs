@@ -41334,32 +41334,33 @@ ${failures.join("\n")}`
 };
 
 // src/pipeline/steps/buildSteps.ts
-var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }) => {
-  const refactorSteps = skipRefactor ? [] : [
-    {
-      id: "refactor",
-      skip: () => standardsScopeFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
-      run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
-    },
-    {
+var refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor }) => skipRefactor ? [] : [
+  {
+    id: "refactor",
+    skip: () => standardsScopeFiles({ run }).length === 0 ? "no changed source files to review" : void 0,
+    run: refactorStep({ run, gitPrefix, planContent, overviewContent, standards })
+  },
+  {
+    id: "verify-refactor",
+    run: verifyStep({
+      run,
+      gitPrefix,
+      planContent,
       id: "verify-refactor",
-      run: verifyStep({
-        run,
-        gitPrefix,
+      coverage: true,
+      buildFix: (errorContext) => buildRefactorExecutorInvocation({
+        scope: RefactorScope.Feature,
         planContent,
-        id: "verify-refactor",
-        coverage: true,
-        buildFix: (errorContext) => buildRefactorExecutorInvocation({
-          scope: RefactorScope.Feature,
-          planContent,
-          overviewContent,
-          changedFiles: standardsScopeFiles({ run }),
-          standards,
-          errorContext
-        })
+        overviewContent,
+        changedFiles: standardsScopeFiles({ run }),
+        standards,
+        errorContext
       })
-    }
-  ];
+    })
+  }
+];
+var buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }) => {
+  const refactorSteps = refactorPair({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor });
   return [
     { id: "clean-slate", run: cleanSlateStep({ run }) },
     {

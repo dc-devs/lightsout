@@ -26,8 +26,31 @@ interface Params {
  * write-tests → verify → refactor loop → verify → format, with the refactor
  * pair dropped when skipRefactor asks for it.
  */
-export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }: Params): PipelineStep[] => {
-	const refactorSteps: PipelineStep[] = skipRefactor
+interface RefactorPairParams {
+	run: PipelineRun;
+	gitPrefix?: string;
+	planContent: string;
+	overviewContent?: string;
+	standards?: string;
+	skipRefactor?: boolean;
+}
+
+/**
+ * The refactor pair: the standards-gated loop and the verification that follows
+ * it, or nothing when the caller asked to skip them.
+ *
+ * Lifted out of `buildSteps` because it is the one part of that list with a
+ * condition and a nested invocation builder of its own — the rest is a flat
+ * sequence of step literals, and mixing the two made the function read as
+ * though every step needed this much saying.
+ *
+ * Both entries scope on `standardsScopeFiles` rather than `sourceFiles`: the
+ * gate judges findings on the test files a run wrote, so the executor has to be
+ * allowed to write them, and a run whose only changed files are tests still has
+ * standards to answer for.
+ */
+const refactorPair = ({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor }: RefactorPairParams): PipelineStep[] =>
+	skipRefactor
 		? []
 		: [
 				{
@@ -55,6 +78,9 @@ export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, stand
 					}),
 				},
 			];
+
+export const buildSteps = ({ run, gitPrefix, planContent, overviewContent, standards, testStandards, skipRefactor }: Params): PipelineStep[] => {
+	const refactorSteps = refactorPair({ run, gitPrefix, planContent, overviewContent, standards, skipRefactor });
 
 	return [
 		{ id: 'clean-slate', run: cleanSlateStep({ run }) },
