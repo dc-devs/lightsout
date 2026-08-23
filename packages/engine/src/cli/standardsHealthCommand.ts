@@ -1,7 +1,7 @@
 import { printStandardsHealth } from '#src/cli/common/render/printStandardsHealth.ts';
 import type { CommandContext } from '#src/cli/common/types/CommandContext.ts';
 import { exitCli } from '#src/cli/common/utils/exitCli.ts';
-import { readConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readConfig.ts';
 import { buildStandardsHealth } from '#src/standardsCheck/index.ts';
 import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
 
@@ -18,7 +18,7 @@ import { resolveStandardsPacks } from '#src/standardsPacks/index.ts';
  * so there is nothing here for a caller to gate on.
  */
 export const standardsHealthCommand = async ({ cwd }: CommandContext): Promise<void> => {
-	const config = await readConfig({ cwd }).catch(() => undefined);
+	const config = await readOptionalConfig({ cwd });
 	const packs = await resolveStandardsPacks({ cwd, config });
 	const health = await buildStandardsHealth({ cwd, packs });
 

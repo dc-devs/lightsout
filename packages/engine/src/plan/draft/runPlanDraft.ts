@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readConfig.ts';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { type DecisionsRecord, type Effort, type Permissions, PlanVariant } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';
@@ -91,7 +91,7 @@ export const runPlanDraft = async ({
 
 	const facts = await readPlanFacts({ cwd, name });
 	const { merged, brainstorm } = await readMergedDecisions({ cwd, name, progress });
-	const config = await readConfig({ cwd }).catch(() => undefined);
+	const config = await readOptionalConfig({ cwd });
 	const executorFileLimit = config?.['executor-file-limit'] ?? defaultExecutorFileLimit;
 	const variant = scope ?? estimatePlanScope({ facts, executorFileLimit });
 

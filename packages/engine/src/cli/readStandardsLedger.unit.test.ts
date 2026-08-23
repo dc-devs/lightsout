@@ -52,16 +52,16 @@ describe('readStandardsLedger', () => {
 		expect(ledger).toStrictEqual({ config: undefined, rules });
 	});
 
-	test('a config that will not parse is treated as absent, not as a crash', async () => {
+	test('a config that will not parse refuses, rather than listing the default pack as if it were the configured one', async () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'lightsout-ledger-'));
 
 		writeFileSync(join(cwd, 'lightsout.config.json'), '{ "gates":');
 		mockListStandardsRules.mockResolvedValue([]);
 
-		await readStandardsLedger({ cwd });
-
-		// the ledger still answers — at the defaults, exactly as if no config existed
-		expect(listParams()?.config).toBeUndefined();
+		// The config selects which standards packs are read. Answering from the
+		// defaults when it cannot be parsed means listing one repo's rules and
+		// calling them another's, with nothing in the output saying so.
+		await expect(readStandardsLedger({ cwd })).rejects.toThrow(/is not valid JSON/);
 	});
 
 	test('a ledger that cannot be built refuses, carrying the loader’s own message', async () => {
