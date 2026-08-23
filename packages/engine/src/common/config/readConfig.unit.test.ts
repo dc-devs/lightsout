@@ -2,7 +2,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
-import { readConfig, readOptionalConfig } from '#src/common/config/readConfig.ts';
+import { readConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 const setupRepo = ({ raw }: { raw?: string } = {}) => {

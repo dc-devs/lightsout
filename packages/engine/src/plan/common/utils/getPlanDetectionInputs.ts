@@ -1,4 +1,4 @@
-import { readOptionalConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import { resolvePlanDeliverable } from '#src/plan/common/utils/resolvePlanDeliverable.ts';

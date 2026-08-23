@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readOptionalConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { defaultExecutorFileLimit } from '#src/common/constants/defaultExecutorFileLimit.ts';
 import { type DecisionsRecord, type Effort, type Permissions, PlanVariant } from '#src/contracts/index.ts';
 import type { Driver } from '#src/drivers/index.ts';

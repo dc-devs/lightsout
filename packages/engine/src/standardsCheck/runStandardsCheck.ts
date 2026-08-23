@@ -1,4 +1,4 @@
-import { readOptionalConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { excludedSourcePaths } from '#src/common/sourceFiles/excludedSourcePaths.ts';
 import type { StandardsFinding } from '#src/contracts/index.ts';
 import { detectStandardsChannels } from '#src/standards/index.ts';

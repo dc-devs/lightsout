@@ -1,4 +1,4 @@
-import { readOptionalConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { type StandardsFinding, type StandardsRuleView, StandardsSeverity, type StandardsView } from '#src/contracts/index.ts';
 import {
 	buildStandardsHealth,
