@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { parsePhaseDeclarations, parsePlan } from '#src/plan/index.ts';
+import { parsePhaseDeclarations } from '#src/plan/parsePhaseDeclarations.ts';
+import { parsePlan } from '#src/plan/parsePlan.ts';
 
 /** An overview carrying the given `## Phases` table rows and `## Phase Declarations` blocks, parsed as the lint parses it. */
 const setupOverview = ({ rows = '', declarations = '' }: { rows?: string; declarations?: string } = {}) => {

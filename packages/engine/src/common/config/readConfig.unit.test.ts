@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { readConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 const setupRepo = ({ raw }: { raw?: string } = {}) => {
@@ -53,4 +54,45 @@ test('readConfig: a config that parses as JSON but violates the schema fails val
 	// a malformed file is a distinct failure from an absent one
 	expect(error.message).not.toMatch(/not found/);
 	expect(error.message).toMatch(/gates/);
+});
+
+test('readOptionalConfig: no config at all is the absence a command may run through', async () => {
+	const { cwd } = setupRepo();
+
+	await expect(readOptionalConfig({ cwd })).resolves.toBeUndefined();
+});
+
+test('readOptionalConfig: a config that is present and valid is returned, not defaulted away', async () => {
+	const { cwd } = setupRepo({
+		raw: JSON.stringify({ gates: { check: 'tsc --noEmit', test: 'node --test', 'test-coverage': false }, generated: ['plugin/dist/'] }),
+	});
+
+	const config = await readOptionalConfig({ cwd });
+
+	expect(config?.generated).toStrictEqual(['plugin/dist/']);
+});
+
+test('readOptionalConfig: an illegal scoped-gate key throws rather than falling back to defaults', async () => {
+	// The measured case: `format` is not a legal package-gates key, doctor
+	// refuses it by name, and every other command used to read defaults instead
+	// — which silently dropped `generated` and reported findings on generated
+	// files as if they were source.
+	const { cwd } = setupRepo({
+		raw: JSON.stringify({
+			gates: { check: 'tsc --noEmit', test: 'node --test', 'test-coverage': false },
+			'package-gates': { check: 'pnpm --filter {package} run check', test: 'pnpm --filter {package} run test:unit', format: 'pnpm format' },
+		}),
+	});
+
+	const error = await getRejectionError({ promise: readOptionalConfig({ cwd }) });
+
+	expect(error.message).toMatch(/format/);
+});
+
+test('readOptionalConfig: a config that is not JSON at all throws rather than defaulting', async () => {
+	const { cwd } = setupRepo({ raw: '{ not json' });
+
+	const error = await getRejectionError({ promise: readOptionalConfig({ cwd }) });
+
+	expect(error).toBeDefined();
 });

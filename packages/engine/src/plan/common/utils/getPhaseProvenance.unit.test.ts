@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { getPhaseProvenance, type PhaseFile } from '#src/plan/index.ts';
+import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
+import { getPhaseProvenance } from '#src/plan/common/utils/getPhaseProvenance.ts';
 
 interface PhaseSpec {
 	base: string;

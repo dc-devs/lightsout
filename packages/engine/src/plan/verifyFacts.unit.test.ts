@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import type { ExploreArea } from '#src/contracts/index.ts';
-import { verifyFacts } from '#src/plan/index.ts';
+import { verifyFacts } from '#src/plan/verifyFacts.ts';
 
 /** A full ExploreArea with per-test overrides. */
 const area = (overrides: Partial<ExploreArea>): ExploreArea => ({

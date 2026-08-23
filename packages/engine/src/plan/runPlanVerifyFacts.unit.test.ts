@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { PlanFacts } from '#src/contracts/index.ts';
-import { runPlanVerifyFacts } from '#src/plan/index.ts';
+import { runPlanVerifyFacts } from '#src/plan/runPlanVerifyFacts.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 

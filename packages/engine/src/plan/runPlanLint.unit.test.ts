@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@jest/globals';
 import { FindingSeverity, StructuralCheck } from '#src/contracts/index.ts';
-import { runPlanLint } from '#src/plan/index.ts';
+import { runPlanLint } from '#src/plan/runPlanLint.ts';
 import { advisoryPlanBody, plantAdvisoryTouchedFiles } from '#tests/helpers/advisoryPlan.ts';
 import { expectStatus } from '#tests/helpers/expectStatus.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
@@ -280,16 +280,15 @@ test('plan lint: the target repo config reaches the structural lint', async () =
 	).toBeTruthy();
 });
 
-test('plan lint: an unreadable config leaves the lint running on defaults', async () => {
+test('plan lint: an unreadable config refuses instead of linting against defaults nobody chose', async () => {
 	const cwd = setupConsumerRepo();
 	writePlan({ cwd, name: 'no-config', body: cleanPlan() });
 
 	writeFileSync(join(cwd, 'lightsout.config.json'), '{ not json');
 
-	const result = await runPlanLint({ cwd, name: 'no-config' });
-
-	expectStatus(result, 'complete');
-	expect('findings' in result).toBeTruthy();
-	// a broken config is non-fatal here, got: ${JSON.stringify(result.findings)}
-	expect(result.findings).toStrictEqual([]);
+	// The test above this one shows `packages-dir` deciding what the lint
+	// reports. A config that will not parse therefore changes the findings
+	// silently, which is the failure that cost a bisect to find on
+	// standards-check. A repo with NO config still lints at the defaults.
+	await expect(runPlanLint({ cwd, name: 'no-config' })).rejects.toThrow(/is not valid JSON/);
 });

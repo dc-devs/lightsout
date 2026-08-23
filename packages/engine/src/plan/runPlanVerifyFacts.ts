@@ -1,8 +1,9 @@
-import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { messageOf } from '#src/common/utils/messageOf.ts';
 import { AuthoredFacts, type PlanFacts } from '#src/contracts/index.ts';
 import { PlanRunStatus } from '#src/plan/common/constants/PlanRunStatus.ts';
+import { pathExists } from '#src/plan/common/paths/pathExists.ts';
 import { readPlanWorkspaceFile } from '#src/plan/common/utils/readPlanWorkspaceFile.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 import { verifyFacts } from '#src/plan/verifyFacts.ts';
@@ -31,10 +32,7 @@ const snapshotNotes = async ({
 	const source = resolve(cwd, notesFile);
 	const destination = join(workspaceDir, 'notes.md');
 
-	const alreadyFrozen = await access(destination).then(
-		() => true,
-		() => false,
-	);
+	const alreadyFrozen = await pathExists({ path: destination });
 
 	if (alreadyFrozen) {
 		progress('plan verify-facts · notes.md already frozen — snapshot skipped');

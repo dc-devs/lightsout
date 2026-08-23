@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { readBrainstormDecisions } from '#src/plan/index.ts';
+import { readBrainstormDecisions } from '#src/plan/readBrainstormDecisions.ts';
 import { getRejectionError } from '#tests/helpers/getRejectionError.ts';
 
 /**

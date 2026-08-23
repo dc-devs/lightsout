@@ -5,5 +5,6 @@ export { checkHarness } from '#src/doctor/checkHarness.ts';
 export { checkJestMocks } from '#src/doctor/checkJestMocks.ts';
 export { checkLintRules } from '#src/doctor/checkLintRules.ts';
 export { checkScriptBinaries } from '#src/doctor/checkScriptBinaries.ts';
+export { checkSourceWalk } from '#src/doctor/checkSourceWalk.ts';
 export { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
 export { runDoctor } from '#src/doctor/runDoctor.ts';

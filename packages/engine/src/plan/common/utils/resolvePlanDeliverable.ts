@@ -1,18 +1,13 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathExists } from '#src/plan/common/paths/pathExists.ts';
+import type { DeliverableFile } from '#src/plan/common/types/DeliverableFile.ts';
 import { planWorkspaceDir } from '#src/plan/planWorkspaceDir.ts';
 
 interface Params {
 	cwd: string;
 	/** Kebab plan name — the folder the plan's own files live in. */
 	name: string;
-}
-
-/** A resolved deliverable file: its path and text. */
-interface DeliverableFile {
-	path: string;
-	text: string;
 }
 
 interface ResolvedDeliverable {

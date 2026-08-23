@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { getPlanTouchedPaths, type PhaseFile } from '#src/plan/index.ts';
+import type { PhaseFile } from '#src/plan/common/types/PhaseFile.ts';
+import { getPlanTouchedPaths } from '#src/plan/common/utils/getPlanTouchedPaths.ts';
 
 interface PlanSpec {
 	create?: string[];

@@ -12,6 +12,7 @@ interface Params {
  * A copy of the default standards package's `getExportName`, which must AGREE
  * with this but cannot be identical: a check derives the base name itself
  * rather than reaching for `node:path`. `scripts/checkMirrors.mjs` compares
- * code, so it cannot hold these two together — only a reader can.
+ * code, so it holds this pair the other way — as a behavioural mirror, running
+ * both copies over the same inputs and comparing what they return.
  */
 export const getExportName = ({ path }: Params): string => basename(path).replace(/\.(m|c)?[jt]sx?$/, '');

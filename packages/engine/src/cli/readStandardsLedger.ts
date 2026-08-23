@@ -1,4 +1,4 @@
-import { readConfig } from '#src/common/config/readConfig.ts';
+import { readOptionalConfig } from '#src/common/config/readOptionalConfig.ts';
 import type { LightsoutConfig } from '#src/contracts/index.ts';
 import { listStandardsRules, type StandardsRuleListing } from '#src/standardsCheck/index.ts';
 
@@ -14,7 +14,7 @@ interface Params {
  * own message naming the package at fault.
  */
 export const readStandardsLedger = async ({ cwd }: Params): Promise<{ config?: LightsoutConfig; rules: StandardsRuleListing[] }> => {
-	const config = await readConfig({ cwd }).catch(() => undefined);
+	const config = await readOptionalConfig({ cwd });
 	const rules = await listStandardsRules({ cwd, config });
 
 	return { config, rules };

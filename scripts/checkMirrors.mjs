@@ -1,6 +1,6 @@
 import { globSync, readFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { invokedDirectly } from './invokedDirectly.mjs';
 
@@ -25,10 +25,11 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  * engine's `isTestFile` explains what the exemption buys, the package's
  * explains which rules re-ask the question — and only the code has to match.
  *
- * What this does NOT cover: a pair that has to agree in BEHAVIOUR while
- * differing in code. `getExportName` is the one such pair — the package's copy
- * derives a base name itself where the engine's reaches for `node:path` — and
- * both copies say so. Nothing holds those two together but a reader.
+ * A pair that has to agree in BEHAVIOUR while differing in code is held the
+ * other way: `behaviouralMirrors` runs both copies against the same inputs and
+ * compares what they return. `getExportName` is the one such pair — the
+ * package's copy derives a base name itself where the engine's reaches for
+ * `node:path` — so no comparison of code could ever hold it.
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -52,6 +53,53 @@ const findDeclaredMirrors = () => {
 	return [...new Map(pairs.map((pair) => [[...pair].sort().join(' ↔ '), pair])).values()];
 };
 
+/**
+ * Pairs that must agree in what they RETURN while differing in what they say.
+ *
+ * The inputs stay inside the contract both copies document — repo-relative,
+ * `/`-separated, or a bare filename. Feeding a Windows separator would split
+ * them for a reason neither promises to handle, which is a difference invented
+ * by the test rather than one a caller could hit.
+ */
+const behaviouralMirrors = [
+	{
+		name: 'getExportName',
+		left: 'packages/engine/src/plan/common/naming/getExportName.ts',
+		right: 'packages/standards-typescript/common/naming/getExportName.ts',
+		export: 'getExportName',
+		inputs: [
+			'index.ts',
+			'src/plan/runPlanDraft.ts',
+			'a/b/Component.tsx',
+			'a/b/module.mjs',
+			'a/b/module.cjs',
+			'legacy/script.js',
+			'legacy/View.jsx',
+			'types/Config.d.ts',
+			'name.with.dots.ts',
+			'no-extension',
+			'deep/nested/path/getExportName.ts',
+			'.hidden.ts',
+			'',
+		].map((path) => ({ path })),
+	},
+];
+
+/** Run both copies of a behavioural pair over its inputs, reporting the first input they answer differently. */
+const compareBehaviour = async ({ pair }) => {
+	const [left, right] = await Promise.all([import(pathToFileURL(join(repoRoot, pair.left)).href), import(pathToFileURL(join(repoRoot, pair.right)).href)]);
+
+	for (const input of pair.inputs) {
+		const [leftAnswer, rightAnswer] = [left[pair.export](input), right[pair.export](input)];
+
+		if (leftAnswer !== rightAnswer) {
+			return `${pair.left} and ${pair.right} must agree, but for ${JSON.stringify(input)} they return ${JSON.stringify(leftAnswer)} and ${JSON.stringify(rightAnswer)}`;
+		}
+	}
+
+	return undefined;
+};
+
 /** One file's code with every comment dropped and the layout normalized, so only what runs is compared. */
 const codeOf = ({ path }) => {
 	const text = readFileSync(join(repoRoot, path), 'utf8');
@@ -61,9 +109,9 @@ const codeOf = ({ path }) => {
 };
 
 /**
- * @returns every mirror that has drifted, and how many pairs were compared
+ * @returns every mirror that has drifted, how many code pairs were compared, and how many behavioural pairs
  */
-export const checkMirrors = () => {
+export const checkMirrors = async () => {
 	const pairs = findDeclaredMirrors();
 	const problems = [];
 
@@ -77,14 +125,26 @@ export const checkMirrors = () => {
 		}
 	}
 
-	return { problems, compared: pairs.length };
+	for (const pair of behaviouralMirrors) {
+		try {
+			const difference = await compareBehaviour({ pair });
+
+			if (difference !== undefined) {
+				problems.push(difference);
+			}
+		} catch (error) {
+			problems.push(`the ${pair.name} behavioural mirror could not be run — ${error.message}`);
+		}
+	}
+
+	return { problems, compared: pairs.length, comparedByBehaviour: behaviouralMirrors.length };
 };
 
-const main = () => {
-	const { problems, compared } = checkMirrors();
+const main = async () => {
+	const { problems, compared, comparedByBehaviour } = await checkMirrors();
 
 	if (problems.length === 0) {
-		console.log(`${compared} declared mirror(s) agree`);
+		console.log(`${compared} declared mirror(s) and ${comparedByBehaviour} behavioural pair(s) agree`);
 
 		return;
 	}
@@ -103,5 +163,5 @@ const main = () => {
 };
 
 if (invokedDirectly({ moduleUrl: import.meta.url })) {
-	main();
+	await main();
 }
