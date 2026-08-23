@@ -9,6 +9,7 @@ import { checkHarness } from '#src/doctor/checkHarness.ts';
 import { checkJestMocks } from '#src/doctor/checkJestMocks.ts';
 import { checkLintRules } from '#src/doctor/checkLintRules.ts';
 import { checkScriptBinaries } from '#src/doctor/checkScriptBinaries.ts';
+import { checkSourceWalk } from '#src/doctor/checkSourceWalk.ts';
 import { checkUserEvent } from '#src/doctor/checkUserEvent.ts';
 import type { DoctorCheck } from '#src/doctor/common/types/DoctorCheck.ts';
 import { resolvePackageDirs } from '#src/doctor/resolvePackageDirs.ts';
@@ -69,6 +70,7 @@ export const runDoctor = async ({ cwd, probeHarness }: Params): Promise<DoctorCh
 
 	checks.push(await checkHarness({ cwd, config, probeHarness }));
 	checks.push(await checkGitignore({ cwd }));
+	checks.push(await checkSourceWalk({ cwd, generated: config.generated }));
 
 	// packageDirs (root + every scoped package) is resolved once here and fed
 	// to every package-iterating check below.
