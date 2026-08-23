@@ -52,6 +52,11 @@
 		]
 	},
 
+	// Caching is OFF for every target, deliberately. A cached green is
+	// indistinguishable from an executed one, and this repo has been burned by
+	// both halves of that: a cached `test:e2e` reporting 64 of 64 passing while
+	// the suite failed, and a pre-flight replaying a pass hashed on a different
+	// Node than the one in the shell. Gates here are evidence, so they run.
 	"targetDefaults": {
 		// `^default` is the whole dependency story. These packages ship SOURCE, not
 		// a built dist/, so nothing compiles ahead of anything else and no target
@@ -59,27 +64,27 @@
 		// dependencies' FILES — so editing standards-contracts misses the engine's
 		// typecheck cache and the standards package's test cache, with no build
 		// step in between to model.
-		"typecheck": { "cache": true, "inputs": ["default", "^default"] },
-		"test:unit": { "cache": true, "inputs": ["default", "^default"] },
+		"typecheck": { "cache": false, "inputs": ["default", "^default"] },
+		"test:unit": { "cache": false, "inputs": ["default", "^default"] },
 		"test:unit:coverage": {
-			"cache": true,
+			"cache": false,
 			"inputs": ["default", "^default"],
 			"outputs": ["{projectRoot}/coverage"]
 		},
 		"test:e2e": {
-			"cache": true,
+			"cache": false,
 			"inputs": ["default", "^default", { "externalDependencies": ["esbuild"] }]
 		},
 		// The web app's Vite build. `dev` deliberately gets no entry: a
 		// long-running server is not a cacheable target, and naming it here
 		// would invite someone to try.
 		"build": {
-			"cache": true,
+			"cache": false,
 			"inputs": ["default", "^default"],
 			"outputs": ["{projectRoot}/dist"]
 		},
 		"bundle": {
-			"cache": true,
+			"cache": false,
 			"inputs": ["production", "^production", { "externalDependencies": ["esbuild"] }]
 		}
 	},
