@@ -26,6 +26,9 @@ import { invokedDirectly } from './invokedDirectly.mjs';
  * throwaway directory. Nothing is written into the working tree: a check that
  * repairs what it measures reports success and leaves the fix uncommitted.
  *
+ * The version question reads the working tree, so an uncommitted rebuild of
+ * plugin/dist/cli.mjs demands its bump before the commit rather than after.
+ *
  * `--base <ref>` picks what the version is compared against (default
  * `origin/main`). A missing ref, or a base that already contains this commit,
  * skips the version question rather than inventing an answer — that is the
@@ -71,12 +74,22 @@ const git = ({ args }) => {
 	}
 };
 
-/** True when a path changed between a base commit and HEAD. */
+/**
+ * True when a path differs between a base commit and the WORKING TREE.
+ *
+ * The tree, not HEAD. The moment the version answer matters most is the moment
+ * before the commit — `pnpm bundle` has just rewritten plugin/dist/cli.mjs and
+ * it is sitting unstaged. Compared against HEAD, that rebuild is invisible, so
+ * the check reported "nothing under plugin/ changed" while git showed 332
+ * insertions in the same file, and asked for no bump. Omitting `...HEAD` makes
+ * git compare the base against the tree, which is what the other half of this
+ * script already measures.
+ */
 const changedSince = ({ baseCommit, path }) => {
 	// `git diff --quiet` says "identical" by exiting 0 and "differs" by exiting
 	// 1, so the answer is in the exit code rather than the output.
 	try {
-		execFileSync('git', ['diff', '--quiet', `${baseCommit}...HEAD`, '--', path], { cwd: repoRoot, stdio: 'ignore' });
+		execFileSync('git', ['diff', '--quiet', baseCommit, '--', path], { cwd: repoRoot, stdio: 'ignore' });
 
 		return false;
 	} catch {

@@ -4,7 +4,6 @@
 // the walk stopped skipping every directory named `coverage`, which is why the
 // list arrived all at once.
 
-export { invokeCoverageAgent, runCoverageBatch } from '#src/coverage/batch/index.ts';
 export { buildCoverageBatch } from '#src/coverage/buildCoverageBatch.ts';
 export type { CoverageResult } from '#src/coverage/CoverageResult.ts';
 export { checkChangedFilesExecuted } from '#src/coverage/checkChangedFilesExecuted.ts';

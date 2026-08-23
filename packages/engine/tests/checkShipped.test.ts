@@ -186,6 +186,23 @@ test('changing plugin/ without bumping the version fails, and says which version
 	expect(output).toContain(`plugin.json is ${currentVersion} against a base of ${currentVersion}`);
 });
 
+test('an uncommitted change under plugin/ demands the bump, before the commit exists', async () => {
+	const cwd = await setupClone();
+	const currentVersion = getVersion({ cwd });
+
+	// Left unstaged on purpose: this is `pnpm bundle` having just rewritten the
+	// shipped bundle, which is when the question matters and when a check
+	// reading committed state answers "nothing changed".
+	await writeFile(join(cwd, 'plugin/dist/cli.mjs'), `${await readFile(join(cwd, 'plugin/dist/cli.mjs'), 'utf8')}\n// hand edit\n`);
+
+	const { ok, output } = checkShipped({ cwd, base: 'main' });
+
+	expect(ok).toBe(false);
+	expect(output).toContain(`plugin.json is ${currentVersion} against a base of ${currentVersion}`);
+	// the old failure was a pass that said this
+	expect(output).not.toMatch(/nothing under plugin\/ changed/);
+});
+
 test('changing plugin/ with a bumped version passes the version half', async () => {
 	const cwd = await setupClone();
 	const currentVersion = getVersion({ cwd });
