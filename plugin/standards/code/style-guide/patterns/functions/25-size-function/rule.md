@@ -31,3 +31,5 @@ question has answered itself.
 Extraction moves cost rather than removing it. Each piece pulled out is a new
 name to read and, if it leaves the file, a new file in the folder. Split
 because the piece deserves a name, not to buy back lines.
+
+**Exception — orchestration functions** may exceed 50 lines when each step delegates to a dedicated function (no inline business logic) and the flow is linear: a 150-line `start()` calling 8 step functions is fine; a 150-line function with inline loops and transformations is not.

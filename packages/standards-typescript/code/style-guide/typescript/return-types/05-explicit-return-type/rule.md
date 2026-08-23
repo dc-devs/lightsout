@@ -34,3 +34,5 @@ export const getUserDisplayName = ({ user }: Params) => { /* ... */ }; // WRONG 
 
 const sumTotals = ({ records }: { records: ReportRecord[] }): number => { /* ... */ }; // WRONG — internal, annotation is noise
 ```
+
+**Migration:** new exported functions comply immediately; existing exported functions gain a return type when touched. Never remove a return type from an exported function.

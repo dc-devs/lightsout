@@ -18,3 +18,22 @@ severity: blocking
 | `types/` | Type-level declarations (`CopyResult`) |
 | `constants/` | Value and named constants (`defaultConfig`, `Action`) |
 | `services/` | Stateful classes with methods (`ApiClient`) |
+
+## Example
+
+```
+src/
+├─ common/            # shared across ALL modules
+│  ├─ utils/          #   (formatDate.ts — no barrels under common/)
+│  ├─ types/
+│  ├─ services/
+│  ├─ formatting/     # domain folder: 2+ related pure functions
+├─ featureA/
+│  ├─ common/         # shared within featureA only
+│  │  ├─ utils/
+│  │  ├─ types/
+│  ├─ featureA.ts
+│  └─ index.ts
+```
+
+Reading the hierarchy: `src/common/` serves every feature; `src/featureA/common/` serves only `featureA`. If a helper there is later needed by `featureB`, promote it to `src/common/utils/`.
