@@ -1,7 +1,7 @@
 ---
 summary: "a file over the standards line cap"
 checked: true
-severity: blocking
+severity: advisory
 settings:
   file: 250
   tsxFile: 300

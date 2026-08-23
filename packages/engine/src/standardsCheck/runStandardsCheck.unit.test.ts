@@ -102,8 +102,9 @@ test('the standards check finds each planted defect and respects the exceptions'
 
 	// oversized file flagged
 	expect(byRule('size-file').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
-	// a file over its cap is a rule violation, unlike the per-function size advisory
-	expect(byRule('size-file').find((finding) => finding.siteKey === 'size-file:src/b/huge.ts')?.severity).toBe('blocking');
+	// a cap is a layout opinion: the pack ships it advisory, and a repo that wants
+	// it to block promotes it in standards-checks (this one has none)
+	expect(byRule('size-file').find((finding) => finding.siteKey === 'size-file:src/b/huge.ts')?.severity).toBe('advisory');
 	// .tsx under its larger cap not flagged
 	expect(byRule('size-file').some((finding) => finding.files[0]?.path === 'src/b/BigView.tsx')).toBeFalsy();
 

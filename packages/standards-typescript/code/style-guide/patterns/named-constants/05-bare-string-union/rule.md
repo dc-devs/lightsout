@@ -1,7 +1,7 @@
 ---
 summary: "a string-literal union exported with no `const` object behind it"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Use a union type paired with a `const` object

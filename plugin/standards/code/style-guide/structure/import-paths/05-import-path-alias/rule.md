@@ -1,7 +1,7 @@
 ---
 summary: "a relative import path in a package that configures aliases"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 **Use the package's configured path alias for every import.**

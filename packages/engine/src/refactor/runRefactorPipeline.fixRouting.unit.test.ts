@@ -11,6 +11,7 @@ import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
 import { setupMonorepo } from '#tests/helpers/setupMonorepo.ts';
+import { strictProfile } from '#tests/helpers/strictProfile.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure Finding (multi-export). */
@@ -92,6 +93,7 @@ const setupMixedRed = async () => {
 				test: 'node -e "process.exit(0)" {package}',
 				'test-coverage': packageGateCommand({ pkg: '@acme/web', flag: 'coverage.flag' }),
 			},
+			'standards-checks': strictProfile,
 		}),
 	);
 	writeSource({ dir, path: 'packages/api/src/multi.ts', source: multiExport });

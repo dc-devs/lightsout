@@ -1,7 +1,7 @@
 ---
 summary: "manual mock cleanup in a lifecycle hook, which the Jest config already does"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Mock Cleanup

@@ -1,7 +1,7 @@
 ---
 summary: "an index file holding code instead of only re-export lines"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Index Files Hold No Code

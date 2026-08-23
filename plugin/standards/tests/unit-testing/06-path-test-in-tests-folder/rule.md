@@ -1,7 +1,7 @@
 ---
 summary: "a unit test in a separate tests directory instead of beside its subject"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Test Files

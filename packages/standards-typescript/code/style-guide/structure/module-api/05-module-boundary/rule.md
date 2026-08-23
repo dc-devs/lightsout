@@ -1,7 +1,7 @@
 ---
 summary: "a file deep-imported across a module boundary instead of through its barrel"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Module Boundaries

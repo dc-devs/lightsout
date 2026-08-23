@@ -1,7 +1,7 @@
 ---
 summary: "more than one export in a file, outside the closed exception list"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 - Each **exported** function, class, interface, type, or constant has its own file, named after the export (cased per the package's file-naming convention)

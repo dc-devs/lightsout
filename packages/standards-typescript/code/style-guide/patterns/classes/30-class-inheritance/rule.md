@@ -1,7 +1,7 @@
 ---
 summary: "a class extending anything other than an Error"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Composition Over Inheritance

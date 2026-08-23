@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gateLogCommand } from '#tests/helpers/gateLogCommand.ts';
+import { strictProfile } from '#tests/helpers/strictProfile.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 interface Params {
@@ -13,7 +14,8 @@ interface Params {
  * A minimal monorepo consumer in a temp dir: packages/api and packages/web
  * whose package.json names (@acme/*) deliberately differ from their
  * directory names, gate commands that log "<group> <kind>" to gates.log,
- * and a git history.
+ * a git history, and the strict profile (`strictProfile`) so planted layout
+ * defects are work rather than advice.
  */
 export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: api feature\n' }: Params = {}) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-mono-test-'));
@@ -42,6 +44,7 @@ export const setupMonorepo = ({ plan = '---\npackages:\n  - api\n---\n# Plan: ap
 				test: `${gateLogCommand({ kind: 'test' })} {package}`,
 				'test-coverage': `${gateLogCommand({ kind: 'coverage' })} {package}`,
 			},
+			'standards-checks': strictProfile,
 		}),
 	);
 	execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });

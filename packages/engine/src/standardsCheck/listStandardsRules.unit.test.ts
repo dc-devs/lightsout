@@ -226,26 +226,56 @@ describe('listStandardsRules', () => {
 		});
 	});
 
-	test('the path rules ship at the severity each was designed for', async () => {
+	test('the path rules ship advisory — the default pack blocks only what is wrong on its own terms', async () => {
 		const rules = await listStandardsRules({ cwd });
 		const severities = Object.fromEntries(rules.filter((rule) => durablePathRules.includes(rule.rule)).map((rule) => [rule.rule, rule.severity]));
 
-		// all nine blocking. Each is a file move, a rename against a closed list
-		// from a doc, or a barrel promotion with one prescribed remedy —
-		// untested-subject-not-public graduated after its burn-down proved agents
-		// apply that remedy cleanly, and folder-casing and domain-folder-single-file
-		// followed once the repo had stood at zero findings for both
+		// every path rule is a layout opinion — where a file goes, what a folder
+		// is called, where a test sits. The pack reports them and hands them to
+		// the refactor agent, but does not block a repository on day one for a
+		// layout it has not agreed to; a strict repo promotes them in its own
+		// standards-checks, as this repository does
 		expect(severities).toStrictEqual({
-			'path-banned-module-name': StandardsSeverity.Blocking,
-			'path-common-flat': StandardsSeverity.Blocking,
-			'path-common-barrel': StandardsSeverity.Blocking,
-			'path-test-in-tests-folder': StandardsSeverity.Blocking,
-			'path-test-not-colocated': StandardsSeverity.Blocking,
-			'path-test-support-in-src': StandardsSeverity.Blocking,
-			'path-test-untested-subject-not-public': StandardsSeverity.Blocking,
-			'path-folder-casing': StandardsSeverity.Blocking,
-			'path-domain-folder-single-file': StandardsSeverity.Blocking,
+			'path-banned-module-name': StandardsSeverity.Advisory,
+			'path-common-flat': StandardsSeverity.Advisory,
+			'path-common-barrel': StandardsSeverity.Advisory,
+			'path-test-in-tests-folder': StandardsSeverity.Advisory,
+			'path-test-not-colocated': StandardsSeverity.Advisory,
+			'path-test-support-in-src': StandardsSeverity.Advisory,
+			'path-test-untested-subject-not-public': StandardsSeverity.Advisory,
+			'path-folder-casing': StandardsSeverity.Advisory,
+			'path-domain-folder-single-file': StandardsSeverity.Advisory,
 		});
+	});
+
+	test('the default pack blocks exactly the rules that are wrong on their own terms', async () => {
+		// a repo with no config of its own, so the listing is the pack's defaults
+		// rather than this repository's promotions
+		const rules = await listStandardsRules({ cwd: setupRepo().cwd });
+		const blocking = rules
+			.filter((rule) => rule.severity === StandardsSeverity.Blocking)
+			.map((rule) => rule.rule)
+			.sort();
+
+		// types that lie, code nothing uses, a tree that breaks across
+		// filesystems, doc tags another tool owns, and tests that are silently
+		// weaker than they read. Everything about layout ships advisory.
+		expect(blocking).toStrictEqual([
+			'ast-duplicate',
+			'brittle-doc-tags',
+			'dead-export',
+			'explicit-return-type',
+			'import-type-only',
+			'no-any',
+			'path-case-collision',
+			'test-assert-in-hook',
+			'test-mock-prefix',
+			'test-mock-untyped',
+			'test-mock-wrapper-untyped',
+			'test-shared-let',
+			'test-strict-equal-matcher',
+			'type-assertion',
+		]);
 	});
 
 	test('no path rule carries a number a repo could tune', async () => {

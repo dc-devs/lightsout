@@ -220,6 +220,49 @@ Severity is the only lever a run gates on. There is no separate list of blockabl
 
 Run `lightsout standards-check --list` to print every rule with the standards document it enforces and the state it runs at in your repo — the live answer, rather than a list here that goes stale.
 
+#### What the default pack blocks
+
+The pack lightsout ships blocks only what is wrong on its own terms — code that lies about its types (`no-any`, `type-assertion`, `import-type-only`, `explicit-return-type`), code nothing uses (`dead-export`, `ast-duplicate`), a tree that breaks across filesystems (`path-case-collision`), doc tags git or the compiler already own (`brittle-doc-tags`), and tests that are silently weaker than they read (`test-shared-let`, `test-assert-in-hook`, `test-mock-prefix`, `test-mock-untyped`, `test-mock-wrapper-untyped`, `test-strict-equal-matcher`). Every rule about where files go, what they are called, and how many exports they hold ships `advisory`: it is still reported and still handed to the refactor agent, but a repository adopting lightsout is not blocked on day one by a layout it has not yet agreed to.
+
+A repository that wants the strict profile promotes those rules itself — an explicit, committed list of what it holds itself to. This is the block lightsout's own repository runs:
+
+```jsonc
+{
+  "standards-checks": {
+    "banned-class-shapes": "blocking",
+    "bare-string-union": "blocking",
+    "barrel-only-export": "blocking",
+    "barrel-star": "blocking",
+    "casing": "blocking",
+    "class-inheritance": "blocking",
+    "folder-census": "blocking",
+    "import-path-alias": "blocking",
+    "index-not-barrel": "blocking",
+    "module-boundary": "blocking",
+    "multi-export": "blocking",
+    "path-banned-module-name": "blocking",
+    "path-common-barrel": "blocking",
+    "path-common-flat": "blocking",
+    "path-domain-folder-single-file": "blocking",
+    "path-folder-casing": "blocking",
+    "path-test-in-tests-folder": "blocking",
+    "path-test-not-colocated": "blocking",
+    "path-test-support-in-src": "blocking",
+    "path-test-untested-subject-not-public": "blocking",
+    "placement": "blocking",
+    "single-use-scalar": "blocking",
+    "size-file": "blocking",
+    "size-function": "blocking",
+    "test-manual-mock-cleanup": "blocking",
+    "test-mega-factory": "blocking",
+    "test-mock-return-in-hook": "blocking",
+    "test-nested-describe": "blocking",
+    "test-only-export": "blocking",
+    "test-size-file": "blocking",
+  },
+}
+```
+
 ### Harness-neutral keys
 
 Two rules govern the keys above, and this surface depends on both:

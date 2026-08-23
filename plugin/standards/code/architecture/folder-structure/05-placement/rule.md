@@ -1,7 +1,7 @@
 ---
 summary: "module-internal shared code leaking out of its module's common/"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Rules

@@ -1,7 +1,7 @@
 ---
 summary: "a test file over the test-file line cap"
 checked: true
-severity: blocking
+severity: advisory
 settings:
   testFile: 400
 ---

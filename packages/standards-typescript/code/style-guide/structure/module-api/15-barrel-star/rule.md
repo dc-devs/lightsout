@@ -1,7 +1,7 @@
 ---
 summary: "a barrel re-exporting with `export *` instead of named re-exports"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Barrel Files (`index.ts`)

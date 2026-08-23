@@ -33,12 +33,12 @@ describe('readStandardsLedger', () => {
 
 		const { config } = await readStandardsLedger({ cwd });
 
-		expect(listParams()?.config).toEqual(expect.objectContaining({ 'standards-checks': { clone: 'off' } }));
+		expect(listParams()?.config).toEqual(expect.objectContaining({ 'standards-checks': expect.objectContaining({ clone: 'off' }) }));
 		// the repo path travels too: the packages a listing is built from are the
 		// ones this repo asked for, resolved against it
 		expect(listParams()?.cwd).toBe(cwd);
 		// and the caller gets the same config back, so both halves read one answer
-		expect(config).toEqual(expect.objectContaining({ 'standards-checks': { clone: 'off' } }));
+		expect(config).toEqual(expect.objectContaining({ 'standards-checks': expect.objectContaining({ clone: 'off' }) }));
 	});
 
 	test('a repo with no config still gets an answer — every rule at its default', async () => {
