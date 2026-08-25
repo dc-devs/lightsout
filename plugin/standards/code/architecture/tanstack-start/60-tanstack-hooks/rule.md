@@ -6,7 +6,10 @@ severity: advisory
 
 ### Hooks
 
-Custom hooks that wrap queries or manage state:
+Custom hooks that wrap queries or manage state live in the feature's `hooks/`
+folder — the same convention the
+[React channel's naming rule](../../react/30-file-naming-conventions/rule.md)
+derives (`useX` export → `camelCase.ts`), applied to TanStack query wrappers:
 
 ```typescript
 // features/issues/hooks/useIssues.ts
@@ -19,4 +22,6 @@ export const useIssues = ({ searchParams }: Params) => {
 };
 ```
 
-> **Return types:** query-options factories and hooks infer their return types — TanStack's `UseSuspenseQueryOptions`/`UseSuspenseQueryResult` generics are the contract, so this falls under the generic-heavy exception in [return-types.md](../../style-guide/typescript/return-types.md#return-types--explicit-on-exports-inferred-internally).
+The hook's inferred return type is deliberate — TanStack's generics are the
+contract; see the return-types note in this channel's
+[document](../document.md).

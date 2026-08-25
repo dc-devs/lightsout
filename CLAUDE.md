@@ -12,3 +12,5 @@ manifests, supervisor) that spawns the user's own installed harness
 For all coding changes and diagnosis, only suggest or apply best-practice solutions. Never suggest a patch or a hack — only suggest changes with the long-term health of this codebase in mind.
 
 Prefer correctness over speed of response.
+
+When filing or closing a Linear ticket, follow `.claude/skills/linear-ticket/SKILL.md`.

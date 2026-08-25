@@ -1,38 +1,34 @@
 ---
-summary: "a feature folder that does not follow the TanStack Start layout"
+summary: "a feature folder pre-creating layout the graduation rule has not earned"
 checked: false
 severity: advisory
 ---
 
 ## Feature Structure
 
-Each feature in `src/features/` follows this pattern:
+A feature under `src/features/` is a module: its `index.ts` is its public API
+([module boundary](../../../style-guide/structure/module-api/05-module-boundary/rule.md)),
+and everything inside it grows by the
+[graduation rule](../../folder-structure/55-domain-graduation/rule.md) — a
+single file until companions or a shared subject earn a folder. There is no
+fixed feature tree to stamp out; these are the domain folders a TanStack
+feature *commonly grows*, each created when graduation triggers and never
+before:
 
-```
-features/{feature}/
-├── common/                    # Feature-wide shared code
-│   ├── constants/
-│   ├── types/
-│   └── utils/
-├── components/                # Feature-wide reusable components
-├── hooks/                     # Feature-specific React hooks
-├── queries/                   # TanStack Query options
-├── screens/                   # Screen components (route destinations)
-│   └── {ScreenName}/
-│       ├── components/        # Screen-specific components
-│       │   └── common/        # Shared across screen components
-│       ├── hooks/             # Screen-specific hooks
-│       ├── {ScreenName}.tsx
-│       └── index.ts
-├── serverFns/                 # TanStack server functions
-└── index.ts                   # Feature barrel export
-```
+- `screens/` — route-destination components; a screen graduates to its own
+  folder exactly as any component does
+  ([component file structure](../../react/10-component-file-structure/rule.md))
+- `queries/` — query-options factories (see the query-options rule)
+- `serverFns/` — server functions (see the server-functions rule)
+- `hooks/` — query-wrapping hooks
+- `components/` — feature-wide components
+- `common/` — feature-internal shared code
 
-## Code Placement Hierarchy
+Where a piece of code lives — app-wide `src/common/`, feature `common/`, or
+beside its one consumer — is the base
+[placement rule](../../folder-structure/05-placement/rule.md), unchanged here.
 
-| Scope              | Location                                                 | When to Use                         |
-| ------------------ | -------------------------------------------------------- | ----------------------------------- |
-| App-wide           | `src/common/`                                            | Used by 2+ features                 |
-| Feature-wide       | `features/{feature}/common/`                             | Used by 2+ screens in one feature   |
-| Screen-wide        | `features/{feature}/screens/{screen}/components/common/` | Used by 2+ components in one screen |
-| Component-specific | `{component}/common/`                                    | Only used by one component          |
+None of this is TanStack's requirement. What TanStack mandates — route
+filenames under `routes/`, the `router.tsx`/`server.ts`/`client.tsx` entry
+files — lives in the framework carve-out table; the layout above is this
+pack's convention for the code the framework says nothing about.

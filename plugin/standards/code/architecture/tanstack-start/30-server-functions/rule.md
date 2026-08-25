@@ -4,14 +4,13 @@ checked: false
 severity: advisory
 ---
 
-## Key Patterns
-
 ### Server Functions
 
 Server functions live in a `serverFns/` folder at feature or app level — the
-feature's domain folder for its server calls. Each server function follows the
-graduation rule like everything else: **a file by default, a folder only when
-it has private companions**.
+conventional [domain folder](../../folder-structure/55-domain-graduation/rule.md)
+for a feature's server calls, this pack's convention rather than TanStack's
+requirement. Each server function follows the graduation rule like everything
+else: **a file by default, a folder only when it has private companions**.
 
 ```
 serverFns/
