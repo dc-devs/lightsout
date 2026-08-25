@@ -69,7 +69,6 @@ describe('StandardsFinding', () => {
 			'path-test-in-tests-folder',
 			'path-test-not-colocated',
 			'path-test-support-in-src',
-			'path-test-untested-subject-not-public',
 			'path-folder-casing',
 			'path-domain-folder-single-file',
 		]) {

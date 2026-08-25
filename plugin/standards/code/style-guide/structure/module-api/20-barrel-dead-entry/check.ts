@@ -74,7 +74,7 @@ const getDeclaringFile = ({
  * Whether a barrel entry exists to satisfy the test standards rather than a
  * caller.
  *
- * `path-test-untested-subject-not-public` requires that a file with a dedicated
+ * The unit-testing standards treat a tested barrel entry as consumed: a file with a dedicated
  * test be published by its module's barrel — a direct test is a promotion, not
  * an exception. Such an entry has a reader: the rule that demanded it. Reporting
  * it dead would set the two rules against each other and leave no edit that

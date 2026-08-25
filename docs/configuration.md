@@ -256,7 +256,6 @@ A repository that wants the strict profile promotes those rules itself — an ex
     "path-test-in-tests-folder": "blocking",
     "path-test-not-colocated": "blocking",
     "path-test-support-in-src": "blocking",
-    "path-test-untested-subject-not-public": "blocking",
     "placement": "blocking",
     "single-use-scalar": "blocking",
     "size-file": "blocking",
@@ -265,7 +264,6 @@ A repository that wants the strict profile promotes those rules itself — an ex
     "test-mega-factory": "blocking",
     "test-mock-return-in-hook": "blocking",
     "test-nested-describe": "blocking",
-    "test-only-export": "blocking",
     "test-size-file": "blocking",
   },
 }

@@ -23,6 +23,10 @@ const cwd = join(__dirname, '..', '..', '..', '..');
  * config overrides and its frozen refactor work-lists are all written in these
  * strings, so one of them going missing is a silent break in persisted data —
  * which is why they are restated here rather than read back off the pack.
+ *
+ * Removing an id from this list is a deliberate retirement: the rule's folder,
+ * every config override naming it, and this row are deleted in one change
+ * (path-test-untested-subject-not-public went that way, 2026-08-24).
  */
 const durableRuleIds = [
 	'ast-duplicate',
@@ -46,7 +50,6 @@ const durableRuleIds = [
 	'path-test-in-tests-folder',
 	'path-test-not-colocated',
 	'path-test-support-in-src',
-	'path-test-untested-subject-not-public',
 	'placement',
 	'size-file',
 	'size-function',
@@ -188,7 +191,6 @@ describe('listStandardsRules', () => {
 			'path-test-in-tests-folder',
 			'path-test-not-colocated',
 			'path-test-support-in-src',
-			'path-test-untested-subject-not-public',
 			'test-assert-in-hook',
 			'test-manual-mock-cleanup',
 			'test-mega-factory',
@@ -220,7 +222,6 @@ describe('listStandardsRules', () => {
 			'path-test-in-tests-folder': 'tests/unit-testing',
 			'path-test-not-colocated': 'tests/unit-testing',
 			'path-test-support-in-src': 'tests/unit-testing',
-			'path-test-untested-subject-not-public': 'tests/unit-testing',
 			'path-folder-casing': 'code/architecture/folder-structure',
 			'path-domain-folder-single-file': 'code/architecture/folder-structure',
 		});
@@ -242,7 +243,6 @@ describe('listStandardsRules', () => {
 			'path-test-in-tests-folder': StandardsSeverity.Advisory,
 			'path-test-not-colocated': StandardsSeverity.Advisory,
 			'path-test-support-in-src': StandardsSeverity.Advisory,
-			'path-test-untested-subject-not-public': StandardsSeverity.Advisory,
 			'path-folder-casing': StandardsSeverity.Advisory,
 			'path-domain-folder-single-file': StandardsSeverity.Advisory,
 		});

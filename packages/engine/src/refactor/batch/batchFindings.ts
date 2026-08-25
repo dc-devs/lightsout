@@ -45,7 +45,6 @@ const rulePriority: string[] = [
 	'domain-graduation',
 	'path-domain-folder-single-file',
 	'path-folder-casing',
-	'path-test-untested-subject-not-public',
 	'test-multiple-setups',
 	'test-mega-factory',
 	'folder-census',
