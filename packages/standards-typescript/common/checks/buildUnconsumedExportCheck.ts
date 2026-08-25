@@ -1,6 +1,8 @@
 import type { StandardsCheckModule } from '@lightsout/standards-contracts';
 import { readFileTexts } from '../checkInput/readFileTexts.ts';
+import { readManifestDependencies } from '../checkInput/readManifestDependencies.ts';
 import { buildUnconsumedFindings } from '../findings/buildUnconsumedFindings.ts';
+import { getFrameworkCarveOuts } from '../frameworks/getFrameworkCarveOuts.ts';
 import type { UnconsumedExport } from '../types/UnconsumedExport.ts';
 
 interface Params {
@@ -20,12 +22,17 @@ interface Params {
  * holds the rest of the check around it — the input it declares and the read
  * that gets there — so the three rules using it share a body instead of
  * repeating one. Each states only which verdict it claims and what it says.
+ *
+ * The framework carve-outs are derived here rather than taken as a parameter,
+ * because every rule that uses this builder wants the same answer and none of
+ * them should have to ask for it.
  */
 export const buildUnconsumedExportCheck = ({ rule, matches, detail, guidance }: Params): StandardsCheckModule => ({
 	inputKind: 'file-text',
 	run: ({ input }) => {
 		const { files, contents, standardsPacks } = readFileTexts({ input });
+		const carveOuts = getFrameworkCarveOuts({ dependencies: readManifestDependencies({ contents }) });
 
-		return buildUnconsumedFindings({ files, contents, standardsPacks, rule, matches, detail, guidance });
+		return buildUnconsumedFindings({ files, contents, standardsPacks, carveOuts, rule, matches, detail, guidance });
 	},
 });

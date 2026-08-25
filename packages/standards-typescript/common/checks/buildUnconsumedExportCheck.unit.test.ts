@@ -77,4 +77,21 @@ describe('buildUnconsumedExportCheck', () => {
 
 		expect(findings).toStrictEqual([]);
 	});
+
+	test('derives the framework carve-outs from the manifests in scope, so a route file consuming a screen is its consumer', async () => {
+		const input = setupFileTextInput({
+			contents: [
+				['package.json', '{ "dependencies": { "@tanstack/react-start": "1.0.0" } }'],
+				['src/routes/index.tsx', "import { RunsIndex } from '../features/app/screens/RunsIndex';\n\nexport const Route = { component: RunsIndex };"],
+				['src/features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex';"],
+				['src/features/app/screens/RunsIndex/RunsIndex.tsx', 'export const RunsIndex = (): null => null;'],
+			],
+		});
+
+		const findings = await buildCheck({ matches: ({ barrel, test: byTest }) => barrel && !byTest }).run({ input, settings: {} });
+
+		// with no carve-out derived, that route file reads as a barrel and the
+		// screen it renders as published to nobody
+		expect(findings).toStrictEqual([]);
+	});
 });
