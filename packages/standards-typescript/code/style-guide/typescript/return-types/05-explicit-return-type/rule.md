@@ -35,4 +35,13 @@ export const getUserDisplayName = ({ user }: Params) => { /* ... */ }; // WRONG 
 const sumTotals = ({ records }: { records: ReportRecord[] }): number => { /* ... */ }; // WRONG — internal, annotation is noise
 ```
 
+**Exceptions** (inference is correct on these even when exported):
+
+1. **Generic-heavy signatures** — when the written return type would be an unreadable conditional-type expression, the generic signature is the contract; infer.
+2. **Interface-pinned signatures** — methods implementing a declared interface (e.g., a `RecordSource` implementation) are already contracted by the interface; restating the type is duplication.
+
+(Framework-specific exceptions live with their frameworks: the React document exempts components, and the TanStack Start document exempts query-options factories — each loads only for repos using that framework.)
+
+**A non-exported function keeps an annotation when removing it changes what the compiler accepts** — contextual typing of literals (an array of tuples inferring as a wider union), a recursive helper, excess-property checking on an object literal. The bright line stays: annotate exports; do not annotate internals *for documentation*.
+
 **Migration:** new exported functions comply immediately; existing exported functions gain a return type when touched. Never remove a return type from an exported function.
