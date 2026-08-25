@@ -40399,6 +40399,45 @@ var readIntoCache = async ({ cwd, paths, cache }) => {
   return texts;
 };
 
+// src/standardsCheck/common/utils/isDelegationForwardBody.ts
+var isDelegationForwardBody = ({ body, compiler }) => {
+  const statements = compiler.isBlock(body) ? body.statements : void 0;
+  const [only] = statements ?? [];
+  const returned = statements === void 0 ? body : statements.length === 1 && only !== void 0 && compiler.isReturnStatement(only) ? only.expression : void 0;
+  return returned !== void 0 && compiler.isCallExpression(returned) && compiler.isPropertyAccessExpression(returned.expression) && compiler.isPropertyAccessExpression(returned.expression.expression) && returned.expression.expression.expression.kind === compiler.SyntaxKind.ThisKeyword;
+};
+
+// src/standardsCheck/common/utils/blankDelegationSpans.ts
+var isAssigningConstructor = ({ node, compiler }) => node.body?.statements.every(
+  (statement) => compiler.isExpressionStatement(statement) && compiler.isBinaryExpression(statement.expression) && statement.expression.operatorToken.kind === compiler.SyntaxKind.EqualsToken && compiler.isPropertyAccessExpression(statement.expression.left) && statement.expression.left.expression.kind === compiler.SyntaxKind.ThisKeyword
+);
+var blankDelegationSpans = ({ path, text, compiler }) => {
+  const sourceFile = compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true);
+  const lines = text.split("\n");
+  const blank = ({ node }) => {
+    const start = sourceFile.getLineAndCharacterOfPosition(node.getStart()).line;
+    const end = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line;
+    for (let line = start; line <= end; line += 1) {
+      lines[line] = "";
+    }
+  };
+  const visit = (node) => {
+    if (compiler.isClassDeclaration(node) || compiler.isClassExpression(node)) {
+      for (const member of node.members) {
+        if (compiler.isConstructorDeclaration(member) && isAssigningConstructor({ node: member, compiler })) {
+          blank({ node: member });
+        }
+        if (compiler.isMethodDeclaration(member) && member.body !== void 0 && isDelegationForwardBody({ body: member.body, compiler })) {
+          blank({ node: member });
+        }
+      }
+    }
+    node.forEachChild(visit);
+  };
+  visit(sourceFile);
+  return lines.join("\n");
+};
+
 // src/standardsCheck/common/utils/blankImportSpans.ts
 var importSpan = /^[ \t]*import\b(?:[^;'"]*?from\s*)?(['"])[^'"\n]+\1\s*;?/gm;
 var blankImportSpans = ({ text }) => {
@@ -40407,13 +40446,15 @@ var blankImportSpans = ({ text }) => {
 
 // src/standardsCheck/common/checkInputs/buildCloneSpansInput.ts
 var formatOf = ({ path }) => /\.(m|c)?tsx?$/.test(path) ? "typescript" : "javascript";
-var buildCloneSpansInput = async ({ cwd, source, settings, cache }) => {
+var buildCloneSpansInput = async ({ cwd, source, settings, cache, compiler }) => {
   const { minTokens } = settings;
   const texts = await readIntoCache({ cwd, paths: source, cache });
   const detector = new Detector(new Tokenizer(), new MemoryStore(), [], { minTokens, minLines: 5 });
   const spans = [];
   for (const [path, text] of texts) {
-    for (const clone3 of await detector.detect(path, blankImportSpans({ text }), formatOf({ path }))) {
+    const blanked = blankImportSpans({ text });
+    const detectable = compiler === void 0 ? blanked : blankDelegationSpans({ path, text: blanked, compiler });
+    for (const clone3 of await detector.detect(path, detectable, formatOf({ path }))) {
       const a = clone3.duplicationA;
       const b = clone3.duplicationB;
       spans.push({
@@ -40606,7 +40647,7 @@ var buildCheckInput = async ({
     case StandardsInputKind.TestFile:
       return buildTestFileInput({ cwd, tests, cache });
     case StandardsInputKind.CloneSpans:
-      return buildCloneSpansInput({ cwd, source, settings, cache });
+      return buildCloneSpansInput({ cwd, source, settings, cache, compiler });
     case StandardsInputKind.SyntaxTree:
     case StandardsInputKind.TypeChecker:
     case StandardsInputKind.ImportGraph: {

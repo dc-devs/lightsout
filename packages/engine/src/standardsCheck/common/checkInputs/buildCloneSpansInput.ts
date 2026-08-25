@@ -1,7 +1,9 @@
 import { Detector, MemoryStore } from '@jscpd/core';
 import { Tokenizer } from '@jscpd/tokenizer';
+import type ts from 'typescript';
 import { type CloneSpan, type CloneSpansInput, StandardsInputKind } from '#src/contracts/index.ts';
 import { readIntoCache } from '#src/standardsCheck/common/checkInputs/readIntoCache.ts';
+import { blankDelegationSpans } from '#src/standardsCheck/common/utils/blankDelegationSpans.ts';
 import { blankImportSpans } from '#src/standardsCheck/common/utils/blankImportSpans.ts';
 
 interface Params {
@@ -10,6 +12,8 @@ interface Params {
 	/** The clone rule's own resolved settings — the engine honors them because it runs the detector. */
 	settings: Record<string, number>;
 	cache: Map<string, string>;
+	/** The consumer's TypeScript, when the install has one — without it the delegation-forward blanking is skipped, never guessed. */
+	compiler?: typeof ts;
 }
 
 const formatOf = ({ path }: { path: string }) => (/\.(m|c)?tsx?$/.test(path) ? 'typescript' : 'javascript');
@@ -23,11 +27,14 @@ const formatOf = ({ path }: { path: string }) => (/\.(m|c)?tsx?$/.test(path) ? '
  *
  * Imports are blanked first (newline-preserving): a shared import list is
  * non-deduplicable by construction, so counting it as duplication would report
- * work nobody can do, and blanking keeps the reported line numbers true.
+ * work nobody can do, and blanking keeps the reported line numbers true. The
+ * composition remedy's delegation forwards are blanked the same way and for
+ * the same reason — the standards mandate that shape, so it is never work
+ * (see `blankDelegationSpans`).
  *
  * @param settings - the rule's resolved numbers; `minTokens` drives the detector
  */
-export const buildCloneSpansInput = async ({ cwd, source, settings, cache }: Params): Promise<CloneSpansInput> => {
+export const buildCloneSpansInput = async ({ cwd, source, settings, cache, compiler }: Params): Promise<CloneSpansInput> => {
 	const { minTokens } = settings;
 
 	const texts = await readIntoCache({ cwd, paths: source, cache });
@@ -35,7 +42,10 @@ export const buildCloneSpansInput = async ({ cwd, source, settings, cache }: Par
 	const spans: CloneSpan[] = [];
 
 	for (const [path, text] of texts) {
-		for (const clone of await detector.detect(path, blankImportSpans({ text }), formatOf({ path }))) {
+		const blanked = blankImportSpans({ text });
+		const detectable = compiler === undefined ? blanked : blankDelegationSpans({ path, text: blanked, compiler });
+
+		for (const clone of await detector.detect(path, detectable, formatOf({ path }))) {
 			const a = clone.duplicationA;
 			const b = clone.duplicationB;
 

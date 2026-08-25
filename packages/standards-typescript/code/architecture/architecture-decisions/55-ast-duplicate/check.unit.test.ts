@@ -275,4 +275,25 @@ describe('ast-duplicate check', () => {
 
 		expect(findings.map(({ detail }) => detail)).toStrictEqual(["'getTokens', 'splitWords' (32 tokens) have identical bodies after identifier normalization"]);
 	});
+
+	test('the composition remedy is never a duplicate: identical one-line forwards stay silent', async () => {
+		const forwardClass = ({ name }: { name: string }) =>
+			[
+				`export class ${name} {`,
+				'\tupdate({ patch, reason, actor, timestamp }: { patch: object; reason: string; actor: string; timestamp: number }) {',
+				'\t\treturn this.runState.update({ patch, reason, actor, timestamp });',
+				'\t}',
+				'}',
+			].join('\n');
+		const input = setupSyntaxTreeInput({
+			sources: [
+				['src/refactor/RefactorRun.ts', forwardClass({ name: 'RefactorRun' })],
+				['src/pipeline/PipelineRun.ts', forwardClass({ name: 'PipelineRun' })],
+			],
+		});
+
+		const findings = await check.run({ input, settings: { minBodyTokens: 5 } });
+
+		expect(findings).toStrictEqual([]);
+	});
 });

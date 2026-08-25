@@ -2,6 +2,7 @@ import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from 
 import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
 import { getSiteGroupKey } from '../../../../common/findings/getSiteGroupKey.ts';
 import { collectFunctionNodes } from '../../../../common/parsing/collectFunctionNodes.ts';
+import { isDelegationForwardBody } from '../../../../common/parsing/isDelegationForwardBody.ts';
 import { getOwningPack } from '../../../../common/paths/getOwningPack.ts';
 import { normalizeFunctionTokens } from './normalizeFunctionTokens.ts';
 
@@ -31,7 +32,10 @@ const groupByBody = ({ input, minBodyTokens }: { input: SyntaxTreeInput; minBody
 		for (const { name, startLine, endLine, body } of collectFunctionNodes({ sourceFile: tree, compiler: input.compiler })) {
 			const tokens = normalizeFunctionTokens({ node: body, compiler: input.compiler });
 
-			if (tokens.length >= minBodyTokens) {
+			// A one-line forward to a `this`-held collaborator is the shape the
+			// composition-over-inheritance rule mandates — never a duplicate
+			// candidate, however many classes hold the same collaborator.
+			if (tokens.length >= minBodyTokens && !isDelegationForwardBody({ body, compiler: input.compiler })) {
 				const key = `${getOwningPack({ path, standardsPacks: input.standardsPacks })}:${tokens.join(',')}`;
 
 				byBody.set(key, [...(byBody.get(key) ?? []), { name, path, startLine, endLine, tokenCount: tokens.length }]);
