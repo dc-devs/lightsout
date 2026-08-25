@@ -17,3 +17,5 @@ A barrel is the module's **public API contract** — it lists exactly what consu
 ## Barrel Exports (`index.ts`)
 
 A graduated folder-module's `index.ts` is its public API contract — the single import path other modules use. Barrel rules (named re-exports, one export per line, deliberate surface) are defined in [module-api.md](../style-guide/structure/module-api.md#barrel-files-indexts).
+
+The barrel question is answered for every source dialect: an `index.js`, `index.mjs`, `index.jsx` or `index.tsx` barrel is judged exactly as `index.ts` is.

@@ -4,6 +4,7 @@ import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.
 import { readBarrelExports } from '../../../../../common/modules/readBarrelExports.ts';
 import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
 import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
+import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
 
 /**
  * An internal barrel — the only kind this rule judges. A package or repo `src`
@@ -14,7 +15,7 @@ import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
 const isInternalBarrel = ({ path }: { path: string }) => {
 	const directory = getDirectory({ path });
 
-	return /^index\.tsx?$/.test(getBaseName({ path })) && getBaseName({ path: directory }) !== 'src' && !directory.split('/').includes('common');
+	return isBarrelFile({ path }) && getBaseName({ path: directory }) !== 'src' && !directory.split('/').includes('common');
 };
 
 export const check: StandardsCheckModule = {

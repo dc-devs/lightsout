@@ -121,6 +121,14 @@ describe('path-common-barrel check', () => {
 		]);
 	});
 
+	test('reports a JavaScript-spelled barrel under common/, since the shared name test answers for every dialect', async () => {
+		const input = setupFileListInput({ files: ['src/common/utils/index.mjs'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['path-common-barrel:src/common/utils/index.mjs']);
+	});
+
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 

@@ -46,6 +46,8 @@ describe('path-common-flat check', () => {
 		{ barrel: 'index.jsx' },
 		{ barrel: 'index.mjs' },
 		{ barrel: 'index.cjs' },
+		{ barrel: 'index.mts' },
+		{ barrel: 'index.cts' },
 	])('leaves $barrel directly in common/ to the barrel rule, so one wrong file is one finding', async ({ barrel }) => {
 		const input = setupFileListInput({ files: [`src/billing/common/${barrel}`] });
 
@@ -78,6 +80,14 @@ describe('path-common-flat check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings.map((finding) => finding.siteKey)).toStrictEqual(['path-common-flat:src/billing/common/rate.ts', 'path-common-flat:src/pay/common/fee.ts']);
+	});
+
+	test('leaves a JavaScript-spelled barrel directly in common/ alone, since the shared name test answers for every dialect', async () => {
+		const input = setupFileListInput({ files: ['src/common/index.mjs'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
 	});
 
 	test('reports nothing for an input of any other kind rather than refusing', async () => {

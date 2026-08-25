@@ -113,6 +113,29 @@ describe('size-file check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('a .tsx barrel is exempt too, since a public API cannot take the split whatever dialect it is written in', async () => {
+		const input = setupSyntaxTreeInput({ sources: [['src/reporting/index.tsx', buildSource({ lines: 40 })]] });
+
+		const findings = await check.run({ input, settings: caps });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('the JavaScript spellings of a barrel are exempt too, so a repo with no TypeScript in it is judged the same way', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				['src/reporting/index.js', buildSource({ lines: 40 })],
+				['src/reporting/index.mjs', buildSource({ lines: 40 })],
+				['src/reporting/index.cjs', buildSource({ lines: 40 })],
+				['src/reporting/index.jsx', buildSource({ lines: 40 })],
+			],
+		});
+
+		const findings = await check.run({ input, settings: caps });
+
+		expect(findings).toStrictEqual([]);
+	});
+
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: caps });
 

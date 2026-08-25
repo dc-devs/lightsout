@@ -1,11 +1,8 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import { readPathLists } from '../../../../../common/checkInput/readPathLists.ts';
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
-import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
 import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
-
-/** A barrel in any source dialect — this rule runs at full strength on JS-only repos. */
-const barrelName = /^index\.(m|c)?[jt]sx?$/;
+import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
 
 export const check: StandardsCheckModule = {
 	inputKind: 'file-list',
@@ -14,7 +11,7 @@ export const check: StandardsCheckModule = {
 	// the whole objection.
 	run: ({ input }): RawStandardsFinding[] =>
 		readPathLists({ input })
-			.files.filter((file) => barrelName.test(getBaseName({ path: file })) && getDirectory({ path: file }).split('/').includes('common'))
+			.files.filter((file) => isBarrelFile({ path: file }) && getDirectory({ path: file }).split('/').includes('common'))
 			.map((file) =>
 				buildRawFinding({
 					rule: 'path-common-barrel',

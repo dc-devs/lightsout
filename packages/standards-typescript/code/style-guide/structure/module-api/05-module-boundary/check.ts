@@ -1,5 +1,8 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
+import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
 
 const getDepth = ({ path }: { path: string }) => path.split('/').length;
@@ -42,7 +45,8 @@ export const check: StandardsCheckModule = {
 			return [];
 		}
 
-		const { files, referenceFiles, edges, standardsPacks } = input;
+		const { files, referenceFiles, edges, standardsPacks, dependencies } = input;
+		const carveOuts = getFrameworkCarveOuts({ dependencies });
 		const targetsByFile = mapTargetsByFile({ edges });
 		// Mapped over the whole repo rather than the scope, so a run narrowed to a
 		// handful of files still knows where every module's boundary sits.
@@ -54,6 +58,9 @@ export const check: StandardsCheckModule = {
 			// be handed a barrel whose aliases they were never given.
 			getSurface: ({ barrelPath }) => ({ targets: targetsByFile.get(barrelPath) ?? new Set<string>(), complete: true }),
 			standardsPacks,
+			// A mandated screen folder is a boundary on the day it holds one
+			// component, which the omission test alone reads as a convenience.
+			isMandatedModule: ({ folder }) => isMandatedModuleFolder({ folder, carveOut: getPathCarveOut({ carveOuts, path: folder }) }),
 		});
 		const moduleFolders = [...modules.keys()];
 		const scope = new Set(files);

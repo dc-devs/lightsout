@@ -222,6 +222,161 @@ describe('import-type-only check', () => {
 		expect(findings[0]?.detail).toBe("'./invoiceShape' is used only in type positions");
 	});
 
+	test('leaves a decorated class’s constructor-injected dependency alone, which DI resolves from the emitted metadata', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/events/events.controller.ts',
+					[
+						"import { EventsService } from './events.service';",
+						'',
+						'@Controller()',
+						'export class EventsController {',
+						'\tconstructor(private readonly events: EventsService) {}',
+						'}',
+					].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('leaves a decorated method’s parameter type alone, which the validation pipe reads the same way', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/events/events.controller.ts',
+					[
+						"import { CreateEventDto } from './CreateEventDto';",
+						'',
+						'@Controller()',
+						'export class EventsController {',
+						'\t@Post()',
+						'\tcreate(@Body() dto: CreateEventDto): string {',
+						'\t\treturn `${dto}`;',
+						'\t}',
+						'}',
+					].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('leaves a decorated property’s type alone, which is emitted as `design:type`', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/events/EventRow.ts',
+					["import { EventDate } from './EventDate';", '', '@Entity()', 'export class EventRow {', '\t@Column()', '\tat: EventDate;', '}'].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('leaves a decorated method’s return type alone, which is emitted as `design:returntype`', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/events/events.controller.ts',
+					[
+						"import { EventDto } from './EventDto';",
+						'',
+						'@Controller()',
+						'export class EventsController {',
+						'\t@Get()',
+						'\tgetOne(): EventDto {',
+						'\t\treturn this.one;',
+						'\t}',
+						'}',
+					].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('reports a type argument nested inside an exempted position, since the metadata carries the outer constructor alone', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/events/events.service.ts',
+					[
+						"import { Repository } from './Repository';",
+						"import { Event } from './Event';",
+						'',
+						'@Injectable()',
+						'export class EventsService {',
+						'\tconstructor(private readonly rows: Repository<Event>) {}',
+						'}',
+					].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ detail }) => detail)).toStrictEqual(["'./Event' is used only in type positions"]);
+	});
+
+	test('reports the same constructor shape on an undecorated class, so the exemption is the decorated declaration rather than the shape', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/events/events.controller.ts',
+					[
+						"import { EventsService } from './events.service';",
+						'',
+						'export class EventsController {',
+						'\tconstructor(private readonly events: EventsService) {}',
+						'}',
+					].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ detail }) => detail)).toStrictEqual(["'./events.service' is used only in type positions"]);
+	});
+
+	test('reports a name used only in an undecorated member of a decorated class — the line is what metadata is emitted for', async () => {
+		const input = setupSyntaxTreeInput({
+			sources: [
+				[
+					'src/events/events.controller.ts',
+					[
+						"import { EventDto } from './EventDto';",
+						'',
+						'@Controller()',
+						'export class EventsController {',
+						'\ttoDto(): EventDto {',
+						'\t\treturn this.one;',
+						'\t}',
+						'}',
+					].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ detail }) => detail)).toStrictEqual(["'./EventDto' is used only in type positions"]);
+	});
+
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 

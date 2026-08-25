@@ -83,6 +83,26 @@ describe('path-test-not-colocated check', () => {
 		]);
 	});
 
+	test('accepts a route-side test, whose dots the router owns rather than the naming convention', async () => {
+		const input = setupFileListInput({
+			source: ['src/routes/runs.$runId.tsx'],
+			tests: ['src/routes/runs.$runId.unit.test.tsx'],
+			dependencies: [['.', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('reports the same pair in a package declaring no router, so the carve-out is what changed the verdict rather than the names', async () => {
+		const input = setupFileListInput({ source: ['src/routes/runs.$runId.tsx'], tests: ['src/routes/runs.$runId.unit.test.tsx'] });
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings.map(({ detail }) => detail)).toStrictEqual(["no source file named 'runs' in src/routes"]);
+	});
+
 	test('reports nothing for an input of any other kind rather than refusing', async () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 

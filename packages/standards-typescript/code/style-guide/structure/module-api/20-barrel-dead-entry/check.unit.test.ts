@@ -3,7 +3,15 @@ import { setupOtherKindInput, setupTypeCheckerInput } from '@lightsout/standards
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a type-checker rule, with the test files told apart by name. */
-const setupRepo = ({ sources, standardsPacks = [] }: { sources: Array<[string, string]>; standardsPacks?: string[] }) => {
+const setupRepo = ({
+	sources,
+	standardsPacks = [],
+	dependencies = [],
+}: {
+	sources: Array<[string, string]>;
+	standardsPacks?: string[];
+	dependencies?: Array<[string, string[]]>;
+}) => {
 	const paths = sources.map(([path]) => path);
 
 	return setupTypeCheckerInput({
@@ -12,6 +20,7 @@ const setupRepo = ({ sources, standardsPacks = [] }: { sources: Array<[string, s
 		tests: paths.filter((path) => path.includes('.test.')),
 		files: paths,
 		standardsPacks,
+		dependencies,
 	});
 };
 
@@ -179,6 +188,96 @@ describe('barrel-dead-entry check', () => {
 				['src/feature/index.ts', "export { renderGreeting } from './renderGreeting.ts';"],
 				['src/feature/renderGreeting.ts', "export const renderGreeting = (): string => 'hello';"],
 			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('judges the barrel of a folder the package’s framework mandates as a module, though it hides nothing', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex.tsx';"],
+				['src/features/app/screens/RunsIndex/RunsIndex.tsx', "export const RunsIndex = (): string => 'runs';"],
+			],
+			dependencies: [['.', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'barrel-dead-entry:src/features/app/screens/RunsIndex/index.ts',
+				files: [{ path: 'src/features/app/screens/RunsIndex/index.ts' }],
+				detail:
+					"'RunsIndex' is exported from src/features/app/screens/RunsIndex/index.ts but nothing outside module 'src/features/app/screens/RunsIndex' imports it from there",
+				guidance: 'Deliberate public API, or dead? Only the author knows.',
+			},
+		]);
+	});
+
+	test('leaves the same folder alone in a package declaring no framework, where the omission test alone maps no module', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex.tsx';"],
+				['src/features/app/screens/RunsIndex/RunsIndex.tsx', "export const RunsIndex = (): string => 'runs';"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('anchors the mandate inside the package src tree, so the same screen folder outside it is judged by the omission test alone', async () => {
+		const input = setupRepo({
+			sources: [
+				['features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex.tsx';"],
+				['features/app/screens/RunsIndex/RunsIndex.tsx', "export const RunsIndex = (): string => 'runs';"],
+			],
+			dependencies: [['.', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// the barrel re-exports its one file, so only a mandate could have made this a module
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('takes the mandate from the governing package, so a workspace package declaring the framework earns it under its own src', async () => {
+		const input = setupRepo({
+			sources: [
+				['apps/web/src/features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex.tsx';"],
+				['apps/web/src/features/app/screens/RunsIndex/RunsIndex.tsx', "export const RunsIndex = (): string => 'runs';"],
+			],
+			dependencies: [['apps/web', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'barrel-dead-entry:apps/web/src/features/app/screens/RunsIndex/index.ts',
+				files: [{ path: 'apps/web/src/features/app/screens/RunsIndex/index.ts' }],
+				detail:
+					"'RunsIndex' is exported from apps/web/src/features/app/screens/RunsIndex/index.ts but nothing outside module 'apps/web/src/features/app/screens/RunsIndex' imports it from there",
+				guidance: 'Deliberate public API, or dead? Only the author knows.',
+			},
+		]);
+	});
+
+	test('a mandated module whose entry an outside file imports from the barrel stays silent — the mandate makes it a module, not a finding', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex.tsx';"],
+				['src/features/app/screens/RunsIndex/RunsIndex.tsx', "export const RunsIndex = (): string => 'runs';"],
+				[
+					'src/routes/runs.tsx',
+					"import { RunsIndex } from '../features/app/screens/RunsIndex/index.ts';\n\nexport const RunsRoute = (): string => RunsIndex();",
+				],
+			],
+			dependencies: [['.', ['@tanstack/react-router']]],
 		});
 
 		const findings = await check.run({ input, settings: {} });

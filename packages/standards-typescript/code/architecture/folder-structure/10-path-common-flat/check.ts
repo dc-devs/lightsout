@@ -3,9 +3,7 @@ import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
 import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
 import { getBaseName } from '../../../../common/paths/getBaseName.ts';
 import { getDirectory } from '../../../../common/paths/getDirectory.ts';
-
-/** A barrel in any source dialect — this rule runs at full strength on JS-only repos. */
-const barrelName = /^index\.(m|c)?[jt]sx?$/;
+import { isBarrelFile } from '../../../../common/paths/isBarrelFile.ts';
 
 export const check: StandardsCheckModule = {
 	inputKind: 'file-list',
@@ -17,7 +15,7 @@ export const check: StandardsCheckModule = {
 			.files.filter((file) => {
 				const parent = getDirectory({ path: file });
 
-				return getBaseName({ path: parent }) === 'common' && !barrelName.test(getBaseName({ path: file }));
+				return getBaseName({ path: parent }) === 'common' && !isBarrelFile({ path: file });
 			})
 			.map((file) =>
 				buildRawFinding({

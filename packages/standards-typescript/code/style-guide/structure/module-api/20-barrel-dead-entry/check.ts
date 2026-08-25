@@ -1,5 +1,8 @@
 import type { RawStandardsFinding, StandardsCheckModule, TypeCheckerInput } from '@lightsout/standards-contracts';
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
+import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
+import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
+import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
 import { readModuleLinks } from '../../../../../common/modules/readModuleLinks.ts';
 import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
@@ -29,7 +32,7 @@ const readLinks = ({ input }: { input: TypeCheckerInput }) => {
  * that: the return element of a published function, a field of a published
  * result, the return type of a published factory.
  */
-const publishedNames = ({ links }: { links: ModuleLink[] }) =>
+const getPublishedNames = ({ links }: { links: ModuleLink[] }) =>
 	links.filter((link) => link.reExport && !link.star && !link.typeOnly).flatMap((link) => link.names.map((name) => ({ name: name.as, target: link.target })));
 
 /**
@@ -43,7 +46,7 @@ const publishedNames = ({ links }: { links: ModuleLink[] }) =>
  * looks the next one up by the name the barrel published it AS and carries on
  * with the name the target knows it by.
  */
-const declaringFile = ({
+const getDeclaringFile = ({
 	name,
 	target,
 	links,
@@ -62,7 +65,9 @@ const declaringFile = ({
 
 	const next = (links.get(target) ?? []).filter((link) => link.reExport).find((link) => link.names.some((entry) => entry.as === name));
 
-	return next === undefined ? target : declaringFile({ name: next.names.find((entry) => entry.as === name)?.from ?? name, target: next.target, links, seen });
+	return next === undefined
+		? target
+		: getDeclaringFile({ name: next.names.find((entry) => entry.as === name)?.from ?? name, target: next.target, links, seen });
 };
 
 /**
@@ -96,7 +101,7 @@ const isTestedSubject = ({
 	moduleFolders: string[];
 	tests: string[];
 }) => {
-	const file = declaringFile({ name, target, links, seen: new Set() });
+	const file = getDeclaringFile({ name, target, links, seen: new Set() });
 
 	if (file === undefined || isBarrelFile({ path: file })) {
 		return false;
@@ -120,7 +125,7 @@ const isTestedSubject = ({
  * a link the compiler could not place might be pointing here, and a star import
  * takes the whole surface without naming any of it.
  */
-const consumedNames = ({ barrelPath, folder, links }: { barrelPath: string; folder: string; links: Map<string, ModuleLink[]> }) => {
+const getConsumedNames = ({ barrelPath, folder, links }: { barrelPath: string; folder: string; links: Map<string, ModuleLink[]> }) => {
 	const consumed = new Set<string>();
 	let takesEverything = false;
 
@@ -152,17 +157,27 @@ const buildFindings = ({ input }: { input: TypeCheckerInput }) => {
 		};
 	};
 
-	const modules = [...mapFolderModules({ files: input.files, getSurface, standardsPacks: input.standardsPacks })];
+	const carveOuts = getFrameworkCarveOuts({ dependencies: input.dependencies });
+	const modules = [
+		...mapFolderModules({
+			files: input.files,
+			getSurface,
+			standardsPacks: input.standardsPacks,
+			// A mandated module has a public API the same way a graduated one does,
+			// so its barrel answers for dead entries like any other module's.
+			isMandatedModule: ({ folder }) => isMandatedModuleFolder({ folder, carveOut: getPathCarveOut({ carveOuts, path: folder }) }),
+		}),
+	];
 	// Longest first, so the first match for a file is the module it belongs to
 	// rather than one of its ancestors.
 	const moduleFolders = modules.map(([folder]) => folder).sort((left, right) => right.length - left.length);
 
 	return modules
 		.map(([folder, { barrelPath }]) => {
-			const { consumed, takesEverything } = consumedNames({ barrelPath, folder, links });
+			const { consumed, takesEverything } = getConsumedNames({ barrelPath, folder, links });
 			const orphans = takesEverything
 				? []
-				: publishedNames({ links: links.get(barrelPath) ?? [] })
+				: getPublishedNames({ links: links.get(barrelPath) ?? [] })
 						.filter(
 							(entry) =>
 								!consumed.has(entry.name) && !isTestedSubject({ name: entry.name, target: entry.target, folder, links, moduleFolders, tests: input.tests }),
