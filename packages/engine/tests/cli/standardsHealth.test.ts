@@ -14,7 +14,7 @@ test('cli: standards-health reports every rule as machine-checked or judgment, a
 	// a repo with no refactor history has nothing to say about declines, and says
 	// so with a dash rather than a zero that would read as "never declined"
 	expect(stdout).toMatch(/│ name-synonym\s+│\s+code\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│/);
-	expect(stdout).toMatch(/│ 113 rule\(s\)\s+│\s+53 by code, 60 by judgment\s+│/);
+	expect(stdout).toMatch(/│ 111 rule\(s\)\s+│\s+52 by code, 59 by judgment\s+│/);
 	// it reports on the rules, never on the code — nothing here to gate on
 	expect(stderr).toBe('');
 	expect(code).toBe(0);
