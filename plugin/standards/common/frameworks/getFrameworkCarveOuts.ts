@@ -6,19 +6,18 @@ import type { FrameworkCarveOut } from '../types/FrameworkCarveOut.ts';
  * its folders hold — so adding a framework costs one entry here and nothing
  * else.
  *
- * `components/` and `hooks/` are React's own feature layout; `controllers/`,
- * `models/` and `services/` are NestJS's, which also mandates kebab-case
- * throughout; each router package names the directory whose segments become URL
- * path segments and are therefore kebab-case by mandate; and each framework
- * that resolves entry files by convention names them, so a check never has to
- * infer that nothing imports `src/router.tsx` on purpose.
+ * A row carries ONLY what the framework's own documents mandate: the folder a
+ * router owns, the casing it imposes, the files it resolves by name. A layout
+ * this repo prefers is never a row, however widely it is followed — React
+ * mandates no folder structure, and NestJS wires by decorators rather than by
+ * directory, so neither one's familiar vocabulary is a fact either of them
+ * states. Mixing a preference in here is how a rule comes to concede to
+ * something no framework ever asked for.
  */
 const carveOutSignals: Record<string, Partial<Omit<FrameworkCarveOut, 'directory'>>> = {
-	react: { exemptFolderNames: ['components', 'hooks'] },
-	'react-dom': { exemptFolderNames: ['components', 'hooks'] },
-	'@nestjs/core': { exemptFolderNames: ['controllers', 'models', 'services'], kebabCase: true, entryFiles: ['main.ts'] },
+	'@nestjs/core': { kebabCase: true, entryFiles: ['main.ts'] },
 	next: { routerRoots: ['app', 'pages'] },
-	'@tanstack/react-router': { routerRoots: ['routes'], moduleFolders: ['features/*/screens/*'] },
+	'@tanstack/react-router': { routerRoots: ['routes'] },
 	'@tanstack/react-start': { routerRoots: ['routes'], entryFiles: ['router.tsx', 'server.ts', 'client.tsx'] },
 	'@remix-run/react': { routerRoots: ['routes'] },
 	'expo-router': { routerRoots: ['app'] },

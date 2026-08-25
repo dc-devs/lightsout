@@ -290,88 +290,34 @@ describe('module-boundary check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('reports a deep import into a folder the package’s framework mandates as a module, whose barrel hides nothing', async () => {
+	test('a router root is not a module, so a file importing one of its routes crosses no boundary', async () => {
 		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/features/app/screens/RunsIndex/index.ts', 'src/features/app/screens/RunsIndex/RunsIndex.tsx'],
-			edges: [
-				{ from: 'src/features/app/screens/RunsIndex/index.ts', to: 'src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-			],
+			paths: ['src/reporting/buildReport.ts', 'src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.$runId.tsx'],
+			edges: [{ from: 'src/reporting/buildReport.ts', to: 'src/routes/runs.$runId.tsx' }],
 			dependencies: [['.', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// the router root's index.tsx is a route the framework loads, not a barrel
+		// publishing nothing — read as one it would make every route beside it an
+		// internal of a module nobody wrote
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('the same tree in a package declaring no router is an ordinary folder-module, so the deep import is reported', async () => {
+		const input = setupRepo({
+			paths: ['src/reporting/buildReport.ts', 'src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.$runId.tsx'],
+			edges: [{ from: 'src/reporting/buildReport.ts', to: 'src/routes/runs.$runId.tsx' }],
 		});
 
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'module-boundary:src/features/app/screens/RunsIndex/RunsIndex.tsx|src/reporting/buildReport.ts',
-				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/features/app/screens/RunsIndex/RunsIndex.tsx' }],
-				detail:
-					"deep-imports 'src/features/app/screens/RunsIndex/RunsIndex.tsx' — an internal of module 'src/features/app/screens/RunsIndex'; import from its barrel 'src/features/app/screens/RunsIndex/index.ts' instead",
-				guidance: 'A module’s barrel is its public API; everything else is an internal.',
-			},
-		]);
-	});
-
-	test('says nothing about the same tree in a package declaring no framework, where the omission test alone reads it as a convenience', async () => {
-		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'src/features/app/screens/RunsIndex/index.ts', 'src/features/app/screens/RunsIndex/RunsIndex.tsx'],
-			edges: [
-				{ from: 'src/features/app/screens/RunsIndex/index.ts', to: 'src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-				{ from: 'src/reporting/buildReport.ts', to: 'src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([]);
-	});
-
-	test('says nothing about the same tree outside the package’s src/, where a fixture folder cannot pick up a mandate meant for source', async () => {
-		const input = setupRepo({
-			paths: ['src/reporting/buildReport.ts', 'fixtures/features/app/screens/RunsIndex/index.ts', 'fixtures/features/app/screens/RunsIndex/RunsIndex.tsx'],
-			edges: [
-				{ from: 'fixtures/features/app/screens/RunsIndex/index.ts', to: 'fixtures/features/app/screens/RunsIndex/RunsIndex.tsx' },
-				{ from: 'src/reporting/buildReport.ts', to: 'fixtures/features/app/screens/RunsIndex/RunsIndex.tsx' },
-			],
-			dependencies: [['.', ['@tanstack/react-router']]],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([]);
-	});
-
-	test('takes the mandate from the package nearest the folder, so a sibling package declaring no framework keeps its identical tree unjudged', async () => {
-		const input = setupRepo({
-			paths: [
-				'packages/web/src/reporting/buildReport.ts',
-				'packages/web/src/features/app/screens/RunsIndex/index.ts',
-				'packages/web/src/features/app/screens/RunsIndex/RunsIndex.tsx',
-				'packages/api/src/reporting/buildReport.ts',
-				'packages/api/src/features/app/screens/RunsIndex/index.ts',
-				'packages/api/src/features/app/screens/RunsIndex/RunsIndex.tsx',
-			],
-			edges: [
-				{ from: 'packages/web/src/features/app/screens/RunsIndex/index.ts', to: 'packages/web/src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-				{ from: 'packages/web/src/reporting/buildReport.ts', to: 'packages/web/src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-				{ from: 'packages/api/src/features/app/screens/RunsIndex/index.ts', to: 'packages/api/src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-				{ from: 'packages/api/src/reporting/buildReport.ts', to: 'packages/api/src/features/app/screens/RunsIndex/RunsIndex.tsx' },
-			],
-			dependencies: [
-				['packages/web', ['@tanstack/react-router']],
-				['packages/api', []],
-			],
-		});
-
-		const findings = await check.run({ input, settings: {} });
-
-		expect(findings).toStrictEqual([
-			{
-				siteKey: 'module-boundary:packages/web/src/features/app/screens/RunsIndex/RunsIndex.tsx|packages/web/src/reporting/buildReport.ts',
-				files: [{ path: 'packages/web/src/reporting/buildReport.ts' }, { path: 'packages/web/src/features/app/screens/RunsIndex/RunsIndex.tsx' }],
-				detail:
-					"deep-imports 'packages/web/src/features/app/screens/RunsIndex/RunsIndex.tsx' — an internal of module 'packages/web/src/features/app/screens/RunsIndex'; import from its barrel 'packages/web/src/features/app/screens/RunsIndex/index.ts' instead",
+				siteKey: 'module-boundary:src/reporting/buildReport.ts|src/routes/runs.$runId.tsx',
+				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/routes/runs.$runId.tsx' }],
+				detail: "deep-imports 'src/routes/runs.$runId.tsx' — an internal of module 'src/routes'; import from its barrel 'src/routes/index.tsx' instead",
 				guidance: 'A module’s barrel is its public API; everything else is an internal.',
 			},
 		]);

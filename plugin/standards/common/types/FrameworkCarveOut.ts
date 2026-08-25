@@ -25,7 +25,19 @@ export interface FrameworkCarveOut {
 	 * guessed per rule.
 	 */
 	entryFiles: string[];
-	/** Folder names this package's framework mandates, exempt from the banned-name rule. */
+	/**
+	 * Folder names this package's framework mandates, exempt from the
+	 * banned-name rule.
+	 *
+	 * No framework in today's table fills this, and that is deliberate rather
+	 * than an omission: React mandates no folder structure and NestJS wires by
+	 * decorators rather than by directory, so `components/`, `hooks/`,
+	 * `controllers/` and their siblings are conventions projects adopt, not
+	 * mandates their frameworks state. What a repo prefers its folders be called
+	 * is not what fills this — only what a framework's own documents require.
+	 * The field stays so the rule that would need it already asks, and a real
+	 * mandate is one table entry away.
+	 */
 	exemptFolderNames: string[];
 	/** True when the framework mandates kebab-case folders throughout (NestJS). */
 	kebabCase: boolean;
@@ -33,14 +45,17 @@ export interface FrameworkCarveOut {
 	routerRoots: string[];
 	/**
 	 * Folder shapes the framework mandates as modules, written relative to the
-	 * package's `src/` with `*` standing for one segment — e.g.
-	 * a TanStack Start screen is `features`, any name, `screens`, any name.
+	 * package's `src/` with `*` standing for one segment.
 	 *
 	 * A module here is declared, not inferred. The barrel-omission test asks
 	 * whether a barrel hides anything, which reads a one-file folder as a
 	 * convenience rather than a boundary — true of a folder someone made up, and
-	 * false of one the framework requires and which grows its own `components/`
-	 * and `hooks/` as the screen does.
+	 * false of one a framework genuinely requires.
+	 *
+	 * No framework in today's table fills this either, and for the same reason
+	 * `exemptFolderNames` is empty: a module shape a repo prefers — however
+	 * widely followed — is not a shape any framework's documents mandate. The
+	 * field stays so the question remains askable the day one does.
 	 */
 	moduleFolders: string[];
 }

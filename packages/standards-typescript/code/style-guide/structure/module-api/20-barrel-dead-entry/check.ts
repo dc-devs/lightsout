@@ -2,6 +2,7 @@ import type { RawStandardsFinding, StandardsCheckModule, TypeCheckerInput } from
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
+import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
 import { readModuleLinks } from '../../../../../common/modules/readModuleLinks.ts';
@@ -166,6 +167,9 @@ const buildFindings = ({ input }: { input: TypeCheckerInput }) => {
 			// A mandated module has a public API the same way a graduated one does,
 			// so its barrel answers for dead entries like any other module's.
 			isMandatedModule: ({ folder }) => isMandatedModuleFolder({ folder, carveOut: getPathCarveOut({ carveOuts, path: folder }) }),
+			// A router root's `index.tsx` is a route, so it marks no boundary and its
+			// siblings are not somebody's unexported internals.
+			isFrameworkLoaded: ({ path }) => isFrameworkLoadedFile({ path, carveOut: getPathCarveOut({ carveOuts, path }) }),
 		}),
 	];
 	// Longest first, so the first match for a file is the module it belongs to

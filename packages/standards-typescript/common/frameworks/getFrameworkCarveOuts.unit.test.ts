@@ -7,21 +7,13 @@ const setupDependencies = ({ packages }: { packages: Array<[string, string[]]> }
 describe('getFrameworkCarveOuts', () => {
 	test.each([
 		{
-			dependency: 'react',
-			expected: { entryFiles: [], exemptFolderNames: ['components', 'hooks'], kebabCase: false, routerRoots: [], moduleFolders: [] },
-		},
-		{
-			dependency: 'react-dom',
-			expected: { entryFiles: [], exemptFolderNames: ['components', 'hooks'], kebabCase: false, routerRoots: [], moduleFolders: [] },
-		},
-		{
 			dependency: '@nestjs/core',
-			expected: { entryFiles: ['main.ts'], exemptFolderNames: ['controllers', 'models', 'services'], kebabCase: true, routerRoots: [], moduleFolders: [] },
+			expected: { entryFiles: ['main.ts'], exemptFolderNames: [], kebabCase: true, routerRoots: [], moduleFolders: [] },
 		},
 		{ dependency: 'next', expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['app', 'pages'], moduleFolders: [] } },
 		{
 			dependency: '@tanstack/react-router',
-			expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'], moduleFolders: ['features/*/screens/*'] },
+			expected: { entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'], moduleFolders: [] },
 		},
 		{
 			dependency: '@tanstack/react-start',
@@ -43,14 +35,36 @@ describe('getFrameworkCarveOuts', () => {
 		expect(carveOuts).toStrictEqual([{ directory: '.', ...expected }]);
 	});
 
-	test('merges every framework a package declares, naming each exemption once', () => {
-		const dependencies = setupDependencies({ packages: [['.', ['react', 'react-dom', 'next', 'zod']]] });
+	test.each([{ dependency: 'react' }, { dependency: 'react-dom' }])(
+		'$dependency earns nothing at all, its own documents mandating no folder layout for the table to carry',
+		({ dependency }) => {
+			const dependencies = setupDependencies({ packages: [['.', [dependency]]] });
+
+			const carveOuts = getFrameworkCarveOuts({ dependencies });
+
+			expect(carveOuts).toStrictEqual([{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] }]);
+		},
+	);
+
+	test('merges every framework a package declares, naming each mandate once', () => {
+		const dependencies = setupDependencies({ packages: [['.', ['@nestjs/core', 'next', 'zod']]] });
 
 		const carveOuts = getFrameworkCarveOuts({ dependencies });
 
 		expect(carveOuts).toStrictEqual([
-			{ directory: '.', entryFiles: [], exemptFolderNames: ['components', 'hooks'], kebabCase: false, routerRoots: ['app', 'pages'], moduleFolders: [] },
+			{ directory: '.', entryFiles: ['main.ts'], exemptFolderNames: [], kebabCase: true, routerRoots: ['app', 'pages'], moduleFolders: [] },
 		]);
+	});
+
+	test('a package declaring a framework the table knows still gets both empty dimensions — the contract, not an oversight', () => {
+		const dependencies = setupDependencies({ packages: [['.', ['@tanstack/react-router', '@nestjs/core']]] });
+
+		const [carveOut] = getFrameworkCarveOuts({ dependencies });
+
+		// no framework's own documents mandate a folder name or a module shape, so
+		// the two questions built on them answer no everywhere until one does
+		expect(carveOut?.exemptFolderNames).toStrictEqual([]);
+		expect(carveOut?.moduleFolders).toStrictEqual([]);
 	});
 
 	test('dedupes a router root two frameworks both mandate, and keeps what each of them alone earns', () => {
@@ -65,7 +79,7 @@ describe('getFrameworkCarveOuts', () => {
 				exemptFolderNames: [],
 				kebabCase: false,
 				routerRoots: ['routes'],
-				moduleFolders: ['features/*/screens/*'],
+				moduleFolders: [],
 			},
 		]);
 	});
@@ -81,7 +95,7 @@ describe('getFrameworkCarveOuts', () => {
 	test('gives each package its own answer rather than the union across the repo', () => {
 		const dependencies = setupDependencies({
 			packages: [
-				['.', ['react']],
+				['.', ['@tanstack/react-router']],
 				['packages/api', ['@nestjs/core']],
 			],
 		});
@@ -92,12 +106,12 @@ describe('getFrameworkCarveOuts', () => {
 			{
 				directory: 'packages/api',
 				entryFiles: ['main.ts'],
-				exemptFolderNames: ['controllers', 'models', 'services'],
+				exemptFolderNames: [],
 				kebabCase: true,
 				routerRoots: [],
 				moduleFolders: [],
 			},
-			{ directory: '.', entryFiles: [], exemptFolderNames: ['components', 'hooks'], kebabCase: false, routerRoots: [], moduleFolders: [] },
+			{ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: ['routes'], moduleFolders: [] },
 		]);
 	});
 

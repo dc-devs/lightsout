@@ -69,6 +69,31 @@ describe('path-banned-module-name check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
+	test('a package declaring frameworks keeps every banned name banned, since no framework in the table mandates one', async () => {
+		const input = setupFileListInput({
+			files: [
+				'packages/web/src/feature/components/Card.tsx',
+				'packages/web/src/feature/hooks/useCard.ts',
+				'packages/web/src/feature/helpers/format.ts',
+				'packages/api/src/user/services/mailer.ts',
+				'packages/api/src/user/utils/format.ts',
+			],
+			dependencies: [
+				['packages/web', ['react', 'react-dom', '@tanstack/react-router']],
+				['packages/api', ['@nestjs/core']],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// the framework vocabulary stays legal because it is off the banned list,
+		// not because a declared dependency un-bans it
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual([
+			'path-banned-module-name:packages/api/src/user/utils',
+			'path-banned-module-name:packages/web/src/feature/helpers',
+		]);
+	});
+
 	test('leaves the four type folders alone inside a common/, which is their own mandated vocabulary', async () => {
 		const input = setupFileListInput({
 			files: [

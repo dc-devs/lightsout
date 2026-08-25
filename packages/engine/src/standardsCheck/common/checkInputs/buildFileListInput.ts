@@ -1,5 +1,5 @@
+import { readPackageDependencies } from '#src/common/workspace/readPackageDependencies.ts';
 import { type FileListInput, StandardsInputKind } from '#src/contracts/index.ts';
-import { readPackageDependencies } from '#src/standardsCheck/common/checkInputs/readPackageDependencies.ts';
 
 interface Params {
 	cwd: string;

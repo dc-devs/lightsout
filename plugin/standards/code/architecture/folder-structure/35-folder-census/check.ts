@@ -3,7 +3,7 @@ import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
 import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
 import { getFrameworkCarveOuts } from '../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../common/frameworks/getPathCarveOut.ts';
-import { isUnderRouterRoot } from '../../../../common/frameworks/isUnderRouterRoot.ts';
+import { isFrameworkLoadedFile } from '../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { getDirectory } from '../../../../common/paths/getDirectory.ts';
 
 export const check: StandardsCheckModule = {
@@ -13,9 +13,11 @@ export const check: StandardsCheckModule = {
 	// different rule. Every other file counts, barrels included: the census asks
 	// how long the directory listing has grown, and a barrel is a line in it.
 	//
-	// A directory the package's router owns is not counted at all: its population
-	// is the number of routes the app has, and consolidating it is not an edit any
-	// author is allowed to make.
+	// A file the package's framework put there is not counted at all — a route
+	// file, or an entry file the framework resolves by name. A router root's
+	// population is the number of routes the app has, and consolidating it is not
+	// an edit any author is allowed to make; an entry file beside a package's
+	// source is not the author's listing growing either.
 	run: ({ input, settings }): RawStandardsFinding[] => {
 		const { files, tests } = readPathLists({ input });
 		const carveOuts = getFrameworkCarveOuts({ dependencies: input.kind === 'file-list' ? input.dependencies : new Map<string, string[]>() });
@@ -25,14 +27,14 @@ export const check: StandardsCheckModule = {
 
 		for (const file of files) {
 			if (!testPaths.has(file)) {
-				const directory = getDirectory({ path: file });
-
 				// Skipped file by file rather than filtered off the finished map, so a
 				// router root holding two hundred route files contributes no group at
 				// all rather than one that is dropped later.
-				if (isUnderRouterRoot({ path: directory, carveOut: getPathCarveOut({ carveOuts, path: directory }) })) {
+				if (isFrameworkLoadedFile({ path: file, carveOut: getPathCarveOut({ carveOuts, path: file }) })) {
 					continue;
 				}
+
+				const directory = getDirectory({ path: file });
 
 				filesPerDirectory.set(directory, [...(filesPerDirectory.get(directory) ?? []), file]);
 			}

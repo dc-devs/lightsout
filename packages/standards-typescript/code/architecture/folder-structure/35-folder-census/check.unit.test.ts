@@ -167,6 +167,36 @@ describe('folder-census check', () => {
 		]);
 	});
 
+	test('never counts an entry file the framework resolves by name, which is not the author’s listing growing', async () => {
+		const input = setupFileListInput({
+			files: ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/router.tsx', 'src/server.ts', 'src/client.tsx'],
+			dependencies: [['.', ['@tanstack/react-start']]],
+		});
+
+		const findings = await check.run({ input, settings: { cap: 3 } });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('counts those same three files in a package whose framework resolves no entry files, so the dependency is what drops them', async () => {
+		const input = setupFileListInput({ files: ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/router.tsx', 'src/server.ts', 'src/client.tsx'] });
+
+		const findings = await check.run({ input, settings: { cap: 3 } });
+
+		expect(findings.map(({ detail }) => detail)).toStrictEqual(['6 files in one flat folder (census cap ~3)']);
+	});
+
+	test('counts a file of an entry name deeper in the tree, the exemption being the framework’s anchor and not the base name', async () => {
+		const input = setupFileListInput({
+			files: ['src/features/runs/a.ts', 'src/features/runs/b.ts', 'src/features/runs/c.ts', 'src/features/runs/router.tsx'],
+			dependencies: [['.', ['@tanstack/react-start']]],
+		});
+
+		const findings = await check.run({ input, settings: { cap: 3 } });
+
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['folder-census:src/features/runs']);
+	});
+
 	test('reads each folder against its own package’s carve-out, so one workspace’s router never exempts another’s', async () => {
 		const input = setupFileListInput({
 			files: [

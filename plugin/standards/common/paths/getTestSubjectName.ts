@@ -1,4 +1,4 @@
-import { isUnderRouterRoot } from '../frameworks/isUnderRouterRoot.ts';
+import { isFrameworkNamedTest } from '../frameworks/isFrameworkNamedTest.ts';
 import type { FrameworkCarveOut } from '../types/FrameworkCarveOut.ts';
 import { getBaseName } from './getBaseName.ts';
 
@@ -39,5 +39,5 @@ interface Params {
 export const getTestSubjectName = ({ test, carveOut }: Params): string => {
 	const base = getBaseName({ path: test });
 
-	return carveOut !== undefined && isUnderRouterRoot({ path: test, carveOut }) ? getRouterSubjectName({ base }) : base.replace(/\..*$/, '');
+	return carveOut !== undefined && isFrameworkNamedTest({ test, carveOut }) ? getRouterSubjectName({ base }) : base.replace(/\..*$/, '');
 };

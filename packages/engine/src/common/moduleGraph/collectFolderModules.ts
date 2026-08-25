@@ -17,6 +17,12 @@ interface Params {
 	 * caller. Omitted, nothing is mandated and the omission test decides alone.
 	 */
 	isMandatedModule?: ({ folder }: { folder: string }) => boolean;
+	/**
+	 * Whether the package's framework loads this file itself — answered by the
+	 * caller from the loaded standards pack's own facts, never from a table held
+	 * here. Omitted, every index file is read as a barrel.
+	 */
+	isFrameworkLoaded?: ({ path }: { path: string }) => boolean;
 }
 
 /**
@@ -34,6 +40,13 @@ interface Params {
  * omission test says: that test infers a boundary from concealment, which is
  * sound for a folder someone chose and wrong for one a framework requires.
  *
+ * The route tree runs the other way: a file router MANDATES an index route, so
+ * a router root's `index.tsx` is a route file the framework loads rather than a
+ * barrel, and reading it as one turns `src/routes/` into a folder-module whose
+ * every route looks like an unexported internal. Those facts arrive as a
+ * callback because they are the pack's to state — the engine mirrors the logic
+ * and the pack keeps the table.
+ *
  * The mirror is deliberate and the two must stay in step, so that the modules
  * the engine picks test subjects from are the same ones the rules judge.
  * Neither copy can import the other: a standards pack ships as a bare
@@ -42,14 +55,19 @@ interface Params {
  * runs against whatever pack `standards-packs` names rather than the
  * default one. Change one, change the other.
  */
-export const collectFolderModules = async ({ cwd, files, compiler, isMandatedModule }: Params): Promise<Map<string, FolderModule>> => {
+export const collectFolderModules = async ({ cwd, files, compiler, isMandatedModule, isFrameworkLoaded }: Params): Promise<Map<string, FolderModule>> => {
 	const resolve = createSpecifierResolver({ files });
 	const barrelDirs = new Map<string, string>();
 
 	for (const file of files) {
 		const directory = posix.dirname(file);
 
-		if (isBarrel({ path: file }) && posix.basename(directory) !== 'src' && !directory.split('/').includes('common')) {
+		if (
+			isBarrel({ path: file }) &&
+			isFrameworkLoaded?.({ path: file }) !== true &&
+			posix.basename(directory) !== 'src' &&
+			!directory.split('/').includes('common')
+		) {
 			barrelDirs.set(directory, file);
 		}
 	}

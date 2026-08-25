@@ -9,6 +9,7 @@ import {
 	type StandardsCheckInput,
 	StandardsInputKind,
 	StandardsSeverity,
+	type SyntaxTreeInput,
 	type TypeCheckerInput,
 } from '#src/contracts/index.ts';
 import type { ResolvedRuleState } from '#src/standardsCheck/common/types/ResolvedRuleState.ts';
@@ -85,6 +86,19 @@ const setupImportGraphDependenciesRun = ({ packagesDir }: { packagesDir: string 
 	return { cwd, packagesDir, ...loadOneRule({ inputKind: StandardsInputKind.ImportGraph }) };
 };
 
+/** A repo whose root declares a framework, with a typescript to borrow, checked by a rule that declared the syntax-tree kind. */
+const setupSyntaxTreeRun = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-check-inputs-syntax-'));
+
+	mkdirSync(join(cwd, 'src'), { recursive: true });
+	writeFileSync(join(cwd, 'src/widget.ts'), 'export const widget = () => 1;\n');
+	writeFileSync(join(cwd, 'src/widget.unit.test.ts'), "test('widget', () => {});\n");
+	writeFileSync(join(cwd, 'package.json'), '{ "name": "@acme/widgets", "dependencies": { "@tanstack/react-router": "^1" } }\n');
+	linkTypescript({ dir: cwd });
+
+	return { cwd, ...loadOneRule({ inputKind: StandardsInputKind.SyntaxTree }) };
+};
+
 /** A workspace package that declares its aliases in its manifest, under a repo whose root carries a tsconfig. */
 const setupFileTextRun = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-check-inputs-text-'));
@@ -141,6 +155,17 @@ const fileTextInput = ({ inputs }: { inputs: StandardsCheckInput[] }): FileTextI
 
 	if (input?.kind !== StandardsInputKind.FileText) {
 		throw new Error(`expected a file-text input, got ${input?.kind ?? 'none'}`);
+	}
+
+	return input;
+};
+
+/** The one syntax-tree input the run built, narrowed out of the closed kind union. */
+const syntaxTreeInput = ({ inputs }: { inputs: StandardsCheckInput[] }): SyntaxTreeInput => {
+	const input = inputs[0];
+
+	if (input?.kind !== StandardsInputKind.SyntaxTree) {
+		throw new Error(`expected a syntax-tree input, got ${input?.kind ?? 'none'}`);
 	}
 
 	return input;
@@ -218,6 +243,31 @@ describe('runPackageChecks', () => {
 				standardsPacks: ['standards'],
 				source: ['standards/tests/unit-testing/05-rule/check.ts'],
 				tests: ['standards/common/utils/scan.unit.test.ts'],
+			}),
+		);
+	});
+
+	test('hands a syntax-tree rule one parsed tree per source file, and what each package declares alongside it', async () => {
+		const { cwd, inputs, packs, states } = setupSyntaxTreeRun();
+
+		const { notes } = await runPackageChecks({ cwd, packs, states, channels: [] });
+
+		const input = syntaxTreeInput({ inputs });
+
+		// an empty note list is what says the compiler resolved: the kind needs one,
+		// and a run without it skips the rule instead of building this
+		expect(notes).toStrictEqual([]);
+		// the trees are the source files alone — a test file is listed for the
+		// rules that ask about tests, never parsed for the rules that report on
+		// source
+		expect([...input.trees.keys()]).toStrictEqual(['src/widget.ts']);
+		expect(input.trees.get('src/widget.ts')?.statements.length).toBe(1);
+		expect(input).toEqual(
+			expect.objectContaining({
+				kind: 'syntax-tree',
+				source: ['src/widget.ts'],
+				tests: ['src/widget.unit.test.ts'],
+				dependencies: new Map([['.', ['@tanstack/react-router']]]),
 			}),
 		);
 	});

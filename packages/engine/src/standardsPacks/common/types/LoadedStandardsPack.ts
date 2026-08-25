@@ -25,6 +25,19 @@ export interface LoadedStandardsPack {
 	 * `standards-validate`, the same stance a rule's own `fixturesPath` takes.
 	 */
 	frameworkOwnedFixturesPath?: string;
+	/**
+	 * Absolute path of `<pack>/common/frameworks/getFrameworkFacts.ts`, present
+	 * only when the pack ships one.
+	 *
+	 * The engine keeps mirrors of a few pack helpers — `collectFolderModules`
+	 * mirrors `mapFolderModules` — and those mirrors ask the pack which files a
+	 * framework loads rather than holding the dependency table themselves, so the
+	 * pack a repo configured is what answers.
+	 *
+	 * Recorded, never required: a pack without one leaves the mirrors answering
+	 * no, which is what they did before this surface existed.
+	 */
+	frameworksModulePath?: string;
 	documents: LoadedStandardsDocument[];
 	rules: LoadedStandardsRule[];
 }

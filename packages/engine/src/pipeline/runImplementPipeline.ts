@@ -13,6 +13,7 @@ import type { PipelineResult } from '#src/pipeline/PipelineResult.ts';
 import { PipelineRun } from '#src/pipeline/PipelineRun.ts';
 import { buildSteps } from '#src/pipeline/steps/buildSteps.ts';
 import { createRun, withRunLock } from '#src/runState/index.ts';
+import { getPackFrameworkFacts } from '#src/standardsPacks/index.ts';
 
 // The end-of-run look at the files write-tests skipped as unreachable: later
 // steps (refactor wiring) may have connected them to a public surface, so
@@ -30,7 +31,8 @@ const recheckUnreachable = async ({ run }: { run: PipelineRun }) => {
 	const compiler = resolveConsumerTypescript({ cwd: run.cwd, packagesDir });
 	const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
 	const targets = recorded.filter((file) => universe.includes(file));
-	const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
+	const frameworkFacts = await getPackFrameworkFacts({ cwd: run.cwd, packagesDir, config: run.config });
+	const { orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler, frameworkFacts });
 
 	await run.update({ patch: { unreachableChangedFiles: orphans } });
 

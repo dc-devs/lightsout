@@ -3,7 +3,7 @@ import type ts from 'typescript';
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
-import { isUnderRouterRoot } from '../../../../../common/frameworks/isUnderRouterRoot.ts';
+import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
 import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
 
@@ -11,8 +11,8 @@ import { getDirectory } from '../../../../../common/paths/getDirectory.ts';
  * Every index file, wherever it stands — a src root barrel holds no code any
  * more than an internal one does, so unlike barrel-star there is no root
  * exemption. A barrel under `common/` is spared the same way barrel-star
- * spares it: `path-common-barrel` objects to its existing at all. A file under
- * a package's router root is spared before this is ever asked.
+ * spares it: `path-common-barrel` objects to its existing at all. A file the
+ * package's framework loads is spared before this is ever asked.
  */
 const isIndexFile = ({ path }: { path: string }) => /^index\.tsx?$/.test(getBaseName({ path })) && !getDirectory({ path }).split('/').includes('common');
 
@@ -29,8 +29,11 @@ const buildFileFindings = ({ input }: { input: SyntaxTreeInput }) => {
 		// file, and a route file's content is a route definition — never a
 		// re-export. Judging one is asking for a file the framework forbids, so
 		// the router root is the framework's to name, exactly as
-		// `05-filename-mismatch` and `50-path-folder-casing` already concede.
-		if (isUnderRouterRoot({ path, carveOut: getPathCarveOut({ carveOuts, path }) })) {
+		// `05-filename-mismatch` and `50-path-folder-casing` already concede. A
+		// convention-resolved entry file is spared by the same fact: a file the
+		// framework loads is code by definition, and demanding re-export lines of
+		// it asks for a file the framework could not use.
+		if (isFrameworkLoadedFile({ path, carveOut: getPathCarveOut({ carveOuts, path }) })) {
 			continue;
 		}
 

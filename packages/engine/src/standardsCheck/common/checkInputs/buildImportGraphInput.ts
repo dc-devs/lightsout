@@ -1,7 +1,7 @@
 import type ts from 'typescript';
 import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.ts';
+import { readPackageDependencies } from '#src/common/workspace/readPackageDependencies.ts';
 import { type ImportGraphInput, StandardsInputKind } from '#src/contracts/index.ts';
-import { readPackageDependencies } from '#src/standardsCheck/common/checkInputs/readPackageDependencies.ts';
 
 interface Params {
 	cwd: string;

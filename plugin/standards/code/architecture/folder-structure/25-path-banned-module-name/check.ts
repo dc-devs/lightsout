@@ -4,6 +4,7 @@ import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts'
 import { getFrameworkCarveOuts } from '../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../common/frameworks/getPathCarveOut.ts';
 import { getSourceRoot } from '../../../../common/frameworks/getSourceRoot.ts';
+import { isFrameworkNamedFolder } from '../../../../common/frameworks/isFrameworkNamedFolder.ts';
 import { collectDirectories } from '../../../../common/paths/collectDirectories.ts';
 import { getBaseName } from '../../../../common/paths/getBaseName.ts';
 
@@ -43,7 +44,11 @@ export const check: StandardsCheckModule = {
 			const insideCommon = directory.split('/').slice(0, -1).includes('common');
 			const banned = bannedAnywhere.has(name) || (bannedOutsideCommon.has(name) && !insideCommon);
 
-			if (banned) {
+			// The concession this rule owes, wired rather than assumed away: no
+			// framework in the table mandates a banned name today, so the question
+			// answers no everywhere. The day one does, the rule already concedes
+			// instead of growing an exception layer around itself.
+			if (banned && !isFrameworkNamedFolder({ folder: directory, carveOut })) {
 				findings.push(
 					buildRawFinding({
 						rule: 'path-banned-module-name',

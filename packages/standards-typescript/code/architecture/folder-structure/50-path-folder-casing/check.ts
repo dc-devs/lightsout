@@ -4,7 +4,7 @@ import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts'
 import { getFrameworkCarveOuts } from '../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../common/frameworks/getPathCarveOut.ts';
 import { getSourceRoot } from '../../../../common/frameworks/getSourceRoot.ts';
-import { isUnderRouterRoot } from '../../../../common/frameworks/isUnderRouterRoot.ts';
+import { isFrameworkCasedFolder } from '../../../../common/frameworks/isFrameworkCasedFolder.ts';
 import { collectDirectories } from '../../../../common/paths/collectDirectories.ts';
 import { getBaseName } from '../../../../common/paths/getBaseName.ts';
 import { getDirectory } from '../../../../common/paths/getDirectory.ts';
@@ -16,6 +16,11 @@ const pascalCase = /^[A-Z][A-Za-z0-9]*$/;
  * Jest's own mandated folder shape (`__mocks__`, `__tests__`) — a framework doc
  * mandating a name, which is resolution step 2 of the casing rule. Whether such
  * a folder belongs under `src/` at all is a question the test-path rules own.
+ *
+ * Deliberately not folded into a framework dimension beside `isFrameworkCasedFolder`.
+ * It reads no carve-out data and turns on no declared dependency, so a dimension
+ * holding it would put a fact in that vocabulary which the primitives table does
+ * not carry — and the table is where every framework fact lives.
  */
 const frameworkFolder = /^__[A-Za-z0-9]+__$/;
 
@@ -86,7 +91,7 @@ export const check: StandardsCheckModule = {
 			const sharing = siblingNames.filter((sibling) => getCasingStyle({ segment: sibling }) === style);
 			const settled = siblingNames.length >= 2 && sharing.length * 2 > siblingNames.length;
 
-			const mandated = carveOut.kebabCase || isUnderRouterRoot({ path: directory, carveOut }) || frameworkFolder.test(name);
+			const mandated = isFrameworkCasedFolder({ folder: directory, carveOut }) || frameworkFolder.test(name);
 
 			if (!settled && !mandated) {
 				findings.push(

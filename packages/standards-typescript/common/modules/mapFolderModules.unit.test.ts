@@ -161,6 +161,80 @@ describe('mapFolderModules', () => {
 		expect(modules).toStrictEqual(new Map());
 	});
 
+	test('a folder whose only barrel the framework loads is no module — a router root’s index.tsx is a route', () => {
+		const { files, getSurface, standardsPacks } = setupRepo({
+			paths: ['src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.$runId.tsx'],
+			targets: { 'src/routes/index.tsx': [] },
+		});
+
+		const modules = mapFolderModules({ files, getSurface, standardsPacks, isFrameworkLoaded: ({ path }) => path.startsWith('src/routes/') });
+
+		// read as a barrel it publishes nothing, which would make every route in
+		// the directory somebody's unexported internal
+		expect(modules).toStrictEqual(new Map());
+	});
+
+	test('the same tree with no framework answering reads that index.tsx as a barrel, exactly as before', () => {
+		const { files, getSurface, standardsPacks } = setupRepo({
+			paths: ['src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.$runId.tsx'],
+			targets: { 'src/routes/index.tsx': [] },
+		});
+
+		const modules = mapFolderModules({ files, getSurface, standardsPacks });
+
+		expect([...modules.keys()]).toStrictEqual(['src/routes']);
+	});
+
+	test('a framework answering per file leaves an ordinary barrel a boundary — it discriminates, it does not blanket-suppress', () => {
+		const { files, getSurface, standardsPacks } = setupRepo({
+			paths: ['src/routes/index.tsx', 'src/routes/runs.$runId.tsx', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
+			targets: { 'src/routes/index.tsx': [], 'src/ingestion/index.ts': ['src/ingestion/ingestRecords.ts'] },
+		});
+
+		const modules = mapFolderModules({ files, getSurface, standardsPacks, isFrameworkLoaded: ({ path }) => path.startsWith('src/routes/') });
+
+		expect(modules).toStrictEqual(
+			new Map([['src/ingestion', { barrelPath: 'src/ingestion/index.ts', exportedTargets: new Set(['src/ingestion/ingestRecords.ts']) }]]),
+		);
+	});
+
+	test('a folder the framework mandates as a module is a boundary though its barrel hides nothing', () => {
+		// the omission test infers a boundary from concealment, which is wrong for
+		// a folder a framework requires: it holds one file the day it is made
+		const { files, getSurface, standardsPacks } = setupRepo({
+			paths: ['src/features/app/screens/RunsIndex/index.ts', 'src/features/app/screens/RunsIndex/RunsIndex.tsx'],
+			targets: { 'src/features/app/screens/RunsIndex/index.ts': ['src/features/app/screens/RunsIndex/RunsIndex.tsx'] },
+		});
+
+		const modules = mapFolderModules({
+			files,
+			getSurface,
+			standardsPacks,
+			isMandatedModule: ({ folder }) => folder === 'src/features/app/screens/RunsIndex',
+		});
+
+		expect(modules).toStrictEqual(
+			new Map([
+				[
+					'src/features/app/screens/RunsIndex',
+					{ barrelPath: 'src/features/app/screens/RunsIndex/index.ts', exportedTargets: new Set(['src/features/app/screens/RunsIndex/RunsIndex.tsx']) },
+				],
+			]),
+		);
+	});
+
+	test('a mandate cannot rescue a barrel whose surface could not be fully read', () => {
+		const { files, getSurface, standardsPacks } = setupRepo({
+			paths: ['src/features/app/screens/RunsIndex/index.ts', 'src/features/app/screens/RunsIndex/RunsIndex.tsx'],
+			targets: { 'src/features/app/screens/RunsIndex/index.ts': [] },
+			unreadable: ['src/features/app/screens/RunsIndex/index.ts'],
+		});
+
+		const modules = mapFolderModules({ files, getSurface, standardsPacks, isMandatedModule: () => true });
+
+		expect(modules).toStrictEqual(new Map());
+	});
+
 	test('an unexported test or non-TypeScript file is no omission — a barrel never publishes those', () => {
 		const { files, getSurface, standardsPacks } = setupRepo({
 			paths: ['src/feature/index.ts', 'src/feature/renderGreeting.ts', 'src/feature/renderGreeting.unit.test.ts', 'src/feature/styles.css'],

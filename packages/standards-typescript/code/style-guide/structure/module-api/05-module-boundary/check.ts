@@ -2,6 +2,7 @@ import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/stand
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
 import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
+import { isFrameworkLoadedFile } from '../../../../../common/frameworks/isFrameworkLoadedFile.ts';
 import { isMandatedModuleFolder } from '../../../../../common/frameworks/isMandatedModuleFolder.ts';
 import { mapFolderModules } from '../../../../../common/modules/mapFolderModules.ts';
 
@@ -58,9 +59,12 @@ export const check: StandardsCheckModule = {
 			// be handed a barrel whose aliases they were never given.
 			getSurface: ({ barrelPath }) => ({ targets: targetsByFile.get(barrelPath) ?? new Set<string>(), complete: true }),
 			standardsPacks,
-			// A mandated screen folder is a boundary on the day it holds one
-			// component, which the omission test alone reads as a convenience.
+			// A framework-mandated folder is a boundary on the day it holds one file,
+			// which the omission test alone reads as a convenience.
 			isMandatedModule: ({ folder }) => isMandatedModuleFolder({ folder, carveOut: getPathCarveOut({ carveOuts, path: folder }) }),
+			// A router root's `index.tsx` is a route, so it marks no boundary and
+			// its siblings are not somebody's unexported internals.
+			isFrameworkLoaded: ({ path }) => isFrameworkLoadedFile({ path, carveOut: getPathCarveOut({ carveOuts, path }) }),
 		});
 		const moduleFolders = [...modules.keys()];
 		const scope = new Set(files);

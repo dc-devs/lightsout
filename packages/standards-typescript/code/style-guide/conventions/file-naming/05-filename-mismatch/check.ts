@@ -3,8 +3,7 @@ import { readManifestDependencies } from '../../../../../common/checkInput/readM
 import { buildFileExportCheck } from '../../../../../common/checks/buildFileExportCheck.ts';
 import { getFrameworkCarveOuts } from '../../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../../common/frameworks/getPathCarveOut.ts';
-import { isEntryFile } from '../../../../../common/frameworks/isEntryFile.ts';
-import { isUnderRouterRoot } from '../../../../../common/frameworks/isUnderRouterRoot.ts';
+import { isFrameworkNamedFile } from '../../../../../common/frameworks/isFrameworkNamedFile.ts';
 import { collapseCasing } from '../../../../../common/naming/collapseCasing.ts';
 import { getExportName } from '../../../../../common/naming/getExportName.ts';
 
@@ -40,19 +39,17 @@ const isNameMatch = ({ fileName, exportName }: { fileName: string; exportName: s
  * exports `getRouter`, `src/server.ts` a default from `createServerEntry`,
  * `src/main.ts` NestJS's bootstrap — each is a name the framework chose and
  * reaches for itself, so the export inside was never what named the file.
+ *
+ * Both paragraphs describe one question — did the framework choose this name? —
+ * which is asked once, here, through `isFrameworkNamedFile`, rather than
+ * composed afresh by every rule that needs it.
  */
 export const check: StandardsCheckModule = buildFileExportCheck({
 	rule: 'filename-mismatch',
 	getExempt: ({ files, contents }) => {
 		const carveOuts = getFrameworkCarveOuts({ dependencies: readManifestDependencies({ contents }) });
 
-		return new Set(
-			files.filter((file) => {
-				const carveOut = getPathCarveOut({ carveOuts, path: file });
-
-				return isUnderRouterRoot({ path: file, carveOut }) || isEntryFile({ path: file, carveOut });
-			}),
-		);
+		return new Set(files.filter((file) => isFrameworkNamedFile({ path: file, carveOut: getPathCarveOut({ carveOuts, path: file }) })));
 	},
 	detail: ({ file, exports }) => {
 		const [primary] = exports;

@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from 'node:path';
 import type ts from 'typescript';
+import { readPackageDependencies } from '#src/common/workspace/readPackageDependencies.ts';
 import { StandardsInputKind, type TypeCheckerInput } from '#src/contracts/index.ts';
-import { readPackageDependencies } from '#src/standardsCheck/common/checkInputs/readPackageDependencies.ts';
 
 interface Params {
 	cwd: string;

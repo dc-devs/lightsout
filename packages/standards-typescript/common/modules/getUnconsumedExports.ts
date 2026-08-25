@@ -1,6 +1,5 @@
 import { getPathCarveOut } from '../frameworks/getPathCarveOut.ts';
-import { isEntryFile } from '../frameworks/isEntryFile.ts';
-import { isUnderRouterRoot } from '../frameworks/isUnderRouterRoot.ts';
+import { isFrameworkLoadedFile } from '../frameworks/isFrameworkLoadedFile.ts';
 import { readFileExports } from '../parsing/readFileExports.ts';
 import { isBarrelFile } from '../paths/isBarrelFile.ts';
 import { isTestFile } from '../paths/isTestFile.ts';
@@ -13,21 +12,6 @@ import type { UnconsumedExport } from '../types/UnconsumedExport.ts';
  * every command a dispatcher invokes as "public but unconsumed".
  */
 const isBarrel = ({ file, text }: { file: string; text: string }) => isBarrelFile({ path: file }) && /^export\b/m.test(text);
-
-/**
- * Whether the framework, not a source file, resolves this path — a file under
- * the package's router directory, or one of its convention-resolved entry
- * files.
- *
- * Non-exported on purpose: it composes the two existing predicates for this
- * scan's classification, and is not a third carve-out predicate. A second
- * caller does not promote it; the unified predicate is LO-31/D2's decision.
- */
-const isFrameworkEntry = ({ path, carveOuts }: { path: string; carveOuts: FrameworkCarveOut[] }) => {
-	const carveOut = getPathCarveOut({ carveOuts, path });
-
-	return isUnderRouterRoot({ path, carveOut }) || isEntryFile({ path, carveOut });
-};
 
 interface Params {
 	/** Files in scope — only these are judged, though everything in `contents` may reference them. */
@@ -59,7 +43,12 @@ export const getUnconsumedExports = ({ files, contents, standardsPacks, carveOut
 	const declarations: Array<{ name: string; file: string }> = [];
 
 	for (const [file, text] of contents) {
-		if (!scope.has(file) || isBarrelFile({ path: file }) || isTestFile({ path: file, standardsPacks }) || isFrameworkEntry({ path: file, carveOuts })) {
+		if (
+			!scope.has(file) ||
+			isBarrelFile({ path: file }) ||
+			isTestFile({ path: file, standardsPacks }) ||
+			isFrameworkLoadedFile({ path: file, carveOut: getPathCarveOut({ carveOuts, path: file }) })
+		) {
 			continue;
 		}
 
@@ -84,7 +73,7 @@ export const getUnconsumedExports = ({ files, contents, standardsPacks, carveOut
 
 			if (isTestFile({ path: other, standardsPacks })) {
 				reachedBy.test = true;
-			} else if (isFrameworkEntry({ path: other, carveOuts })) {
+			} else if (isFrameworkLoadedFile({ path: other, carveOut: getPathCarveOut({ carveOuts, path: other }) })) {
 				source = true;
 			} else if (isBarrel({ file: other, text })) {
 				reachedBy.barrel = true;
