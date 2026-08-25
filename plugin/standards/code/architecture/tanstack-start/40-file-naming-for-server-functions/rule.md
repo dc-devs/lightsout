@@ -8,5 +8,6 @@ severity: advisory
 
 | File type | Convention | Example |
 |-----------|------------|---------|
-| Server functions | `camelCase/` folder with `PascalCase` document + `camelCase` fn | `countIssues/CountIssuesDocument.ts`, `countIssuesServerFn.ts` |
+| Server function (default, single file) | `camelCase` ending `ServerFn` | `serverFns/countIssuesServerFn.ts` |
+| Graduated server function folder | `camelCase/` folder; `PascalCase` document + `camelCase` fn inside | `findIssues/FindIssuesDocument.ts`, `findIssuesServerFn.ts` |
 | Queries | `camelCase.ts` | `issuesQueryOptions.ts` |
