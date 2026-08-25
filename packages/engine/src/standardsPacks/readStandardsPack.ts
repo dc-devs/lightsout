@@ -8,6 +8,7 @@ import type { LoadedStandardsDocument } from '#src/standardsPacks/common/types/L
 import type { LoadedStandardsPack } from '#src/standardsPacks/common/types/LoadedStandardsPack.ts';
 import type { LoadedStandardsRule } from '#src/standardsPacks/common/types/LoadedStandardsRule.ts';
 import { formatSchemaIssues } from '#src/standardsPacks/common/utils/formatSchemaIssues.ts';
+import { hasFile } from '#src/standardsPacks/common/utils/hasFile.ts';
 
 interface Params {
 	/** Absolute pack root. */
@@ -130,11 +131,18 @@ export const readStandardsPack = async ({ packPath }: Params): Promise<LoadedSta
 		throw new Error(`standards pack failed to load (${packPath}):\n${problems.map((problem) => `- ${problem}`).join('\n')}`);
 	}
 
+	// Recorded, never required — the same stance the per-rule fixtures take. A
+	// pack that ships one holds every checked rule to it; a pack that does not
+	// is told so by `standards-validate` rather than failed by it.
+	const frameworkOwnedFixturesPath = join(packPath, 'fixtures', 'framework-owned');
+	const hasFrameworkOwned = await hasFile({ path: frameworkOwnedFixturesPath });
+
 	return {
 		name: root.data.name,
 		formatVersion: root.data.formatVersion,
 		built: root.data.built,
 		rootPath: packPath,
+		...(hasFrameworkOwned ? { frameworkOwnedFixturesPath } : {}),
 		documents,
 		rules,
 	};

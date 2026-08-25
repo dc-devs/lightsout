@@ -145,6 +145,14 @@ cries wolf. Neither is visible when the pack loads, and both are exactly what an
 author needs told. It validates every rule regardless of channel, because
 authoring covers every channel.
 
+A pack may also ship one `fixtures/framework-owned/<framework>/` tree per
+framework — a miniature repo whose `package.json` declares that framework, so
+the same carve-outs a real package earns apply. `standards-validate` runs every
+checked rule against every such tree and expects silence: a rule that fires
+there is judging code its framework owns, and it is named as that. The tree is
+found by convention, never declared, and a pack that ships none gets a note
+rather than a problem.
+
 `lightsout standards-health` reports on the rules rather than on your code: per
 rule, whether code checks it or an agent has to judge it, and how often agents
 declined its findings, with the reasons they gave. The coverage half is counted

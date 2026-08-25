@@ -109,6 +109,9 @@ const setupTwoRuleFixtures = () => ({
 	blind: setupFixtures({ pass: ['allowed.ts'], fail: ['also-allowed.ts'] }).fixturesPath,
 });
 
+/** What a pack shipping no framework-owned tree is told — every verdict below that sets none up carries it. */
+const noFrameworkOwnedNote = 'acme: no fixtures/framework-owned/ — no rule was held to the framework-owned invariant';
+
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPath: string }): LoadedStandardsRule => ({
 	set: 'code',
 	documentPath: 'code/style-guide/structure/module-api',
@@ -122,6 +125,9 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPa
 });
 
 const validate = ({ rules, built }: { rules: LoadedStandardsRule[]; built?: true }) => {
+	// No framework-owned tree anywhere in this file: the invariant's own verdicts
+	// live in validateStandardsPack.frameworkOwned.unit.test.ts, and every test
+	// here is about the per-rule pass it runs beside.
 	const pack: LoadedStandardsPack = { name: 'acme', formatVersion: 1, built, rootPath: '/packages/acme', documents: [], rules };
 
 	return validateStandardsPack({ pack });
@@ -136,7 +142,7 @@ describe('validateStandardsPack', () => {
 		});
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a fail fixture the check does not flag is a check that catches nothing', async () => {
@@ -200,7 +206,7 @@ describe('validateStandardsPack', () => {
 
 		// only the empty side is named — the populated one is a pair member already
 		expect(problems).toStrictEqual(['no-banned-file: fixtures/fail/ is missing or empty — every rule ships a fixture pair']);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a judgment-only rule must still ship the fixtures its accuracy is measured against', async () => {
@@ -213,7 +219,7 @@ describe('validateStandardsPack', () => {
 			'premature-abstraction: fixtures/pass/ is missing or empty — every rule ships a fixture pair',
 		]);
 		// the missing pair is the whole story — no judgment-only note on top of it
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a judgment-only rule is a note, never a problem — its fixtures measure the review agent instead', async () => {
@@ -222,7 +228,7 @@ describe('validateStandardsPack', () => {
 		const { problems, notes } = await validate({ rules: [rule({ id: 'premature-abstraction', fixturesPath })] });
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy']);
+		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy', noFrameworkOwnedNote]);
 	});
 
 	test('a rule shipping a check but declaring no input kind is judgment-only — there is no input to run it against', async () => {
@@ -231,7 +237,7 @@ describe('validateStandardsPack', () => {
 		const { problems, notes } = await validate({ rules: [rule({ id: 'premature-abstraction', fixturesPath, run: bansTheBannedFile })] });
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy']);
+		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy', noFrameworkOwnedNote]);
 	});
 
 	test('a check that throws on a fixture is reported as a problem against that rule, not raised', async () => {
@@ -265,7 +271,7 @@ describe('validateStandardsPack', () => {
 
 		// the fixtures live in the engine's own repo, so the compiler is right there
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('validates a rule that needs a type checker against fixture sides that carry a tsconfig', async () => {
@@ -276,7 +282,7 @@ describe('validateStandardsPack', () => {
 		});
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a type-checker fixture side with no tsconfig is named as such, not reported as a check that catches nothing', async () => {
@@ -305,7 +311,7 @@ describe('validateStandardsPack', () => {
 		// is the declarations reaching the check — and the fixtures live in the
 		// engine's own repo, so the compiler the kind needs is right there
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('validates every rule in the pack, whatever channel it sits on', async () => {

@@ -388,4 +388,35 @@ describe('readStandardsPack', () => {
 		expect(pkg.documents[0]?.ruleIds).toStrictEqual(['functions']);
 		expect(pkg.rules.map((rule) => rule.id)).toStrictEqual(['functions']);
 	});
+
+	test('records the pack-level framework-owned fixtures path when the pack ships one', async () => {
+		const { packPath } = setupPack({
+			files: {
+				...rootFile,
+				'code/style/document.md': '# Style\n',
+				...ruleFiles({ path: 'code/style/01-functions', markdown: '---\nsummary: one export per file\n---\n\nProse.\n' }),
+				'fixtures/framework-owned/nestjs/src/main.ts': 'export const value = 1;\n',
+			},
+		});
+
+		const pkg = await readStandardsPack({ packPath });
+
+		// found by convention, never declared — the same way a rule folder's fixtures are
+		expect(pkg.frameworkOwnedFixturesPath).toBe(join(packPath, 'fixtures', 'framework-owned'));
+	});
+
+	test('leaves the framework-owned fixtures path unset for a pack that ships none', async () => {
+		const { packPath } = setupPack({
+			files: {
+				...rootFile,
+				'code/style/document.md': '# Style\n',
+				...ruleFiles({ path: 'code/style/01-functions', markdown: '---\nsummary: one export per file\n---\n\nProse.\n' }),
+			},
+		});
+
+		const pkg = await readStandardsPack({ packPath });
+
+		// recorded, never required: the absence is a note from standards-validate, not a load failure
+		expect(pkg.frameworkOwnedFixturesPath).toBeUndefined();
+	});
 });

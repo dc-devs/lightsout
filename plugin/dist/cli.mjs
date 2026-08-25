@@ -25717,11 +25717,14 @@ var readStandardsPack = async ({ packPath }) => {
     throw new Error(`standards pack failed to load (${packPath}):
 ${problems.map((problem) => `- ${problem}`).join("\n")}`);
   }
+  const frameworkOwnedFixturesPath = join24(packPath, "fixtures", "framework-owned");
+  const hasFrameworkOwned = await hasFile({ path: frameworkOwnedFixturesPath });
   return {
     name: root.data.name,
     formatVersion: root.data.formatVersion,
     built: root.data.built,
     rootPath: packPath,
+    ...hasFrameworkOwned ? { frameworkOwnedFixturesPath } : {},
     documents,
     rules
   };
@@ -40956,6 +40959,31 @@ var selectStandardsFindings = ({ findings, changedFiles }) => {
 import { readdir as readdir13 } from "node:fs/promises";
 import { createRequire as createRequire2 } from "node:module";
 import { join as join45 } from "node:path";
+
+// src/standardsCheck/common/utils/checkFixtureTree.ts
+var checkFixtureTree = async ({ cwd, rule, inputKind, run, label, compiler }) => {
+  const { files } = await listSourceFiles({ cwd });
+  const input = await buildCheckInput({
+    kind: inputKind,
+    cwd,
+    source: files.filter((file2) => !isTestFile({ path: file2 })),
+    tests: files.filter((file2) => isTestFile({ path: file2 })),
+    files,
+    referenceFiles: files,
+    // A fixture tree is a miniature repo of its own; it declares no pack.
+    standardsPacks: [],
+    packagesDir: defaultPackagesDir,
+    settings: rule.defaultSettings,
+    cache: /* @__PURE__ */ new Map(),
+    compiler
+  });
+  if (input.kind === StandardsInputKind.TypeChecker && input.typedFiles.size === 0 && files.length > 0) {
+    throw new Error(`no tsconfig.json in ${label}, so none of its ${files.length} file(s) could be typed \u2014 a type-checker rule's fixtures need one`);
+  }
+  return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
+};
+
+// src/standardsCheck/validateStandardsPack.ts
 var FixtureSide = {
   Fail: "fail",
   Pass: "pass"
@@ -40979,33 +41007,48 @@ var missingFixtureSides = async ({ fixturesPath }) => {
   }
   return missing;
 };
-var checkFixture = async ({
-  rule,
-  inputKind,
-  run,
-  side,
-  compiler
-}) => {
-  const cwd = join45(rule.fixturesPath, side);
-  const { files } = await listSourceFiles({ cwd });
-  const input = await buildCheckInput({
-    kind: inputKind,
-    cwd,
-    source: files.filter((file2) => !isTestFile({ path: file2 })),
-    tests: files.filter((file2) => isTestFile({ path: file2 })),
-    files,
-    referenceFiles: files,
-    // A fixture side is a miniature repo of its own; it declares no pack.
-    standardsPacks: [],
-    packagesDir: defaultPackagesDir,
-    settings: rule.defaultSettings,
-    cache: /* @__PURE__ */ new Map(),
-    compiler
-  });
-  if (input.kind === StandardsInputKind.TypeChecker && input.typedFiles.size === 0 && files.length > 0) {
-    throw new Error(`no tsconfig.json in fixtures/${side}/, so none of its ${files.length} file(s) could be typed \u2014 a type-checker rule's fixtures need one`);
+var namePaths = ({ found }) => {
+  const paths = [...new Set(found.flatMap((finding) => finding.files.slice(0, 1).map((file2) => file2.path)))];
+  return paths.length > 3 ? `${paths.slice(0, 3).join(", ")}, \u2026` : paths.join(", ");
+};
+var checkFrameworkOwned = async ({ pack, compiler }) => {
+  const { frameworkOwnedFixturesPath } = pack;
+  const heldNothing = { problems: [], notes: [`${pack.name}: no fixtures/framework-owned/ \u2014 no rule was held to the framework-owned invariant`] };
+  if (frameworkOwnedFixturesPath === void 0) {
+    return heldNothing;
   }
-  return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
+  const entries = await readdir13(frameworkOwnedFixturesPath, { withFileTypes: true }).catch(() => []);
+  const frameworks = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+  if (frameworks.length === 0) {
+    return heldNothing;
+  }
+  const problems = [];
+  for (const framework of frameworks) {
+    for (const rule of pack.rules) {
+      const { run, inputKind } = rule;
+      if (run === void 0 || inputKind === void 0 || compiler === void 0 && typescriptInputKinds.has(inputKind)) {
+        continue;
+      }
+      try {
+        const found = await checkFixtureTree({
+          cwd: join45(frameworkOwnedFixturesPath, framework),
+          rule,
+          inputKind,
+          run,
+          label: `fixtures/framework-owned/${framework}/`,
+          compiler
+        });
+        if (found.length > 0) {
+          problems.push(
+            `${rule.id}: the ${framework} framework-owned tree produced ${found.length} finding(s) \u2014 a checked rule stays silent on code its framework owns (${namePaths({ found })})`
+          );
+        }
+      } catch (error51) {
+        problems.push(`${rule.id}: the ${framework} framework-owned tree could not be checked \u2014 ${messageOf({ error: error51 })}`);
+      }
+    }
+  }
+  return { problems, notes: [] };
 };
 var validateStandardsPack = async ({ pack }) => {
   if (pack.built) {
@@ -41037,7 +41080,7 @@ var validateStandardsPack = async ({ pack }) => {
     }
     for (const side of Object.values(FixtureSide)) {
       try {
-        const found = await checkFixture({ rule, inputKind, run, side, compiler });
+        const found = await checkFixtureTree({ cwd: join45(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
         if (side === FixtureSide.Fail && found.length === 0) {
           problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
         }
@@ -41049,6 +41092,9 @@ var validateStandardsPack = async ({ pack }) => {
       }
     }
   }
+  const frameworkOwned = await checkFrameworkOwned({ pack, compiler });
+  problems.push(...frameworkOwned.problems);
+  notes.push(...frameworkOwned.notes);
   return { problems, notes };
 };
 

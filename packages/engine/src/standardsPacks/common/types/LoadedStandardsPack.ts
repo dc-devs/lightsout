@@ -15,6 +15,16 @@ export interface LoadedStandardsPack {
 	built?: true;
 	/** Absolute pack root. */
 	rootPath: string;
+	/**
+	 * Absolute path of `<pack>/fixtures/framework-owned/`, present only when the
+	 * pack ships one. Each child folder is one framework's miniature repo, and
+	 * every checked rule is held to silence on all of them — the invariant that
+	 * keeps a rule written next year from judging code its framework owns.
+	 *
+	 * Recorded at load, demanded by nobody: a pack without one gets a note from
+	 * `standards-validate`, the same stance a rule's own `fixturesPath` takes.
+	 */
+	frameworkOwnedFixturesPath?: string;
 	documents: LoadedStandardsDocument[];
 	rules: LoadedStandardsRule[];
 }
