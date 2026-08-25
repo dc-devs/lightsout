@@ -31,12 +31,7 @@ describe('multi-export check', () => {
 
 	test('reports a file holding two unrelated exports, naming both', async () => {
 		const input = setupFileTextInput({
-			contents: [
-				[
-					'src/common/types/Config.ts',
-					['export interface Config {', '\tname: string;', '}', '', "export const defaultConfig: Config = { name: 'default' };"].join('\n'),
-				],
-			],
+			contents: [['src/common/types/Config.ts', ['export interface Config {', '\tname: string;', '}', '', 'export const maxRetries = 3;'].join('\n')]],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -45,7 +40,7 @@ describe('multi-export check', () => {
 			{
 				siteKey: 'multi-export:src/common/types/Config.ts',
 				files: [{ path: 'src/common/types/Config.ts' }],
-				detail: '2 exports (Config, defaultConfig)',
+				detail: '2 exports (Config, maxRetries)',
 				guidance: 'One export per file, outside the closed exception list.',
 			},
 		]);
@@ -371,5 +366,52 @@ describe('multi-export check', () => {
 		const findings = await check.run({ input: setupOtherKindInput(), settings: {} });
 
 		expect(findings).toStrictEqual([]);
+	});
+
+	test('a type and the single value typed by it share a file — exception 5', async () => {
+		const input = setupFileTextInput({
+			contents: [
+				[
+					'src/common/constants/defaultConfig.ts',
+					['export interface Config {', '\tname: string;', '}', '', "export const defaultConfig: Config = { name: 'default' };"].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('a const not annotated with the co-located type is not the typed-value pair', async () => {
+		const input = setupFileTextInput({
+			contents: [['src/common/types/Theme.ts', ['export interface Theme {', '\tname: string;', '}', '', "export const defaultName = 'dark';"].join('\n')]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toHaveLength(1);
+	});
+
+	test('a type with two typed values is past the pair and reports', async () => {
+		const input = setupFileTextInput({
+			contents: [
+				[
+					'src/common/constants/themes.ts',
+					[
+						'export interface Theme {',
+						'\tname: string;',
+						'}',
+						'',
+						"export const darkTheme: Theme = { name: 'dark' };",
+						"export const lightTheme: Theme = { name: 'light' };",
+					].join('\n'),
+				],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toHaveLength(1);
 	});
 });

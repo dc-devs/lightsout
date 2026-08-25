@@ -14,7 +14,7 @@ The folder groups type-level declarations regardless of keyword. Pick the keywor
 
 A discriminated union family lives in `types/` under the union's name.
 
-**The `Params` interface stays with its function; all other exported types go in `types/`:**
+**The `Params` interface stays with its function, and a type may stay with the single value typed by it (one-export-per-file's exception 5); every other exported type goes in `types/`:**
 
 ```typescript
 // copyFile.ts — Params co-located, unexported

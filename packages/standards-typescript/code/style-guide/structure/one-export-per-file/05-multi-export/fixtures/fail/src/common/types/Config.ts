@@ -2,4 +2,4 @@ export interface Config {
 	name: string;
 }
 
-export const defaultConfig: Config = { name: 'default' };
+export const maxRetries = 3;
