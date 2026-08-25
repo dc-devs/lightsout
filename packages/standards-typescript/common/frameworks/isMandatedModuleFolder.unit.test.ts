@@ -10,6 +10,7 @@ const setupCarveOut = ({
 	moduleFolders?: string[];
 } = {}): FrameworkCarveOut => ({
 	directory,
+	entryFiles: [],
 	exemptFolderNames: [],
 	kebabCase: false,
 	routerRoots: [],

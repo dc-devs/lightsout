@@ -6,11 +6,32 @@ import { getPathCarveOut } from './getPathCarveOut.ts';
 const setupCarveOuts = ({ directories }: { directories: string[] }): FrameworkCarveOut[] =>
 	directories.map((directory) => ({
 		directory,
+		entryFiles: [],
 		exemptFolderNames: ['components'],
 		kebabCase: false,
 		routerRoots: [],
 		moduleFolders: [],
 	}));
+
+/** The real `packages/web-app` shape: a package whose framework resolves entry files, under a repo root whose own dependencies name none. */
+const setupEntryFileCarveOuts = (): FrameworkCarveOut[] => [
+	{
+		directory: 'packages/web-app',
+		entryFiles: ['router.tsx', 'server.ts', 'client.tsx'],
+		exemptFolderNames: [],
+		kebabCase: false,
+		routerRoots: ['routes'],
+		moduleFolders: [],
+	},
+	{
+		directory: '.',
+		entryFiles: [],
+		exemptFolderNames: [],
+		kebabCase: false,
+		routerRoots: [],
+		moduleFolders: [],
+	},
+];
 
 describe('getPathCarveOut', () => {
 	test('takes the nearest package, not the repo root that also matches', () => {
@@ -20,11 +41,20 @@ describe('getPathCarveOut', () => {
 
 		expect(carveOut).toStrictEqual({
 			directory: 'packages/api',
+			entryFiles: [],
 			exemptFolderNames: ['components'],
 			kebabCase: false,
 			routerRoots: [],
 			moduleFolders: [],
 		});
+	});
+
+	test("hands over the nearest package's framework-resolved entry files, not the repo root's none", () => {
+		const carveOuts = setupEntryFileCarveOuts();
+
+		const carveOut = getPathCarveOut({ carveOuts, path: 'packages/web-app/src/router.tsx' });
+
+		expect(carveOut.entryFiles).toStrictEqual(['router.tsx', 'server.ts', 'client.tsx']);
 	});
 
 	test('falls to the repo root entry for a path under no workspace package', () => {
@@ -48,6 +78,6 @@ describe('getPathCarveOut', () => {
 
 		const carveOut = getPathCarveOut({ carveOuts, path: 'src/billing/invoices' });
 
-		expect(carveOut).toStrictEqual({ directory: '.', exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] });
+		expect(carveOut).toStrictEqual({ directory: '.', entryFiles: [], exemptFolderNames: [], kebabCase: false, routerRoots: [], moduleFolders: [] });
 	});
 });

@@ -1,17 +1,30 @@
 /**
- * One package's exemptions from the folder rules, and the directory that earned
- * them.
+ * One package's framework mandates — over folders and over files alike — and the
+ * directory that earned them.
  *
- * Both the banned-name rule and the casing rule end their prose with the same
- * carve-out — where the package's framework doc mandates a name, the framework
- * doc wins — so both read this shape. The directory rides along because the
- * rules also need to know which `src/` the exemptions apply inside: a monorepo
- * with a NestJS API and a React front end gets each package's own answer rather
- * than the union.
+ * Rule after rule ends its prose with the same carve-out: where the package's
+ * framework doc mandates a name, a layout or an entry point, the framework doc
+ * wins. Holding that sentence as one shape is what keeps it from becoming a
+ * judgement each rule makes for itself. The directory rides along because a rule
+ * also needs to know which `src/` the mandates apply inside: a monorepo with a
+ * NestJS API and a React front end gets each package's own answer rather than
+ * the union.
  */
 export interface FrameworkCarveOut {
 	/** Package directory whose declared dependencies earned these exemptions ('.' for the repo root). */
 	directory: string;
+	/**
+	 * Files the framework resolves by convention, written relative to the
+	 * package's `src/` — e.g. TanStack Start's `router.tsx`, `server.ts` and
+	 * `client.tsx`, or NestJS's `main.ts`.
+	 *
+	 * A framework names these files itself and reaches them without an import,
+	 * so a check reading exports sees no consumer and a check reading filenames
+	 * sees a name that matches no export. Both are facts about the framework,
+	 * not about the author, which is why they are recorded here rather than
+	 * guessed per rule.
+	 */
+	entryFiles: string[];
 	/** Folder names this package's framework mandates, exempt from the banned-name rule. */
 	exemptFolderNames: string[];
 	/** True when the framework mandates kebab-case folders throughout (NestJS). */

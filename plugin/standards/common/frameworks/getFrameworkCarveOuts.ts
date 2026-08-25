@@ -9,14 +9,17 @@ import type { FrameworkCarveOut } from '../types/FrameworkCarveOut.ts';
  * `components/` and `hooks/` are React's own feature layout; `controllers/`,
  * `models/` and `services/` are NestJS's, which also mandates kebab-case
  * throughout; each router package names the directory whose segments become URL
- * path segments and are therefore kebab-case by mandate.
+ * path segments and are therefore kebab-case by mandate; and each framework
+ * that resolves entry files by convention names them, so a check never has to
+ * infer that nothing imports `src/router.tsx` on purpose.
  */
 const carveOutSignals: Record<string, Partial<Omit<FrameworkCarveOut, 'directory'>>> = {
 	react: { exemptFolderNames: ['components', 'hooks'] },
 	'react-dom': { exemptFolderNames: ['components', 'hooks'] },
-	'@nestjs/core': { exemptFolderNames: ['controllers', 'models', 'services'], kebabCase: true },
+	'@nestjs/core': { exemptFolderNames: ['controllers', 'models', 'services'], kebabCase: true, entryFiles: ['main.ts'] },
 	next: { routerRoots: ['app', 'pages'] },
 	'@tanstack/react-router': { routerRoots: ['routes'], moduleFolders: ['features/*/screens/*'] },
+	'@tanstack/react-start': { routerRoots: ['routes'], entryFiles: ['router.tsx', 'server.ts', 'client.tsx'] },
 	'@remix-run/react': { routerRoots: ['routes'] },
 	'expo-router': { routerRoots: ['app'] },
 };
@@ -27,8 +30,9 @@ interface Params {
 }
 
 /**
- * Which folder-name and folder-casing exemptions each package's frameworks
- * earn.
+ * Which mandates each package's frameworks earn — over folder names and casing,
+ * over which folders are modules, and over the files a framework resolves for
+ * itself.
  *
  * The engine supplies the dependency facts; what counts as a carve-out is
  * standards content, so the tables live here. A package that declares no
@@ -49,6 +53,7 @@ export const getFrameworkCarveOuts = ({ dependencies }: Params): FrameworkCarveO
 
 			return {
 				directory,
+				entryFiles: [...new Set(signals.flatMap((signal) => signal.entryFiles ?? []))],
 				exemptFolderNames: [...new Set(signals.flatMap((signal) => signal.exemptFolderNames ?? []))],
 				kebabCase: signals.some((signal) => signal.kebabCase === true),
 				routerRoots: [...new Set(signals.flatMap((signal) => signal.routerRoots ?? []))],
