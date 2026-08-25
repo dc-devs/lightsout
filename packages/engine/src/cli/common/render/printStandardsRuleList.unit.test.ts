@@ -71,10 +71,12 @@ describe('printStandardsRuleList', () => {
 	test("a rule's live numbers ride along with its summary", () => {
 		const { logged } = setupPrinter();
 
-		printStandardsRuleList({ rules: [listing({ rule: 'clone', summary: 'token-level copy-paste spans', settings: { minTokens: 90 } })] });
+		printStandardsRuleList({
+			rules: [listing({ rule: 'duplicate-code-block', summary: 'the same block of code written out in two or more files', settings: { minTokens: 90 } })],
+		});
 
 		// a retuned knob is visible without opening the config
-		expect(cellsOf({ logged })[2]?.[0]).toBe('token-level copy-paste spans — minTokens 90');
+		expect(cellsOf({ logged })[2]?.[0]).toBe('the same block of code written out in two or more files — minTokens 90');
 	});
 
 	test('the totals line counts each state and both kinds of rule, including the rules that run at none', () => {
@@ -83,9 +85,9 @@ describe('printStandardsRuleList', () => {
 		printStandardsRuleList({
 			rules: [
 				listing(),
-				listing({ rule: 'clone', severity: StandardsSeverity.Advisory }),
+				listing({ rule: 'duplicate-code-block', severity: StandardsSeverity.Advisory }),
 				listing({ rule: 'filename-mismatch', severity: StandardsSeverity.Advisory }),
-				listing({ rule: 'folder-census', severity: StandardsSeverity.Off }),
+				listing({ rule: 'crowded-folder', severity: StandardsSeverity.Off }),
 				listing({ rule: 'premature-abstraction', severity: StandardsSeverity.Advisory, checked: false }),
 			],
 		});

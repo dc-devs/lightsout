@@ -42,7 +42,7 @@ describe('findIntroducedFindings', () => {
 	test('an advisory the run created never fails the run — the closing check asks only about blocking work', () => {
 		const introduced = findIntroducedFindings({
 			frozen: [],
-			live: [finding({ severity: StandardsSeverity.Advisory, rule: 'clone', siteKey: 'clone:src/new.ts' })],
+			live: [finding({ severity: StandardsSeverity.Advisory, rule: 'duplicate-code-block', siteKey: 'duplicate-code-block:src/new.ts' })],
 			severity: StandardsSeverity.Blocking,
 		});
 

@@ -1,0 +1,33 @@
+import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
+import { readPathLists } from '../../../common/checkInput/readPathLists.ts';
+import { buildRawFinding } from '../../../common/findings/buildRawFinding.ts';
+import { getDirectory } from '../../../common/paths/getDirectory.ts';
+import { isUnderSrc } from '../../../common/paths/isUnderSrc.ts';
+
+/**
+ * The separate-directory names the rule refuses for a unit test. Outside `src/`
+ * these very names are the sanctioned test-support locations the same document
+ * names, which is why the rule is anchored to `src/`.
+ */
+const testDirectories = new Set(['__tests__', 'tests', 'test']);
+
+const isSeparated = ({ test }: { test: string }) =>
+	isUnderSrc({ path: test }) &&
+	getDirectory({ path: test })
+		.split('/')
+		.some((segment) => testDirectories.has(segment));
+
+export const check: StandardsCheckModule = {
+	inputKind: 'file-list',
+	run: ({ input }): RawStandardsFinding[] =>
+		readPathLists({ input })
+			.tests.filter((test) => isSeparated({ test }))
+			.map((test) =>
+				buildRawFinding({
+					rule: 'test-in-tests-folder',
+					files: [{ path: test }],
+					detail: `a unit test in ${getDirectory({ path: test })}`,
+					guidance: 'A unit test sits beside the file it tests — move it next to its subject rather than into a separate directory.',
+				}),
+			),
+};

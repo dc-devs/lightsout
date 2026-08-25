@@ -69,9 +69,9 @@ describe('appendReviewFindings', () => {
 
 	test('appends to what earlier runs logged rather than replacing it', async () => {
 		const prior = {
-			rule: 'clone',
+			rule: 'duplicate-code-block',
 			severity: 'advisory',
-			siteKey: 'clone:src/old.ts',
+			siteKey: 'duplicate-code-block:src/old.ts',
 			files: [{ path: 'src/old.ts' }],
 			detail: 'a span',
 			at: '2026-01-01T00:00:00.000Z',
@@ -92,7 +92,7 @@ describe('appendReviewFindings', () => {
 			cwd,
 			runId,
 			step: 'batch-01',
-			findings: [finding(), finding({ rule: 'clone', siteKey: 'clone:src/b.ts', files: [{ path: 'src/b.ts' }] })],
+			findings: [finding(), finding({ rule: 'duplicate-code-block', siteKey: 'duplicate-code-block:src/b.ts', files: [{ path: 'src/b.ts' }] })],
 		});
 
 		expect(readLines()).toHaveLength(2);
@@ -112,11 +112,16 @@ describe('readReviewFindings', () => {
 		const { cwd, runId } = setupLedger();
 
 		await appendReviewFindings({ cwd, runId, step: 'batch-01', findings: [finding()] });
-		await appendReviewFindings({ cwd, runId: 'run-later', step: 'batch-02', findings: [finding({ rule: 'clone', siteKey: 'clone:src/b.ts' })] });
+		await appendReviewFindings({
+			cwd,
+			runId: 'run-later',
+			step: 'batch-02',
+			findings: [finding({ rule: 'duplicate-code-block', siteKey: 'duplicate-code-block:src/b.ts' })],
+		});
 
 		const records = await readReviewFindings({ cwd });
 
-		expect(records.map((entry) => entry.rule)).toStrictEqual(['single-return', 'clone']);
+		expect(records.map((entry) => entry.rule)).toStrictEqual(['single-return', 'duplicate-code-block']);
 		expect(records[1]?.runId).toBe('run-later');
 	});
 
@@ -127,7 +132,7 @@ describe('readReviewFindings', () => {
 	});
 
 	test('a malformed line is skipped rather than guessed at', async () => {
-		const { cwd, runId } = setupLedger({ priorLine: { rule: 'clone', detail: 'no site key, no files' } });
+		const { cwd, runId } = setupLedger({ priorLine: { rule: 'duplicate-code-block', detail: 'no site key, no files' } });
 
 		await appendReviewFindings({ cwd, runId, step: 'batch-01', findings: [finding()] });
 		const records = await readReviewFindings({ cwd });

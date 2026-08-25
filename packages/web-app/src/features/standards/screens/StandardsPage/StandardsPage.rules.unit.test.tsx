@@ -19,7 +19,7 @@ const setupRuleList = ({ overrides = {} }: { overrides?: Partial<StandardsView> 
 
 /** Two rules with findings under one of them, which is what every filtering question here needs. */
 const twoRules = {
-	rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 2 }), buildStandardsRuleView({ rule: 'clone', findingCount: 0 })],
+	rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 2 }), buildStandardsRuleView({ rule: 'duplicate-code-block', findingCount: 0 })],
 	findings: [
 		buildStandardsFinding({ rule: 'size-file', paths: ['packages/engine/src/plan/a.ts'] }),
 		buildStandardsFinding({ rule: 'size-file', paths: ['packages/engine/src/plan/b.ts'] }),
@@ -30,7 +30,7 @@ describe('StandardsPage rule list', () => {
 	test('lists a rule with nothing wrong under it, because an unknown rule is an unfollowed rule', () => {
 		const { rules } = setupRuleList({ overrides: twoRules });
 
-		const rule = rules().getByRole('button', { name: /^clone/ });
+		const rule = rules().getByRole('button', { name: /^duplicate-code-block/ });
 
 		expect(rule).toBeInTheDocument();
 	});
@@ -38,7 +38,7 @@ describe('StandardsPage rule list', () => {
 	test('shows a dash rather than a zero for a rule with no open findings', () => {
 		const { rules } = setupRuleList({ overrides: twoRules });
 
-		const rule = rules().getByRole('button', { name: /^clone/ });
+		const rule = rules().getByRole('button', { name: /^duplicate-code-block/ });
 
 		expect(rule.textContent).toContain('—');
 	});
@@ -82,11 +82,11 @@ describe('StandardsPage rule list', () => {
 		const { rules } = setupRuleList({
 			overrides: {
 				...twoRules,
-				findings: [...twoRules.findings, buildStandardsFinding({ rule: 'clone', paths: ['packages/web-app/src/routes/index.tsx'] })],
+				findings: [...twoRules.findings, buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/web-app/src/routes/index.tsx'] })],
 			},
 		});
 
-		fireEvent.click(rules().getByRole('button', { name: /^clone/ }));
+		fireEvent.click(rules().getByRole('button', { name: /^duplicate-code-block/ }));
 
 		expect(screen.queryByText('packages/engine/src/plan/a.ts')).not.toBeInTheDocument();
 		expect(screen.getByText('packages/web-app/src/routes/index.tsx')).toBeInTheDocument();
@@ -95,15 +95,15 @@ describe('StandardsPage rule list', () => {
 	test('says so in words when the rule a reader picked has nothing open under it', () => {
 		const { rules } = setupRuleList({ overrides: twoRules });
 
-		fireEvent.click(rules().getByRole('button', { name: /^clone/ }));
+		fireEvent.click(rules().getByRole('button', { name: /^duplicate-code-block/ }));
 
-		expect(screen.getByText('Nothing is open under clone.')).toBeInTheDocument();
+		expect(screen.getByText('Nothing is open under duplicate-code-block.')).toBeInTheDocument();
 	});
 
 	test('gives every finding back when the all-rules row is picked again', () => {
 		const { rules } = setupRuleList({ overrides: twoRules });
 
-		fireEvent.click(rules().getByRole('button', { name: /^clone/ }));
+		fireEvent.click(rules().getByRole('button', { name: /^duplicate-code-block/ }));
 		fireEvent.click(rules().getByRole('button', { name: /^All rules/ }));
 
 		expect(screen.getByText('packages/engine/src/plan/a.ts')).toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('StandardsPage rule drawer', () => {
 	test('leaves the findings filter alone when a rule is only read, not selected', () => {
 		const { rules } = setupRuleList({ overrides: twoRules });
 
-		fireEvent.click(rules().getByRole('button', { name: 'rule text: clone' }));
+		fireEvent.click(rules().getByRole('button', { name: 'rule text: duplicate-code-block' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
 		expect(rules().getByRole('button', { name: /^All rules/ })).toHaveAttribute('aria-pressed', 'true');
@@ -179,7 +179,7 @@ describe('StandardsPage rule drawer', () => {
 	test('closes when a reader is done with it', () => {
 		setupRuleList({ overrides: twoRules });
 
-		fireEvent.click(screen.getByRole('button', { name: 'rule text: clone' }));
+		fireEvent.click(screen.getByRole('button', { name: 'rule text: duplicate-code-block' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

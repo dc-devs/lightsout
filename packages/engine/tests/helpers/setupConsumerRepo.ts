@@ -32,7 +32,7 @@ interface Params {
  * a consumer with `writeSource` instead of switching anything off.
  */
 export const reachabilityRulesOff = {
-	'standards-checks': { 'dead-export': 'off', 'barrel-only-export': 'off', 'test-only-export': 'off' },
+	'standards-checks': { 'dead-export': 'off', 'barrel-is-only-consumer': 'off', 'test-only-export': 'off' },
 };
 
 /** The one source file a repo carries when a test plants none of its own. */

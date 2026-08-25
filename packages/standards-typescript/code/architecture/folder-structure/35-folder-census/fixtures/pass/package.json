@@ -1,7 +1,0 @@
-{
-	"name": "folder-census-pass-fixture",
-	"private": true,
-	"dependencies": {
-		"@tanstack/react-router": "^1.0.0"
-	}
-}

@@ -102,7 +102,7 @@ describe('standardsCheckCommand persistence', () => {
 		const { context, cwd } = setupCheck({
 			args: [],
 			check: {
-				findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })],
+				findings: [finding({ rule: 'duplicate-code-block', severity: StandardsSeverity.Blocking, siteKey: 'duplicate-code-block:src/a.ts:1' })],
 				notes: ['3 site(s) held back by the baseline'],
 			},
 			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })] },
@@ -116,7 +116,7 @@ describe('standardsCheckCommand persistence', () => {
 		const written = writtenReport({ cwd });
 
 		expect(written?.path).toBe('.');
-		expect(written?.findings.map((entry) => entry.rule)).toStrictEqual(['clone', 'path-aliases']);
+		expect(written?.findings.map((entry) => entry.rule)).toStrictEqual(['duplicate-code-block', 'path-aliases']);
 		expect(written?.notes).toStrictEqual(['3 site(s) held back by the baseline']);
 
 		const dated = datedSnapshots({ cwd });

@@ -2,7 +2,7 @@ import { expect, test } from '@jest/globals';
 import { StandardsCheckOverrides } from '#src/contracts/index.ts';
 
 test('StandardsCheckOverrides: the renamed finding severity is refused with a message naming blocking', () => {
-	const bare = StandardsCheckOverrides.safeParse({ clone: 'finding' });
+	const bare = StandardsCheckOverrides.safeParse({ 'duplicate-code-block': 'finding' });
 
 	// a value copied from the pre-rename docs is told what happened, rather than
 	// being handed a bare list of the three valid options
@@ -10,18 +10,18 @@ test('StandardsCheckOverrides: the renamed finding severity is refused with a me
 	expect(bare.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
 
 	// the object form takes the same value in a different position — both reject
-	const nested = StandardsCheckOverrides.safeParse({ clone: { severity: 'finding' } });
+	const nested = StandardsCheckOverrides.safeParse({ 'duplicate-code-block': { severity: 'finding' } });
 
 	expect(nested.success).toBe(false);
 	expect(nested.error?.message ?? '').toMatch(/severity `finding` was renamed to `blocking`/);
 
 	// an ordinary typo keeps the ordinary enum error — only the retired spelling is called out
-	expect(StandardsCheckOverrides.safeParse({ clone: 'blockign' }).error?.message ?? '').not.toMatch(/was renamed/);
+	expect(StandardsCheckOverrides.safeParse({ 'duplicate-code-block': 'blockign' }).error?.message ?? '').not.toMatch(/was renamed/);
 });
 
 test('StandardsCheckOverrides: both override forms come through parsing intact', () => {
 	const overrides = {
-		clone: 'off',
+		'duplicate-code-block': 'off',
 		'size-file': { severity: 'advisory', settings: { file: 200, tsxFile: 260 } },
 	};
 
@@ -42,17 +42,17 @@ test.each([{ severity: 'blocking' }, { severity: 'advisory' }, { severity: 'off'
 	({ severity }) => {
 		// all three states are settable, including off — the only way a repo stops a
 		// rule blocking is by naming it here
-		expect(StandardsCheckOverrides.parse({ clone: severity })).toStrictEqual({ clone: severity });
+		expect(StandardsCheckOverrides.parse({ 'duplicate-code-block': severity })).toStrictEqual({ 'duplicate-code-block': severity });
 		// the object form reaches the same state, so a repo adding settings later
 		// never has to restate the severity in a different vocabulary
-		expect(StandardsCheckOverrides.parse({ clone: { severity } })).toStrictEqual({ clone: { severity } });
+		expect(StandardsCheckOverrides.parse({ 'duplicate-code-block': { severity } })).toStrictEqual({ 'duplicate-code-block': { severity } });
 	},
 );
 
 test('StandardsCheckOverrides: an override object may carry severity alone, settings alone, or neither', () => {
 	const overrides = {
-		clone: { severity: 'advisory' },
-		'folder-census': { settings: { cap: 30 } },
+		'duplicate-code-block': { severity: 'advisory' },
+		'crowded-folder': { settings: { cap: 30 } },
 		'barrel-star': {},
 	};
 
@@ -65,8 +65,8 @@ test('StandardsCheckOverrides: an override object may carry severity alone, sett
 test('StandardsCheckOverrides: a settings value is checked as a number and nothing more', () => {
 	// settings keys belong to the rule, not this schema, so a zero or a fraction
 	// parses here — whether a value makes sense is the rule's own business
-	expect(StandardsCheckOverrides.parse({ clone: { settings: { minTokens: 0, ratio: 1.5 } } })).toStrictEqual({
-		clone: { settings: { minTokens: 0, ratio: 1.5 } },
+	expect(StandardsCheckOverrides.parse({ 'duplicate-code-block': { settings: { minTokens: 0, ratio: 1.5 } } })).toStrictEqual({
+		'duplicate-code-block': { settings: { minTokens: 0, ratio: 1.5 } },
 	});
 });
 
@@ -82,10 +82,10 @@ test('StandardsCheckOverrides: a rule id this schema has never heard of parses, 
 });
 
 test.each([
-	{ label: 'a severity outside the three states', overrides: { clone: 'warn' } },
-	{ label: 'a severity outside the three states inside an object', overrides: { clone: { severity: 'warn' } } },
-	{ label: 'a settings key that is not a number', overrides: { clone: { settings: { minTokens: '50' } } } },
-	{ label: 'an override object carrying a key the shape does not declare', overrides: { clone: { severty: 'off' } } },
+	{ label: 'a severity outside the three states', overrides: { 'duplicate-code-block': 'warn' } },
+	{ label: 'a severity outside the three states inside an object', overrides: { 'duplicate-code-block': { severity: 'warn' } } },
+	{ label: 'a settings key that is not a number', overrides: { 'duplicate-code-block': { settings: { minTokens: '50' } } } },
+	{ label: 'an override object carrying a key the shape does not declare', overrides: { 'duplicate-code-block': { severty: 'off' } } },
 	{ label: 'an overrides map that is not an object', overrides: true },
 ])('StandardsCheckOverrides: $label fails parsing', ({ overrides }) => {
 	// a mistyped severity would silently disable an override the user believes is

@@ -6,7 +6,7 @@ severity: advisory
 
 ## Domain Folders
 
-The [graduation rule](../../folder-structure/55-domain-graduation/rule.md)
+The [graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md)
 applied to JSX-producing helpers: two or more functions sharing a subject
 graduate out of `utils/` into a named domain folder, exactly as pure functions
 do.
@@ -26,5 +26,5 @@ common/
 A domain folder is a grouping, not a module: it carries no `index.ts`
 ([a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)),
 and under `common/` the
-[common-barrel rule](../../../style-guide/structure/module-api/30-path-common-barrel/rule.md)
+[common-barrel rule](../../../style-guide/structure/module-api/30-barrel-under-common/rule.md)
 bans one outright.

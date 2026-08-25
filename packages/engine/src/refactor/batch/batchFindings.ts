@@ -14,14 +14,14 @@ import type { RefactorBatch, StandardsFinding } from '#src/contracts/index.ts';
  * has no stake in.
  */
 const rulePriority: string[] = [
-	// A path rule is a file move or a rename — the most mechanical fix there is,
-	// so these lead.
-	'path-banned-module-name',
-	'path-common-flat',
-	'path-common-barrel',
-	'path-test-in-tests-folder',
-	'path-test-not-colocated',
-	'path-test-support-in-src',
+	// These are fixed by a file move or a rename — the most mechanical fix there
+	// is, so they lead.
+	'banned-folder-name',
+	'file-directly-in-common',
+	'barrel-under-common',
+	'test-in-tests-folder',
+	'test-not-beside-subject',
+	'test-support-in-src',
 	'module-boundary',
 	'placement',
 	'multi-export',
@@ -39,19 +39,19 @@ const rulePriority: string[] = [
 	'barrel-dead-entry',
 	'dead-export',
 	'test-only-export',
-	'barrel-only-export',
+	'barrel-is-only-consumer',
 	'size-file',
 	'size-function',
-	'domain-graduation',
-	'path-domain-folder-single-file',
-	'path-folder-casing',
+	'ungrouped-domain-utils',
+	'single-file-domain-folder',
+	'folder-casing',
 	'test-multiple-setups',
-	'test-mega-factory',
-	'folder-census',
-	'ast-duplicate',
-	'clone',
-	'name-duplicate',
-	'name-synonym',
+	'oversized-setup-factory',
+	'crowded-folder',
+	'duplicate-function-body',
+	'duplicate-code-block',
+	'duplicate-export-name',
+	'synonym-export-name',
 ];
 
 /** A batch above this many findings splits into sorted chunks — one agent job stays readable. */
@@ -92,7 +92,7 @@ export const batchFindings = ({ blocking, advisories, packagesDir }: Params): Re
 		return segments.length > 1 && segments[0] ? segments[0] : '(root)';
 	};
 
-	// A finding spanning areas (a cross-package clone, say) can never be
+	// A finding spanning areas (a duplicate block spanning packages, say) can never be
 	// resolved by an agent scoped to one side — it gets a dedicated cross
 	// batch whose file set covers every side.
 	const folderOf = ({ finding }: { finding: StandardsFinding }) => {

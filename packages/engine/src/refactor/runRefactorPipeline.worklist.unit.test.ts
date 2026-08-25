@@ -236,7 +236,7 @@ describe('runRefactorPipeline work-list', () => {
 		expect(advisories.length > 0).toBeTruthy();
 		// EVERY advisory rides along, not just the size ones — each carries its own
 		// guidance, and one the agent never sees is one it can never judge
-		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['clone', 'size-function']);
+		expect([...new Set(advisories.map((advisory) => advisory.rule))].sort()).toStrictEqual(['duplicate-code-block', 'size-function']);
 		// advisories are never batched as work
 		expect([...new Set(worklist.batches.flatMap((batch) => batch.blocking.map((finding) => finding.severity)))]).toStrictEqual(['blocking']);
 	});

@@ -43,18 +43,18 @@ test('LightsoutConfig: each block reaches its own contract, valid and invalid al
 		...base,
 		commands: { implement: { harness: 'codex' } },
 		'package-gates': { check: 'c {package}', test: 't {package}' },
-		'standards-checks': { clone: 'off' },
+		'standards-checks': { 'duplicate-code-block': 'off' },
 	});
 
 	expect(parsed.commands).toStrictEqual({ implement: { harness: 'codex' } });
 	expect(parsed['package-gates']).toStrictEqual({ check: 'c {package}', test: 't {package}' });
-	expect(parsed['standards-checks']).toStrictEqual({ clone: 'off' });
+	expect(parsed['standards-checks']).toStrictEqual({ 'duplicate-code-block': 'off' });
 
 	// …and each block's own refusals fire through the composition, so wiring a
 	// block in optional never softened it
 	expect(LightsoutConfig.safeParse({ ...base, commands: { implment: {} } }).success).toBe(false);
 	expect(LightsoutConfig.safeParse({ ...base, 'package-gates': { check: 'pnpm check', test: 't {package}' } }).success).toBe(false);
-	expect(LightsoutConfig.safeParse({ ...base, 'standards-checks': { clone: 'warn' } }).success).toBe(false);
+	expect(LightsoutConfig.safeParse({ ...base, 'standards-checks': { 'duplicate-code-block': 'warn' } }).success).toBe(false);
 
 	// an absent block leaves no key on the parsed config
 	expect('package-gates' in LightsoutConfig.parse(base)).toBe(false);
@@ -273,7 +273,7 @@ test.each([
 	{ key: 'packageGates', value: { check: 'c {package}', test: 't {package}' }, to: 'package-gates' },
 	{ key: 'standardsPackages', value: false, to: 'standards-packs' },
 	{ key: 'standardsChannels', value: ['react'], to: 'standards-channels' },
-	{ key: 'standardsChecks', value: { clone: 'off' }, to: 'standards-checks' },
+	{ key: 'standardsChecks', value: { 'duplicate-code-block': 'off' }, to: 'standards-checks' },
 ])('LightsoutConfig: the camelCase $key is refused with a message naming $to', ({ key, value, to }) => {
 	const result = LightsoutConfig.safeParse({ ...base, [key]: value });
 

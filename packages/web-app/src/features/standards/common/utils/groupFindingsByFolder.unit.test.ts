@@ -77,14 +77,14 @@ describe('groupFindingsByFolder', () => {
 		const groups = groupFindingsByFolder({
 			findings: [
 				buildStandardsFinding({ rule: 'size-file', paths: ['packages/engine/src/plan/a.ts'] }),
-				buildStandardsFinding({ rule: 'clone', paths: ['packages/engine/src/plan/b.ts'] }),
-				buildStandardsFinding({ rule: 'clone', paths: ['packages/engine/src/plan/c.ts'] }),
+				buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/engine/src/plan/b.ts'] }),
+				buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/engine/src/plan/c.ts'] }),
 			],
 			depth: 4,
 		});
 
 		expect(groups[0].rules).toStrictEqual([
-			{ rule: 'clone', count: 2 },
+			{ rule: 'duplicate-code-block', count: 2 },
 			{ rule: 'size-file', count: 1 },
 		]);
 	});
@@ -93,12 +93,12 @@ describe('groupFindingsByFolder', () => {
 		const groups = groupFindingsByFolder({
 			findings: [
 				buildStandardsFinding({ rule: 'size-file', paths: ['packages/engine/src/plan/a.ts'] }),
-				buildStandardsFinding({ rule: 'clone', paths: ['packages/engine/src/plan/b.ts'] }),
+				buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/engine/src/plan/b.ts'] }),
 			],
 			depth: 4,
 		});
 
-		expect(groups[0].rules.map(({ rule }) => rule)).toStrictEqual(['clone', 'size-file']);
+		expect(groups[0].rules.map(({ rule }) => rule)).toStrictEqual(['duplicate-code-block', 'size-file']);
 	});
 
 	test('answers an empty report with an empty breakdown', () => {

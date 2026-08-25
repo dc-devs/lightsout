@@ -297,22 +297,22 @@ describe('standardsCheckCommand', () => {
 	test('review findings join the same stream, printed under their own section after the code checks have already reported', async () => {
 		const { context, logged } = setupCheck({
 			args: [],
-			check: { findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })] },
+			check: { findings: [finding({ rule: 'duplicate-code-block', severity: StandardsSeverity.Blocking, siteKey: 'duplicate-code-block:src/a.ts:1' })] },
 			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts', detail: 'a relative import in an aliased package' })] },
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 1 blocking', 'ℹ path-aliases · 1 advisory']);
+		expect(headingsOf({ logged })).toStrictEqual(['⚠ duplicate-code-block · 1 blocking', 'ℹ path-aliases · 1 advisory']);
 		// the fast half's answer is on screen before the slow half starts — a
 		// reader waiting on the agent already has the deterministic result
-		expect(logged.indexOf('⚠ clone · 1 blocking')).toBeLessThan(logged.indexOf('Agent review'));
+		expect(logged.indexOf('⚠ duplicate-code-block · 1 blocking')).toBeLessThan(logged.indexOf('Agent review'));
 	});
 
 	test('a finding spanning several files lists every site, then wraps its detail and its guidance underneath', async () => {
 		const spanning = finding({
-			rule: 'clone',
-			siteKey: 'clone:src/a.ts:3',
+			rule: 'duplicate-code-block',
+			siteKey: 'duplicate-code-block:src/a.ts:3',
 			files: [
 				{ path: 'src/a.ts', startLine: 3 },
 				{ path: 'src/b.ts', startLine: 9, endLine: 20 },
@@ -322,7 +322,7 @@ describe('standardsCheckCommand', () => {
 		});
 		const { context, logged } = setupCheck({
 			check: { findings: [spanning] },
-			rules: [listing({ rule: 'clone', summary: 'the same code in more than one place' })],
+			rules: [listing({ rule: 'duplicate-code-block', summary: 'the same code in more than one place' })],
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);

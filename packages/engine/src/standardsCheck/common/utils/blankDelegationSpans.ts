@@ -22,9 +22,10 @@ const isAssigningConstructor = ({ node, compiler }: { node: ts.ConstructorDeclar
 	);
 
 /**
- * The composition-over-inheritance remedy blanked out of a file before clone
- * detection, the way import lists already are: a class that holds a shared
- * collaborator and forwards to it through one-line methods repeats that shape
+ * The composition-over-inheritance remedy blanked out of a file before
+ * duplicate-block detection, the way import lists already are: a class that
+ * holds a shared collaborator and forwards to it through one-line methods
+ * repeats that shape
  * in every class holding the same collaborator BY DESIGN — the standards
  * mandate it in place of `extends`. Counting it as duplication reports the
  * remedy as the disease, and did, on every refactor run that touched two run
@@ -32,11 +33,11 @@ const isAssigningConstructor = ({ node, compiler }: { node: ts.ConstructorDeclar
  *
  * Blanked members: a constructor whose body only stores parameters on `this`,
  * and a method whose body is one forward to a `this`-held field (the shared
- * `isDelegationForwardBody` predicate — the same one the ast-duplicate rule
- * consults, so the two duplication tiers can never disagree about the exempt
- * shape). Blanking is newline-preserving, so every reported line number stays
+ * `isDelegationForwardBody` predicate — the same one the
+ * duplicate-function-body rule consults, so the two duplication tiers can never
+ * disagree about the exempt shape). Blanking is newline-preserving, so every reported line number stays
  * true. Real logic beside the forwards — a second statement, a computation —
- * keeps its lines and stays a clone candidate.
+ * keeps its lines and stays a duplicate-block candidate.
  */
 export const blankDelegationSpans = ({ path, text, compiler }: Params): string => {
 	const sourceFile = compiler.createSourceFile(path, text, compiler.ScriptTarget.Latest, true);

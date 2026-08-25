@@ -33,7 +33,7 @@ const setupStates = ({ packs, standardsChecks }: { packs: LoadedStandardsPack[];
 };
 
 const twoRules = [
-	rule({ id: 'clone', defaultSeverity: StandardsSeverity.Advisory, defaultSettings: { minTokens: 50 } }),
+	rule({ id: 'duplicate-code-block', defaultSeverity: StandardsSeverity.Advisory, defaultSettings: { minTokens: 50 } }),
 	rule({ id: 'module-boundary', defaultSeverity: StandardsSeverity.Blocking }),
 ];
 
@@ -41,14 +41,14 @@ describe('resolvePackageRuleStates', () => {
 	test('a rule the config never names keeps the severity and settings its own front matter declared', () => {
 		const { states } = setupStates({ packs: [standardsPack({ rules: twoRules })] });
 
-		expect(states.get('clone')).toStrictEqual({ severity: StandardsSeverity.Advisory, settings: { minTokens: 50 }, fromConfig: false });
+		expect(states.get('duplicate-code-block')).toStrictEqual({ severity: StandardsSeverity.Advisory, settings: { minTokens: 50 }, fromConfig: false });
 		expect(states.get('module-boundary')).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: {}, fromConfig: false });
 	});
 
 	test('a bare severity string replaces the severity and leaves the settings alone', () => {
-		const { states } = setupStates({ packs: [standardsPack({ rules: twoRules })], standardsChecks: { clone: 'off' } });
+		const { states } = setupStates({ packs: [standardsPack({ rules: twoRules })], standardsChecks: { 'duplicate-code-block': 'off' } });
 
-		expect(states.get('clone')).toStrictEqual({ severity: StandardsSeverity.Off, settings: { minTokens: 50 }, fromConfig: true });
+		expect(states.get('duplicate-code-block')).toStrictEqual({ severity: StandardsSeverity.Off, settings: { minTokens: 50 }, fromConfig: true });
 	});
 
 	test('an object override merges its settings over the front matter rather than replacing them', () => {
@@ -63,23 +63,23 @@ describe('resolvePackageRuleStates', () => {
 	test('an override carrying both a severity and settings applies both', () => {
 		const { states } = setupStates({
 			packs: [standardsPack({ rules: twoRules })],
-			standardsChecks: { clone: { severity: 'blocking', settings: { minTokens: 80 } } },
+			standardsChecks: { 'duplicate-code-block': { severity: 'blocking', settings: { minTokens: 80 } } },
 		});
 
-		expect(states.get('clone')).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: { minTokens: 80 }, fromConfig: true });
+		expect(states.get('duplicate-code-block')).toStrictEqual({ severity: StandardsSeverity.Blocking, settings: { minTokens: 80 }, fromConfig: true });
 	});
 
 	test('an empty object override changes nothing but still marks the rule as named by the config', () => {
-		const { states } = setupStates({ packs: [standardsPack({ rules: twoRules })], standardsChecks: { clone: {} } });
+		const { states } = setupStates({ packs: [standardsPack({ rules: twoRules })], standardsChecks: { 'duplicate-code-block': {} } });
 
 		// `--list` prints "(config)" from this flag, so naming a rule at all has to show up there
-		expect(states.get('clone')).toStrictEqual({ severity: StandardsSeverity.Advisory, settings: { minTokens: 50 }, fromConfig: true });
+		expect(states.get('duplicate-code-block')).toStrictEqual({ severity: StandardsSeverity.Advisory, settings: { minTokens: 50 }, fromConfig: true });
 	});
 
 	test('the resolved settings are a copy, so editing them cannot reach back into the loaded pack', () => {
-		const rules = [rule({ id: 'clone', defaultSettings: { minTokens: 50 } })];
+		const rules = [rule({ id: 'duplicate-code-block', defaultSettings: { minTokens: 50 } })];
 		const { states } = setupStates({ packs: [standardsPack({ rules })] });
-		const resolved = states.get('clone')?.settings ?? {};
+		const resolved = states.get('duplicate-code-block')?.settings ?? {};
 
 		resolved.minTokens = 999;
 
@@ -91,20 +91,20 @@ describe('resolvePackageRuleStates', () => {
 			packs: [standardsPack({ rules: twoRules }), standardsPack({ name: 'house-style', rules: [rule({ id: 'no-default-export' })] })],
 		});
 
-		expect([...states.keys()].sort()).toStrictEqual(['clone', 'module-boundary', 'no-default-export']);
+		expect([...states.keys()].sort()).toStrictEqual(['duplicate-code-block', 'module-boundary', 'no-default-export']);
 		expect([...states.values()].every((state) => state.fromConfig === false)).toBe(true);
 	});
 
 	test('two packs claiming one rule id is refused, naming both', () => {
-		const packs = [standardsPack({ rules: twoRules }), standardsPack({ name: 'house-style', rules: [rule({ id: 'clone' })] })];
+		const packs = [standardsPack({ rules: twoRules }), standardsPack({ name: 'house-style', rules: [rule({ id: 'duplicate-code-block' })] })];
 
 		// ambiguous ids would make config overrides and site keys mean two things
-		expect(() => resolvePackageRuleStates({ packs })).toThrow(/duplicate rule id "clone".*"acme".*"house-style"/);
+		expect(() => resolvePackageRuleStates({ packs })).toThrow(/duplicate rule id "duplicate-code-block".*"acme".*"house-style"/);
 	});
 
 	test('a config naming a rule no pack declares is refused, with the valid ids listed', () => {
-		expect(() => setupStates({ packs: [standardsPack({ rules: twoRules })], standardsChecks: { 'clone-detector': 'off' } })).toThrow(
-			/standards-checks names "clone-detector".*valid rule ids: clone, module-boundary/,
+		expect(() => setupStates({ packs: [standardsPack({ rules: twoRules })], standardsChecks: { 'duplicate-code-block-detector': 'off' } })).toThrow(
+			/standards-checks names "duplicate-code-block-detector".*valid rule ids: duplicate-code-block, module-boundary/,
 		);
 	});
 
@@ -112,6 +112,6 @@ describe('resolvePackageRuleStates', () => {
 		const states = resolvePackageRuleStates({ packs: [standardsPack({ rules: twoRules })] });
 
 		expect(states.size).toBe(2);
-		expect(states.get('clone')?.fromConfig).toBe(false);
+		expect(states.get('duplicate-code-block')?.fromConfig).toBe(false);
 	});
 });

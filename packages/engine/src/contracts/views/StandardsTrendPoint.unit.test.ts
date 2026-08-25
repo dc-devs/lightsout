@@ -9,7 +9,7 @@ const setupPoint = ({ omit, extra = {} }: { omit?: string; extra?: Record<string
 		blocking: 5,
 		advisory: 2,
 		byRule: [
-			{ rule: 'clone', count: 4 },
+			{ rule: 'duplicate-code-block', count: 4 },
 			{ rule: 'size-file', count: 3 },
 		],
 		...extra,
@@ -35,7 +35,7 @@ describe('StandardsTrendPoint', () => {
 			blocking: 5,
 			advisory: 2,
 			byRule: [
-				{ rule: 'clone', count: 4 },
+				{ rule: 'duplicate-code-block', count: 4 },
 				{ rule: 'size-file', count: 3 },
 			],
 		});
@@ -98,7 +98,7 @@ describe('StandardsTrendPoint', () => {
 	});
 
 	test('rejects a per-rule list that is not an array', () => {
-		const { point } = setupPoint({ extra: { byRule: { clone: 4 } } });
+		const { point } = setupPoint({ extra: { byRule: { 'duplicate-code-block': 4 } } });
 
 		const result = StandardsTrendPoint.safeParse(point);
 
@@ -108,7 +108,7 @@ describe('StandardsTrendPoint', () => {
 	});
 
 	test('rejects a per-rule entry missing its rule id or its count', () => {
-		for (const byRule of [[{ count: 4 }], [{ rule: 'clone' }]]) {
+		for (const byRule of [[{ count: 4 }], [{ rule: 'duplicate-code-block' }]]) {
 			const { point } = setupPoint({ extra: { byRule } });
 
 			const result = StandardsTrendPoint.safeParse(point);
@@ -119,7 +119,7 @@ describe('StandardsTrendPoint', () => {
 	});
 
 	test('rejects a per-rule entry whose count is not a number', () => {
-		const { point } = setupPoint({ extra: { byRule: [{ rule: 'clone', count: '4' }] } });
+		const { point } = setupPoint({ extra: { byRule: [{ rule: 'duplicate-code-block', count: '4' }] } });
 
 		const result = StandardsTrendPoint.safeParse(point);
 
@@ -137,7 +137,7 @@ describe('StandardsTrendPoint', () => {
 	});
 
 	test('keys the contract does not declare are stripped from the point and from each per-rule entry', () => {
-		const { point } = setupPoint({ extra: { notes: ['skipped a corrupt file'], byRule: [{ rule: 'clone', count: 4, severity: 'blocking' }] } });
+		const { point } = setupPoint({ extra: { notes: ['skipped a corrupt file'], byRule: [{ rule: 'duplicate-code-block', count: 4, severity: 'blocking' }] } });
 
 		const parsed = StandardsTrendPoint.parse(point);
 
@@ -149,7 +149,7 @@ describe('StandardsTrendPoint', () => {
 			total: 7,
 			blocking: 5,
 			advisory: 2,
-			byRule: [{ rule: 'clone', count: 4 }],
+			byRule: [{ rule: 'duplicate-code-block', count: 4 }],
 		});
 	});
 });

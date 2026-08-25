@@ -142,15 +142,20 @@ describe('runPackageChecks', () => {
 		expect(calls[0]?.input).toBe(calls[1]?.input);
 	});
 
-	test('gives each clone rule its own detection, because the detector runs on that rule settings', async () => {
+	test('gives each duplicate-block rule its own detection, because the detector runs on that rule settings', async () => {
 		const { cwd } = setupRepo();
 		const calls: Array<{ input: StandardsCheckInput; settings: Record<string, number> }> = [];
 
 		await runChecks({
 			cwd,
 			rules: [
-				rule({ id: 'clone', inputKind: StandardsInputKind.CloneSpans, run: recordingRun({ calls }), defaultSettings: { minTokens: 50 } }),
-				rule({ id: 'clone-strict', inputKind: StandardsInputKind.CloneSpans, run: recordingRun({ calls }), defaultSettings: { minTokens: 200 } }),
+				rule({ id: 'duplicate-code-block', inputKind: StandardsInputKind.CloneSpans, run: recordingRun({ calls }), defaultSettings: { minTokens: 50 } }),
+				rule({
+					id: 'duplicate-code-block-strict',
+					inputKind: StandardsInputKind.CloneSpans,
+					run: recordingRun({ calls }),
+					defaultSettings: { minTokens: 200 },
+				}),
 			],
 		});
 

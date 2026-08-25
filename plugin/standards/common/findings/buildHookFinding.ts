@@ -25,7 +25,7 @@ interface Params {
  * read, what they look for, and what they say — a return value set in a hook,
  * an assertion in a hook, and mock cleanup the Jest config already does.
  * Written out per rule they are the same twelve lines three times, which is
- * exactly the shape the clone detector reports.
+ * exactly the shape the duplicate-block detector reports.
  */
 export const buildHookFinding = ({ rule, file, blocks, pattern, detailSuffix, guidance }: Params): RawStandardsFinding[] => {
 	const hooks = blocks.filter((block) => pattern.test(block.body));

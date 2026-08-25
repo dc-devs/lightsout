@@ -7,14 +7,14 @@ const refactorWorklist = {
 	all: false,
 	batches: [
 		{
-			id: 'batch-01:clone:src/standardsCheck',
-			rule: 'clone',
+			id: 'batch-01:duplicate-code-block:src/standardsCheck',
+			rule: 'duplicate-code-block',
 			folder: 'src/standardsCheck',
 			blocking: [
 				{
-					rule: 'clone',
+					rule: 'duplicate-code-block',
 					severity: 'blocking',
-					siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+					siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 					files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 					detail: 'a 36-line span repeated across two files',
 				},

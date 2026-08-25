@@ -4,7 +4,7 @@ import { seedResumeState } from '#src/refactor/index.ts';
 
 const config: LightsoutConfig = { gates: { check: 'true', test: 'true', 'test-coverage': false } };
 
-const batch = (id: string): RefactorBatch => ({ id, rule: 'clone', folder: 'src', blocking: [], advisories: [] });
+const batch = (id: string): RefactorBatch => ({ id, rule: 'duplicate-code-block', folder: 'src', blocking: [], advisories: [] });
 
 const step = ({ id, outcome, status = RunStatus.Passed }: { id: string; outcome?: BatchOutcome; status?: RunStatus }): StepRecord => ({
 	id,

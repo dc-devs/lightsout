@@ -9,7 +9,7 @@ import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
 /**
  * An internal barrel — the only kind this rule judges. A package or repo `src`
  * root barrel is that package's API, whose consumers are other packages and
- * invisible here; a barrel under `common/` is `path-common-barrel`'s to report,
+ * invisible here; a barrel under `common/` is `barrel-under-common`'s to report,
  * since the objection there is that it exists at all.
  */
 const isInternalBarrel = ({ path }: { path: string }) => {

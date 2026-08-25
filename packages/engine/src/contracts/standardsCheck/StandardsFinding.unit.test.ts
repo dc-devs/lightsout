@@ -3,9 +3,9 @@ import { StandardsFinding, StandardsSeverity } from '#src/contracts/index.ts';
 
 const setupFinding = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding: Record<string, unknown> = {
-		rule: 'clone',
+		rule: 'duplicate-code-block',
 		severity: 'blocking',
-		siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+		siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 		detail: 'a 36-line span repeated across two files',
 		...extra,
@@ -25,9 +25,9 @@ describe('StandardsFinding', () => {
 		const parsed = StandardsFinding.parse(finding);
 
 		expect(parsed).toStrictEqual({
-			rule: 'clone',
+			rule: 'duplicate-code-block',
 			severity: 'blocking',
-			siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+			siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 			files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 			detail: 'a 36-line span repeated across two files',
 		});
@@ -35,19 +35,19 @@ describe('StandardsFinding', () => {
 
 	test('every rule the standards check runs is a value a finding may carry', () => {
 		for (const rule of [
-			'name-duplicate',
-			'name-synonym',
-			'clone',
-			'ast-duplicate',
+			'duplicate-export-name',
+			'synonym-export-name',
+			'duplicate-code-block',
+			'duplicate-function-body',
 			'size-file',
 			'size-function',
 			'multi-export',
 			'filename-mismatch',
-			'domain-graduation',
-			'folder-census',
+			'ungrouped-domain-utils',
+			'crowded-folder',
 			'dead-export',
 			'test-only-export',
-			'barrel-only-export',
+			'barrel-is-only-consumer',
 			'module-boundary',
 			'placement',
 			'barrel-star',
@@ -62,15 +62,15 @@ describe('StandardsFinding', () => {
 			'test-manual-mock-cleanup',
 			'test-strict-equal-matcher',
 			'test-multiple-setups',
-			'test-mega-factory',
-			'path-banned-module-name',
-			'path-common-flat',
-			'path-common-barrel',
-			'path-test-in-tests-folder',
-			'path-test-not-colocated',
-			'path-test-support-in-src',
-			'path-folder-casing',
-			'path-domain-folder-single-file',
+			'oversized-setup-factory',
+			'banned-folder-name',
+			'file-directly-in-common',
+			'barrel-under-common',
+			'test-in-tests-folder',
+			'test-not-beside-subject',
+			'test-support-in-src',
+			'folder-casing',
+			'single-file-domain-folder',
 		]) {
 			const { finding } = setupFinding({ extra: { rule } });
 
@@ -111,7 +111,7 @@ describe('StandardsFinding', () => {
 	});
 
 	test('rejects a rule that is not a string at all', () => {
-		for (const rule of [42, ['clone'], { id: 'clone' }]) {
+		for (const rule of [42, ['duplicate-code-block'], { id: 'duplicate-code-block' }]) {
 			const { finding } = setupFinding({ extra: { rule } });
 
 			const result = StandardsFinding.safeParse(finding);
@@ -179,7 +179,7 @@ describe('StandardsFinding', () => {
 
 		const parsed = StandardsFinding.parse(finding);
 
-		// a clone is only actionable with every site it appears at — the agent is
+		// a duplicate block is only actionable with every site it appears at — the agent is
 		// handed all of them
 		expect(parsed.files).toStrictEqual([
 			{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 },
@@ -297,9 +297,9 @@ describe('StandardsFinding', () => {
 		// happened to know — the baseline stays a stable ledger across rule
 		// versions
 		expect(parsed).toStrictEqual({
-			rule: 'clone',
+			rule: 'duplicate-code-block',
 			severity: 'blocking',
-			siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+			siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 			files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 			detail: 'a 36-line span repeated across two files',
 		});

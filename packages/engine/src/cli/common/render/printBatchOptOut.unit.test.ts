@@ -8,12 +8,12 @@ describe('printBatchOptOut', () => {
 
 		printBatchOptOut({
 			heading: 'declined',
-			batchId: 'batch-03:clone:(cross)',
+			batchId: 'batch-03:duplicate-code-block:(cross)',
 			lines: ['[standards] the mirrors are deliberate', '[prompt] destination outside the file set'],
 			hint: 'review each site — fix by hand, or accept it as debt',
 		});
 
-		expect(logged[0]).toContain('declined batch-03:clone:(cross)');
+		expect(logged[0]).toContain('declined batch-03:duplicate-code-block:(cross)');
 		// the agent's words are reproduced, not summarized — an unreadable decline
 		// is indistinguishable from silently skipped work
 		expect(logged[1]).toContain('[standards] the mirrors are deliberate');

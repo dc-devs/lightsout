@@ -26,7 +26,7 @@ out the rest, and lets you override any field.
 
 It does not read a repo off disk. The engine has its own builders for that, and
 they stay in the engine: they open files, resolve a dependency graph and run a
-clone detector, none of which a rule's unit test wants. Both sides build the same
+duplicate-block detector, none of which a rule's unit test wants. Both sides build the same
 shape because the shape is declared once, in
 [`@lightsout/standards-contracts`](../standards-contracts).
 

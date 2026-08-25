@@ -104,7 +104,12 @@ describe('StandardsView', () => {
 				findings: [],
 				rules: [
 					buildRuleView({ findingCount: 0 }),
-					buildRuleView({ rule: 'clone', doc: '@lightsout/standards: code/clone', documentPath: 'code/clone', findingCount: 0 }),
+					buildRuleView({
+						rule: 'duplicate-code-block',
+						doc: '@lightsout/standards: code/duplicate-code-block',
+						documentPath: 'code/duplicate-code-block',
+						findingCount: 0,
+					}),
 				],
 				totals: { rules: 2, checked: 2, judgment: 0, blocking: 0, advisory: 0, orphans: 0 },
 			},
@@ -113,7 +118,7 @@ describe('StandardsView', () => {
 		const parsed = StandardsView.parse(view);
 
 		// the rules list is every rule the repo enforces, not only the broken ones
-		expect(parsed.rules.map((rule) => rule.rule)).toStrictEqual(['size-file', 'clone']);
+		expect(parsed.rules.map((rule) => rule.rule)).toStrictEqual(['size-file', 'duplicate-code-block']);
 	});
 
 	test('a finding whose rule no package loads is counted as an orphan', () => {
@@ -287,8 +292,16 @@ describe('StandardsView', () => {
 	test('an advisory finding reaches the view beside a blocking one, and both severity totals with it', () => {
 		const { view } = setupView({
 			extra: {
-				findings: [buildFinding(), buildFinding({ rule: 'clone', severity: 'advisory', siteKey: 'clone:src/views/listRuns.ts' })],
-				rules: [buildRuleView(), buildRuleView({ rule: 'clone', doc: '@lightsout/standards: code/clone', documentPath: 'code/clone', severity: 'advisory' })],
+				findings: [buildFinding(), buildFinding({ rule: 'duplicate-code-block', severity: 'advisory', siteKey: 'duplicate-code-block:src/views/listRuns.ts' })],
+				rules: [
+					buildRuleView(),
+					buildRuleView({
+						rule: 'duplicate-code-block',
+						doc: '@lightsout/standards: code/duplicate-code-block',
+						documentPath: 'code/duplicate-code-block',
+						severity: 'advisory',
+					}),
+				],
 				totals: { rules: 2, checked: 2, judgment: 0, blocking: 1, advisory: 1, orphans: 0 },
 			},
 		});
@@ -300,7 +313,10 @@ describe('StandardsView', () => {
 		// advisories as clean
 		expect(parsed).toEqual(
 			expect.objectContaining({
-				findings: [expect.objectContaining({ rule: 'size-file', severity: 'blocking' }), expect.objectContaining({ rule: 'clone', severity: 'advisory' })],
+				findings: [
+					expect.objectContaining({ rule: 'size-file', severity: 'blocking' }),
+					expect.objectContaining({ rule: 'duplicate-code-block', severity: 'advisory' }),
+				],
 				totals: expect.objectContaining({ blocking: 1, advisory: 1 }),
 			}),
 		);

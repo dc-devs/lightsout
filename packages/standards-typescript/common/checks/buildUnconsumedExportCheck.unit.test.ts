@@ -13,7 +13,7 @@ const setupBarrelOnlyRepo = () =>
 
 const buildCheck = ({ matches }: { matches: Parameters<typeof buildUnconsumedExportCheck>[0]['matches'] }) =>
 	buildUnconsumedExportCheck({
-		rule: 'barrel-only-export',
+		rule: 'barrel-is-only-consumer',
 		matches,
 		detail: 'exported through a barrel but no module consumes it',
 		guidance: 'Deliberate public API, or dead?',
@@ -29,7 +29,7 @@ describe('buildUnconsumedExportCheck', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'barrel-only-export:src/ingestion/ingestRecords.ts',
+				siteKey: 'barrel-is-only-consumer:src/ingestion/ingestRecords.ts',
 				files: [{ path: 'src/ingestion/ingestRecords.ts' }],
 				detail: "'ingestRecords' is exported through a barrel but no module consumes it",
 				guidance: 'Deliberate public API, or dead?',
@@ -54,7 +54,7 @@ describe('buildUnconsumedExportCheck', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'barrel-only-export:standards/tests/unit-testing/10-rule/check.ts',
+				siteKey: 'barrel-is-only-consumer:standards/tests/unit-testing/10-rule/check.ts',
 				files: [{ path: 'standards/tests/unit-testing/10-rule/check.ts' }],
 				detail: "'checkRule' is exported through a barrel but no module consumes it",
 				guidance: 'Deliberate public API, or dead?',

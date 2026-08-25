@@ -235,7 +235,7 @@ test('refactor: a star re-export blocks the loop on its own — severity is the 
 		},
 		// the planted barrel is also, unavoidably, a barrel nothing consumes — a
 		// second verdict on the same file that would make "alone" untestable
-		config: { 'standards-checks': { 'barrel-only-export': 'off' } },
+		config: { 'standards-checks': { 'barrel-is-only-consumer': 'off' } },
 		onRefactor: () => report({ changedFiles: [] }),
 	});
 
@@ -252,7 +252,7 @@ test('refactor: a star re-export blocks the loop on its own — severity is the 
 test('refactor: the gate narration counts the work-list and the advisories, and nothing else', async () => {
 	const { dir, driver, config, progress, onProgress } = await setupRefactorRun({
 		// Two exports in one file: one blocking multi-export finding. The near-copy
-		// beside it contributes a clone advisory — a rule outside the size family,
+		// beside it contributes a duplicate-block advisory — a rule outside the size family,
 		// so the line has both counts to carry.
 		source: 'export const first = () => 1;\nexport const second = () => 2;\n',
 		extraSources: { 'src/copyOfFirst.js': `export const copyOfFirst = () => {\n${'\tconst padding = 1;\n'.repeat(40)}\treturn 1;\n};\n` },
@@ -367,7 +367,7 @@ test('refactor: a blocking finding whose only site is a test file the run wrote 
 	const result = await runImplementPipeline({ cwd: dir, driver, config, planPath: 'plan.md' });
 
 	expect(result.ok).toBe(false);
-	expect(result.error ?? '').toMatch(/path-test-in-tests-folder/);
+	expect(result.error ?? '').toMatch(/test-in-tests-folder/);
 });
 
 test('refactor: the executor may write the test files its findings name, or it is handed work it cannot do', async () => {

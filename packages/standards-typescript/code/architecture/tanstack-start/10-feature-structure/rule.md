@@ -9,7 +9,7 @@ severity: advisory
 A feature under `src/features/` is a module: its `index.ts` is its public API
 ([module boundary](../../../style-guide/structure/module-api/05-module-boundary/rule.md)),
 and everything inside it grows by the
-[graduation rule](../../folder-structure/55-domain-graduation/rule.md) — a
+[graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md) — a
 single file until companions or a shared subject earn a folder. There is no
 fixed feature tree to stamp out; these are the domain folders a TanStack
 feature *commonly grows*, each created when graduation triggers and never

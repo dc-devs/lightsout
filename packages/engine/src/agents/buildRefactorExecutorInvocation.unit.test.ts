@@ -118,15 +118,15 @@ test("buildRefactorExecutorInvocation: a finding's guidance rides its bullet, af
 	).toBeTruthy();
 });
 
-test('buildRefactorExecutorInvocation: a multi-site finding renders every location with its line span, joined by the clone marker', () => {
+test('buildRefactorExecutorInvocation: a multi-site finding renders every location with its line span, joined by the duplication marker', () => {
 	const { prompt } = buildRefactorExecutorInvocation({
 		scope,
 		planContent,
 		changedFiles: ['src/widget.ts'],
 		findings: [
 			finding({
-				rule: 'clone',
-				siteKey: 'widget-clone',
+				rule: 'duplicate-code-block',
+				siteKey: 'duplicate-code-block:src/widget.ts|src/other.ts',
 				files: [
 					{ path: 'src/widget.ts', startLine: 12, endLine: 40 },
 					{ path: 'src/other.ts', startLine: 7 },
@@ -137,7 +137,7 @@ test('buildRefactorExecutorInvocation: a multi-site finding renders every locati
 	});
 
 	// both sites ride the bullet, each rendered as path:start[-end]
-	expect(prompt.includes('- [clone] src/widget.ts:12-40 ↔ src/other.ts:7 — 28 duplicated lines')).toBeTruthy();
+	expect(prompt.includes('- [duplicate-code-block] src/widget.ts:12-40 ↔ src/other.ts:7 — 28 duplicated lines')).toBeTruthy();
 });
 
 test('buildRefactorExecutorInvocation: each finding gets its own bullet line', () => {

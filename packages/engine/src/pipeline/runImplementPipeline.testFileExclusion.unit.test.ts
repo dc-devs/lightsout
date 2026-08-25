@@ -19,8 +19,8 @@ test('write-tests fan-out: files under __tests__/ are test files, never writer t
 		config: {
 			'standards-checks': {
 				...reachabilityRulesOff['standards-checks'],
-				'path-test-in-tests-folder': 'off',
-				'path-test-not-colocated': 'off',
+				'test-in-tests-folder': 'off',
+				'test-not-beside-subject': 'off',
 			},
 		},
 	});

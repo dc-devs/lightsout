@@ -7,7 +7,7 @@ conventions around them.
 - Never refactor a file outside the listed set. Reading is fine; writing is not.
 - Never change a public API. Deleting or moving an export is a public-API change
   by definition. A dead-export-family advisory (`dead-export`,
-  `test-only-export`, `barrel-only-export`) is therefore REPORTED rather than
+  `test-only-export`, `barrel-is-only-consumer`) is therefore REPORTED rather than
   acted on, unless the finding itself proves nothing consumes the export.
 - An advisory whose only available fix would change a public API is REPORTED as
   a noted exemption with your reason, never applied.

@@ -120,13 +120,13 @@ describe('standardsCheckCommand sections', () => {
 
 	test("the code checks' findings are on screen before the agent review starts — a reader waiting on the agent already has the deterministic answer", async () => {
 		const { context, logged } = setupCheck({
-			check: { findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:src/a.ts:1' })] },
+			check: { findings: [finding({ rule: 'duplicate-code-block', severity: StandardsSeverity.Blocking, siteKey: 'duplicate-code-block:src/a.ts:1' })] },
 			review: { findings: [finding({ rule: 'path-aliases', siteKey: 'path-aliases:src/a.ts' })] },
 		});
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(logged.indexOf('⚠ clone · 1 blocking')).toBeLessThan(logged.indexOf(agentReviewHeading));
+		expect(logged.indexOf('⚠ duplicate-code-block · 1 blocking')).toBeLessThan(logged.indexOf(agentReviewHeading));
 		expect(logged.indexOf(agentReviewHeading)).toBeLessThan(logged.indexOf('ℹ path-aliases · 1 advisory'));
 	});
 
@@ -142,8 +142,11 @@ describe('standardsCheckCommand sections', () => {
 		{ findings: [], expected: 'nothing found' },
 		{ findings: [finding()], expected: '1 advisory' },
 		{ findings: [finding(), finding({ siteKey: 'size:two' })], expected: '2 advisories' },
-		{ findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:1' })], expected: '1 blocking' },
-		{ findings: [finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:1' }), finding()], expected: '1 blocking, 1 advisory' },
+		{ findings: [finding({ rule: 'duplicate-code-block', severity: StandardsSeverity.Blocking, siteKey: 'duplicate-code-block:1' })], expected: '1 blocking' },
+		{
+			findings: [finding({ rule: 'duplicate-code-block', severity: StandardsSeverity.Blocking, siteKey: 'duplicate-code-block:1' }), finding()],
+			expected: '1 blocking, 1 advisory',
+		},
 	]) {
 		test(`the code checks close with a finish line saying how long they took and what they found: ${expected}`, async () => {
 			const { context, logged } = setupCheck({ args: ['--code-checks'], check: { findings } });

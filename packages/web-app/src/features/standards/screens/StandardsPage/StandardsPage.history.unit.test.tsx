@@ -42,7 +42,7 @@ const worked = {
 				reasons: ['the split would spread one flow over four files'],
 			},
 		}),
-		buildStandardsRuleView({ rule: 'clone', history: { attempted: 5, resolved: 5, adviceApplied: 1 } }),
+		buildStandardsRuleView({ rule: 'duplicate-code-block', history: { attempted: 5, resolved: 5, adviceApplied: 1 } }),
 	],
 };
 
@@ -119,7 +119,7 @@ describe('StandardsPage refactor history', () => {
 	test('shows no reasons block for a rule nothing was recorded against', () => {
 		const { rules } = setupHistory({ overrides: worked });
 
-		fireEvent.click(rules().getByRole('button', { name: /^clone/ }));
+		fireEvent.click(rules().getByRole('button', { name: /^duplicate-code-block/ }));
 
 		expect(screen.queryByText('Reasons recorded')).not.toBeInTheDocument();
 	});

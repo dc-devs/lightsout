@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import { validateStandardsPack } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { duplicatedSources, sharedImportSources, writeSampleSources } from '#tests/helpers/duplicationSamples.ts';
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
 const bansTheBannedFile: StandardsCheckFunction = ({ input }) =>
@@ -35,6 +36,14 @@ const bansTheDeclaredFramework: StandardsCheckFunction = ({ input }) =>
 			files: [{ path: 'package.json' }],
 			detail: 'a framework the rule bans',
 		}));
+
+/** Every duplicated span the engine's detector found — the duplication tier reads spans it never built itself. */
+const reportsEveryDuplicateSpan: StandardsCheckFunction = ({ input }) =>
+	(input.kind === StandardsInputKind.CloneSpans ? input.spans : []).map((span) => ({
+		siteKey: `duplicate:${span.files.map((file) => file.path).join(':')}`,
+		files: span.files,
+		detail: 'the same block of code written out twice',
+	}));
 
 /**
  * A rule folder's fixture pair on disk. Each side is a miniature repo the check
@@ -82,6 +91,21 @@ const setupDeclaringFixtures = ({ pass, fail }: { pass: string[]; fail: string[]
 
 	writeFileSync(join(fixturesPath, 'pass', 'package.json'), '{ "name": "pass-side" }\n');
 	writeFileSync(join(fixturesPath, 'fail', 'package.json'), '{ "name": "fail-side", "dependencies": { "@nestjs/core": "^10" } }\n');
+
+	return { fixturesPath };
+};
+
+/**
+ * A fixture pair for a duplication rule: the fail side writes one block out
+ * twice, and the pass side shares only an import list — the boilerplate the
+ * engine blanks before it detects anything, and the false positive the pass
+ * side exists to prove.
+ */
+const setupDuplicatingFixtures = () => {
+	const fixturesPath = join(mkdtempSync(join(tmpdir(), 'lightsout-validate-')), 'fixtures');
+
+	writeSampleSources({ dir: join(fixturesPath, 'fail'), sources: duplicatedSources });
+	writeSampleSources({ dir: join(fixturesPath, 'pass'), sources: sharedImportSources });
 
 	return { fixturesPath };
 };
@@ -310,6 +334,29 @@ describe('validateStandardsPack', () => {
 		// the two sides differ only in what their manifests declare, so a pass here
 		// is the declarations reaching the check — and the fixtures live in the
 		// engine's own repo, so the compiler the kind needs is right there
+		expect(problems).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
+	});
+
+	test('validates a duplicate-block rule against the spans the engine detected for it', async () => {
+		const { fixturesPath } = setupDuplicatingFixtures();
+
+		const { problems, notes } = await validate({
+			rules: [
+				rule({
+					id: 'duplicate-code-block',
+					fixturesPath,
+					inputKind: StandardsInputKind.CloneSpans,
+					run: reportsEveryDuplicateSpan,
+					defaultSettings: { minTokens: 50 },
+				}),
+			],
+		});
+
+		// the kind parses nothing, so no compiler is resolved for it — and a pass
+		// here is both halves of the pair: the fail side's duplicated block
+		// reaching the check, and the pass side's shared import list never being
+		// counted as one
 		expect(problems).toStrictEqual([]);
 		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});

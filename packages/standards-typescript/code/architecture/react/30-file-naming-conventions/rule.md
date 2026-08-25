@@ -9,7 +9,7 @@ severity: advisory
 The [filename-match rule](../../../style-guide/conventions/file-naming/05-filename-mismatch/rule.md)
 applied to React exports — a file is named for what it exports, in that
 export's own casing — plus the
-[folder-casing rule](../../folder-structure/50-path-folder-casing/rule.md) for
+[folder-casing rule](../../folder-structure/50-folder-casing/rule.md) for
 folders. The table below is derived from those two rules, not a separate law:
 
 | File holds | So its name is | Example |

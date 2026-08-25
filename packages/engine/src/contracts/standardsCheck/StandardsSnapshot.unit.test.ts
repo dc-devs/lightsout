@@ -7,9 +7,9 @@ const setupSnapshot = ({ omit, extra = {} }: { omit?: string; extra?: Record<str
 		path: '.',
 		findings: [
 			{
-				rule: 'clone',
+				rule: 'duplicate-code-block',
 				severity: 'blocking',
-				siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+				siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 				files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 				detail: 'a 36-line span repeated across two files',
 			},
@@ -49,9 +49,9 @@ describe('StandardsSnapshot', () => {
 			path: '.',
 			findings: [
 				{
-					rule: 'clone',
+					rule: 'duplicate-code-block',
 					severity: 'blocking',
-					siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+					siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 					files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 					detail: 'a 36-line span repeated across two files',
 				},
@@ -159,7 +159,7 @@ describe('StandardsSnapshot', () => {
 	});
 
 	test.each([
-		{ label: 'findings given as a single object', extra: { findings: { rule: 'clone' } } },
+		{ label: 'findings given as a single object', extra: { findings: { rule: 'duplicate-code-block' } } },
 		{ label: 'findings given as null', extra: { findings: null } },
 		{ label: 'notes given as one string', extra: { notes: 'a single note' } },
 		{ label: 'notes holding a non-string entry', extra: { notes: ['a note', 42] } },
@@ -178,9 +178,9 @@ describe('StandardsSnapshot', () => {
 			extra: {
 				findings: [
 					{
-						rule: 'clone',
+						rule: 'duplicate-code-block',
 						severity: 'blocking',
-						siteKey: 'clone:src/a.ts:1',
+						siteKey: 'duplicate-code-block:src/a.ts:1',
 						files: [{ path: 'src/a.ts' }],
 						detail: 'a repeated span',
 					},

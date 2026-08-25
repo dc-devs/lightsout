@@ -135,7 +135,7 @@ describe('buildUnconsumedFindings', () => {
 				['src/feature/index.ts', "export { buildGreeting } from './buildGreeting';"],
 				['src/feature/buildGreeting.ts', 'export const buildGreeting = ({ name }: { name: string }): string => `Hello, ${name}.`;'],
 			],
-			rule: 'barrel-only-export',
+			rule: 'barrel-is-only-consumer',
 			matches: ({ barrel, test }) => barrel && !test,
 			detail: 'exported from a barrel nothing imports',
 			guidance: 'Either the module has no consumer, or the barrel entry is speculative.',
@@ -145,7 +145,7 @@ describe('buildUnconsumedFindings', () => {
 
 		expect(findings).toStrictEqual([
 			{
-				siteKey: 'barrel-only-export:src/feature/buildGreeting.ts',
+				siteKey: 'barrel-is-only-consumer:src/feature/buildGreeting.ts',
 				files: [{ path: 'src/feature/buildGreeting.ts' }],
 				detail: "'buildGreeting' is exported from a barrel nothing imports",
 				guidance: 'Either the module has no consumer, or the barrel entry is speculative.',
@@ -160,7 +160,7 @@ describe('buildUnconsumedFindings', () => {
 				['src/features/app/screens/RunsIndex/index.ts', "export { RunsIndex } from './RunsIndex';"],
 				['src/features/app/screens/RunsIndex/RunsIndex.tsx', 'export const RunsIndex = (): null => null;'],
 			],
-			rule: 'barrel-only-export',
+			rule: 'barrel-is-only-consumer',
 			matches: ({ barrel, test }) => barrel && !test,
 			detail: 'exported from a barrel nothing imports',
 			guidance: 'Either the module has no consumer, or the barrel entry is speculative.',
@@ -180,7 +180,7 @@ describe('buildUnconsumedFindings', () => {
 				['src/app/index.ts', "import { startApp } from './startApp';\n\nstartApp();"],
 				['src/app/startApp.ts', 'export const startApp = (): void => {};'],
 			],
-			rule: 'barrel-only-export',
+			rule: 'barrel-is-only-consumer',
 			matches: ({ barrel }) => barrel,
 			detail: 'exported from a barrel nothing imports',
 			guidance: 'Either the module has no consumer, or the barrel entry is speculative.',

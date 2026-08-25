@@ -26696,7 +26696,7 @@ ${promptFiles.map((file2) => `- ${file2}`).join("\n")}`,
 var refactorExecutor_default = '# Role: Refactor Executor\n\nYou are a principal software engineer improving code that already works. You\nwork autonomously: your scope section, the plan, and any standards are appended\nto these instructions, while the files to work on, the standards findings, and\nany verification failure arrive in the task message. Your final message is\nmachine-parsed \u2014 it is a data payload, not prose for a human.\n\nThe scope section appended below says which files you may write. It differs by\nwho invoked you, and it is the only part of these instructions that does.\n\n## What to improve\n\nRead the files in your task, plus enough surrounding code to judge the\nconventions around them, then apply improvements that are high-confidence and\nbehavior-preserving:\n\n- Duplication across the files you may write (extract it if the repo has a place)\n- Dead code, unused exports, scaffolding nothing reaches any more\n- Naming, structure, and placement inconsistent with the surrounding codebase\n- If a Standards section is provided, any deviation from it\n- If a Standards findings section is provided, those are deterministic\n  standards-check results on the changed files \u2014 address them FIRST; the engine\n  re-runs the checks after you report, and unresolved findings re-invoke you.\n- Entries under its Advisory subsection are per-rule JUDGMENT CALLS, and each\n  carries its own `guidance` line. Apply that guidance \u2014 there is no single\n  blanket rule covering every advisory, because they come from different rules\n  asking for different things. Never block on an advisory.\n- The hard limits below still govern an advisory: never change behavior, and\n  never write a file your scope section does not allow. An advisory whose only\n  available fix would do either is REPORTED as a noted exemption with your\n  reason, never applied.\n\n## Hard limits\n\n- Never change behavior or add functionality.\n- A test that passed before your refactor and fails after is a PRESUMED\n  REGRESSION: restore the behavior in the SOURCE \u2014 never make a test agree\n  with new behavior. You may edit a test ONLY for mechanical wiring that\n  follows directly from a refactor you made (an import path for a moved file,\n  a renamed symbol, a mock signature for a changed signature) \u2014 never author\n  new tests, never change, weaken, or delete an assertion to get green. A\n  test needing more than mechanical wiring is out of scope: leave your\n  refactor unapplied or report the file in `failures` as needing\n  re-authoring. List every test file you touch in `changedFiles`, each with\n  its wiring reason.\n- If two items in your work-list conflict (one says extract X, another says\n  delete X), apply the one producing fewer downstream changes and name the\n  skipped item in your summary.\n- Prefer doing nothing over a speculative improvement: zero changes is a\n  successful outcome (`complete` with an empty `changedFiles` and a summary\n  saying the code is clean). The engine re-invokes you for further passes\n  only while you keep reporting changes \u2014 an empty pass ends the loop.\n- Do not run builds, tests, linters, formatters, package-manager commands,\n  Git commands, network commands, or any other verification or\n  environment-changing command \u2014 the engine runs verification after you\n  report. Use the harness\'s file tools to read and edit files. If the harness\n  exposes the filesystem only through a shell, use the shell solely to inspect\n  and edit files \u2014 never for repository commands.\n- Do not reproduce house formatting by hand. The engine runs the repo\'s own\n  formatter over your edits before it verifies them, so import order, line\n  wrapping, quoting and indentation are settled for you. Copying those details\n  off a neighbouring file is guesswork you are not being asked for, and it is\n  wrong often enough to turn a finished batch into a failed lint.\n- Do not create commits or branches.\n\n## Friction \u2014 help the pipeline improve itself\n\nIf anything fought you during this task \u2014 the plan was ambiguous somewhere,\nyour role instructions were contradictory or unclear, standards conflicted,\nor the environment surprised you \u2014 record it in the optional `friction` array\nof your report with `kind: "friction"`. If the input was silent and you had\nto choose between reasonable options to keep moving \u2014 a guess, a judgment\ncall the plan should have made \u2014 record it with `kind: "decision"`. Both use\n`area`: `"plan"` | `"prompt"` | `"standards"` | `"environment"` | `"other"`.\nReport entries even when your status is complete; omit the field entirely\nwhen the run was clean.\n\n## Report \u2014 your entire final message is one JSON object\n\nOutput ONLY the JSON \u2014 no fences, no surrounding text, no explanation. The\nfences around the example below are display formatting only, not part of the\noutput: your actual message starts with `{` and ends with `}`.\n\n```\n{\n	"status": "complete" | "failed" | "terminated:ambiguity" | "terminated:stale-references" | "terminated:scope",\n	"changedFiles": [{ "path": "src/example.ts", "summary": "one clause on what was refactored" }],\n	"summary": "one line: what was improved, or that no changes were warranted",\n	"failures": ["required non-empty for any status other than complete"],\n	"friction": [{ "kind": "friction" | "decision", "area": "plan", "detail": "optional \u2014 see Friction section; omit when clean" }]\n}\n```\n';
 
 // src/agents/prompts/refactorScopeFeature.md
-var refactorScopeFeature_default = "## Scope \u2014 the files one feature changed\n\nYou are reviewing files a feature change just touched. Review ONLY the changed\nfiles listed in your task. Read them, plus enough surrounding code to judge the\nconventions around them.\n\n- Never refactor a file outside the listed set. Reading is fine; writing is not.\n- Never change a public API. Deleting or moving an export is a public-API change\n  by definition. A dead-export-family advisory (`dead-export`,\n  `test-only-export`, `barrel-only-export`) is therefore REPORTED rather than\n  acted on, unless the finding itself proves nothing consumes the export.\n- An advisory whose only available fix would change a public API is REPORTED as\n  a noted exemption with your reason, never applied.\n\nWhy the limit: this work rides on a branch someone will review as a feature. A\nreorganization spreading out from it is not what that reviewer agreed to read,\nhowever much the code deserves one.\n";
+var refactorScopeFeature_default = "## Scope \u2014 the files one feature changed\n\nYou are reviewing files a feature change just touched. Review ONLY the changed\nfiles listed in your task. Read them, plus enough surrounding code to judge the\nconventions around them.\n\n- Never refactor a file outside the listed set. Reading is fine; writing is not.\n- Never change a public API. Deleting or moving an export is a public-API change\n  by definition. A dead-export-family advisory (`dead-export`,\n  `test-only-export`, `barrel-is-only-consumer`) is therefore REPORTED rather than\n  acted on, unless the finding itself proves nothing consumes the export.\n- An advisory whose only available fix would change a public API is REPORTED as\n  a noted exemption with your reason, never applied.\n\nWhy the limit: this work rides on a branch someone will review as a feature. A\nreorganization spreading out from it is not what that reviewer agreed to read,\nhowever much the code deserves one.\n";
 
 // src/agents/prompts/refactorScopeStandalone.md
 var refactorScopeStandalone_default = "## Scope \u2014 a standalone reorganization\n\nThere is no feature plan. The standards findings in your task ARE the entire\nwork-list, and reorganizing the code they name is the reason this run exists \u2014\nnot a side effect to keep small.\n\nThe listed files are where the findings are. They are not a fence. You may also\nwrite:\n\n- Any new file a fix creates. The files a split produces are in scope, always.\n- Any file a listed fix cannot be finished without: the counterpart a\n  duplication finding names, the type a discriminant finding asks you to back\n  with a `const` object, the sibling that should import a constant you promoted.\n- Any barrel that must change because you moved what it publishes.\n\nMoving an export between files is expected here, and so is extracting a piece\ntwo callers share. Neither is a public-API change while the repo still offers\nthe same names to the same importers \u2014 so update every importer you break, in\nthe same pass.\n\nTwo things this does NOT widen:\n\n- **Behavior.** Every hard limit below still holds without exception. A\n  reorganization that changes what the code DOES is a failed run, not a bonus.\n- **Silence.** Every file you write goes in `changedFiles` with its reason. The\n  engine verifies all of it, and an unreported edit is the one thing that can\n  make a green gate a lie.\n\nFinish one finding across every file it touches before starting the next.\nHalf of a fix, reported as applied because the flagged file's half is done,\nis worse than the same fix reported as skipped: the engine re-checks the\nflagged file, sees it clean, and nothing ever comes back for the other half.\n";
@@ -44965,7 +44965,7 @@ ${bold(`refactor ${manifest.runId.slice(0, 8)}`)} \u2014 ${statusLabel}`);
   } else if (rules.length > 0) {
     console.log("\nburn-down (findings before \u2192 after):");
     for (const rule of rules) {
-      console.log(`  ${rule.padEnd(20)}${before[rule] ?? 0} \u2192 ${after[rule] ?? 0}`);
+      console.log(`  ${rule.padEnd(20)} ${before[rule] ?? 0} \u2192 ${after[rule] ?? 0}`);
     }
   }
   printRunFooter({ manifest, ending: result.ok ? void 0 : result.error });
@@ -45026,14 +45026,14 @@ import { join as join72 } from "node:path";
 
 // src/refactor/batch/batchFindings.ts
 var rulePriority = [
-  // A path rule is a file move or a rename — the most mechanical fix there is,
-  // so these lead.
-  "path-banned-module-name",
-  "path-common-flat",
-  "path-common-barrel",
-  "path-test-in-tests-folder",
-  "path-test-not-colocated",
-  "path-test-support-in-src",
+  // These are fixed by a file move or a rename — the most mechanical fix there
+  // is, so they lead.
+  "banned-folder-name",
+  "file-directly-in-common",
+  "barrel-under-common",
+  "test-in-tests-folder",
+  "test-not-beside-subject",
+  "test-support-in-src",
   "module-boundary",
   "placement",
   "multi-export",
@@ -45051,19 +45051,19 @@ var rulePriority = [
   "barrel-dead-entry",
   "dead-export",
   "test-only-export",
-  "barrel-only-export",
+  "barrel-is-only-consumer",
   "size-file",
   "size-function",
-  "domain-graduation",
-  "path-domain-folder-single-file",
-  "path-folder-casing",
+  "ungrouped-domain-utils",
+  "single-file-domain-folder",
+  "folder-casing",
   "test-multiple-setups",
-  "test-mega-factory",
-  "folder-census",
-  "ast-duplicate",
-  "clone",
-  "name-duplicate",
-  "name-synonym"
+  "oversized-setup-factory",
+  "crowded-folder",
+  "duplicate-function-body",
+  "duplicate-code-block",
+  "duplicate-export-name",
+  "synonym-export-name"
 ];
 var maxBatchFindings = 12;
 var priorityOf = ({ rule }) => {

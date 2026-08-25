@@ -23,7 +23,7 @@ export const selectStandardsFindings = ({ findings, changedFiles }: Params): { w
 	const changed = new Set(changedFiles);
 
 	// A finding's site is usually a file, and then equality is the whole
-	// question. Some rules judge a FOLDER instead — `folder-census` reports on
+	// question. Some rules judge a FOLDER instead — `crowded-folder` reports on
 	// `src/appUI`, not on anything inside it — and a changed-file list holds
 	// files, so such a site could never equal an entry and the rule could never
 	// gate a run however blocking it was declared. A folder counts as changed

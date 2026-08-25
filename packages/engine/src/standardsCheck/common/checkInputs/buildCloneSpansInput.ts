@@ -9,7 +9,7 @@ import { blankImportSpans } from '#src/standardsCheck/common/utils/blankImportSp
 interface Params {
 	cwd: string;
 	source: string[];
-	/** The clone rule's own resolved settings — the engine honors them because it runs the detector. */
+	/** The duplicate-code-block rule's own resolved settings — the engine honors them because it runs the detector. */
 	settings: Record<string, number>;
 	cache: Map<string, string>;
 	/** The consumer's TypeScript, when the install has one — without it the delegation-forward blanking is skipped, never guessed. */
@@ -19,10 +19,10 @@ interface Params {
 const formatOf = ({ path }: { path: string }) => (/\.(m|c)?tsx?$/.test(path) ? 'typescript' : 'javascript');
 
 /**
- * Token-level duplicated spans, from the same jscpd detector the check has
+ * Duplicated spans, from the same jscpd detector the check has
  * always used. The engine runs it rather than the rule, so the rule's
  * `minTokens` reaches the detector as a setting instead of a rule opening files
- * of its own — which is also why a second clone rule with a different threshold
+ * of its own — which is also why a second duplicate-block rule with a different threshold
  * would simply get its own detection run.
  *
  * Imports are blanked first (newline-preserving): a shared import list is

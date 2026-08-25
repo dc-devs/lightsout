@@ -58,7 +58,7 @@ const setupCheckRepo = () => {
 	writeFileSync(join(dir, 'src/a/unusedThing.ts'), 'export const unusedThing = () => 1;\n');
 	writeFileSync(join(dir, 'src/a/consumer.ts'), "import { buildLabel } from './helpers';\nexport const consumer = () => buildLabel();\n");
 
-	// test file with a copy of the big body — must NOT produce clone findings
+	// test file with a copy of the big body — must NOT produce duplicate-block findings
 	writeFileSync(join(dir, 'src/a/sumTotals.unit.test.ts'), `const expected = ({ records }: { records: any[] }) => {${bigBody}};\nconsole.log(expected);\n`);
 
 	return dir;
@@ -74,31 +74,31 @@ test('the standards check finds each planted defect and respects the exceptions'
 	// without a baseline the accept-debt hint is offered
 	expect(notes.some((note) => note.includes('--baseline'))).toBeTruthy();
 
-	const astDups = byRule('ast-duplicate');
+	const astDups = byRule('duplicate-function-body');
 
 	expect(astDups.length).toBe(1);
 	// renamed twins caught by normalization
 	expect(astDups[0]?.files.map((file) => file.path).sort()).toStrictEqual(['src/a/sumTotals.ts', 'src/b/tallyItems.ts']);
 
-	// token-level clone reported
-	expect(byRule('clone').length >= 1).toBeTruthy();
+	// the duplicated block is reported
+	expect(byRule('duplicate-code-block').length >= 1).toBeTruthy();
 	// test files never appear in findings
 	expect(findings.every((finding) => finding.files.every((file) => !file.path.includes('.test.')))).toBeTruthy();
 
-	const names = [...byRule('name-duplicate'), ...byRule('name-synonym')];
+	const names = [...byRule('duplicate-export-name'), ...byRule('synonym-export-name')];
 
 	// same-name pair
-	expect(names.some((finding) => finding.siteKey === 'name-duplicate:src/a/normalizeRecord.ts|src/b/normalizeRecord.ts')).toBeTruthy();
+	expect(names.some((finding) => finding.siteKey === 'duplicate-export-name:src/a/normalizeRecord.ts|src/b/normalizeRecord.ts')).toBeTruthy();
 	// synonym pair collapses to one concept
 	expect(names.some((finding) => finding.detail.includes("'fetchUserData'") && finding.detail.includes("'getUserData'"))).toBeTruthy();
-	const structure = [...byRule('multi-export'), ...byRule('filename-mismatch'), ...byRule('domain-graduation'), ...byRule('folder-census')];
+	const structure = [...byRule('multi-export'), ...byRule('filename-mismatch'), ...byRule('ungrouped-domain-utils'), ...byRule('crowded-folder')];
 
 	// multi-export flagged
 	expect(structure.some((finding) => finding.siteKey === 'multi-export:src/a/config.ts')).toBeTruthy();
 	// misnamed file flagged
 	expect(structure.some((finding) => finding.siteKey === 'filename-mismatch:src/a/helpers.ts')).toBeTruthy();
 	// domain-folder candidate
-	expect(structure.some((finding) => finding.siteKey === 'domain-graduation:src/a/utils/formatCurrency.ts|src/a/utils/formatDate.ts')).toBeTruthy();
+	expect(structure.some((finding) => finding.siteKey === 'ungrouped-domain-utils:src/a/utils/formatCurrency.ts|src/a/utils/formatDate.ts')).toBeTruthy();
 
 	// oversized file flagged
 	expect(byRule('size-file').some((finding) => finding.files[0]?.path === 'src/b/huge.ts')).toBeTruthy();
