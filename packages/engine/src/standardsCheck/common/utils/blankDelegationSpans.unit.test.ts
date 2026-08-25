@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
+import { blankDelegationSpans } from '#src/standardsCheck/common/utils/blankDelegationSpans.ts';
 import { expectDefined } from '#tests/helpers/expectDefined.ts';
-import { blankDelegationSpans } from './blankDelegationSpans.ts';
 
 const compiler = resolveConsumerTypescript({ cwd: process.cwd() });
 
