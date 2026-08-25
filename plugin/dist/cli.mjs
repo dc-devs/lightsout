@@ -40474,9 +40474,19 @@ var buildFileTextInput = async ({ cwd, source, tests, files, referenceFiles, sta
 };
 
 // src/standardsCheck/common/checkInputs/buildImportGraphInput.ts
-var buildImportGraphInput = async ({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler }) => {
+var buildImportGraphInput = async ({
+  cwd,
+  source,
+  tests,
+  files,
+  referenceFiles,
+  standardsPacks,
+  compiler,
+  packagesDir
+}) => {
   const edges = await collectImportEdges({ cwd, files: referenceFiles, compiler });
-  return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, standardsPacks, edges };
+  const dependencies = await readPackageDependencies({ cwd, packagesDir });
+  return { kind: StandardsInputKind.ImportGraph, cwd, source, tests, files, referenceFiles, standardsPacks, edges, dependencies };
 };
 
 // src/standardsCheck/common/checkInputs/buildSyntaxTreeInput.ts
@@ -40601,7 +40611,7 @@ var buildCheckInput = async ({
         throw new Error(`the ${kind} input needs the consumer's typescript, which did not resolve`);
       }
       if (kind === StandardsInputKind.ImportGraph) {
-        return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler });
+        return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler, packagesDir });
       }
       if (kind === StandardsInputKind.TypeChecker) {
         return buildTypeCheckerInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler, packagesDir });

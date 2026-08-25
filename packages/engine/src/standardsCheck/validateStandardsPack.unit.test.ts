@@ -26,6 +26,16 @@ const bansTheBannedTypedFile: StandardsCheckFunction = ({ input }) =>
 			detail: 'a file the rule bans',
 		}));
 
+/** The same ban asked of what a fixture side declares — the facts a framework carve-out is keyed on, which the graph itself cannot show. */
+const bansTheDeclaredFramework: StandardsCheckFunction = ({ input }) =>
+	(input.kind === StandardsInputKind.ImportGraph ? (input.dependencies.get('.') ?? []) : [])
+		.filter((name) => name === '@nestjs/core')
+		.map((name) => ({
+			siteKey: `framework:${name}`,
+			files: [{ path: 'package.json' }],
+			detail: 'a framework the rule bans',
+		}));
+
 /**
  * A rule folder's fixture pair on disk. Each side is a miniature repo the check
  * runs against as if it were the whole thing.
@@ -58,6 +68,20 @@ const setupTypedFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) 
 	for (const side of ['pass', 'fail'] as const) {
 		writeFileSync(join(fixturesPath, side, 'tsconfig.json'), '{ "compilerOptions": { "strict": true, "noEmit": true }, "include": ["src"] }\n');
 	}
+
+	return { fixturesPath };
+};
+
+/**
+ * A fixture pair whose fail side declares a framework in a manifest of its own.
+ * A side is a miniature repo, so the manifest sits at its root — the only place
+ * a rule asking "does this package use a file-based router?" can read it.
+ */
+const setupDeclaringFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) => {
+	const { fixturesPath } = setupFixtures({ pass, fail });
+
+	writeFileSync(join(fixturesPath, 'pass', 'package.json'), '{ "name": "pass-side" }\n');
+	writeFileSync(join(fixturesPath, 'fail', 'package.json'), '{ "name": "fail-side", "dependencies": { "@nestjs/core": "^10" } }\n');
 
 	return { fixturesPath };
 };
@@ -268,6 +292,20 @@ describe('validateStandardsPack', () => {
 			"discriminant-const-object: the fail fixture could not be checked — no tsconfig.json in fixtures/fail/, so none of its 1 file(s) could be typed — a type-checker rule's fixtures need one",
 			"discriminant-const-object: the pass fixture could not be checked — no tsconfig.json in fixtures/pass/, so none of its 1 file(s) could be typed — a type-checker rule's fixtures need one",
 		]);
+	});
+
+	test('validates an import-graph rule against what its fixture side declares, not its edges alone', async () => {
+		const { fixturesPath } = setupDeclaringFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
+
+		const { problems, notes } = await validate({
+			rules: [rule({ id: 'module-boundary', fixturesPath, inputKind: StandardsInputKind.ImportGraph, run: bansTheDeclaredFramework })],
+		});
+
+		// the two sides differ only in what their manifests declare, so a pass here
+		// is the declarations reaching the check — and the fixtures live in the
+		// engine's own repo, so the compiler the kind needs is right there
+		expect(problems).toStrictEqual([]);
+		expect(notes).toStrictEqual([]);
 	});
 
 	test('validates every rule in the pack, whatever channel it sits on', async () => {

@@ -67,6 +67,24 @@ const setupImportGraphRun = () => {
 	return { cwd, ...loadOneRule({ inputKind: StandardsInputKind.ImportGraph }) };
 };
 
+/**
+ * A repo whose root and one workspace package each ship a manifest, checked by
+ * a rule that declared the import-graph kind. The package parent dir is the
+ * test's to name: a repo that keeps its packages elsewhere says so in config.
+ */
+const setupImportGraphDependenciesRun = ({ packagesDir }: { packagesDir: string }) => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-check-inputs-graph-deps-'));
+
+	mkdirSync(join(cwd, 'src'), { recursive: true });
+	mkdirSync(join(cwd, packagesDir, 'web'), { recursive: true });
+	writeFileSync(join(cwd, 'src/consumer.ts'), 'export const consumer = 1;\n');
+	writeFileSync(join(cwd, 'package.json'), '{ "name": "root" }\n');
+	writeFileSync(join(cwd, packagesDir, 'web/package.json'), '{ "name": "web", "dependencies": { "@tanstack/react-router": "^1" } }\n');
+	linkTypescript({ dir: cwd });
+
+	return { cwd, packagesDir, ...loadOneRule({ inputKind: StandardsInputKind.ImportGraph }) };
+};
+
 /** A workspace package that declares its aliases in its manifest, under a repo whose root carries a tsconfig. */
 const setupFileTextRun = () => {
 	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-check-inputs-text-'));
@@ -225,6 +243,45 @@ describe('runPackageChecks', () => {
 				tests: ['src/kind.unit.test.ts'],
 				standardsPacks: [],
 				dependencies: new Map([['.', ['react']]]),
+			}),
+		);
+	});
+
+	test('hands an import-graph rule what each package declares, so a boundary rule can tell a framework-mandated folder from one the repo chose', async () => {
+		const { cwd, inputs, packs, states } = setupImportGraphDependenciesRun({ packagesDir: 'packages' });
+
+		const { notes } = await runPackageChecks({ cwd, packs, states, channels: [] });
+
+		// an empty note list is what says the compiler resolved: the kind needs one,
+		// and a run without it skips the rule instead of building this
+		expect(notes).toStrictEqual([]);
+		// a carve-out is keyed on what a package DECLARES, and the graph cannot show
+		// it — a root that declares nothing still gets an entry, so a rule reading
+		// the map never has to tell "no manifest" from "no dependencies"
+		expect(inputs[0]).toEqual(
+			expect.objectContaining({
+				kind: 'import-graph',
+				dependencies: new Map([
+					['.', []],
+					['packages/web', ['@tanstack/react-router']],
+				]),
+			}),
+		);
+	});
+
+	test('reads those declarations from the package parent dir the run was configured with, not the default name', async () => {
+		const { cwd, packagesDir, inputs, packs, states } = setupImportGraphDependenciesRun({ packagesDir: 'modules' });
+
+		await runPackageChecks({ cwd, packs, states, channels: [], packagesDir });
+
+		// a repo that keeps its packages under another name would otherwise have
+		// every workspace manifest fall out of the map, silently
+		expect(inputs[0]).toEqual(
+			expect.objectContaining({
+				dependencies: new Map([
+					['.', []],
+					['modules/web', ['@tanstack/react-router']],
+				]),
 			}),
 		);
 	});

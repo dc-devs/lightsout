@@ -106,6 +106,8 @@ export interface ImportGraphInput {
 	referenceFiles: string[];
 	/** Edges as `collectImportEdges` resolves them: repo-relative from/to pairs. */
 	edges: Array<{ from: string; to: string }>;
+	/** What each package declares it depends on, keyed by package root (`.` for the repo). A framework carve-out is keyed on what a package DECLARES, so a boundary rule needs this to honour one — a module folder a framework mandates is not the rule's to judge. */
+	dependencies: Map<string, string[]>;
 	/** Repo-relative roots of the standards packs in the tree. Inside one, a `tests/` folder names a document set rather than a directory of tests — pass it to `isTestFile`. */
 	standardsPacks: string[];
 }

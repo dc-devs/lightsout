@@ -14,11 +14,13 @@ const setupImportGraphInput = ({
 	edges,
 	scope,
 	standardsPacks = [],
+	dependencies = [],
 }: {
 	paths: string[];
 	edges: Array<{ from: string; to: string }>;
 	scope?: string[];
 	standardsPacks?: string[];
+	dependencies?: Array<[string, string[]]>;
 }): StandardsCheckInput => ({
 	kind: StandardsInputKind.ImportGraph,
 	cwd: '/repo',
@@ -28,6 +30,7 @@ const setupImportGraphInput = ({
 	referenceFiles: paths,
 	standardsPacks,
 	edges,
+	dependencies: new Map(dependencies),
 });
 
 describe('module-boundary check', () => {
