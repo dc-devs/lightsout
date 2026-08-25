@@ -79,7 +79,8 @@ const buildFileFindings = ({ input, settings }: { input: SyntaxTreeInput; settin
 					rule: 'size-function',
 					files: oversized.map(({ startLine, endLine }) => ({ path, startLine, endLine })),
 					detail: oversized.map(({ kind, name, lines, cap }) => `${kind} '${name}' is ${lines} lines (cap ~${cap})`).join('; '),
-					guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
+					guidance:
+						'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
 				}),
 			);
 		}
