@@ -7,7 +7,7 @@ severity: advisory
 The file name always matches the **exported item's name, including its casing** (see the table below). Resolve the casing in this order:
 
 1. **Existing files in the same directory** — match their convention
-2. **The package's framework doc** — e.g., NestJS packages use `kebab-case.{suffix}.ts` (see the architecture skill's framework docs)
+2. **The package's framework doc** — e.g., NestJS packages use `kebab-case.{suffix}.ts` (see the [NestJS channel document](../../../../architecture/nestjs/document.md))
 3. **Default** (new/empty directory, no framework rule): match the export name's own casing per the rule above
 
 | Convention                          | Applies to                                  | Example                                |

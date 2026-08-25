@@ -25427,7 +25427,8 @@ var readDependencyNames = async ({ manifestPath }) => {
 // src/standards/detectStandardsChannels.ts
 var channelSignals = {
   react: ["react", "preact", "react-dom"],
-  tanstack: ["@tanstack/react-start", "@tanstack/start"]
+  tanstack: ["@tanstack/react-start", "@tanstack/start"],
+  nestjs: ["@nestjs/core"]
 };
 var detectStandardsChannels = async ({ cwd, packagesDir, packages }) => {
   const manifestPaths = packages.length > 0 ? packages.map((name) => join21(cwd, packagesDir, name, "package.json")) : [join21(cwd, "package.json")];
