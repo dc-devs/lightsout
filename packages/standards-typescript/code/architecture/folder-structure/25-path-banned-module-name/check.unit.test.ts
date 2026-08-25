@@ -26,19 +26,14 @@ describe('path-banned-module-name check', () => {
 	test('names every folder on the closed list, restated here so a name dropped from it stops enforcing loudly', async () => {
 		const input = setupFileListInput({
 			files: [
-				// banned at every level: a folder named for the role of its code
+				// junk drawers by name, banned at every level
 				'src/tier/helpers/a.ts',
 				'src/tier/lib/b.ts',
 				'src/tier/core/c.ts',
 				'src/tier/misc/d.ts',
 				'src/tier/shared/e.ts',
-				'src/tier/controllers/f.ts',
-				'src/tier/models/g.ts',
-				'src/tier/hooks/h.ts',
-				'src/tier/components/i.ts',
-				// banned only outside common/, where these four are the mandated skeleton
+				// kind-buckets whose sanctioned home is common/
 				'src/tier/utils/j.ts',
-				'src/tier/services/k.ts',
 				'src/tier/types/L.ts',
 				'src/tier/constants/m.ts',
 			],
@@ -47,20 +42,31 @@ describe('path-banned-module-name check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual([
-			'path-banned-module-name:src/tier/components',
 			'path-banned-module-name:src/tier/constants',
-			'path-banned-module-name:src/tier/controllers',
 			'path-banned-module-name:src/tier/core',
 			'path-banned-module-name:src/tier/helpers',
-			'path-banned-module-name:src/tier/hooks',
 			'path-banned-module-name:src/tier/lib',
 			'path-banned-module-name:src/tier/misc',
-			'path-banned-module-name:src/tier/models',
-			'path-banned-module-name:src/tier/services',
 			'path-banned-module-name:src/tier/shared',
 			'path-banned-module-name:src/tier/types',
 			'path-banned-module-name:src/tier/utils',
 		]);
+	});
+
+	test('framework vocabulary is legal with no framework declared — the un-banning layer is gone', async () => {
+		const input = setupFileListInput({
+			files: [
+				'src/feature/components/Card.tsx',
+				'src/feature/hooks/useCard.ts',
+				'src/api/controllers/user.ts',
+				'src/api/models/user.ts',
+				'src/api/services/mailer.ts',
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([]);
 	});
 
 	test('leaves the four type folders alone inside a common/, which is their own mandated vocabulary', async () => {
@@ -80,7 +86,7 @@ describe('path-banned-module-name check', () => {
 		expect(findings).toStrictEqual([]);
 	});
 
-	test('still bans a role-named folder under a common/, since those nine are wrong at every level', async () => {
+	test('still bans a junk-drawer folder under a common/, since those five are wrong at every level', async () => {
 		const input = setupFileListInput({ files: ['src/mod/common/helpers/n.ts'] });
 
 		const findings = await check.run({ input, settings: {} });
@@ -96,28 +102,15 @@ describe('path-banned-module-name check', () => {
 		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['path-banned-module-name:src/helpers']);
 	});
 
-	test("honours each package's own framework carve-out rather than the repo-wide union", async () => {
+	test('anchors per package: each workspace package is judged inside its own src/', async () => {
 		const input = setupFileListInput({
-			files: [
-				// React mandates a feature's own components/, and mandates nothing about controllers/
-				'src/feature/components/Card.tsx',
-				'src/feature/controllers/user.ts',
-				// NestJS mandates controllers/, and mandates nothing about components/
-				'packages/api/src/controllers/user.controller.ts',
-				'packages/api/src/components/Card.tsx',
-			],
-			dependencies: [
-				['.', ['react']],
-				['packages/api', ['@nestjs/core']],
-			],
+			files: ['packages/api/src/billing/helpers/a.ts', 'packages/api/tests/helpers/b.ts'],
+			dependencies: [['packages/api', []]],
 		});
 
 		const findings = await check.run({ input, settings: {} });
 
-		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual([
-			'path-banned-module-name:packages/api/src/components',
-			'path-banned-module-name:src/feature/controllers',
-		]);
+		expect(findings.map(({ siteKey }) => siteKey)).toStrictEqual(['path-banned-module-name:packages/api/src/billing/helpers']);
 	});
 
 	test('reports each banned folder once however many files it holds, in path order', async () => {

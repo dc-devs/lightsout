@@ -1,6 +1,5 @@
 import type { RawStandardsFinding, StandardsCheckModule } from '@lightsout/standards-contracts';
 import { readPathLists } from '../../../../common/checkInput/readPathLists.ts';
-import { commonTypeFolders } from '../../../../common/constants/commonTypeFolders.ts';
 import { buildRawFinding } from '../../../../common/findings/buildRawFinding.ts';
 import { getFrameworkCarveOuts } from '../../../../common/frameworks/getFrameworkCarveOuts.ts';
 import { getPathCarveOut } from '../../../../common/frameworks/getPathCarveOut.ts';
@@ -9,19 +8,25 @@ import { collectDirectories } from '../../../../common/paths/collectDirectories.
 import { getBaseName } from '../../../../common/paths/getBaseName.ts';
 
 /**
- * The banned list's upper tier: a folder is never named for the ROLE of the
- * code it holds. These nine are wrong at every level, so `helpers/`, `lib/` and
- * `core/` can never come back as the place for whatever had no home — the
- * failure mode a closed list exists to prevent.
+ * Folders that are junk drawers by name at every level — the place code lands
+ * when nobody decided where it belongs. Banned even inside `common/`.
+ *
+ * Framework vocabulary (`components/`, `hooks/`, `services/`, `controllers/`,
+ * `models/`) is deliberately NOT here: those names are how React and NestJS
+ * projects are actually organised, and banning them cost an un-banning layer
+ * of per-framework exceptions that outweighed the rule.
  */
-const bannedAnywhere = new Set(['helpers', 'lib', 'core', 'misc', 'shared', 'controllers', 'models', 'hooks', 'components']);
+const bannedAnywhere = new Set(['helpers', 'lib', 'core', 'misc', 'shared']);
+
+/**
+ * Kind-buckets with a sanctioned home: `common/utils/`, `common/types/` and
+ * `common/constants/` are the mandated skeleton, so the same names outside a
+ * `common/` mean files sorted by kind instead of by domain.
+ */
+const bannedOutsideCommon = new Set(['utils', 'types', 'constants']);
 
 export const check: StandardsCheckModule = {
 	inputKind: 'file-list',
-	// Carries the doc's framework carve-out, because the doc does: `components/`
-	// is banned as a module name and mandated by React. A rule that ignored the
-	// carve-out would flood the work-list, and a flooded work-list is how a
-	// refactor agent starts declining batches.
 	run: ({ input }): RawStandardsFinding[] => {
 		const { files } = readPathLists({ input });
 		const carveOuts = getFrameworkCarveOuts({ dependencies: input.kind === 'file-list' ? input.dependencies : new Map<string, string[]>() });
@@ -36,9 +41,9 @@ export const check: StandardsCheckModule = {
 
 			const name = getBaseName({ path: directory });
 			const insideCommon = directory.split('/').slice(0, -1).includes('common');
-			const banned = bannedAnywhere.has(name) || (commonTypeFolders.has(name) && !insideCommon);
+			const banned = bannedAnywhere.has(name) || (bannedOutsideCommon.has(name) && !insideCommon);
 
-			if (banned && !carveOut.exemptFolderNames.includes(name)) {
+			if (banned) {
 				findings.push(
 					buildRawFinding({
 						rule: 'path-banned-module-name',
