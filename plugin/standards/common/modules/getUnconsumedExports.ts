@@ -1,6 +1,9 @@
+import { getPathCarveOut } from '../frameworks/getPathCarveOut.ts';
+import { isFrameworkLoadedFile } from '../frameworks/isFrameworkLoadedFile.ts';
 import { readFileExports } from '../parsing/readFileExports.ts';
 import { isBarrelFile } from '../paths/isBarrelFile.ts';
 import { isTestFile } from '../paths/isTestFile.ts';
+import type { FrameworkCarveOut } from '../types/FrameworkCarveOut.ts';
 import type { UnconsumedExport } from '../types/UnconsumedExport.ts';
 
 /**
@@ -17,6 +20,8 @@ interface Params {
 	contents: Map<string, string>;
 	/** Repo-relative standards pack roots, so a pack's `tests/` document set is not read as test code. */
 	standardsPacks: string[];
+	/** Every package's framework carve-outs, as `getFrameworkCarveOuts` returns them — a framework-resolved file is a consumer, never a barrel. */
+	carveOuts: FrameworkCarveOut[];
 }
 
 /**
@@ -27,16 +32,23 @@ interface Params {
  * makes every export a distinct searchable name. Conservative by construction:
  * a name mentioned in a comment or a string counts as a reference, so calling a
  * live export unconsumed is rare. Names under four characters are skipped —
- * they collide with ordinary words too often to measure. Barrels and test files
- * declare nothing that is judged: a barrel's names belong to the file it
- * re-exports, and a test's helpers are the test's own.
+ * they collide with ordinary words too often to measure. Barrels, test files
+ * and files the framework resolves declare nothing that is judged: a barrel's
+ * names belong to the file it re-exports, a test's helpers are the test's own,
+ * and a framework-resolved file's exports answer to the framework rather than
+ * to any import.
  */
-export const getUnconsumedExports = ({ files, contents, standardsPacks }: Params): UnconsumedExport[] => {
+export const getUnconsumedExports = ({ files, contents, standardsPacks, carveOuts }: Params): UnconsumedExport[] => {
 	const scope = new Set(files);
 	const declarations: Array<{ name: string; file: string }> = [];
 
 	for (const [file, text] of contents) {
-		if (!scope.has(file) || isBarrelFile({ path: file }) || isTestFile({ path: file, standardsPacks })) {
+		if (
+			!scope.has(file) ||
+			isBarrelFile({ path: file }) ||
+			isTestFile({ path: file, standardsPacks }) ||
+			isFrameworkLoadedFile({ path: file, carveOut: getPathCarveOut({ carveOuts, path: file }) })
+		) {
 			continue;
 		}
 
@@ -59,10 +71,12 @@ export const getUnconsumedExports = ({ files, contents, standardsPacks }: Params
 				continue;
 			}
 
-			if (isBarrel({ file: other, text })) {
-				reachedBy.barrel = true;
-			} else if (isTestFile({ path: other, standardsPacks })) {
+			if (isTestFile({ path: other, standardsPacks })) {
 				reachedBy.test = true;
+			} else if (isFrameworkLoadedFile({ path: other, carveOut: getPathCarveOut({ carveOuts, path: other }) })) {
+				source = true;
+			} else if (isBarrel({ file: other, text })) {
+				reachedBy.barrel = true;
 			} else {
 				source = true;
 			}

@@ -46,8 +46,10 @@ test('detectStandardsChannels reads scoped package dependencies', async () => {
 
 	writePackage({ dir: join(dir, 'packages/web'), name: '@acme/web', deps: { preact: '^10.0.0' } });
 	writePackage({ dir: join(dir, 'packages/site'), name: '@acme/site', deps: { react: '^19.0.0', '@tanstack/react-start': '^1.0.0' } });
+	writePackage({ dir: join(dir, 'packages/server'), name: '@acme/server', deps: { '@nestjs/core': '^11.0.0' } });
 
 	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api'] })).toStrictEqual([]);
+	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['server'] })).toStrictEqual(['nestjs']);
 	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['web'] })).toStrictEqual(['react']);
 	expect(await detectStandardsChannels({ cwd: dir, packagesDir: 'packages', packages: ['api', 'site'] })).toStrictEqual(['react', 'tanstack']);
 	// unreadable manifests contribute nothing

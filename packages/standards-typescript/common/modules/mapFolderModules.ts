@@ -26,6 +26,13 @@ interface Params {
 	 * decides alone.
 	 */
 	isMandatedModule?: ({ folder }: { folder: string }) => boolean;
+	/**
+	 * Whether the package's framework loads this file itself — a route file, or a
+	 * convention-resolved entry file. An index file the framework loads is a
+	 * route, not a barrel, so it marks no boundary. Omitted, nothing is
+	 * framework-loaded and every index file is read as a barrel.
+	 */
+	isFrameworkLoaded?: ({ path }: { path: string }) => boolean;
 }
 
 /**
@@ -36,10 +43,16 @@ interface Params {
  *
  * A folder the package's framework mandates as a module is a boundary whatever
  * the omission test says. The test infers a boundary from concealment, which is
- * sound for a folder someone chose and wrong for one a framework requires: a
- * screen folder holds a single component the day it is made and grows its own
- * `components/` and `hooks/` as the screen does, and it is the same boundary
- * throughout.
+ * sound for a folder someone chose and wrong for one a framework requires: such
+ * a folder holds a single file the day it is made and grows its companions
+ * later, and it is the same boundary throughout.
+ *
+ * The route tree runs the other way. A file router MANDATES an index route, so
+ * a router root's `index.tsx` is a route file the framework loads — never a
+ * barrel — and reading it as one turns `src/routes/` into a folder-module whose
+ * every route looks like somebody's unexported internal. `isFrameworkLoaded`
+ * answers that, for the same reason `isMandatedModule` exists: only the caller
+ * knows what its input carries.
  *
  * Package and repo `src` roots are excluded — a root barrel is a package's API,
  * not an internal module — and so is anything under a `common/` segment, whose
@@ -60,13 +73,18 @@ interface Params {
  * with no manifest and no `node_modules`, so every value it imports has to
  * resolve inside its own tree. Change one, change the other.
  */
-export const mapFolderModules = ({ files, getSurface, standardsPacks, isMandatedModule }: Params): Map<string, FolderModule> => {
+export const mapFolderModules = ({ files, getSurface, standardsPacks, isMandatedModule, isFrameworkLoaded }: Params): Map<string, FolderModule> => {
 	const barrelDirs = new Map<string, string>();
 
 	for (const file of files) {
 		const directory = getDirectory({ path: file });
 
-		if (isBarrelFile({ path: file }) && getBaseName({ path: directory }) !== 'src' && !directory.split('/').includes('common')) {
+		if (
+			isBarrelFile({ path: file }) &&
+			isFrameworkLoaded?.({ path: file }) !== true &&
+			getBaseName({ path: directory }) !== 'src' &&
+			!directory.split('/').includes('common')
+		) {
 			barrelDirs.set(directory, file);
 		}
 	}

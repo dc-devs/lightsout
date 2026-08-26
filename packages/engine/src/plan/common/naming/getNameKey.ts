@@ -35,7 +35,7 @@ interface Params {
  * `to`/`from` token pins word order instead of sorting.
  *
  * A deliberate mirror of `getNameKey` in the default standards pack, kept
- * identical so plan-time prior-art detection and the `name-synonym` rule never
+ * identical so plan-time prior-art detection and the `synonym-export-name` rule never
  * disagree about whether two names are one concept. Neither copy can import
  * the other: a standards pack ships as a bare directory beside the engine,
  * with no manifest and no `node_modules`, so every value it imports has to

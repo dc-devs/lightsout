@@ -1,7 +1,7 @@
 ---
 summary: "a declaration whose name is not in the casing its kind takes"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 | Item              | Convention                            | Example                                   |

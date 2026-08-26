@@ -48,8 +48,8 @@ const setupResult = ({ manifest = {}, ...rest }: Omit<Partial<RefactorResult>, '
 
 test('printRefactorResult: a resolved batch reports as resolved with its changed-file count', () => {
 	const { result, output } = setupResult({
-		before: { clone: 3 },
-		after: { clone: 0 },
+		before: { 'duplicate-code-block': 3 },
+		after: { 'duplicate-code-block': 0 },
 		manifest: {
 			steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1, changedFiles: ['src/a.ts', 'src/b.ts'] }],
 			changedFiles: ['src/a.ts', 'src/b.ts'],
@@ -62,14 +62,16 @@ test('printRefactorResult: a resolved batch reports as resolved with its changed
 	expect(output()).toContain('resolved');
 	expect(output()).toContain('· 2 file(s)');
 	// the burn-down is the point of the run
-	expect(output()).toMatch(/clone\s+3 → 0/);
+	expect(output()).toMatch(/duplicate-code-block\s+3 → 0/);
 	expect(output()).toContain('2 file(s) changed in the working tree');
 	expect(output()).toContain('evidence: .lightsout/runs/run-1234-abcd/');
 });
 
 test('printRefactorResult: a decline is a judgment — it rides in the status line and prints the agent rationale', () => {
 	const { result, output } = setupResult({
-		declined: [{ batchId: 'batch-1', remainingSiteKeys: ['size:file:src/a.ts', 'clone:x'], rationale: ['[scope] the cap is the wrong signal here'] }],
+		declined: [
+			{ batchId: 'batch-1', remainingSiteKeys: ['size:file:src/a.ts', 'duplicate-code-block:x'], rationale: ['[scope] the cap is the wrong signal here'] },
+		],
 		manifest: { steps: [{ id: 'batch-1', status: RunStatus.Passed, attempts: 1 }] },
 	});
 
@@ -86,7 +88,7 @@ test('printRefactorResult: every decline offers the escape hatch, naming the com
 	const { result, output } = setupResult({
 		declined: [
 			{ batchId: 'batch-1', remainingSiteKeys: ['size:file:src/a.ts'], rationale: ['[scope] the cap is the wrong signal here'] },
-			{ batchId: 'batch-2', remainingSiteKeys: ['clone:x'], rationale: ['[risk] the duplication is deliberate'] },
+			{ batchId: 'batch-2', remainingSiteKeys: ['duplicate-code-block:x'], rationale: ['[risk] the duplication is deliberate'] },
 		],
 		manifest: {
 			steps: [
@@ -113,8 +115,8 @@ test('printRefactorResult: a parked run prints no burn-down, because its after m
 	const { result, output, errors } = setupResult({
 		ok: false,
 		error: 'run parked: harness rate limited or overloaded',
-		before: { clone: 3 },
-		after: { clone: 3 },
+		before: { 'duplicate-code-block': 3 },
+		after: { 'duplicate-code-block': 3 },
 		manifest: { status: RunStatus.PausedRateLimit, steps: [{ id: 'batch-1', status: RunStatus.PausedRateLimit, attempts: 1 }] },
 	});
 
@@ -132,7 +134,7 @@ test('printRefactorResult: a parked run prints no burn-down, because its after m
 test('printRefactorResult: the burn-down lists every rule in either count map, alphabetically, treating an absent side as zero', () => {
 	const { result, output } = setupResult({
 		before: { size: 4 },
-		after: { clone: 1 },
+		after: { 'duplicate-code-block': 1 },
 	});
 
 	printRefactorResult({ result });
@@ -140,8 +142,8 @@ test('printRefactorResult: the burn-down lists every rule in either count map, a
 	// a rule the run fully cleared drops out of `after`, and one the work
 	// introduced never appeared in `before` — both still owe a burn-down row
 	expect(output()).toMatch(/size\s+4 → 0/);
-	expect(output()).toMatch(/clone\s+0 → 1/);
-	expect(output().indexOf('clone')).toBeLessThan(output().indexOf('size'));
+	expect(output()).toMatch(/duplicate-code-block\s+0 → 1/);
+	expect(output().indexOf('duplicate-code-block')).toBeLessThan(output().indexOf('size'));
 });
 
 test('printRefactorResult: a stopped run with no error message writes nothing to stderr', () => {

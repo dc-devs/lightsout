@@ -9,12 +9,12 @@ test('cli: standards-health reports every rule as machine-checked or judgment, a
 
 	// the coverage claim is counted off the package's own folders, so it lands
 	// even in a repo that has never run anything
-	expect(stdout).toMatch(/│ name-synonym\s+│\s+code\s+│/);
+	expect(stdout).toMatch(/│ synonym-export-name\s+│\s+code\s+│/);
 	expect(stdout).toMatch(/│ path-aliases\s+│\s+judgment\s+│/);
 	// a repo with no refactor history has nothing to say about declines, and says
 	// so with a dash rather than a zero that would read as "never declined"
-	expect(stdout).toMatch(/│ name-synonym\s+│\s+code\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│/);
-	expect(stdout).toMatch(/│ 134 rule\(s\)\s+│\s+53 by code, 81 by judgment\s+│/);
+	expect(stdout).toMatch(/│ synonym-export-name\s+│\s+code\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│\s+—\s+│/);
+	expect(stdout).toMatch(/│ 111 rule\(s\)\s+│\s+52 by code, 59 by judgment\s+│/);
 	// it reports on the rules, never on the code — nothing here to gate on
 	expect(stderr).toBe('');
 	expect(code).toBe(0);

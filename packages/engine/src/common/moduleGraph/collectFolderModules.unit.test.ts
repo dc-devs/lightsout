@@ -169,3 +169,22 @@ test('collectFolderModules: a mandate cannot invent a boundary from a barrel who
 
 	expect([...modules.keys()]).toStrictEqual([]);
 });
+
+test('collectFolderModules: a folder whose index file the framework loads is no module, and the same tree without that answer is', async () => {
+	const files = ['src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.tsx'];
+	const cwd = setupRepo({
+		files: {
+			// a route file, not a barrel — read as one it publishes nothing while
+			// hiding every route beside it
+			'src/routes/index.tsx': "export const Route = { path: '/' };",
+			'src/routes/__root.tsx': "export const Route = { path: '' };",
+			'src/routes/runs.tsx': "export const Route = { path: '/runs' };",
+		},
+	});
+
+	const loaded = await collectFolderModules({ cwd, files, compiler: ts, isFrameworkLoaded: ({ path }) => path.startsWith('src/routes/') });
+	const unanswered = await collectFolderModules({ cwd, files, compiler: ts });
+
+	expect([...loaded.keys()]).toStrictEqual([]);
+	expect([...unanswered.keys()]).toStrictEqual(['src/routes']);
+});

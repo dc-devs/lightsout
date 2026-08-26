@@ -32,6 +32,16 @@ describe('setupImportGraphInput', () => {
 		expect(input).toMatchObject({ standardsPacks: [] });
 	});
 
+	test('a check reading the declarations sees an empty map until a test names one', () => {
+		expect(setupImportGraphInput()).toMatchObject({ dependencies: new Map() });
+	});
+
+	test('declared dependencies are stated as pairs and arrive as a map', () => {
+		const input = setupImportGraphInput({ dependencies: [['packages/web', ['@tanstack/react-router']]] });
+
+		expect(input).toMatchObject({ dependencies: new Map([['packages/web', ['@tanstack/react-router']]]) });
+	});
+
 	test('any field can be overridden outright', () => {
 		const input = setupImportGraphInput({ cwd: '/elsewhere', standardsPacks: ['vendor/acme'], referenceFiles: ['docs/api.md'] });
 

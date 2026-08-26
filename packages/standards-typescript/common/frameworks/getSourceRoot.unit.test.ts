@@ -5,6 +5,7 @@ import { getSourceRoot } from './getSourceRoot.ts';
 /** A carve-out as `getFrameworkCarveOuts` builds it — only the directory matters to the anchor. */
 const setupCarveOut = ({ directory }: { directory: string }): FrameworkCarveOut => ({
 	directory,
+	entryFiles: [],
 	exemptFolderNames: [],
 	kebabCase: false,
 	moduleFolders: [],

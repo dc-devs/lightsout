@@ -3,14 +3,14 @@ import { RefactorWorklist } from '#src/contracts/index.ts';
 
 const setupWorklist = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const batch = {
-		id: 'batch-01:clone:src/standardsCheck',
-		rule: 'clone',
+		id: 'batch-01:duplicate-code-block:src/standardsCheck',
+		rule: 'duplicate-code-block',
 		folder: 'src/standardsCheck',
 		blocking: [
 			{
-				rule: 'clone',
+				rule: 'duplicate-code-block',
 				severity: 'blocking',
-				siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+				siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 				files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 				detail: 'a 36-line span repeated across two files',
 			},
@@ -117,7 +117,7 @@ describe('RefactorWorklist', () => {
 		const parsed = RefactorWorklist.parse({ ...worklist, batches: [batch, second] });
 
 		// the numbered step ids are positional — a resume walks the list as persisted
-		expect(parsed.batches.map((entry) => entry.id)).toStrictEqual(['batch-01:clone:src/standardsCheck', 'batch-02:structure:src/cli']);
+		expect(parsed.batches.map((entry) => entry.id)).toStrictEqual(['batch-01:duplicate-code-block:src/standardsCheck', 'batch-02:structure:src/cli']);
 	});
 
 	test('one malformed batch rejects the whole work-list', () => {

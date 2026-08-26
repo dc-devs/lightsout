@@ -18,7 +18,7 @@ interface Params {
 	referenceFiles: string[];
 	/** Repo-relative standards pack roots, from the walk that listed the files. */
 	standardsPacks: string[];
-	/** Monorepo package parent dir — only the file-list kind reads it. */
+	/** Monorepo package parent dir (config `packages-dir`, default 'packages') — every kind that carries `dependencies` reads it. */
 	packagesDir: string;
 	/** The asking rule's resolved numbers — only the clone-spans detector reads them. */
 	settings: Record<string, number>;
@@ -61,7 +61,7 @@ export const buildCheckInput = async ({
 			return buildTestFileInput({ cwd, tests, cache });
 
 		case StandardsInputKind.CloneSpans:
-			return buildCloneSpansInput({ cwd, source, settings, cache });
+			return buildCloneSpansInput({ cwd, source, settings, cache, compiler });
 
 		case StandardsInputKind.SyntaxTree:
 		case StandardsInputKind.TypeChecker:
@@ -71,7 +71,7 @@ export const buildCheckInput = async ({
 			}
 
 			if (kind === StandardsInputKind.ImportGraph) {
-				return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler });
+				return buildImportGraphInput({ cwd, source, tests, files, referenceFiles, standardsPacks, compiler, packagesDir });
 			}
 
 			if (kind === StandardsInputKind.TypeChecker) {

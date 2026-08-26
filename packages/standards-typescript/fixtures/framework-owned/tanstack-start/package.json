@@ -1,0 +1,11 @@
+{
+	"name": "framework-owned-tanstack-start",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@tanstack/react-router": "*",
+		"@tanstack/react-start": "*",
+		"react": "*",
+		"react-dom": "*"
+	}
+}

@@ -6,7 +6,10 @@ severity: advisory
 
 ## Domain Folders
 
-Domain folders follow the shared rules in [folder-structure.md](../folder-structure.md#domain-folders). React-specific examples include JSX-producing functions grouped by domain:
+The [graduation rule](../../folder-structure/55-ungrouped-domain-utils/rule.md)
+applied to JSX-producing helpers: two or more functions sharing a subject
+graduate out of `utils/` into a named domain folder, exactly as pure functions
+do.
 
 ```
 common/
@@ -14,10 +17,14 @@ common/
 ├── stepConfigs/                   # ✅ Domain folder — 2+ related JSX config builders
 │   ├── getDesignStepConfig.tsx
 │   ├── getInstallStepConfig.tsx
-│   ├── getStepContentConfig.tsx
-│   └── index.ts
+│   └── getStepContentConfig.tsx
 ├── cellRenderers/                 # ✅ Domain folder — 2+ related JSX renderers
 │   ├── renderStatusCell.tsx
-│   ├── renderDateCell.tsx
-│   └── index.ts
+│   └── renderDateCell.tsx
 ```
+
+A domain folder is a grouping, not a module: it carries no `index.ts`
+([a domain folder is not a module](../../folder-structure/65-domain-folder-is-not-a-module/rule.md)),
+and under `common/` the
+[common-barrel rule](../../../style-guide/structure/module-api/30-barrel-under-common/rule.md)
+bans one outright.

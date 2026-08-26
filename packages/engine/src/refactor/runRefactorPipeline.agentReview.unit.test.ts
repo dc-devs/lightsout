@@ -10,6 +10,7 @@ import { report } from '#tests/helpers/report.ts';
 import { reviewReport } from '#tests/helpers/reviewReport.ts';
 import { roleOf } from '#tests/helpers/roleOf.ts';
 import { setupConsumerRepo } from '#tests/helpers/setupConsumerRepo.ts';
+import { strictProfile } from '#tests/helpers/strictProfile.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 /** Two exported consts in one file — a compiler-free structure finding (multi-export). */
@@ -65,7 +66,11 @@ const setupReviewedRun = async ({
 	housePack?: boolean;
 	onReview?: (params: { ruleIds: string[]; files: string[] }) => string;
 } = {}) => {
-	const dir = setupConsumerRepo(housePack ? { config: { 'standards-packs': [resolveDefaultStandardsPack(), 'standards/house'] } } : undefined);
+	// naming packs opts out of the helper's strict profile, so the planted
+	// multi-export is promoted here — the premise is a batch, not advice
+	const dir = setupConsumerRepo(
+		housePack ? { config: { 'standards-packs': [resolveDefaultStandardsPack(), 'standards/house'], 'standards-checks': strictProfile } } : undefined,
+	);
 
 	if (housePack) {
 		writeHousePack({ dir });

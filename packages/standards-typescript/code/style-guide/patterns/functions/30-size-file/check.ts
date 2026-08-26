@@ -1,13 +1,14 @@
 import type { RawStandardsFinding, StandardsCheckModule, SyntaxTreeInput } from '@lightsout/standards-contracts';
 import { buildRawFinding } from '../../../../../common/findings/buildRawFinding.ts';
-import { getBaseName } from '../../../../../common/paths/getBaseName.ts';
+import { isBarrelFile } from '../../../../../common/paths/isBarrelFile.ts';
 
 /**
  * Every file past the cap its extension earns.
  *
- * A barrel is exempt at any length: `index.ts` is a list of re-exports, and the
+ * A barrel is exempt at any length: a barrel is a list of re-exports, and the
  * remedy the finding would ask for — split it, or graduate the concept — is
- * exactly what a module's public API cannot do.
+ * exactly what a module's public API cannot do. True of every spelling the
+ * shared name test answers for, `index.tsx` included.
  */
 const buildFileFindings = ({ input, settings }: { input: SyntaxTreeInput; settings: Record<string, number> }) => {
 	const findings: RawStandardsFinding[] = [];
@@ -16,7 +17,7 @@ const buildFileFindings = ({ input, settings }: { input: SyntaxTreeInput; settin
 		const lineCount = tree.getFullText().split('\n').length;
 		const cap = path.endsWith('.tsx') ? settings.tsxFile : settings.file;
 
-		if (lineCount > cap && getBaseName({ path }) !== 'index.ts') {
+		if (lineCount > cap && !isBarrelFile({ path })) {
 			findings.push(
 				buildRawFinding({
 					rule: 'size-file',

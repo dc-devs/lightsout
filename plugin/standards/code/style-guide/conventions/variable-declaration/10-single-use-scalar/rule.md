@@ -1,7 +1,7 @@
 ---
 summary: "a module-scope scalar constant only one place reads"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Don't Hoist Single-Use Scalars

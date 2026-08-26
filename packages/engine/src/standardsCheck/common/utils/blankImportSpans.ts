@@ -7,7 +7,7 @@ interface Params {
 }
 
 /**
- * Erase import statements while preserving every newline, so clone detection
+ * Erase import statements while preserving every newline, so duplicate-block detection
  * never counts import boilerplate (non-deduplicable by construction) yet
  * still reports true line numbers for what remains.
  */

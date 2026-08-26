@@ -5,6 +5,7 @@ import { describe, expect, test } from '@jest/globals';
 import { type StandardsCheckFunction, StandardsInputKind, StandardsSeverity } from '#src/contracts/index.ts';
 import { validateStandardsPack } from '#src/standardsCheck/index.ts';
 import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { duplicatedSources, sharedImportSources, writeSampleSources } from '#tests/helpers/duplicationSamples.ts';
 
 /** A check that objects to any file named `banned.ts` — small enough to reason about, real enough to fail. */
 const bansTheBannedFile: StandardsCheckFunction = ({ input }) =>
@@ -25,6 +26,24 @@ const bansTheBannedTypedFile: StandardsCheckFunction = ({ input }) =>
 			files: [{ path }],
 			detail: 'a file the rule bans',
 		}));
+
+/** The same ban asked of what a fixture side declares — the facts a framework carve-out is keyed on, which the graph itself cannot show. */
+const bansTheDeclaredFramework: StandardsCheckFunction = ({ input }) =>
+	(input.kind === StandardsInputKind.ImportGraph ? (input.dependencies.get('.') ?? []) : [])
+		.filter((name) => name === '@nestjs/core')
+		.map((name) => ({
+			siteKey: `framework:${name}`,
+			files: [{ path: 'package.json' }],
+			detail: 'a framework the rule bans',
+		}));
+
+/** Every duplicated span the engine's detector found — the duplication tier reads spans it never built itself. */
+const reportsEveryDuplicateSpan: StandardsCheckFunction = ({ input }) =>
+	(input.kind === StandardsInputKind.CloneSpans ? input.spans : []).map((span) => ({
+		siteKey: `duplicate:${span.files.map((file) => file.path).join(':')}`,
+		files: span.files,
+		detail: 'the same block of code written out twice',
+	}));
 
 /**
  * A rule folder's fixture pair on disk. Each side is a miniature repo the check
@@ -62,6 +81,35 @@ const setupTypedFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) 
 	return { fixturesPath };
 };
 
+/**
+ * A fixture pair whose fail side declares a framework in a manifest of its own.
+ * A side is a miniature repo, so the manifest sits at its root — the only place
+ * a rule asking "does this package use a file-based router?" can read it.
+ */
+const setupDeclaringFixtures = ({ pass, fail }: { pass: string[]; fail: string[] }) => {
+	const { fixturesPath } = setupFixtures({ pass, fail });
+
+	writeFileSync(join(fixturesPath, 'pass', 'package.json'), '{ "name": "pass-side" }\n');
+	writeFileSync(join(fixturesPath, 'fail', 'package.json'), '{ "name": "fail-side", "dependencies": { "@nestjs/core": "^10" } }\n');
+
+	return { fixturesPath };
+};
+
+/**
+ * A fixture pair for a duplication rule: the fail side writes one block out
+ * twice, and the pass side shares only an import list — the boilerplate the
+ * engine blanks before it detects anything, and the false positive the pass
+ * side exists to prove.
+ */
+const setupDuplicatingFixtures = () => {
+	const fixturesPath = join(mkdtempSync(join(tmpdir(), 'lightsout-validate-')), 'fixtures');
+
+	writeSampleSources({ dir: join(fixturesPath, 'fail'), sources: duplicatedSources });
+	writeSampleSources({ dir: join(fixturesPath, 'pass'), sources: sharedImportSources });
+
+	return { fixturesPath };
+};
+
 /** A rule folder that ships no fixtures at all — the directory is never created. */
 const setupWithoutFixtures = () => ({ fixturesPath: join(mkdtempSync(join(tmpdir(), 'lightsout-validate-')), 'fixtures') });
 
@@ -85,6 +133,9 @@ const setupTwoRuleFixtures = () => ({
 	blind: setupFixtures({ pass: ['allowed.ts'], fail: ['also-allowed.ts'] }).fixturesPath,
 });
 
+/** What a pack shipping no framework-owned tree is told — every verdict below that sets none up carries it. */
+const noFrameworkOwnedNote = 'acme: no fixtures/framework-owned/ — no rule was held to the framework-owned invariant';
+
 const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPath: string }): LoadedStandardsRule => ({
 	set: 'code',
 	documentPath: 'code/style-guide/structure/module-api',
@@ -98,6 +149,9 @@ const rule = (overrides: Partial<LoadedStandardsRule> & { id: string; fixturesPa
 });
 
 const validate = ({ rules, built }: { rules: LoadedStandardsRule[]; built?: true }) => {
+	// No framework-owned tree anywhere in this file: the invariant's own verdicts
+	// live in validateStandardsPack.frameworkOwned.unit.test.ts, and every test
+	// here is about the per-rule pass it runs beside.
 	const pack: LoadedStandardsPack = { name: 'acme', formatVersion: 1, built, rootPath: '/packages/acme', documents: [], rules };
 
 	return validateStandardsPack({ pack });
@@ -112,7 +166,7 @@ describe('validateStandardsPack', () => {
 		});
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a fail fixture the check does not flag is a check that catches nothing', async () => {
@@ -176,7 +230,7 @@ describe('validateStandardsPack', () => {
 
 		// only the empty side is named — the populated one is a pair member already
 		expect(problems).toStrictEqual(['no-banned-file: fixtures/fail/ is missing or empty — every rule ships a fixture pair']);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a judgment-only rule must still ship the fixtures its accuracy is measured against', async () => {
@@ -189,7 +243,7 @@ describe('validateStandardsPack', () => {
 			'premature-abstraction: fixtures/pass/ is missing or empty — every rule ships a fixture pair',
 		]);
 		// the missing pair is the whole story — no judgment-only note on top of it
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a judgment-only rule is a note, never a problem — its fixtures measure the review agent instead', async () => {
@@ -198,7 +252,7 @@ describe('validateStandardsPack', () => {
 		const { problems, notes } = await validate({ rules: [rule({ id: 'premature-abstraction', fixturesPath })] });
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy']);
+		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy', noFrameworkOwnedNote]);
 	});
 
 	test('a rule shipping a check but declaring no input kind is judgment-only — there is no input to run it against', async () => {
@@ -207,7 +261,7 @@ describe('validateStandardsPack', () => {
 		const { problems, notes } = await validate({ rules: [rule({ id: 'premature-abstraction', fixturesPath, run: bansTheBannedFile })] });
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy']);
+		expect(notes).toStrictEqual(['premature-abstraction: judgment-only — fixtures reserved for agent accuracy', noFrameworkOwnedNote]);
 	});
 
 	test('a check that throws on a fixture is reported as a problem against that rule, not raised', async () => {
@@ -241,7 +295,7 @@ describe('validateStandardsPack', () => {
 
 		// the fixtures live in the engine's own repo, so the compiler is right there
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('validates a rule that needs a type checker against fixture sides that carry a tsconfig', async () => {
@@ -252,7 +306,7 @@ describe('validateStandardsPack', () => {
 		});
 
 		expect(problems).toStrictEqual([]);
-		expect(notes).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('a type-checker fixture side with no tsconfig is named as such, not reported as a check that catches nothing', async () => {
@@ -268,6 +322,43 @@ describe('validateStandardsPack', () => {
 			"discriminant-const-object: the fail fixture could not be checked — no tsconfig.json in fixtures/fail/, so none of its 1 file(s) could be typed — a type-checker rule's fixtures need one",
 			"discriminant-const-object: the pass fixture could not be checked — no tsconfig.json in fixtures/pass/, so none of its 1 file(s) could be typed — a type-checker rule's fixtures need one",
 		]);
+	});
+
+	test('validates an import-graph rule against what its fixture side declares, not its edges alone', async () => {
+		const { fixturesPath } = setupDeclaringFixtures({ pass: ['allowed.ts'], fail: ['banned.ts'] });
+
+		const { problems, notes } = await validate({
+			rules: [rule({ id: 'module-boundary', fixturesPath, inputKind: StandardsInputKind.ImportGraph, run: bansTheDeclaredFramework })],
+		});
+
+		// the two sides differ only in what their manifests declare, so a pass here
+		// is the declarations reaching the check — and the fixtures live in the
+		// engine's own repo, so the compiler the kind needs is right there
+		expect(problems).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
+	});
+
+	test('validates a duplicate-block rule against the spans the engine detected for it', async () => {
+		const { fixturesPath } = setupDuplicatingFixtures();
+
+		const { problems, notes } = await validate({
+			rules: [
+				rule({
+					id: 'duplicate-code-block',
+					fixturesPath,
+					inputKind: StandardsInputKind.CloneSpans,
+					run: reportsEveryDuplicateSpan,
+					defaultSettings: { minTokens: 50 },
+				}),
+			],
+		});
+
+		// the kind parses nothing, so no compiler is resolved for it — and a pass
+		// here is both halves of the pair: the fail side's duplicated block
+		// reaching the check, and the pass side's shared import list never being
+		// counted as one
+		expect(problems).toStrictEqual([]);
+		expect(notes).toStrictEqual([noFrameworkOwnedNote]);
 	});
 
 	test('validates every rule in the pack, whatever channel it sits on', async () => {

@@ -22,20 +22,20 @@ const setupDefaultPack = async () => {
 };
 
 describe('readStandardsPack', () => {
-	test('carries all 23 shipped documents, split across the code and tests trees', async () => {
+	test('carries all 24 shipped documents, split across the code and tests trees', async () => {
 		const { pack } = await setupDefaultPack();
 
 		expect(pack.name).toBe('lightsout-defaults');
-		expect(pack.documents).toHaveLength(23);
-		expect(pack.documents.filter((document) => document.set === StandardsSet.Code)).toHaveLength(20);
+		expect(pack.documents).toHaveLength(24);
+		expect(pack.documents.filter((document) => document.set === StandardsSet.Code)).toHaveLength(21);
 		expect(pack.documents.filter((document) => document.set === StandardsSet.Tests)).toHaveLength(3);
 	});
 
-	test('offers exactly the base, react, and tanstack channels', async () => {
+	test('offers exactly the base, nestjs, react, and tanstack channels', async () => {
 		const { pack } = await setupDefaultPack();
 
 		// a channel no document declares could never be activated by a repo
-		expect([...new Set(pack.documents.map((document) => document.channel))].sort()).toStrictEqual(['base', 'react', 'tanstack']);
+		expect([...new Set(pack.documents.map((document) => document.channel))].sort()).toStrictEqual(['base', 'nestjs', 'react', 'tanstack']);
 	});
 
 	test('every rule declaring a check ships one that can be run', async () => {

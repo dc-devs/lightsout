@@ -31,12 +31,7 @@ describe('multi-export check', () => {
 
 	test('reports a file holding two unrelated exports, naming both', async () => {
 		const input = setupFileTextInput({
-			contents: [
-				[
-					'src/common/types/Config.ts',
-					['export interface Config {', '\tname: string;', '}', '', "export const defaultConfig: Config = { name: 'default' };"].join('\n'),
-				],
-			],
+			contents: [['src/common/types/Config.ts', ['export interface Config {', '\tname: string;', '}', '', 'export const maxRetries = 3;'].join('\n')]],
 		});
 
 		const findings = await check.run({ input, settings: {} });
@@ -45,7 +40,7 @@ describe('multi-export check', () => {
 			{
 				siteKey: 'multi-export:src/common/types/Config.ts',
 				files: [{ path: 'src/common/types/Config.ts' }],
-				detail: '2 exports (Config, defaultConfig)',
+				detail: '2 exports (Config, maxRetries)',
 				guidance: 'One export per file, outside the closed exception list.',
 			},
 		]);

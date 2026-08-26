@@ -4,12 +4,12 @@ import { batchFindings } from '#src/refactor/batch/index.ts';
 
 /** Every rule the shipped standards package names, in the order batching is meant to hand them to an agent. */
 const mechanicalFirstOrder = [
-	'path-banned-module-name',
-	'path-common-flat',
-	'path-common-barrel',
-	'path-test-in-tests-folder',
-	'path-test-not-colocated',
-	'path-test-support-in-src',
+	'banned-folder-name',
+	'file-directly-in-common',
+	'barrel-under-common',
+	'test-in-tests-folder',
+	'test-not-beside-subject',
+	'test-support-in-src',
 	'module-boundary',
 	'placement',
 	'multi-export',
@@ -27,20 +27,19 @@ const mechanicalFirstOrder = [
 	'barrel-dead-entry',
 	'dead-export',
 	'test-only-export',
-	'barrel-only-export',
+	'barrel-is-only-consumer',
 	'size-file',
 	'size-function',
-	'domain-graduation',
-	'path-domain-folder-single-file',
-	'path-folder-casing',
-	'path-test-untested-subject-not-public',
+	'ungrouped-domain-utils',
+	'single-file-domain-folder',
+	'folder-casing',
 	'test-multiple-setups',
-	'test-mega-factory',
-	'folder-census',
-	'ast-duplicate',
-	'clone',
-	'name-duplicate',
-	'name-synonym',
+	'oversized-setup-factory',
+	'crowded-folder',
+	'duplicate-function-body',
+	'duplicate-code-block',
+	'duplicate-export-name',
+	'synonym-export-name',
 ];
 
 const finding = ({ rule, path, siteKey }: { rule: StandardsFinding['rule']; path: string; siteKey: string }): StandardsFinding => ({
@@ -54,7 +53,7 @@ const finding = ({ rule, path, siteKey }: { rule: StandardsFinding['rule']; path
 test('batchFindings: groups by rule × area, mechanical-first order', () => {
 	const batches = batchFindings({
 		blocking: [
-			finding({ rule: 'clone', path: 'packages/api/src/a.ts', siteKey: 'clone:1' }),
+			finding({ rule: 'duplicate-code-block', path: 'packages/api/src/a.ts', siteKey: 'duplicate-code-block:1' }),
 			finding({ rule: 'module-boundary', path: 'packages/api/src/b.ts', siteKey: 'boundary:b' }),
 			finding({ rule: 'module-boundary', path: 'packages/web/src/c.ts', siteKey: 'boundary:c' }),
 			finding({ rule: 'multi-export', path: 'src/d.ts', siteKey: 'multi-export:d' }),
@@ -64,14 +63,14 @@ test('batchFindings: groups by rule × area, mechanical-first order', () => {
 		packagesDir: 'packages',
 	});
 
-	// boundary before multi-export before clone; package dirs, top segments, and
+	// boundary before multi-export before duplicate-code-block; package dirs, top segments, and
 	// (root) as areas
 	expect(batches.map((batch) => `${batch.rule} ${batch.folder}`)).toStrictEqual([
 		'module-boundary packages/api',
 		'module-boundary packages/web',
 		'multi-export (root)',
 		'multi-export src',
-		'clone packages/api',
+		'duplicate-code-block packages/api',
 	]);
 	// the ids an agent is handed: a running number in that same order
 	expect(batches.map((batch) => batch.id)).toStrictEqual([
@@ -79,7 +78,7 @@ test('batchFindings: groups by rule × area, mechanical-first order', () => {
 		'batch-02:module-boundary:packages/web',
 		'batch-03:multi-export:(root)',
 		'batch-04:multi-export:src',
-		'batch-05:clone:packages/api',
+		'batch-05:duplicate-code-block:packages/api',
 	]);
 });
 
@@ -96,7 +95,7 @@ test('batchFindings: every rule batches in the documented mechanical-first order
 	// rules an agent can fix in place first, judgment-heavier duplication last
 	expect(batches.map((batch) => batch.rule)).toStrictEqual(mechanicalFirstOrder);
 	// one batch per rule, numbered in that order — the ids an agent is handed
-	expect(batches.map((batch) => batch.id).slice(0, 2)).toStrictEqual(['batch-01:path-banned-module-name:src', 'batch-02:path-common-flat:src']);
+	expect(batches.map((batch) => batch.id).slice(0, 2)).toStrictEqual(['batch-01:banned-folder-name:src', 'batch-02:file-directly-in-common:src']);
 });
 
 test('batchFindings: a rule outside the priority list sorts after every listed one', () => {
@@ -105,7 +104,7 @@ test('batchFindings: a rule outside the priority list sorts after every listed o
 			// A rule id the priority list has never heard of — what a rule a
 			// standards package added without a priority entry looks like here.
 			finding({ rule: 'invented-rule', path: 'src/stale.ts', siteKey: 'invented:stale' }),
-			finding({ rule: 'clone', path: 'src/a.ts', siteKey: 'clone:a' }),
+			finding({ rule: 'duplicate-code-block', path: 'src/a.ts', siteKey: 'duplicate-code-block:a' }),
 			finding({ rule: 'module-boundary', path: 'src/b.ts', siteKey: 'boundary:b' }),
 		],
 		advisories: [],
@@ -114,7 +113,7 @@ test('batchFindings: a rule outside the priority list sorts after every listed o
 
 	// an unlisted rule degrades to "after the known ones" — never to an error,
 	// and never ahead of the mechanical work
-	expect(batches.map((batch) => batch.rule)).toStrictEqual(['module-boundary', 'clone', 'invented-rule']);
+	expect(batches.map((batch) => batch.rule)).toStrictEqual(['module-boundary', 'duplicate-code-block', 'invented-rule']);
 });
 
 test('batchFindings: rules outside the priority list tie-break alphabetically, and their ids reach the batch id', () => {
@@ -125,19 +124,23 @@ test('batchFindings: rules outside the priority list tie-break alphabetically, a
 		blocking: [
 			finding({ rule: 'zeta-package-rule', path: 'src/z.ts', siteKey: 'zeta:z' }),
 			finding({ rule: 'alpha-package-rule', path: 'src/a.ts', siteKey: 'alpha:a' }),
-			finding({ rule: 'clone', path: 'src/c.ts', siteKey: 'clone:c' }),
+			finding({ rule: 'duplicate-code-block', path: 'src/c.ts', siteKey: 'duplicate-code-block:c' }),
 		],
 		advisories: [],
 		packagesDir: 'packages',
 	});
 
 	// every listed rule first, then the unlisted ones in id order
-	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:clone:src', 'batch-02:alpha-package-rule:src', 'batch-03:zeta-package-rule:src']);
+	expect(batches.map((batch) => batch.id)).toStrictEqual([
+		'batch-01:duplicate-code-block:src',
+		'batch-02:alpha-package-rule:src',
+		'batch-03:zeta-package-rule:src',
+	]);
 });
 
 test('batchFindings: an oversized group splits into sorted chunks of 12', () => {
 	const findings = Array.from({ length: 13 }, (_, index) =>
-		finding({ rule: 'clone', path: `src/file${index}.ts`, siteKey: `clone:${String(index).padStart(2, '0')}` }),
+		finding({ rule: 'duplicate-code-block', path: `src/file${index}.ts`, siteKey: `duplicate-code-block:${String(index).padStart(2, '0')}` }),
 	);
 	const batches = batchFindings({ blocking: findings, advisories: [], packagesDir: 'packages' });
 
@@ -145,24 +148,28 @@ test('batchFindings: an oversized group splits into sorted chunks of 12', () => 
 	expect(batches[0]?.blocking.length).toBe(12);
 	expect(batches[1]?.blocking.length).toBe(1);
 	// chunks split in site-key order
-	expect(batches[1]?.blocking[0]?.siteKey).toBe('clone:12');
+	expect(batches[1]?.blocking[0]?.siteKey).toBe('duplicate-code-block:12');
 });
 
 test('batchFindings: each chunk of an oversized group takes its own batch number', () => {
 	const findings = Array.from({ length: 25 }, (_, index) =>
-		finding({ rule: 'clone', path: `src/file${index}.ts`, siteKey: `clone:${String(index).padStart(2, '0')}` }),
+		finding({ rule: 'duplicate-code-block', path: `src/file${index}.ts`, siteKey: `duplicate-code-block:${String(index).padStart(2, '0')}` }),
 	);
 
 	const batches = batchFindings({ blocking: findings, advisories: [], packagesDir: 'packages' });
 
 	// one group, three chunks — the numbering runs across chunks, not per group,
 	// so no two jobs an agent is handed share an id
-	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:clone:src', 'batch-02:clone:src', 'batch-03:clone:src']);
+	expect(batches.map((batch) => batch.id)).toStrictEqual([
+		'batch-01:duplicate-code-block:src',
+		'batch-02:duplicate-code-block:src',
+		'batch-03:duplicate-code-block:src',
+	]);
 });
 
 test('batchFindings: an advisory attaches only to the chunk holding its file', () => {
 	const findings = Array.from({ length: 13 }, (_, index) =>
-		finding({ rule: 'clone', path: `src/file${index}.ts`, siteKey: `clone:${String(index).padStart(2, '0')}` }),
+		finding({ rule: 'duplicate-code-block', path: `src/file${index}.ts`, siteKey: `duplicate-code-block:${String(index).padStart(2, '0')}` }),
 	);
 	const advisory: StandardsFinding = { ...finding({ rule: 'size-file', path: 'src/file12.ts', siteKey: 'size-file:src/file12.ts' }), severity: 'advisory' };
 
@@ -178,21 +185,24 @@ test('batchFindings: paths that name no package folder fall back to their top se
 		blocking: [
 			// A file sitting directly in the packages dir names no package, so the
 			// dir itself is the area.
-			finding({ rule: 'clone', path: 'packages/loose.ts', siteKey: 'clone:loose' }),
+			finding({ rule: 'duplicate-code-block', path: 'packages/loose.ts', siteKey: 'duplicate-code-block:loose' }),
 			// An absolute path has an empty first segment — no area to name.
-			finding({ rule: 'clone', path: '/abs/file.ts', siteKey: 'clone:abs' }),
+			finding({ rule: 'duplicate-code-block', path: '/abs/file.ts', siteKey: 'duplicate-code-block:abs' }),
 		],
 		advisories: [],
 		packagesDir: 'packages',
 	});
 
-	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:clone:(root)', 'batch-02:clone:packages']);
+	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:duplicate-code-block:(root)', 'batch-02:duplicate-code-block:packages']);
 });
 
 test('batchFindings: advisories attach to batches whose files overlap, never form batches', () => {
 	const advisory: StandardsFinding = { ...finding({ rule: 'size-function', path: 'src/a.ts', siteKey: 'size-function:src/a.ts' }), severity: 'advisory' };
 	const batches = batchFindings({
-		blocking: [finding({ rule: 'clone', path: 'src/a.ts', siteKey: 'clone:a' }), finding({ rule: 'clone', path: 'lib/b.ts', siteKey: 'clone:b' })],
+		blocking: [
+			finding({ rule: 'duplicate-code-block', path: 'src/a.ts', siteKey: 'duplicate-code-block:a' }),
+			finding({ rule: 'duplicate-code-block', path: 'lib/b.ts', siteKey: 'duplicate-code-block:b' }),
+		],
 		advisories: [advisory],
 		packagesDir: 'packages',
 	});
@@ -205,9 +215,9 @@ test('batchFindings: advisories attach to batches whose files overlap, never for
 test('batchFindings: a finding spanning folders gets a dedicated cross batch with every side in scope', () => {
 	const batches = batchFindings({
 		blocking: [
-			finding({ rule: 'clone', path: 'packages/api/src/a.ts', siteKey: 'clone:a' }),
+			finding({ rule: 'duplicate-code-block', path: 'packages/api/src/a.ts', siteKey: 'duplicate-code-block:a' }),
 			{
-				...finding({ rule: 'clone', path: 'packages/api/src/b.ts', siteKey: 'clone:x' }),
+				...finding({ rule: 'duplicate-code-block', path: 'packages/api/src/b.ts', siteKey: 'duplicate-code-block:x' }),
 				files: [{ path: 'packages/api/src/b.ts' }, { path: 'packages/web/src/c.ts' }],
 			},
 		],
@@ -219,19 +229,19 @@ test('batchFindings: a finding spanning folders gets a dedicated cross batch wit
 
 	// multi-folder finding forms its own (cross) batch
 	expect(cross).toBeTruthy();
-	expect(cross?.blocking.map((entry) => entry.siteKey)).toStrictEqual(['clone:x']);
+	expect(cross?.blocking.map((entry) => entry.siteKey)).toStrictEqual(['duplicate-code-block:x']);
 	// cross batches run after single-folder batches of the same rule
 	expect(batches.at(-1)?.folder).toBe('(cross)');
 });
 
 test('batchFindings: a finding naming no file still batches, under (root)', () => {
 	const batches = batchFindings({
-		blocking: [{ ...finding({ rule: 'folder-census', path: 'src/a.ts', siteKey: 'folder-census:src' }), files: [] }],
+		blocking: [{ ...finding({ rule: 'crowded-folder', path: 'src/a.ts', siteKey: 'crowded-folder:src' }), files: [] }],
 		advisories: [],
 		packagesDir: 'packages',
 	});
 
 	// a file-less finding has no area to group by — it degrades to (root) rather
 	// than an undefined folder in the batch id an agent is handed
-	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:folder-census:(root)']);
+	expect(batches.map((batch) => batch.id)).toStrictEqual(['batch-01:crowded-folder:(root)']);
 });

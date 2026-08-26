@@ -3,9 +3,9 @@ import { RefactorBatch } from '#src/contracts/index.ts';
 
 const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string, unknown> } = {}) => {
 	const finding = {
-		rule: 'clone',
+		rule: 'duplicate-code-block',
 		severity: 'blocking',
-		siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+		siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 		files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 		detail: 'a 36-line span repeated across two files',
 	};
@@ -17,8 +17,8 @@ const setupBatch = ({ omit, extra = {} }: { omit?: string; extra?: Record<string
 		detail: 'the file is 240 lines against a 200-line guideline',
 	};
 	const batch: Record<string, unknown> = {
-		id: 'batch-01:clone:src/standardsCheck',
-		rule: 'clone',
+		id: 'batch-01:duplicate-code-block:src/standardsCheck',
+		rule: 'duplicate-code-block',
 		folder: 'src/standardsCheck',
 		blocking: [finding],
 		advisories: [advisory],
@@ -39,8 +39,8 @@ describe('RefactorBatch', () => {
 		const parsed = RefactorBatch.parse(batch);
 
 		expect(parsed).toStrictEqual({
-			id: 'batch-01:clone:src/standardsCheck',
-			rule: 'clone',
+			id: 'batch-01:duplicate-code-block:src/standardsCheck',
+			rule: 'duplicate-code-block',
 			folder: 'src/standardsCheck',
 			blocking: [finding],
 			advisories: [advisory],
@@ -99,7 +99,7 @@ describe('RefactorBatch', () => {
 		// entry sits in is what decides whether the re-check blocks on it
 		expect(parsed.advisories[0]?.severity).toBe('blocking');
 		// the must-address list is untouched by what the advisory list holds
-		expect(parsed.blocking[0]?.siteKey).toBe('clone:src/standardsCheck/runStandardsCheck.ts:12');
+		expect(parsed.blocking[0]?.siteKey).toBe('duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12');
 	});
 
 	test('one malformed finding rejects the whole batch', () => {
@@ -159,7 +159,7 @@ describe('RefactorBatch', () => {
 	});
 
 	test('id, rule, and folder are strings, not coerced from other types', () => {
-		for (const extra of [{ id: 1 }, { rule: ['clone'] }, { folder: null }]) {
+		for (const extra of [{ id: 1 }, { rule: ['duplicate-code-block'] }, { folder: null }]) {
 			const { batch } = setupBatch({ extra });
 
 			const result = RefactorBatch.safeParse(batch);
@@ -178,14 +178,14 @@ describe('RefactorBatch', () => {
 		// the persisted work-list holds the fields the contract declares — batch
 		// progress lives in the manifest step, never smuggled onto the frozen batch
 		expect(parsed).toStrictEqual({
-			id: 'batch-01:clone:src/standardsCheck',
-			rule: 'clone',
+			id: 'batch-01:duplicate-code-block:src/standardsCheck',
+			rule: 'duplicate-code-block',
 			folder: 'src/standardsCheck',
 			blocking: [
 				{
-					rule: 'clone',
+					rule: 'duplicate-code-block',
 					severity: 'blocking',
-					siteKey: 'clone:src/standardsCheck/runStandardsCheck.ts:12',
+					siteKey: 'duplicate-code-block:src/standardsCheck/runStandardsCheck.ts:12',
 					files: [{ path: 'src/standardsCheck/runStandardsCheck.ts', startLine: 12, endLine: 48 }],
 					detail: 'a 36-line span repeated across two files',
 				},

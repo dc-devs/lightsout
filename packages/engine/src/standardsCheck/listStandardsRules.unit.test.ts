@@ -23,49 +23,64 @@ const cwd = join(__dirname, '..', '..', '..', '..');
  * config overrides and its frozen refactor work-lists are all written in these
  * strings, so one of them going missing is a silent break in persisted data —
  * which is why they are restated here rather than read back off the pack.
+ *
+ * Removing an id from this list is a deliberate retirement: the rule's folder,
+ * every config override naming it, and this row are deleted in one change
+ * (path-test-untested-subject-not-public went that way, 2026-08-24). A rename
+ * is not a retirement: on 2026-08-25 eighteen ids were renamed to say what the
+ * rule finds rather than how it finds it — sixteen of them here, `clone` among
+ * them — and the finding history keyed to the old spellings was reset.
  */
 const durableRuleIds = [
-	'ast-duplicate',
+	'banned-folder-name',
 	'barrel-dead-entry',
-	'barrel-only-export',
+	'barrel-is-only-consumer',
 	'barrel-star',
-	'clone',
+	'barrel-under-common',
+	'crowded-folder',
 	'dead-export',
-	'domain-graduation',
+	'duplicate-code-block',
+	'duplicate-export-name',
+	'duplicate-function-body',
+	'file-directly-in-common',
 	'filename-mismatch',
-	'folder-census',
+	'folder-casing',
 	'module-boundary',
 	'multi-export',
-	'name-duplicate',
-	'name-synonym',
-	'path-banned-module-name',
-	'path-common-barrel',
-	'path-common-flat',
-	'path-domain-folder-single-file',
-	'path-folder-casing',
-	'path-test-in-tests-folder',
-	'path-test-not-colocated',
-	'path-test-support-in-src',
-	'path-test-untested-subject-not-public',
+	'oversized-setup-factory',
 	'placement',
+	'single-file-domain-folder',
 	'size-file',
 	'size-function',
+	'synonym-export-name',
 	'test-assert-in-hook',
+	'test-in-tests-folder',
 	'test-manual-mock-cleanup',
-	'test-mega-factory',
 	'test-mock-prefix',
 	'test-mock-return-in-hook',
 	'test-mock-untyped',
 	'test-mock-wrapper-untyped',
 	'test-multiple-setups',
 	'test-nested-describe',
+	'test-not-beside-subject',
 	'test-only-export',
 	'test-shared-let',
 	'test-strict-equal-matcher',
+	'test-support-in-src',
+	'ungrouped-domain-utils',
 ];
 
-/** The file-placement rules code checks — `path-aliases` shares the prefix but is prose an agent has to judge. */
-const durablePathRules = durableRuleIds.filter((id) => id.startsWith('path-'));
+/** The eight file-placement rules code checks — listed rather than derived, because an id no longer says which kind it is. */
+const durablePathRules = [
+	'banned-folder-name',
+	'file-directly-in-common',
+	'barrel-under-common',
+	'test-in-tests-folder',
+	'test-not-beside-subject',
+	'test-support-in-src',
+	'folder-casing',
+	'single-file-domain-folder',
+];
 
 /** 'lightsout-defaults: code/…' split back into the pack name and the document folder the row names. */
 const docPartsOf = ({ doc }: { doc: string }) => {
@@ -185,26 +200,25 @@ describe('listStandardsRules', () => {
 		// from — which is why `test-only-export` and the four test-location rules
 		// sit here, away from the passes they used to share
 		expect(checkedFromTests.sort()).toStrictEqual([
-			'path-test-in-tests-folder',
-			'path-test-not-colocated',
-			'path-test-support-in-src',
-			'path-test-untested-subject-not-public',
+			'oversized-setup-factory',
 			'test-assert-in-hook',
+			'test-in-tests-folder',
 			'test-manual-mock-cleanup',
-			'test-mega-factory',
 			'test-mock-prefix',
 			'test-mock-return-in-hook',
 			'test-mock-untyped',
 			'test-mock-wrapper-untyped',
 			'test-multiple-setups',
 			'test-nested-describe',
+			'test-not-beside-subject',
 			'test-only-export',
 			'test-shared-let',
 			'test-strict-equal-matcher',
+			'test-support-in-src',
 		]);
 	});
 
-	test('each path rule names the document that actually states it', async () => {
+	test('each file-placement rule names the document that actually states it', async () => {
 		const rules = await listStandardsRules({ cwd });
 		const docs = Object.fromEntries(
 			rules.filter((rule) => durablePathRules.includes(rule.rule)).map((rule) => [rule.rule, docPartsOf({ doc: rule.doc }).path]),
@@ -214,41 +228,69 @@ describe('listStandardsRules', () => {
 		// the no-barrels-under-common rule comes from module-api, the four
 		// test-location rules from unit-testing, and the rest from folder-structure
 		expect(docs).toStrictEqual({
-			'path-banned-module-name': 'code/architecture/folder-structure',
-			'path-common-flat': 'code/architecture/folder-structure',
-			'path-common-barrel': 'code/style-guide/structure/module-api',
-			'path-test-in-tests-folder': 'tests/unit-testing',
-			'path-test-not-colocated': 'tests/unit-testing',
-			'path-test-support-in-src': 'tests/unit-testing',
-			'path-test-untested-subject-not-public': 'tests/unit-testing',
-			'path-folder-casing': 'code/architecture/folder-structure',
-			'path-domain-folder-single-file': 'code/architecture/folder-structure',
+			'banned-folder-name': 'code/architecture/folder-structure',
+			'file-directly-in-common': 'code/architecture/folder-structure',
+			'barrel-under-common': 'code/style-guide/structure/module-api',
+			'test-in-tests-folder': 'tests/unit-testing',
+			'test-not-beside-subject': 'tests/unit-testing',
+			'test-support-in-src': 'tests/unit-testing',
+			'folder-casing': 'code/architecture/folder-structure',
+			'single-file-domain-folder': 'code/architecture/folder-structure',
 		});
 	});
 
-	test('the path rules ship at the severity each was designed for', async () => {
+	test('the file-placement rules ship advisory — the default pack blocks only what is wrong on its own terms', async () => {
 		const rules = await listStandardsRules({ cwd });
 		const severities = Object.fromEntries(rules.filter((rule) => durablePathRules.includes(rule.rule)).map((rule) => [rule.rule, rule.severity]));
 
-		// all nine blocking. Each is a file move, a rename against a closed list
-		// from a doc, or a barrel promotion with one prescribed remedy —
-		// untested-subject-not-public graduated after its burn-down proved agents
-		// apply that remedy cleanly, and folder-casing and domain-folder-single-file
-		// followed once the repo had stood at zero findings for both
+		// every file-placement rule is a layout opinion — where a file goes, what a folder
+		// is called, where a test sits. The pack reports them and hands them to
+		// the refactor agent, but does not block a repository on day one for a
+		// layout it has not agreed to; a strict repo promotes them in its own
+		// standards-checks, as this repository does
 		expect(severities).toStrictEqual({
-			'path-banned-module-name': StandardsSeverity.Blocking,
-			'path-common-flat': StandardsSeverity.Blocking,
-			'path-common-barrel': StandardsSeverity.Blocking,
-			'path-test-in-tests-folder': StandardsSeverity.Blocking,
-			'path-test-not-colocated': StandardsSeverity.Blocking,
-			'path-test-support-in-src': StandardsSeverity.Blocking,
-			'path-test-untested-subject-not-public': StandardsSeverity.Blocking,
-			'path-folder-casing': StandardsSeverity.Blocking,
-			'path-domain-folder-single-file': StandardsSeverity.Blocking,
+			'banned-folder-name': StandardsSeverity.Advisory,
+			'file-directly-in-common': StandardsSeverity.Advisory,
+			'barrel-under-common': StandardsSeverity.Advisory,
+			'test-in-tests-folder': StandardsSeverity.Advisory,
+			'test-not-beside-subject': StandardsSeverity.Advisory,
+			'test-support-in-src': StandardsSeverity.Advisory,
+			'folder-casing': StandardsSeverity.Advisory,
+			'single-file-domain-folder': StandardsSeverity.Advisory,
 		});
 	});
 
-	test('no path rule carries a number a repo could tune', async () => {
+	test('the default pack blocks exactly the rules that are wrong on their own terms', async () => {
+		// a repo with no config of its own, so the listing is the pack's defaults
+		// rather than this repository's promotions
+		const rules = await listStandardsRules({ cwd: setupRepo().cwd });
+		const blocking = rules
+			.filter((rule) => rule.severity === StandardsSeverity.Blocking)
+			.map((rule) => rule.rule)
+			.sort();
+
+		// types that lie, code nothing uses, a tree that breaks across
+		// filesystems, doc tags another tool owns, and tests that are silently
+		// weaker than they read. Everything about layout ships advisory.
+		expect(blocking).toStrictEqual([
+			'brittle-doc-tags',
+			'case-collision',
+			'dead-export',
+			'duplicate-function-body',
+			'explicit-return-type',
+			'import-type-only',
+			'no-any',
+			'test-assert-in-hook',
+			'test-mock-prefix',
+			'test-mock-untyped',
+			'test-mock-wrapper-untyped',
+			'test-shared-let',
+			'test-strict-equal-matcher',
+			'type-assertion',
+		]);
+	});
+
+	test('no file-placement rule carries a number a repo could tune', async () => {
 		const rules = await listStandardsRules({ cwd });
 		const tunable = rules.filter((rule) => durablePathRules.includes(rule.rule) && Object.keys(rule.settings).length > 0);
 
@@ -260,41 +302,44 @@ describe('listStandardsRules', () => {
 
 	test('a repo that says nothing sees the defaults, unmarked', async () => {
 		const rules = await listStandardsRules({ cwd, config: LightsoutConfig.parse(baseConfig) });
-		const clone = rules.find((rule) => rule.rule === 'clone');
+		const duplicateBlock = rules.find((rule) => rule.rule === 'duplicate-code-block');
 
-		expect(clone?.severity).toBe(StandardsSeverity.Advisory);
-		expect(clone?.fromConfig).toBe(false);
+		expect(duplicateBlock?.severity).toBe(StandardsSeverity.Advisory);
+		expect(duplicateBlock?.fromConfig).toBe(false);
 		// the rule's live numbers travel with it
-		expect(clone?.settings).toStrictEqual({ minTokens: 50 });
+		expect(duplicateBlock?.settings).toStrictEqual({ minTokens: 50 });
 	});
 
 	test('a rule the config named is marked, so policy reads apart from default', async () => {
 		const rules = await listStandardsRules({
 			cwd,
-			config: LightsoutConfig.parse({ ...baseConfig, 'standards-checks': { 'filename-mismatch': 'off', clone: { settings: { minTokens: 90 } } } }),
+			config: LightsoutConfig.parse({
+				...baseConfig,
+				'standards-checks': { 'filename-mismatch': 'off', 'duplicate-code-block': { settings: { minTokens: 90 } } },
+			}),
 		});
 
 		const mismatch = rules.find((rule) => rule.rule === 'filename-mismatch');
-		const clone = rules.find((rule) => rule.rule === 'clone');
+		const duplicateBlock = rules.find((rule) => rule.rule === 'duplicate-code-block');
 
 		expect(mismatch?.severity).toBe(StandardsSeverity.Off);
 		expect(mismatch?.fromConfig).toBe(true);
 		// a settings-only override still counts as policy
-		expect(clone?.fromConfig).toBe(true);
-		expect(clone?.settings).toStrictEqual({ minTokens: 90 });
+		expect(duplicateBlock?.fromConfig).toBe(true);
+		expect(duplicateBlock?.settings).toStrictEqual({ minTokens: 90 });
 		// and every unnamed rule stays unmarked
 		expect(rules.filter((rule) => rule.fromConfig).length).toBe(2);
 	});
 
 	test('a config key naming no loaded rule refuses the whole listing, and says which ids are real', async () => {
 		const error = await getRejectionError({
-			promise: listStandardsRules({ cwd, config: LightsoutConfig.parse({ ...baseConfig, 'standards-checks': { 'clone-typo': 'off' } }) }),
+			promise: listStandardsRules({ cwd, config: LightsoutConfig.parse({ ...baseConfig, 'standards-checks': { 'duplicate-code-block-typo': 'off' } }) }),
 		});
 
 		// printing a ledger that quietly ignored the typo would confirm a policy
 		// the repo does not actually have
-		expect(error.message).toContain('standards-checks names "clone-typo"');
-		expect(error.message).toContain('clone');
+		expect(error.message).toContain('standards-checks names "duplicate-code-block-typo"');
+		expect(error.message).toContain('duplicate-code-block');
 	});
 
 	test('a row restates what the pack author declared, down to the numbers', async () => {

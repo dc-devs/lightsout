@@ -88,12 +88,12 @@ test('refactor: every advisory on the batch’s files rides the executor prompt,
 	mkdirSync(join(dir, 'beta'), { recursive: true });
 
 	// Each file carries a multi-export FINDING. alpha's is also half of a
-	// near-identical pair, so it carries a clone ADVISORY too — a rule outside the
+	// near-identical pair, so it carries a duplicate-block ADVISORY too — a rule outside the
 	// size family. Distinct filenames keep the name rules from producing an
 	// advisory that spans both folders.
 	const cloned = (name: string) => `export const ${name} = (): number => {\n${'\tconst padding = 1;\n'.repeat(60)}\treturn 1;\n};\n`;
 
-	// the clone span sits in widget.ts itself, so the advisory lands on a file the
+	// the duplicated span sits in widget.ts itself, so the advisory lands on a file the
 	// batch owns — an advisory on some other file belongs to some other batch
 	writeSource({ dir, path: 'alpha/widget.ts', source: `export const alphaThing = 1;\n${cloned('betaThing')}` });
 	writeSource({ dir, path: 'alpha/widgetCopy.ts', source: cloned('widgetCopy') });
@@ -120,12 +120,12 @@ test('refactor: every advisory on the batch’s files rides the executor prompt,
 
 	const advisorySection = prompts.find((prompt) => prompt.includes('alpha/widget.ts'))?.split('Advisory —')[1] ?? '';
 
-	// a clone advisory is not a size advisory, and an advisory the agent
+	// a duplicate-block advisory is not a size advisory, and an advisory the agent
 	// never sees is one it can never judge:\n${advisorySection}
-	expect(advisorySection.includes('[clone] alpha/widget.ts')).toBeTruthy();
+	expect(advisorySection.includes('[duplicate-code-block] alpha/widget.ts')).toBeTruthy();
 	// its own guidance rides with it — each advisory rule asks for something
 	// different, so a blanket instruction cannot stand in for it
-	expect(advisorySection.includes('Extract the shared span, or justify why the copies must diverge.')).toBeTruthy();
+	expect(advisorySection.includes('Extract the shared block, or say why the copies have to differ.')).toBeTruthy();
 	// and only the batch's own files: beta's advisory belongs to beta's batch
 	expect(advisorySection.includes('beta/gadget.ts')).toBeFalsy();
 });

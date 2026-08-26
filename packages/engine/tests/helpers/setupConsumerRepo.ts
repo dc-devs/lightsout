@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { strictProfile } from '#tests/helpers/strictProfile.ts';
 import { writeSource } from '#tests/helpers/writeSource.ts';
 
 interface Params {
@@ -31,7 +32,7 @@ interface Params {
  * a consumer with `writeSource` instead of switching anything off.
  */
 export const reachabilityRulesOff = {
-	'standards-checks': { 'dead-export': 'off', 'barrel-only-export': 'off', 'test-only-export': 'off' },
+	'standards-checks': { 'dead-export': 'off', 'barrel-is-only-consumer': 'off', 'test-only-export': 'off' },
 };
 
 /** The one source file a repo carries when a test plants none of its own. */
@@ -46,6 +47,10 @@ const defaultSources = { 'src/index.js': 'export const one = 1;\n' };
  * standards checks run against it and several of them ask what consumes an
  * export. Something has to be the end of that chain, which is why the entry
  * point exports nothing itself.
+ *
+ * It runs the strict profile (`strictProfile`): the layout rules the pack
+ * ships advisory are blocking here, so a planted layout defect is work the
+ * pipeline must do. A test's own `standards-checks` merge over it.
  */
 export const setupConsumerRepo = ({ git = true, plan = '# Plan: add feature\n', scripts, config, sources }: Params = {}) => {
 	const dir = mkdtempSync(join(tmpdir(), 'lightsout-test-'));
@@ -55,7 +60,19 @@ export const setupConsumerRepo = ({ git = true, plan = '# Plan: add feature\n', 
 	}
 
 	writeFileSync(join(dir, 'plan.md'), plan);
-	writeFileSync(join(dir, 'lightsout.config.json'), JSON.stringify({ gates: { check: 'true', test: 'true', 'test-coverage': false, ...scripts }, ...config }));
+	writeFileSync(
+		join(dir, 'lightsout.config.json'),
+		JSON.stringify({
+			gates: { check: 'true', test: 'true', 'test-coverage': false, ...scripts },
+			...config,
+			// the strict profile underneath whatever the test overrides — an `off` there
+			// still wins. A repo that names its own packs (or none) gets only what it
+			// wrote: an override naming a rule no loaded pack declares fails config.
+			...('standards-packs' in (config ?? {})
+				? {}
+				: { 'standards-checks': { ...strictProfile, ...(typeof config?.['standards-checks'] === 'object' ? config['standards-checks'] : {}) } }),
+		}),
+	);
 
 	if (git) {
 		execSync('git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm init', { cwd: dir });

@@ -5,6 +5,7 @@ import { readDependencyNames } from '#src/common/workspace/readDependencyNames.t
 const channelSignals: Record<string, string[]> = {
 	react: ['react', 'preact', 'react-dom'],
 	tanstack: ['@tanstack/react-start', '@tanstack/start'],
+	nestjs: ['@nestjs/core'],
 };
 
 interface Params {

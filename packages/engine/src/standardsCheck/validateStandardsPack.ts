@@ -2,15 +2,11 @@ import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type ts from 'typescript';
-import { defaultPackagesDir } from '#src/common/constants/defaultPackagesDir.ts';
-import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
-import { listSourceFiles } from '#src/common/sourceFiles/listSourceFiles.ts';
 import { messageOf } from '#src/common/utils/messageOf.ts';
-import { type StandardsCheckFunction, StandardsInputKind } from '#src/contracts/index.ts';
-import { buildCheckInput } from '#src/standardsCheck/common/checkInputs/buildCheckInput.ts';
+import type { RawStandardsFinding } from '#src/contracts/index.ts';
 import { typescriptInputKinds } from '#src/standardsCheck/common/constants/typescriptInputKinds.ts';
-import { runRuleCheck } from '#src/standardsCheck/common/utils/runRuleCheck.ts';
-import type { LoadedStandardsPack, LoadedStandardsRule } from '#src/standardsPacks/index.ts';
+import { checkFixtureTree } from '#src/standardsCheck/common/utils/checkFixtureTree.ts';
+import type { LoadedStandardsPack } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	pack: LoadedStandardsPack;
@@ -69,47 +65,84 @@ const missingFixtureSides = async ({ fixturesPath }: { fixturesPath: string }) =
 	return missing;
 };
 
-/** One rule's check, run against one side of its fixture pair as if that folder were a whole repo. */
-const checkFixture = async ({
-	rule,
-	inputKind,
-	run,
-	side,
-	compiler,
-}: {
-	rule: LoadedStandardsRule;
-	inputKind: StandardsInputKind;
-	run: StandardsCheckFunction;
-	/** The fixture folder to run the check against — also the folder's own name. */
-	side: FixtureSide;
-	compiler?: typeof ts;
-}) => {
-	const cwd = join(rule.fixturesPath, side);
-	const { files } = await listSourceFiles({ cwd });
-	const input = await buildCheckInput({
-		kind: inputKind,
-		cwd,
-		source: files.filter((file) => !isTestFile({ path: file })),
-		tests: files.filter((file) => isTestFile({ path: file })),
-		files,
-		referenceFiles: files,
-		// A fixture side is a miniature repo of its own; it declares no pack.
-		standardsPacks: [],
-		packagesDir: defaultPackagesDir,
-		settings: rule.defaultSettings,
-		cache: new Map<string, string>(),
-		compiler,
-	});
+/** The distinct files a run of findings names, capped at three — enough to go looking with, short enough to sit inside one problem line. */
+const namePaths = ({ found }: { found: RawStandardsFinding[] }) => {
+	const paths = [...new Set(found.flatMap((finding) => finding.files.slice(0, 1).map((file) => file.path)))];
 
-	// A fixture side is its own miniature repo, and a type-checker input needs a
-	// tsconfig to build a program from. Without one the check is handed nothing
-	// and answers nothing, which would otherwise be reported as "the check does
-	// not catch what the rule describes" — the wrong file to go looking in.
-	if (input.kind === StandardsInputKind.TypeChecker && input.typedFiles.size === 0 && files.length > 0) {
-		throw new Error(`no tsconfig.json in fixtures/${side}/, so none of its ${files.length} file(s) could be typed — a type-checker rule's fixtures need one`);
+	return paths.length > 3 ? `${paths.slice(0, 3).join(', ')}, …` : paths.join(', ');
+};
+
+/**
+ * Every checked rule, run against every framework-owned tree the pack ships,
+ * expecting silence.
+ *
+ * This is the standing half of the invariant. A rule's own pass fixture proves
+ * the false positive someone already found; this proves the ones nobody has
+ * found yet, including in rules that do not exist today — a check that reads
+ * paths, names, barrels or tests is held to it the moment it is added, with no
+ * fixture of its own to remember.
+ *
+ * Run as its own pass rather than inside the per-rule loop, which skips a rule
+ * whose fixture pair is missing. The invariant is unconditional: a rule owing
+ * its author a pass fixture still owes framework-owned code silence.
+ */
+const checkFrameworkOwned = async ({ pack, compiler }: { pack: LoadedStandardsPack; compiler?: typeof ts }) => {
+	const { frameworkOwnedFixturesPath } = pack;
+	// Recorded, never required — a pack that holds no rule to the invariant is
+	// told so, the same way a judgment-only rule is.
+	const heldNothing = { problems: [], notes: [`${pack.name}: no fixtures/framework-owned/ — no rule was held to the framework-owned invariant`] };
+
+	if (frameworkOwnedFixturesPath === undefined) {
+		return heldNothing;
 	}
 
-	return runRuleCheck({ rule: rule.id, run, input, settings: rule.defaultSettings });
+	const entries = await readdir(frameworkOwnedFixturesPath, { withFileTypes: true }).catch(() => []);
+	// One framework per folder, in name order, so a list of problems reads the
+	// same way twice running.
+	const frameworks = entries
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name)
+		.sort();
+
+	if (frameworks.length === 0) {
+		return heldNothing;
+	}
+
+	const problems: string[] = [];
+
+	for (const framework of frameworks) {
+		for (const rule of pack.rules) {
+			const { run, inputKind } = rule;
+
+			// Skipped without a word: the per-rule loop already noted a judgment-only
+			// rule and a kind this install cannot parse, and saying it again per
+			// framework would bury the list it belongs in.
+			if (run === undefined || inputKind === undefined || (compiler === undefined && typescriptInputKinds.has(inputKind))) {
+				continue;
+			}
+
+			try {
+				const found = await checkFixtureTree({
+					cwd: join(frameworkOwnedFixturesPath, framework),
+					rule,
+					inputKind,
+					run,
+					label: `fixtures/framework-owned/${framework}/`,
+					compiler,
+				});
+
+				if (found.length > 0) {
+					problems.push(
+						`${rule.id}: the ${framework} framework-owned tree produced ${found.length} finding(s) — a checked rule stays silent on code its framework owns (${namePaths({ found })})`,
+					);
+				}
+			} catch (error) {
+				problems.push(`${rule.id}: the ${framework} framework-owned tree could not be checked — ${messageOf({ error })}`);
+			}
+		}
+	}
+
+	return { problems, notes: [] };
 };
 
 /**
@@ -173,7 +206,7 @@ export const validateStandardsPack = async ({ pack }: Params): Promise<{ problem
 
 		for (const side of Object.values(FixtureSide)) {
 			try {
-				const found = await checkFixture({ rule, inputKind, run, side, compiler });
+				const found = await checkFixtureTree({ cwd: join(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
 
 				if (side === FixtureSide.Fail && found.length === 0) {
 					problems.push(`${rule.id}: the fail fixture produced no finding — the check does not catch what the rule describes`);
@@ -187,6 +220,11 @@ export const validateStandardsPack = async ({ pack }: Params): Promise<{ problem
 			}
 		}
 	}
+
+	const frameworkOwned = await checkFrameworkOwned({ pack, compiler });
+
+	problems.push(...frameworkOwned.problems);
+	notes.push(...frameworkOwned.notes);
 
 	return { problems, notes };
 };

@@ -145,6 +145,14 @@ cries wolf. Neither is visible when the pack loads, and both are exactly what an
 author needs told. It validates every rule regardless of channel, because
 authoring covers every channel.
 
+A pack may also ship one `fixtures/framework-owned/<framework>/` tree per
+framework — a miniature repo whose `package.json` declares that framework, so
+the same carve-outs a real package earns apply. `standards-validate` runs every
+checked rule against every such tree and expects silence: a rule that fires
+there is judging code its framework owns, and it is named as that. The tree is
+found by convention, never declared, and a pack that ships none gets a note
+rather than a problem.
+
 `lightsout standards-health` reports on the rules rather than on your code: per
 rule, whether code checks it or an agent has to judge it, and how often agents
 declined its findings, with the reasons they gave. The coverage half is counted
@@ -202,10 +210,10 @@ Every rule the standards check enforces ships with a default severity and, where
   "standards-checks": {
     // A severity on its own.
     "filename-mismatch": "off",
-    "clone": "blocking",
+    "duplicate-code-block": "blocking",
     // Or an object, to change the severity, the rule's settings, or both.
     "size-file": { "settings": { "file": 300, "tsxFile": 400 } },
-    "folder-census": { "severity": "blocking", "settings": { "cap": 15 } },
+    "crowded-folder": { "severity": "blocking", "settings": { "cap": 15 } },
   },
 }
 ```
@@ -219,6 +227,47 @@ The three severities are:
 Severity is the only lever a run gates on. There is no separate list of blockable rules, so the only way to stop a rule blocking is to write `advisory` or `off` for it here — an explicit line in a committed file. A mistyped rule id fails config parsing rather than silently disabling an override you believe is active.
 
 Run `lightsout standards-check --list` to print every rule with the standards document it enforces and the state it runs at in your repo — the live answer, rather than a list here that goes stale.
+
+#### What the default pack blocks
+
+The pack lightsout ships blocks only what is wrong on its own terms — code that lies about its types (`no-any`, `type-assertion`, `import-type-only`, `explicit-return-type`), code nothing uses (`dead-export`, `duplicate-function-body`), a tree that breaks across filesystems (`case-collision`), doc tags git or the compiler already own (`brittle-doc-tags`), and tests that are silently weaker than they read (`test-shared-let`, `test-assert-in-hook`, `test-mock-prefix`, `test-mock-untyped`, `test-mock-wrapper-untyped`, `test-strict-equal-matcher`). Every rule about where files go, what they are called, and how many exports they hold ships `advisory`: it is still reported and still handed to the refactor agent, but a repository adopting lightsout is not blocked on day one by a layout it has not yet agreed to.
+
+A repository that wants the strict profile promotes those rules itself — an explicit, committed list of what it holds itself to. This is the block lightsout's own repository runs:
+
+```jsonc
+{
+  "standards-checks": {
+    "banned-class-shapes": "blocking",
+    "banned-folder-name": "blocking",
+    "bare-string-union": "blocking",
+    "barrel-is-only-consumer": "blocking",
+    "barrel-star": "blocking",
+    "barrel-under-common": "blocking",
+    "casing": "blocking",
+    "class-inheritance": "blocking",
+    "code-in-index-file": "blocking",
+    "crowded-folder": "blocking",
+    "file-directly-in-common": "blocking",
+    "folder-casing": "blocking",
+    "import-path-alias": "blocking",
+    "module-boundary": "blocking",
+    "multi-export": "blocking",
+    "oversized-setup-factory": "blocking",
+    "placement": "blocking",
+    "single-file-domain-folder": "blocking",
+    "single-use-scalar": "blocking",
+    "size-file": "blocking",
+    "size-function": "blocking",
+    "test-in-tests-folder": "blocking",
+    "test-manual-mock-cleanup": "blocking",
+    "test-mock-return-in-hook": "blocking",
+    "test-nested-describe": "blocking",
+    "test-not-beside-subject": "blocking",
+    "test-size-file": "blocking",
+    "test-support-in-src": "blocking",
+  },
+}
+```
 
 ### Harness-neutral keys
 
@@ -294,8 +343,8 @@ The following example shows how the optional configuration fields fit together:
   "standards-checks": {
     // Our linter already enforces this one.
     "filename-mismatch": "off",
-    // Raise the clone floor without changing what a clone means for the run.
-    "clone": { "settings": { "minTokens": 70 } },
+    // Ask for a longer duplicated stretch before it counts.
+    "duplicate-code-block": { "settings": { "minTokens": 70 } },
     // .tsx files here carry more JSX than the default budget assumes.
     "size-file": { "settings": { "tsxFile": 400 } },
   },

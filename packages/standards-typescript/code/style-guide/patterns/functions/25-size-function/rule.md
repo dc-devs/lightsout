@@ -16,8 +16,11 @@ settings:
 | 50-80 | Review — look for extractable logic |
 | 80+   | Needs splitting |
 
-Orchestration that only sequences step calls is exempt: a function whose whole
-body is "call this, then that, then return what they produced" has no logic to
+**The one exemption, in one sentence:** a function is exempt when every
+statement is a call to a named step (or the assignment of its result) and the
+control flow is linear — any inline loop, branch, or transformation
+disqualifies it. A 150-line `start()` calling 8 step functions is fine; a
+150-line function with an inline loop is not. Such a function has no logic to
 extract, and splitting it would only scatter the sequence over more files than
 the reader has to hold.
 

@@ -8,6 +8,7 @@ export type {
 	CloneSpansInput,
 	FileListInput,
 	FileTextInput,
+	FrameworkFacts,
 	ImportGraphInput,
 	StandardsCheckFunction,
 	StandardsCheckInput,
@@ -15,7 +16,14 @@ export type {
 	TestFileInput,
 	TypeCheckerInput,
 } from '@lightsout/standards-contracts';
-export { RawStandardsFinding, StandardsCheckModule, StandardsInputKind, StandardsPackRoot, StandardsSet } from '@lightsout/standards-contracts';
+export {
+	RawStandardsFinding,
+	StandardsCheckModule,
+	StandardsFrameworksModule,
+	StandardsInputKind,
+	StandardsPackRoot,
+	StandardsSet,
+} from '@lightsout/standards-contracts';
 export { ConfigCommands } from '#src/contracts/ConfigCommands.ts';
 export { ConfigGates } from '#src/contracts/ConfigGates.ts';
 export { CoverageBatchReport, CoverageFile, CoverageTotal, CoverageWorklist } from '#src/contracts/coverage/index.ts';

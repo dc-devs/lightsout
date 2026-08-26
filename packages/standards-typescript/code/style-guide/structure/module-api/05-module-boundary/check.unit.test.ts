@@ -1,7 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import type { StandardsCheckInput } from '@lightsout/standards-contracts';
-import { StandardsInputKind } from '@lightsout/standards-contracts';
-import { setupOtherKindInput } from '@lightsout/standards-testkit';
+import { setupImportGraphInput, setupOtherKindInput } from '@lightsout/standards-testkit';
 import { check } from './check.ts';
 
 /**
@@ -9,26 +7,21 @@ import { check } from './check.ts';
  * every file is listed as a reference — `scope` narrows the run to a handful of
  * files while the boundaries stay mapped from the whole repo.
  */
-const setupImportGraphInput = ({
+const setupRepo = ({
 	paths,
 	edges,
 	scope,
 	standardsPacks = [],
+	dependencies = [],
 }: {
 	paths: string[];
 	edges: Array<{ from: string; to: string }>;
 	scope?: string[];
 	standardsPacks?: string[];
-}): StandardsCheckInput => ({
-	kind: StandardsInputKind.ImportGraph,
-	cwd: '/repo',
-	source: scope ?? paths,
-	tests: [],
-	files: scope ?? paths,
-	referenceFiles: paths,
-	standardsPacks,
-	edges,
-});
+	dependencies?: Array<[string, string[]]>;
+}) => {
+	return setupImportGraphInput({ edges, dependencies, source: scope ?? paths, files: scope ?? paths, referenceFiles: paths, standardsPacks });
+};
 
 describe('module-boundary check', () => {
 	test('asks for the import graph, since the verdict is about the boundary an import crosses', () => {
@@ -36,7 +29,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('reports a file reaching past another module’s barrel into its internals', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -58,7 +51,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('importing the module’s barrel earns nothing — that is the public API the rule points at', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -72,7 +65,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('a module’s own files importing each other cross no boundary', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -86,7 +79,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('gathers every internal one file reaches into within a module — one edit, one finding', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -109,7 +102,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('names one internal once when two edges land on the same file', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -131,7 +124,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('names the outermost module the import crosses into, not the nested one it lands in', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: [
 				'src/reporting/buildReport.ts',
 				'src/ingestion/index.ts',
@@ -162,7 +155,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('leaves an import into another module’s common/ to the placement rule', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/common/utils/normalizeRecord.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -176,7 +169,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('counts a module’s import into its OWN common/ as no crossing, so the fail fixture earns exactly one finding', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/ingestion/common/utils/normalizeRecord.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/reporting/buildReport.ts'],
 			edges: [
 				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
@@ -199,7 +192,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('stays silent across the whole pass fixture, whose one outside importer goes through the barrel', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/ingestion/common/utils/normalizeRecord.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/reporting/buildReport.ts'],
 			edges: [
 				{ from: 'src/ingestion/ingestRecords.ts', to: 'src/ingestion/common/utils/normalizeRecord.ts' },
@@ -214,7 +207,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('inside a declared pack, a folder under tests/ is a module whose internals can be reached past', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: [
 				'standards/code/buildReport.ts',
 				'standards/tests/unit-testing/index.ts',
@@ -242,7 +235,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('the same graph with no pack declared above it maps no module there, so the crossing is nobody’s boundary', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: [
 				'standards/code/buildReport.ts',
 				'standards/tests/unit-testing/index.ts',
@@ -261,7 +254,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('still knows where the boundary sits when the run is narrowed to one file', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -283,7 +276,7 @@ describe('module-boundary check', () => {
 	});
 
 	test('says nothing about an importer outside the run’s scope', async () => {
-		const input = setupImportGraphInput({
+		const input = setupRepo({
 			paths: ['src/reporting/buildReport.ts', 'src/ingestion/index.ts', 'src/ingestion/ingestRecords.ts', 'src/ingestion/parseRow.ts'],
 			edges: [
 				{ from: 'src/ingestion/index.ts', to: 'src/ingestion/ingestRecords.ts' },
@@ -295,6 +288,39 @@ describe('module-boundary check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([]);
+	});
+
+	test('a router root is not a module, so a file importing one of its routes crosses no boundary', async () => {
+		const input = setupRepo({
+			paths: ['src/reporting/buildReport.ts', 'src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.$runId.tsx'],
+			edges: [{ from: 'src/reporting/buildReport.ts', to: 'src/routes/runs.$runId.tsx' }],
+			dependencies: [['.', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// the router root's index.tsx is a route the framework loads, not a barrel
+		// publishing nothing — read as one it would make every route beside it an
+		// internal of a module nobody wrote
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('the same tree in a package declaring no router is an ordinary folder-module, so the deep import is reported', async () => {
+		const input = setupRepo({
+			paths: ['src/reporting/buildReport.ts', 'src/routes/index.tsx', 'src/routes/__root.tsx', 'src/routes/runs.$runId.tsx'],
+			edges: [{ from: 'src/reporting/buildReport.ts', to: 'src/routes/runs.$runId.tsx' }],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'module-boundary:src/reporting/buildReport.ts|src/routes/runs.$runId.tsx',
+				files: [{ path: 'src/reporting/buildReport.ts' }, { path: 'src/routes/runs.$runId.tsx' }],
+				detail: "deep-imports 'src/routes/runs.$runId.tsx' — an internal of module 'src/routes'; import from its barrel 'src/routes/index.tsx' instead",
+				guidance: 'A module’s barrel is its public API; everything else is an internal.',
+			},
+		]);
 	});
 
 	test('reports nothing for an input of any other kind rather than refusing', async () => {

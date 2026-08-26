@@ -66,7 +66,8 @@ describe('size-function check', () => {
 				siteKey: 'size-function:src/reporting/buildReportSummary.ts',
 				files: [{ path: 'src/reporting/buildReportSummary.ts', startLine: 1, endLine: 7 }],
 				detail: "function 'buildReportSummary' is 7 lines (cap ~5)",
-				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
+				guidance:
+					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
 			},
 		]);
 	});
@@ -137,7 +138,8 @@ describe('size-function check', () => {
 				siteKey: 'size-function:src/reporting/buildReportSummary.ts',
 				files: [{ path: 'src/reporting/buildReportSummary.ts', startLine: 1, endLine: 12 }],
 				detail: "function 'buildReportSummary' is 12 lines (cap ~5)",
-				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
+				guidance:
+					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
 			},
 		]);
 	});
@@ -154,7 +156,8 @@ describe('size-function check', () => {
 				{ path: 'src/reporting/buildReportSummary.ts', startLine: 2, endLine: 7 },
 			],
 			detail: "function 'buildReportSummary' is 10 lines (cap ~5); function 'convert' is 6 lines (cap ~5)",
-			guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
+			guidance:
+				'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
 		});
 	});
 
@@ -167,7 +170,8 @@ describe('size-function check', () => {
 			siteKey: 'size-function:src/ledger/Ledger.ts',
 			files: [{ path: 'src/ledger/Ledger.ts', startLine: 2, endLine: 7 }],
 			detail: "function 'total' is 6 lines (cap ~5)",
-			guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
+			guidance:
+				'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
 		});
 	});
 
@@ -188,7 +192,8 @@ describe('size-function check', () => {
 					{ path: 'src/reporting/summaries.ts', startLine: 8, endLine: 13 },
 				],
 				detail: "function 'buildReportSummary' is 7 lines (cap ~5); function 'buildReportTotals' is 6 lines (cap ~5)",
-				guidance: 'Extract logic. Orchestration that only sequences step calls is exempt — judge before acting.',
+				guidance:
+					'Extract logic. Exempt only when every statement is a call to a named step (or the assignment of its result) and the flow is linear — any inline loop, branch, or transformation disqualifies.',
 			},
 		]);
 	});

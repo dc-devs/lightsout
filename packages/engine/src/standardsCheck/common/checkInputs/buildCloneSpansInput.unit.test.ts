@@ -2,10 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
+import { resolveConsumerTypescript } from '#src/common/workspace/resolveConsumerTypescript.ts';
 import { buildCloneSpansInput } from '#src/standardsCheck/common/checkInputs/buildCloneSpansInput.ts';
 
 // Well past the detector's floor (50 tokens / 5 lines) so the duplicated span
-// is unambiguously a clone.
+// is unambiguously a duplicate block.
 const bigBody = `
 	let total = 0;
 	for (const record of records) {
@@ -23,7 +24,7 @@ const bigBody = `
 // A shared import block in every style the blanking recognises — side-effect
 // imports with no `from`, a multi-line named import, single-line named imports,
 // a default import. On its own it clears the detector's floor (50 tokens over
-// 5 lines), so leaving it in the text would report it as a clone.
+// 5 lines), so leaving it in the text would report it as a duplicate block.
 const sharedImports = `import './register-metrics';
 import './register-logging';
 import {
@@ -59,7 +60,7 @@ const setupJavascriptRepo = () => {
 
 // Two files whose only shared text is the import block; their bodies differ.
 const setupSharedImportRepo = () => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-clone-imports-'));
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-clone-spans-imports-'));
 
 	mkdirSync(join(cwd, 'src'), { recursive: true });
 	writeFileSync(join(cwd, 'src/alpha.ts'), `${sharedImports}\n\nexport const alpha = ({ records }: { records: number[] }) => records.length;\n`);
@@ -71,7 +72,7 @@ const setupSharedImportRepo = () => {
 // The same duplicated body in both files, but beta's import block is four lines
 // longer — so beta's copy genuinely sits four lines lower than alpha's.
 const setupOffsetImportRepo = () => {
-	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-clone-offset-'));
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-clone-spans-offset-'));
 
 	mkdirSync(join(cwd, 'src'), { recursive: true });
 	writeFileSync(join(cwd, 'src/alpha.ts'), `import { one } from './one';\n\nexport const alpha = ({ records }: { records: any[] }) => {${bigBody}};\n`);
@@ -149,5 +150,61 @@ describe('buildCloneSpansInput', () => {
 		// place rather than removed.
 		expect(alphaLine).toBeGreaterThanOrEqual(3);
 		expect(betaLine - alphaLine).toBe(4);
+	});
+});
+
+// The composition remedy's shape: an assigning constructor and chunky one-line
+// forwards to the held collaborator. Two classes holding the same collaborator
+// share all of it by design, and together the members clear the detector's
+// floor (50 tokens over 5 lines).
+const delegatingClass = ({ name }: { name: string }) => `export class ${name} {
+	private readonly runState: RunState;
+
+	constructor({ runState }: { runState: RunState }) {
+		this.runState = runState;
+	}
+
+	update({ patch, reason, actor, timestamp }: { patch: object; reason: string; actor: string; timestamp: number }): Promise<void> {
+		return this.runState.update({ patch, reason, actor, timestamp });
+	}
+
+	setStep({ step, index, total, label }: { step: string; index: number; total: number; label: string }): Promise<void> {
+		return this.runState.setStep({ step, index, total, label });
+	}
+}
+`;
+
+const setupDelegatingRepo = () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'lightsout-clone-spans-delegate-'));
+
+	mkdirSync(join(cwd, 'src'), { recursive: true });
+	writeFileSync(join(cwd, 'src/RefactorRun.ts'), delegatingClass({ name: 'RefactorRun' }));
+	writeFileSync(join(cwd, 'src/PipelineRun.ts'), delegatingClass({ name: 'PipelineRun' }));
+
+	return { cwd };
+};
+
+describe('buildCloneSpansInput delegation blanking', () => {
+	test('two classes sharing only the composition remedy produce no span when a compiler is present', async () => {
+		const { cwd } = setupDelegatingRepo();
+		const compiler = resolveConsumerTypescript({ cwd: process.cwd() });
+
+		const input = await buildCloneSpansInput({
+			cwd,
+			source: ['src/RefactorRun.ts', 'src/PipelineRun.ts'],
+			settings: { minTokens: 50 },
+			cache: new Map(),
+			compiler,
+		});
+
+		expect(input.spans).toStrictEqual([]);
+	});
+
+	test('without a compiler the blanking is skipped rather than guessed, so the spans come back', async () => {
+		const { cwd } = setupDelegatingRepo();
+
+		const input = await buildCloneSpansInput({ cwd, source: ['src/RefactorRun.ts', 'src/PipelineRun.ts'], settings: { minTokens: 50 }, cache: new Map() });
+
+		expect(input.spans.length).toBeGreaterThan(0);
 	});
 });

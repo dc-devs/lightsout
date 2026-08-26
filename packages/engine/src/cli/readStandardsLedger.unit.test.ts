@@ -27,18 +27,18 @@ const listParams = () => mockListStandardsRules.mock.calls[0]?.[0];
 
 describe('readStandardsLedger', () => {
 	test("the repo's own config and path reach the listing, so the ledger is this repo's policy", async () => {
-		const cwd = setupConsumerRepo({ git: false, config: { 'standards-checks': { clone: 'off' } } });
+		const cwd = setupConsumerRepo({ git: false, config: { 'standards-checks': { 'duplicate-code-block': 'off' } } });
 
 		mockListStandardsRules.mockResolvedValue([]);
 
 		const { config } = await readStandardsLedger({ cwd });
 
-		expect(listParams()?.config).toEqual(expect.objectContaining({ 'standards-checks': { clone: 'off' } }));
+		expect(listParams()?.config).toEqual(expect.objectContaining({ 'standards-checks': expect.objectContaining({ 'duplicate-code-block': 'off' }) }));
 		// the repo path travels too: the packages a listing is built from are the
 		// ones this repo asked for, resolved against it
 		expect(listParams()?.cwd).toBe(cwd);
 		// and the caller gets the same config back, so both halves read one answer
-		expect(config).toEqual(expect.objectContaining({ 'standards-checks': { clone: 'off' } }));
+		expect(config).toEqual(expect.objectContaining({ 'standards-checks': expect.objectContaining({ 'duplicate-code-block': 'off' }) }));
 	});
 
 	test('a repo with no config still gets an answer — every rule at its default', async () => {

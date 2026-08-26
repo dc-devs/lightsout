@@ -174,15 +174,15 @@ describe('StandardsPage folder breakdown', () => {
 	test('honours the rule filter, so picking a rule answers where it is', () => {
 		setupFindings({
 			overrides: {
-				rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 2 }), buildStandardsRuleView({ rule: 'clone', findingCount: 1 })],
+				rules: [buildStandardsRuleView({ rule: 'size-file', findingCount: 2 }), buildStandardsRuleView({ rule: 'duplicate-code-block', findingCount: 1 })],
 				findings: [
 					buildStandardsFinding({ rule: 'size-file', paths: ['packages/engine/src/plan/a.ts'] }),
-					buildStandardsFinding({ rule: 'clone', paths: ['packages/web-app/src/routes/index.tsx'] }),
+					buildStandardsFinding({ rule: 'duplicate-code-block', paths: ['packages/web-app/src/routes/index.tsx'] }),
 				],
 			},
 		});
 
-		fireEvent.click(within(screen.getByRole('list', { name: 'Rules' })).getByRole('button', { name: /^clone/ }));
+		fireEvent.click(within(screen.getByRole('list', { name: 'Rules' })).getByRole('button', { name: /^duplicate-code-block/ }));
 
 		expect(screen.queryByText('packages/engine/src/plan')).not.toBeInTheDocument();
 		expect(screen.getByText('packages/web-app/src/routes')).toBeInTheDocument();

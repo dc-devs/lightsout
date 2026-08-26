@@ -1,7 +1,7 @@
 ---
 summary: "a file deep-imported across a module boundary instead of through its barrel"
 checked: true
-severity: blocking
+severity: advisory
 ---
 
 ## Module Boundaries
@@ -10,3 +10,5 @@ A **folder-module** (feature, route, screen, graduated class or component — se
 
 - **Crossing a module boundary:** import ONLY from the module's `index.ts` — never reach into another module's internals (`@/ingestion`, not `@/ingestion/common/utils/normalizeRecord`).
 - **Inside a module:** import directly from specific files — deep imports within your own module are correct.
+
+A folder the package's framework mandates as a module — a TanStack Start screen under `features/*/screens/*` — is a boundary whatever the barrel-omission test says; the mandate, not the concealment, is what declares it.

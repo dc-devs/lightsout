@@ -52,7 +52,9 @@ export const printRefactorResult = ({ result }: Params): void => {
 		console.log('\nburn-down (findings before → after):');
 
 		for (const rule of rules) {
-			console.log(`  ${rule.padEnd(20)}${before[rule] ?? 0} → ${after[rule] ?? 0}`);
+			// The column is padded, then separated: a rule id at or past the pad
+			// width would otherwise run straight into its count.
+			console.log(`  ${rule.padEnd(20)} ${before[rule] ?? 0} → ${after[rule] ?? 0}`);
 		}
 	}
 

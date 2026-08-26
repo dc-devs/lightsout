@@ -12,3 +12,27 @@ severity: advisory
 - **`@returns`**: only when the value has semantics the type doesn't show (a `string` that is a JWT; a `boolean` where `true` means "already existed").
 - **`@example`**: for complex APIs or non-obvious usage; minimal and runnable.
 - **`@typeParam`**: when a generic's purpose isn't obvious from its name.
+
+## Complete Example
+
+```typescript
+interface Params<T> {
+	fn: () => Promise<T>;
+	maxAttempts?: number;
+	baseDelay?: number;
+}
+
+/**
+ * Retries an async operation with exponential backoff.
+ *
+ * Useful for network requests that may fail transiently.
+ *
+ * @param fn - async function to retry
+ * @param maxAttempts - attempts before giving up
+ * @param baseDelay - initial delay in ms, doubles after each failure
+ * @throws {RetryExhaustedError} When all retry attempts fail
+ */
+export const retry = async <T>({ fn, maxAttempts = 3, baseDelay = 1000 }: Params<T>): Promise<T> => {
+	// ...
+};
+```

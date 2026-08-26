@@ -56,14 +56,14 @@ describe('applyStandardsBaseline', () => {
 
 	test('writeBaseline writes the ledger with one entry per distinct site and still reports everything', async () => {
 		const cwd = setupRepo();
-		const findings = [finding('multi-export:src/a/config.ts'), finding('multi-export:src/a/config.ts'), finding('clone:src/b.ts')];
+		const findings = [finding('multi-export:src/a/config.ts'), finding('multi-export:src/a/config.ts'), finding('duplicate-code-block:src/b.ts')];
 
 		const applied = await applyStandardsBaseline({ cwd, findings, all: false, writeBaseline: true });
 
 		const ledger = JSON.parse(readFileSync(join(cwd, 'lightsout.standards-baseline.json'), 'utf8')) as { path: string; siteKeys: string[] };
 
 		expect(ledger.path).toBe('.');
-		expect([...ledger.siteKeys].sort()).toStrictEqual(['clone:src/b.ts', 'multi-export:src/a/config.ts']);
+		expect([...ledger.siteKeys].sort()).toStrictEqual(['duplicate-code-block:src/b.ts', 'multi-export:src/a/config.ts']);
 		// accepting debt says how much of it was accepted, and reports the full picture
 		expect(applied.notes.some((note) => note.includes('baseline written: 2 site(s)'))).toBe(true);
 		expect(applied.reported).toStrictEqual(findings);

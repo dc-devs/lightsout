@@ -6,6 +6,7 @@ import { collectImportEdges } from '#src/common/moduleGraph/collectImportEdges.t
 import { isInertSourceFile } from '#src/common/sourceFiles/isInertSourceFile.ts';
 import { isTestFile } from '#src/common/sourceFiles/isTestFile.ts';
 import type { FolderModule } from '#src/common/types/FolderModule.ts';
+import type { FrameworkFacts } from '#src/contracts/index.ts';
 import { partitionByPackage } from '#src/pipeline/common/utils/partitionByPackage.ts';
 
 // The rule's own definition of public, restated engine-side: a root-layer
@@ -29,8 +30,20 @@ const isOwnSubject = ({ file, modules }: { file: string; modules: Array<[string,
  * import graph. Subjects never cross packages, so every partition answers
  * independently.
  */
-const resolvePartition = async ({ cwd, targets, universe, compiler }: { cwd: string; targets: string[]; universe: string[]; compiler: typeof ts }) => {
-	const modules = [...(await collectFolderModules({ cwd, files: universe, compiler })).entries()];
+const resolvePartition = async ({
+	cwd,
+	targets,
+	universe,
+	compiler,
+	frameworkFacts,
+}: {
+	cwd: string;
+	targets: string[];
+	universe: string[];
+	compiler: typeof ts;
+	frameworkFacts?: FrameworkFacts;
+}) => {
+	const modules = [...(await collectFolderModules({ cwd, files: universe, compiler, isFrameworkLoaded: frameworkFacts?.isFrameworkLoadedFile })).entries()];
 	const importersOf = new Map<string, string[]>();
 
 	for (const { from, to } of await collectImportEdges({ cwd, files: universe, compiler })) {
@@ -102,6 +115,11 @@ interface Params {
 	packagesDir: string;
 	/** The consumer's TypeScript, or undefined — without one, every target is its own subject. */
 	compiler: typeof ts | undefined;
+	/**
+	 * The loaded standards pack's answer for this repo. Absent, no file is
+	 * framework-loaded and every index file reads as a barrel — today's behavior.
+	 */
+	frameworkFacts?: FrameworkFacts;
 }
 
 /**
@@ -111,6 +129,10 @@ interface Params {
  * within its package, until it hits own-subject files; a target nothing
  * public reaches becomes an orphan. A repo that uses no barrels resolves
  * every file to itself — today's per-file behavior, with no config knob.
+ *
+ * A router root's `index.tsx` is a route rather than a barrel, so route files
+ * resolve as their own subjects instead of being walked upward through a barrel
+ * that was never there.
  */
 export const resolveTestSubjects = async ({
 	cwd,
@@ -118,6 +140,7 @@ export const resolveTestSubjects = async ({
 	universe,
 	packagesDir,
 	compiler,
+	frameworkFacts,
 }: Params): Promise<{ subjects: Map<string, string[]>; orphans: string[] }> => {
 	if (!compiler) {
 		return { subjects: new Map(targets.map((target) => [target, [target]])), orphans: [] };
@@ -136,7 +159,7 @@ export const resolveTestSubjects = async ({
 		// Targets are unioned in: a freshly created file may not have been on
 		// disk when the universe was listed, and it must still anchor its edges.
 		const partitionUniverse = [...new Set([...(universeByPackage.get(partition) ?? []), ...partitionTargets])].sort();
-		const resolved = await resolvePartition({ cwd, targets: partitionTargets, universe: partitionUniverse, compiler });
+		const resolved = await resolvePartition({ cwd, targets: partitionTargets, universe: partitionUniverse, compiler, frameworkFacts });
 
 		for (const [target, found] of resolved.subjects) {
 			subjects.set(target, found);

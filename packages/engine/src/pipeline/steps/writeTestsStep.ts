@@ -13,6 +13,7 @@ import type { PipelineStep } from '#src/pipeline/PipelineStep.ts';
 import { groupTestTargets } from '#src/pipeline/steps/groupTestTargets.ts';
 import { runWriterBatches } from '#src/pipeline/steps/runWriterBatches.ts';
 import { selectTestTargets } from '#src/pipeline/steps/selectTestTargets.ts';
+import { getPackFrameworkFacts } from '#src/standardsPacks/index.ts';
 
 interface Params {
 	run: PipelineRun;
@@ -47,7 +48,8 @@ export const writeTestsStep = ({ run, gitPrefix, planContent, testStandards }: P
 		}
 
 		const universe = (await listSourceFiles({ cwd: run.cwd, exclude: excludedSourcePaths({ config: run.config }) })).files;
-		const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler });
+		const frameworkFacts = await getPackFrameworkFacts({ cwd: run.cwd, packagesDir, config: run.config });
+		const { subjects, orphans } = await resolveTestSubjects({ cwd: run.cwd, targets, universe, packagesDir, compiler, frameworkFacts });
 
 		if (orphans.length > 0) {
 			run.progress(

@@ -3,7 +3,15 @@ import { setupOtherKindInput, setupTypeCheckerInput } from '@lightsout/standards
 import { check } from './check.ts';
 
 /** A repo as the engine hands it to a type-checker rule, with the test files told apart by name. */
-const setupRepo = ({ sources, standardsPacks = [] }: { sources: Array<[string, string]>; standardsPacks?: string[] }) => {
+const setupRepo = ({
+	sources,
+	standardsPacks = [],
+	dependencies = [],
+}: {
+	sources: Array<[string, string]>;
+	standardsPacks?: string[];
+	dependencies?: Array<[string, string[]]>;
+}) => {
 	const paths = sources.map(([path]) => path);
 
 	return setupTypeCheckerInput({
@@ -12,6 +20,7 @@ const setupRepo = ({ sources, standardsPacks = [] }: { sources: Array<[string, s
 		tests: paths.filter((path) => path.includes('.test.')),
 		files: paths,
 		standardsPacks,
+		dependencies,
 	});
 };
 
@@ -184,6 +193,45 @@ describe('barrel-dead-entry check', () => {
 		const findings = await check.run({ input, settings: {} });
 
 		expect(findings).toStrictEqual([]);
+	});
+
+	test('a router root’s index.tsx is a route the framework loads, so nothing it names is a public-surface claim', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/routes/index.tsx', "export { Route } from './home.tsx';"],
+				['src/routes/home.tsx', "export const Route = { path: '/' };"],
+				['src/routes/runs.tsx', "export const RunsRoute = { path: '/runs' };"],
+			],
+			dependencies: [['.', ['@tanstack/react-router']]],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		// read as a barrel it hides runs.tsx, which maps src/routes as a module
+		// whose entry nothing outside imports — a finding against a file the
+		// framework, not the author, put there
+		expect(findings).toStrictEqual([]);
+	});
+
+	test('the same tree in a package declaring no router is an ordinary module whose barrel answers for its entry', async () => {
+		const input = setupRepo({
+			sources: [
+				['src/routes/index.tsx', "export { Route } from './home.tsx';"],
+				['src/routes/home.tsx', "export const Route = { path: '/' };"],
+				['src/routes/runs.tsx', "export const RunsRoute = { path: '/runs' };"],
+			],
+		});
+
+		const findings = await check.run({ input, settings: {} });
+
+		expect(findings).toStrictEqual([
+			{
+				siteKey: 'barrel-dead-entry:src/routes/index.tsx',
+				files: [{ path: 'src/routes/index.tsx' }],
+				detail: "'Route' is exported from src/routes/index.tsx but nothing outside module 'src/routes' imports it from there",
+				guidance: 'Deliberate public API, or dead? Only the author knows.',
+			},
+		]);
 	});
 
 	test('reports nothing for an input of any other kind rather than refusing', async () => {

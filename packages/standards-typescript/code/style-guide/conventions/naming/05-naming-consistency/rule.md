@@ -11,3 +11,5 @@ Standardize patterns within each domain — if the codebase already uses one, fo
 - Data fetching: one of `getData` / `fetchData` / `loadData`, not a mix
 - Booleans: consistent prefixes (`is`, `has`, `should`, `can`)
 - Event handlers: one pattern (`onSubmit` vs `handleSubmit`)
+
+Subordinate to Naming Consistency above: a domain that already standardized on `fetchData` keeps its verb — the vocabulary governs new domains.

@@ -138,11 +138,11 @@ describe('printStandardsSummary', () => {
 		// a rule id can outlive the listing it was resolved from — the tally is the
 		// answer the reader asked for, and losing it to a missing summary would be
 		// the wrong trade
-		printStandardsSummary({ findings: [finding({ rule: 'clone' })], rules, reportPath: '.lightsout/standards-check.json' });
+		printStandardsSummary({ findings: [finding({ rule: 'duplicate-code-block' })], rules, reportPath: '.lightsout/standards-check.json' });
 
 		expect(cellsOf({ logged })).toStrictEqual([
 			['rule', 'blocking', 'advisories'],
-			['clone', '—', '1'],
+			['duplicate-code-block', '—', '1'],
 			['', '', ''],
 			['total', '—', '1'],
 		]);

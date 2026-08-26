@@ -14,3 +14,5 @@ import type { Config } from '@/path/to/common/types/Config';
 
 export const defaultConfig: Config = { name: 'default' };
 ```
+
+A constant may instead carry its own type beside it under one-export-per-file's exception 5 (`interface Config` + `defaultConfig: Config` in one `constants/` file, named for the value) — use `types/` when the type has any other consumer.

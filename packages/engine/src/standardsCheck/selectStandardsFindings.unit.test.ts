@@ -14,7 +14,11 @@ const finding = (overrides: Partial<StandardsFinding>): StandardsFinding => ({
 test('selectStandardsFindings keeps every finding-severity item touching a changed file', () => {
 	const findings: StandardsFinding[] = [
 		finding({ siteKey: 'multi-export:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
-		finding({ rule: 'ast-duplicate', siteKey: 'ast-duplicate:src/changed.ts|src/legacy.ts', files: [{ path: 'src/changed.ts' }, { path: 'src/legacy.ts' }] }),
+		finding({
+			rule: 'duplicate-function-body',
+			siteKey: 'duplicate-function-body:src/changed.ts|src/legacy.ts',
+			files: [{ path: 'src/changed.ts' }, { path: 'src/legacy.ts' }],
+		}),
 		finding({ rule: 'size-file', siteKey: 'size-file:src/changed.ts', files: [{ path: 'src/changed.ts' }] }),
 		finding({
 			rule: 'size-function',
@@ -38,7 +42,7 @@ test('selectStandardsFindings keeps every finding-severity item touching a chang
 	// including placement and the architecture rules the old allow-list excluded
 	expect(workList.map((entry) => entry.siteKey)).toStrictEqual([
 		'multi-export:src/changed.ts',
-		'ast-duplicate:src/changed.ts|src/legacy.ts',
+		'duplicate-function-body:src/changed.ts|src/legacy.ts',
 		'size-file:src/changed.ts',
 		'module-boundary:src/changed.ts|src/other.ts',
 		'placement:src/changed.ts|src/other/common/x.ts',
@@ -128,17 +132,38 @@ test('selectStandardsFindings selects nothing when the run changed no files', ()
 });
 
 test('selectStandardsFindings: a folder site counts as changed when the run changed a file under it', () => {
-	const findings = [finding({ rule: 'folder-census', siteKey: 'folder-census:src/appUI', files: [{ path: 'src/appUI' }] })];
+	const crowded = finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] });
 
 	// a changed-file list holds files, so equality alone would never match a
 	// folder and the rule could never gate a run
-	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/appUI/Badge.tsx'] });
+	const selected = selectStandardsFindings({ findings: [crowded], changedFiles: ['src/appUI/Badge.tsx'] });
 
-	expect(workList).toHaveLength(1);
+	// the folder finding itself lands in the work-list, whole and blocking
+	expect(selected).toStrictEqual({ workList: [crowded], advisories: [] });
+});
+
+test('selectStandardsFindings: a folder site is matched at any depth beneath it', () => {
+	const crowded = finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] });
+
+	// containment is not "an immediate child" — a run that touched a file nested
+	// several levels down still changed the folder the rule judged
+	const selected = selectStandardsFindings({ findings: [crowded], changedFiles: ['src/appUI/parts/badge/Badge.tsx'] });
+
+	expect(selected).toStrictEqual({ workList: [crowded], advisories: [] });
+});
+
+test('selectStandardsFindings: an advisory on a folder site is gated by the same containment', () => {
+	const crowded = finding({ rule: 'crowded-folder', severity: 'advisory', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] });
+
+	const selected = selectStandardsFindings({ findings: [crowded], changedFiles: ['src/appUI/Badge.tsx'] });
+
+	// severity decides which list it joins; containment decides whether it is
+	// selected at all, and it applies to both lists alike
+	expect(selected).toStrictEqual({ workList: [], advisories: [crowded] });
 });
 
 test('selectStandardsFindings: a folder site the run did not touch stays out', () => {
-	const findings = [finding({ rule: 'folder-census', siteKey: 'folder-census:src/appUI', files: [{ path: 'src/appUI' }] })];
+	const findings = [finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [{ path: 'src/appUI' }] })];
 
 	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/features/runs/RunList.tsx'] });
 
@@ -146,7 +171,7 @@ test('selectStandardsFindings: a folder site the run did not touch stays out', (
 });
 
 test('selectStandardsFindings: a folder site matches by containment, so a name-prefix sibling never claims it', () => {
-	const findings = [finding({ rule: 'folder-census', siteKey: 'folder-census:src/app', files: [{ path: 'src/app' }] })];
+	const findings = [finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/app', files: [{ path: 'src/app' }] })];
 
 	// 'src/appUI/Badge.tsx' starts with 'src/app' as a string but sits in a
 	// different folder — only 'src/app/' would be containment
@@ -156,11 +181,25 @@ test('selectStandardsFindings: a folder site matches by containment, so a name-p
 });
 
 test('selectStandardsFindings: a finding whose only site is a changed test file is gated like any other', () => {
-	const findings = [
-		finding({ rule: 'test-mock-untyped', siteKey: 'test-mock-untyped:src/appUI/FadeIn.unit.test.tsx', files: [{ path: 'src/appUI/FadeIn.unit.test.tsx' }] }),
-	];
+	const onATestFile = finding({
+		rule: 'test-mock-untyped',
+		siteKey: 'test-mock-untyped:src/appUI/FadeIn.unit.test.tsx',
+		files: [{ path: 'src/appUI/FadeIn.unit.test.tsx' }],
+	});
 
-	const { workList } = selectStandardsFindings({ findings, changedFiles: ['src/appUI/FadeIn.unit.test.tsx'] });
+	const selected = selectStandardsFindings({ findings: [onATestFile], changedFiles: ['src/appUI/FadeIn.unit.test.tsx'] });
 
-	expect(workList).toHaveLength(1);
+	// nothing here knows a test file from a source file — the site is a changed
+	// path, so the finding is work like any other
+	expect(selected).toStrictEqual({ workList: [onATestFile], advisories: [] });
+});
+
+test('selectStandardsFindings: a finding that names no file is selected by neither list', () => {
+	const siteless = finding({ rule: 'crowded-folder', siteKey: 'crowded-folder:src/appUI', files: [] });
+
+	const selected = selectStandardsFindings({ findings: [siteless], changedFiles: ['src/appUI/Badge.tsx'] });
+
+	// selection asks which of a finding's files the run changed, so a finding
+	// with no files can never touch the run however blocking it is
+	expect(selected).toStrictEqual({ workList: [], advisories: [] });
 });

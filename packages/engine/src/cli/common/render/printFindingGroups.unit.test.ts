@@ -36,9 +36,9 @@ describe('printFindingGroups', () => {
 	test('names the severity, not a noun, for a blocking group', () => {
 		const { logged } = setupPrinter();
 
-		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Blocking, rule: 'clone' })] });
+		printFindingGroups({ findings: [finding({ severity: StandardsSeverity.Blocking, rule: 'duplicate-code-block' })] });
 
-		expect(logged).toContain('⚠ clone · 1 blocking');
+		expect(logged).toContain('⚠ duplicate-code-block · 1 blocking');
 	});
 
 	test('splits one rule by severity, because a size violation and a size advisory are not one tally', () => {
@@ -116,7 +116,7 @@ describe('printFindingGroups', () => {
 		printFindingGroups({
 			findings: [
 				finding({
-					rule: 'clone',
+					rule: 'duplicate-code-block',
 					files: [
 						{ path: 'src/a.ts', startLine: 1, endLine: 60 },
 						{ path: 'src/b.ts', startLine: 5, endLine: 64 },
@@ -153,15 +153,15 @@ describe('printFindingGroups', () => {
 
 		printFindingGroups({
 			findings: [
-				finding({ severity: StandardsSeverity.Blocking, rule: 'clone' }),
-				finding({ severity: StandardsSeverity.Blocking, rule: 'clone', siteKey: 'clone:two' }),
+				finding({ severity: StandardsSeverity.Blocking, rule: 'duplicate-code-block' }),
+				finding({ severity: StandardsSeverity.Blocking, rule: 'duplicate-code-block', siteKey: 'duplicate-code-block:two' }),
 				finding({ siteKey: 'size:one' }),
 				finding({ siteKey: 'size:two' }),
 			],
 		});
 
 		// `blocking` is the severity's name, so it reads the same at any count
-		expect(logged).toContain('⚠ clone · 2 blocking');
+		expect(logged).toContain('⚠ duplicate-code-block · 2 blocking');
 		expect(logged).toContain('ℹ size-function · 2 advisories');
 	});
 

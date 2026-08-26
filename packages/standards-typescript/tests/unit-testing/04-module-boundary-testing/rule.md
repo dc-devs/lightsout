@@ -1,26 +1,38 @@
 ---
-summary: "a dedicated test file on something no barrel exports — internals are covered through the boundary"
+summary: "coverage added file-by-file when driving the module's public API would pin the same behavior — boundary tests are the default, not the mandate"
 checked: false
 severity: advisory
 ---
 
 ## Module Boundary Testing
 
-Tests target **module boundaries** — a module's public API — not every file individually. Internals are covered *through* the boundary. This pins tests to behavior rather than internal decomposition: refactoring a module's internals never breaks its tests.
+**Default to testing a module's public API** — the exports its barrel
+(`index.ts`) publishes — and cover internals *through* it. A boundary test pins
+behavior rather than internal decomposition, so a module's internals can be
+reorganized without touching a single test, and three code changes inside a
+module cost one test update instead of three.
 
-**"Public" means reachable through a barrel (`index.ts`), not "has the `export` keyword"** — under one-export-per-file, everything carries `export`; the barrel is the line. The whole doctrine in one sentence: *test what's in the barrels; nothing else gets a test file.* And it holds in both directions — **direct tests are never an exception, they are a promotion**: if a helper's cases deserve direct tests (combinatorial inputs, a contract meaningful to callers who've never seen this module), the helper deserves the barrel first. Reluctance to export it is evidence its cases aren't a contract — cover it through the boundary, or ask whether the uncoverable branches are dead code.
+**A direct test on any file is allowed** when the file earns one:
 
-**Classify every source file before writing tests:**
+- its cases are combinatorial and driving them all through the boundary is
+  impractical
+- it states a contract meaningful on its own (a parser, a date formatter — a
+  thing callers rely on regardless of which module holds it today)
+- coverage a gate demands is genuinely unreachable through any boundary input
+  (and first ask whether that unreachable branch is dead code)
 
-| Classification | Definition | Test file? |
-|---|---|---|
-| **Boundary** | A module's public surface: shared leaf modules under a root-layer `common/` (e.g., `src/common/utils/`, `src/app/common/`); a feature's public exports (hooks, components, top-level operation files); framework files (`.service.ts`, `.resolver.ts`, `.controller.ts`, guards, job services); a graduated folder's main file (`HttpClient/HttpClient.ts`) | ✅ Co-located `*.unit.test.ts` |
-| **Internal** | A file under a *module's* `common/` — i.e., a `common/` whose parent folder is a feature, route, screen, component, or class folder (not a root layer like `src/`) | ❌ No dedicated test file — covered through the owning module's boundary tests |
+A direct test needs no ceremony: it does not require promoting the file into
+the barrel, and an existing direct test is not debt to migrate. Write the
+boundary test when both would pin the same behavior; write the direct test when
+the file deserves one.
 
-**Rules:**
+**Rules that hold either way:**
 
-- Coverage is still measured per source file: an internal must reach 100% lines/branches/functions, achieved by driving the boundary's inputs.
-- If an internal branch cannot be reached through any boundary input, it is **dead code** — flag it for deletion. Do not write a direct test to cover it.
-- If covering an internal through the boundary is impractical (combinatorial inputs), that is the promotion signal: the internal has earned its own module and direct tests. Flag it in the report — do not silently create a dedicated test file.
-- Existing dedicated test files on internals are migration debt: leave them in place and do not extend them — new coverage goes through the boundary. Flag them in the report as migration candidates.
-- A test deep-importing a module internal (a module-boundary scan finding on a test file) is resolved by THIS section's rules, never by a bare import rewrite: barrel-exported target → import through the barrel; internal target → convert the coverage to drive the module's boundary, or — when that is impractical — treat it as the promotion signal above and export the file deliberately.
+- Files with no runtime logic — barrels, type-only files, pure constants —
+  get no dedicated tests (see the files-that-must-not-have-dedicated-tests
+  rule).
+- If a branch cannot be reached through any input, boundary or direct, it is
+  dead code — flag it for deletion rather than forcing a test onto it.
+- A barrel entry whose only consumers are test files is legitimate public
+  API — a deliberate promotion whose contract the tests pin; demoting it is a
+  human decision.

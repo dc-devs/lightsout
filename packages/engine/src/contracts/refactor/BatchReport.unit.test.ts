@@ -4,7 +4,7 @@ import { BatchReport } from '#src/contracts/index.ts';
 const setupReport = (overrides: Record<string, unknown> = {}) => {
 	const report = {
 		outcome: 'declined',
-		remainingSiteKeys: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
+		remainingSiteKeys: ['duplicate-code-block:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 		rationale: ['the two blocks read alike but diverge on the detector contract'],
 		...overrides,
 	};
@@ -30,7 +30,7 @@ describe('BatchReport', () => {
 
 		expect(parsed).toStrictEqual({
 			outcome: 'declined',
-			remainingSiteKeys: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
+			remainingSiteKeys: ['duplicate-code-block:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 			rationale: ['the two blocks read alike but diverge on the detector contract'],
 		});
 	});
@@ -81,7 +81,10 @@ describe('BatchReport', () => {
 	});
 
 	test('rejects a bare string where a list belongs', () => {
-		for (const overrides of [{ remainingSiteKeys: 'clone:src/standardsCheck/checkClones.ts' }, { rationale: 'the duplication is intentional' }]) {
+		for (const overrides of [
+			{ remainingSiteKeys: 'duplicate-code-block:src/standardsCheck/checkClones.ts' },
+			{ rationale: 'the duplication is intentional' },
+		]) {
 			const { report } = setupReport(overrides);
 
 			const result = BatchReport.safeParse(report);
@@ -93,7 +96,7 @@ describe('BatchReport', () => {
 	});
 
 	test('rejects a non-string entry inside either list', () => {
-		for (const overrides of [{ remainingSiteKeys: [{ id: 'clone:src/standardsCheck/checkClones.ts' }] }, { rationale: [42] }]) {
+		for (const overrides of [{ remainingSiteKeys: [{ id: 'duplicate-code-block:src/standardsCheck/checkClones.ts' }] }, { rationale: [42] }]) {
 			const { report } = setupReport(overrides);
 
 			const result = BatchReport.safeParse(report);
@@ -123,7 +126,7 @@ describe('BatchReport', () => {
 		// holds only the fields the contract declares
 		expect(parsed).toStrictEqual({
 			outcome: 'declined',
-			remainingSiteKeys: ['clone:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
+			remainingSiteKeys: ['duplicate-code-block:src/standardsCheck/checkClones.ts', 'size:src/pipeline/runGates.ts'],
 			rationale: ['the two blocks read alike but diverge on the detector contract'],
 		});
 	});
@@ -131,7 +134,7 @@ describe('BatchReport', () => {
 	test('a report written under the old remainingClusters name is refused, not read as nothing remaining', () => {
 		const { report } = setupReport({ remainingSiteKeys: undefined });
 
-		const result = BatchReport.safeParse({ ...report, remainingClusters: ['clone:src/standardsCheck/checkClones.ts'] });
+		const result = BatchReport.safeParse({ ...report, remainingClusters: ['duplicate-code-block:src/standardsCheck/checkClones.ts'] });
 
 		// the old key is stripped as undeclared and the new one is still missing —
 		// the two must combine to a refusal, because a silently accepted stale report

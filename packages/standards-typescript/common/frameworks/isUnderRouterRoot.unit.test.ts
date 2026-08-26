@@ -4,6 +4,7 @@ import { isUnderRouterRoot } from './isUnderRouterRoot.ts';
 
 const setupCarveOut = ({ directory = '.', routerRoots = ['routes'] }: { directory?: string; routerRoots?: string[] } = {}): FrameworkCarveOut => ({
 	directory,
+	entryFiles: [],
 	exemptFolderNames: [],
 	kebabCase: false,
 	moduleFolders: [],

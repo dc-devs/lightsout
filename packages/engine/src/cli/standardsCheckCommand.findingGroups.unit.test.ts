@@ -86,11 +86,16 @@ describe('standardsCheckCommand finding groups', () => {
 	test('a rule reporting several advisories pluralizes its heading, while blocking reads the same at any count', async () => {
 		const { context, logged } = setupFindings({
 			findings: [
-				finding({ rule: 'clone', severity: StandardsSeverity.Blocking, siteKey: 'clone:a', detail: 'the same 12 lines in 2 files' }),
 				finding({
-					rule: 'clone',
+					rule: 'duplicate-code-block',
 					severity: StandardsSeverity.Blocking,
-					siteKey: 'clone:c',
+					siteKey: 'duplicate-code-block:a',
+					detail: 'the same 12 lines in 2 files',
+				}),
+				finding({
+					rule: 'duplicate-code-block',
+					severity: StandardsSeverity.Blocking,
+					siteKey: 'duplicate-code-block:c',
 					files: [{ path: 'src/c.ts' }],
 					detail: 'the same 9 lines in 2 files',
 				}),
@@ -101,7 +106,7 @@ describe('standardsCheckCommand finding groups', () => {
 
 		await expect(standardsCheckCommand(context)).rejects.toThrow(/process\.exit/);
 
-		expect(headingsOf({ logged })).toStrictEqual(['⚠ clone · 2 blocking', 'ℹ size-function · 2 advisories']);
+		expect(headingsOf({ logged })).toStrictEqual(['⚠ duplicate-code-block · 2 blocking', 'ℹ size-function · 2 advisories']);
 	});
 
 	test('a finding that starts and ends on one line names that line once, never as a range onto itself', async () => {
