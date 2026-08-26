@@ -1,9 +1,12 @@
 ---
 name: linear-ticket
-description: How to write and close Linear tickets for the LightsOut team. Use when filing a bug or feature ticket, or when recording what shipped against one.
+description: How to write, update and close Linear tickets for the LightsOut team, and how a branch is named after one. Use when filing a bug or feature ticket, starting work on one, or recording what shipped.
 ---
 
-# Writing a LightsOut ticket
+# LightsOut tickets
+
+This describes what a ticket looks like — its shape, and what belongs in it.
+It does not run the work. The pipeline does that.
 
 A ticket says what is wrong. It does not say how to fix it.
 
@@ -123,6 +126,15 @@ behaviour, so a design decision can slip in wearing a checkbox:
 - Good — `Verify that a repo configured for the Pi harness completes a full run.`
 - Bad — `Verify that createPiDriver parses agent_end.`
   Names a file and a mechanism nobody has chosen yet.
+
+## Branch
+
+A branch is named after its ticket: `lo-<number>-<slug>` —
+`lo-45-web-app-design`.
+
+Linear finds the ticket id anywhere in the name and links the branch to the
+issue. Its copy-branch-name button prefixes your username; drop that, the id
+is the only part that matters.
 
 ## Keeping the body true
 
