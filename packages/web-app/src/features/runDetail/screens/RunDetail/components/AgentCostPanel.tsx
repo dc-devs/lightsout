@@ -3,6 +3,29 @@ import { formatCost, formatTokenCount } from '@lightsout/shared';
 import { Card } from '#src/appUI/index.ts';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 
+/**
+ * How much of the run's input came out of cache, drawn rather than parenthesised.
+ *
+ * It is the number that decides what a long run costs — a run reading 90% from
+ * cache and one reading 30% are different orders of spend — and a bar says that
+ * at a glance where a figure inside a sentence does not.
+ */
+const CacheReadBar = ({ share }: { share: number }) => {
+	const percent = Math.round(share * 100);
+
+	return (
+		<div className="flex flex-col gap-1">
+			<div className="flex items-baseline justify-between text-xs">
+				<span className="text-muted-foreground">read from cache</span>
+				<span className="font-medium">{percent}%</span>
+			</div>
+			<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+				<div style={{ width: `${percent}%` }} className="h-full rounded-full bg-status-passed" />
+			</div>
+		</div>
+	);
+};
+
 interface Props {
 	usage?: RunUsage;
 	/** Share of all input the model read from cache, as the engine computed it. */
@@ -29,10 +52,10 @@ export const AgentCostPanel = ({ usage, cacheReadShare, steps, agents, rejectedR
 			<div className="flex flex-col gap-4">
 				<p className="text-sm">
 					in {formatTokenCount({ count: usage.inputTokens })} · out {formatTokenCount({ count: usage.outputTokens })} · cache-read{' '}
-					{formatTokenCount({ count: usage.cacheReadTokens })}
-					{cacheReadShare === undefined ? '' : ` (${Math.round(cacheReadShare * 100)}%)`} · {formatCost({ usd: usage.costUsd })} ·{' '}
+					{formatTokenCount({ count: usage.cacheReadTokens })} · {formatCost({ usd: usage.costUsd })} ·{' '}
 					{formatCount({ count: usage.invocations, noun: 'invocation' })}
 				</p>
+				{cacheReadShare === undefined ? null : <CacheReadBar share={cacheReadShare} />}
 				{rejectedReports === 0 ? null : (
 					<p className="text-muted-foreground-strong text-xs">{formatCount({ count: rejectedReports, noun: 'rejected report' })} re-emitted</p>
 				)}

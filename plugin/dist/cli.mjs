@@ -23126,7 +23126,11 @@ var StandardsPackRoot = external_exports.object({
    * reads every stripped fixture as a rule its author forgot, and reports a
    * fault in each of them instead of one fact about the pack.
    */
-  built: external_exports.literal(true).optional()
+  built: external_exports.literal(true).optional(),
+  /** One line a pack page shows under its name. Optional; a pack with none shows only its name. */
+  description: external_exports.string().min(1).optional(),
+  /** Absolute URL for the pack's own page or repository. */
+  homepage: external_exports.url().optional()
 });
 
 // ../standards-contracts/src/StandardsSet.ts
@@ -24002,6 +24006,8 @@ var RunManifest = external_exports.object({
   pipeline: external_exports.string().optional(),
   /** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
   overview: external_exports.string().optional(),
+  /** Set on a phase's child run: the run id of the coordinator that started it. Absent on a top-level run, and on phase children recorded before this field existed. */
+  parentRunId: external_exports.string().optional(),
   /** Harness the run was started with (a resumed run must reuse it). */
   harness: external_exports.string(),
   /**
@@ -24050,6 +24056,12 @@ var AgentInvocation = AgentUsage.extend({
   model: external_exports.string().optional(),
   effort: external_exports.enum(Effort).optional()
 });
+
+// src/contracts/views/FixtureSide.ts
+var FixtureSide = {
+  Pass: "pass",
+  Fail: "fail"
+};
 
 // src/contracts/views/GateEvidence.ts
 var GateEvidence = GateResult.extend({
@@ -24102,6 +24114,8 @@ var RunListing = external_exports.object({
   changedFileCount: external_exports.number(),
   /** Run-wide API-equivalent cost; absent for drivers that report no usage. */
   costUsd: external_exports.number().optional(),
+  /** Set on a phase's child run: the coordinator that started it. Copied from the run's own manifest. */
+  parentRunId: external_exports.string().optional(),
   /** A `resume --run` would do something: failed, either paused state, or running with no live process. */
   resumable: external_exports.boolean()
 });
@@ -24124,6 +24138,45 @@ var RunStepView = external_exports.object({
   planPath: external_exports.string().optional(),
   /** Phased runs only: the child run id the step's PhaseReport names. */
   childRunId: external_exports.string().optional()
+});
+
+// src/contracts/views/runBurnDown/RunBurnDownBatchOutcome.ts
+var RunBurnDownBatchOutcome = {
+  Resolved: "resolved",
+  Declined: "declined",
+  NotRun: "not-run"
+};
+
+// src/contracts/views/runBurnDown/RunBurnDownBatch.ts
+var RunBurnDownBatch = external_exports.object({
+  /** Manifest step id: `batch-NN:<rule>:<folder>`. */
+  id: external_exports.string(),
+  rule: external_exports.string(),
+  folder: external_exports.string(),
+  /** Blocking findings the work-list froze for this batch. */
+  blocking: external_exports.number(),
+  /** `resolved` / `declined` from the batch report, or `not-run` for a work-list batch the run never reached. */
+  outcome: external_exports.enum(RunBurnDownBatchOutcome),
+  /** The agent's own account of a declined batch, from its friction entries. */
+  rationale: external_exports.array(external_exports.string()),
+  advisoryOutcomes: external_exports.array(AdvisoryOutcome)
+});
+
+// src/contracts/views/runBurnDown/RunBurnDown.ts
+var RunBurnDown = external_exports.object({
+  /** Refactor only: blocking findings on the work-list when it froze. Absent for coverage runs, which carry `files` instead. */
+  before: external_exports.number().optional(),
+  /** Refactor only: sites still standing after the last batch — reported batches' remaining keys plus unrun batches' frozen blocking counts. */
+  after: external_exports.number().optional(),
+  /** Refactor only, from each parsed BatchReport.outcome; absent for coverage runs. */
+  batchesResolved: external_exports.number().optional(),
+  batchesDeclined: external_exports.number().optional(),
+  /** Refactor only: one row per batch, in work-list order. */
+  batches: external_exports.array(RunBurnDownBatch),
+  /** Refactor only: findings from the size and crowding rules, before to after. */
+  overCap: external_exports.object({ before: external_exports.number(), after: external_exports.number() }).optional(),
+  /** Coverage only: per-file statements pct, before to after, worst first. */
+  files: external_exports.array(external_exports.object({ path: external_exports.string(), beforePct: external_exports.number(), afterPct: external_exports.number() })).optional()
 });
 
 // src/contracts/views/RunView.ts
@@ -24156,7 +24209,93 @@ var RunView = external_exports.object({
   changedFiles: external_exports.array(external_exports.string()),
   unreachableChangedFiles: external_exports.array(external_exports.string()),
   /** Set on a phase's child run: the coordinator that spawned it. */
-  parent: external_exports.object({ runId: external_exports.string(), step: external_exports.string(), title: external_exports.string() }).optional()
+  parent: external_exports.object({ runId: external_exports.string(), step: external_exports.string(), title: external_exports.string() }).optional(),
+  /** What a refactor or coverage run burned down; absent on implement and phases runs, which burn nothing down. */
+  burnDown: RunBurnDown.optional()
+});
+
+// src/contracts/views/StandardsPackDocumentView.ts
+var StandardsPackDocumentView = external_exports.object({
+  set: external_exports.enum(StandardsSet),
+  path: external_exports.string(),
+  channel: external_exports.string(),
+  /** document.md body — the group header's collapsible intro. */
+  intro: external_exports.string(),
+  /** Rule ids in assembly order. */
+  ruleIds: external_exports.array(external_exports.string())
+});
+
+// src/contracts/views/StandardsPackListing.ts
+var StandardsPackListing = external_exports.object({
+  name: external_exports.string(),
+  description: external_exports.string().optional(),
+  homepage: external_exports.string().optional(),
+  /** True for the pack a run loads when the config names none. */
+  isDefault: external_exports.boolean(),
+  /** Absolute folder the pack was read from. */
+  rootPath: external_exports.string(),
+  /**
+   * `rootPath` relative to the repo the view was built for, or absolute when it
+   * lies outside it — what a `standards-packs` entry would say. Computed in the
+   * engine view; a browser component cannot.
+   */
+  path: external_exports.string(),
+  /** Stripped of its fixtures by the bundler — every rule's fixture counts are zero. */
+  built: external_exports.boolean(),
+  /** Distinct channels across the pack's documents, sorted. */
+  channels: external_exports.array(external_exports.string()),
+  totals: external_exports.object({
+    rules: external_exports.number(),
+    checked: external_exports.number(),
+    judgment: external_exports.number(),
+    documents: external_exports.number(),
+    /** Rules with at least one pass and one fail fixture file. */
+    withFixtures: external_exports.number()
+  })
+});
+
+// src/contracts/views/StandardsPackFixture.ts
+var StandardsPackFixture = external_exports.object({
+  side: external_exports.enum(FixtureSide),
+  /** Path relative to that side's root, e.g. 'src/payloads/readLabel.ts'. */
+  path: external_exports.string(),
+  text: external_exports.string()
+});
+
+// src/contracts/views/StandardsPackRuleListing.ts
+var StandardsPackRuleListing = external_exports.object({
+  id: external_exports.string(),
+  set: external_exports.enum(StandardsSet),
+  /** Pack-relative document folder path, e.g. 'code/style-guide/patterns/functions'. */
+  documentPath: external_exports.string(),
+  summary: external_exports.string(),
+  /** 'base' unless the owning document declares a channel. */
+  channel: external_exports.string(),
+  checked: external_exports.boolean(),
+  defaultSeverity: external_exports.enum([StandardsSeverity.Blocking, StandardsSeverity.Advisory]),
+  defaultSettings: external_exports.record(external_exports.string(), external_exports.number()),
+  /** How many files each fixture side holds; both zero for a built pack. */
+  fixtureCounts: external_exports.object({ pass: external_exports.number(), fail: external_exports.number() })
+});
+
+// src/contracts/views/StandardsPackRuleView.ts
+var StandardsPackRuleView = StandardsPackRuleListing.extend({
+  /** rule.md body; empty for the rules that state only a summary. */
+  prose: external_exports.string(),
+  /** Every file under fixtures/pass and fixtures/fail, in path order; empty for a built pack. */
+  fixtures: external_exports.array(StandardsPackFixture)
+});
+
+// src/contracts/views/StandardsPackBundle.ts
+var StandardsPackBundle = StandardsPackListing.extend({
+  documents: external_exports.array(StandardsPackDocumentView),
+  rules: external_exports.array(StandardsPackRuleView)
+});
+
+// src/contracts/views/StandardsPackView.ts
+var StandardsPackView = StandardsPackListing.extend({
+  documents: external_exports.array(StandardsPackDocumentView),
+  rules: external_exports.array(StandardsPackRuleListing)
 });
 
 // src/contracts/views/StandardsRuleView.ts
@@ -24594,7 +24733,7 @@ var writeRunManifest = async ({ cwd, manifest }) => {
 };
 
 // src/runState/createRun.ts
-var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: config2, baselineDirtyFiles }) => {
+var createRun = async ({ cwd, runId, plan, pipeline, overview, parentRunId, driver, config: config2, baselineDirtyFiles }) => {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const manifest = {
     runId: runId ?? randomUUID(),
@@ -24603,6 +24742,7 @@ var createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config: c
     plan: toRepoRelativePath({ cwd, path: plan }),
     pipeline,
     overview: overview === void 0 ? void 0 : toRepoRelativePath({ cwd, path: overview }),
+    parentRunId,
     harness: driver,
     config: config2,
     status: RunStatus.Pending,
@@ -25771,6 +25911,8 @@ ${problems.map((problem) => `- ${problem}`).join("\n")}`);
     name: root.data.name,
     formatVersion: root.data.formatVersion,
     built: root.data.built,
+    description: root.data.description,
+    homepage: root.data.homepage,
     rootPath: packPath,
     ...hasFrameworkOwned ? { frameworkOwnedFixturesPath } : {},
     ...hasFrameworksModule ? { frameworksModulePath } : {},
@@ -41075,7 +41217,7 @@ var checkFixtureTree = async ({ cwd, rule, inputKind, run, label, compiler }) =>
 };
 
 // src/standardsCheck/validateStandardsPack.ts
-var FixtureSide = {
+var FixtureSide2 = {
   Fail: "fail",
   Pass: "pass"
 };
@@ -41090,7 +41232,7 @@ var getEngineTypescript = () => {
 };
 var missingFixtureSides = async ({ fixturesPath }) => {
   const missing = [];
-  for (const side of Object.values(FixtureSide)) {
+  for (const side of Object.values(FixtureSide2)) {
     const entries = await readdir13(join45(fixturesPath, side)).catch(() => void 0);
     if (entries === void 0 || entries.length === 0) {
       missing.push(side);
@@ -41169,13 +41311,13 @@ var validateStandardsPack = async ({ pack }) => {
       notes.push(`${rule.id}: not validated \u2014 its ${inputKind} input needs a typescript this install does not have`);
       continue;
     }
-    for (const side of Object.values(FixtureSide)) {
+    for (const side of Object.values(FixtureSide2)) {
       try {
         const found = await checkFixtureTree({ cwd: join45(rule.fixturesPath, side), rule, inputKind, run, label: `fixtures/${side}/`, compiler });
-        if (side === FixtureSide.Fail && found.length === 0) {
+        if (side === FixtureSide2.Fail && found.length === 0) {
           problems.push(`${rule.id}: the fail fixture produced no finding \u2014 the check does not catch what the rule describes`);
         }
-        if (side === FixtureSide.Pass && found.length > 0) {
+        if (side === FixtureSide2.Pass && found.length > 0) {
           problems.push(`${rule.id}: the pass fixture produced ${found.length} finding(s) \u2014 the check flags code the rule allows`);
         }
       } catch (error51) {
@@ -44065,6 +44207,7 @@ var executePipeline = async ({
   config: config2,
   planPath,
   overviewPath,
+  parentRunId,
   packages,
   existing,
   skipRefactor,
@@ -44081,6 +44224,7 @@ var executePipeline = async ({
       plan: planPath ?? "",
       pipeline: "implement",
       overview: overviewPath,
+      parentRunId,
       driver: driver.name,
       config: config2,
       baselineDirtyFiles: await readGitChangedFiles({ cwd })
@@ -44189,6 +44333,7 @@ var runPhase = async ({
     config: config2,
     planPath: join65(dirname7(current.plan), step.id),
     overviewPath: current.plan,
+    parentRunId: current.runId,
     existing: childManifest,
     skipRefactor,
     onProgress

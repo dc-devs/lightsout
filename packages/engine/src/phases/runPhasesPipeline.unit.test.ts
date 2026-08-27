@@ -149,6 +149,12 @@ test('runPhasesPipeline: a fresh sequence runs every phase in the overview order
 	expect(result.manifest.steps.map((step) => step.status)).toStrictEqual(['passed', 'passed']);
 	// every step names the per-phase run that implemented it
 	expect(result.manifest.steps.every((step) => PhaseReport.safeParse(step.report).success)).toBeTruthy();
+	// and each of those runs records the coordinator on its own manifest, so a
+	// reader never has to reconstruct the link by opening every other run
+	expect((await readChildren({ cwd: dir, manifest: result.manifest })).map((child) => child.parentRunId)).toStrictEqual([
+		result.manifest.runId,
+		result.manifest.runId,
+	]);
 	// the sequence's changed files are the union of its phases'
 	expect(result.manifest.changedFiles.includes('src/phase1.js')).toBeTruthy();
 	expect(result.manifest.changedFiles.includes('src/phase2.js')).toBeTruthy();

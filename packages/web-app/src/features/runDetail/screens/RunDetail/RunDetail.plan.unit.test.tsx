@@ -40,7 +40,13 @@ const setupPlanDrawer = ({ plan }: { plan?: PlanDocument } = {}) => {
 	// clipboard at all, so the property is defined rather than spied on.
 	Object.defineProperty(navigator, 'clipboard', { value: { writeText: mockWriteText }, configurable: true });
 	mockGetPlan.mockReturnValue(plan === undefined ? new Promise<PlanDocument>(() => undefined) : Promise.resolve(plan));
-	renderWithQueryClient({ ui: <RunDetail runId={runId} />, seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView() }] });
+	renderWithQueryClient({
+		ui: <RunDetail runId={runId} />,
+		seed: [
+			{ queryKey: [QueryKey.Run, runId], data: buildRunView() },
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
+		],
+	});
 
 	return { mockWriteText, openPlan: () => fireEvent.click(screen.getByRole('button', { name: /^plan:/ })) };
 };

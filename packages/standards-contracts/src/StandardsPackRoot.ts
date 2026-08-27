@@ -3,9 +3,9 @@ import { z } from 'zod';
 /**
  * A standards pack's root file (`lightsout-standards.json`). It carries only
  * what the folder tree cannot express — the pack's name, the format it is
- * written against, and whether it was built rather than authored. Deliberately
- * not `.strict()`: a later format version may add keys, and an unknown key is
- * never worth refusing a pack over.
+ * written against, whether it was built rather than authored, and the two lines
+ * a pack page shows about it. Deliberately not `.strict()`: a later format
+ * version may add keys, and an unknown key is never worth refusing a pack over.
  */
 export const StandardsPackRoot = z.object({
 	/** Names the pack in the assembled documents' header lines. */
@@ -20,6 +20,10 @@ export const StandardsPackRoot = z.object({
 	 * fault in each of them instead of one fact about the pack.
 	 */
 	built: z.literal(true).optional(),
+	/** One line a pack page shows under its name. Optional; a pack with none shows only its name. */
+	description: z.string().min(1).optional(),
+	/** Absolute URL for the pack's own page or repository. */
+	homepage: z.url().optional(),
 });
 
 export type StandardsPackRoot = z.infer<typeof StandardsPackRoot>;

@@ -18,8 +18,8 @@ import { dirname, isAbsolute, resolve } from 'node:path';
  * config and offer a "Your repo" zone pointing at the server's disk.
  *
  * The one place the question is asked, so the navigation and the reader switch
- * cannot disagree about whether a repo is open. `getRepoRoot` is this answer
- * with the working directory as its fallback.
+ * cannot disagree about whether a repo is open: `undefined` is what leaves the
+ * "Your repo" zone out of the shell and what puts `getReader` on the fixtures.
  *
  * Resolved on every call and never cached in module scope, so a dev server
  * restarted with a different value picks it up.

@@ -233,7 +233,7 @@ test('a coordinator that recorded an overview of its own is read by that, not by
 	expect(view.overview).toBe('plans/moved/overview.md');
 });
 
-test('a phase run finds the coordinator that spawned it, and names the step it served', async () => {
+test('a phase run names the coordinator its own manifest records, and the step it served', async () => {
 	const cwd = await freshCwd();
 
 	await seedRunDir({
@@ -245,35 +245,69 @@ test('a phase run finds the coordinator that spawned it, and names the step it s
 			steps: [{ id: 'phase1', status: RunStatus.Passed, attempts: 1, report: { runId: 'run-child' } }],
 		},
 	});
-	await seedRunDir({ cwd, manifest: { runId: 'run-child', overview: 'plans/add-search/overview.md', plan: 'plans/add-search/phase1.md' } });
+	// a sequence that named some other run is never opened at all: the link is a
+	// field on this run, not something reconstructed from the rest of the history
+	await seedRunDir({
+		cwd,
+		manifest: {
+			runId: 'run-other-sequence',
+			pipeline: 'phases',
+			plan: 'plans/other/overview.md',
+			steps: [{ id: 'phase1', status: RunStatus.Passed, attempts: 1, report: { runId: 'run-child' } }],
+		},
+	});
+	await seedRunDir({
+		cwd,
+		manifest: {
+			runId: 'run-child',
+			overview: 'plans/add-search/overview.md',
+			plan: 'plans/add-search/phase1.md',
+			parentRunId: 'run-coordinator',
+		},
+	});
 
 	const view = await getRunView({ cwd, runId: 'run-child' });
 
-	// a back-link a reader can follow, titled the way the sidebar titles it
+	// a back-link a reader can follow, titled the way the runs table titles it
 	expect(view.parent).toStrictEqual({ runId: 'run-coordinator', step: 'phase1', title: 'add-search' });
 	// a child run records its overview outright
 	expect(view.overview).toBe('plans/add-search/overview.md');
 });
 
-test('the search for a coordinator ignores sequences that never named this run, and survives a corrupt manifest', async () => {
+test('a phase still in flight is named by the step the coordinator has open, since no report names it yet', async () => {
 	const cwd = await freshCwd();
 
 	await seedRunDir({
 		cwd,
 		manifest: {
-			runId: 'aaa-other-sequence',
+			runId: 'run-coordinator',
 			pipeline: 'phases',
-			plan: 'plans/other/overview.md',
-			steps: [{ id: 'phase1', status: RunStatus.Passed, attempts: 1, report: { runId: 'run-somebody-else' } }],
+			plan: 'plans/add-search/overview.md',
+			currentStep: 'phase2',
+			steps: [{ id: 'phase2', status: RunStatus.Running, attempts: 1 }],
 		},
 	});
+	await seedRunDir({ cwd, manifest: { runId: 'run-child', plan: 'plans/add-search/phase2.md', parentRunId: 'run-coordinator' } });
+
+	expect((await getRunView({ cwd, runId: 'run-child' })).parent).toStrictEqual({
+		runId: 'run-coordinator',
+		step: 'phase2',
+		title: 'add-search',
+	});
+});
+
+test('a run recording no coordinator, and one whose coordinator will not read, both go without a back-link', async () => {
+	const cwd = await freshCwd();
+
 	await seedRunDir({ cwd, manifest: { runId: 'bbb-broken' } });
 	await writeFile(join(cwd, '.lightsout', 'runs', 'bbb-broken', 'manifest.json'), '{ not json', 'utf8');
 	await seedRunDir({ cwd, manifest: { runId: 'ccc-orphan' } });
+	await seedRunDir({ cwd, manifest: { runId: 'ddd-dangling', parentRunId: 'bbb-broken' } });
 
-	// no sequence claims it, and the unreadable directory beside it is skipped
-	// rather than taking the search down
+	// a top-level run, and a phase child whose coordinator is corrupt or gone —
+	// neither is a page failure, both are simply a run with no parent to name
 	expect((await getRunView({ cwd, runId: 'ccc-orphan' })).parent).toBe(undefined);
+	expect((await getRunView({ cwd, runId: 'ddd-dangling' })).parent).toBe(undefined);
 });
 
 test('a back-link is titled from the coordinator manifest alone, so a work-list plan reads as the pipeline that froze it', async () => {
@@ -289,12 +323,12 @@ test('a back-link is titled from the coordinator manifest alone, so a work-list 
 		},
 		worklist: worklistNaming({ rules: ['multi-export', 'size-file'] }),
 	});
-	await seedRunDir({ cwd, manifest: { runId: 'run-child' } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-child', parentRunId: 'run-sequence' } });
 
 	const view = await getRunView({ cwd, runId: 'run-child' });
 
-	// the search reads manifests only — the readable work-list beside this one is
-	// never opened for a back-link, so the label is the plain pipeline name rather
+	// the back-link reads the coordinator's manifest only — the readable work-list
+	// beside it is never opened, so the label is the plain pipeline name rather
 	// than the rules that file names
 	expect(view.parent).toStrictEqual({ runId: 'run-sequence', step: 'phase1', title: 'refactor' });
 });
@@ -320,4 +354,15 @@ test('a run reports the files it changed and the ones nothing public reached', a
 	// the share of input the model read from cache, out of everything readable
 	expect(view.cacheReadShare).toBe(880 / 1000);
 	expect(view.listing.costUsd).toBe(0.5);
+});
+
+test('a coordinator that has not yet opened a step for this child leaves the back-link off rather than naming nothing', async () => {
+	const cwd = await freshCwd();
+
+	// a sequence that has recorded no report for this run and has no step open —
+	// there is no honest step to name, so the link waits rather than guessing
+	await seedRunDir({ cwd, manifest: { runId: 'run-sequence', pipeline: 'phases', plan: 'plans/add-search/overview.md' } });
+	await seedRunDir({ cwd, manifest: { runId: 'run-child', plan: 'plans/add-search/phase1.md', parentRunId: 'run-sequence' } });
+
+	expect((await getRunView({ cwd, runId: 'run-child' })).parent).toBe(undefined);
 });

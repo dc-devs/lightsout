@@ -1,0 +1,61 @@
+[
+  {
+    "runId": "8e44a63a-cd21-4d77-b5a5-26f2c08e656f",
+    "shortId": "8e44a63a",
+    "pipeline": "implement",
+    "status": "escalated",
+    "title": "web-app-design · phase4-home",
+    "plan": ".lightsout/plans/web-app-design/phase4-home.md",
+    "createdAt": "2026-08-26T22:35:49.601Z",
+    "updatedAt": "2026-08-27T00:16:10.217Z",
+    "live": false,
+    "packages": [
+      "web-app",
+      "engine"
+    ],
+    "stepsPassed": 5,
+    "stepCount": 6,
+    "changedFileCount": 81,
+    "costUsd": 55.8137885,
+    "resumable": false
+  },
+  {
+    "runId": "818c67a1-b5e1-48e7-8701-ed2e708d4198",
+    "shortId": "818c67a1",
+    "pipeline": "implement",
+    "status": "passed",
+    "title": "framework-carve-out-plumbing · phase2-import-graph-dependencies",
+    "plan": ".lightsout/plans/framework-carve-out-plumbing/phase2-import-graph-dependencies.md",
+    "createdAt": "2026-08-24T17:51:37.259Z",
+    "updatedAt": "2026-08-24T18:10:01.965Z",
+    "live": false,
+    "packages": [
+      "standards-contracts",
+      "standards-typescript",
+      "engine",
+      "standards-testkit"
+    ],
+    "stepsPassed": 8,
+    "stepCount": 8,
+    "changedFileCount": 9,
+    "costUsd": 6.614743000000001,
+    "resumable": false
+  },
+  {
+    "runId": "a3808d03-7202-4054-8f9d-300abff2a15b",
+    "shortId": "a3808d03",
+    "pipeline": "refactor",
+    "status": "passed",
+    "title": "refactor · path-test-not-colocated, test-strict-equal-matcher, size-function",
+    "plan": ".lightsout/runs/a3808d03-7202-4054-8f9d-300abff2a15b/worklist.json",
+    "createdAt": "2026-08-20T16:48:07.592Z",
+    "updatedAt": "2026-08-20T17:15:35.595Z",
+    "live": false,
+    "packages": [],
+    "stepsPassed": 4,
+    "stepCount": 4,
+    "changedFileCount": 19,
+    "costUsd": 12.294254500000001,
+    "resumable": false
+  }
+]

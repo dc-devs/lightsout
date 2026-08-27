@@ -5,6 +5,9 @@ export const QueryKey = {
 	Standards: 'standards',
 	Plan: 'plan',
 	RepoRoot: 'repoRoot',
+	Packs: 'packs',
+	Pack: 'pack',
+	PackRule: 'packRule',
 } as const;
 
 export type QueryKey = (typeof QueryKey)[keyof typeof QueryKey];

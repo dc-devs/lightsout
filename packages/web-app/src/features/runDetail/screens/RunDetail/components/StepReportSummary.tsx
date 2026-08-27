@@ -1,8 +1,8 @@
-import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { formatCount } from '#src/common/formatting/formatCount.ts';
 import { StepReportKind } from '#src/features/runDetail/common/constants/StepReportKind.ts';
 import type { StepReport } from '#src/features/runDetail/common/types/StepReport.ts';
+import { ChildRunLink } from '#src/features/runDetail/screens/RunDetail/components/ChildRunLink.tsx';
 
 /** A short heading over one block of a report's detail. */
 const Section = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -14,6 +14,8 @@ const Section = ({ label, children }: { label: string; children: ReactNode }) =>
 
 interface Props {
 	report: StepReport;
+	/** Render a phase report's child run as plain mono text instead of a link — the demo frame. Defaults false. */
+	linksDisabled?: boolean;
 }
 
 /**
@@ -26,18 +28,14 @@ interface Props {
  * Every kind but `Raw` and `Phase` is a stack of blocks, so the branch decides
  * only what those blocks are and the stack itself is written once below them.
  */
-export const StepReportSummary = ({ report }: Props) => {
+export const StepReportSummary = ({ report, linksDisabled = false }: Props) => {
 	const isStacked = report.kind !== StepReportKind.Raw && report.kind !== StepReportKind.Phase;
 	let content: ReactNode;
 
 	if (report.kind === StepReportKind.Raw) {
 		content = <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs leading-5">{report.text}</pre>;
 	} else if (report.kind === StepReportKind.Phase) {
-		content = (
-			<Link to="/repo/runs/$runId" params={{ runId: report.runId }} className="font-mono text-primary text-xs underline underline-offset-2">
-				{report.runId.slice(0, 8)}
-			</Link>
-		);
+		content = <ChildRunLink runId={report.runId} linksDisabled={linksDisabled} />;
 	} else if (report.kind === StepReportKind.Batch) {
 		content = (
 			<>

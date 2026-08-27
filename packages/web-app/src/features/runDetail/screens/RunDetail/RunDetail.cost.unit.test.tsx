@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { RunView } from '@lightsout/engine';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryKey } from '#src/common/constants/QueryKey.ts';
 import { RunDetail } from '#src/features/runDetail/index.ts';
@@ -25,7 +25,15 @@ const usage = { inputTokens: 1_200, outputTokens: 45_000, cacheReadTokens: 2_000
 
 const setupCost = ({ overrides = {} }: { overrides?: Partial<RunView> } = {}) => {
 	jest.useFakeTimers();
-	renderWithQueryClient({ ui: <RunDetail runId={runId} />, seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) }] });
+	renderWithQueryClient({
+		ui: <RunDetail runId={runId} />,
+		seed: [
+			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) },
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
+		],
+	});
+	// Agent spend has a tab of its own now, and a tab strip selects on the press.
+	fireEvent.mouseDown(screen.getByRole('tab', { name: 'Agents' }));
 };
 
 describe('RunDetail agent cost', () => {
@@ -40,17 +48,23 @@ describe('RunDetail agent cost', () => {
 	test('splits the run total into what was read, written and read from cache', () => {
 		setupCost({ overrides: { usage, cacheReadShare: 0.94 } });
 
-		const total = screen.getByText(/in 1\.2k · out 45\.0k · cache-read 2\.0M \(94%\)/);
+		const total = screen.getByText(/in 1\.2k · out 45\.0k · cache-read 2\.0M/);
 
 		expect(total).toHaveTextContent('4 invocations');
 	});
 
-	test('leaves the cache share out when the engine could not work one out', () => {
+	test('draws the cache share as a bar, since it is what decides what a long run costs', () => {
+		setupCost({ overrides: { usage, cacheReadShare: 0.94 } });
+
+		const share = screen.getByText('read from cache');
+
+		expect(share.parentElement).toHaveTextContent('94%');
+	});
+
+	test('says nothing about the cache share when the engine could not work one out', () => {
 		setupCost({ overrides: { usage } });
 
-		const total = screen.getByText(/cache-read 2\.0M/);
-
-		expect(total.textContent).not.toContain('%');
+		expect(screen.queryByText('read from cache')).not.toBeInTheDocument();
 	});
 
 	test('calls out what the re-emitted reports cost', () => {

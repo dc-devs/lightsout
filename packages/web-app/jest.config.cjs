@@ -46,6 +46,22 @@ module.exports = createJestConfig({
 	// nothing else, so Jest's CommonJS resolver cannot load them however it is
 	// configured.
 	moduleNameMapper: {
+		// An image asked for as a URL. `homeMeta` imports the sprawl GIF and the fix
+		// section imports six workflow SVGs, all with `?url` — which asks the
+		// bundler for the path each will be served from rather than for a module.
+		// Jest resolves requires against the filesystem and would hand a binary to
+		// the JavaScript parser, so the stylesheet's stand-in answers these too.
+		//
+		// Ahead of `#assets` deliberately: Jest stops at the first pattern that
+		// matches, and that one would rewrite the specifier to a real `.gif` on
+		// disk before this rule was ever consulted.
+		'\\.(gif|svg)(\\?.*)?$': join(__dirname, 'tests', 'stubs', 'styleUrl.ts'),
+		// The repo-root assets/ folder, mirroring the `paths` entry in
+		// tsconfig.json and the `resolve.alias` in vite.config.ts. It is spelled
+		// three times rather than once in package.json `imports` because a package
+		// import may not escape the package — Node, TypeScript and esbuild all
+		// reject a target that climbs out of it.
+		'^#assets/(.*)$': join(__dirname, '..', '..', 'assets', '$1'),
 		'^@tanstack/react-start$': join(__dirname, 'tests', 'stubs', 'tanstackReactStart.ts'),
 		'^@tanstack/react-start/client$': join(__dirname, 'tests', 'stubs', 'tanstackReactStartClient.ts'),
 		'^@tanstack/react-start/server$': join(__dirname, 'tests', 'stubs', 'tanstackReactStartServer.ts'),

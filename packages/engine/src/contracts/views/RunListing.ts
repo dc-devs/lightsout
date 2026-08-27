@@ -28,6 +28,8 @@ export const RunListing = z.object({
 	changedFileCount: z.number(),
 	/** Run-wide API-equivalent cost; absent for drivers that report no usage. */
 	costUsd: z.number().optional(),
+	/** Set on a phase's child run: the coordinator that started it. Copied from the run's own manifest. */
+	parentRunId: z.string().optional(),
 	/** A `resume --run` would do something: failed, either paused state, or running with no live process. */
 	resumable: z.boolean(),
 });

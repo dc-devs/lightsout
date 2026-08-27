@@ -33,6 +33,7 @@ export const buildRunListing = ({ manifest, lock, worklist }: Params): RunListin
 		stepCount: manifest.steps.length,
 		changedFileCount: manifest.changedFiles.length,
 		costUsd: manifest.usage?.costUsd,
+		parentRunId: manifest.parentRunId,
 		resumable: isRunResumable({ status: manifest.status, live }),
 	};
 };

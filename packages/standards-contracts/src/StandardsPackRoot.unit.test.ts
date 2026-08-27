@@ -57,7 +57,7 @@ describe('StandardsPackRoot', () => {
 	});
 
 	test('keys the contract does not declare are kept out of the parsed root rather than refused', () => {
-		const { root } = setupRoot({ extra: { description: 'the bundled defaults', channels: ['react'] } });
+		const { root } = setupRoot({ extra: { channels: ['react'], maintainer: 'acme' } });
 
 		const parsed = StandardsPackRoot.parse(root);
 
@@ -65,6 +65,68 @@ describe('StandardsPackRoot', () => {
 		// format version may add keys — an unknown key is never worth refusing a
 		// pack over, so it is dropped instead
 		expect(parsed).toStrictEqual({ name: 'lightsout defaults', formatVersion: 1 });
+	});
+
+	test('carries the one-line description a pack page shows under the pack name', () => {
+		const { root } = setupRoot({ extra: { description: 'the bundled defaults' } });
+
+		const parsed = StandardsPackRoot.parse(root);
+
+		expect(parsed.description).toBe('the bundled defaults');
+	});
+
+	test('rejects an empty description — a pack with nothing to say omits the key instead', () => {
+		const { root } = setupRoot({ extra: { description: '' } });
+
+		const result = StandardsPackRoot.safeParse(root);
+
+		expect(result.success).toBe(false);
+	});
+
+	test("carries the pack's own page, so a reader can go from the listing to the source", () => {
+		const { root } = setupRoot({ extra: { homepage: 'https://github.com/dc-devs/lightsout' } });
+
+		const parsed = StandardsPackRoot.parse(root);
+
+		expect(parsed.homepage).toBe('https://github.com/dc-devs/lightsout');
+	});
+
+	test('rejects a homepage that is not a URL — the page renders it as a link, never as text', () => {
+		const { root } = setupRoot({ extra: { homepage: 'packages/standards-typescript' } });
+
+		const result = StandardsPackRoot.safeParse(root);
+
+		expect(result.success).toBe(false);
+	});
+
+	test('a root stating neither key still parses — both are optional, so every pack written before them survives', () => {
+		const { root } = setupRoot();
+
+		const parsed = StandardsPackRoot.parse(root);
+
+		expect(parsed).toStrictEqual({ name: 'lightsout defaults', formatVersion: 1 });
+	});
+
+	test('a built root keeps both page lines alongside the marker — the shape the bundler stamps out', () => {
+		const { root } = setupRoot({
+			extra: {
+				description: 'The default TypeScript pack.',
+				homepage: 'https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript',
+				built: true,
+			},
+		});
+
+		const parsed = StandardsPackRoot.parse(root);
+
+		// the shipped copy of the default pack carries all four optional and required
+		// keys at once, so the two page lines have to survive the build that adds the marker
+		expect(parsed).toStrictEqual({
+			name: 'lightsout defaults',
+			formatVersion: 1,
+			description: 'The default TypeScript pack.',
+			homepage: 'https://github.com/dc-devs/lightsout/tree/main/packages/standards-typescript',
+			built: true,
+		});
 	});
 
 	test.each([{ field: 'name' }, { field: 'formatVersion' }])('rejects a root file with no $field', ({ field }) => {

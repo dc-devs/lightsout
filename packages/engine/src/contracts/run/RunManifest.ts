@@ -21,6 +21,8 @@ export const RunManifest = z.object({
 	pipeline: z.string().optional(),
 	/** Optional overview plan (high-level context for a phased plan), relative to the target repo. */
 	overview: z.string().optional(),
+	/** Set on a phase's child run: the run id of the coordinator that started it. Absent on a top-level run, and on phase children recorded before this field existed. */
+	parentRunId: z.string().optional(),
 	/** Harness the run was started with (a resumed run must reuse it). */
 	harness: z.string(),
 	/**

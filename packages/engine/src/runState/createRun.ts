@@ -15,6 +15,8 @@ interface Params {
 	pipeline?: string;
 	/** Optional overview plan path (high-level context for a phased plan), cwd-relative or absolute — recorded cwd-relative either way. */
 	overview?: string;
+	/** The coordinator's run id, when this run is one phase of a sequence — the one moment the parent link is known, so the one place it is written. */
+	parentRunId?: string;
 	/** The driver name the run was started with, persisted as the manifest's `harness` field. */
 	driver: string;
 	/** Resolved config, snapshotted into the manifest as the run's permanent settings record. */
@@ -32,7 +34,7 @@ interface Params {
  * and read back as a missing file. Enforced here, at the one place a manifest
  * is born, rather than by each pipeline remembering to.
  */
-export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, config, baselineDirtyFiles }: Params): Promise<RunManifest> => {
+export const createRun = async ({ cwd, runId, plan, pipeline, overview, parentRunId, driver, config, baselineDirtyFiles }: Params): Promise<RunManifest> => {
 	const now = new Date().toISOString();
 	const manifest: RunManifest = {
 		runId: runId ?? randomUUID(),
@@ -41,6 +43,7 @@ export const createRun = async ({ cwd, runId, plan, pipeline, overview, driver, 
 		plan: toRepoRelativePath({ cwd, path: plan }),
 		pipeline,
 		overview: overview === undefined ? undefined : toRepoRelativePath({ cwd, path: overview }),
+		parentRunId,
 		harness: driver,
 		config,
 		status: RunStatus.Pending,

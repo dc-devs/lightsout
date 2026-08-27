@@ -55,4 +55,13 @@ describe('toRunDetailView', () => {
 
 		expect({ ...detail, steps: [] }).toStrictEqual({ ...view, steps: [] });
 	});
+
+	test('carries the burn-down through, since the panel that draws it is on the far side of this narrowing', () => {
+		const burnDown = { before: 11, after: 0, batchesResolved: 3, batchesDeclined: 0, batches: [], overCap: { before: 7, after: 0 } };
+		const view = buildRunView({ overrides: { burnDown } });
+
+		const detail = toRunDetailView({ view });
+
+		expect(detail.burnDown).toStrictEqual(burnDown);
+	});
 });

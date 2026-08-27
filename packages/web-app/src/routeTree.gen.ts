@@ -10,13 +10,27 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StandardsIndexRouteImport } from './routes/standards.index'
+import { Route as RepoIndexRouteImport } from './routes/repo.index'
 import { Route as RepoStandardsRouteImport } from './routes/repo.standards'
 import { Route as RepoRunsRouteImport } from './routes/repo.runs'
+import { Route as StandardsPackIndexRouteImport } from './routes/standards.$pack.index'
+import { Route as StandardsPackRuleRouteImport } from './routes/standards.$pack.$rule'
 import { Route as RepoRunsRunIdRouteImport } from './routes/repo.runs_.$runId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StandardsIndexRoute = StandardsIndexRouteImport.update({
+  id: '/standards/',
+  path: '/standards/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepoIndexRoute = RepoIndexRouteImport.update({
+  id: '/repo/',
+  path: '/repo/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RepoStandardsRoute = RepoStandardsRouteImport.update({
@@ -29,6 +43,16 @@ const RepoRunsRoute = RepoRunsRouteImport.update({
   path: '/repo/runs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StandardsPackIndexRoute = StandardsPackIndexRouteImport.update({
+  id: '/standards/$pack/',
+  path: '/standards/$pack/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StandardsPackRuleRoute = StandardsPackRuleRouteImport.update({
+  id: '/standards/$pack/$rule',
+  path: '/standards/$pack/$rule',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RepoRunsRunIdRoute = RepoRunsRunIdRouteImport.update({
   id: '/repo/runs_/$runId',
   path: '/repo/runs/$runId',
@@ -39,34 +63,75 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/repo/runs': typeof RepoRunsRoute
   '/repo/standards': typeof RepoStandardsRoute
+  '/repo/': typeof RepoIndexRoute
+  '/standards/': typeof StandardsIndexRoute
   '/repo/runs/$runId': typeof RepoRunsRunIdRoute
+  '/standards/$pack/$rule': typeof StandardsPackRuleRoute
+  '/standards/$pack/': typeof StandardsPackIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/repo/runs': typeof RepoRunsRoute
   '/repo/standards': typeof RepoStandardsRoute
+  '/repo': typeof RepoIndexRoute
+  '/standards': typeof StandardsIndexRoute
   '/repo/runs/$runId': typeof RepoRunsRunIdRoute
+  '/standards/$pack/$rule': typeof StandardsPackRuleRoute
+  '/standards/$pack': typeof StandardsPackIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/repo/runs': typeof RepoRunsRoute
   '/repo/standards': typeof RepoStandardsRoute
+  '/repo/': typeof RepoIndexRoute
+  '/standards/': typeof StandardsIndexRoute
   '/repo/runs_/$runId': typeof RepoRunsRunIdRoute
+  '/standards/$pack/$rule': typeof StandardsPackRuleRoute
+  '/standards/$pack/': typeof StandardsPackIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/repo/runs' | '/repo/standards' | '/repo/runs/$runId'
+  fullPaths:
+    | '/'
+    | '/repo/runs'
+    | '/repo/standards'
+    | '/repo/'
+    | '/standards/'
+    | '/repo/runs/$runId'
+    | '/standards/$pack/$rule'
+    | '/standards/$pack/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/repo/runs' | '/repo/standards' | '/repo/runs/$runId'
-  id: '__root__' | '/' | '/repo/runs' | '/repo/standards' | '/repo/runs_/$runId'
+  to:
+    | '/'
+    | '/repo/runs'
+    | '/repo/standards'
+    | '/repo'
+    | '/standards'
+    | '/repo/runs/$runId'
+    | '/standards/$pack/$rule'
+    | '/standards/$pack'
+  id:
+    | '__root__'
+    | '/'
+    | '/repo/runs'
+    | '/repo/standards'
+    | '/repo/'
+    | '/standards/'
+    | '/repo/runs_/$runId'
+    | '/standards/$pack/$rule'
+    | '/standards/$pack/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   RepoRunsRoute: typeof RepoRunsRoute
   RepoStandardsRoute: typeof RepoStandardsRoute
+  RepoIndexRoute: typeof RepoIndexRoute
+  StandardsIndexRoute: typeof StandardsIndexRoute
   RepoRunsRunIdRoute: typeof RepoRunsRunIdRoute
+  StandardsPackRuleRoute: typeof StandardsPackRuleRoute
+  StandardsPackIndexRoute: typeof StandardsPackIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -76,6 +141,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/standards/': {
+      id: '/standards/'
+      path: '/standards'
+      fullPath: '/standards/'
+      preLoaderRoute: typeof StandardsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repo/': {
+      id: '/repo/'
+      path: '/repo'
+      fullPath: '/repo/'
+      preLoaderRoute: typeof RepoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/repo/standards': {
@@ -92,6 +171,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepoRunsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/standards/$pack/': {
+      id: '/standards/$pack/'
+      path: '/standards/$pack'
+      fullPath: '/standards/$pack/'
+      preLoaderRoute: typeof StandardsPackIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/standards/$pack/$rule': {
+      id: '/standards/$pack/$rule'
+      path: '/standards/$pack/$rule'
+      fullPath: '/standards/$pack/$rule'
+      preLoaderRoute: typeof StandardsPackRuleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/repo/runs_/$runId': {
       id: '/repo/runs_/$runId'
       path: '/repo/runs/$runId'
@@ -106,7 +199,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   RepoRunsRoute: RepoRunsRoute,
   RepoStandardsRoute: RepoStandardsRoute,
+  RepoIndexRoute: RepoIndexRoute,
+  StandardsIndexRoute: StandardsIndexRoute,
   RepoRunsRunIdRoute: RepoRunsRunIdRoute,
+  StandardsPackRuleRoute: StandardsPackRuleRoute,
+  StandardsPackIndexRoute: StandardsPackIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

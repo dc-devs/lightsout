@@ -46,23 +46,23 @@ describe('RunsIndex', () => {
 	test('counts the runs found and names the repo they came from', () => {
 		setupRunsIndex({ runs: [buildRunListing(), buildRunListing({ runId: 'ffff0000ffff' })], repoRoot: '/repos/other-project' });
 
-		const summary = screen.getByText(/found in/);
+		const summary = screen.getByText(/runs in/);
 
-		expect(summary.textContent).toContain('2 runs found in /repos/other-project');
+		expect(summary.textContent).toContain('2 runs in /repos/other-project');
 	});
 
 	test('says one run rather than one runs', () => {
 		setupRunsIndex({ runs: [buildRunListing()] });
 
-		const summary = screen.getByText(/found in/);
+		const summary = screen.getByText(/run in/);
 
-		expect(summary.textContent).toContain('1 run found in');
+		expect(summary.textContent).toContain('1 run in');
 	});
 
-	test('says this repo has run state, since the list is a page of its own now', () => {
+	test('names the zone it is the landing page of, whether or not a repo was found', () => {
 		setupRunsIndex();
 
-		const prompt = screen.getByRole('heading', { name: 'This repo has run state.' });
+		const prompt = screen.getByRole('heading', { name: 'Your repo' });
 
 		expect(prompt).toBeInTheDocument();
 	});
@@ -70,7 +70,7 @@ describe('RunsIndex', () => {
 	test('offers the way into that list', () => {
 		setupRunsIndex();
 
-		const open = screen.getByRole('link', { name: 'Open the runs list' });
+		const open = screen.getByRole('link', { name: 'See the runs →' });
 
 		expect(open).toHaveAttribute('href', '/repo/runs');
 	});
@@ -78,16 +78,23 @@ describe('RunsIndex', () => {
 	test('says no repo was found rather than counting runs that came from nowhere', () => {
 		setupRunsIndex({ repoRoot: undefined, runs: [] });
 
-		const prompt = screen.getByRole('heading', { name: 'No lightsout repo found above this directory.' });
+		const advice = screen.getByText(/No lightsout repo found above this directory/);
 
-		expect(prompt).toBeInTheDocument();
+		expect(advice).toBeInTheDocument();
 	});
 
 	test('names the two ways of pointing the app at a repo', () => {
 		setupRunsIndex({ repoRoot: undefined, runs: [] });
 
-		const advice = screen.getByText(/start the app from inside one/);
+		const advice = screen.getByText(/run from inside one/);
 
 		expect(advice.textContent).toContain('LIGHTSOUT_REPO');
+	});
+
+	test('keeps the heading and drops the count when no repo was found, since there is nothing to count', () => {
+		setupRunsIndex({ repoRoot: undefined, runs: [] });
+
+		expect(screen.getByRole('heading', { name: 'Your repo' })).toBeInTheDocument();
+		expect(screen.queryByRole('link', { name: 'See the runs →' })).not.toBeInTheDocument();
 	});
 });

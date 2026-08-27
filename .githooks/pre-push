@@ -13,6 +13,11 @@
 # that actually blocks a merge. This is the fast local answer; CI is the
 # authority.
 #
+# The same two lines guard assets/default-pack.json, which is the authored
+# standards pack the web app carries so a rule page can show its examples off
+# this monorepo. scripts/buildDefaultPackView.mjs --check is what says whether
+# it still matches packages/standards-typescript/, and CI runs that file too.
+#
 # The version is compared against your local origin/main, which is only as
 # fresh as your last fetch. A stale ref can miss a bump someone else already
 # made — CI fetches first and gets the real answer.
@@ -34,7 +39,7 @@ root=$(git rev-parse --show-toplevel)
 # Nothing to check in a tree that predates the script.
 [ -f "$root/scripts/checkShipped.mjs" ] || exit 0
 
-if node "$root/scripts/checkShipped.mjs"; then
+if node "$root/scripts/checkShipped.mjs" && node "$root/scripts/buildDefaultPackView.mjs" --check; then
 	exit 0
 fi
 

@@ -24,7 +24,18 @@ const passingGate = { kind: 'test', group: 'engine', command: 'pnpm test:unit', 
 
 const setupGates = ({ overrides = {} }: { overrides?: Partial<RunView> } = {}) => {
 	jest.useFakeTimers();
-	renderWithQueryClient({ ui: <RunDetail runId={runId} />, seed: [{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) }] });
+	renderWithQueryClient({
+		ui: <RunDetail runId={runId} />,
+		seed: [
+			{ queryKey: [QueryKey.Run, runId], data: buildRunView({ overrides }) },
+			// The page subscribes to the repo lookup rather than suspending on it, so
+			// an unseeded key would answer "no repo" on the render every test reads.
+			{ queryKey: [QueryKey.RepoRoot], data: { repoRoot: '/repos/lightsout' } },
+		],
+	});
+	// The gates have a tab of their own now, and a tab strip selects on the press
+	// rather than on the release.
+	fireEvent.mouseDown(screen.getByRole('tab', { name: 'Gates' }));
 };
 
 describe('RunDetail gate evidence', () => {
@@ -97,6 +108,22 @@ describe('RunDetail gate evidence', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Show 1 passing gate' }));
 
 		expect(screen.getByText('skipped')).toBeInTheDocument();
+	});
+
+	test('names the pipeline step each command ran under', () => {
+		setupGates({ overrides: { gates: [{ ...passingGate, step: 'write-tests' }] } });
+
+		fireEvent.click(screen.getByRole('button', { name: 'Show 1 passing gate' }));
+
+		expect(screen.getByText('pnpm test:unit').parentElement).toHaveTextContent(/engine.*write-tests.*pnpm test:unit/);
+	});
+
+	test('leaves a dash where a command ran outside any step', () => {
+		setupGates({ overrides: { gates: [passingGate] } });
+
+		fireEvent.click(screen.getByRole('button', { name: 'Show 1 passing gate' }));
+
+		expect(screen.getByText('pnpm test:unit').parentElement).toHaveTextContent(/engine.*—.*pnpm test:unit/);
 	});
 
 	test('says nothing was captured for a command that recorded no output', () => {
