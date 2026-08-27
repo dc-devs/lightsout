@@ -1,4 +1,4 @@
-import { FixtureSide, type StandardsPackFixture } from '@lightsout/engine';
+import { FixtureSide, type StandardsPackFixture } from '@lightsout/engine/contracts';
 import { MetadataTag, Tabs } from '#src/appUI/index.ts';
 
 /** One fixture file, verbatim. The comments inside a fixture are half of what it teaches, so nothing is stripped. */

@@ -115,7 +115,7 @@ const setupLoader = ({ id }: { id: string }) => {
 
 const setupPacksPage = ({ packs = [buildStandardsPackListing()] }: { packs?: StandardsPackListing[] } = {}) => {
 	const { pages } = setupRouteTree();
-	const Page = pages['/standards/'].options.component;
+	const Page = pages['/_site/standards/'].options.component;
 
 	renderWithQueryClient({ ui: <Page />, seed: [{ queryKey: [QueryKey.Packs], data: packs }] });
 };
@@ -129,7 +129,7 @@ const setupPacksPage = ({ packs = [buildStandardsPackListing()] }: { packs?: Sta
  */
 const setupPackDetailPage = ({ pack = 'lightsout-defaults', search = {} }: { pack?: string; search?: Record<string, unknown> } = {}) => {
 	const { pack: packView, pages } = setupRouteTree();
-	const route = pages['/standards/$pack/'];
+	const route = pages['/_site/standards/$pack/'];
 	jest.spyOn(route, 'useParams').mockReturnValue({ pack });
 	jest.spyOn(route, 'useSearch').mockReturnValue(search);
 	const Page = route.options.component;
@@ -140,7 +140,7 @@ const setupPackDetailPage = ({ pack = 'lightsout-defaults', search = {} }: { pac
 /** The same route's answer for a name no pack this build loads carries. */
 const setupMissingPackPage = ({ pack = 'no-such-pack' }: { pack?: string } = {}) => {
 	const { pages } = setupRouteTree();
-	const route = pages['/standards/$pack/'];
+	const route = pages['/_site/standards/$pack/'];
 	jest.spyOn(route, 'useParams').mockReturnValue({ pack });
 	const Page = route.options.notFoundComponent;
 
@@ -150,7 +150,7 @@ const setupMissingPackPage = ({ pack = 'no-such-pack' }: { pack?: string } = {})
 /** The rule page, for one address. */
 const setupRuleDetailPage = ({ pack = 'lightsout-defaults', rule = 'type-assertion' }: { pack?: string; rule?: string } = {}) => {
 	const { pack: packView, pages } = setupRouteTree();
-	const route = pages['/standards/$pack/$rule'];
+	const route = pages['/_site/standards/$pack/$rule'];
 	jest.spyOn(route, 'useParams').mockReturnValue({ pack, rule });
 	const Page = route.options.component;
 
@@ -166,7 +166,7 @@ const setupRuleDetailPage = ({ pack = 'lightsout-defaults', rule = 'type-asserti
 /** The same route's answer for a rule the pack does not carry. */
 const setupMissingRulePage = ({ pack = 'lightsout-defaults', rule = 'one-exported-function-per-file' }: { pack?: string; rule?: string } = {}) => {
 	const { pages } = setupRouteTree();
-	const route = pages['/standards/$pack/$rule'];
+	const route = pages['/_site/standards/$pack/$rule'];
 	jest.spyOn(route, 'useParams').mockReturnValue({ pack, rule });
 	const Page = route.options.notFoundComponent;
 
@@ -195,7 +195,7 @@ describe('routeTree standards routes', () => {
 	});
 
 	test('the packs route warms its own list before the page renders', async () => {
-		const { loader, packs, queryClient } = setupLoader({ id: '/standards/' });
+		const { loader, packs, queryClient } = setupLoader({ id: '/_site/standards/' });
 
 		await loader({ context: { queryClient } });
 
@@ -213,13 +213,13 @@ describe('routeTree standards routes', () => {
 	test('the pack route names the tab from the path alone, before any query has resolved', () => {
 		const { pages } = setupRouteTree();
 
-		const head = pages['/standards/$pack/'].options.head({ params: { pack: 'acme-house-rules' } });
+		const head = pages['/_site/standards/$pack/'].options.head({ params: { pack: 'acme-house-rules' } });
 
 		expect(head.meta).toStrictEqual([{ title: 'acme-house-rules — standards pack' }]);
 	});
 
 	test('the pack route warms the pack and every rule the showcase strip leads with', async () => {
-		const { loader, pack, queryClient } = setupLoader({ id: '/standards/$pack/' });
+		const { loader, pack, queryClient } = setupLoader({ id: '/_site/standards/$pack/' });
 
 		await loader({ context: { queryClient }, params: { pack: 'lightsout-defaults' } });
 
@@ -232,7 +232,7 @@ describe('routeTree standards routes', () => {
 	});
 
 	test('the pack route treats a showcase rule that will not load as no error at all, since the strip skips it', async () => {
-		const { loader, queryClient } = setupLoader({ id: '/standards/$pack/' });
+		const { loader, queryClient } = setupLoader({ id: '/_site/standards/$pack/' });
 		mockGetPackRule.mockRejectedValue(new Error('the fixture folder is unreadable'));
 
 		await expect(loader({ context: { queryClient }, params: { pack: 'lightsout-defaults' } })).resolves.toBeUndefined();
@@ -309,7 +309,7 @@ describe('routeTree standards routes', () => {
 	test('the pack route keeps a query value its vocabulary knows', () => {
 		const { pages } = setupRouteTree();
 
-		const search = pages['/standards/$pack/'].options.validateSearch({ set: 'tests', severity: 'advisory', text: 'cast' });
+		const search = pages['/_site/standards/$pack/'].options.validateSearch({ set: 'tests', severity: 'advisory', text: 'cast' });
 
 		expect(search).toStrictEqual({ set: 'tests', channel: undefined, enforcedBy: undefined, severity: 'advisory', text: 'cast' });
 	});
@@ -317,7 +317,7 @@ describe('routeTree standards routes', () => {
 	test('the pack route ignores a query value outside that vocabulary, rather than filtering to nothing', () => {
 		const { pages } = setupRouteTree();
 
-		const search = pages['/standards/$pack/'].options.validateSearch({ set: 'prose', enforcedBy: 'vibes', text: '' });
+		const search = pages['/_site/standards/$pack/'].options.validateSearch({ set: 'prose', enforcedBy: 'vibes', text: '' });
 
 		expect(search).toStrictEqual({ set: undefined, channel: undefined, enforcedBy: undefined, severity: undefined, text: undefined });
 	});
@@ -341,13 +341,13 @@ describe('routeTree standards routes', () => {
 	test('the rule route names the tab from the path alone too', () => {
 		const { pages } = setupRouteTree();
 
-		const head = pages['/standards/$pack/$rule'].options.head({ params: { pack: 'lightsout-defaults', rule: 'object-args' } });
+		const head = pages['/_site/standards/$pack/$rule'].options.head({ params: { pack: 'lightsout-defaults', rule: 'object-args' } });
 
 		expect(head.meta).toStrictEqual([{ title: 'object-args — lightsout-defaults' }]);
 	});
 
 	test('the rule route warms both the rule it shows and the pack it names above it', async () => {
-		const { loader, pack, queryClient } = setupLoader({ id: '/standards/$pack/$rule' });
+		const { loader, pack, queryClient } = setupLoader({ id: '/_site/standards/$pack/$rule' });
 
 		await loader({ context: { queryClient }, params: { pack: 'lightsout-defaults', rule: 'type-assertion' } });
 

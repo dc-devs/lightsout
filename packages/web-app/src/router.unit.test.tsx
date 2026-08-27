@@ -62,11 +62,20 @@ describe('getRouter', () => {
 
 		const router = getRouter();
 
+		// Two ids carry no URL of their own: `/_site` and `/repo` are the frames,
+		// and every page below one of them says which frame it wears by sitting
+		// there. The public pages keep the addresses they always had — `/_site/`
+		// is served at `/`.
 		expect(Object.keys(router.routesById).sort()).toStrictEqual([
-			'/',
-			'/commands/',
-			'/commands/$command',
-			'/docs/$doc',
+			'/_site',
+			'/_site/',
+			'/_site/commands/',
+			'/_site/commands/$command',
+			'/_site/docs/$doc',
+			'/_site/standards/',
+			'/_site/standards/$pack/',
+			'/_site/standards/$pack/$rule',
+			'/repo',
 			'/repo/',
 			'/repo/config',
 			'/repo/friction',
@@ -75,9 +84,6 @@ describe('getRouter', () => {
 			'/repo/runs',
 			'/repo/runs_/$runId',
 			'/repo/standards',
-			'/standards/',
-			'/standards/$pack/',
-			'/standards/$pack/$rule',
 			'__root__',
 		]);
 	});

@@ -23,7 +23,7 @@ const CommandDetailPage = () => {
 	return <CommandDetail commandId={command} />;
 };
 
-export const Route = createFileRoute('/commands/$command')({
+export const Route = createFileRoute('/_site/commands/$command')({
 	// The whole catalog, warmed once. It is a few kilobytes of static data, so
 	// the loader already holds every entry — which is how it can answer a wrong
 	// id here rather than sending the page off for a second round trip to find

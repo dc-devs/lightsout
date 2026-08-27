@@ -1,13 +1,13 @@
 /// <reference types="vite/client" />
 import type { QueryClient } from '@tanstack/react-query';
-import { createRootRouteWithContext, HeadContent, Scripts } from '@tanstack/react-router';
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { DefaultCatchBoundary } from '#src/common/components/boundaries/DefaultCatchBoundary.tsx';
 import { NotFound } from '#src/common/components/boundaries/NotFound.tsx';
 import { ResolvedTheme } from '#src/common/constants/ResolvedTheme.ts';
 import { Theme } from '#src/common/constants/Theme.ts';
 import { themeStorageKey } from '#src/common/constants/themeStorageKey.ts';
-import { AppShell, repoRootQueryOptions } from '#src/features/app/index.ts';
+import { repoRootQueryOptions } from '#src/features/app/index.ts';
 import appCss from '#src/styles/app.css?url';
 import { resolveThemeClass, ThemeProvider } from '#src/theme/index.ts';
 
@@ -61,10 +61,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 		</RootDocument>
 	),
 	notFoundComponent: () => <NotFound />,
+	// The document and the theme, and nothing else. Which frame a page wears is
+	// decided one level down: `_site.tsx` for the public pages, `repo.tsx` for
+	// the pages that read this machine's repository.
 	component: () => (
 		<RootDocument>
 			<ThemeProvider defaultTheme={Theme.Dark}>
-				<AppShell />
+				<Outlet />
 			</ThemeProvider>
 		</RootDocument>
 	),

@@ -55,7 +55,7 @@ const setupDocsRoute = () => {
 	// for the router to be built at all. Nothing on this route ever reads it: the
 	// markdown is bundled with the app, which is most of what these pages are for.
 	const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
-	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/docs/$doc'];
+	const route = (router as unknown as { routesById: Record<string, FilePage> }).routesById['/_site/docs/$doc'];
 
 	return { head: route.options.head, loader: route.options.loader, route };
 };

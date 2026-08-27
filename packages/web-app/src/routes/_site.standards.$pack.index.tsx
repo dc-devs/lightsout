@@ -117,7 +117,7 @@ const PackDetailPage = () => {
 	);
 };
 
-export const Route = createFileRoute('/standards/$pack/')({
+export const Route = createFileRoute('/_site/standards/$pack/')({
 	validateSearch,
 	// The pack, plus the six rules the showcase strip leads with — warmed in
 	// parallel so the page is server-rendered with its code rather than arriving

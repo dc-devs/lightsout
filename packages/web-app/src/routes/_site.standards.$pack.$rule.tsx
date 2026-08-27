@@ -26,7 +26,7 @@ const RuleDetailPage = () => {
 	return <RuleDetail packName={pack} ruleId={rule} />;
 };
 
-export const Route = createFileRoute('/standards/$pack/$rule')({
+export const Route = createFileRoute('/_site/standards/$pack/$rule')({
 	// Both queries the page suspends on, warmed before the first render: the rule
 	// for its argument and its proof, the pack for the trail above it.
 	loader: async ({ context, params }) => {

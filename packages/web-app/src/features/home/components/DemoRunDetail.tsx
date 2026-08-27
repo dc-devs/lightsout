@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Skeleton } from '#src/appUI/index.ts';
 import { RunDetailBody, toRunDetailView } from '#src/features/runDetail/index.ts';
-import { type DemoRunSlug, getDemoRunViews } from '#src/lightsout/index.ts';
+import type { DemoRunSlug } from '#src/lightsout/common/constants/DemoRunSlug.ts';
+import { getDemoRunViews } from '#src/lightsout/common/utils/getDemoRunViews.ts';
 
 interface Props {
 	slug: DemoRunSlug;
